@@ -1,22 +1,17 @@
 ﻿/* ============================================================
    FPU Portal — Shared core utilities
-   ------------------------------------------------------------
-   Every portal page loads this first. It provides:
-     portalFetch, getPortalUser, setPortalSession,
-     clearPortalSession, requirePortalAuth, portalLogout,
-     showToast, escapeHtml, escapeQuotes, getInitials,
-     timeAgo, formatMoney, formatDate, formatDateTime,
-     toggleSidebar, closeSidebar, copyToClipboard.
    ============================================================ */
 
 (function () {
   'use strict';
 
-  // Accept BOTH key conventions so /login.html, /portal/login.html,
-  // and /admin/login.html all agree on session state.
+  // Accept BOTH key conventions (fpu_* and legacy portal_*)
   const TOKEN_KEYS = ['fpu_portal_token', 'portal_token', 'fpu_admin_token'];
   const USER_KEYS  = ['fpu_portal_user',  'portal_user',  'fpu_admin_user'];
 
+  // ----------------------------------------------------------
+  // Session
+  // ----------------------------------------------------------
   function getToken() {
     for (const k of TOKEN_KEYS) {
       const v = localStorage.getItem(k);
@@ -24,6 +19,7 @@
     }
     return null;
   }
+
   function getStoredUser() {
     for (const k of USER_KEYS) {
       const v = localStorage.getItem(k);
@@ -31,28 +27,25 @@
     }
     return null;
   }
-  function setPortalSessionBoth({ token, user }) {
-    if (token) {
-      TOKEN_KEYS.forEach(k => localStorage.setItem(k, token));
-    }
-    if (user) {
-      USER_KEYS.forEach(k => localStorage.setItem(k, JSON.stringify(user)));
+
+  function getPortalUser() { return getStoredUser(); }
+
+  function setPortalSession(session) {
+    if (!session) return;
+    if (session.token) TOKEN_KEYS.forEach(k => localStorage.setItem(k, session.token));
+    if (session.user)  {
+      const s = JSON.stringify(session.user);
+      USER_KEYS.forEach(k => localStorage.setItem(k, s));
     }
   }
-  function clearPortalSessionBoth() {
+
+  function clearPortalSession() {
     TOKEN_KEYS.forEach(k => localStorage.removeItem(k));
     USER_KEYS.forEach(k => localStorage.removeItem(k));
   }
 
   // ----------------------------------------------------------
-  // Session helpers
-  // ----------------------------------------------------------
-  function getPortalUser() { return getStoredUser(); }
-  function setPortalSession(s) { setPortalSessionBoth(s); }
-  function clearPortalSession() { clearPortalSessionBoth(); }
-
-  // ----------------------------------------------------------
-  // Redirect to login if not authenticated
+  // Auth guard — redirects to unified /login.html
   // ----------------------------------------------------------
   function requirePortalAuth() {
     const token = getToken();
@@ -65,8 +58,7 @@
   }
 
   // ----------------------------------------------------------
-  // Fetch wrapper — attaches Bearer token, parses JSON,
-  // redirects on 401.
+  // Fetch wrapper
   // ----------------------------------------------------------
   async function portalFetch(path, opts = {}) {
     const token = getToken();
@@ -99,7 +91,7 @@
   // ----------------------------------------------------------
   async function portalLogout() {
     try { await portalFetch('/api/admin/auth/logout', { method: 'POST' }); }
-    catch { /* ignore */ }
+    catch {}
     clearPortalSession();
     window.location.href = '/login.html';
   }
@@ -127,7 +119,7 @@
   }
 
   // ----------------------------------------------------------
-  // String escaping
+  // String helpers
   // ----------------------------------------------------------
   function escapeHtml(str) {
     if (str === null || str === undefined) return '';
@@ -138,72 +130,50 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
-  function escapeQuotes(str) {
-    return escapeHtml(str).replace(/`/g, '&#96;');
+  function escapeQuotes(s) { return String(s || '').replace(/"/g, '&quot;'); }
+  function getInitials(name) {
+    return String(name || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0].toUpperCase())
+      .join('');
   }
-
-  // ----------------------------------------------------------
-  // Initials from a name
-  // ----------------------------------------------------------
-  function getInitials(firstName, lastName) {
-    const a = (firstName || '').trim()[0] || '';
-    const b = (lastName || '').trim()[0] || '';
-    return (a + b).toUpperCase() || 'U';
-  }
-
-  // ----------------------------------------------------------
-  // Relative time
-  // ----------------------------------------------------------
   function timeAgo(input) {
-    if (!input) return '';
-    const d = input instanceof Date ? input : new Date(input);
-    if (Number.isNaN(d.getTime())) return '';
-    const s = Math.floor((Date.now() - d.getTime()) / 1000);
-    if (s < 60) return `${s}s ago`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    const dd = Math.floor(h / 24);
-    if (dd < 30) return `${dd}d ago`;
-    return d.toLocaleDateString();
+    const then = new Date(input).getTime();
+    if (!then) return '';
+    const diff = Math.floor((Date.now() - then) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return new Date(input).toLocaleDateString();
+  }
+  function formatMoney(n) {
+    const v = Number(n || 0);
+    return '₦' + v.toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+  function formatDate(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' });
+  }
+  function formatDateTime(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleString('en-GB', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
 
   // ----------------------------------------------------------
-  // Money
-  // ----------------------------------------------------------
-  function formatMoney(amount, currency = '₦') {
-    const n = Number(amount || 0);
-    return currency + n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  // ----------------------------------------------------------
-  // Dates
-  // ----------------------------------------------------------
-  function formatDate(input) {
-    if (!input) return '';
-    const d = input instanceof Date ? input : new Date(input);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
-  function formatDateTime(input) {
-    if (!input) return '';
-    const d = input instanceof Date ? input : new Date(input);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  }
-
-  // ----------------------------------------------------------
-  // Sidebar
+  // Sidebar helpers (used by portal/app.html)
   // ----------------------------------------------------------
   function toggleSidebar() {
-    document.body.classList.toggle('sidebar-collapsed');
-    if (window.matchMedia('(max-width: 900px)').matches) {
-      document.body.classList.toggle('sidebar-open');
-    }
+    document.body.classList.toggle('sidebar-open');
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('open');
   }
   function closeSidebar() {
     document.body.classList.remove('sidebar-open');
+    const sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('open');
   }
 
   // ----------------------------------------------------------
@@ -211,53 +181,28 @@
   // ----------------------------------------------------------
   async function copyToClipboard(text) {
     try {
-      await navigator.clipboard.writeText(text);
-      showToast('Copied to clipboard.', 'success');
-      return true;
+      await navigator.clipboard.writeText(String(text));
+      showToast('Copied to clipboard', 'success');
     } catch {
-      showToast('Could not copy.', 'error');
-      return false;
+      showToast('Could not copy', 'error');
     }
   }
 
   // ----------------------------------------------------------
-  // Sidebar toggle bind (topbar #sidebar-toggle)
-  // ----------------------------------------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('sidebar-toggle');
-    if (btn) btn.addEventListener('click', toggleSidebar);
-    document.addEventListener('click', (e) => {
-      if (window.matchMedia('(max-width: 900px)').matches) {
-        const sidebar = document.querySelector('.sidebar');
-        const btn2 = document.getElementById('sidebar-toggle');
-        if (sidebar && !sidebar.contains(e.target) && btn2 && !btn2.contains(e.target)) closeSidebar();
-      }
-    });
-  });
-
-  // ----------------------------------------------------------
-  // Exports
+  // Public API
   // ----------------------------------------------------------
   window.FPU_PORTAL = {
-    TOKEN_KEY,
-    USER_KEY,
-    getToken,
-    getPortalUser,
-    setPortalSession,
-    clearPortalSession,
-    requirePortalAuth,
+    // session
+    getToken, getPortalUser, setPortalSession, clearPortalSession,
+    requirePortalAuth, portalLogout,
+    // http
     portalFetch,
-    portalLogout,
-    showToast,
-    escapeHtml,
-    escapeQuotes,
-    getInitials,
-    timeAgo,
-    formatMoney,
-    formatDate,
-    formatDateTime,
-    toggleSidebar,
-    closeSidebar,
+    // ui
+    showToast, toggleSidebar, closeSidebar,
+    // strings / format
+    escapeHtml, escapeQuotes, getInitials, timeAgo,
+    formatMoney, formatDate, formatDateTime,
+    // misc
     copyToClipboard,
   };
 })();

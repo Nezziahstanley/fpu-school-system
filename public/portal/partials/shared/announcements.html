@@ -37,7 +37,19 @@
 
   let ALL = [], FILTERED = [];
 
-  function getTitle(a) { return a.title || 'Untitled'; }
+  // Rows come as { announcement: {...}, author: {...} }
+  function unwrap(r) {
+    const a = r.announcement || r;
+    const author = r.author || {};
+    return {
+      ...a,
+      authorName: (author.firstName || author.lastName)
+        ? `${author.firstName || ''} ${author.lastName || ''}`.trim()
+        : 'Administration',
+    };
+  }
+
+  function getTitle(a) { return a.title || 'Untitled Announcement'; }
   function getBody(a) { return a.body || a.content || a.message || ''; }
   function getCategory(a) { return (a.category || 'general').toLowerCase(); }
   function getDate(a) { return a.createdAt || a.publishedAt || a.date; }
@@ -53,7 +65,7 @@
         <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
           <div style="flex:1;">
             <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;">
-              ${esc(getCategory(a))}
+              ${esc(getCategory(a))} · ${esc(a.authorName)}
             </div>
             <strong style="font-size:1rem;color:#0f172a;">${esc(getTitle(a))}</strong>
             <p style="margin:.5rem 0 0;color:#374151;line-height:1.6;">${esc(getBody(a))}</p>
@@ -81,7 +93,8 @@
     try {
       const res = await core.portalFetch('/api/announcements');
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      ALL = raw.map(unwrap);
       applyFilter();
     } catch (err) {
       console.error('[announcements]', err);

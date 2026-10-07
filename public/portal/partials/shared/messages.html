@@ -21,7 +21,10 @@
 </div>
 
 <section class="panel">
-  <div class="panel-head"><h3>Inbox</h3><span class="badge" id="ms-count">0</span></div>
+  <div class="panel-head">
+    <h3>Inbox</h3>
+    <span class="badge" id="ms-count">0</span>
+  </div>
   <div class="panel-body" id="ms-list">
     <div class="loading"><span class="spinner"></span> Loading…</div>
   </div>
@@ -38,22 +41,25 @@
 
   function render() {
     $('ms-count').textContent = FILTERED.length;
+
     if (!FILTERED.length) {
       $('ms-list').innerHTML = `
         <div style="text-align:center;padding:3rem 1rem;color:#94a3b8;">
           <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
-          <p style="font-size:14px;">No messages yet.</p>
-          <p style="font-size:12px;margin-top:.5rem;">Messages from staff and students will appear here.</p>
+          <p style="font-size:14px;font-weight:500;">No messages yet.</p>
+          <p style="font-size:12.5px;margin-top:.5rem;">Messages from staff and students will appear here.</p>
         </div>`;
       return;
     }
+
     $('ms-list').innerHTML = FILTERED.map((m) => `
-      <div style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;" data-id="${m.id}">
-        <div style="display:flex;justify-content:space-between;">
+      <div style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;${m.isRead ? '' : 'background:#f0fdf4;'}" data-id="${m.id}">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
           <strong>${esc(m.senderName || m.from || 'System')}</strong>
           <span class="muted small">${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}</span>
         </div>
-        <div style="margin-top:.35rem;color:#374151;">${esc((m.subject || 'No subject').slice(0, 80))}</div>
+        <div style="margin-top:.35rem;color:#374151;font-weight:500;">${esc(m.subject || 'No subject')}</div>
+        <div style="margin-top:.25rem;color:#64748b;font-size:13px;">${esc((m.preview || m.body || '').slice(0, 100))}</div>
       </div>`).join('');
   }
 
@@ -70,24 +76,26 @@
     render();
   }
 
+  // Messages API doesn't exist yet — show empty state.
+  // When the endpoint is built, un-comment the try block below.
   async function load() {
-    try {
-      const res = await core.portalFetch('/api/messages');
-      const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
-      applyFilter();
-    } catch {
-      // Fallback: no messages endpoint yet — show empty state
-      ALL = [];
-      applyFilter();
-    }
+    // try {
+    //   const res = await core.portalFetch('/api/messages');
+    //   const payload = res.data || res || {};
+    //   const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
+    //   ALL = raw.map((m) => m.message || m);
+    // } catch {
+    //   ALL = [];
+    // }
+    ALL = [];
+    applyFilter();
   }
 
   $('ms-search').addEventListener('input', applyFilter);
   $('ms-status').addEventListener('change', applyFilter);
   $('ms-refresh').addEventListener('click', load);
   $('ms-compose').addEventListener('click', () => {
-    core.showToast('Compose feature coming soon', 'info');
+    core.showToast && core.showToast('Compose feature coming soon', 'info');
   });
 
   load();

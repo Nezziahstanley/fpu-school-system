@@ -52,55 +52,64 @@
   'use strict';
   const core = window.FPU_PORTAL || {};
   const user = core.getPortalUser ? core.getPortalUser() : {};
-  const deptId = user.departmentId;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL = [], FILTERED = [];
 
   if (user.departmentName) {
-    $('ex-sub').textContent = `Exam schedule for ${user.departmentName}`;
+    const el = $('ex-sub');
+    if (el) el.textContent = `Exam schedule for ${user.departmentName}`;
   }
 
-  function getCode(e) { return e.courseCode || e.code || '—'; }
-  function getTitle(e) { return e.courseTitle || e.title || '—'; }
+  // Rows come as { exam: {...}, course: {...} }
+  function unwrap(r) {
+    const e = r.exam || r;
+    const c = r.course || {};
+    return {
+      id: e.id,
+      courseCode: e.courseCode || c.code || '—',
+      courseTitle: e.courseTitle || c.title || '—',
+      examDate: e.examDate || e.date,
+      startTime: e.startTime || e.start_time || '',
+      endTime: e.endTime || e.end_time || '',
+      venue: e.venue || e.location || '—',
+      sessionName: e.sessionName || r.session?.name || '—',
+      semester: e.semesterName || e.semester || '—',
+      level: e.level || c.level || '—',
+    };
+  }
+
   function getDate(e) {
-    const d = e.examDate || e.date;
-    return d ? new Date(d).toLocaleDateString() : '—';
+    return e.examDate ? new Date(e.examDate).toLocaleDateString() : '—';
   }
   function getTime(e) {
-    const t = e.startTime || e.time || '';
-    const end = e.endTime || '';
-    return t ? (end ? `${t} - ${end}` : t) : '—';
+    if (!e.startTime) return '—';
+    return e.endTime ? `${e.startTime} - ${e.endTime}` : e.startTime;
   }
-  function getVenue(e) { return e.venue || e.location || '—'; }
-  function getSession(e) { return e.sessionName || e.session || '—'; }
-  function getSemester(e) { return e.semesterName || e.semester || '—'; }
-  function getLevel(e) { return String(e.level || e.courseLevel || '').toUpperCase() || '—'; }
   function isUpcoming(e) {
-    const d = e.examDate || e.date;
-    return d ? new Date(d) >= new Date() : false;
+    return e.examDate ? new Date(e.examDate) >= new Date() : false;
   }
 
   function render() {
     $('ex-count').textContent = FILTERED.length;
     if (!FILTERED.length) {
-      $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled.</td></tr>';
+      $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled for your department.</td></tr>';
       return;
     }
     $('ex-tbody').innerHTML = FILTERED.map((e) => {
-      const level = getLevel(e);
+      const level = String(e.level || '').toUpperCase();
       const chipClass = 'chip-' + level.toLowerCase();
       const upcoming = isUpcoming(e);
       return `
         <tr>
-          <td><strong>${esc(getCode(e))}</strong></td>
-          <td>${esc(getTitle(e))}</td>
+          <td><strong>${esc(e.courseCode)}</strong></td>
+          <td>${esc(e.courseTitle)}</td>
           <td>${esc(getDate(e))}</td>
           <td>${esc(getTime(e))}</td>
-          <td>${esc(getVenue(e))}</td>
-          <td>${esc(getSession(e))}</td>
-          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(e.venue)}</td>
+          <td>${esc(e.sessionName)}</td>
+          <td><span class="chip ${chipClass}">${esc(level || '—')}</span></td>
           <td><span class="badge-status ${upcoming ? 'badge-active' : 'badge-inactive'}">${upcoming ? 'Upcoming' : 'Past'}</span></td>
         </tr>`;
     }).join('');
@@ -111,10 +120,10 @@
     const ses = $('ex-session').value;
     const sem = $('ex-semester').value;
     FILTERED = ALL.filter((e) => {
-      const hay = `${getCode(e)} ${getTitle(e)} ${getVenue(e)} ${getSession(e)}`.toLowerCase();
+      const hay = `${e.courseCode} ${e.courseTitle} ${e.venue} ${e.sessionName}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (ses && getSession(e) !== ses) return false;
-      if (sem && getSemester(e) !== sem) return false;
+      if (ses && e.sessionName !== ses) return false;
+      if (sem && e.semester !== sem) return false;
       return true;
     });
     render();
@@ -124,8 +133,8 @@
     const total = ALL.length;
     const upcoming = ALL.filter(isUpcoming).length;
     const past = total - upcoming;
-    const nd = ALL.filter((e) => getLevel(e) === 'ND').length;
-    const hnd = ALL.filter((e) => getLevel(e) === 'HND').length;
+    const nd = ALL.filter((e) => String(e.level).toUpperCase() === 'ND').length;
+    const hnd = ALL.filter((e) => String(e.level).toUpperCase() === 'HND').length;
 
     $('ex-total').textContent = total;
     $('ex-upcoming').textContent = upcoming;
@@ -138,9 +147,13 @@
     try {
       const res = await core.portalFetch('/api/exams');
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.exams || []);
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.exams || []);
 
-      const sessions = [...new Set(ALL.map(getSession).filter((s) => s && s !== '—'))];
+      // Filter out broken rows (all nulls) — those come from a broken server query
+      const valid = raw.filter((r) => r && (r.exam || r.courseCode));
+      ALL = valid.map(unwrap);
+
+      const sessions = [...new Set(ALL.map((e) => e.sessionName).filter((s) => s && s !== '—'))];
       const sel = $('ex-session');
       const cur = sel.value;
       sel.innerHTML = '<option value="">All Sessions</option>' +
@@ -157,7 +170,7 @@
 
   function exportCsv() {
     const headers = ['Course', 'Title', 'Date', 'Time', 'Venue', 'Session', 'Semester', 'Level'];
-    const rows = FILTERED.map((e) => [getCode(e), getTitle(e), getDate(e), getTime(e), getVenue(e), getSession(e), getSemester(e), getLevel(e)]);
+    const rows = FILTERED.map((e) => [e.courseCode, e.courseTitle, getDate(e), getTime(e), e.venue, e.sessionName, e.semester, e.level]);
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');

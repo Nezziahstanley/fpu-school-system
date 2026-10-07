@@ -18,7 +18,8 @@
                     "reset:staff":  "node scripts/reset-staff-passwords.js",
                     "drizzle:generate":  "drizzle-kit generate",
                     "drizzle:push":  "drizzle-kit push",
-                    "drizzle:studio":  "drizzle-kit studio"
+                    "drizzle:studio":  "drizzle-kit studio",
+                    "seed:hods":  "node scripts/seed-department-hods.js"
                 },
     "keywords":  [
                      "fpu",

@@ -9,26 +9,52 @@
   </div>
 </section>
 
+<!-- Filter bar -->
 <div class="filter-bar">
-  <input type="search" id="pr-search" placeholder="Search course, lecturer, session…" />
+  <input type="search" id="pr-search" placeholder="Search course, lecturer, or session…" />
   <select id="pr-session"><option value="">All Sessions</option></select>
   <select id="pr-semester">
     <option value="">All Semesters</option>
-    <option>First</option>
-    <option>Second</option>
+    <option value="First">First</option>
+    <option value="Second">Second</option>
   </select>
   <select id="pr-level">
     <option value="">All Levels</option>
-    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
   </select>
   <button class="btn btn-outline btn-sm" id="pr-refresh">Refresh</button>
   <button class="btn btn-outline btn-sm" id="pr-export">Export CSV</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Awaiting Approval</h3><span class="badge" id="pr-count">0</span></div>
-  <div class="panel-body">
-    <div id="pr-table-wrap" class="table-wrap">
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat red">
+    <div class="meta"><span class="label">Awaiting Approval</span><span class="value" id="pr-total">—</span></div>
+    <div class="ic">📋</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Results</span><span class="value" id="pr-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Results</span><span class="value" id="pr-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Total Students</span><span class="value" id="pr-students">—</span></div>
+    <div class="ic">👥</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Awaiting Your Approval</h3>
+    <span class="badge" id="pr-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
@@ -44,127 +70,214 @@
           </tr>
         </thead>
         <tbody id="pr-tbody">
-          <tr><td colspan="9" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL;
-  let ALL = [], FILTERED = [];
-
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getLevel(r) {
+    return String(r.level || r.courseLevel || '').toUpperCase().trim() || '—';
+  }
+  function getCourseCode(r) { return r.courseCode || r.code || '—'; }
+  function getCourseTitle(r) { return r.courseTitle || r.title || '—'; }
+  function getLecturerName(r) {
+    if (r.lecturerName) return r.lecturerName;
+    if (r.lecturer) return `${r.lecturer.firstName || ''} ${r.lecturer.lastName || ''}`.trim();
+    return '—';
+  }
+  function getSessionName(r) { return r.sessionName || r.session || '—'; }
+  function getSemester(r) { return r.semesterName || r.semester || '—'; }
+  function getStudentCount(r) { return r.studentCount ?? r.students ?? r.totalStudents ?? 0; }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
   function render() {
-    const tbody = $('pr-tbody');
     $('pr-count').textContent = FILTERED.length;
+
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No pending results 🎉</td></tr>';
+      $('pr-tbody').innerHTML =
+        '<tr><td colspan="9" class="empty">No pending results. 🎉</td></tr>';
       return;
     }
-    tbody.innerHTML = FILTERED.map((r) => `
-      <tr data-id="${r.id}">
-        <td><strong>${esc(r.courseCode || '')}</strong></td>
-        <td>${esc(r.courseTitle || '')}</td>
-        <td>${esc(r.lecturerName || '')}</td>
-        <td>${esc(r.sessionName || '')}</td>
-        <td>${esc(r.semester || '')}</td>
-        <td><span class="chip chip-${(r.level || '').toLowerCase()}">${esc(r.level || '')}</span></td>
-        <td>${r.studentCount || 0}</td>
-        <td>${r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '—'}</td>
-        <td class="row-actions">
-          <button class="btn btn-primary btn-xs" data-act="approve">Approve</button>
-          <button class="btn btn-outline btn-xs" data-act="reject">Reject</button>
-        </td>
-      </tr>`).join('');
+
+    $('pr-tbody').innerHTML = FILTERED.map((r) => {
+      const level = getLevel(r);
+      const chipClass = 'chip-' + level.toLowerCase();
+      return `
+        <tr data-id="${r.id || r.resultId}">
+          <td><strong>${esc(getCourseCode(r))}</strong></td>
+          <td>${esc(getCourseTitle(r))}</td>
+          <td>${esc(getLecturerName(r))}</td>
+          <td>${esc(getSessionName(r))}</td>
+          <td>${esc(getSemester(r))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${getStudentCount(r)}</td>
+          <td>${r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '—'}</td>
+          <td class="row-actions">
+            <button class="btn btn-primary btn-xs" data-act="approve">Approve</button>
+            <button class="btn btn-outline btn-xs" data-act="reject">Reject</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    // Row actions
+    $('pr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.closest('tr').dataset.id;
+        if (btn.dataset.act === 'approve') approveResult(id);
+        if (btn.dataset.act === 'reject') rejectResult(id);
+      });
+    });
   }
 
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
   function applyFilter() {
-    const q = ($('pr-search').value || '').toLowerCase();
+    const q = ($('pr-search').value || '').trim().toLowerCase();
     const ses = $('pr-session').value;
     const sem = $('pr-semester').value;
     const lvl = $('pr-level').value;
+
     FILTERED = ALL.filter((r) => {
-      const hay = `${r.courseCode||''} ${r.courseTitle||''} ${r.lecturerName||''} ${r.sessionName||''}`.toLowerCase();
+      const hay = `${getCourseCode(r)} ${getCourseTitle(r)} ${getLecturerName(r)} ${getSessionName(r)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (ses && r.sessionName !== ses) return false;
-      if (sem && r.semester !== sem) return false;
-      if (lvl && r.level !== lvl) return false;
+      if (ses && getSessionName(r) !== ses) return false;
+      if (sem && getSemester(r) !== sem) return false;
+      if (lvl && getLevel(r) !== lvl) return false;
       return true;
     });
+
     render();
   }
 
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((r) => getLevel(r) === 'ND').length;
+    const hnd = ALL.filter((r) => getLevel(r) === 'HND').length;
+    const students = ALL.reduce((sum, r) => sum + Number(getStudentCount(r) || 0), 0);
+
+    $('pr-total').textContent = total;
+    $('pr-nd').textContent = nd;
+    $('pr-hnd').textContent = hnd;
+    $('pr-students').textContent = students;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
   async function load() {
-    $('pr-tbody').innerHTML = '<tr><td colspan="9" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>';
+    $('pr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const r = await core.portalFetch('/api/results/pending-hod');
-      ALL = r.data || r || [];
+      const res = await core.portalFetch('/api/results/pending-hod');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload)
+        ? payload
+        : (payload.rows || payload.results || []);
+
+      console.log('[hod-pending-results] Loaded', ALL.length, 'pending. Sample:', ALL[0]);
 
       // Populate session dropdown
-      const sessions = [...new Set(ALL.map((x) => x.sessionName).filter(Boolean))];
+      const sessions = [...new Set(ALL.map((r) => getSessionName(r)).filter((s) => s && s !== '—'))];
       const sesSel = $('pr-session');
       const cur = sesSel.value;
       sesSel.innerHTML = '<option value="">All Sessions</option>' +
-        sessions.map((s) => `<option>${esc(s)}</option>`).join('');
+        sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
       sesSel.value = cur;
 
+      updateStats();
       applyFilter();
-    } catch (e) {
-      $('pr-tbody').innerHTML = `<tr><td colspan="9" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
-      core.showToast && core.showToast(e.message, 'error');
+    } catch (err) {
+      console.error('[hod-pending-results]', err);
+      $('pr-tbody').innerHTML =
+        `<tr><td colspan="9" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function approve(id) {
-    if (!confirm('Approve this result sheet?')) return;
+  // ---------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------
+  async function approveResult(id) {
+    if (!confirm('Approve this result? It will be sent to the academic office for final approval.')) return;
     try {
       await core.portalFetch(`/api/results/${id}/hod-verify`, { method: 'POST' });
-      core.showToast && core.showToast('Approved', 'success');
+      core.showToast('Result approved', 'success');
       load();
-    } catch (e) { core.showToast && core.showToast(e.message, 'error'); }
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
   }
 
-  async function reject(id) {
-    const reason = prompt('Reason for rejection?');
-    if (!reason) return;
+  async function rejectResult(id) {
+    const reason = prompt('Reason for rejection (required):');
+    if (!reason || !reason.trim()) return;
     try {
-      await core.portalFetch(`/api/results/${id}/hod-reject`, { method: 'POST', body: { reason } });
-      core.showToast && core.showToast('Rejected', 'success');
+      await core.portalFetch(`/api/results/${id}/hod-reject`, {
+        method: 'POST',
+        body: { reason: reason.trim() },
+      });
+      core.showToast('Result rejected', 'success');
       load();
-    } catch (e) { core.showToast && core.showToast(e.message, 'error'); }
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
   }
 
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
   function exportCsv() {
-    const rows = [['Course','Title','Lecturer','Session','Semester','Level','Students','Submitted']];
-    FILTERED.forEach((r) => rows.push([r.courseCode, r.courseTitle, r.lecturerName, r.sessionName, r.semester, r.level, r.studentCount, r.submittedAt]));
-    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const headers = ['Course', 'Title', 'Lecturer', 'Session', 'Semester', 'Level', 'Students', 'Submitted'];
+    const rows = FILTERED.map((r) => [
+      getCourseCode(r),
+      getCourseTitle(r),
+      getLecturerName(r),
+      getSessionName(r),
+      getSemester(r),
+      getLevel(r),
+      getStudentCount(r),
+      r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `pending-results-${Date.now()}.csv`;
+    a.download = `hod-pending-results-${Date.now()}.csv`;
     a.click();
+    URL.revokeObjectURL(a.href);
   }
 
-  // Events
   $('pr-search').addEventListener('input', applyFilter);
   $('pr-session').addEventListener('change', applyFilter);
   $('pr-semester').addEventListener('change', applyFilter);
   $('pr-level').addEventListener('change', applyFilter);
   $('pr-refresh').addEventListener('click', load);
   $('pr-export').addEventListener('click', exportCsv);
-  $('pr-tbody').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-act]');
-    if (!btn) return;
-    const id = btn.closest('tr').dataset.id;
-    if (btn.dataset.act === 'approve') approve(id);
-    if (btn.dataset.act === 'reject') reject(id);
-  });
 
   load();
 })();

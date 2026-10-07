@@ -1,0 +1,59 @@
+<!-- Portal → HOD → Courses -->
+<section class="page-head">
+  <div><h2>Department Courses</h2><p class="muted small">All courses in my department</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__hodCoursesLoad()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="hod-crs-level" onchange="window.__hodCoursesLoad()">
+      <option value="">All</option><option>ND</option><option>HND</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="hod-crs-sem" onchange="window.__hodCoursesLoad()">
+      <option value="">All</option><option value="first">First</option><option value="second">Second</option>
+    </select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Courses</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Level</th><th>Semester</th></tr></thead>
+        <tbody id="hod-crs-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__hodCoursesLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('hod-crs-tbody');
+    const level = document.getElementById('hod-crs-level').value;
+    const semester = document.getElementById('hod-crs-sem').value;
+    const qs = new URLSearchParams();
+    if (level) qs.set('level', level);
+    if (semester) qs.set('semester', semester);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/hod/courses?${qs}`);
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((c) => `
+        <tr>
+          <td>${core.escapeHtml(c.code)}</td>
+          <td>${core.escapeHtml(c.title)}</td>
+          <td class="num">${c.unit}</td>
+          <td>${core.escapeHtml(c.level)}</td>
+          <td>${core.escapeHtml(c.semester)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No courses.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+  window.__hodCoursesLoad();
+</script>

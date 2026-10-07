@@ -1,0 +1,68 @@
+<!-- Portal → Student → Fees -->
+<section class="page-head">
+  <div><h2>My Fees</h2><p class="muted small">Fee structure and payment history</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studFeesLoad()">Refresh</button></div>
+</section>
+
+<div class="gpa-summary">
+  <div class="item"><div class="label">Total Due</div><div class="value" id="fee-due">—</div></div>
+  <div class="item"><div class="label">Total Paid</div><div class="value" id="fee-paid">—</div></div>
+  <div class="item"><div class="label">Balance</div><div class="value" id="fee-bal">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Fee Breakdown</h3></div>
+  <div class="panel-body">
+    <div class="fees-breakdown" id="fee-breakdown">
+      <div class="loading"><span class="spinner"></span> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Payment History</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Reference</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody id="stud-pay-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__studFeesLoad = async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/student/fees');
+      document.getElementById('fee-due').textContent = core.formatMoney(res.totalDue);
+      document.getElementById('fee-paid').textContent = core.formatMoney(res.totalPaid);
+      document.getElementById('fee-bal').textContent = core.formatMoney(res.balance);
+
+      const fs = res.feeStructure;
+      const bd = document.getElementById('fee-breakdown');
+      if (fs) {
+        const items = [
+          ['Tuition', fs.tuition], ['Acceptance', fs.acceptance], ['Medical', fs.medical],
+          ['Library', fs.library], ['ICT', fs.ict], ['Sports', fs.sports], ['Other', fs.other],
+        ];
+        bd.innerHTML = items.map(([k, v]) => `
+          <div class="fees-row"><span>${k}</span><strong>${core.formatMoney(v)}</strong></div>
+        `).join('') + `<div class="fees-row total"><span>Total</span><strong>${core.formatMoney(fs.total)}</strong></div>`;
+      } else {
+        bd.innerHTML = '<p class="muted">No fee structure set for your programme yet.</p>';
+      }
+
+      document.getElementById('stud-pay-tbody').innerHTML = (res.payments || []).length ? res.payments.map((p) => `
+        <tr>
+          <td>${core.escapeHtml(p.reference)}</td>
+          <td class="num">${core.formatMoney(p.amount)}</td>
+          <td><span class="badge badge-${p.status === 'verified' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(p.status)}</span></td>
+          <td>${core.formatDate(p.createdAt)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" class="empty">No payments yet.</td></tr>';
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+  window.__studFeesLoad();
+</script>

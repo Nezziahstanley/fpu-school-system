@@ -1,0 +1,146 @@
+<!-- Admin → Academics → Programme Form (Create / Edit) -->
+<section class="page-head">
+  <div>
+    <h2 id="prog-form-title">New Programme</h2>
+    <p class="muted small" id="prog-form-subtitle">Attach a programme to a department</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('programmes')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Programme Details</h3></div>
+  <div class="panel-body">
+    <form id="programme-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Code <span class="req">*</span></label>
+          <input class="form-control" name="code" id="prog-code"
+                 placeholder="e.g. CST" required
+                 style="text-transform:uppercase;" />
+          <div class="form-help">Short uppercase code (2–6 letters)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Name <span class="req">*</span></label>
+          <input class="form-control" name="name" id="prog-name"
+                 placeholder="e.g. Computer Science" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" name="departmentId" id="prog-dept"
+                  data-lookup="departments" data-placeholder="Select department…" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" name="level" id="prog-level" required>
+            <option value="ND">ND — National Diploma</option>
+            <option value="HND">HND — Higher National Diploma</option>
+            <option value="CERT">CERT — Certificate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duration (years)</label>
+          <input class="form-control" type="number" name="durationYears" id="prog-duration"
+                 value="2" min="1" max="5" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="prog-submit">Create Programme</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('programmes')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('prog-form-title').textContent = 'Edit Programme';
+      $('prog-form-subtitle').textContent = 'Update this programme';
+      $('prog-submit').textContent = 'Update Programme';
+    }
+
+    async function load() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/programmes/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const p = json.data;
+
+        $('prog-code').value = p.code || '';
+        $('prog-name').value = p.name || '';
+        $('prog-level').value = p.level || 'ND';
+        $('prog-duration').value = p.durationYears || 2;
+
+        // The department dropdown is populated by FPU_LOOKUPS.
+        // Set the value after it loads.
+        setTimeout(() => {
+          if ($('prog-dept') && p.departmentId) {
+            $('prog-dept').value = String(p.departmentId);
+          }
+        }, 400);
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    $('programme-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = $('prog-code').value.trim().toUpperCase();
+      const name = $('prog-name').value.trim();
+      const departmentId = $('prog-dept').value;
+      const level = $('prog-level').value;
+      const durationYears = Number($('prog-duration').value) || 2;
+
+      if (!code) { A.showToast('⚠️ Code is required.', 'warning'); return; }
+      if (!name) { A.showToast('⚠️ Name is required.', 'warning'); return; }
+      if (!departmentId) { A.showToast('⚠️ Department is required.', 'warning'); return; }
+      if (!/^[A-Z]{2,6}$/.test(code)) {
+        A.showToast('⚠️ Code must be 2–6 uppercase letters (e.g. CST).', 'warning');
+        return;
+      }
+
+      const payload = { code, name, departmentId: Number(departmentId), level, durationYears };
+
+      const btn = $('prog-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Updating…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/programmes/${id}` : '/api/admin/programmes';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Programme updated.' : '✅ Programme created.');
+        A.FPU_ADMIN_SPA.navigateTo('programmes');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    load();
+  })();
+</script>

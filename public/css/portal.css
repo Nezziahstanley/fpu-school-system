@@ -1,0 +1,218 @@
+/* ============================================================
+   FPU School Management System — Portal stylesheet
+   Extends admin.css for the 11 role-based portals.
+   Adds: greeting hero, portal nav grouping, dashboard cards,
+         result/grade tables, ID card, timetable grid.
+   ============================================================ */
+
+@import url('/css/admin.css');
+
+/* ---------- Portal shell tweaks ---------- */
+body.portal-app {
+  margin: 0; background: #f3f4f6; color: #1f2937;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 14.5px;
+}
+
+/* Portal sidebar uses a slightly different accent */
+body.portal-app .sidebar { background: #065f46; }
+body.portal-app .sidebar .nav-item.active { background: #047857; }
+
+/* ---------- Portal greeting banner ---------- */
+.greeting {
+  background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 1.4rem 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 14px rgba(6,95,70,0.18);
+}
+.greeting .who { display: flex; gap: 1rem; align-items: center; }
+.greeting .avatar {
+  width: 62px; height: 62px; border-radius: 50%; flex: 0 0 62px;
+  background: linear-gradient(135deg,#f59e0b,#fbbf24);
+  color: #1f2937; font-weight: 800; font-size: 1.4rem;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border: 3px solid rgba(255,255,255,0.25);
+}
+.greeting .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.greeting h1 { font-size: 1.3rem; margin: 0 0 0.15rem; color: #ffffff; }
+.greeting .sub { color: #d1fae5; font-size: 0.88rem; }
+.greeting .meta { text-align: right; color: #d1fae5; font-size: 0.85rem; }
+.greeting .meta strong { color: #fef3c7; display: block; font-size: 1rem; }
+
+/* ---------- Dashboard tiles ---------- */
+.tile-grid {
+  display: grid; gap: 1rem; margin-bottom: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.tile {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 1.05rem 1.15rem; display: flex; flex-direction: column; gap: 0.35rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.tile .tile-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.1px; color: #6b7280; font-weight: 700; }
+.tile .tile-value { font-size: 1.65rem; font-weight: 800; color: #111827; line-height: 1.1; }
+.tile .tile-sub { font-size: 0.78rem; color: #6b7280; }
+.tile .tile-icon {
+  width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+  background: #ecfdf5; color: #065f46; margin-bottom: 0.25rem;
+}
+.tile.tile-accent .tile-icon { background: #fef3c7; color: #92400e; }
+.tile.tile-blue .tile-icon { background: #dbeafe; color: #1e40af; }
+.tile.tile-red .tile-icon { background: #fee2e2; color: #991b1b; }
+.tile.tile-purple .tile-icon { background: #ede9fe; color: #6d28d9; }
+.tile .tile-icon svg { width: 18px; height: 18px; }
+
+/* ---------- Quick action links ---------- */
+.quick-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+.quick-actions a {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.5rem 0.85rem; border-radius: 999px;
+  background: #ecfdf5; color: #065f46; font-weight: 600; font-size: 0.83rem;
+  text-decoration: none;
+}
+.quick-actions a:hover { background: #d1fae5; }
+
+/* ---------- Result table + GPA summary ---------- */
+.gpa-summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem; margin-bottom: 1.25rem;
+}
+.gpa-summary .item {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+.gpa-summary .item .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: 700; }
+.gpa-summary .item .value { font-size: 1.4rem; font-weight: 800; color: #065f46; }
+
+.result-table th, .result-table td { padding: 0.55rem 0.75rem; }
+.result-table .grade {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  font-weight: 800; font-size: 0.8rem; background: #ecfdf5; color: #065f46;
+}
+.result-table .grade.F { background: #fee2e2; color: #991b1b; }
+.result-table .grade.D { background: #fef3c7; color: #92400e; }
+.result-table .grade.E { background: #fef3c7; color: #92400e; }
+
+/* ---------- Timetable grid ---------- */
+.tt-grid {
+  display: grid; grid-template-columns: 90px repeat(5, 1fr);
+  border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+  background: #fff;
+}
+.tt-grid .head {
+  background: #f9fafb; padding: 0.55rem 0.65rem;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
+  color: #6b7280; font-weight: 700; border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+}
+.tt-grid .cell {
+  border-bottom: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb;
+  padding: 0.5rem; min-height: 68px; font-size: 0.8rem;
+}
+.tt-grid .cell .slot { background: #ecfdf5; border-left: 3px solid #065f46; padding: 0.4rem 0.5rem; border-radius: 4px; }
+.tt-grid .cell .slot .code { font-weight: 800; color: #065f46; font-size: 0.8rem; }
+.tt-grid .cell .slot .meta { color: #4b5563; font-size: 0.72rem; }
+.tt-grid .time-col {
+  background: #f9fafb; padding: 0.5rem; font-size: 0.78rem;
+  color: #374151; text-align: right; font-weight: 600; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
+}
+
+/* ---------- ID card ---------- */
+.id-card {
+  width: 340px; max-width: 100%; border-radius: 14px; overflow: hidden;
+  background: #ffffff; box-shadow: 0 12px 32px rgba(0,0,0,0.12); border: 1px solid #e5e7eb;
+}
+.id-card .head {
+  background: linear-gradient(135deg,#065f46,#047857);
+  color: #ffffff; padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+}
+.id-card .head .school { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: #a7f3d0; }
+.id-card .head strong { font-size: 0.95rem; }
+.id-card .body { padding: 1rem; display: flex; gap: 1rem; }
+.id-card .photo {
+  width: 86px; height: 86px; border-radius: 8px; flex: 0 0 86px; overflow: hidden;
+  background: linear-gradient(135deg,#065f46,#f59e0b); color: #fff; font-weight: 800;
+  font-size: 1.6rem; display: flex; align-items: center; justify-content: center;
+}
+.id-card .photo img { width: 100%; height: 100%; object-fit: cover; }
+.id-card .info { flex: 1; font-size: 0.82rem; }
+.id-card .info .row { display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding: 0.25rem 0; }
+.id-card .info .row span:first-child { color: #6b7280; }
+.id-card .info .row span:last-child { color: #111827; font-weight: 600; text-align: right; }
+.id-card .foot {
+  padding: 0.55rem 1rem; background: #f9fafb; text-align: center;
+  font-size: 0.68rem; letter-spacing: 1.5px; color: #6b7280; text-transform: uppercase;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* ---------- Fees breakdown ---------- */
+.fees-breakdown { display: flex; flex-direction: column; gap: 0.5rem; }
+.fees-row {
+  display: flex; justify-content: space-between; padding: 0.55rem 0.75rem;
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 0.9rem;
+}
+.fees-row.total { background: #ecfdf5; border-color: #10b981; font-weight: 800; color: #065f46; }
+.fees-row.balance { background: #fef3c7; border-color: #f59e0b; font-weight: 800; color: #92400e; }
+
+/* ---------- Photo uploader ---------- */
+.photo-uploader { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.photo-uploader .preview {
+  width: 140px; height: 140px; border-radius: 50%; overflow: hidden;
+  background: linear-gradient(135deg,#065f46,#f59e0b); color: #fff;
+  font-size: 2.6rem; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  border: 4px solid #fff; box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+.photo-uploader .preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-uploader .hint { font-size: 0.8rem; color: #6b7280; text-align: center; }
+
+/* ---------- Security list ---------- */
+.session-item {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 0.85rem; border: 1px solid #e5e7eb; border-radius: 8px;
+  background: #fff; margin-bottom: 0.5rem;
+}
+.session-item .meta { font-size: 0.82rem; color: #4b5563; }
+.session-item .meta strong { color: #111827; display: block; font-size: 0.9rem; }
+.session-item.current { border-color: #10b981; background: #ecfdf5; }
+
+/* ---------- Portal login page ---------- */
+.portal-login-page {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  padding: 2rem 1rem;
+}
+.portal-login-card {
+  width: 100%; max-width: 440px; background: #fff; border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25); padding: 2.25rem 2rem;
+}
+.portal-login-card h1 { text-align: center; font-size: 1.35rem; margin-bottom: 0.2rem; color: #065f46; }
+.portal-login-card .sub { text-align: center; color: #6b7280; font-size: 0.88rem; margin-bottom: 1.5rem; }
+.portal-login-card .creds { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.78rem; color: #4b5563; margin-top: 1rem; }
+.portal-login-card .creds code { background: #fff; padding: 0.05rem 0.35rem; border-radius: 4px; color: #065f46; font-weight: 600; }
+
+/* ---------- Attendance ring ---------- */
+.att-ring {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 92px; height: 92px; border-radius: 50%;
+  background: conic-gradient(#10b981 0deg 270deg, #e5e7eb 270deg 360deg);
+  color: #065f46;
+}
+.att-ring .inner {
+  width: 72px; height: 72px; border-radius: 50%; background: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1.05rem;
+}
+.att-ring .inner small { font-size: 0.62rem; color: #6b7280; font-weight: 600; letter-spacing: 0.5px; }
+
+/* ---------- Print (transcripts / id card) ---------- */
+@media print {
+  body.portal-app { background: #fff; }
+  .sidebar, .topbar, .no-print { display: none !important; }
+  .main { margin: 0 !important; padding: 0 !important; }
+  .id-card { box-shadow: none; border: 2px solid #065f46; }
+}

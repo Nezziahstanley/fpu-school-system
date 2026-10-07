@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Application Status — Federal Polytechnic Ugep</title>
+  <meta name="description" content="Track your Federal Polytechnic Ugep application in real time. Enter your application number and email to see your current status." />
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* Page-specific styles */
+    .status-lookup-card {
+      background: #ffffff;
+      border: 1px solid var(--fpu-border);
+      border-radius: 16px;
+      padding: 40px 36px;
+      max-width: 640px;
+      margin: 0 auto;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+      border-top: 5px solid var(--fpu-accent);
+    }
+    @media (max-width: 640px) {
+      .status-lookup-card { padding: 28px 20px; }
+    }
+    .status-lookup-card h1 {
+      font-family: "Poppins", sans-serif;
+      font-size: 1.5rem;
+      color: var(--fpu-primary);
+      margin: 0 0 8px;
+      text-align: center;
+    }
+    .status-lookup-card .sub {
+      text-align: center;
+      color: var(--fpu-muted);
+      font-size: 14px;
+      margin: 0 0 28px;
+      line-height: 1.6;
+    }
+
+    /* Result card */
+    .status-result-card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 32px 30px;
+      max-width: 720px;
+      margin: 28px auto 0;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.1);
+      border: 1px solid var(--fpu-border);
+      position: relative;
+      overflow: hidden;
+      animation: statusFadeIn 0.4s ease;
+    }
+    @keyframes statusFadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .status-result-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 6px;
+    }
+    .status-result-card.pending::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .status-result-card.under_review::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .status-result-card.approved::before { background: linear-gradient(90deg, #059669, #10b981); }
+    .status-result-card.rejected::before { background: linear-gradient(90deg, #dc2626, #ef4444); }
+    .status-result-card.registered::before { background: linear-gradient(90deg, #065f46, #0ea5e9); }
+
+    .status-headline {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--fpu-border);
+      flex-wrap: wrap;
+    }
+    .status-headline .icon {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      flex-shrink: 0;
+    }
+    .status-headline .icon.pending { background: #fef3c7; color: #b45309; }
+    .status-headline .icon.under_review { background: #dbeafe; color: #1e40af; }
+    .status-headline .icon.approved { background: #d1fae5; color: #065f46; }
+    .status-headline .icon.rejected { background: #fee2e2; color: #991b1b; }
+    .status-headline .icon.registered { background: #ccfbf1; color: #0f766e; }
+    .status-headline h2 {
+      font-family: "Poppins", sans-serif;
+      font-size: 1.35rem;
+      color: var(--fpu-ink);
+      margin: 0 0 4px;
+    }
+    .status-headline .meta-line {
+      font-size: 13px;
+      color: var(--fpu-muted);
+      font-family: "Courier New", monospace;
+      letter-spacing: 0.5px;
+    }
+
+    .status-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .status-info-item {
+      padding: 14px 16px;
+      background: var(--fpu-bone, #f8faf8);
+      border-radius: 10px;
+      border: 1px solid var(--fpu-border);
+    }
+    .status-info-item .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--fpu-muted);
+      margin-bottom: 6px;
+    }
+    .status-info-item .value {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--fpu-ink);
+      word-break: break-word;
+    }
+
+    .status-timeline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 26px 0;
+      position: relative;
+      padding: 0 8px;
+    }
+    .status-timeline::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: var(--fpu-border);
+    }
+    .timeline-step {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      text-align: center;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--fpu-muted);
+      font-family: "Poppins", sans-serif;
+    }
+    .timeline-step .dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid var(--fpu-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--fpu-muted);
+      transition: all 0.25s;
+    }
+    .timeline-step.done .dot {
+      background: var(--fpu-primary);
+      border-color: var(--fpu-primary);
+      color: #fff;
+    }
+    .timeline-step.done { color: var(--fpu-primary); }
+    .timeline-step.current .dot {
+      background: var(--fpu-accent);
+      border-color: var(--fpu-accent);
+      color: #1f2937;
+      box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.2);
+    }
+    .timeline-step.current { color: var(--fpu-accent-dark); }
+    .timeline-step.rejected .dot {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: #fff;
+    }
+    .timeline-step.rejected { color: #b91c1c; }
+
+    .status-action-box {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border-left: 4px solid var(--fpu-primary);
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-top: 20px;
+    }
+    .status-action-box.warn {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      border-left-color: var(--fpu-accent-dark);
+    }
+    .status-action-box.danger {
+      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+      border-left-color: #dc2626;
+    }
+    .status-action-box h3 {
+      font-family: "Poppins", sans-serif;
+      font-size: 1.05rem;
+      margin: 0 0 8px;
+      color: var(--fpu-ink);
+    }
+    .status-action-box p {
+      margin: 0 0 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--fpu-ink);
+    }
+    .status-action-box .matric-pill {
+      display: block;
+      background: var(--fpu-primary);
+      color: #fff;
+      font-family: "Courier New", monospace;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      text-align: center;
+      margin: 12px 0 16px;
+      word-break: break-all;
+      box-shadow: 0 6px 16px rgba(6, 95, 70, 0.25);
+    }
+    .status-action-box .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--fpu-muted);
+    }
+    .status-empty .icon {
+      font-size: 3rem;
+      opacity: 0.4;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="logo">
+        <img src="/images/logo.png" alt="Federal Polytechnic Ugep" class="site-logo" />
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <li><a href="/">Home</a></li>
+        <li class="has-dropdown">
+          <a href="/about.html">About</a>
+          <ul class="dropdown-menu">
+            <li><a href="/about.html">About FPU</a></li>
+            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/administration.html">Administration</a></li>
+          </ul>
+        </li>
+        <li class="has-dropdown">
+          <a href="/programmes.html">Programmes</a>
+          <ul class="dropdown-menu">
+            <li><a href="/nd.html">ND Programmes</a></li>
+            <li><a href="/hnd.html">HND Programmes</a></li>
+          </ul>
+        </li>
+        <li><a href="/apply-status.html" class="active">Check Status</a></li>
+        <li><a href="/announcements.html">News</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </nav>
+      <div class="nav-auth">
+        <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+        <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        <button class="menu-toggle" id="menuToggle">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PAGE HEADER ============ -->
+  <section class="page-header">
+    <div class="container">
+      <p style="color: #fef3c7; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-size: 12px; margin: 0 0 8px;">Admissions</p>
+      <h1 style="font-family: Poppins, sans-serif;">Check Application Status</h1>
+      <p>Track the real-time status of your ND, HND, or Certificate application</p>
+    </div>
+  </section>
+
+  <!-- ============ LOOKUP FORM ============ -->
+  <section style="padding: 50px 0 80px; background: var(--fpu-bone, #f8faf8);">
+    <div class="container">
+
+      <!-- Lookup card -->
+      <div class="status-lookup-card" id="lookupCard">
+        <h1>🔍 Track Your Application</h1>
+        <p class="sub">
+          Enter the application number you received after submitting your form
+          and the email address you used to apply.
+        </p>
+
+        <form id="statusForm" onsubmit="handleStatusLookup(event)">
+          <div class="form-group">
+            <label>Application Number <span class="required" style="color:#dc2626;">*</span></label>
+            <input type="text" name="number" id="statusNumber"
+                   placeholder="e.g. FPU/ND/2026/00001" required
+                   autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label>Email Address <span class="required" style="color:#dc2626;">*</span></label>
+            <input type="email" name="email" id="statusEmail"
+                   placeholder="The email you used to apply" required
+                   autocomplete="email" />
+          </div>
+
+          <button type="submit" class="btn btn-accent btn-lg" style="width: 100%;" id="statusSubmitBtn">
+            Check Status →
+          </button>
+        </form>
+
+        <p style="text-align: center; font-size: 13.5px; color: var(--fpu-muted); margin: 20px 0 0;">
+          Haven't applied yet? <a href="/apply.html" style="color: var(--fpu-primary); font-weight: 700;">Apply Now →</a>
+        </p>
+      </div>
+
+      <!-- Result container (populated dynamically) -->
+      <div id="statusResult"></div>
+    </div>
+  </section>
+
+  <!-- ============ HELP ============ -->
+  <section style="padding: 60px 0;">
+    <div class="container">
+      <div style="max-width: 720px; margin: 0 auto;">
+        <h2 style="font-family: Poppins, sans-serif; color: var(--fpu-primary); text-align: center; margin-bottom: 24px; font-size: 1.3rem;">
+          Need help finding your details?
+        </h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+          <div class="card" style="padding: 20px;">
+            <div style="font-size: 1.6rem; margin-bottom: 8px;">📧</div>
+            <h3 style="font-family: Poppins, sans-serif; font-size: 1rem; color: var(--fpu-primary); margin: 0 0 6px;">Check your email</h3>
+            <p style="font-size: 13.5px; color: var(--fpu-muted); margin: 0; line-height: 1.6;">
+              Your application number was sent to the email you provided.
+            </p>
+          </div>
+          <div class="card" style="padding: 20px;">
+            <div style="font-size: 1.6rem; margin-bottom: 8px;">📩</div>
+            <h3 style="font-family: Poppins, sans-serif; font-size: 1rem; color: var(--fpu-primary); margin: 0 0 6px;">Check spam folder</h3>
+            <p style="font-size: 13.5px; color: var(--fpu-muted); margin: 0; line-height: 1.6;">
+              Emails from new systems sometimes land in spam.
+            </p>
+          </div>
+          <div class="card" style="padding: 20px;">
+            <div style="font-size: 1.6rem; margin-bottom: 8px;">📞</div>
+            <h3 style="font-family: Poppins, sans-serif; font-size: 1rem; color: var(--fpu-primary); margin: 0 0 6px;">Contact us</h3>
+            <p style="font-size: 13.5px; color: var(--fpu-muted); margin: 0; line-height: 1.6;">
+              Call <strong>+234 808 389 9662</strong> or <a href="/contact.html" style="color: var(--fpu-primary);">send a message</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section style="padding: 60px 0; background: linear-gradient(135deg, var(--fpu-primary) 0%, var(--fpu-primary-dark) 100%); color: #fff;">
+    <div class="container text-center">
+      <h2 style="color: #fff; font-family: Poppins, sans-serif; font-size: 1.6rem; margin-bottom: 12px;">
+        Not yet applied?
+      </h2>
+      <p style="color: #d1fae5; max-width: 520px; margin: 0 auto 24px;">
+        Applications for 2026/2027 are open — start yours today.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+        <a href="/apply.html" class="btn btn-accent btn-lg">Apply for ND</a>
+        <a href="/apply-hnd.html" class="btn btn-outline-white btn-lg">Apply for HND</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; padding: 50px 0;">
+        <div>
+          <img src="/images/logo.png" alt="FPU" style="height: 56px; margin-bottom: 14px;" />
+          <p style="font-size: 14px; color: #c8dcc8; line-height: 1.7; margin: 0;">
+            Federal Polytechnic Ugep — Technology for Development and Excellence.
+          </p>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Quick Links</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2;">
+            <li><a href="/programmes.html" style="color: #c8dcc8;">Programmes</a></li>
+            <li><a href="/apply.html" style="color: #c8dcc8;">Apply Now</a></li>
+            <li><a href="/apply-status.html" style="color: #c8dcc8;">Check Status</a></li>
+            <li><a href="/faq.html" style="color: #c8dcc8;">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Contact</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2; font-size: 14px; color: #c8dcc8;">
+            <li>📍 Km 95 Calabar–Ikom Highway, Ugep</li>
+            <li>📞 +234 808 389 9662</li>
+            <li>✉️ <a href="mailto:contact@fedpolyugep.edu.ng" style="color: #c8dcc8;">contact@fedpolyugep.edu.ng</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Follow</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2.2; font-size: 14px;">
+            <li><a href="#" style="color: #c8dcc8;">📘 Facebook</a></li>
+            <li><a href="#" style="color: #c8dcc8;">🐦 X</a></li>
+            <li><a href="#" style="color: #c8dcc8;">📷 Instagram</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© <span id="year"></span> Federal Polytechnic Ugep.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('active');
+    });
+
+    // ----------------------------------------------------------------
+    // Escape HTML safely
+    // ----------------------------------------------------------------
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ----------------------------------------------------------------
+    // Status metadata for the timeline + headline
+    // ----------------------------------------------------------------
+    const STATUS_META = {
+      pending: {
+        label: 'Pending Review',
+        icon: '⏳',
+        message: 'Your application has been received and is awaiting review by our admissions team.',
+        stepIndex: 0,
+      },
+      under_review: {
+        label: 'Under Review',
+        icon: '🔎',
+        message: 'Our team is currently reviewing your application. This typically takes 2–4 weeks.',
+        stepIndex: 1,
+      },
+      approved: {
+        label: 'Approved',
+        icon: '✅',
+        message: 'Congratulations! Your application has been approved. Create your student account to proceed.',
+        stepIndex: 2,
+      },
+      rejected: {
+        label: 'Not Approved',
+        icon: '❌',
+        message: 'Unfortunately, your application did not meet our current requirements.',
+        stepIndex: 2,
+      },
+      registered: {
+        label: 'Registered',
+        icon: '🎓',
+        message: 'You have successfully registered. Log in to your portal to continue.',
+        stepIndex: 3,
+      },
+    };
+
+    // ----------------------------------------------------------------
+    // Lookup handler
+    // ----------------------------------------------------------------
+    async function handleStatusLookup(event) {
+      event.preventDefault();
+
+      const number = document.getElementById('statusNumber').value.trim();
+      const email = document.getElementById('statusEmail').value.trim();
+      const btn = document.getElementById('statusSubmitBtn');
+      const originalText = btn.textContent;
+      const resultBox = document.getElementById('statusResult');
+
+      resultBox.innerHTML = '';
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+
+      try {
+        const res = await fetch(`/api/apply-status?number=${encodeURIComponent(number)}&email=${encodeURIComponent(email)}`);
+        const json = await res.json();
+
+        if (json.success && json.data) {
+          renderStatusResult(json.data);
+        } else {
+          renderNotFound();
+        }
+      } catch (err) {
+        resultBox.innerHTML = `
+          <div class="status-result-card rejected">
+            <div class="status-empty">
+              <div class="icon">⚠️</div>
+              <h3 style="font-family: Poppins, sans-serif; color: #b91c1c; margin: 0 0 8px;">Connection Error</h3>
+              <p>Could not reach the server. Please check your internet and try again.</p>
+            </div>
+          </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // Render: Not found
+    // ----------------------------------------------------------------
+    function renderNotFound() {
+      const box = document.getElementById('statusResult');
+      box.innerHTML = `
+        <div class="status-result-card rejected">
+          <div class="status-empty">
+            <div class="icon">🔍</div>
+            <h3 style="font-family: Poppins, sans-serif; color: #b91c1c; margin: 0 0 8px;">Application Not Found</h3>
+            <p style="margin-bottom: 20px;">We couldn't find a matching application. Check your details and try again.</p>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              <a href="/apply-status.html" class="btn btn-primary">Try Again</a>
+              <a href="/apply.html" class="btn btn-outline" style="border-color: var(--fpu-primary); color: var(--fpu-primary);">Apply Now</a>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ----------------------------------------------------------------
+    // Render: Status result
+    // ----------------------------------------------------------------
+    function renderStatusResult(app) {
+      const box = document.getElementById('statusResult');
+      const meta = STATUS_META[app.status] || STATUS_META.pending;
+      const status = app.status || 'pending';
+
+      // Timeline — steps
+      const steps = [
+        { key: 'pending', label: 'Received' },
+        { key: 'under_review', label: 'In Review' },
+        { key: 'approved', label: 'Decision' },
+        { key: 'registered', label: 'Registered' },
+      ];
+
+      const currentStep = meta.stepIndex;
+      const isRejected = status === 'rejected';
+
+      const timelineHtml = steps.map((s, i) => {
+        let cls = '';
+        if (isRejected && i === 2) cls = 'rejected';
+        else if (i < currentStep) cls = 'done';
+        else if (i === currentStep) cls = 'current';
+        return `
+          <div class="timeline-step ${cls}">
+            <div class="dot">${i < currentStep ? '✓' : isRejected && i === 2 ? '✕' : i + 1}</div>
+            <div>${esc(s.label)}</div>
+          </div>`;
+      }).join('');
+
+      // Build info grid
+      const submitted = app.createdAt
+        ? new Date(app.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+      const reviewed = app.reviewedAt
+        ? new Date(app.reviewedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : null;
+
+      const infoItems = [
+        { label: 'Applicant', value: `${app.firstName || ''} ${app.lastName || ''}`.trim() || '—' },
+        { label: 'Application Type', value: app.type || app.level || '—' },
+        { label: 'Programme', value: app.programmeName || app.level || '—' },
+        { label: 'Submitted', value: submitted },
+      ];
+      if (reviewed) {
+        infoItems.push({ label: 'Reviewed', value: reviewed });
+      }
+      if (app.matricNumber) {
+        infoItems.push({ label: 'Matric Number', value: app.matricNumber });
+      }
+
+      // Action box per status
+      let actionHtml = '';
+      if (status === 'pending' || status === 'under_review') {
+        actionHtml = `
+          <div class="status-action-box warn">
+            <h3>⏱ What happens next?</h3>
+            <p>
+              Your application is in the queue. You'll receive an email once our team has made a decision.
+              Keep an eye on your inbox — check spam too.
+            </p>
+            <div class="btn-row">
+              <a href="/announcements.html" class="btn btn-outline" style="border-color: var(--fpu-accent-dark); color: var(--fpu-accent-dark);">View Announcements</a>
+            </div>
+          </div>`;
+      } else if (status === 'approved') {
+        actionHtml = `
+          <div class="status-action-box">
+            <h3>🎉 Congratulations!</h3>
+            <p>
+              Your application has been approved. You can now create your student account
+              using the registration link we emailed you, or click below to register.
+            </p>
+            <div class="btn-row">
+              <a href="/register.html" class="btn btn-primary">Create Account →</a>
+              <a href="/contact.html" class="btn btn-outline" style="border-color: var(--fpu-primary); color: var(--fpu-primary);">Contact Admissions</a>
+            </div>
+          </div>`;
+      } else if (status === 'rejected') {
+        actionHtml = `
+          <div class="status-action-box danger">
+            <h3>Application Not Successful</h3>
+            <p>
+              Unfortunately, your application did not meet the current requirements.
+              You may reapply in a future admission cycle if you meet the criteria.
+              If you believe this is a mistake, please contact our admissions office.
+            </p>
+            <div class="btn-row">
+              <a href="/contact.html" class="btn btn-primary">Contact Admissions</a>
+              <a href="/programmes.html" class="btn btn-outline" style="border-color: #dc2626; color: #dc2626;">View Programmes</a>
+            </div>
+          </div>`;
+      } else if (status === 'registered') {
+        actionHtml = `
+          <div class="status-action-box">
+            <h3>✅ You're Registered</h3>
+            <p>
+              Your student account is active. Use your matric number and the password you set
+              to log in to the portal.
+            </p>
+            ${app.matricNumber ? `<span class="matric-pill">${esc(app.matricNumber)}</span>` : ''}
+            <div class="btn-row">
+              <a href="/portal/login.html" class="btn btn-primary">Login to Portal →</a>
+            </div>
+          </div>`;
+      }
+
+      box.innerHTML = `
+        <div class="status-result-card ${esc(status)}">
+          <div class="status-headline">
+            <div class="icon ${esc(status)}">${meta.icon}</div>
+            <div>
+              <h2>${esc(meta.label)}</h2>
+              <div class="meta-line">${esc(app.applicationNumber)}</div>
+            </div>
+          </div>
+
+          <p style="font-size: 14.5px; line-height: 1.75; color: var(--fpu-ink); margin: 0 0 22px;">
+            ${esc(meta.message)}
+          </p>
+
+          <div class="status-timeline">
+            ${timelineHtml}
+          </div>
+
+          <div class="status-info-grid">
+            ${infoItems.map((i) => `
+              <div class="status-info-item">
+                <div class="label">${esc(i.label)}</div>
+                <div class="value">${esc(i.value)}</div>
+              </div>
+            `).join('')}
+          </div>
+
+          ${actionHtml}
+
+          <p style="text-align: center; font-size: 13px; color: var(--fpu-muted); margin: 24px 0 0;">
+            Need to check another application? <a href="/apply-status.html" style="color: var(--fpu-primary); font-weight: 700;">Start over</a>
+          </p>
+        </div>`;
+
+      // Scroll to result
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ----------------------------------------------------------------
+    // Auto-fill from query string: /apply-status.html?number=FPU/ND/...
+    // ----------------------------------------------------------------
+    (function prefillFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const num = params.get('number');
+      const email = params.get('email');
+      if (num) document.getElementById('statusNumber').value = num;
+      if (email) document.getElementById('statusEmail').value = email;
+
+      // Auto-submit if we have a number
+      if (num) {
+        // Don't auto-submit without email (server requires both), but keep it handy
+        document.getElementById('statusEmail').focus();
+      }
+    })();
+  </script>
+</body>
+</html>

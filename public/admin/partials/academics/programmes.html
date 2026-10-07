@@ -1,0 +1,20 @@
+<!-- Admin → Academics → Programmes -->
+<section class="page-head">
+  <div><h2>Programmes</h2><p class="muted small">ND & HND programmes by department</p></div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadProgrammes()">Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('programme-form')">+ New Programme</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>All Programmes</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Name</th><th>Level</th><th>Duration</th></tr></thead>
+        <tbody id="programmes-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>

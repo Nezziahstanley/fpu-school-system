@@ -1,0 +1,119 @@
+<!-- ============================================================
+     Admin → Registrations → By Student
+     ------------------------------------------------------------
+     A single student's full registration list, grouped by
+     semester. Each semester has a subtotal (courses + units).
+     Approve / reject buttons per row + bulk-approve button.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="reg-stu-title">Student Registrations</h2>
+    <p class="muted small" id="reg-stu-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('registrations')">
+      ← All Students
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: new URLSearchParams(window.location.hash.split('?')[1] || '').get('studentId') })">
+      View Profile
+    </button>
+    <button class="btn btn-accent btn-sm" id="reg-stu-bulk-approve">
+      Approve All Pending
+    </button>
+  </div>
+</section>
+
+<!-- Student summary -->
+<div class="panel" id="reg-stu-summary-panel" style="display:none; border-left:4px solid #065f46;">
+  <div class="panel-body">
+    <div class="reg-summary-flex">
+      <div class="reg-avatar" id="reg-stu-avatar">—</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Poppins',sans-serif;font-size:1.05rem;font-weight:700;color:#065f46;" id="reg-stu-name">—</div>
+        <div class="small muted" id="reg-stu-email">—</div>
+        <div class="small" style="margin-top:4px;" id="reg-stu-meta">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="small muted">Total Units</div>
+        <div style="font-family:'Poppins',sans-serif;font-size:1.8rem;font-weight:800;color:#f59e0b;line-height:1;" id="reg-stu-total-units">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Semester groups -->
+<div id="reg-stu-groups">
+  <div class="loading"><span class="spinner"></span> Loading registrations…</div>
+</div>
+
+<style>
+  .reg-summary-flex {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .reg-summary-flex .reg-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 18px;
+  }
+  .sem-group {
+    margin-bottom: 24px;
+  }
+  .sem-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    background: linear-gradient(90deg,#065f46 0%,#047857 100%);
+    color: #fff;
+    border-radius: 10px 10px 0 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .sem-group-head .title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .sem-group-head .subtitle {
+    font-size: 12px;
+    color: #d1fae5;
+    margin-top: 2px;
+  }
+  .sem-group-units {
+    background: rgba(255,255,255,0.15);
+    padding: 6px 14px;
+    border-radius: 999px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .sem-group-units .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #fef3c7;
+    line-height: 1;
+  }
+  .sem-group-units .lbl {
+    font-size: 11px;
+    color: #d1fae5;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sem-group .table-wrap {
+    border: 1px solid var(--fpu-border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStudentRegistrations()
+</script>

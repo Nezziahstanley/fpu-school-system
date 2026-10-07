@@ -1,0 +1,44 @@
+<!-- Portal → Student → ID Card -->
+<section class="page-head">
+  <div><h2>My ID Card</h2><p class="muted small">Print or save as PDF</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.print()">Print</button></div>
+</section>
+
+<div style="display:flex;justify-content:center;">
+  <div class="id-card">
+    <div class="head">
+      <div>
+        <div class="school">Federal Polytechnic Ugep</div>
+        <strong>Student ID</strong>
+      </div>
+      <img src="/images/logo.png" alt="FPU" style="height:34px;border-radius:50%;" />
+    </div>
+    <div class="body">
+      <div class="photo" id="idc-photo">S</div>
+      <div class="info" id="idc-info">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+    <div class="foot">Citadel of Technical Excellence</div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/student/id-card');
+      const d = res.data || {};
+      const name = `${d.firstName || ''} ${d.lastName || ''}`.trim();
+      document.getElementById('idc-info').innerHTML = `
+        <div class="row"><span>Name</span><span>${core.escapeHtml(name)}</span></div>
+        <div class="row"><span>Matric No</span><span>${core.escapeHtml(d.matricNumber || '—')}</span></div>
+        <div class="row"><span>Level</span><span>${core.escapeHtml(d.level || '—')}</span></div>
+        <div class="row"><span>Department</span><span>${core.escapeHtml(d.department?.name || '—')}</span></div>
+        <div class="row"><span>Session</span><span>${core.escapeHtml(d.session || '—')}</span></div>
+      `;
+      if (photo) photo.renderMyAvatar(document.getElementById('idc-photo'), d);
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

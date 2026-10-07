@@ -1,0 +1,76 @@
+<!-- ============================================================
+     Admin → Users → Admin Accounts
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Admin Accounts</h2>
+    <p class="muted small">Accounts with the highest privilege level</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAdminAccounts()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-form', { role: 'admin' })">
+      + New Admin
+    </button>
+  </div>
+</section>
+
+<!-- Warning banner -->
+<div class="alert alert-warning">
+  <strong>⚠️ Privileged accounts.</strong>
+  Admins can view, edit, and delete anything in the system. Grant this role sparingly and monitor activity.
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Admins</div>
+    <div class="value" id="ad-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Active</div>
+    <div class="value" id="ad-stat-active">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Inactive</div>
+    <div class="value" id="ad-stat-inactive">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Logged in (30d)</div>
+    <div class="value" id="ad-stat-recent">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Admin Accounts</h3>
+    <span class="small muted" id="ad-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th style="width:140px;">Phone</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:160px;">Last Login</th>
+            <th style="width:120px;">Created</th>
+            <th style="width:220px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ad-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadAdminAccounts()
+</script>

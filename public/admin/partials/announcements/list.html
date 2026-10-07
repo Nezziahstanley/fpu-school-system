@@ -1,0 +1,202 @@
+<!-- ============================================================
+     Admin → Announcements → List
+     ------------------------------------------------------------
+     Audience tabs + priority filter + search.
+     Cards show priority, audience, date, expiry warning.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Announcements</h2>
+    <p class="muted small">Publish news to students, staff, or all</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAnnouncements()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('announcement-form')">
+      + New Announcement
+    </button>
+  </div>
+</section>
+
+<!-- Audience tabs -->
+<div class="staff-role-tabs" id="ann-audience-tabs">
+  <button class="staff-role-tab active" data-audience="">
+    All <span class="tab-count" id="ann-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-audience="student">
+    Students <span class="tab-count" id="ann-count-student">—</span>
+  </button>
+  <button class="staff-role-tab" data-audience="staff">
+    Staff <span class="tab-count" id="ann-count-staff">—</span>
+  </button>
+  <button class="staff-role-tab" data-audience="lecturer">
+    Lecturers <span class="tab-count" id="ann-count-lecturer">—</span>
+  </button>
+  <button class="staff-role-tab" data-audience="hod">
+    HODs <span class="tab-count" id="ann-count-hod">—</span>
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Priority</label>
+    <select class="form-select" id="ann-filter-priority"
+            onchange="FPU_ADMIN.loadAnnouncements()">
+      <option value="">All priorities</option>
+      <option value="high">🔴 High / Urgent</option>
+      <option value="normal">📢 Normal</option>
+      <option value="low">📝 Low / General</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Published</label>
+    <select class="form-select" id="ann-filter-period"
+            onchange="FPU_ADMIN.loadAnnouncements()">
+      <option value="">Any time</option>
+      <option value="today">Today</option>
+      <option value="week">This week</option>
+      <option value="month">This month</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 240px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="ann-search"
+           placeholder="Title or body…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAnnouncements()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="ann-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Urgent</div>
+    <div class="value" id="ann-stat-urgent">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Published</div>
+    <div class="value" id="ann-stat-published">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Active (not expired)</div>
+    <div class="value" id="ann-stat-active">—</div>
+  </div>
+</div>
+
+<!-- Announcements list -->
+<div id="ann-list" class="ann-list">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading announcements…
+  </div>
+</div>
+
+<style>
+  .ann-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+  .ann-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .ann-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    border-radius: 14px 0 0 14px;
+  }
+  .ann-card.high::before   { background: #dc2626; }
+  .ann-card.normal::before { background: #f59e0b; }
+  .ann-card.low::before    { background: #94a3b8; }
+  .ann-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+  .ann-card.unpublished { opacity: 0.72; }
+
+  .anc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .anc-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .anc-badge {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .anc-badge.priority-high   { background: #fee2e2; color: #991b1b; }
+  .anc-badge.priority-normal { background: #dbeafe; color: #1e40af; }
+  .anc-badge.priority-low    { background: #f1f5f9; color: #475569; }
+  .anc-badge.audience        { background: #ecfdf5; color: #065f46; }
+  .anc-badge.unpublished     { background: #fef3c7; color: #92400e; }
+  .anc-badge.expired         { background: #fee2e2; color: #991b1b; }
+
+  .ann-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.35;
+  }
+  .ann-card .body {
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .anc-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 11.5px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .anc-actions {
+    display: flex;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .anc-actions .btn { flex: 1; justify-content: center; padding: 6px 10px; font-size: 11.5px; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadAnnouncements()
+</script>

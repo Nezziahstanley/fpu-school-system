@@ -1,0 +1,51 @@
+<!-- Portal → Exam Officer → Eligibility -->
+<section class="page-head">
+  <div><h2>Exam Eligibility</h2><p class="muted small">Check who is cleared to sit for an exam</p></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:1 1 200px;"><label class="form-label">Course ID</label><input class="form-control" id="eo-el-course" type="number" /></div>
+  <div class="form-group" style="flex:1 1 200px;"><label class="form-label">Session ID</label><input class="form-control" id="eo-el-session" type="number" /></div>
+  <div class="form-group" style="flex:1 1 200px;"><label class="form-label">Semester</label>
+    <select class="form-select" id="eo-el-sem"><option value="first">First</option><option value="second">Second</option></select>
+  </div>
+  <button class="btn btn-primary" id="eo-el-load">Check</button>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Eligibility</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Student</th><th>Paid</th><th>Clearance</th><th>Eligible</th></tr></thead>
+        <tbody id="eo-el-tbody"><tr><td colspan="4" class="empty">Enter a course ID above.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('eo-el-load').addEventListener('click', async () => {
+    const core = window.FPU_PORTAL;
+    const courseId = document.getElementById('eo-el-course').value.trim();
+    const sessionId = document.getElementById('eo-el-session').value.trim();
+    const semester = document.getElementById('eo-el-sem').value;
+    const tbody = document.getElementById('eo-el-tbody');
+    if (!courseId) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+    try {
+      const qs = new URLSearchParams({ courseId, semester });
+      if (sessionId) qs.set('sessionId', sessionId);
+      const res = await core.portalFetch(`/api/exam-officer/eligibility?${qs}`);
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.student?.firstName + ' ' + r.student?.lastName)}<br/><span class="small muted">${core.escapeHtml(r.student?.matricNumber || '')}</span></td>
+          <td>${core.formatMoney(r.totalPaid)} / ${core.formatMoney(r.totalDue)}</td>
+          <td>${r.clearanceOk ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-warning">Pending</span>'}</td>
+          <td>${r.eligible ? '<span class="badge badge-success">Eligible</span>' : '<span class="badge badge-danger">Not Eligible</span>'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" class="empty">No students registered.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  });
+</script>

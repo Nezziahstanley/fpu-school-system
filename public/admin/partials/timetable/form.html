@@ -1,0 +1,312 @@
+<!-- ============================================================
+     Admin / HOD → Timetable → Slot Form (Create / Edit)
+     ------------------------------------------------------------
+     Create or update a single timetable slot.
+     Prefills from URL hash:
+       ?id=X
+       ?departmentId=Y   ?sessionId=Z   ?semester=W   ?day=Mon
+     HODs are automatically scoped to their own department by
+     the backend role check.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="ttf-title">New Timetable Slot</h2>
+    <p class="muted small" id="ttf-subtitle">Assign a course to a day and time</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="ttf-back" onclick="FPU_ADMIN.goBack('timetable')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Slot Details</h3></div>
+  <div class="panel-body">
+    <form id="timetable-slot-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="ttf-session"
+                  data-lookup="sessions" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semester <span class="req">*</span></label>
+          <select class="form-select" name="semester" id="ttf-semester" required>
+            <option value="first">First Semester</option>
+            <option value="second">Second Semester</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School</label>
+          <select class="form-select" id="ttf-school"
+                  data-lookup="schools" data-placeholder="Select school…"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" id="ttf-dept"
+                  data-lookup="departments"
+                  data-depends-on="ttf-school"
+                  data-param="schoolId"
+                  data-placeholder="Select school first…"
+                  required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Course <span class="req">*</span></label>
+          <select class="form-select" name="courseId" id="ttf-course"
+                  data-lookup="courses"
+                  data-depends-on="ttf-dept"
+                  data-param="departmentId"
+                  data-placeholder="Select department first…"
+                  required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lecturer</label>
+          <select class="form-select" name="lecturerId" id="ttf-lecturer"
+                  data-lookup="lecturers"
+                  data-depends-on="ttf-dept"
+                  data-param="departmentId"
+                  data-placeholder="— Not assigned —">
+            <option value="">— Not assigned —</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Day <span class="req">*</span></label>
+          <select class="form-select" name="dayOfWeek" id="ttf-day" required>
+            <option>Monday</option>
+            <option>Tuesday</option>
+            <option>Wednesday</option>
+            <option>Thursday</option>
+            <option>Friday</option>
+            <option>Saturday</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Time <span class="req">*</span></label>
+          <input class="form-control" type="time" name="startTime" id="ttf-start"
+                 step="1800" required />
+          <div class="form-help">30-min granularity (08:00, 08:30, 09:00…)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Time <span class="req">*</span></label>
+          <input class="form-control" type="time" name="endTime" id="ttf-end"
+                 step="1800" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Venue</label>
+          <input class="form-control" name="venue" id="ttf-venue"
+                 placeholder="e.g. LT1, Lab A" />
+        </div>
+      </div>
+
+      <div id="ttf-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="ttf-submit">Create Slot</button>
+        <button type="button" class="btn btn-ghost" id="ttf-cancel" onclick="FPU_ADMIN.goBack('timetable')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="ttf-delete"
+                style="margin-left:auto;display:none;">Delete Slot</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillDept = params.get('departmentId');
+    const prefillSession = params.get('sessionId');
+    const prefillSemester = params.get('semester');
+    const prefillDay = params.get('day');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('ttf-title').textContent = 'Edit Timetable Slot';
+      $('ttf-subtitle').textContent = 'Update this slot';
+      $('ttf-submit').textContent = 'Save Changes';
+      $('ttf-delete').style.display = 'inline-flex';
+    }
+
+    function goBack() {
+      const deptId = prefillDept || $('ttf-dept').value;
+      const sessId = $('ttf-session').value || prefillSession;
+      const sem = $('ttf-semester').value || prefillSemester || 'first';
+      if (deptId && sessId) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
+          departmentId: Number(deptId),
+          sessionId: Number(sessId),
+          semester: sem,
+          name: params.get('name') || 'Department',
+        });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('timetable');
+      }
+    }
+    $('ttf-back').addEventListener('click', goBack);
+    $('ttf-cancel').addEventListener('click', goBack);
+
+    // ---------- Prefill ----------
+    function applyPrefill() {
+      if (prefillSemester && !isEdit) $('ttf-semester').value = prefillSemester;
+      if (prefillDay && !isEdit) $('ttf-day').value = prefillDay;
+
+      setTimeout(() => {
+        if (prefillSession && $('ttf-session')) $('ttf-session').value = String(prefillSession);
+      }, 300);
+
+      setTimeout(() => {
+        if (prefillDept && $('ttf-dept')) {
+          $('ttf-dept').value = String(prefillDept);
+          $('ttf-dept').dispatchEvent(new Event('change'));
+        }
+      }, 600);
+    }
+
+    // ---------- Load existing ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/timetable/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const s = json.data;
+
+        $('ttf-semester').value = s.semester || 'first';
+        $('ttf-day').value = s.dayOfWeek || 'Monday';
+        $('ttf-start').value = s.startTime || '08:00';
+        $('ttf-end').value = s.endTime || '10:00';
+        $('ttf-venue').value = s.venue || '';
+
+        setTimeout(() => {
+          if ($('ttf-session') && s.sessionId) $('ttf-session').value = String(s.sessionId);
+        }, 400);
+
+        // Fetch the course to find its department
+        if (s.courseId) {
+          try {
+            const cRes = await A.adminFetch(`/api/admin/courses/${s.courseId}`);
+            const cJson = await cRes.json();
+            if (cJson.success && cJson.data?.departmentId) {
+              setTimeout(() => {
+                $('ttf-dept').value = String(cJson.data.departmentId);
+                $('ttf-dept').dispatchEvent(new Event('change'));
+              }, 700);
+
+              setTimeout(() => {
+                if ($('ttf-course')) $('ttf-course').value = String(s.courseId);
+                if ($('ttf-lecturer') && s.lecturerId) $('ttf-lecturer').value = String(s.lecturerId);
+              }, 1100);
+            }
+          } catch { /* silent */ }
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------- Submit ----------
+    $('timetable-slot-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('ttf-validation');
+      valEl.innerHTML = '';
+
+      const payload = {
+        sessionId: Number($('ttf-session').value),
+        semester: $('ttf-semester').value,
+        courseId: Number($('ttf-course').value),
+        lecturerId: $('ttf-lecturer').value ? Number($('ttf-lecturer').value) : null,
+        dayOfWeek: $('ttf-day').value,
+        startTime: $('ttf-start').value,
+        endTime: $('ttf-end').value,
+        venue: String($('ttf-venue').value || '').trim() || null,
+      };
+
+      // Validate
+      if (!payload.sessionId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Session is required.</div>'; return; }
+      if (!payload.courseId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Course is required.</div>'; return; }
+      if (!payload.startTime || !payload.endTime) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Start and end times are required.</div>'; return; }
+
+      const startMin = A.__ttTimeToMin(payload.startTime);
+      const endMin = A.__ttTimeToMin(payload.endTime);
+      if (startMin === null || endMin === null) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Invalid time format.</div>'; return; }
+      if (startMin >= endMin) { valEl.innerHTML = '<div class="alert alert-error">⚠️ End time must be after start time.</div>'; return; }
+
+      // Client-side conflict pre-check
+      const conflicts = A.__ttFindConflicts({
+        sessionId: payload.sessionId,
+        semester: payload.semester,
+        dayOfWeek: payload.dayOfWeek,
+        startTime: payload.startTime,
+        endTime: payload.endTime,
+        lecturerId: payload.lecturerId,
+        venue: payload.venue,
+        excludeId: isEdit ? Number(id) : null,
+      });
+      if (conflicts.length) {
+        valEl.innerHTML = `<div class="alert alert-error">
+          ⚠️ Conflict detected:<br/>
+          ${conflicts.map((c) => '· ' + A.escapeHtml(c)).join('<br/>')}
+          <br/><br/>You can still save if you want — the server will also check.
+        </div>`;
+      }
+
+      const btn = $('ttf-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/timetable/${id}` : '/api/admin/timetable';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Slot updated.' : '✅ Slot created.');
+        goBack();
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete ----------
+    $('ttf-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this timetable slot? This cannot be undone.')) return;
+
+      const btn = $('ttf-delete');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        const res = await A.adminFetch(`/api/admin/timetable/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('🗑️ Slot deleted.');
+        goBack();
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

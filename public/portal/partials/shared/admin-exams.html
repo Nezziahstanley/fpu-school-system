@@ -1,0 +1,35 @@
+<!-- Portal → Shared → Exam schedule -->
+<section class="page-head">
+  <div><h2>Exam Schedule</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Upcoming Exams</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Venue</th></tr></thead>
+        <tbody id="shared-exams-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-exams-tbody');
+    try {
+      const res = await core.portalFetch('/api/student/exams');
+      const rows = res.data || [];
+      box.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
+          <td>${core.formatDate(r.exam.examDate)}</td>
+          <td>${core.escapeHtml(r.exam.startTime)} – ${core.escapeHtml(r.exam.endTime)}</td>
+          <td>${core.escapeHtml(r.exam.venue || '')}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" class="empty">No exams scheduled.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

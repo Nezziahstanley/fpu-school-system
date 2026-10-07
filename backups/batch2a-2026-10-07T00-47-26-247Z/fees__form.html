@@ -1,0 +1,274 @@
+<!-- ============================================================
+     Admin → Fees → Form (Create / Edit)
+     ------------------------------------------------------------
+     Create / edit a fee structure with a live total preview.
+     Prefill via ?id= or ?programmeId=&level=&sessionId=
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="ff-title">New Fee Structure</h2>
+    <p class="muted small" id="ff-subtitle">Set the fee breakdown for a programme</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="ff-back">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Fee Details</h3></div>
+  <div class="panel-body">
+    <form id="fee-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="ff-session"
+                  data-lookup="sessions" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" name="level" id="ff-level" required>
+            <option value="ND">ND</option>
+            <option value="HND">HND</option>
+            <option value="CERT">CERT</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School</label>
+          <select class="form-select" id="ff-school"
+                  data-lookup="schools" data-placeholder="Select school…"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-select" id="ff-dept"
+                  data-lookup="departments"
+                  data-depends-on="ff-school"
+                  data-param="schoolId"
+                  data-placeholder="Select school first…">
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Programme <span class="req">*</span></label>
+          <select class="form-select" name="programmeId" id="ff-prog"
+                  data-lookup="programmes"
+                  data-depends-on="ff-dept"
+                  data-param="departmentId"
+                  data-placeholder="Select department first…"
+                  required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+      </div>
+
+      <hr style="margin:20px 0;border:none;border-top:1px solid var(--fpu-border);" />
+
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Tuition</label>
+          <input class="form-control fee-comp" type="number" name="tuition" id="ff-tuition" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">Acceptance</label>
+          <input class="form-control fee-comp" type="number" name="acceptance" id="ff-acceptance" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">Medical</label>
+          <input class="form-control fee-comp" type="number" name="medical" id="ff-medical" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">Library</label>
+          <input class="form-control fee-comp" type="number" name="library" id="ff-library" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">ICT</label>
+          <input class="form-control fee-comp" type="number" name="ict" id="ff-ict" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">Sports</label>
+          <input class="form-control fee-comp" type="number" name="sports" id="ff-sports" value="0" min="0" /></div>
+        <div class="form-group"><label class="form-label">Other</label>
+          <input class="form-control fee-comp" type="number" name="other" id="ff-other" value="0" min="0" /></div>
+      </div>
+
+      <div class="fees-breakdown" style="margin-top:16px;">
+        <div class="fees-row total">
+          <span>Total</span>
+          <strong id="ff-total-preview">₦0.00</strong>
+        </div>
+      </div>
+
+      <div class="form-grid" style="margin-top:16px;">
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" name="isActive" id="ff-active" checked />
+            <span>Active (used by student fee calculations)</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="ff-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="ff-submit">Create Fee Structure</button>
+        <button type="button" class="btn btn-ghost" id="ff-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="ff-delete"
+                style="margin-left:auto;display:none;">Delete Structure</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillProgramme = params.get('programmeId');
+    const prefillLevel = params.get('level');
+    const prefillSession = params.get('sessionId');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('ff-title').textContent = 'Edit Fee Structure';
+      $('ff-subtitle').textContent = 'Update this fee breakdown';
+      $('ff-submit').textContent = 'Save Changes';
+      $('ff-delete').style.display = 'inline-flex';
+    }
+
+    // ---------- Live total preview ----------
+    function updateTotal() {
+      let total = 0;
+      document.querySelectorAll('.fee-comp').forEach((inp) => {
+        total += Number(inp.value) || 0;
+      });
+      $('ff-total-preview').textContent = '₦' + total.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+    document.querySelectorAll('.fee-comp').forEach((inp) => {
+      inp.addEventListener('input', updateTotal);
+    });
+    updateTotal();
+
+    // ---------- Back ----------
+    function goBack() {
+      A.FPU_ADMIN_SPA.navigateTo('fees');
+    }
+    $('ff-back').addEventListener('click', goBack);
+    $('ff-cancel').addEventListener('click', goBack);
+
+    // ---------- Load existing ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/fees/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const f = json.data;
+
+        $('ff-level').value = f.level || 'ND';
+        $('ff-tuition').value = f.tuition ?? 0;
+        $('ff-acceptance').value = f.acceptance ?? 0;
+        $('ff-medical').value = f.medical ?? 0;
+        $('ff-library').value = f.library ?? 0;
+        $('ff-ict').value = f.ict ?? 0;
+        $('ff-sports').value = f.sports ?? 0;
+        $('ff-other').value = f.other ?? 0;
+        $('ff-active').checked = f.isActive !== false;
+        updateTotal();
+
+        setTimeout(() => {
+          if ($('ff-session') && f.sessionId) $('ff-session').value = String(f.sessionId);
+        }, 400);
+
+        // Chain: programme → department → school
+        if (f.programmeId) {
+          try {
+            const pRes = await A.adminFetch(`/api/admin/programmes/${f.programmeId}`);
+            const pJson = await pRes.json();
+            if (pJson.success && pJson.data?.departmentId) {
+              setTimeout(() => {
+                $('ff-dept').value = String(pJson.data.departmentId);
+                $('ff-dept').dispatchEvent(new Event('change'));
+              }, 700);
+              setTimeout(() => {
+                if ($('ff-prog')) $('ff-prog').value = String(f.programmeId);
+              }, 1100);
+            }
+          } catch { /* silent */ }
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    function applyPrefill() {
+      if (isEdit) return;
+      if (prefillLevel) $('ff-level').value = prefillLevel;
+      setTimeout(() => {
+        if (prefillSession && $('ff-session')) $('ff-session').value = String(prefillSession);
+      }, 400);
+      setTimeout(() => {
+        if (prefillProgramme && $('ff-prog')) $('ff-prog').value = String(prefillProgramme);
+      }, 900);
+    }
+
+    // ---------- Submit ----------
+    $('fee-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('ff-validation');
+      valEl.innerHTML = '';
+
+      const payload = {
+        sessionId: Number($('ff-session').value),
+        level: $('ff-level').value,
+        programmeId: Number($('ff-prog').value),
+        tuition: Number($('ff-tuition').value) || 0,
+        acceptance: Number($('ff-acceptance').value) || 0,
+        medical: Number($('ff-medical').value) || 0,
+        library: Number($('ff-library').value) || 0,
+        ict: Number($('ff-ict').value) || 0,
+        sports: Number($('ff-sports').value) || 0,
+        other: Number($('ff-other').value) || 0,
+        isActive: $('ff-active').checked,
+      };
+
+      if (!payload.sessionId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Session is required.</div>'; return; }
+      if (!payload.programmeId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Programme is required.</div>'; return; }
+
+      const btn = $('ff-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/fees/${id}` : '/api/admin/fees';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Fee structure updated.' : '✅ Fee structure created.');
+        goBack();
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete ----------
+    $('ff-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this fee structure? Any student payments will retain their amounts, but new fee calculations will fail.')) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/fees/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('🗑️ Fee structure deleted.');
+        goBack();
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    });
+
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

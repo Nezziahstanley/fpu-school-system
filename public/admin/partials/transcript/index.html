@@ -1,0 +1,81 @@
+<!-- ============================================================
+     Admin → Transcript → Student Lookup
+     ------------------------------------------------------------
+     Search for a student, then open their full transcript.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Transcript Lookup</h2>
+    <p class="muted small">
+      Search by matric number, name, or email — then open the full transcript
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadTranscriptLookup()">
+      Refresh
+    </button>
+  </div>
+</section>
+
+<!-- Search bar -->
+<div class="panel">
+  <div class="panel-body">
+    <div class="tx-search">
+      <input class="form-control" id="tx-search"
+             placeholder="Search by matric, name, or email…"
+             onkeydown="if(event.key==='Enter')FPU_ADMIN.loadTranscriptLookup()"
+             autofocus />
+      <button class="btn btn-primary" onclick="FPU_ADMIN.loadTranscriptLookup()">
+        Search
+      </button>
+    </div>
+    <div class="small muted" style="margin-top:8px;">
+      Leave blank to show the most recent 50 students.
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Students</h3>
+    <span class="small muted" id="tx-count">—</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Matric</th>
+            <th>Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>Status</th>
+            <th style="width:120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tx-search-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .tx-search {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tx-search input {
+    flex: 1;
+    min-width: 220px;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadTranscriptLookup()
+</script>

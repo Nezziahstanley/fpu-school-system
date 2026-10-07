@@ -1,0 +1,232 @@
+<!-- ============================================================
+     Admin → Courses → Department Overview
+     ------------------------------------------------------------
+     Shows every department with:
+       • total number of courses offered
+       • total credit units across those courses
+       • ND / HND split counts
+     Clicking a card opens the department's courses grouped by
+     level (ND/HND/CERT), year of study, and semester.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Courses by Department</h2>
+    <p class="muted small">
+      Click a department to view its courses grouped by level, year, and semester
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadCourseDepartments()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('course-form')">
+      + New Course
+    </button>
+  </div>
+</section>
+
+<!-- Overall stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Courses</div>
+    <div class="value" id="crs-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Total Credit Units</div>
+    <div class="value" id="crs-stat-units">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Departments</div>
+    <div class="value" id="crs-stat-departments">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">With Courses</div>
+    <div class="value" id="crs-stat-with-courses">—</div>
+  </div>
+</div>
+
+<!-- School filter -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">School</label>
+    <select class="form-select" id="course-filter-school"
+            data-lookup="schools" data-placeholder="All schools"
+            onchange="FPU_ADMIN.loadCourseDepartments()"></select>
+  </div>
+</div>
+
+<!-- Department grid -->
+<div id="course-dept-grid" class="course-dept-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading departments…
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE-LEVEL STYLES
+     ============================================================ -->
+<style>
+  .course-dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+
+  .course-dept-card {
+    background: #ffffff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .course-dept-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #065f46, #f59e0b);
+  }
+
+  .course-dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.10);
+    border-color: rgba(6, 95, 70, 0.3);
+  }
+
+  .course-dept-card.empty {
+    opacity: 0.65;
+    cursor: default;
+  }
+  .course-dept-card.empty:hover {
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-color: var(--fpu-border);
+  }
+
+  .cdc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .cdc-code {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .cdc-school {
+    font-size: 11px;
+    color: #6b7280;
+    text-align: right;
+  }
+
+  .course-dept-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .cdc-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .cdc-stat {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .cdc-stat .num {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+
+  .cdc-stat.units .num {
+    color: #f59e0b;
+  }
+
+  .cdc-stat .label {
+    display: block;
+    font-size: 10.5px;
+    color: #6b7280;
+    font-weight: 600;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .cdc-split {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .cdc-chip {
+    background: #f1f5f9;
+    color: #475569;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.4px;
+  }
+
+  .cdc-chip.nd {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+
+  .cdc-chip.hnd {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .cdc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .course-dept-card:not(.empty) .cdc-footer span:last-child {
+    color: #f59e0b;
+    font-family: 'Poppins', sans-serif;
+  }
+</style>
+
+<script>
+  // No inline loader — the SPA init calls loadCourseDepartments().
+  // Any post-render wiring (e.g. re-init lookups) can be added here if needed.
+</script>

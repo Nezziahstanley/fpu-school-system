@@ -1,0 +1,50 @@
+<!-- Portal → Student → Attendance -->
+<section class="page-head">
+  <div><h2>My Attendance</h2><p class="muted small">Lecture attendance summary</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studAttLoad()">Refresh</button></div>
+</section>
+
+<div class="gpa-summary">
+  <div class="item"><div class="label">Total</div><div class="value" id="att-total">—</div></div>
+  <div class="item"><div class="label">Present</div><div class="value" id="att-present">—</div></div>
+  <div class="item"><div class="label">Absent</div><div class="value" id="att-absent">—</div></div>
+  <div class="item"><div class="label">Late</div><div class="value" id="att-late">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Records</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Date</th><th>Course</th><th>Status</th></tr></thead>
+        <tbody id="stud-att-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__studAttLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('stud-att-tbody');
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/student/attendance');
+      const sum = res.summary || {};
+      document.getElementById('att-total').textContent = sum.total ?? '—';
+      document.getElementById('att-present').textContent = sum.present ?? '—';
+      document.getElementById('att-absent').textContent = sum.absent ?? '—';
+      document.getElementById('att-late').textContent = sum.late ?? '—';
+
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.formatDate(r.date)}</td>
+          <td>Course ${r.courseId}</td>
+          <td><span class="badge badge-${r.status === 'present' ? 'success' : r.status === 'absent' ? 'danger' : 'warning'}">${core.escapeHtml(r.status)}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="3" class="empty">No attendance records.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+  window.__studAttLoad();
+</script>

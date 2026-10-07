@@ -1,0 +1,137 @@
+<!-- Admin → Academics → Session Form (Create / Edit) -->
+<section class="page-head">
+  <div>
+    <h2 id="session-form-title">New Academic Session</h2>
+    <p class="muted small" id="session-form-subtitle">e.g. 2026/2027</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('sessions')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Session Details</h3></div>
+  <div class="panel-body">
+    <form id="session-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session Name <span class="req">*</span></label>
+          <input class="form-control" name="name" id="session-name"
+                 placeholder="2026/2027" required
+                 pattern="\d{4}/\d{4}"
+                 title="Format: YYYY/YYYY" />
+          <div class="form-help">Format: <code>YYYY/YYYY</code> — e.g. 2026/2027</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input class="form-control" type="date" name="startDate" id="session-start" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">End Date</label>
+          <input class="form-control" type="date" name="endDate" id="session-end" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" name="isCurrent" id="session-current" />
+            <span>Set as current session</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="session-submit">Create Session</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('sessions')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('session-form-title').textContent = 'Edit Academic Session';
+      $('session-form-subtitle').textContent = 'Update this session';
+      $('session-submit').textContent = 'Update Session';
+    }
+
+    // Load existing data if editing
+    async function load() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/sessions/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const s = json.data;
+
+        $('session-name').value = s.name || '';
+        $('session-start').value = s.startDate ? String(s.startDate).slice(0, 10) : '';
+        $('session-end').value = s.endDate ? String(s.endDate).slice(0, 10) : '';
+        $('session-current').checked = !!s.isCurrent;
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // Submit
+    $('session-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = $('session-name').value.trim();
+      if (!/^\d{4}\/\d{4}$/.test(name)) {
+        A.showToast('⚠️ Session name must be YYYY/YYYY (e.g. 2026/2027).', 'warning');
+        $('session-name').focus();
+        return;
+      }
+
+      const startDate = $('session-start').value || null;
+      const endDate = $('session-end').value || null;
+      if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
+        A.showToast('⚠️ End date must be after start date.', 'warning');
+        return;
+      }
+
+      const payload = {
+        name,
+        startDate,
+        endDate,
+        isCurrent: $('session-current').checked,
+      };
+
+      const btn = $('session-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Updating…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/sessions/${id}` : '/api/admin/sessions';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Session updated.' : '✅ Session created.');
+        A.FPU_ADMIN_SPA.navigateTo('sessions');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    load();
+  })();
+</script>

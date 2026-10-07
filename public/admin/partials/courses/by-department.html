@@ -1,0 +1,205 @@
+<!-- ============================================================
+     Admin → Courses → By Department
+     ------------------------------------------------------------
+     Shows a single department's courses, grouped by:
+       Level (ND / HND / CERT)
+         └ Year of study (1 / 2)
+             └ Semester (First / Second)
+     Each section header shows the course count and the total
+     credit units for that bucket. Reading order matches the
+     NBTE catalogue layout.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="course-dept-title">Department Courses</h2>
+    <p class="muted small" id="course-dept-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('courses')">
+      ← All Departments
+    </button>
+    <button class="btn btn-primary btn-sm" id="cbd-new-course">
+      + New Course
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Courses in Department</div>
+    <div class="value" id="cbd-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Total Credit Units</div>
+    <div class="value" id="cbd-stat-units">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">ND Courses</div>
+    <div class="value" id="cbd-stat-nd">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">HND Courses</div>
+    <div class="value" id="cbd-stat-hnd">—</div>
+  </div>
+</div>
+
+<!-- Root: gets filled by loadDepartmentCourses() -->
+<div id="course-by-dept-root">
+  <div class="loading">
+    <span class="spinner"></span> Loading courses…
+  </div>
+</div>
+
+<!-- ============================================================
+     PAGE-LEVEL STYLES
+     ============================================================ -->
+<style>
+  /* ---------- Level tabs ---------- */
+  .course-level-tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--fpu-border);
+    margin-bottom: 22px;
+    overflow-x: auto;
+    padding-bottom: 0;
+    scrollbar-width: thin;
+  }
+
+  .course-level-tab {
+    background: transparent;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #6b7280;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .course-level-tab:hover { color: #065f46; }
+
+  .course-level-tab.active {
+    color: #065f46;
+    border-bottom-color: #f59e0b;
+  }
+
+  .course-level-tab .tab-count {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+  }
+
+  .course-level-tab.active .tab-count {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  .course-level-panel { display: none; }
+  .course-level-panel.active { display: block; }
+
+  /* ---------- Course section ---------- */
+  .course-section { margin-bottom: 28px; }
+
+  .course-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    background: linear-gradient(90deg, #065f46 0%, #047857 100%);
+    color: #ffffff;
+    border-radius: 10px 10px 0 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .course-section-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    display: block;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+  }
+
+  .course-section-count {
+    font-size: 12px;
+    color: #d1fae5;
+    font-weight: 500;
+  }
+
+  .course-section-units {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 999px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .course-section-units .units-num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #fef3c7;
+    line-height: 1;
+  }
+
+  .course-section-units .units-lbl {
+    font-size: 11px;
+    color: #d1fae5;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .course-section .table-wrap {
+    border: 1px solid var(--fpu-border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  /* Softer table inside sections */
+  .course-section .table-admin thead {
+    background: #f8fafc;
+  }
+</style>
+
+<script>
+  // ------------------------------------------------------------
+  // Wire the "+ New Course" button to prefill department from
+  // the URL hash query. Falls back to a plain course-form nav.
+  // ------------------------------------------------------------
+  (function () {
+    const btn = document.getElementById('cbd-new-course');
+    if (!btn) return;
+
+    btn.addEventListener('click', () => {
+      const hash = window.location.hash.replace(/^#/, '');
+      const qIdx = hash.indexOf('?');
+      const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+      const departmentId = params.get('departmentId');
+
+      if (departmentId && window.FPU_ADMIN_SPA) {
+        window.FPU_ADMIN_SPA.navigateToWithQuery('course-form', {
+          departmentId: Number(departmentId),
+        });
+      } else if (window.FPU_ADMIN_SPA) {
+        window.FPU_ADMIN_SPA.navigateTo('course-form');
+      }
+    });
+  })();
+</script>

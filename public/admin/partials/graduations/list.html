@@ -1,0 +1,139 @@
+<!-- ============================================================
+     Admin → Graduation → Queue
+     ------------------------------------------------------------
+     Status tabs + CGPA/classification sort + bulk approve.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Graduation Queue</h2>
+    <p class="muted small">Queue, approve, and mark students as graduated</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadGraduationsTable()">
+      Refresh
+    </button>
+    <button class="btn btn-accent btn-sm" id="grad-bulk-approve">
+      ✓ Approve selected
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateToWithQuery('graduation-form')">
+      + Queue Student
+    </button>
+  </div>
+</section>
+
+<!-- Status tabs -->
+<div class="staff-role-tabs" id="grad-status-tabs">
+  <button class="staff-role-tab active" data-status="">
+    All <span class="tab-count" id="grad-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="pending">
+    Pending <span class="tab-count" id="grad-count-pending">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="approved">
+    Approved <span class="tab-count" id="grad-count-approved">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="graduated">
+    Graduated <span class="tab-count" id="grad-count-graduated">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="rejected">
+    Rejected <span class="tab-count" id="grad-count-rejected">—</span>
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="grad-filter-session"
+            data-lookup="sessions" data-placeholder="All sessions"
+            onchange="FPU_ADMIN.loadGraduationsTable()"></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Classification</label>
+    <select class="form-select" id="grad-filter-class"
+            onchange="FPU_ADMIN.loadGraduationsTable()">
+      <option value="">All</option>
+      <option value="Distinction">Distinction</option>
+      <option value="Upper Credit">Upper Credit</option>
+      <option value="Lower Credit">Lower Credit</option>
+      <option value="Pass">Pass</option>
+      <option value="Fail">Fail</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="grad-search"
+           placeholder="Name or matric…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadGraduationsTable()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="grad-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Pending</div>
+    <div class="value" id="grad-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Graduated</div>
+    <div class="value" id="grad-stat-graduated">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Distinctions</div>
+    <div class="value" id="grad-stat-dist">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Queued &amp; Graduated</h3>
+    <span class="small muted" id="grad-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:32px;"><input type="checkbox" id="grad-select-all" /></th>
+            <th>Matric</th>
+            <th>Student</th>
+            <th style="width:80px;">Level</th>
+            <th style="width:80px;">CGPA</th>
+            <th style="width:140px;">Classification</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:220px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="grad-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .grad-class {
+    display: inline-block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .grad-class.distinction   { background: #fef3c7; color: #92400e; }
+  .grad-class.upper         { background: #dbeafe; color: #1e40af; }
+  .grad-class.lower         { background: #ecfdf5; color: #065f46; }
+  .grad-class.pass          { background: #f1f5f9; color: #475569; }
+  .grad-class.fail          { background: #fee2e2; color: #991b1b; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadGraduationsTable()
+</script>

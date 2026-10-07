@@ -1,0 +1,35 @@
+<!-- Portal → Shared → (borrowed) Sessions management -->
+<section class="page-head">
+  <div><h2>Sessions</h2><p class="muted small">Academic sessions (read-only for most roles)</p></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Sessions</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Name</th><th>Start</th><th>End</th><th>Current</th></tr></thead>
+        <tbody id="shared-sessions-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-sessions-tbody');
+    try {
+      const res = await core.portalFetch('/api/admin/sessions');
+      const rows = res.data || [];
+      box.innerHTML = rows.map((s) => `
+        <tr>
+          <td>${core.escapeHtml(s.name)}</td>
+          <td>${core.formatDate(s.startDate)}</td>
+          <td>${core.formatDate(s.endDate)}</td>
+          <td>${s.isCurrent ? '<span class="badge badge-success">Current</span>' : ''}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="4" class="empty">No sessions.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

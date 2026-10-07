@@ -1,0 +1,32 @@
+<!-- Portal → Student → Materials -->
+<section class="page-head">
+  <div><h2>Course Materials</h2><p class="muted small">Lecture notes from your lecturers</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studMatLoad()">Refresh</button></div>
+</section>
+
+<div id="stud-mat-grid" class="grid" style="gap:.75rem;">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+  window.__studMatLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('stud-mat-grid');
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch('/api/student/materials');
+      const rows = res.data || [];
+      box.innerHTML = rows.length ? rows.map((m) => `
+        <div class="panel">
+          <div class="panel-body">
+            <strong>${core.escapeHtml(m.title)}</strong>
+            <p class="small muted">${core.escapeHtml(m.description || '')}</p>
+            <div class="small">${m.fileUrl ? `<a href="${core.escapeHtml(m.fileUrl)}" target="_blank" class="btn btn-sm btn-outline">Download</a>` : 'No file attached'}</div>
+            <div class="small muted" style="margin-top:.35rem;">${core.timeAgo(m.createdAt)}</div>
+          </div>
+        </div>
+      `).join('') : '<p class="muted">No materials uploaded yet.</p>';
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  };
+  window.__studMatLoad();
+</script>

@@ -1,0 +1,200 @@
+<!-- Admin → Students → Department overview -->
+<section class="page-head">
+  <div>
+    <h2>Students by Department</h2>
+    <p class="muted small">Click a department to view its students</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadStudentDepartments()">Refresh</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('student-form')">
+      + New Student
+    </button>
+  </div>
+</section>
+
+<!-- Overall stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Students</div>
+    <div class="value" id="stu-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Active</div>
+    <div class="value" id="stu-stat-active">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">ND</div>
+    <div class="value" id="stu-stat-nd">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">HND</div>
+    <div class="value" id="stu-stat-hnd">—</div>
+  </div>
+</div>
+
+<!-- Search across departments -->
+<div class="filters">
+  <div class="form-group" style="flex:2 1 300px;">
+    <label class="form-label">Quick search (across all departments)</label>
+    <input class="form-control" id="stu-global-search"
+           placeholder="Matric, name, or email…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.globalStudentSearch()" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">School</label>
+    <select class="form-select" id="stu-filter-school"
+            data-lookup="schools" data-placeholder="All schools"
+            onchange="FPU_ADMIN.loadStudentDepartments()"></select>
+  </div>
+  <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.globalStudentSearch()">Search</button>
+</div>
+
+<!-- Department cards grid -->
+<div id="dept-grid" class="dept-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading departments…
+  </div>
+</div>
+
+<style>
+  .dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+
+  .dept-card {
+    background: #ffffff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+
+  .dept-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #065f46, #f59e0b);
+  }
+
+  .dept-card .dept-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .dept-card .dept-code {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .dept-card .dept-school {
+    font-size: 11px;
+    color: #6b7280;
+    text-align: right;
+  }
+
+  .dept-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .dept-card .dept-count {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .dept-card .dept-count .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+
+  .dept-card .dept-count .label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .dept-card .dept-split {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dept-card .dept-chip {
+    background: #f1f5f9;
+    color: #475569;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+  }
+
+  .dept-card .dept-chip.nd { background: #dbeafe; color: #1e40af; }
+  .dept-card .dept-chip.hnd { background: #fef3c7; color: #92400e; }
+  .dept-card .dept-chip.cert { background: #dcfce7; color: #15803d; }
+
+  .dept-card .dept-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  .dept-card .dept-footer .arrow {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    color: #f59e0b;
+  }
+
+  .dept-card.empty {
+    opacity: 0.65;
+    cursor: default;
+  }
+  .dept-card.empty:hover {
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    border-color: var(--fpu-border);
+  }
+</style>
+
+<script>
+  // No inline loader — the SPA init calls loadStudentDepartments()
+</script>

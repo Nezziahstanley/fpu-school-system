@@ -1,0 +1,69 @@
+<!-- Portal → Bursar → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="bur-dash-avatar">B</div>
+    <div>
+      <h1>Welcome, <span id="bur-dash-name">Bursar</span></h1>
+      <div class="sub">Bursary Department</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="bur-dash-verified">—</strong>
+    <span>Total Verified</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
+    <div class="tile-label">Verified Payments</div>
+    <div class="tile-value" id="bur-dash-vercount">—</div>
+    <div class="tile-sub" id="bur-dash-veramount">—</div>
+  </div>
+  <div class="tile tile-accent">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+    <div class="tile-label">Pending Payments</div>
+    <div class="tile-value" id="bur-dash-pendcount">—</div>
+    <div class="tile-sub" id="bur-dash-pendamount">—</div>
+  </div>
+  <div class="tile tile-blue">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div class="tile-label">Cleared Students</div>
+    <div class="tile-value" id="bur-dash-cleared">—</div>
+    <div class="tile-sub">all types</div>
+  </div>
+  <div class="tile tile-purple">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+    <div class="tile-label">Total Records</div>
+    <div class="tile-value" id="bur-dash-total">—</div>
+    <div class="tile-sub">all statuses</div>
+  </div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('bursar-payments')">Verify Payments</a>
+  <a onclick="FPU_SPA.navigatePortal('bursar-fees')">Fee Structures</a>
+  <a onclick="FPU_SPA.navigatePortal('bursar-clearances')">Clearances</a>
+  <a onclick="FPU_SPA.navigatePortal('bursar-reports')">Reports</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/bursar/dashboard');
+      const d = res.data || {};
+      document.getElementById('bur-dash-name').textContent = core.getPortalUser()?.firstName || 'Bursar';
+      if (photo) photo.renderMyAvatar(document.getElementById('bur-dash-avatar'), core.getPortalUser());
+
+      const bs = d.byStatus || {};
+      document.getElementById('bur-dash-vercount').textContent = bs.verified || 0;
+      document.getElementById('bur-dash-veramount').textContent = core.formatMoney(d.totalVerified || 0);
+      document.getElementById('bur-dash-pendcount').textContent = bs.pending || 0;
+      document.getElementById('bur-dash-pendamount').textContent = core.formatMoney(d.totalPending || 0);
+      document.getElementById('bur-dash-cleared').textContent = (d.pendingClearances || {}).cleared || 0;
+      document.getElementById('bur-dash-total').textContent = Object.values(bs).reduce((a, b) => a + b, 0);
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

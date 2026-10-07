@@ -1,0 +1,50 @@
+<!-- Portal → Exam Officer → Exam Attendance -->
+<section class="page-head">
+  <div><h2>Exam Attendance</h2><p class="muted small">Record which students showed up for each exam</p></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:1 1 220px;">
+    <label class="form-label">Exam Schedule ID</label>
+    <input class="form-control" id="eo-att-sch" type="number" />
+  </div>
+  <button class="btn btn-primary" id="eo-att-load">Load Attendance</button>
+</div>
+
+<div id="eo-att-counts" class="gpa-summary"></div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Students</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Matric</th><th>Name</th><th>Status</th></tr></thead>
+        <tbody id="eo-att-tbody"><tr><td colspan="3" class="empty">Enter a schedule ID above.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById('eo-att-load').addEventListener('click', async () => {
+    const core = window.FPU_PORTAL;
+    const id = document.getElementById('eo-att-sch').value.trim();
+    const tbody = document.getElementById('eo-att-tbody');
+    const counts = document.getElementById('eo-att-counts');
+    if (!id) return;
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/exam-officer/attendance?examScheduleId=${id}`);
+      const rows = res.data || [];
+      const c = res.counts || [];
+      counts.innerHTML = c.length ? c.map((x) => `<div class="item"><div class="label">${core.escapeHtml(x.status)}</div><div class="value">${x.c}</div></div>`).join('') : '';
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.student?.matricNumber || '')}</td>
+          <td>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</td>
+          <td><span class="badge badge-${r.record.status === 'present' ? 'success' : 'danger'}">${core.escapeHtml(r.record.status)}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="3" class="empty">No attendance records yet.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  });
+</script>

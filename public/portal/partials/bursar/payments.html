@@ -1,0 +1,82 @@
+<!-- Portal → Bursar → Payments -->
+<section class="page-head">
+  <div><h2>Payments</h2><p class="muted small">Verify or reject student payments</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burPayLoad()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="bur-pay-status" onchange="window.__burPayLoad()">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="verified">Verified</option>
+      <option value="rejected">Rejected</option>
+      <option value="refunded">Refunded</option>
+    </select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Payments</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Reference</th><th>Student</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody id="bur-pay-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__burPayLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('bur-pay-tbody');
+    const status = document.getElementById('bur-pay-status').value;
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/bursar/payments?${qs}`);
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.payment.reference)}</td>
+          <td>${r.student ? core.escapeHtml(r.student.firstName + ' ' + r.student.lastName) : '—'}</td>
+          <td class="num">${core.formatMoney(r.payment.amount)}</td>
+          <td><span class="badge badge-${r.payment.status === 'verified' ? 'success' : r.payment.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.payment.status)}</span></td>
+          <td>${core.formatDate(r.payment.createdAt)}</td>
+          <td>
+            ${r.payment.status === 'pending' ? `
+              <button class="btn btn-sm btn-primary" onclick="window.__burPayVerify(${r.payment.id})">Verify</button>
+              <button class="btn btn-sm btn-ghost" onclick="window.__burPayReject(${r.payment.id})">Reject</button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" class="empty">No payments.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__burPayVerify = async function (id) {
+    const core = window.FPU_PORTAL;
+    try {
+      await core.portalFetch(`/api/bursar/payments/${id}/verify`, { method: 'POST' });
+      core.showToast('Payment verified.', 'success');
+      window.__burPayLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__burPayReject = async function (id) {
+    const core = window.FPU_PORTAL;
+    const reason = prompt('Reason for rejection:');
+    if (reason === null) return;
+    try {
+      await core.portalFetch(`/api/bursar/payments/${id}/reject`, { method: 'POST', body: { reason } });
+      core.showToast('Payment rejected.', 'warning');
+      window.__burPayLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__burPayLoad();
+</script>

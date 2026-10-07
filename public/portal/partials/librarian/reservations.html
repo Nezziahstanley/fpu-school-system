@@ -1,0 +1,55 @@
+<!-- Portal → Librarian → Reservations -->
+<section class="page-head">
+  <div><h2>Book Reservations</h2><p class="muted small">Students waiting for books</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__libResLoad()">Refresh</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Reservations</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Book</th><th>User</th><th>Status</th><th>Reserved</th><th>Actions</th></tr></thead>
+        <tbody id="lib-res-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__libResLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('lib-res-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/librarian/reservations');
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.book?.title || '')}</td>
+          <td>${r.user ? core.escapeHtml(r.user.firstName + ' ' + r.user.lastName) : '—'}</td>
+          <td><span class="badge badge-${r.reservation.status === 'ready' ? 'info' : r.reservation.status === 'fulfilled' ? 'success' : 'warning'}">${core.escapeHtml(r.reservation.status)}</span></td>
+          <td>${core.formatDate(r.reservation.reservedAt)}</td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="window.__libResReady(${r.reservation.id})">Mark Ready</button>
+            <button class="btn btn-sm btn-primary" onclick="window.__libResFulfill(${r.reservation.id})">Fulfill</button>
+          </td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No reservations.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__libResReady = async function (id) {
+    const core = window.FPU_PORTAL;
+    try { await core.portalFetch(`/api/admin/library/reservations/${id}/ready`, { method: 'POST' }); core.showToast('Marked ready.', 'success'); window.__libResLoad(); }
+    catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__libResFulfill = async function (id) {
+    const core = window.FPU_PORTAL;
+    try { await core.portalFetch(`/api/admin/library/reservations/${id}/fulfill`, { method: 'POST' }); core.showToast('Fulfilled.', 'success'); window.__libResLoad(); }
+    catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__libResLoad();
+</script>

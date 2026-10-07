@@ -1,0 +1,45 @@
+<!-- Portal → Lecturer → Reports -->
+<section class="page-head">
+  <div><h2>Reports</h2><p class="muted small">Summary of my course activity</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecRepLoad()">Refresh</button></div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Courses</div><div class="tile-value" id="lec-rep-courses">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Total Result Rows</div><div class="tile-value" id="lec-rep-total">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Drafts</div><div class="tile-value" id="lec-rep-draft">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Published</div><div class="tile-value" id="lec-rep-pub">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>By Status</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Status</th><th>Count</th></tr></thead>
+        <tbody id="lec-rep-tbody"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__lecRepLoad = async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/lecturer/reports');
+      const d = res.data || {};
+      const s = d.summary || {};
+      document.getElementById('lec-rep-courses').textContent = s.totalCourses ?? 0;
+      document.getElementById('lec-rep-total').textContent = s.totalResultRows ?? 0;
+      document.getElementById('lec-rep-draft').textContent = (s.byStatus || {}).draft ?? 0;
+      document.getElementById('lec-rep-pub').textContent = (s.byStatus || {}).published ?? 0;
+
+      const entries = Object.entries(s.byStatus || {});
+      document.getElementById('lec-rep-tbody').innerHTML = entries.length
+        ? entries.map(([k, v]) => `<tr><td>${core.escapeHtml(k)}</td><td class="num">${v}</td></tr>`).join('')
+        : '<tr><td colspan="2" class="empty">No data.</td></tr>';
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+  window.__lecRepLoad();
+</script>

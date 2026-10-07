@@ -1,0 +1,46 @@
+<!-- Portal → Lecturer → Timetable -->
+<section class="page-head">
+  <div><h2>My Timetable</h2><p class="muted small">Weekly schedule of my lectures</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecTTLoad()">Refresh</button></div>
+</section>
+
+<div id="lec-tt-grid" class="grid" style="gap:.5rem;">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+  window.__lecTTLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('lec-tt-grid');
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch('/api/lecturer/timetable');
+      const rows = res.data || [];
+      if (!rows.length) { box.innerHTML = '<p class="muted">No timetable slots yet.</p>'; return; }
+
+      const byDay = {};
+      rows.forEach((r) => {
+        const day = r.slot.dayOfWeek;
+        if (!byDay[day]) byDay[day] = [];
+        byDay[day].push(r);
+      });
+      const ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      box.innerHTML = ORDER.filter((d) => byDay[d]).map((day) => `
+        <div class="panel">
+          <div class="panel-head"><h3>${day}</h3></div>
+          <div class="panel-body">
+            ${byDay[day].map((r) => `
+              <div class="fees-row" style="margin-bottom:.4rem;">
+                <div>
+                  <strong>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</strong><br/>
+                  <span class="small muted">${core.escapeHtml(r.slot.startTime)} – ${core.escapeHtml(r.slot.endTime)} · ${core.escapeHtml(r.slot.venue || '')}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  };
+  window.__lecTTLoad();
+</script>

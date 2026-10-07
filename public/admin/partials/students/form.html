@@ -1,0 +1,154 @@
+<!-- Admin → Students → Create / Edit (with passport upload) -->
+<section class="page-head">
+  <div>
+    <h2 id="student-form-title">New Student</h2>
+    <p class="muted small" id="student-form-subtitle">Manually create a student account with auto-assigned matric</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.goBack('students')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Passport Photograph</h3></div>
+  <div class="panel-body">
+    <div class="passport-uploader" id="student-passport-uploader">
+      <input type="file" id="student-passport-file" accept="image/*" style="display:none" />
+      <div id="student-passport-preview">
+        <div class="upload-icon">📷</div>
+        <p style="margin:0;font-weight:600;color:var(--fpu-ink);">Click to upload passport</p>
+        <p class="hint" style="margin:4px 0 0;">JPG or PNG · Max 5 MB · Square photo works best</p>
+      </div>
+    </div>
+    <input type="hidden" name="passportData" id="student-passport-data" />
+    <div class="small muted" style="margin-top:6px;">
+      Optional — if skipped, the student can upload it later from their portal.
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Student Details</h3></div>
+  <div class="panel-body">
+    <form id="student-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">First Name <span class="req">*</span></label><input class="form-control" name="firstName" id="student-first" required /></div>
+        <div class="form-group"><label class="form-label">Last Name <span class="req">*</span></label><input class="form-control" name="lastName" id="student-last" required /></div>
+        <div class="form-group"><label class="form-label">Middle Name</label><input class="form-control" name="middleName" id="student-middle" /></div>
+        <div class="form-group"><label class="form-label">Email <span class="req">*</span></label><input class="form-control" type="email" name="email" id="student-email" required /></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" id="student-phone" /></div>
+        <div class="form-group"><label class="form-label">Gender</label>
+          <select class="form-select" name="gender" id="student-gender">
+            <option value="">—</option><option>Male</option><option>Female</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-control" type="date" name="dateOfBirth" id="student-dob" /></div>
+        <div class="form-group"><label class="form-label">State of Origin</label><input class="form-control" name="stateOfOrigin" id="student-state" /></div>
+        <div class="form-group"><label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" name="level" id="student-level" required>
+            <option value="ND">ND</option><option value="HND">HND</option><option value="CERT">CERT</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" id="student-school" data-lookup="schools" data-placeholder="Select school…" required></select>
+        </div>
+        <div class="form-group"><label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" name="departmentId" id="student-dept" data-lookup="departments" data-depends-on="student-school" data-param="schoolId" data-placeholder="Select school first…" required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Programme <span class="req">*</span></label>
+          <select class="form-select" name="programmeId" id="student-prog" data-lookup="programmes" data-depends-on="student-dept" data-param="departmentId" data-placeholder="Select department first…" required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Initial Password</label><input class="form-control" name="password" id="student-password" placeholder="default: student1234" /></div>
+      </div>
+
+      <div id="student-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="student-submit">Create Student</button>
+        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN.goBack('students')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .passport-uploader { border: 2px dashed var(--fpu-border); border-radius: 12px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all .2s; background: #f8fafc; max-width: 320px; margin: 0 auto; }
+  .passport-uploader:hover { border-color: var(--fpu-primary); background: #ecfdf5; }
+  .passport-uploader.has-image { border-style: solid; border-color: var(--fpu-primary); background: #fff; padding: 12px; }
+  .passport-uploader .preview-img { width: 160px; height: 160px; object-fit: cover; border-radius: 10px; margin: 0 auto; display: block; box-shadow: 0 6px 16px rgba(15,23,42,.12); }
+  .passport-uploader .hint { font-size: 13px; color: var(--fpu-muted); margin-top: 8px; }
+  .passport-uploader .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+</style>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const uploader = $('student-passport-uploader');
+    const file = $('student-passport-file');
+    const preview = $('student-passport-preview');
+    const dataInput = $('student-passport-data');
+
+    if (uploader && !uploader.__bound) {
+      uploader.__bound = true;
+      uploader.addEventListener('click', () => file.click());
+      file.addEventListener('change', () => {
+        const f = file.files[0];
+        if (!f) return;
+        if (!/^image\//.test(f.type)) { alert('Please select an image file (JPG or PNG).'); file.value = ''; return; }
+        if (f.size > 5 * 1024 * 1024) { alert('File is too large. Maximum 5 MB.'); file.value = ''; return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          preview.innerHTML = '<img src="' + dataUrl + '" alt="Passport" class="preview-img" /><p class="hint">✅ Photo ready. Click to change.</p>';
+          uploader.classList.add('has-image');
+          dataInput.value = dataUrl;
+        };
+        reader.readAsDataURL(f);
+      });
+    }
+
+    const form = $('student-form');
+    if (form && !form.__bound) {
+      form.__bound = true;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const valEl = $('student-validation');
+        if (valEl) valEl.innerHTML = '';
+        const fd = new FormData(form);
+        const payload = Object.fromEntries(fd.entries());
+        if (dataInput && dataInput.value) payload.passportData = dataInput.value;
+        if (!payload.firstName || !payload.lastName || !payload.email) {
+          if (valEl) valEl.innerHTML = '<div class="alert alert-error">⚠️ First name, last name, and email are required.</div>';
+          return;
+        }
+        if (!payload.departmentId || !payload.programmeId) {
+          if (valEl) valEl.innerHTML = '<div class="alert alert-error">⚠️ Department and programme are required.</div>';
+          return;
+        }
+        const btn = $('student-submit');
+        const orig = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Creating…';
+        try {
+          const res = await A.adminFetch('/api/admin/students', { method: 'POST', body: JSON.stringify(payload) });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.error);
+          A.showToast('✅ Student created.');
+          if (json.data && json.data.id) A.FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: json.data.id });
+          else A.FPU_ADMIN_SPA.navigateTo('students');
+        } catch (err) {
+          if (valEl) valEl.innerHTML = '<div class="alert alert-error">❌ ' + A.escapeHtml(err.message) + '</div>';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = orig;
+        }
+      });
+    }
+  })();
+</script>

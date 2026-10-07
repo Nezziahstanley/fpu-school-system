@@ -1,0 +1,29 @@
+<!-- Portal → Shared → Programmes (read-only) -->
+<section class="page-head">
+  <div><h2>Programmes</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>All Programmes</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Name</th><th>Level</th></tr></thead>
+        <tbody id="shared-programmes-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-programmes-tbody');
+    try {
+      const res = await core.portalFetch('/api/admin/programmes');
+      box.innerHTML = (res.data || []).map((p) => `
+        <tr><td>${core.escapeHtml(p.code)}</td><td>${core.escapeHtml(p.name)}</td><td>${core.escapeHtml(p.level)}</td></tr>
+      `).join('') || '<tr><td colspan="3" class="empty">No programmes.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

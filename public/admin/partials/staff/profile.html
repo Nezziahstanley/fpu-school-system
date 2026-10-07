@@ -1,0 +1,212 @@
+<!-- ============================================================
+     Admin → Staff → Profile
+     ------------------------------------------------------------
+     Works for any staff role. Shows:
+       • Header card (avatar, name, role, department, status)
+       • Contact / bio
+       • Department / rank / specialization
+       • Courses taught (with session + units)
+       • Recent activity (audit log for this user)
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2>Staff Profile</h2>
+    <p class="muted small" id="sp-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="sp-back" onclick="FPU_ADMIN.goBack('staff')">← Back</button>
+    <button class="btn btn-outline btn-sm" id="sp-view-workload">
+      View Workload
+    </button>
+    <button class="btn btn-outline btn-sm" id="sp-reset-pwd">
+      Reset Password
+    </button>
+    <button class="btn btn-outline btn-sm" id="sp-toggle-active">
+      Toggle Active
+    </button>
+    <button class="btn btn-primary btn-sm" id="sp-edit">
+      Edit Staff
+    </button>
+    <button class="btn btn-danger btn-sm" id="sp-delete">
+      Delete
+    </button>
+  </div>
+</section>
+
+<div class="grid grid-2" style="gap:20px; align-items:flex-start;">
+  <!-- Left: identity -->
+  <div>
+    <div class="panel">
+      <div class="panel-body">
+        <div class="sp-identity">
+          <div class="sp-avatar" id="sp-avatar">—</div>
+          <div class="sp-identity-info">
+            <div class="sp-name" id="sp-name">—</div>
+            <div class="sp-email" id="sp-email">—</div>
+            <div class="sp-badges" id="sp-badges">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Contact &amp; Bio</h3></div>
+      <div class="panel-body" id="sp-contact">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Employment</h3></div>
+      <div class="panel-body" id="sp-employment">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: activity + courses -->
+  <div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Courses Taught</h3>
+        <span class="small muted" id="sp-courses-count">—</span>
+      </div>
+      <div class="panel-body flush" id="sp-courses">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Recent Activity</h3></div>
+      <div class="panel-body" id="sp-activity">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sp-identity {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .sp-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 4px solid #fff;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+  }
+  .sp-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .sp-identity-info { flex: 1; min-width: 0; }
+  .sp-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+  .sp-email {
+    font-size: 13.5px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  .sp-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 13.5px;
+    gap: 12px;
+  }
+  .field-row:last-child { border-bottom: none; }
+  .field-row .k { color: #6b7280; flex-shrink: 0; }
+  .field-row .v { color: #0f172a; font-weight: 500; text-align: right; word-break: break-word; }
+
+  .sp-course-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .sp-course-row:last-child { border-bottom: none; }
+  .sp-course-row .code {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #065f46;
+    background: #ecfdf5;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12.5px;
+  }
+  .sp-course-row .title { flex: 1; font-size: 13.5px; color: #0f172a; }
+  .sp-course-row .units {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    color: #f59e0b;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item .icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #ecfdf5;
+    color: #065f46;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .activity-item .body { flex: 1; min-width: 0; }
+  .activity-item .body strong {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    color: #0f172a;
+  }
+  .activity-item .body p {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: #6b7280;
+  }
+  .activity-item .time {
+    font-size: 11.5px;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStaffProfile()
+</script>

@@ -1,0 +1,37 @@
+<!-- Portal → Shared → Library catalogue -->
+<section class="page-head">
+  <div><h2>Library</h2><p class="muted small">Search the book catalogue</p></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="shared-lib-search" placeholder="Title, author or ISBN…" onkeydown="if(event.key==='Enter')window.__sharedLibSearch()" />
+  </div>
+  <button class="btn btn-primary btn-sm" onclick="window.__sharedLibSearch()">Search</button>
+</div>
+
+<div id="shared-lib-grid" class="grid grid-3">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+  window.__sharedLibSearch = async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-lib-grid');
+    const q = document.getElementById('shared-lib-search').value.trim();
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch(`/api/admin/library/books?limit=60${q ? '&search=' + encodeURIComponent(q) : ''}`);
+      const books = res.data || [];
+      box.innerHTML = books.length ? books.map((b) => `
+        <div class="card"><div class="card-body">
+          <h4>${core.escapeHtml(b.title)}</h4>
+          <p class="small muted">${core.escapeHtml(b.author || '')}</p>
+          <p class="small">Available: <strong>${b.copiesAvailable}</strong> / ${b.copiesTotal}</p>
+        </div></div>
+      `).join('') : '<p class="muted">No books found.</p>';
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  };
+  document.addEventListener('DOMContentLoaded', window.__sharedLibSearch);
+</script>

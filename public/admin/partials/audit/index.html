@@ -1,0 +1,123 @@
+<!-- ============================================================
+     Admin → Audit Logs
+     ------------------------------------------------------------
+     Filterable audit log with user enrichment + JSON expand.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Audit Logs</h2>
+    <p class="muted small">Every privileged action is logged here</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAuditTable()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="audit-export">Export CSV</button>
+  </div>
+</section>
+
+<!-- Tabs: Audit / Login History -->
+<div class="staff-role-tabs" id="audit-tabs">
+  <button class="staff-role-tab active" data-tab="audit">Audit Log</button>
+  <button class="staff-role-tab" data-tab="login">Login History</button>
+</div>
+
+<!-- Audit filters -->
+<div class="filters" id="audit-filters">
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Action</label>
+    <input class="form-control" id="audit-action" placeholder="e.g. result.submit" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAuditTable()" />
+  </div>
+  <div class="form-group" style="flex:2 1 180px;">
+    <label class="form-label">Entity</label>
+    <input class="form-control" id="audit-entity" placeholder="e.g. result, user" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAuditTable()" />
+  </div>
+  <div class="form-group" style="flex:1 1 150px;">
+    <label class="form-label">From</label>
+    <input class="form-control" type="date" id="audit-from" onchange="FPU_ADMIN.loadAuditTable()" />
+  </div>
+  <div class="form-group" style="flex:1 1 150px;">
+    <label class="form-label">To</label>
+    <input class="form-control" type="date" id="audit-to" onchange="FPU_ADMIN.loadAuditTable()" />
+  </div>
+  <button class="btn btn-primary" onclick="FPU_ADMIN.loadAuditTable()">Apply</button>
+</div>
+
+<!-- Audit table -->
+<div class="panel" id="audit-panel">
+  <div class="panel-head">
+    <h3>Recent Entries</h3>
+    <span class="small muted" id="audit-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:36px;"></th>
+            <th>Action</th>
+            <th>User</th>
+            <th style="width:120px;">Entity</th>
+            <th style="width:100px;">Entity ID</th>
+            <th style="width:140px;">IP</th>
+            <th style="width:160px;">Time</th>
+          </tr>
+        </thead>
+        <tbody id="audit-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Login history panel -->
+<div class="panel" id="login-panel" style="display:none;">
+  <div class="panel-head">
+    <h3>Login History</h3>
+    <span class="small muted" id="login-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:160px;">IP</th>
+            <th>Reason</th>
+            <th style="width:180px;">Time</th>
+          </tr>
+        </thead>
+        <tbody id="login-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .audit-row {
+    cursor: pointer;
+  }
+  .audit-detail {
+    display: none;
+    background: #f8fafc;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #0f172a;
+    white-space: pre-wrap;
+    word-break: break-all;
+    border-top: 1px solid #e5e7eb;
+  }
+  .audit-detail.open { display: table-cell; }
+  .audit-detail-row.open { display: table-row; }
+  .audit-detail-row { display: none; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadAuditTable()
+</script>

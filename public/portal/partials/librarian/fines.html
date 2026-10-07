@@ -1,0 +1,46 @@
+<!-- Portal → Librarian → Fines -->
+<section class="page-head">
+  <div><h2>Library Fines</h2><p class="muted small">Manage student fines</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__libFinesLoad()">Refresh</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Fines</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>User</th><th>Amount</th><th>Reason</th><th>Paid?</th><th>Actions</th></tr></thead>
+        <tbody id="lib-fines-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__libFinesLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('lib-fines-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/librarian/fines');
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${r.user ? core.escapeHtml(r.user.firstName + ' ' + r.user.lastName) : '—'}</td>
+          <td class="num">${core.formatMoney(r.fine.amount)}</td>
+          <td>${core.escapeHtml(r.fine.reason || '')}</td>
+          <td>${r.fine.isPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Unpaid</span>'}</td>
+          <td>${!r.fine.isPaid ? `<button class="btn btn-sm btn-primary" onclick="window.__libFinePay(${r.fine.id})">Mark Paid</button>` : ''}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No fines.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__libFinePay = async function (id) {
+    const core = window.FPU_PORTAL;
+    try { await core.portalFetch(`/api/admin/library/fines/${id}/pay`, { method: 'POST' }); core.showToast('Marked paid.', 'success'); window.__libFinesLoad(); }
+    catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__libFinesLoad();
+</script>

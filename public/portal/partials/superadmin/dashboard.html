@@ -1,0 +1,59 @@
+<!-- Portal → Superadmin (admin role) → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="sa-dash-avatar">A</div>
+    <div>
+      <h1>Welcome, <span id="sa-dash-name">Administrator</span></h1>
+      <div class="sub">System Administration</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong>Full Access</strong>
+    <span>Role</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="sa-t-students">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Lecturers</div><div class="tile-value" id="sa-t-lecturers">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending Applications</div><div class="tile-value" id="sa-t-apps">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Pending Results</div><div class="tile-value" id="sa-t-results">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Go to Full Admin Panel</h3></div>
+  <div class="panel-body">
+    <p class="muted small">The admin role has a dedicated SPA with ~60 partials covering every part of the system.</p>
+    <a href="/admin/app.html" class="btn btn-primary">Open Full Admin Panel →</a>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Quick Links</h3></div>
+  <div class="panel-body">
+    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
+      <a class="btn btn-outline btn-sm" href="/admin/app.html#users">Users</a>
+      <a class="btn btn-outline btn-sm" href="/admin/app.html#settings">Settings</a>
+      <a class="btn btn-outline btn-sm" href="/admin/app.html#security">Security</a>
+      <a class="btn btn-outline btn-sm" href="/admin/app.html#audit">Audit</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      document.getElementById('sa-dash-name').textContent = core.getPortalUser()?.firstName || 'Administrator';
+      if (photo) photo.renderMyAvatar(document.getElementById('sa-dash-avatar'), core.getPortalUser());
+
+      const res = await core.portalFetch('/api/admin/reports/overview');
+      const d = res.data || {};
+      document.getElementById('sa-t-students').textContent = d.students ?? 0;
+      document.getElementById('sa-t-lecturers').textContent = d.lecturers ?? 0;
+      document.getElementById('sa-t-apps').textContent = d.pendingApplications ?? 0;
+      document.getElementById('sa-t-results').textContent = d.pendingResults ?? 0;
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

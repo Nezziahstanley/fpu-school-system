@@ -1,0 +1,99 @@
+<!-- ============================================================
+     Admin → Documents → Detail
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Document Request</h2>
+    <p class="muted small" id="dd-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back</button>
+    <button class="btn btn-outline btn-sm" id="dd-print">🖨 Print</button>
+  </div>
+</section>
+
+<div id="dd-root">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<style>
+  .doc-detail {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 14px;
+    padding: 32px 36px;
+    box-shadow: 0 4px 20px rgba(15,23,42,0.06);
+    border-top: 5px solid #065f46;
+  }
+  .doc-detail-head {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--fpu-border);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .doc-detail-icon {
+    width: 64px; height: 64px;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#065f46,#10b981);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    flex-shrink: 0;
+  }
+  .doc-detail-meta { flex: 1; min-width: 0; }
+  .doc-detail-meta h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    color: #0f172a;
+    margin: 0 0 4px;
+    line-height: 1.3;
+  }
+  .doc-detail-meta .sub {
+    font-size: 13px;
+    color: #6b7280;
+  }
+  .doc-detail-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .doc-detail-row {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .doc-detail-row .k {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  .doc-detail-row .v {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    word-break: break-word;
+  }
+  .doc-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 1px solid var(--fpu-border);
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadDocumentDetail()
+</script>

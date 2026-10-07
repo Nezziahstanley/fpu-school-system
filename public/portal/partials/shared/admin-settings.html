@@ -1,0 +1,39 @@
+<!-- Portal → Shared → Settings (admins only) -->
+<section class="page-head">
+  <div><h2>System Settings</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Settings</h3></div>
+  <div class="panel-body" id="shared-settings-box">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-settings-box');
+    try {
+      const res = await core.portalFetch('/api/admin/settings');
+      const rows = res.data || [];
+      box.innerHTML = rows.map((s) => `
+        <div class="form-group">
+          <label class="form-label">${core.escapeHtml(s.key)} <span class="small muted">(${core.escapeHtml(s.category || '')})</span></label>
+          <input class="form-control" data-key="${core.escapeHtml(s.key)}" value="${core.escapeHtml(s.value || '')}" />
+        </div>
+      `).join('') + `
+        <div class="form-actions"><button class="btn btn-primary" id="sh-save-settings">Save</button></div>
+      `;
+
+      document.getElementById('sh-save-settings').addEventListener('click', async () => {
+        const settings = {};
+        box.querySelectorAll('[data-key]').forEach((i) => { settings[i.dataset.key] = i.value; });
+        try {
+          await core.portalFetch('/api/admin/settings/bulk', { method: 'POST', body: { settings } });
+          core.showToast('Settings saved.', 'success');
+        } catch (err) { core.showToast(err.message, 'error'); }
+      });
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  })();
+</script>

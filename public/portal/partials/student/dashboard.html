@@ -1,0 +1,100 @@
+<!-- Portal → Student → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="stud-dash-avatar">S</div>
+    <div>
+      <h1>Welcome back, <span id="stud-dash-name">Student</span></h1>
+      <div class="sub" id="stud-dash-matric">—</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="stud-dash-session">—</strong>
+    <span>Current Session</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/></svg></div>
+    <div class="tile-label">Registered Courses</div>
+    <div class="tile-value" id="stud-dash-courses">—</div>
+    <div class="tile-sub" id="stud-dash-units">Total units: —</div>
+  </div>
+  <div class="tile tile-blue">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
+    <div class="tile-label">CGPA</div>
+    <div class="tile-value" id="stud-dash-cgpa">—</div>
+    <div class="tile-sub" id="stud-dash-class">—</div>
+  </div>
+  <div class="tile tile-accent">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
+    <div class="tile-label">Fees Balance</div>
+    <div class="tile-value" id="stud-dash-balance">—</div>
+    <div class="tile-sub" id="stud-dash-paid">—</div>
+  </div>
+  <div class="tile tile-purple">
+    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/></svg></div>
+    <div class="tile-label">Notifications</div>
+    <div class="tile-value" id="stud-dash-notif">—</div>
+    <div class="tile-sub">unread messages</div>
+  </div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('student-registration')">Register Courses</a>
+  <a onclick="FPU_SPA.navigatePortal('student-results')">View Results</a>
+  <a onclick="FPU_SPA.navigatePortal('student-timetable')">Timetable</a>
+  <a onclick="FPU_SPA.navigatePortal('student-fees')">Pay Fees</a>
+  <a onclick="FPU_SPA.navigatePortal('student-clearance')">Clearance</a>
+  <a onclick="FPU_SPA.navigatePortal('student-id-card')">ID Card</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Current Semester Overview</h3></div>
+  <div class="panel-body">
+    <div class="grid grid-3" style="gap:.75rem;">
+      <div class="fees-row"><span>Approved Registrations</span><strong id="stud-dash-appr">—</strong></div>
+      <div class="fees-row"><span>Pending Registrations</span><strong id="stud-dash-pend">—</strong></div>
+      <div class="fees-row"><span>Clearance Status</span><strong id="stud-dash-clear">—</strong></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/student/dashboard');
+      const d = res.data || {};
+      const s = d.student || {};
+
+      document.getElementById('stud-dash-name').textContent = s.firstName || 'Student';
+      document.getElementById('stud-dash-matric').textContent = s.matricNumber || 'No matric assigned';
+      document.getElementById('stud-dash-session').textContent = s.currentSession?.name || '—';
+
+      if (photo) photo.renderMyAvatar(document.getElementById('stud-dash-avatar'), s);
+
+      const reg = d.registration || {};
+      document.getElementById('stud-dash-courses').textContent = reg.totalCourses ?? 0;
+      document.getElementById('stud-dash-units').textContent = `Total units: ${reg.totalUnits ?? 0}`;
+      document.getElementById('stud-dash-appr').textContent = reg.totalCourses - (reg.pending || 0);
+      document.getElementById('stud-dash-pend').textContent = reg.pending ?? 0;
+
+      const acad = d.academic || {};
+      document.getElementById('stud-dash-cgpa').textContent = Number(acad.cgpa || 0).toFixed(2);
+      document.getElementById('stud-dash-class').textContent = acad.classification || '—';
+
+      const f = d.fees || {};
+      document.getElementById('stud-dash-balance').textContent = core.formatMoney(f.balance || 0);
+      document.getElementById('stud-dash-paid').textContent = `Paid: ${core.formatMoney(f.totalPaid || 0)} / ${core.formatMoney(f.totalDue || 0)}`;
+
+      document.getElementById('stud-dash-notif').textContent = d.unreadNotifications ?? 0;
+
+      const cle = (d.clearance || [])[0];
+      document.getElementById('stud-dash-clear').textContent = cle ? cle.status : 'pending';
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  })();
+</script>

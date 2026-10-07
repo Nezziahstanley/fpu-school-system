@@ -1,0 +1,358 @@
+<!-- ============================================================
+     Admin → Schools → Detail
+     ------------------------------------------------------------
+     Shows a single school with:
+       • Header stats (departments / programmes / courses / students)
+       • List of departments with their own stats
+       • List of programmes
+       • Full course breakdown (grouped by department)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="school-detail-title">School</h2>
+    <p class="muted small" id="school-detail-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('schools')">
+      ← All Schools
+    </button>
+    <button class="btn btn-outline btn-sm" id="school-detail-edit">
+      Edit School
+    </button>
+    <button class="btn btn-primary btn-sm" id="school-detail-new-dept">
+      + New Department
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Departments</div>
+    <div class="value" id="sdd-stat-departments">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Programmes</div>
+    <div class="value" id="sdd-stat-programmes">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Courses</div>
+    <div class="value" id="sdd-stat-courses">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Students</div>
+    <div class="value" id="sdd-stat-students">—</div>
+  </div>
+</div>
+
+<!-- Departments -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Departments</h3>
+    <span class="small muted">Departments under this school</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Programmes</th>
+            <th>Courses</th>
+            <th>Units</th>
+            <th>Students</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sdd-depts-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Programmes -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Programmes</h3>
+    <span class="small muted">All programmes in this school</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Level</th>
+            <th>Department</th>
+            <th>Duration</th>
+            <th>Students</th>
+          </tr>
+        </thead>
+        <tbody id="sdd-progs-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Course breakdown by department -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Course Breakdown</h3>
+    <span class="small muted">Courses grouped by department</span>
+  </div>
+  <div class="panel-body" id="sdd-course-breakdown">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</div>
+
+<style>
+  .breakdown-dept {
+    margin-bottom: 20px;
+    border: 1px solid var(--fpu-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .breakdown-dept-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--fpu-border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .breakdown-dept-head strong {
+    font-family: 'Poppins', sans-serif;
+    color: #065f46;
+    font-size: 13.5px;
+  }
+  .breakdown-dept-head .meta {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  .breakdown-dept-head .meta strong {
+    color: #f59e0b;
+    font-size: 13px;
+    font-family: 'Poppins', sans-serif;
+  }
+  .breakdown-dept:last-child { margin-bottom: 0; }
+</style>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+
+    if (!id) {
+      $('sdd-depts-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No school ID provided.</td></tr>';
+      return;
+    }
+
+    $('school-detail-edit').addEventListener('click', () => {
+      A.FPU_ADMIN_SPA.navigateToWithQuery('school-form', { id });
+    });
+
+    $('school-detail-new-dept').addEventListener('click', () => {
+      A.FPU_ADMIN_SPA.navigateToWithQuery('department-form', { schoolId: Number(id) });
+    });
+
+    async function load() {
+      try {
+        // 1) School itself
+        const schoolRes = await A.adminFetch(`/api/admin/schools/${id}`);
+        const schoolJson = await schoolRes.json();
+        if (!schoolJson.success) throw new Error(schoolJson.error);
+        const school = schoolJson.data;
+
+        $('school-detail-title').textContent = school.name || `School #${id}`;
+        $('school-detail-subtitle').textContent =
+          `${school.code || ''}${school.description ? ' · ' + school.description : ''}`;
+
+        // 2) Everything in parallel
+        const [deptsRes, progsRes, coursesRes, studentsRes] = await Promise.all([
+          A.adminFetch(`/api/admin/departments?schoolId=${id}`),
+          A.adminFetch('/api/admin/programmes'),
+          A.adminFetch('/api/admin/courses?limit=2000'),
+          A.adminFetch(`/api/admin/students?limit=5000&schoolId=${id}`),
+        ]);
+
+        const departments = (await deptsRes.json()).data || [];
+        const allProgs    = (await progsRes.json()).data   || [];
+        const allCourses  = (await coursesRes.json()).data || [];
+        const students    = (await studentsRes.json()).data || [];
+
+        // Filter programmes to this school's departments
+        const deptIdSet = new Set(departments.map((d) => d.id));
+        const programmes = allProgs.filter((p) => deptIdSet.has(p.departmentId));
+
+        // Filter courses to this school's departments
+        const courses = allCourses.filter((c) => deptIdSet.has(c.departmentId));
+
+        // ---- Overall stats ----
+        setText('sdd-stat-departments', departments.length);
+        setText('sdd-stat-programmes', programmes.length);
+        setText('sdd-stat-courses', courses.length);
+        setText('sdd-stat-students', students.length);
+
+        // ---- Bucket courses + students by department ----
+        const coursesByDept = new Map();
+        for (const c of courses) {
+          if (!coursesByDept.has(c.departmentId)) coursesByDept.set(c.departmentId, []);
+          coursesByDept.get(c.departmentId).push(c);
+        }
+        const studentsByDept = new Map();
+        for (const s of students) {
+          if (!s.departmentId) continue;
+          if (!studentsByDept.has(s.departmentId)) studentsByDept.set(s.departmentId, []);
+          studentsByDept.get(s.departmentId).push(s);
+        }
+        const progsByDept = new Map();
+        for (const p of programmes) {
+          if (!progsByDept.has(p.departmentId)) progsByDept.set(p.departmentId, []);
+          progsByDept.get(p.departmentId).push(p);
+        }
+
+        // ---- Departments table ----
+        const deptsSorted = [...departments].sort((a, b) =>
+          String(a.code).localeCompare(String(b.code))
+        );
+
+        $('sdd-depts-tbody').innerHTML = deptsSorted.length
+          ? deptsSorted.map((d) => {
+              const list = coursesByDept.get(d.id) || [];
+              const units = list.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+              const progCount = (progsByDept.get(d.id) || []).length;
+              const stuCount  = (studentsByDept.get(d.id) || []).length;
+
+              return `
+                <tr class="row-clickable"
+                    onclick="FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', { departmentId: ${d.id}, name: '${A.escapeQuotes(d.name)}' })">
+                  <td><span class="sch-code" style="font-size:10px;padding:3px 8px;">${A.escapeHtml(d.code)}</span></td>
+                  <td>${A.escapeHtml(d.name)}</td>
+                  <td>${progCount}</td>
+                  <td>${list.length}</td>
+                  <td class="num"><strong>${units}</strong></td>
+                  <td>${stuCount}</td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn btn-sm btn-outline"
+                        onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', { departmentId: ${d.id}, name: '${A.escapeQuotes(d.name)}' })">
+                        Courses
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')
+          : '<tr><td colspan="7" class="empty">No departments in this school.</td></tr>';
+
+        // ---- Programmes table ----
+        const deptMap = new Map(departments.map((d) => [d.id, d]));
+        const progsSorted = [...programmes].sort((a, b) => {
+          const da = String(a.departmentId).padStart(4, '0');
+          const db = String(b.departmentId).padStart(4, '0');
+          return da.localeCompare(db) || String(a.code).localeCompare(String(b.code));
+        });
+
+        $('sdd-progs-tbody').innerHTML = progsSorted.length
+          ? progsSorted.map((p) => {
+              const dept = deptMap.get(p.departmentId);
+              const stuCount = allProgs.find((x) => x.id === p.id)?.studentsCount
+                || students.filter((s) => s.programmeId === p.id).length;
+
+              return `
+                <tr>
+                  <td><code>${A.escapeHtml(p.code)}</code></td>
+                  <td>${A.escapeHtml(p.name)}</td>
+                  <td>${A.badge(p.level)}</td>
+                  <td>${dept ? A.escapeHtml(dept.code) + ' — ' + A.escapeHtml(dept.name) : '—'}</td>
+                  <td>${p.durationYears || 2} yrs</td>
+                  <td>${stuCount}</td>
+                </tr>
+              `;
+            }).join('')
+          : '<tr><td colspan="6" class="empty">No programmes in this school.</td></tr>';
+
+        // ---- Course breakdown (by department, compact) ----
+        const breakdownRoot = $('sdd-course-breakdown');
+
+        const nonEmptyDepts = deptsSorted.filter((d) => (coursesByDept.get(d.id) || []).length > 0);
+        if (!nonEmptyDepts.length) {
+          breakdownRoot.innerHTML = '<p class="muted">No courses registered in this school yet.</p>';
+        } else {
+          breakdownRoot.innerHTML = nonEmptyDepts.map((d) => {
+            const list = coursesByDept.get(d.id) || [];
+            const units = list.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+
+            return `
+              <div class="breakdown-dept">
+                <div class="breakdown-dept-head">
+                  <strong>${A.escapeHtml(d.code)} — ${A.escapeHtml(d.name)}</strong>
+                  <span class="meta">${list.length} course${list.length === 1 ? '' : 's'} · <strong>${units}</strong> credit unit${units === 1 ? '' : 's'}</span>
+                </div>
+                <div class="table-wrap">
+                  <table class="table-admin">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Title</th>
+                        <th>Unit</th>
+                        <th>Level</th>
+                        <th>Year</th>
+                        <th>Semester</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${[...list]
+                        .sort((a, b) => String(a.code).localeCompare(String(b.code)))
+                        .map((c) => {
+                          const year = c.yearOfStudy
+                            || (A.inferCourseYear ? A.inferCourseYear(c) : null)
+                            || '—';
+                          return `
+                            <tr>
+                              <td><code>${A.escapeHtml(c.code)}</code></td>
+                              <td>${A.escapeHtml(c.title)}</td>
+                              <td class="num">${Number(c.unit) || 0}</td>
+                              <td>${A.badge(c.level)}</td>
+                              <td>${year}</td>
+                              <td>${c.semester === 'first' ? 'First' : c.semester === 'second' ? 'Second' : A.escapeHtml(c.semester || '')}</td>
+                            </tr>
+                          `;
+                        }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        $('sdd-depts-tbody').innerHTML = `<tr><td colspan="7" class="empty">${A.escapeHtml(err.message)}</td></tr>`;
+        $('sdd-progs-tbody').innerHTML = `<tr><td colspan="6" class="empty">${A.escapeHtml(err.message)}</td></tr>`;
+        $('sdd-course-breakdown').innerHTML = `<div class="alert alert-danger">${A.escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function setText(id, v) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = v ?? '0';
+    }
+
+    load();
+  })();
+</script>

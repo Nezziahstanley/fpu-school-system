@@ -1,0 +1,114 @@
+<!-- ============================================================
+     Admin → Payments → Detail (Receipt)
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2>Payment Detail</h2>
+    <p class="muted small" id="pd2-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="pd2-back" onclick="FPU_ADMIN.goBack('payments')">← Back</button>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨 Print Receipt</button>
+  </div>
+</section>
+
+<div id="pd2-root">
+  <div class="loading"><span class="spinner"></span> Loading payment…</div>
+</div>
+
+<style>
+  .receipt {
+    max-width: 620px;
+    margin: 0 auto 24px;
+    padding: 32px 36px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(15,23,42,0.08);
+    border-top: 6px solid #065f46;
+  }
+  .receipt-head {
+    text-align: center;
+    padding-bottom: 20px;
+    border-bottom: 2px dashed #cbd5e1;
+    margin-bottom: 20px;
+  }
+  .receipt-head h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1rem;
+    color: #065f46;
+    margin: 0 0 4px;
+    letter-spacing: 0.5px;
+  }
+  .receipt-head .sub {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  .receipt-head .doc-type {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 999px;
+    margin-top: 8px;
+  }
+  .receipt-amount {
+    text-align: center;
+    margin: 20px 0;
+  }
+  .receipt-amount .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.6rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .receipt-amount .ref {
+    font-family: 'Courier New', monospace;
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .receipt-status {
+    text-align: center;
+    margin: 16px 0 24px;
+  }
+  .receipt-rows {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 24px;
+  }
+  .receipt-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    font-size: 13.5px;
+    gap: 12px;
+  }
+  .receipt-row:last-child { border-bottom: none; }
+  .receipt-row .k { color: #6b7280; flex-shrink: 0; }
+  .receipt-row .v { color: #0f172a; font-weight: 600; text-align: right; word-break: break-word; }
+  .receipt-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+  }
+  @media print {
+    .no-print, .sidebar, .topbar { display: none !important; }
+    .main { margin: 0 !important; padding: 0 !important; }
+    .receipt { box-shadow: none; border-radius: 0; }
+    @page { size: A4 portrait; margin: 10mm; }
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadPaymentDetail()
+</script>

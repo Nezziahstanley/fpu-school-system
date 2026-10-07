@@ -1,0 +1,88 @@
+<!-- Portal → Lecturer → Materials -->
+<section class="page-head">
+  <div><h2>Course Materials</h2><p class="muted small">Upload lecture notes and resources</p></div>
+  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-mat-new">+ New Material</button></div>
+</section>
+
+<div class="panel" id="lec-mat-new-panel" style="display:none;">
+  <div class="panel-head"><h3>New Material</h3></div>
+  <div class="panel-body">
+    <form id="lec-mat-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Course ID <span class="req">*</span></label><input class="form-control" name="courseId" type="number" required /></div>
+        <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="form-select" name="materialType">
+            <option value="note">Lecture Note</option>
+            <option value="slide">Slide</option>
+            <option value="video">Video</option>
+            <option value="link">Link</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">File URL</label><input class="form-control" name="fileUrl" /></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Upload</button>
+        <button type="button" class="btn btn-ghost" id="lec-mat-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>My Materials</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Created</th><th></th></tr></thead>
+        <tbody id="lec-mat-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+
+    async function load() {
+      const tbody = document.getElementById('lec-mat-tbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+      try {
+        const res = await core.portalFetch('/api/lecturer/materials');
+        const rows = res.data || [];
+        tbody.innerHTML = rows.length ? rows.map((m) => `
+          <tr>
+            <td>${core.escapeHtml(m.title)}</td>
+            <td>Course ${m.courseId}</td>
+            <td>${core.escapeHtml(m.materialType || 'note')}</td>
+            <td>${core.formatDate(m.createdAt)}</td>
+            <td>${m.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(m.fileUrl)}" target="_blank">Open</a>` : ''}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="5" class="empty">No materials uploaded.</td></tr>';
+      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+    }
+
+    document.getElementById('lec-mat-new').addEventListener('click', () => {
+      const p = document.getElementById('lec-mat-new-panel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('lec-mat-cancel').addEventListener('click', () => {
+      document.getElementById('lec-mat-new-panel').style.display = 'none';
+    });
+    document.getElementById('lec-mat-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await core.portalFetch('/api/lecturer/materials', { method: 'POST', body: Object.fromEntries(fd) });
+        core.showToast('Material uploaded.', 'success');
+        e.target.reset();
+        document.getElementById('lec-mat-new-panel').style.display = 'none';
+        load();
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+
+    load();
+  })();
+</script>

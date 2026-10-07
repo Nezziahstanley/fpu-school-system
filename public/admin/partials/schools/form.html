@@ -1,0 +1,172 @@
+<!-- ============================================================
+     Admin → Schools → Form (Create / Edit)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="school-form-title">New School</h2>
+    <p class="muted small" id="school-form-subtitle">Create a new academic school</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="school-form-back" onclick="FPU_ADMIN.goBack('schools')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>School Details</h3></div>
+  <div class="panel-body">
+    <form id="school-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Code <span class="req">*</span></label>
+          <input class="form-control" name="code" id="school-code"
+                 placeholder="e.g. SST" required
+                 style="text-transform:uppercase;" />
+          <div class="form-help">Short uppercase code (2–6 letters)</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Name <span class="req">*</span></label>
+          <input class="form-control" name="name" id="school-name"
+                 placeholder="e.g. School of Science and Technology" required />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" id="school-desc" rows="3"
+                  placeholder="Optional — brief description"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="school-submit">Create School</button>
+        <button type="button" class="btn btn-ghost" id="school-cancel" onclick="FPU_ADMIN.goBack('schools')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="school-delete"
+                style="margin-left:auto;display:none;">Delete School</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('school-form-title').textContent = 'Edit School';
+      $('school-form-subtitle').textContent = 'Update this school';
+      $('school-submit').textContent = 'Save Changes';
+      $('school-delete').style.display = 'inline-flex';
+    }
+
+    // ---------- Back / Cancel ----------
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('school-by-id', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('schools');
+      }
+    }
+    $('school-form-back').addEventListener('click', goBack);
+    $('school-cancel').addEventListener('click', goBack);
+
+    // ---------- Load existing ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/schools/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const s = json.data;
+        $('school-code').value = s.code || '';
+        $('school-name').value = s.name || '';
+        $('school-desc').value = s.description || '';
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------- Submit ----------
+    $('school-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = String($('school-code').value || '').trim().toUpperCase();
+      const name = String($('school-name').value || '').trim();
+      const description = String($('school-desc').value || '').trim();
+
+      if (!/^[A-Z]{2,6}$/.test(code)) {
+        A.showToast('⚠️ Code must be 2–6 uppercase letters (e.g. SST).', 'warning');
+        return;
+      }
+      if (!name) {
+        A.showToast('⚠️ Name is required.', 'warning');
+        return;
+      }
+
+      const payload = { code, name, description: description || null };
+
+      const btn = $('school-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/schools/${id}` : '/api/admin/schools';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ School updated.' : '✅ School created.');
+
+        if (isEdit) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('school-by-id', { id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('schools');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete ----------
+    $('school-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      const code = $('school-code').value.trim();
+      if (!confirm(`Delete school "${code}"? Departments must be reassigned first.`)) return;
+
+      const btn = $('school-delete');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        const res = await A.adminFetch(`/api/admin/schools/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast('🗑️ School deleted.');
+        A.FPU_ADMIN_SPA.navigateTo('schools');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Init ----------
+    loadExisting();
+  })();
+</script>

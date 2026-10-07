@@ -1,0 +1,80 @@
+<!-- ============================================================
+     Admin → Security → Permissions Matrix
+     ------------------------------------------------------------
+     Role × Resource × Action grid. Admin can toggle.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Permissions Matrix</h2>
+    <p class="muted small">Define what each role can do</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadPermissionsMatrix()">
+      Reload
+    </button>
+    <button class="btn btn-primary btn-sm" id="perm-save">
+      💾 Save Changes
+    </button>
+  </div>
+</section>
+
+<div class="info-banner" style="max-width:none;">
+  <strong>ℹ️ How this works:</strong>
+  Each row is a permission. Rows you leave untouched use the system defaults.
+  Changes take effect immediately for new requests.
+</div>
+
+<!-- Matrix -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Matrix</h3>
+    <span class="small muted" id="perm-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin" id="perm-table">
+        <thead id="perm-thead"></thead>
+        <tbody id="perm-tbody">
+          <tr><td colspan="99" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  #perm-table th, #perm-table td {
+    text-align: center;
+    vertical-align: middle;
+  }
+  #perm-table th:first-child, #perm-table td:first-child {
+    text-align: left;
+    padding-left: 20px;
+  }
+  #perm-table .resource-cell {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 13px;
+  }
+  #perm-table .action-cell {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+  }
+  #perm-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #065f46;
+    cursor: pointer;
+  }
+  #perm-table tr.role-admin td {
+    background: #ecfdf5;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadPermissionsMatrix()
+</script>

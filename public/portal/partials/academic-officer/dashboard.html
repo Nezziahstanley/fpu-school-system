@@ -1,0 +1,47 @@
+<!-- Portal → Academic Officer → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="ao-dash-avatar">A</div>
+    <div>
+      <h1>Welcome, <span id="ao-dash-name">Academic Officer</span></h1>
+      <div class="sub">Academic Office</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="ao-dash-session">—</strong>
+    <span>Current Session</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="ao-t-students">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Queued Graduations</div><div class="tile-value" id="ao-t-grads">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Pending Results</div><div class="tile-value" id="ao-t-results">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Total Programmes</div><div class="tile-value" id="ao-t-progs">—</div></div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('admin-sessions')">Sessions</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-programmes')">Programmes</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-courses')">Courses</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-transcript')">Transcripts</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-graduations')">Graduations</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/academic-officer/dashboard');
+      const d = res.data || {};
+      document.getElementById('ao-dash-name').textContent = core.getPortalUser()?.firstName || 'Academic Officer';
+      document.getElementById('ao-dash-session').textContent = d.currentSession?.name || '—';
+      if (photo) photo.renderMyAvatar(document.getElementById('ao-dash-avatar'), core.getPortalUser());
+      document.getElementById('ao-t-students').textContent = d.students ?? 0;
+      document.getElementById('ao-t-grads').textContent = d.queuedGraduations ?? 0;
+      document.getElementById('ao-t-results').textContent = d.pendingResults ?? 0;
+      document.getElementById('ao-t-progs').textContent = '—';
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

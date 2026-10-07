@@ -1,0 +1,20 @@
+<!-- Admin → Exams -->
+<section class="page-head">
+  <div><h2>Exam Schedules</h2><p class="muted small">End-of-semester exam timetable</p></div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadExams()">Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('exam-form')">+ New Exam</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Schedules</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Venue</th><th>Invigilators</th></tr></thead>
+        <tbody id="exams-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>

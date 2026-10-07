@@ -1,0 +1,243 @@
+<!-- ============================================================
+     Admin → Fees → Department Overview
+     ------------------------------------------------------------
+     Pick a session → see every department as a card showing:
+       • # programmes with fee structures
+       • min/max total fee
+       • average total
+     Click a card → fee structures in that department.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Fee Structures</h2>
+    <p class="muted small">
+      Tuition and fee breakdowns grouped by department
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadFeeDepartments()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="fees-copy-btn">
+      📋 Copy From Prior Session
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('fee-form')">
+      + New Fee Structure
+    </button>
+  </div>
+</section>
+
+<!-- Session picker -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="fees-session"
+            data-lookup="sessions" data-placeholder="Current session"
+            onchange="FPU_ADMIN.loadFeeDepartments()"></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">School</label>
+    <select class="form-select" id="fees-school"
+            data-lookup="schools" data-placeholder="All schools"
+            onchange="FPU_ADMIN.loadFeeDepartments()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="fees-search"
+           placeholder="Department code or name…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadFeeDepartments()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Departments w/ Fees</div>
+    <div class="value" id="fees-stat-depts">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Structures</div>
+    <div class="value" id="fees-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Lowest Total</div>
+    <div class="value" id="fees-stat-min">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Highest Total</div>
+    <div class="value" id="fees-stat-max">—</div>
+  </div>
+</div>
+
+<!-- Department grid -->
+<div id="fees-dept-grid" class="fees-dept-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading departments…
+  </div>
+</div>
+
+<!-- Copy modal -->
+<div class="modal-backdrop" id="fees-copy-modal" style="display:none;">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-head">
+      <h3>Copy Fee Structures</h3>
+      <button class="icon-btn" id="fees-copy-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted small">
+        Duplicate every fee structure from one session to another.
+        Existing entries in the target session will be skipped.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Copy From</label>
+        <select class="form-select" id="copy-from-session"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Copy To</label>
+        <select class="form-select" id="copy-to-session"></select>
+      </div>
+      <div id="copy-validation"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="fees-copy-cancel" onclick="FPU_ADMIN.goBack('fees')">Cancel</button>
+      <button class="btn btn-primary" id="copy-confirm-btn">Copy Structures</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .fees-dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .fees-dept-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .fees-dept-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #065f46, #f59e0b);
+  }
+  .fees-dept-card.empty::before {
+    background: linear-gradient(90deg, #cbd5e1, #e2e8f0);
+  }
+  .fees-dept-card.empty { opacity: 0.65; cursor: default; }
+  .fees-dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+  .fdc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .fdc-code {
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .fdc-school {
+    background: linear-gradient(135deg,#065f46,#047857);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .fees-dept-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.35;
+  }
+  .fdc-range {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+  .fdc-range .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .fdc-range .label {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+  .fdc-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .fdc-stat {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+  .fdc-stat .num {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .fdc-stat .label {
+    display: block;
+    font-size: 9.5px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .fdc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .fdc-footer .arrow { color: #f59e0b; font-family: 'Poppins', sans-serif; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadFeeDepartments()
+</script>

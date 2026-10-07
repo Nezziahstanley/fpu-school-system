@@ -1,0 +1,86 @@
+<!-- ============================================================
+     Admin → Reports
+     ------------------------------------------------------------
+     KPI cards + charts + trend analysis.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Reports</h2>
+    <p class="muted small">Institution-wide analytics and KPIs</p>
+  </div>
+  <div class="actions">
+    <select class="form-select" id="rep-range" style="max-width:180px;"
+            onchange="FPU_ADMIN.loadReports()">
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="365" selected>Last 12 months</option>
+      <option value="all">All time</option>
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadReports()">Refresh</button>
+    <button class="btn btn-outline btn-sm" id="rep-export">Export CSV</button>
+  </div>
+</section>
+
+<!-- KPI cards -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Students</span><span class="value" id="rep-stat-students">—</span></div><div class="ic">🎓</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Applications</span><span class="value" id="rep-stat-apps">—</span></div><div class="ic">📋</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Revenue</span><span class="value" id="rep-stat-revenue">—</span></div><div class="ic">💰</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Programmes</span><span class="value" id="rep-stat-progs">—</span></div><div class="ic">📚</div></div>
+</div>
+
+<!-- Charts -->
+<section class="panel">
+  <div class="panel-head"><h3>📈 Trends</h3></div>
+  <div class="panel-body">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Admission Trend</h3><span class="chart-badge">Line</span></div>
+        <div class="chart-body"><canvas id="rep-chart-admission"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Revenue Trend</h3><span class="chart-badge">Line</span></div>
+        <div class="chart-body"><canvas id="rep-chart-revenue"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Enrollment by Department</h3><span class="chart-badge">Bar</span></div>
+        <div class="chart-body"><canvas id="rep-chart-dept"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Applications by Status</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="rep-chart-apps"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Detailed tables -->
+<div class="grid grid-2" style="gap:20px;">
+  <div class="panel">
+    <div class="panel-head"><h3>📊 Applications by Status</h3></div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="table-admin">
+          <thead><tr><th>Status</th><th style="width:100px;">Count</th></tr></thead>
+          <tbody id="rep-apps-tbody"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>💳 Payments by Status</h3></div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="table-admin">
+          <thead><tr><th>Status</th><th style="width:80px;">Count</th><th style="width:120px;">Total</th></tr></thead>
+          <tbody id="rep-pay-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  // SPA init calls FPU_ADMIN.loadReports()
+</script>

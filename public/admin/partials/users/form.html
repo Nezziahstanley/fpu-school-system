@@ -1,0 +1,430 @@
+<!-- ============================================================
+     Admin → Users → Form (Create / Edit)
+     ------------------------------------------------------------
+     Unified form for any role. Role select drives which extra
+     fields are shown (student → department/programme, staff →
+     rank/specialization, etc.)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="uf-title">New User</h2>
+    <p class="muted small" id="uf-subtitle">Create a new account</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="uf-back" onclick="FPU_ADMIN.goBack('users')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Identity</h3></div>
+  <div class="panel-body">
+    <form id="user-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">First Name <span class="req">*</span></label>
+          <input class="form-control" name="firstName" id="uf-first" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name <span class="req">*</span></label>
+          <input class="form-control" name="lastName" id="uf-last" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Middle Name</label>
+          <input class="form-control" name="middleName" id="uf-middle" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input class="form-control" type="email" name="email" id="uf-email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-control" name="phone" id="uf-phone" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select class="form-select" name="gender" id="uf-gender">
+            <option value="">—</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input class="form-control" type="date" name="dateOfBirth" id="uf-dob" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">State of Origin</label>
+          <input class="form-control" name="stateOfOrigin" id="uf-state" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Role <span class="req">*</span></label>
+          <select class="form-select" name="role" id="uf-role" required>
+            <option value="student">Student</option>
+            <option value="lecturer">Lecturer</option>
+            <option value="hod">Head of Department</option>
+            <option value="bursar">Bursar</option>
+            <option value="registrar">Registrar</option>
+            <option value="rector">Rector</option>
+            <option value="librarian">Librarian</option>
+            <option value="exam_officer">Exam Officer</option>
+            <option value="academic_officer">Academic Officer</option>
+            <option value="admission_officer">Admission Officer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Role-specific section -->
+<div class="panel" id="uf-role-panel" style="display:none;">
+  <div class="panel-head">
+    <h3 id="uf-role-panel-title">Role Details</h3>
+  </div>
+  <div class="panel-body" id="uf-role-fields">
+    <!-- Dynamically filled by JS -->
+  </div>
+</div>
+
+<!-- Security -->
+
+<div class="panel" id="user-avatar-panel" style="display:none;">
+  <div class="panel-head"><h3>Profile Photo (Admin only)</h3></div>
+  <div class="panel-body">
+    <div class="admin-avatar-uploader" id="admin-avatar-uploader">
+      <input type="file" id="admin-avatar-file" accept="image/*" style="display:none" />
+      <div class="avatar-preview" id="admin-avatar-preview">A</div>
+      <p class="upload-hint"><strong>Click to upload</strong><br/>JPG or PNG &middot; Max 5 MB</p>
+    </div>
+    <input type="hidden" id="admin-avatar-data" />
+  </div>
+</div>
+
+<script>
+  // batch5: show avatar uploader only when role=admin
+  (function () {
+    function checkRole() {
+      var roleSel = document.getElementById("uf-role");
+      var panel = document.getElementById("user-avatar-panel");
+      if (!roleSel || !panel) return;
+      panel.style.display = roleSel.value === "admin" ? "block" : "none";
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var roleSel = document.getElementById("uf-role");
+      if (roleSel) {
+        roleSel.addEventListener("change", checkRole);
+        checkRole();
+      }
+    });
+    window.addEventListener("hashchange", function () { setTimeout(checkRole, 150); });
+    setTimeout(checkRole, 200);
+  })();
+</script>
+<div class="panel">
+  <div class="panel-head"><h3>Security</h3></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-control" type="password" name="password" id="uf-password"
+               placeholder="Leave blank for default" autocomplete="new-password" />
+        <div class="form-help" id="uf-password-help">
+          Leave blank to use the role's default password.
+        </div>
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;">
+        <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+          <input type="checkbox" name="mustChangePassword" id="uf-must-change" checked />
+          <span>Require password change at first login</span>
+        </label>
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;">
+        <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+          <input type="checkbox" name="isActive" id="uf-active" checked />
+          <span>Account active</span>
+        </label>
+      </div>
+    </div>
+    <div id="uf-validation"></div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-primary" id="uf-submit">Create User</button>
+      <button type="button" class="btn btn-ghost" id="uf-cancel" onclick="FPU_ADMIN.goBack('users')">Cancel</button>
+      <button type="button" class="btn btn-danger" id="uf-delete"
+              style="margin-left:auto;display:none;">Delete User</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillRole = params.get('role');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('uf-title').textContent = 'Edit User';
+      $('uf-subtitle').textContent = 'Update this account';
+      $('uf-submit').textContent = 'Save Changes';
+      $('uf-delete').style.display = 'inline-flex';
+    }
+    if (prefillRole) $('uf-role').value = prefillRole;
+
+    // ---------- Role-specific fields ----------
+    const ROLE_FIELDS = {
+      student: `
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Level</label>
+            <select class="form-select" name="level">
+              <option value="ND">ND</option>
+              <option value="HND">HND</option>
+              <option value="CERT">CERT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Matric Number</label>
+            <input class="form-control" name="matricNumber" placeholder="Auto-generated if left blank" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">School</label>
+            <select class="form-select" name="schoolId" data-lookup="schools"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select class="form-select" name="departmentId" data-lookup="departments"
+                    data-depends-on="uf-role-fields" data-param="schoolId"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Programme</label>
+            <select class="form-select" name="programmeId" data-lookup="programmes"></select>
+          </div>
+        </div>
+      `,
+      staff: `
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">School</label>
+            <select class="form-select" name="schoolId" data-lookup="schools"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <select class="form-select" name="departmentId" data-lookup="departments"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rank</label>
+            <input class="form-control" name="rank" placeholder="e.g. Lecturer I" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Specialization</label>
+            <input class="form-control" name="specialization" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Qualification</label>
+            <input class="form-control" name="qualification" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Employment Date</label>
+            <input class="form-control" type="date" name="employmentDate" />
+          </div>
+        </div>
+      `,
+      admin: '',
+    };
+
+    function getRoleGroup(role) {
+      if (role === 'student') return 'student';
+      if (role === 'admin') return 'admin';
+      return 'staff';
+    }
+
+    function renderRoleFields() {
+      const role = $('uf-role').value;
+      const group = getRoleGroup(role);
+      const fields = ROLE_FIELDS[group] || '';
+
+      if (!fields) {
+        $('uf-role-panel').style.display = 'none';
+        return;
+      }
+      $('uf-role-panel').style.display = 'block';
+      $('uf-role-panel-title').textContent =
+        role === 'student' ? 'Student Details' :
+        role === 'admin' ? 'Admin Details' :
+        'Staff Details';
+      $('uf-role-fields').innerHTML = fields;
+
+      // Execute any inline scripts / re-bind lookups
+      if (window.FPU_LOOKUPS && window.FPU_LOOKUPS.populateAll) {
+        setTimeout(() => window.FPU_LOOKUPS.populateAll($('uf-role-fields')), 50);
+      }
+    }
+
+    $('uf-role').addEventListener('change', renderRoleFields);
+
+    // ---------- Load existing (edit) ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/user-list?id=${id}`).catch(() => null);
+        let u = null;
+        if (res) {
+          const json = await res.json();
+          u = (json.data || []).find((x) => Number(x.id) === Number(id));
+        }
+        if (!u) {
+          // Fallback to /api/admin/students/:id or /api/admin/staff/:id
+          const r2 = await A.adminFetch(`/api/admin/students/${id}`).catch(() => null);
+          if (r2) {
+            const j2 = await r2.json();
+            u = j2.data;
+          }
+        }
+        if (!u) throw new Error('User not found');
+
+        $('uf-first').value = u.firstName || '';
+        $('uf-last').value = u.lastName || '';
+        $('uf-middle').value = u.middleName || '';
+        $('uf-email').value = u.email || '';
+        $('uf-phone').value = u.phone || '';
+        $('uf-gender').value = u.gender || '';
+        $('uf-dob').value = u.dateOfBirth ? String(u.dateOfBirth).slice(0, 10) : '';
+        $('uf-state').value = u.stateOfOrigin || '';
+        $('uf-role').value = u.role || 'student';
+        $('uf-active').checked = u.isActive !== false;
+        $('uf-must-change').checked = !!u.mustChangePassword;
+
+        renderRoleFields();
+
+        // Set role-specific fields after render
+        setTimeout(() => {
+          const form = $('uf-role-fields');
+          if (!form) return;
+          form.querySelectorAll('input, select').forEach((el) => {
+            if (!el.name) return;
+            const v = u[el.name];
+            if (v !== undefined && v !== null) el.value = v;
+          });
+          // Prefill profile fields from staffProfile
+          if (u.staffProfile) {
+            form.querySelectorAll('input, select').forEach((el) => {
+              const v = u.staffProfile[el.name];
+              if (v !== undefined && v !== null) el.value = v;
+            });
+          }
+        }, 500);
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------- Back / Cancel ----------
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('users-all');
+      }
+    }
+    $('uf-back').addEventListener('click', goBack);
+    $('uf-cancel').addEventListener('click', goBack);
+
+    // ---------- Submit ----------
+    $('uf-submit').addEventListener('click', async () => {
+      const valEl = $('uf-validation');
+      valEl.innerHTML = '';
+
+      const form = $('user-form');
+      const roleFields = $('uf-role-fields');
+
+      const payload = {};
+      form.querySelectorAll('input, select').forEach((el) => {
+        if (!el.name) return;
+        if (el.type === 'checkbox') payload[el.name] = el.checked;
+        else if (el.value) payload[el.name] = el.value;
+      });
+      if (roleFields) {
+        roleFields.querySelectorAll('input, select').forEach((el) => {
+          if (!el.name) return;
+          if (el.value) payload[el.name] = el.value;
+        });
+      }
+
+      if (!payload.firstName || !payload.lastName || !payload.email) {
+        valEl.innerHTML = '<div class="alert alert-error">⚠️ First name, last name, and email are required.</div>';
+        return;
+      }
+
+      const btn = $('uf-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        // Use students / staff endpoint based on role
+        const role = payload.role;
+        let url, method;
+
+        if (role === 'student') {
+          url = isEdit ? `/api/admin/students/${id}` : '/api/admin/students';
+        } else if (role === 'admin') {
+          url = isEdit ? `/api/admin/users/${id}` : '/api/admin/users';
+        } else {
+          url = isEdit ? `/api/admin/staff/${id}` : '/api/admin/staff';
+        }
+        method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ User updated.' : '✅ User created.');
+
+        if (json.data && json.data.id) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: json.data.id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('users-all');
+        }
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete ----------
+    $('uf-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this user? This cannot be undone.')) return;
+      try {
+        const role = $('uf-role').value;
+        let url;
+        if (role === 'student') url = `/api/admin/students/${id}`;
+        else if (role === 'admin') url = `/api/admin/users/${id}`;
+        else url = `/api/admin/staff/${id}`;
+
+        const res = await A.adminFetch(url, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('🗑️ User deleted.');
+        A.FPU_ADMIN_SPA.navigateTo('users-all');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    });
+
+    // ---------- Init ----------
+    renderRoleFields();
+    loadExisting();
+  })();
+</script>

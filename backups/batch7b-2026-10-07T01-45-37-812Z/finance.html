@@ -1,0 +1,152 @@
+<!-- Settings tab: Finance -->
+<form class="settings-form" data-settings-section="finance" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Currency &amp; Format</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select class="form-select" name="currency">
+            <option value="NGN" selected>Nigerian Naira (₦)</option>
+            <option value="USD">US Dollar ($)</option>
+            <option value="GBP">British Pound (£)</option>
+            <option value="EUR">Euro (€)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency Symbol</label>
+          <input class="form-control" name="currency_symbol" value="₦" maxlength="4" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Payment Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Payment Reference Prefix</label>
+          <input class="form-control" name="payment_ref_prefix" value="FPU" maxlength="10" />
+          <div class="form-help">e.g. <code>FPU-2026-0042</code></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allow Installment Payments</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="allow_installments" checked />
+            <span>Yes — students can pay in multiple deposits</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Late Payment Fee (%)</label>
+          <input class="form-control" type="number" step="0.1" name="late_fee_percent" value="5" min="0" max="50" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Auto-Verify Below Amount (₦)</label>
+          <input class="form-control" type="number" name="auto_verify_amount" value="0" min="0" />
+          <div class="form-help">0 = always require manual verification</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Bank Accounts</h3></div>
+    <div class="panel-body">
+      <div id="bank-accounts-list"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="bank-add-btn" style="margin-top:12px;">
+        + Add Bank Account
+      </button>
+      <div class="form-help" style="margin-top:8px;">
+        These accounts appear on the Bursar page and the student payment instructions.
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-finance"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Finance Settings</button>
+  </div>
+</form>
+<script>
+  // batch7: bank CRUD
+  (function () {
+    function A() { return window.FPU_ADMIN; }
+    var listEl = document.getElementById("bank-accounts-list");
+    var addBtn = document.getElementById("bank-add-btn");
+    if (!listEl || listEl.__bound) return;
+    listEl.__bound = true;
+
+    async function loadBanks() {
+      listEl.innerHTML = "Loading…";
+      try {
+        var res = await A().adminFetch("/api/admin/settings?category=bank");
+        var json = await res.json();
+        var rows = (json.data || []).filter(function (r) { return /^bank_account_/.test(r.key); });
+        if (!rows.length) { listEl.innerHTML = '<p class="muted">No bank accounts yet.</p>'; return; }
+        listEl.innerHTML = "";
+        rows.forEach(function (row, idx) {
+          var bank = { bank: "", accountName: "", accountNumber: "" };
+          try { bank = JSON.parse(row.value); } catch (e) {}
+          var div = document.createElement("div");
+          div.className = "form-grid";
+          div.style.cssText = "margin-bottom:10px; padding:12px; border:1px solid #e5e7eb; border-radius:8px;";
+          div.innerHTML =
+            '<div class="form-group"><label class="form-label">Bank</label><input class="form-control" data-bank="' + idx + '" value="' + (bank.bank || "") + '" /></div>' +
+            '<div class="form-group"><label class="form-label">Account Name</label><input class="form-control" data-bankname="' + idx + '" value="' + (bank.accountName || "") + '" /></div>' +
+            '<div class="form-group"><label class="form-label">Account Number</label><input class="form-control" data-banknum="' + idx + '" value="' + (bank.accountNumber || "") + '" /></div>' +
+            '<div style="display:flex; gap:6px; align-items:flex-end;"><button type="button" class="btn btn-sm btn-primary" data-save="' + row.key + '">Save</button>' +
+            '<button type="button" class="btn btn-sm btn-ghost" data-del="' + row.key + '">Delete</button></div>';
+          listEl.appendChild(div);
+        });
+        // Wire save/delete
+        listEl.querySelectorAll("[data-save]").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            var key = btn.dataset.save;
+            var idx = key.split("_").pop();
+            var bankVal = listEl.querySelector('[data-bank="' + (idx - 1) + '"]').value;
+            var nameVal = listEl.querySelector('[data-bankname="' + (idx - 1) + '"]').value;
+            var numVal = listEl.querySelector('[data-banknum="' + (idx - 1) + '"]').value;
+            try {
+              await A().adminFetch("/api/admin/settings/" + key, {
+                method: "PUT",
+                body: JSON.stringify({ value: JSON.stringify({ bank: bankVal, accountName: nameVal, accountNumber: numVal }), category: "bank" })
+              });
+              A().showToast("Bank saved.", "success");
+            } catch (e) { A().showToast("\u274C " + e.message, "error"); }
+          });
+        });
+        listEl.querySelectorAll("[data-del]").forEach(function (btn) {
+          btn.addEventListener("click", async function () {
+            if (!confirm("Delete this bank account?")) return;
+            try {
+              await A().adminFetch("/api/admin/settings/" + btn.dataset.del, { method: "DELETE" });
+              A().showToast("Deleted.", "success");
+              loadBanks();
+            } catch (e) { A().showToast("\u274C " + e.message, "error"); }
+          });
+        });
+      } catch (e) { listEl.innerHTML = '<div class="alert alert-danger">' + e.message + '</div>'; }
+    }
+
+    if (addBtn && !addBtn.__bound) {
+      addBtn.__bound = true;
+      addBtn.addEventListener("click", async function () {
+        var res = await A().adminFetch("/api/admin/settings?category=bank");
+        var json = await res.json();
+        var rows = (json.data || []).filter(function (r) { return /^bank_account_/.test(r.key); });
+        var nextIdx = rows.length + 1;
+        var key = "bank_account_" + nextIdx;
+        await A().adminFetch("/api/admin/settings/" + key, {
+          method: "PUT",
+          body: JSON.stringify({ value: JSON.stringify({ bank: "", accountName: "", accountNumber: "" }), category: "bank" })
+        });
+        loadBanks();
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", loadBanks);
+    window.addEventListener("hashchange", function () { setTimeout(loadBanks, 200); });
+    setTimeout(loadBanks, 300);
+  })();
+</script>

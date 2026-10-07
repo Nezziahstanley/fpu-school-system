@@ -1,0 +1,100 @@
+<!-- ============================================================
+     Admin → Graduation → Queue Form
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Queue Student for Graduation</h2>
+    <p class="muted small">CGPA is computed automatically from published results</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('graduation')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Graduation Details</h3></div>
+  <div class="panel-body">
+    <form id="graduation-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Student <span class="req">*</span></label>
+          <select class="form-select" id="gf-student" required>
+            <option value="">Loading students…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" id="gf-session" data-lookup="sessions" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Programme <span class="req">*</span></label>
+          <select class="form-select" id="gf-programme" data-lookup="programmes" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" id="gf-level" required>
+            <option value="ND">ND</option>
+            <option value="HND">HND</option>
+          </select>
+        </div>
+      </div>
+      <div id="gf-validation"></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Queue Student</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('graduation')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    (async function loadStudents() {
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=2000');
+        const json = await res.json();
+        const rows = json.data || [];
+        $('gf-student').innerHTML = '<option value="">— Choose a student —</option>' +
+          rows.map((s) => `<option value="${s.id}" data-programme="${s.programmeId || ''}" data-level="${s.level || ''}">${A.escapeHtml(s.matricNumber || '')} — ${A.escapeHtml(`${s.firstName} ${s.lastName}`)}</option>`).join('');
+      } catch (err) { /* silent */ }
+    })();
+
+    $('gf-student').addEventListener('change', (e) => {
+      const opt = e.target.selectedOptions[0];
+      if (!opt) return;
+      if (opt.dataset.programme) $('gf-programme').value = opt.dataset.programme;
+      if (opt.dataset.level) $('gf-level').value = opt.dataset.level;
+    });
+
+    $('graduation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        studentId: Number($('gf-student').value),
+        sessionId: Number($('gf-session').value),
+        programmeId: Number($('gf-programme').value),
+        level: $('gf-level').value,
+      };
+      if (!payload.studentId || !payload.sessionId || !payload.programmeId) {
+        $('gf-validation').innerHTML = '<div class="alert alert-error">⚠️ All fields are required.</div>';
+        return;
+      }
+      try {
+        const res = await A.adminFetch('/api/admin/graduation/queue', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast(`✅ Queued. CGPA ${json.data.cgpa} — ${json.data.classification}`);
+        A.FPU_ADMIN_SPA.navigateTo('graduation');
+      } catch (err) {
+        $('gf-validation').innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      }
+    });
+  })();
+</script>

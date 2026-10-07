@@ -1,0 +1,92 @@
+<!-- Portal → Student → Course Registration -->
+<section class="page-head">
+  <div><h2>Course Registration</h2><p class="muted small">Register your courses for the current semester</p></div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="window.__studRegLoad()">Refresh</button>
+  </div>
+</section>
+
+<div class="tile-grid" style="margin-bottom:1rem;">
+  <div class="tile"><div class="tile-label">Registered Units</div><div class="tile-value" id="reg-units">0</div></div>
+  <div class="tile"><div class="tile-label">Max Units</div><div class="tile-value" id="reg-max">24</div></div>
+  <div class="tile"><div class="tile-label">Courses Selected</div><div class="tile-value" id="reg-count">0</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Add Course</h3></div>
+  <div class="panel-body">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <input class="form-control" id="reg-course-id" type="number" placeholder="Course ID" style="max-width:180px;" />
+      <input class="form-control" id="reg-session-id" type="number" placeholder="Session ID (optional)" style="max-width:220px;" />
+      <select class="form-select" id="reg-semester" style="max-width:180px;">
+        <option value="first">First</option><option value="second">Second</option>
+      </select>
+      <button class="btn btn-primary" id="reg-add">Register</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>My Registrations</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Semester</th><th>Status</th><th></th></tr></thead>
+        <tbody id="reg-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__studRegLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('reg-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/student/registered-courses');
+      const rows = res.data || [];
+      document.getElementById('reg-units').textContent = res.totalUnits || 0;
+      document.getElementById('reg-count').textContent = rows.length;
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.course?.code || '')}</td>
+          <td>${core.escapeHtml(r.course?.title || '')}</td>
+          <td class="num">${r.course?.unit || 0}</td>
+          <td>${core.escapeHtml(r.registration.semester)}</td>
+          <td><span class="badge badge-${r.registration.status === 'approved' ? 'success' : r.registration.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.registration.status)}</span></td>
+          <td>${r.registration.status !== 'approved' ? `<button class="btn btn-sm btn-ghost" onclick="window.__studRegRemove(${r.registration.id})">Remove</button>` : ''}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" class="empty">No courses registered yet.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__studRegRemove = async function (id) {
+    const core = window.FPU_PORTAL;
+    if (!confirm('Remove this course from your registration?')) return;
+    try {
+      await core.portalFetch(`/api/student/unregister-course/${id}`, { method: 'POST' });
+      core.showToast('Removed.', 'success');
+      window.__studRegLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  document.getElementById('reg-add').addEventListener('click', async () => {
+    const core = window.FPU_PORTAL;
+    const courseId = document.getElementById('reg-course-id').value.trim();
+    const sessionId = document.getElementById('reg-session-id').value.trim();
+    const semester = document.getElementById('reg-semester').value;
+    if (!courseId) return core.showToast('Enter a course ID.', 'warning');
+    try {
+      await core.portalFetch('/api/student/register-course', {
+        method: 'POST',
+        body: { courseId: Number(courseId), sessionId: sessionId ? Number(sessionId) : undefined, semester },
+      });
+      core.showToast('Course registered.', 'success');
+      document.getElementById('reg-course-id').value = '';
+      window.__studRegLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  });
+
+  window.__studRegLoad();
+</script>

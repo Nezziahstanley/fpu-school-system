@@ -1,0 +1,35 @@
+<!-- Portal → Shared → Documents (my requests) -->
+<section class="page-head">
+  <div><h2>My Documents</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Requests</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Requested</th><th></th></tr></thead>
+        <tbody id="shared-docs-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-docs-tbody');
+    try {
+      const res = await core.portalFetch('/api/student/documents');
+      box.innerHTML = (res.data || []).map((d) => `
+        <tr>
+          <td>${core.escapeHtml(d.title)}</td>
+          <td>${core.escapeHtml(d.type)}</td>
+          <td>${core.escapeHtml(d.status)}</td>
+          <td>${core.formatDate(d.requestedAt)}</td>
+          <td>${d.status === 'issued' && d.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(d.fileUrl)}" target="_blank">Download</a>` : ''}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="empty">No documents requested.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

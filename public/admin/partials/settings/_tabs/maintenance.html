@@ -1,0 +1,37 @@
+<form class="settings-form" data-settings-section="maintenance" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel" style="border-left:4px solid #f59e0b;">
+    <div class="panel-head"><h3>⚠️ Maintenance Mode</h3></div>
+    <div class="panel-body">
+      <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+        <input type="checkbox" name="maintenance_mode" />
+        <span>Put the system into maintenance mode</span>
+      </label>
+      <div class="form-help">
+        When enabled, non-admin users see a maintenance page. Admins retain full access.
+      </div>
+
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label">Maintenance Message</label>
+        <textarea class="form-control" name="maintenance_message" rows="3">
+The system is under scheduled maintenance. Please try again later.
+        </textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Estimated Return</label>
+        <input class="form-control" type="datetime-local" name="maintenance_until" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Allow These IPs During Maintenance</label>
+        <input class="form-control" name="maintenance_allow_ips" placeholder="10.0.0.1, 192.168.0.0/24" />
+        <div class="form-help">Comma-separated. Admin IPs are always allowed.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-maintenance"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Maintenance Settings</button>
+  </div>
+</form>

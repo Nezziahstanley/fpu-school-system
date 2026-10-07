@@ -1,0 +1,51 @@
+<!-- Portal → Shared → Transcript (lookup) -->
+<section class="page-head">
+  <div><h2>Transcript Lookup</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Student</h3></div>
+  <div class="panel-body">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <input class="form-control" id="shared-tx-student" placeholder="Student ID" style="max-width:220px;" />
+      <button class="btn btn-primary btn-sm" id="shared-tx-load">Load</button>
+    </div>
+  </div>
+</div>
+
+<div id="shared-tx-result"></div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+    document.getElementById('shared-tx-load').addEventListener('click', async () => {
+      const id = document.getElementById('shared-tx-student').value.trim();
+      const out = document.getElementById('shared-tx-result');
+      if (!id) return;
+      out.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+      try {
+        const res = await core.portalFetch(`/api/admin/transcript/${id}`);
+        out.innerHTML = `
+          <div class="gpa-summary">
+            <div class="item"><div class="label">CGPA</div><div class="value">${res.summary.cgpa.toFixed(2)}</div></div>
+            <div class="item"><div class="label">Units</div><div class="value">${res.summary.totalUnits}</div></div>
+            <div class="item"><div class="label">Class</div><div class="value" style="font-size:1rem;">${core.escapeHtml(res.summary.classification)}</div></div>
+          </div>
+          <div class="table-wrap"><table class="table-admin result-table">
+            <thead><tr><th>Course</th><th>Unit</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead>
+            <tbody>
+              ${res.rows.map((r) => `
+                <tr>
+                  <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
+                  <td class="num">${r.course?.unit || 0}</td>
+                  <td class="num">${r.result.score}</td>
+                  <td><span class="grade ${core.escapeHtml(r.result.grade || '')}">${core.escapeHtml(r.result.grade || '')}</span></td>
+                  <td class="num">${r.result.points}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table></div>`;
+      } catch (err) { out.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+    });
+  })();
+</script>

@@ -1,0 +1,34 @@
+<!-- Portal → Shared → Applications list (staff only) -->
+<section class="page-head">
+  <div><h2>Applications</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>All Applications</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>App No</th><th>Applicant</th><th>Status</th><th>Submitted</th></tr></thead>
+        <tbody id="shared-apps-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-apps-tbody');
+    try {
+      const res = await core.portalFetch('/api/admin/applications?limit=200');
+      box.innerHTML = (res.data || []).map((a) => `
+        <tr>
+          <td>${core.escapeHtml(a.applicationNumber)}</td>
+          <td>${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</td>
+          <td>${core.escapeHtml(a.status)}</td>
+          <td>${core.formatDate(a.createdAt)}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="4" class="empty">No applications.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

@@ -1,0 +1,105 @@
+<!-- Admin → Admitted -->
+<section class="page-head">
+  <div>
+    <h2>Admitted Applicants</h2>
+    <p class="muted small">Approved applicants awaiting registration</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'admitted.csv')">
+      Export CSV
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAdmitted()">Refresh</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('applications')">
+      View All Applications
+    </button>
+  </div>
+</section>
+
+<!-- Stats tiles -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Approved</div>
+    <div class="value" id="adm-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Awaiting Registration</div>
+    <div class="value" id="adm-stat-awaiting">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Registered</div>
+    <div class="value" id="adm-stat-registered">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">ND / HND</div>
+    <div class="value" id="adm-stat-split">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="admitted-status-filter" onchange="FPU_ADMIN.loadAdmitted()">
+      <option value="approved">Awaiting Registration</option>
+      <option value="registered">Already Registered</option>
+      <option value="">All</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Type</label>
+    <select class="form-select" id="admitted-type-filter" onchange="FPU_ADMIN.loadAdmitted()">
+      <option value="">ND + HND</option>
+      <option value="ND">ND</option>
+      <option value="HND">HND</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="admitted-search"
+           placeholder="Name, email, application number…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAdmitted()" />
+  </div>
+</div>
+
+<!-- Bulk actions bar -->
+<div class="bulk-bar">
+  <div>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;">
+      <input type="checkbox" id="adm-select-all" />
+      <span class="muted">Select all on this page</span>
+    </label>
+  </div>
+  <div class="bulk-actions">
+    <button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.bulkRegisterAdmitted()">Register selected</button>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Approved Applications</h3>
+    <span class="small muted">Click a row to view details</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Application No</th>
+            <th>Applicant</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Approved</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admitted-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

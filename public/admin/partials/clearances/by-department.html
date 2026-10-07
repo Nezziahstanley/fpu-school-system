@@ -1,0 +1,108 @@
+<!-- ============================================================
+     Admin → Clearances → By Department
+     ------------------------------------------------------------
+     Every student in a department with their clearance status.
+     Bulk clear / reject via checkbox.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="cd-title">Department Clearances</h2>
+    <p class="muted small" id="cd-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('clearances')">← All Departments</button>
+    <button class="btn btn-outline btn-sm" id="cd-export">Export CSV</button>
+  </div>
+</section>
+
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Students</div>
+    <div class="value" id="cdd-stat-students">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Cleared</div>
+    <div class="value" id="cdd-stat-cleared">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Pending</div>
+    <div class="value" id="cdd-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Rate</div>
+    <div class="value" id="cdd-stat-rate">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="cdd-filter-status"
+            onchange="FPU_ADMIN.loadDepartmentClearances()">
+      <option value="">All</option>
+      <option value="cleared">Cleared</option>
+      <option value="pending">Pending</option>
+      <option value="rejected">Rejected</option>
+      <option value="missing">No clearance record</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="cdd-search"
+           placeholder="Name or matric…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadDepartmentClearances()" />
+  </div>
+</div>
+
+<!-- Bulk bar -->
+<div class="bulk-bar">
+  <div>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;">
+      <input type="checkbox" id="cd-select-all" />
+      <span class="muted">Select all on this page</span>
+    </label>
+  </div>
+  <div class="bulk-actions">
+    <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkClearClearances()">
+      ✓ Mark cleared
+    </button>
+    <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.bulkRejectClearances()">
+      ✕ Mark rejected
+    </button>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Students</h3>
+    <span class="small muted" id="cdd-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Matric</th>
+            <th>Student</th>
+            <th style="width:80px;">Level</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:120px;">Cleared At</th>
+            <th>Remarks</th>
+            <th style="width:200px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="cdd-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadDepartmentClearances()
+</script>

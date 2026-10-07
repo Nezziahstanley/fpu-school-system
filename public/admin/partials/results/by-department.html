@@ -1,0 +1,200 @@
+<!-- ============================================================
+     Admin → Results → By Department
+     ------------------------------------------------------------
+     Every result in a single department, grouped by course.
+     For each course:
+       • Header shows course code, title, unit, and status split
+       • Table rows = students with their score, grade, status
+       • Multi-select checkboxes for bulk action
+       • "Approve selected" / "Reject selected" per course
+     A "Select All" bar at the top supports whole-page bulk ops.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="res-dept-title">Department Results</h2>
+    <p class="muted small" id="res-dept-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('results')">
+      ← All Departments
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.loadDepartmentResults()">
+      Refresh
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Results</div>
+    <div class="value" id="rd-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Awaiting Approval</div>
+    <div class="value" id="rd-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Approved</div>
+    <div class="value" id="rd-stat-approved">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Published</div>
+    <div class="value" id="rd-stat-published">—</div>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="rd-filter-status" onchange="FPU_ADMIN.loadDepartmentResults()">
+      <option value="hod_verified">Awaiting admin approval</option>
+      <option value="approved">Approved</option>
+      <option value="">All statuses</option>
+      <option value="published">Published</option>
+      <option value="admin_rejected">Admin rejected</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="rd-filter-semester" onchange="FPU_ADMIN.loadDepartmentResults()">
+      <option value="">All</option>
+      <option value="first">First</option>
+      <option value="second">Second</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search student or course</label>
+    <input class="form-control" id="rd-filter-search"
+           placeholder="Matric, name, or course code…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadDepartmentResults()" />
+  </div>
+</div>
+
+<!-- Bulk action bar -->
+<div class="bulk-bar">
+  <div>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;">
+      <input type="checkbox" id="rd-select-all" />
+      <span class="muted">Select all on this page</span>
+    </label>
+  </div>
+  <div class="bulk-actions">
+    <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkApproveResults()">
+      ✓ Approve selected
+    </button>
+    <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.bulkRejectResults()">
+      ✕ Reject selected
+    </button>
+    <button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.bulkPublishResults()">
+      📢 Publish selected
+    </button>
+  </div>
+</div>
+
+<!-- Course groups -->
+<div id="rd-root">
+  <div class="loading"><span class="spinner"></span> Loading results…</div>
+</div>
+
+<style>
+  .res-course-group {
+    margin-bottom: 22px;
+    border: 1px solid var(--fpu-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .res-course-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    background: linear-gradient(90deg,#065f46 0%,#047857 100%);
+    color: #fff;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .res-course-head .code {
+    font-family: 'Courier New', monospace;
+    font-weight: 800;
+    font-size: 13.5px;
+    color: #fef3c7;
+    background: rgba(255,255,255,0.15);
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+  .res-course-head .title {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+  }
+  .res-course-head .meta {
+    font-size: 12px;
+    color: #d1fae5;
+  }
+  .res-course-head .meta strong { color: #fef3c7; font-size: 13px; }
+  .res-course-head .head-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .res-course-head .head-actions .btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 11.5px;
+    padding: 5px 12px;
+  }
+  .res-course-head .head-actions .btn:hover {
+    background: rgba(255,255,255,0.25);
+    border-color: rgba(255,255,255,0.5);
+  }
+  .res-course-head .head-actions .btn-approve {
+    background: #10b981;
+    border-color: #10b981;
+  }
+  .res-course-head .head-actions .btn-approve:hover {
+    background: #059669;
+    border-color: #059669;
+  }
+  .res-course-head .head-actions .btn-publish {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: #1f2937;
+  }
+  .res-course-head .head-actions .btn-publish:hover {
+    background: #d97706;
+    border-color: #d97706;
+    color: #fff;
+  }
+
+  .res-course-group .table-admin {
+    border-radius: 0;
+  }
+  .res-course-group .table-admin tbody tr.row-rejected {
+    background: #fef2f2;
+  }
+  .res-course-group .table-admin tbody tr.row-published {
+    background: #f0fdf4;
+  }
+
+  .res-score {
+    display: inline-block;
+    min-width: 46px;
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .bulk-bar .btn-ghost { color: #64748b; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadDepartmentResults()
+</script>

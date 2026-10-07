@@ -1,0 +1,35 @@
+<!-- Admin → Academics → Programme Form -->
+<section class="page-head">
+  <div><h2>New Programme</h2><p class="muted small">Attach a programme to a department</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('programmes')">← Back</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Programme Details</h3></div>
+  <div class="panel-body">
+    <form id="programme-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Code <span class="req">*</span></label><input class="form-control" name="code" placeholder="CST" required /></div>
+        <div class="form-group"><label class="form-label">Name <span class="req">*</span></label><input class="form-control" name="name" placeholder="Computer Science" required /></div>
+        <div class="form-group"><label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" id="prog-school" data-lookup="schools" required></select>
+        </div>
+        <div class="form-group"><label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" name="departmentId" id="prog-dept" data-lookup="departments" data-depends-on="prog-school" required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Level</label>
+          <select class="form-select" name="level"><option>ND</option><option>HND</option><option>CERT</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Duration (years)</label>
+          <input class="form-control" type="number" name="durationYears" value="2" min="1" max="5" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Programme</button>
+        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN_SPA.navigateTo('programmes')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

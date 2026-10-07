@@ -1,0 +1,45 @@
+<!-- ============================================================
+     Admin → Settings → Shell
+     ------------------------------------------------------------
+     Category tabs; each tab loads a partial with its own form.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>System Settings</h2>
+    <p class="muted small">Configure institution-wide behaviour</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="settings-refresh">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('security')">
+      🔒 Security Center
+    </button>
+  </div>
+</section>
+
+<!-- Category tabs -->
+<div class="staff-role-tabs" id="settings-tabs" style="flex-wrap: wrap;">
+  <button class="staff-role-tab active" data-tab="institution">🏛️ Institution</button>
+  <button class="staff-role-tab" data-tab="academic">🎓 Academic</button>
+  <button class="staff-role-tab" data-tab="finance">💰 Finance</button>
+  <button class="staff-role-tab" data-tab="library">📚 Library</button>
+  <button class="staff-role-tab" data-tab="attendance">📋 Attendance</button>
+  <button class="staff-role-tab" data-tab="registrations">📝 Registrations</button>
+  <button class="staff-role-tab" data-tab="email">📧 Email / SMTP</button>
+  <button class="staff-role-tab" data-tab="sms">💬 SMS</button>
+  <button class="staff-role-tab" data-tab="features">🎛️ Features</button>
+  <button class="staff-role-tab" data-tab="localisation">🌍 Localisation</button>
+  <button class="staff-role-tab" data-tab="maintenance">🚧 Maintenance</button>
+  <button class="staff-role-tab" data-tab="advanced">⚙️ Advanced</button>
+</div>
+
+<!-- Tab content -->
+<div id="settings-tab-content">
+  <div class="loading"><span class="spinner"></span> Loading settings…</div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadSettingsShell()
+</script>

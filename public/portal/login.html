@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff Login — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .login-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--fpu-primary) 0%, var(--fpu-primary-dark) 100%);
+      padding: 60px 20px;
+    }
+    .login-card-public {
+      background: #fff;
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+      border-top: 6px solid var(--fpu-accent);
+    }
+    @media (max-width: 480px) { .login-card-public { padding: 32px 22px; } }
+    .login-card-public h1 {
+      font-family: Poppins, sans-serif;
+      font-size: 1.4rem;
+      color: var(--fpu-primary);
+      text-align: center;
+      margin: 0 0 6px;
+    }
+    .login-card-public .sub {
+      text-align: center;
+      color: var(--fpu-muted);
+      font-size: 14px;
+      margin: 0 0 26px;
+    }
+    .login-logo { display: block; height: 60px; margin: 0 auto 16px; }
+  </style>
+</head>
+<body>
+
+  <div class="login-page-wrap">
+    <div class="login-card-public">
+      <img src="/images/logo.png" alt="FPU" class="login-logo" />
+      <h1>Staff Portal Login</h1>
+      <p class="sub">Federal Polytechnic Ugep — Staff Access Only</p>
+
+      <div id="form-alert"></div>
+
+      <form id="staff-login-form" onsubmit="handleStaffLogin(event)">
+        <div class="form-group">
+          <label>Staff Email</label>
+          <input type="email" name="email" required placeholder="you@fedpolyugep.edu.ng" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;" id="staffLoginBtn">Sign In to Staff Portal</button>
+      </form>
+
+      <p style="text-align:center;font-size:13.5px;color:var(--fpu-muted);margin:22px 0 0;">
+        Are you a student? <a href="/login.html" style="color:var(--fpu-primary);font-weight:700;">Student login →</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    async function handleStaffLogin(event) {
+      event.preventDefault();
+      const form = event.target;
+      const alertBox = document.getElementById('form-alert');
+      const btn = document.getElementById('staffLoginBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      try {
+        const res = await fetch('/api/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: form.email.value.trim(),
+            password: form.password.value,
+          }),
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+          alertBox.className = 'alert alert-error';
+          alertBox.textContent = '❌ ' + (json.error || json.message || 'Invalid credentials.');
+          return;
+        }
+
+        // Block students from the staff portal
+        const role = String(json.user?.role || '').toLowerCase();
+        if (role === 'student') {
+          alertBox.className = 'alert alert-error';
+          alertBox.textContent = '❌ This portal is for staff only. Please use the student login page.';
+          return;
+        }
+
+        localStorage.setItem('portal_token', json.token);
+        localStorage.setItem('portal_user', JSON.stringify(json.user));
+
+        alertBox.className = 'alert alert-success';
+        alertBox.textContent = '✅ Welcome. Taking you to your staff portal…';
+
+        setTimeout(() => {
+          window.location.href = '/admin/app.html';
+        }, 700);
+      } catch (err) {
+        console.error('[staff-login] error:', err);
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ Connection error. Please try again.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+  </script>
+</body>
+</html>

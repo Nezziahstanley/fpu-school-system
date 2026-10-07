@@ -1,0 +1,38 @@
+<!-- Portal → Admissions Officer → Admission Letters -->
+<section class="page-head">
+  <div><h2>Admission Letters</h2><p class="muted small">Preview and print admission letters</p></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:1 1 220px;">
+    <label class="form-label">Application ID</label>
+    <input class="form-control" id="ado-ltr-id" type="number" />
+  </div>
+  <button class="btn btn-primary" id="ado-ltr-load">Load Letter</button>
+  <button class="btn btn-outline" id="ado-ltr-print" disabled>Print</button>
+</div>
+
+<div id="ado-ltr-out" class="panel" style="display:none;">
+  <div class="panel-body" id="ado-ltr-body"></div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+
+    document.getElementById('ado-ltr-load').addEventListener('click', async () => {
+      const id = document.getElementById('ado-ltr-id').value.trim();
+      if (!id) return;
+      try {
+        const res = await core.portalFetch(`/api/admission-officer/letters/${id}`);
+        document.getElementById('ado-ltr-body').innerHTML = res.html;
+        document.getElementById('ado-ltr-out').style.display = 'block';
+        document.getElementById('ado-ltr-print').disabled = false;
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+
+    document.getElementById('ado-ltr-print').addEventListener('click', () => {
+      window.print();
+    });
+  })();
+</script>

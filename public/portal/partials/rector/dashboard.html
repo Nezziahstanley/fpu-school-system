@@ -1,0 +1,58 @@
+<!-- Portal → Rector → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="rec-dash-avatar">R</div>
+    <div>
+      <h1>Welcome, <span id="rec-dash-name">Rector</span></h1>
+      <div class="sub">Office of the Rector</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="rec-dash-session">—</strong>
+    <span>Current Session</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="rec-t-students">—</div><div class="tile-sub">enrolled</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Lecturers</div><div class="tile-value" id="rec-t-lecturers">—</div><div class="tile-sub">active</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Total Staff</div><div class="tile-value" id="rec-t-staff">—</div><div class="tile-sub">all roles</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Applications</div><div class="tile-value" id="rec-t-apps">—</div><div class="tile-sub">pending</div></div>
+</div>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Pending Results</div><div class="tile-value" id="rec-t-results">—</div></div>
+  <div class="tile"><div class="tile-label">Pending Payments</div><div class="tile-value" id="rec-t-payments">—</div></div>
+  <div class="tile"><div class="tile-label">Open Complaints</div><div class="tile-value" id="rec-t-complaints">—</div></div>
+  <div class="tile"><div class="tile-label">Total Registrations</div><div class="tile-value" id="rec-t-regs">—</div></div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('admin-applications-list')">Applications</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-users')">Users</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-sessions')">Sessions</a>
+  <a onclick="FPU_SPA.navigatePortal('portal-announcements')">Announcements</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/rector/dashboard');
+      const d = res.data || {};
+      document.getElementById('rec-dash-name').textContent = core.getPortalUser()?.firstName || 'Rector';
+      document.getElementById('rec-dash-session').textContent = d.currentSession?.name || '—';
+      if (photo) photo.renderMyAvatar(document.getElementById('rec-dash-avatar'), core.getPortalUser());
+
+      document.getElementById('rec-t-students').textContent = d.students ?? 0;
+      document.getElementById('rec-t-lecturers').textContent = d.lecturers ?? 0;
+      document.getElementById('rec-t-staff').textContent = d.staff ?? 0;
+      document.getElementById('rec-t-apps').textContent = d.pendingApplications ?? 0;
+      document.getElementById('rec-t-results').textContent = d.pendingResults ?? 0;
+      document.getElementById('rec-t-payments').textContent = d.pendingPayments ?? 0;
+      document.getElementById('rec-t-complaints').textContent = d.openComplaints ?? 0;
+      document.getElementById('rec-t-regs').textContent = d.totalRegistrations ?? 0;
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

@@ -1,0 +1,33 @@
+<!-- Portal → Shared → Users (staff) -->
+<section class="page-head">
+  <div><h2>Users</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>All Users</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+        <tbody id="shared-users-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-users-tbody');
+    try {
+      const res = await core.portalFetch('/api/admin/user-list?limit=200');
+      box.innerHTML = (res.data || []).map((u) => `
+        <tr>
+          <td>${core.escapeHtml(u.firstName)} ${core.escapeHtml(u.lastName)}</td>
+          <td>${core.escapeHtml(u.email)}</td>
+          <td>${core.escapeHtml(u.role)}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="3" class="empty">No users.</td></tr>';
+    } catch (err) { box.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+</script>

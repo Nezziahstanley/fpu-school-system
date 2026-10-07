@@ -1,0 +1,95 @@
+<!-- ============================================================
+     Admin → Documents → New Request
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>New Document Request</h2>
+    <p class="muted small">Create a document request on behalf of a student</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="dn-back">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Request Details</h3></div>
+  <div class="panel-body">
+    <form id="document-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Student <span class="req">*</span></label>
+          <select class="form-select" id="dn-student" required>
+            <option value="">Loading students…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Document Type <span class="req">*</span></label>
+          <select class="form-select" id="dn-type" required>
+            <option value="transcript">Transcript</option>
+            <option value="certificate">Certificate</option>
+            <option value="attestation">Attestation Letter</option>
+            <option value="id-letter">ID Letter</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" id="dn-title" required
+                 placeholder="e.g. Official Academic Transcript" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Remarks</label>
+        <textarea class="form-control" id="dn-remarks" rows="2"
+                  placeholder="Any internal notes…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Request</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('documents')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    $('dn-back').onclick = () => A.FPU_ADMIN_SPA.navigateTo('documents');
+
+    // Load students
+    (async function loadStudents() {
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=2000');
+        const json = await res.json();
+        const rows = json.data || [];
+        $('dn-student').innerHTML = '<option value="">— Choose a student —</option>' +
+          rows.map((s) => `<option value="${s.id}">${A.escapeHtml(s.matricNumber || '')} — ${A.escapeHtml(`${s.firstName} ${s.lastName}`)}</option>`).join('');
+      } catch (err) {
+        $('dn-student').innerHTML = '<option value="">Could not load students</option>';
+      }
+    })();
+
+    $('document-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = Number($('dn-student').value);
+      const type = $('dn-type').value;
+      const title = $('dn-title').value.trim();
+      const remarks = $('dn-remarks').value.trim();
+      if (!userId || !type || !title) {
+        A.showToast('⚠️ All fields are required.', 'warning');
+        return;
+      }
+      try {
+        await A.adminFetch('/api/admin/documents', {
+          method: 'POST',
+          body: JSON.stringify({ userId, type, title, remarks }),
+        });
+        A.showToast('✅ Request created.');
+        A.FPU_ADMIN_SPA.navigateTo('documents');
+      } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+    });
+  })();
+</script>

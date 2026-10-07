@@ -1,0 +1,384 @@
+<!-- ============================================================
+     Admin → Courses → Form (Create / Edit)
+     ------------------------------------------------------------
+     Branches on ?id= in the URL hash:
+       • No id   → POST /api/admin/courses          (create)
+       • With id → PUT  /api/admin/courses/:id      (update)
+     Supports prefill via query params:
+       ?departmentId=X   ?programmeId=Y
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="course-form-title">New Course</h2>
+    <p class="muted small" id="course-form-subtitle">Add a course to a programme</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="course-form-back">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Course Details</h3></div>
+  <div class="panel-body">
+    <form id="course-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Code <span class="req">*</span></label>
+          <input class="form-control" name="code" id="course-code"
+                 placeholder="e.g. COM111" required
+                 style="text-transform:uppercase;" />
+          <div class="form-help">NBTE format: 3 letters + 3 digits (e.g. <code>COM111</code>)</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" name="title" id="course-title"
+                 placeholder="e.g. Introduction to Computing" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Unit <span class="req">*</span></label>
+          <input class="form-control" type="number" name="unit" id="course-unit"
+                 value="2" min="1" max="6" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" name="level" id="course-level" required>
+            <option value="ND">ND — National Diploma</option>
+            <option value="HND">HND — Higher National Diploma</option>
+            <option value="CERT">CERT — Certificate</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Year of Study <span class="req">*</span></label>
+          <select class="form-select" name="yearOfStudy" id="course-year" required>
+            <option value="1">Year 1</option>
+            <option value="2">Year 2</option>
+          </select>
+          <div class="form-help">NBTE year for this course — used to group courses on the department page.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Semester <span class="req">*</span></label>
+          <select class="form-select" name="semester" id="course-semester" required>
+            <option value="first">First Semester</option>
+            <option value="second">Second Semester</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" id="course-school"
+                  data-lookup="schools" data-placeholder="Select school…" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" name="departmentId" id="course-dept"
+                  data-lookup="departments"
+                  data-depends-on="course-school"
+                  data-param="schoolId"
+                  data-placeholder="Select school first…"
+                  required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Programme <span class="req">*</span></label>
+          <select class="form-select" name="programmeId" id="course-prog"
+                  data-lookup="programmes"
+                  data-depends-on="course-dept"
+                  data-param="departmentId"
+                  data-placeholder="Select department first…"
+                  required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" name="isElective" id="course-elective" />
+            <span>Elective course</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" name="description" id="course-desc" rows="3"
+                  placeholder="Optional — brief course outline"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="course-submit">Create Course</button>
+        <button type="button" class="btn btn-ghost" id="course-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="course-delete" style="margin-left:auto;display:none;">
+          Delete Course
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    // ---------------- Parse hash query ----------------
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillDept = params.get('departmentId');
+    const prefillProg = params.get('programmeId');
+    const isEdit = !!id;
+
+    // ---------------- Mode header ----------------
+    if (isEdit) {
+      $('course-form-title').textContent = 'Edit Course';
+      $('course-form-subtitle').textContent = 'Update this course';
+      $('course-submit').textContent = 'Save Changes';
+      $('course-delete').style.display = 'inline-flex';
+    }
+
+    // ---------------- Back button ----------------
+    $('course-form-back').addEventListener('click', () => {
+      // Try to return to the department page if we know it
+      const deptId = prefillDept || $('course-dept').value;
+      if (deptId) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', {
+          departmentId: Number(deptId),
+          name: params.get('name') || 'Department',
+        });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('courses');
+      }
+    });
+
+    $('course-cancel').addEventListener('click', () => {
+      const deptId = prefillDept || $('course-dept').value;
+      if (deptId) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', {
+          departmentId: Number(deptId),
+          name: params.get('name') || 'Department',
+        });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('courses');
+      }
+    });
+
+    // ---------------- Auto-derive year from code ----------------
+    // When the user types a code like COM111, we can nudge
+    // year/semester to sane defaults (still fully editable).
+    $('course-code').addEventListener('blur', () => {
+      const code = String($('course-code').value || '').trim().toUpperCase();
+      $('course-code').value = code;
+
+      const m = code.match(/^\D+(\d)(\d)(\d)$/);
+      if (!m) return;
+
+      const yearDigit = Number(m[1]);
+      const semDigit = Number(m[2]);
+
+      if (yearDigit === 1 || yearDigit === 2) {
+        if ($('course-year').value !== String(yearDigit)) {
+          $('course-year').value = String(yearDigit);
+        }
+      }
+
+      // 1 = first semester, 2 = second semester
+      if (semDigit === 1 && $('course-semester').value !== 'first') {
+        $('course-semester').value = 'first';
+      } else if (semDigit === 2 && $('course-semester').value !== 'second') {
+        $('course-semester').value = 'second';
+      }
+    });
+
+    // ---------------- Load existing (edit mode) ----------------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/courses/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const c = json.data;
+
+        $('course-code').value = c.code || '';
+        $('course-title').value = c.title || '';
+        $('course-unit').value = c.unit || 2;
+        $('course-level').value = c.level || 'ND';
+        $('course-semester').value = c.semester || 'first';
+        $('course-elective').checked = !!c.isElective;
+        $('course-desc').value = c.description || '';
+
+        // Year of study — prefer explicit field, else infer from code
+        const inferred = A.inferCourseYear ? A.inferCourseYear(c) : null;
+        $('course-year').value = String(c.yearOfStudy || inferred || 1);
+
+        // Set dependent selects after lookups populate.
+        // Schools populate instantly; departments/programmes chain off them.
+        setTimeout(() => {
+          if (c.schoolId || c.department?.schoolId) {
+            const schoolId = c.schoolId || c.department?.schoolId;
+            if ($('course-school')) $('course-school').value = String(schoolId);
+            // Trigger the dependents
+            $('course-school').dispatchEvent(new Event('change'));
+          }
+        }, 300);
+
+        setTimeout(() => {
+          if ($('course-dept') && c.departmentId) {
+            $('course-dept').value = String(c.departmentId);
+            $('course-dept').dispatchEvent(new Event('change'));
+          }
+        }, 700);
+
+        setTimeout(() => {
+          if ($('course-prog') && c.programmeId) {
+            $('course-prog').value = String(c.programmeId);
+          }
+        }, 1100);
+
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------------- Prefill (create mode from dept page) ----------------
+    function applyPrefill() {
+      if (isEdit) return;
+      // Only departmentId / programmeId need explicit prefill.
+      // Department select is populated by lookups; we set it after.
+      if (!prefillDept && !prefillProg) return;
+
+      setTimeout(() => {
+        if (prefillDept && $('course-dept')) {
+          $('course-dept').value = String(prefillDept);
+          $('course-dept').dispatchEvent(new Event('change'));
+        }
+      }, 500);
+
+      setTimeout(() => {
+        if (prefillProg && $('course-prog')) {
+          $('course-prog').value = String(prefillProg);
+        }
+      }, 900);
+    }
+
+    // ---------------- Submit ----------------
+    $('course-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = String($('course-code').value || '').trim().toUpperCase();
+      const title = String($('course-title').value || '').trim();
+      const unit = Number($('course-unit').value) || 0;
+      const level = $('course-level').value;
+      const semester = $('course-semester').value;
+      const yearOfStudy = Number($('course-year').value) || 1;
+      const departmentId = $('course-dept').value;
+      const programmeId = $('course-prog').value;
+      const isElective = $('course-elective').checked;
+      const description = String($('course-desc').value || '').trim();
+
+      // ---------- Validation ----------
+      if (!code) { A.showToast('⚠️ Code is required.', 'warning'); return; }
+      if (!/^[A-Z]{2,4}\d{2,4}$/.test(code)) {
+        A.showToast('⚠️ Code should be letters followed by digits (e.g. COM111).', 'warning');
+        return;
+      }
+      if (!title) { A.showToast('⚠️ Title is required.', 'warning'); return; }
+      if (unit < 1 || unit > 6) {
+        A.showToast('⚠️ Unit must be between 1 and 6.', 'warning');
+        return;
+      }
+      if (!departmentId) { A.showToast('⚠️ Department is required.', 'warning'); return; }
+      if (!programmeId) { A.showToast('⚠️ Programme is required.', 'warning'); return; }
+
+      const payload = {
+        code,
+        title,
+        unit,
+        level,
+        semester,
+        yearOfStudy,
+        departmentId: Number(departmentId),
+        programmeId: Number(programmeId),
+        isElective,
+        description: description || null,
+      };
+
+      const btn = $('course-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit
+          ? `/api/admin/courses/${id}`
+          : '/api/admin/courses';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Course updated.' : '✅ Course created.');
+
+        // Return to department page (nicer UX)
+        A.FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', {
+          departmentId: payload.departmentId,
+          name: params.get('name') || 'Department',
+        });
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------------- Delete (edit mode) ----------------
+    $('course-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      const code = $('course-code').value.trim();
+      if (!confirm(`Delete course "${code}"? This cannot be undone.`)) return;
+
+      const btn = $('course-delete');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        const res = await A.adminFetch(`/api/admin/courses/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast('🗑️ Course deleted.');
+        const deptId = $('course-dept').value;
+        if (deptId) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', {
+            departmentId: Number(deptId),
+            name: params.get('name') || 'Department',
+          });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('courses');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------------- Init ----------------
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

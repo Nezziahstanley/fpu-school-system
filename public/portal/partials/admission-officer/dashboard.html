@@ -1,0 +1,47 @@
+<!-- Portal → Admissions Officer → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="ado-dash-avatar">A</div>
+    <div>
+      <h1>Welcome, <span id="ado-dash-name">Admissions Officer</span></h1>
+      <div class="sub">Admissions Office</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="ado-dash-session">—</strong>
+    <span>Current Session</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Total Applications</div><div class="tile-value" id="ado-t-total">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending</div><div class="tile-value" id="ado-t-pending">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Approved</div><div class="tile-value" id="ado-t-approved">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Registered</div><div class="tile-value" id="ado-t-registered">—</div></div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('admin-applications-list')">All Applications</a>
+  <a onclick="FPU_SPA.navigatePortal('admission-officer-admitted')">Admitted</a>
+  <a onclick="FPU_SPA.navigatePortal('admission-officer-letters')">Admission Letters</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/admission-officer/dashboard');
+      const d = res.data || {};
+      const s = d.byStatus || {};
+      document.getElementById('ado-dash-name').textContent = core.getPortalUser()?.firstName || 'Admissions Officer';
+      document.getElementById('ado-dash-session').textContent = d.currentSession?.name || '—';
+      if (photo) photo.renderMyAvatar(document.getElementById('ado-dash-avatar'), core.getPortalUser());
+
+      document.getElementById('ado-t-total').textContent = d.total ?? 0;
+      document.getElementById('ado-t-pending').textContent = (s.pending || 0) + (s.under_review || 0);
+      document.getElementById('ado-t-approved').textContent = s.approved ?? 0;
+      document.getElementById('ado-t-registered').textContent = s.registered ?? 0;
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

@@ -1,0 +1,175 @@
+<!-- ============================================================
+     Admin → Allocations → By Department
+     ------------------------------------------------------------
+     Every allocation in a single department, grouped by lecturer.
+     Each lecturer row shows total courses + total credit units
+     and expands to a list of their courses.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="alloc-dept-title">Department Allocations</h2>
+    <p class="muted small" id="alloc-dept-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('allocations')">
+      ← All Departments
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('allocation-bulk')">
+      Bulk Paste
+    </button>
+    <button class="btn btn-primary btn-sm" id="alloc-by-dept-new">
+      + New Allocation
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Allocations</div>
+    <div class="value" id="abd-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Lecturers</div>
+    <div class="value" id="abd-stat-lecturers">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Credit Units</div>
+    <div class="value" id="abd-stat-units">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Courses Covered</div>
+    <div class="value" id="abd-stat-courses">—</div>
+  </div>
+</div>
+
+<!-- Lecturer cards -->
+<div id="abd-lecturer-grid">
+  <div class="loading"><span class="spinner"></span> Loading lecturers…</div>
+</div>
+
+<style>
+  .lect-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .lect-card-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    cursor: pointer;
+    background: linear-gradient(90deg,#065f46 0%,#047857 100%);
+    color: #fff;
+    transition: filter 0.18s ease;
+  }
+  .lect-card-head:hover { filter: brightness(1.05); }
+  .lect-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.35);
+  }
+  .lect-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .lect-info { flex: 1; min-width: 0; }
+  .lect-info strong {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .lect-info .sub {
+    font-size: 12px;
+    color: #d1fae5;
+    margin-top: 2px;
+  }
+  .lect-meta {
+    display: flex;
+    gap: 14px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  .lect-badge {
+    background: rgba(255,255,255,0.18);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .lect-badge strong { color: #fef3c7; font-size: 13px; margin-right: 2px; }
+  .lect-chevron {
+    color: #fef3c7;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .lect-card.open .lect-chevron { transform: rotate(180deg); }
+
+  .lect-card-body {
+    display: none;
+    padding: 0;
+  }
+  .lect-card.open .lect-card-body { display: block; }
+
+  .lect-course-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .lect-course-row:last-child { border-bottom: none; }
+  .lect-course-row .code {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #065f46;
+    background: #ecfdf5;
+    padding: 3px 10px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  .lect-course-row .title { flex: 1; font-size: 13.5px; color: #0f172a; }
+  .lect-course-row .meta { font-size: 12px; color: #6b7280; white-space: nowrap; }
+  .lect-course-row .unit {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    color: #f59e0b;
+    min-width: 30px;
+    text-align: right;
+  }
+  .lect-course-row .actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .empty-lect {
+    padding: 40px 20px;
+    text-align: center;
+    color: #94a3b8;
+  }
+</style>
+
+<script>
+  // No inline loader — SPA init calls FPU_ADMIN.loadDepartmentAllocations()
+</script>

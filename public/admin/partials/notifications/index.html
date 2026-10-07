@@ -1,0 +1,187 @@
+<!-- ============================================================
+     Admin → Notifications
+     ------------------------------------------------------------
+     Inbox + Sent tabs, unread filter, bulk mark-read, delete.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Notifications</h2>
+    <p class="muted small">System notifications and messages</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadNotifications()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="nt-mark-all-read">
+      ✓ Mark all read
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('notification-compose')">
+      + Compose
+    </button>
+  </div>
+</section>
+
+<!-- Inbox / Sent tabs -->
+<div class="staff-role-tabs" id="nt-box-tabs">
+  <button class="staff-role-tab active" data-box="inbox">
+    Inbox <span class="tab-count" id="nt-count-inbox">—</span>
+  </button>
+  <!-- batch2: Sent tab hidden -->
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Type</label>
+    <select class="form-select" id="nt-filter-type"
+            onchange="FPU_ADMIN.loadNotifications()">
+      <option value="">All types</option>
+      <option value="info">Info</option>
+      <option value="warning">Warning</option>
+      <option value="success">Success</option>
+      <option value="complaint">Complaint</option>
+      <option value="fee">Fee</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="nt-filter-read"
+            onchange="FPU_ADMIN.loadNotifications()">
+      <option value="">All</option>
+      <option value="unread">Unread only</option>
+      <option value="read">Read only</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 240px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="nt-search"
+           placeholder="Title or body…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadNotifications()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="nt-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Unread</div>
+    <div class="value" id="nt-stat-unread">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">This Week</div>
+    <div class="value" id="nt-stat-week">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">High Priority</div>
+    <div class="value" id="nt-stat-high">—</div>
+  </div>
+</div>
+
+<!-- Notifications list -->
+<div id="nt-list" class="nt-list">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading notifications…
+  </div>
+</div>
+
+<style>
+  .nt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .nt-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .nt-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15,23,42,0.08);
+    border-color: rgba(6,95,70,0.25);
+  }
+  .nt-item.unread {
+    background: linear-gradient(90deg, #ecfdf5 0%, #fff 60%);
+    border-left: 3px solid #10b981;
+  }
+  .nt-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .nt-icon.info      { background: #dbeafe; color: #1e40af; }
+  .nt-icon.warning   { background: #fef3c7; color: #92400e; }
+  .nt-icon.success   { background: #dcfce7; color: #15803d; }
+  .nt-icon.complaint { background: #fee2e2; color: #991b1b; }
+  .nt-icon.fee       { background: #f3e8ff; color: #6b21a8; }
+  .nt-icon.default   { background: #f1f5f9; color: #475569; }
+
+  .nt-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .nt-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .nt-text {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .nt-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: #94a3b8;
+  }
+  .nt-meta .unread-pill {
+    background: #dcfce7;
+    color: #15803d;
+    font-family: 'Poppins', sans-serif;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .nt-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .nt-actions .btn { padding: 5px 10px; font-size: 11.5px; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadNotifications()
+</script>

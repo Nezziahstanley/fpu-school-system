@@ -1,0 +1,22 @@
+# Federal Polytechnic Ugep — robots.txt
+User-agent: *
+Allow: /
+Allow: /about.html
+Allow: /programmes.html
+Allow: /nd.html
+Allow: /hnd.html
+Allow: /apply.html
+Allow: /apply-hnd.html
+Allow: /apply-status.html
+Allow: /announcements.html
+Allow: /calendar.html
+Allow: /contact.html
+Allow: /faq.html
+Allow: /privacy.html
+
+# Admin & Portal are private — do not index
+Disallow: /admin/
+Disallow: /portal/
+Disallow: /api/
+
+Sitemap: https://fedpolyugep.edu.ng/sitemap.xml

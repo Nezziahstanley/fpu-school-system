@@ -1,0 +1,30 @@
+<!-- Portal → Shared → Graduations (my status) -->
+<section class="page-head">
+  <div><h2>Graduation</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>My Status</h3></div>
+  <div class="panel-body" id="shared-grad-body">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('shared-grad-body');
+    try {
+      const res = await core.portalFetch('/api/student/graduation');
+      const g = res.data;
+      box.innerHTML = g
+        ? `<div class="grid grid-2" style="gap:1rem;">
+             <div><strong>Level:</strong> ${core.escapeHtml(g.level)}</div>
+             <div><strong>CGPA:</strong> ${g.cgpa || '—'}</div>
+             <div><strong>Classification:</strong> ${core.escapeHtml(g.classification || '—')}</div>
+             <div><strong>Status:</strong> ${core.escapeHtml(g.status)}</div>
+           </div>`
+        : '<p class="muted">You are not yet queued for graduation.</p>';
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  })();
+</script>

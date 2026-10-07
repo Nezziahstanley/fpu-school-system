@@ -1,0 +1,1504 @@
+<!-- ============================================================
+     Admin → Dashboard
+     Full analytics dashboard with charts + activity tables.
+     Uses Chart.js (CDN) and pulls from /api/admin/reports/* endpoints.
+     ============================================================ -->
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- ============================================================
+     PAGE HEAD
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Dashboard Overview</h2>
+    <p class="muted small">Live analytics across the institution</p>
+  </div>
+  <div class="actions">
+    <select id="dash-range" class="form-select" style="max-width: 180px;" onchange="dashReload()">
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="365" selected>Last 12 months</option>
+      <option value="all">All time</option>
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="dashReload()">Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('applications')">View Applications</button>
+  </div>
+</section>
+
+<!-- ============================================================
+     TOP STAT TILES
+     ============================================================ -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Students</span><span class="value" id="stat-students">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Total Lecturers</span><span class="value" id="stat-lecturers">—</span></div>
+    <div class="ic">👨‍🏫</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Total Applications</span><span class="value" id="stat-apps-total">—</span></div>
+    <div class="ic">📋</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Total Payments</span><span class="value" id="stat-payments-total">—</span></div>
+    <div class="ic">💳</div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Pending Applications</span><span class="value" id="stat-apps-pending">—</span></div>
+    <div class="ic">⏳</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Pending Results</span><span class="value" id="stat-results">—</span></div>
+    <div class="ic">📊</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Pending Payments</span><span class="value" id="stat-payments-pending">—</span></div>
+    <div class="ic">💳</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Pending Clearances</span><span class="value" id="stat-clearances">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Open Complaints</span><span class="value" id="stat-complaints">—</span></div>
+    <div class="ic">📩</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Active Borrows</span><span class="value" id="stat-borrows">—</span></div>
+    <div class="ic">📤</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Unpaid Fines</span><span class="value" id="stat-fines">—</span></div>
+    <div class="ic">💰</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Total Revenue</span><span class="value" id="stat-revenue">—</span></div>
+    <div class="ic">🏦</div>
+  </div>
+</div>
+
+<!-- ============================================================
+     CHARTS — ROW 1: Student distribution (3 bar charts + 1 pie)
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>👥 Student Demographics</h3>
+    <span class="small muted">Distribution across the institution</span>
+  </div>
+  <div class="panel-body">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Students by Department</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-students-dept"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Students by Programme</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-students-prog"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Students by Level</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-students-level"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Student Gender Distribution</h3>
+          <span class="chart-badge">Doughnut</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-students-gender"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CHARTS — ROW 2: Trends (2 line charts + 2 pies)
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📈 Application &amp; Admission Trends</h3>
+    <span class="small muted">Time-based analytics</span>
+  </div>
+  <div class="panel-body">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Student Admission Trend</h3>
+          <span class="chart-badge">Line</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-admission-trend"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Application Status</h3>
+          <span class="chart-badge">Doughnut</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-app-status"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Student Population Trend</h3>
+          <span class="chart-badge">Line</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-population-trend"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Payment Status</h3>
+          <span class="chart-badge">Doughnut</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-payment-status"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CHARTS — ROW 3: Financial + Courses + Results
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>💰 Financial &amp; Academic Metrics</h3>
+    <span class="small muted">Revenue, registrations, and performance</span>
+  </div>
+  <div class="panel-body">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Payment / Revenue Trend</h3>
+          <span class="chart-badge">Line</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-revenue-trend"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Course Registration Statistics</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-registrations"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Department Student Comparison</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-dept-comparison"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Results / Performance Statistics</h3>
+          <span class="chart-badge">Bar</span>
+        </div>
+        <div class="chart-body">
+          <canvas id="chart-results-stats"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     TOP DEPARTMENTS + PENDING APPROVALS
+     ============================================================ -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>🏆 Top Populated Departments</h3>
+      <span class="small muted">Most students</span>
+    </div>
+    <div class="panel-body" id="top-departments"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>⏳ Pending Approvals</h3>
+      <span class="small muted">Awaiting your action</span>
+    </div>
+    <div class="panel-body" id="pending-approvals"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     RECENT ACTIVITY — Row 1
+     ============================================================ -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📋 Recent Student Registrations</h3>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('students')">View all →</button>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Matric No</th><th>Name</th><th>Level</th><th>Programme</th><th>Registered</th></tr></thead>
+        <tbody id="recent-students-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     RECENT ACTIVITY — Row 2
+     ============================================================ -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>💳 Recent Payments</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('payments')">View all →</button>
+    </div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Reference</th><th>Student</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="recent-payments-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>📋 Recent Applications</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('applications')">View all →</button>
+    </div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>App No</th><th>Applicant</th><th>Type</th><th>Status</th></tr></thead>
+          <tbody id="recent-apps-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     RECENT ACTIVITY — Row 3
+     ============================================================ -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>📝 Recent Course Registrations</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('registrations')">View all →</button>
+    </div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>Course</th><th>Semester</th><th>Status</th></tr></thead>
+          <tbody id="recent-registrations-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>📊 Recent Result Submissions</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('results')">View all →</button>
+    </div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Status</th></tr></thead>
+          <tbody id="recent-results-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SYSTEM ACTIVITY + NOTIFICATIONS
+     ============================================================ -->
+<section style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>🔔 Recent System Activities</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('audit')">View audit →</button>
+    </div>
+    <div class="panel-body" id="recent-activity"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>📢 Recent Notifications</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('notifications')">View all →</button>
+    </div>
+    <div class="panel-body" id="recent-notifications"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     UPCOMING EVENTS + LOGIN ACTIVITY
+     ============================================================ -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>📅 Upcoming Academic Events</h3>
+      <span class="small muted">Scheduled exams and deadlines</span>
+    </div>
+    <div class="panel-body" id="upcoming-events"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>🔐 Recent User Logins</h3>
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('login-history')">View all →</button>
+    </div>
+    <div class="panel-body" id="recent-logins"></div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DASHBOARD SCRIPT
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  const A = window.FPU_ADMIN || {};
+  const COLORS = {
+    green: '#065f46',
+    greenLight: '#10b981',
+    gold: '#f59e0b',
+    goldLight: '#fbbf24',
+    blue: '#3b82f6',
+    blueLight: '#60a5fa',
+    red: '#dc2626',
+    purple: '#8b5cf6',
+    pink: '#ec4899',
+    teal: '#14b8a6',
+    cyan: '#06b6d4',
+    slate: '#64748b',
+  };
+
+  const PALETTE = [
+    COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple,
+    COLORS.pink, COLORS.teal, COLORS.cyan, COLORS.red,
+    COLORS.greenLight, COLORS.goldLight, COLORS.blueLight, COLORS.slate,
+  ];
+
+  // Store chart instances so we can destroy before rebuilding
+  const charts = {};
+
+  function destroyChart(id) {
+    if (charts[id]) {
+      try { charts[id].destroy(); } catch (e) {}
+      delete charts[id];
+    }
+  }
+
+  function makeBar(canvasId, labels, data, opts = {}) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    destroyChart(canvasId);
+    charts[canvasId] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: opts.label || 'Count',
+          data,
+          backgroundColor: opts.colors || COLORS.green,
+          borderRadius: 6,
+          barThickness: opts.thickness || 22,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', padding: 10 },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: '#64748b', font: { size: 11 } },
+            grid: { color: '#f1f5f9' },
+          },
+          x: {
+            ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45, minRotation: 0 },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function makeDoughnut(canvasId, labels, data, colors) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    destroyChart(canvasId);
+    charts[canvasId] = new Chart(el, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data,
+          backgroundColor: colors || PALETTE.slice(0, labels.length),
+          borderColor: '#ffffff',
+          borderWidth: 3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#0f172a', padding: 12, font: { size: 12, weight: 600 } },
+          },
+        },
+      },
+    });
+  }
+
+  function makeLine(canvasId, labels, data, opts = {}) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    destroyChart(canvasId);
+    charts[canvasId] = new Chart(el, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: opts.label || 'Count',
+          data,
+          borderColor: opts.color || COLORS.green,
+          backgroundColor: opts.fill || 'rgba(6, 95, 70, 0.1)',
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: opts.color || COLORS.green,
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          borderWidth: 3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { backgroundColor: '#0f172a', padding: 10 },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: '#64748b', font: { size: 11 } },
+            grid: { color: '#f1f5f9' },
+          },
+          x: {
+            ticks: { color: '#64748b', font: { size: 11 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function emptyChartMessage(canvasId, message) {
+    const el = document.getElementById(canvasId);
+    if (!el || !el.parentElement) return;
+    el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13.5px;">${message || 'No data available'}</div>`;
+  }
+
+  // ============================================================
+  // TOP STATS
+  // ============================================================
+  async function loadStats() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/overview');
+      const json = await res.json();
+      const d = json.data || json.stats || json;
+
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? 0; };
+
+      set('stat-students', d.students);
+      set('stat-lecturers', d.lecturers);
+      set('stat-apps-total', d.totalApplications);
+      set('stat-payments-total', d.totalPayments);
+      set('stat-apps-pending', d.pendingApplications);
+      set('stat-results', d.pendingResults);
+      set('stat-payments-pending', d.pendingPayments);
+      set('stat-clearances', d.pendingClearances);
+      set('stat-complaints', d.openComplaints);
+      set('stat-borrows', d.activeBorrows);
+      set('stat-fines', d.unpaidFines);
+      set('stat-revenue', '₦' + Number(d.totalRevenue || 0).toLocaleString());
+    } catch (err) {
+      console.warn('[dashboard] stats error:', err.message);
+    }
+  }
+
+  // ============================================================
+  // CHART 1 — Students by Department
+  // ============================================================
+  async function loadStudentsByDept() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/enrollment-by-department');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) return emptyChartMessage('chart-students-dept');
+      makeBar('chart-students-dept',
+        rows.map(r => r.name || r.code || 'Unknown'),
+        rows.map(r => r.count || 0),
+        { color: COLORS.green, label: 'Students' });
+    } catch (err) {
+      fallbackStudentsByDept();
+    }
+  }
+
+  // Fallback: derive from students list
+  async function fallbackStudentsByDept() {
+    try {
+      const res = await A.adminFetch('/api/admin/students?limit=1000');
+      const json = await res.json();
+      const rows = json.data || json.students || [];
+      if (!rows.length) return emptyChartMessage('chart-students-dept');
+
+      const counts = {};
+      rows.forEach(s => {
+        const key = s.departmentName || s.department?.name || `Dept ${s.departmentId || '?'}`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 12);
+      makeBar('chart-students-dept', entries.map(e => e[0]), entries.map(e => e[1]),
+        { color: COLORS.green, label: 'Students' });
+    } catch {
+      emptyChartMessage('chart-students-dept');
+    }
+  }
+
+  // ============================================================
+  // CHART 2 — Students by Programme
+  // ============================================================
+  async function loadStudentsByProgramme() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/enrollment-by-programme');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+      makeBar('chart-students-prog',
+        rows.map(r => r.name || r.code || 'Programme'),
+        rows.map(r => r.count || 0),
+        { color: COLORS.blue, label: 'Students' });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=1000');
+        const json = await res.json();
+        const rows = json.data || json.students || [];
+        if (!rows.length) return emptyChartMessage('chart-students-prog');
+
+        const counts = {};
+        rows.forEach(s => {
+          const key = s.programmeName || s.programme?.name || `Prog ${s.programmeId || '?'}`;
+          counts[key] = (counts[key] || 0) + 1;
+        });
+
+        const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 12);
+        makeBar('chart-students-prog', entries.map(e => e[0]), entries.map(e => e[1]),
+          { color: COLORS.blue, label: 'Students' });
+      } catch {
+        emptyChartMessage('chart-students-prog');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 3 — Students by Level
+  // ============================================================
+  async function loadStudentsByLevel() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/enrollment-by-level');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+      makeBar('chart-students-level',
+        rows.map(r => r.level || 'Unknown'),
+        rows.map(r => r.count || 0),
+        { color: COLORS.purple, label: 'Students', thickness: 40 });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=1000');
+        const json = await res.json();
+        const rows = json.data || json.students || [];
+        if (!rows.length) return emptyChartMessage('chart-students-level');
+
+        const counts = {};
+        rows.forEach(s => {
+          const lvl = s.level || 'ND';
+          counts[lvl] = (counts[lvl] || 0) + 1;
+        });
+
+        makeBar('chart-students-level',
+          Object.keys(counts),
+          Object.values(counts),
+          { color: COLORS.purple, label: 'Students', thickness: 40 });
+      } catch {
+        emptyChartMessage('chart-students-level');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 4 — Student Gender Distribution
+  // ============================================================
+  async function loadStudentGender() {
+    try {
+      const res = await A.adminFetch('/api/admin/students?limit=1000');
+      const json = await res.json();
+      const rows = json.data || json.students || [];
+      if (!rows.length) return emptyChartMessage('chart-students-gender');
+
+      let male = 0, female = 0, other = 0;
+      rows.forEach(s => {
+        const g = String(s.gender || '').toLowerCase();
+        if (g === 'male') male++;
+        else if (g === 'female') female++;
+        else other++;
+      });
+
+      makeDoughnut('chart-students-gender',
+        ['Male', 'Female', 'Not Specified'],
+        [male, female, other],
+        [COLORS.blue, COLORS.pink, COLORS.slate]);
+    } catch {
+      emptyChartMessage('chart-students-gender');
+    }
+  }
+
+  // ============================================================
+  // CHART 5 — Student Admission Trend (line)
+  // ============================================================
+  async function loadAdmissionTrend() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/admission-trend');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+      makeLine('chart-admission-trend',
+        rows.map(r => r.month || r.label || ''),
+        rows.map(r => r.count || 0),
+        { color: COLORS.green, label: 'Admissions' });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=1000');
+        const json = await res.json();
+        const rows = json.data || json.students || [];
+        if (!rows.length) return emptyChartMessage('chart-admission-trend');
+
+        const counts = {};
+        rows.forEach(s => {
+          if (!s.createdAt) return;
+          const d = new Date(s.createdAt);
+          const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+          counts[key] = (counts[key] || 0) + 1;
+        });
+
+        const entries = Object.entries(counts).reverse();
+        makeLine('chart-admission-trend',
+          entries.map(e => e[0]),
+          entries.map(e => e[1]),
+          { color: COLORS.green, label: 'Admissions' });
+      } catch {
+        emptyChartMessage('chart-admission-trend');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 6 — Application Status
+  // ============================================================
+  async function loadApplicationStatus() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/applications-by-status');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+
+      const colorMap = {
+        pending: COLORS.gold,
+        under_review: COLORS.blue,
+        approved: COLORS.green,
+        rejected: COLORS.red,
+        registered: COLORS.purple,
+      };
+
+      makeDoughnut('chart-app-status',
+        rows.map(r => (r.status || 'unknown').replace(/_/g, ' ')),
+        rows.map(r => r.count || 0),
+        rows.map(r => colorMap[r.status] || COLORS.slate));
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/applications?limit=1000');
+        const json = await res.json();
+        const rows = json.data || json.applications || [];
+        if (!rows.length) return emptyChartMessage('chart-app-status');
+
+        const counts = {};
+        rows.forEach(a => { const s = a.status || 'pending'; counts[s] = (counts[s]||0)+1; });
+
+        const colorMap = {
+          pending: COLORS.gold,
+          under_review: COLORS.blue,
+          approved: COLORS.green,
+          rejected: COLORS.red,
+          registered: COLORS.purple,
+        };
+
+        makeDoughnut('chart-app-status',
+          Object.keys(counts).map(s => s.replace(/_/g, ' ')),
+          Object.values(counts),
+          Object.keys(counts).map(s => colorMap[s] || COLORS.slate));
+      } catch {
+        emptyChartMessage('chart-app-status');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 7 — Student Population Trend
+  // ============================================================
+  async function loadPopulationTrend() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/population-trend');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+      makeLine('chart-population-trend',
+        rows.map(r => r.month || r.label || ''),
+        rows.map(r => r.total || r.count || 0),
+        { color: COLORS.purple, label: 'Total Students' });
+    } catch {
+      // Fallback: cumulative population over months
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=1000');
+        const json = await res.json();
+        const rows = json.data || json.students || [];
+        if (!rows.length) return emptyChartMessage('chart-population-trend');
+
+        const monthly = {};
+        rows.forEach(s => {
+          if (!s.createdAt) return;
+          const d = new Date(s.createdAt);
+          const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+          monthly[key] = (monthly[key] || 0) + 1;
+        });
+
+        const sorted = Object.entries(monthly).reverse();
+        let cumulative = 0;
+        const cumulativeData = sorted.map(([_, v]) => { cumulative += v; return cumulative; });
+
+        makeLine('chart-population-trend',
+          sorted.map(e => e[0]),
+          cumulativeData,
+          { color: COLORS.purple, label: 'Total Students' });
+      } catch {
+        emptyChartMessage('chart-population-trend');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 8 — Payment Status
+  // ============================================================
+  async function loadPaymentStatus() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/payments-by-status');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+
+      const colorMap = {
+        pending: COLORS.gold,
+        verified: COLORS.green,
+        rejected: COLORS.red,
+        refunded: COLORS.blue,
+      };
+
+      makeDoughnut('chart-payment-status',
+        rows.map(r => r.status || 'unknown'),
+        rows.map(r => r.count || 0),
+        rows.map(r => colorMap[r.status] || COLORS.slate));
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/payments');
+        const json = await res.json();
+        const rows = json.data || [];
+        if (!rows.length) return emptyChartMessage('chart-payment-status');
+
+        const counts = {};
+        rows.forEach(r => {
+          const p = r.payment || r;
+          const s = p.status || 'pending';
+          counts[s] = (counts[s]||0)+1;
+        });
+
+        const colorMap = {
+          pending: COLORS.gold,
+          verified: COLORS.green,
+          rejected: COLORS.red,
+          refunded: COLORS.blue,
+        };
+
+        makeDoughnut('chart-payment-status',
+          Object.keys(counts),
+          Object.values(counts),
+          Object.keys(counts).map(s => colorMap[s] || COLORS.slate));
+      } catch {
+        emptyChartMessage('chart-payment-status');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 9 — Payment / Revenue Trend (line)
+  // ============================================================
+  async function loadRevenueTrend() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/revenue-trend');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+      makeLine('chart-revenue-trend',
+        rows.map(r => r.month || r.label || ''),
+        rows.map(r => Number(r.total || r.amount || 0)),
+        { color: COLORS.gold, label: 'Revenue (₦)', fill: 'rgba(245, 158, 11, 0.15)' });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/payments');
+        const json = await res.json();
+        const rows = json.data || [];
+        if (!rows.length) return emptyChartMessage('chart-revenue-trend');
+
+        const monthly = {};
+        rows.forEach(r => {
+          const p = r.payment || r;
+          if (p.status !== 'verified' || !p.createdAt) return;
+          const d = new Date(p.createdAt);
+          const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+          monthly[key] = (monthly[key] || 0) + Number(p.amount || 0);
+        });
+
+        const sorted = Object.entries(monthly).reverse();
+        makeLine('chart-revenue-trend',
+          sorted.map(e => e[0]),
+          sorted.map(e => e[1]),
+          { color: COLORS.gold, label: 'Revenue (₦)', fill: 'rgba(245, 158, 11, 0.15)' });
+      } catch {
+        emptyChartMessage('chart-revenue-trend');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 10 — Course Registration Statistics
+  // ============================================================
+  async function loadRegistrationStats() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/registrations-by-status');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+
+      const colorMap = {
+        pending: COLORS.gold,
+        approved: COLORS.green,
+        rejected: COLORS.red,
+      };
+
+      makeBar('chart-registrations',
+        rows.map(r => r.status || 'unknown'),
+        rows.map(r => r.count || 0),
+        {
+          colors: rows.map(r => colorMap[r.status] || COLORS.slate),
+          label: 'Registrations',
+          thickness: 50,
+        });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/registrations?limit=1000');
+        const json = await res.json();
+        const rows = json.data || [];
+        if (!rows.length) return emptyChartMessage('chart-registrations');
+
+        const counts = {};
+        rows.forEach(r => { const s = r.status || 'pending'; counts[s] = (counts[s]||0)+1; });
+
+        const colorMap = {
+          pending: COLORS.gold,
+          approved: COLORS.green,
+          rejected: COLORS.red,
+        };
+
+        makeBar('chart-registrations',
+          Object.keys(counts),
+          Object.values(counts),
+          {
+            colors: Object.keys(counts).map(s => colorMap[s] || COLORS.slate),
+            label: 'Registrations',
+            thickness: 50,
+          });
+      } catch {
+        emptyChartMessage('chart-registrations');
+      }
+    }
+  }
+
+  // ============================================================
+  // CHART 11 — Department Student Comparison
+  // ============================================================
+  async function loadDeptComparison() {
+    try {
+      const res = await A.adminFetch('/api/admin/students?limit=1000');
+      const json = await res.json();
+      const rows = json.data || json.students || [];
+      if (!rows.length) return emptyChartMessage('chart-dept-comparison');
+
+      const counts = {};
+      rows.forEach(s => {
+        const key = s.departmentName || s.department?.name || `Dept ${s.departmentId || '?'}`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+      makeBar('chart-dept-comparison',
+        entries.map(e => e[0]),
+        entries.map(e => e[1]),
+        { colors: COLORS.teal, label: 'Students' });
+    } catch {
+      emptyChartMessage('chart-dept-comparison');
+    }
+  }
+
+  // ============================================================
+  // CHART 12 — Results / Performance Statistics
+  // ============================================================
+  async function loadResultsStats() {
+    try {
+      const res = await A.adminFetch('/api/admin/reports/results-by-status');
+      const json = await res.json();
+      const rows = json.data || [];
+      if (!rows.length) throw new Error('empty');
+
+      const colorMap = {
+        draft: COLORS.slate,
+        submitted: COLORS.blue,
+        hod_verified: COLORS.purple,
+        approved: COLORS.green,
+        published: COLORS.greenLight,
+        hod_rejected: COLORS.red,
+        admin_rejected: COLORS.red,
+      };
+
+      makeBar('chart-results-stats',
+        rows.map(r => (r.status || 'unknown').replace(/_/g, ' ')),
+        rows.map(r => r.count || 0),
+        {
+          colors: rows.map(r => colorMap[r.status] || COLORS.slate),
+          label: 'Results',
+          thickness: 28,
+        });
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/results?limit=1000');
+        const json = await res.json();
+        const rows = json.data || [];
+        if (!rows.length) return emptyChartMessage('chart-results-stats');
+
+        const counts = {};
+        rows.forEach(r => { const s = r.status || 'draft'; counts[s] = (counts[s]||0)+1; });
+
+        makeBar('chart-results-stats',
+          Object.keys(counts).map(s => s.replace(/_/g, ' ')),
+          Object.values(counts),
+          { colors: COLORS.blue, label: 'Results', thickness: 28 });
+      } catch {
+        emptyChartMessage('chart-results-stats');
+      }
+    }
+  }
+
+  // ============================================================
+  // TOP POPULATED DEPARTMENTS (progress bars)
+  // ============================================================
+  async function loadTopDepartments() {
+    const box = document.getElementById('top-departments');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/students?limit=1000');
+      const json = await res.json();
+      const rows = json.data || json.students || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No students yet.</p>';
+        return;
+      }
+
+      const counts = {};
+      rows.forEach(s => {
+        const key = s.departmentName || s.department?.name || `Dept ${s.departmentId || '?'}`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+      const max = entries[0]?.[1] || 1;
+
+      box.innerHTML = entries.map(([name, count]) => {
+        const pct = Math.round((count / max) * 100);
+        return `
+          <div class="progress-list-item">
+            <div class="progress-header">
+              <span>${A.escapeHtml(name)}</span>
+              <span class="progress-value">${count}</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      box.innerHTML = `<p class="muted">Could not load: ${A.escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  // ============================================================
+  // PENDING APPROVALS
+  // ============================================================
+  async function loadPendingApprovals() {
+    const box = document.getElementById('pending-approvals');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/reports/overview');
+      const json = await res.json();
+      const d = json.data || json.stats || json;
+
+      const items = [
+        { label: 'Applications awaiting review', value: d.pendingApplications || 0, page: 'applications', color: 'gold' },
+        { label: 'Results awaiting approval', value: d.pendingResults || 0, page: 'results', color: 'red' },
+        { label: 'Payments awaiting verification', value: d.pendingPayments || 0, page: 'payments', color: 'blue' },
+        { label: 'Clearances pending', value: d.pendingClearances || 0, page: 'clearances', color: 'purple' },
+        { label: 'Open complaints', value: d.openComplaints || 0, page: 'complaints', color: 'red' },
+        { label: 'Unpaid library fines', value: d.unpaidFines || 0, page: 'library', color: 'gold' },
+      ];
+
+      box.innerHTML = items.map((it) => `
+        <div class="session-item" style="cursor:pointer;" onclick="FPU_ADMIN_SPA.navigateTo('${it.page}')">
+          <div class="meta"><strong>${A.escapeHtml(it.label)}</strong></div>
+          <div>
+            <span class="badge badge-${it.color === 'gold' ? 'warning' : it.color === 'red' ? 'danger' : it.color === 'blue' ? 'info' : 'primary'}">
+              ${it.value}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    } catch (err) {
+      box.innerHTML = `<p class="muted">Could not load: ${A.escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  // ============================================================
+  // RECENT STUDENT REGISTRATIONS
+  // ============================================================
+  async function loadRecentStudents() {
+    const tbody = document.getElementById('recent-students-tbody');
+    if (!tbody) return;
+
+    try {
+      const res = await A.adminFetch('/api/admin/students?limit=8');
+      const json = await res.json();
+      const rows = json.data || json.students || [];
+
+      tbody.innerHTML = rows.length ? rows.map(s => `
+        <tr>
+          <td><code>${A.escapeHtml(s.matricNumber || '')}</code></td>
+          <td><strong>${A.escapeHtml(s.firstName || '')} ${A.escapeHtml(s.lastName || '')}</strong></td>
+          <td>${A.escapeHtml(s.level || '')}</td>
+          <td>${A.escapeHtml(s.programmeName || s.programme?.name || '—')}</td>
+          <td>${A.fmtDate(s.createdAt)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No students yet.</td></tr>';
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load students.</td></tr>';
+    }
+  }
+
+  // ============================================================
+  // RECENT PAYMENTS
+  // ============================================================
+  async function loadRecentPayments() {
+    const tbody = document.getElementById('recent-payments-tbody');
+    if (!tbody) return;
+
+    try {
+      const res = await A.adminFetch('/api/admin/payments?limit=8');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      tbody.innerHTML = rows.length ? rows.slice(0, 8).map(r => {
+        const p = r.payment || r;
+        const studentName = r.student ? `${r.student.firstName || ''} ${r.student.lastName || ''}`.trim() : '—';
+        const badgeCls = p.status === 'verified' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning';
+        return `
+          <tr>
+            <td><code>${A.escapeHtml(p.reference || '')}</code></td>
+            <td>${A.escapeHtml(studentName)}</td>
+            <td class="num">${A.money(p.amount)}</td>
+            <td><span class="badge badge-${badgeCls}">${A.escapeHtml(p.status || '')}</span></td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="4" class="empty">No payments yet.</td></tr>';
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load payments.</td></tr>';
+    }
+  }
+
+  // ============================================================
+  // RECENT APPLICATIONS
+  // ============================================================
+  async function loadRecentApplications() {
+    const tbody = document.getElementById('recent-apps-tbody');
+    if (!tbody) return;
+
+    try {
+      const res = await A.adminFetch('/api/admin/applications?limit=8');
+      const json = await res.json();
+      const rows = json.data || json.applications || [];
+
+      tbody.innerHTML = rows.length ? rows.slice(0, 8).map(a => {
+        const badgeCls = a.status === 'approved' ? 'success'
+                       : a.status === 'rejected' ? 'danger'
+                       : a.status === 'registered' ? 'primary'
+                       : 'warning';
+        return `
+          <tr>
+            <td><code>${A.escapeHtml(a.applicationNumber || '')}</code></td>
+            <td>${A.escapeHtml((a.firstName || '') + ' ' + (a.lastName || ''))}</td>
+            <td>${A.escapeHtml(a.type || 'ND')}</td>
+            <td><span class="badge badge-${badgeCls}">${A.escapeHtml((a.status || '').replace(/_/g, ' '))}</span></td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="4" class="empty">No applications yet.</td></tr>';
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load applications.</td></tr>';
+    }
+  }
+
+  // ============================================================
+  // RECENT COURSE REGISTRATIONS
+  // ============================================================
+  async function loadRecentRegistrations() {
+    const tbody = document.getElementById('recent-registrations-tbody');
+    if (!tbody) return;
+
+    try {
+      const res = await A.adminFetch('/api/admin/registrations/with-student?limit=8');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      tbody.innerHTML = rows.length ? rows.slice(0, 8).map(r => {
+        const student = r.student || {};
+        const course = r.course || {};
+        const reg = r.registration || r;
+        const badgeCls = reg.status === 'approved' ? 'success'
+                       : reg.status === 'rejected' ? 'danger'
+                       : 'warning';
+        return `
+          <tr>
+            <td>${A.escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</td>
+            <td>${A.escapeHtml(course.code || ('Course ' + reg.courseId))}</td>
+            <td>${A.escapeHtml(reg.semester || '')}</td>
+            <td><span class="badge badge-${badgeCls}">${A.escapeHtml(reg.status || '')}</span></td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="4" class="empty">No registrations yet.</td></tr>';
+    } catch {
+      try {
+        const res = await A.adminFetch('/api/admin/registrations?limit=8');
+        const json = await res.json();
+        const rows = json.data || [];
+        tbody.innerHTML = rows.length ? rows.slice(0, 8).map(r => `
+          <tr>
+            <td>Student ${r.studentId}</td>
+            <td>Course ${r.courseId}</td>
+            <td>${A.escapeHtml(r.semester || '')}</td>
+            <td>${A.escapeHtml(r.status || '')}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="4" class="empty">No registrations yet.</td></tr>';
+      } catch {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load registrations.</td></tr>';
+      }
+    }
+  }
+
+  // ============================================================
+  // RECENT RESULT SUBMISSIONS
+  // ============================================================
+  async function loadRecentResults() {
+    const tbody = document.getElementById('recent-results-tbody');
+    if (!tbody) return;
+
+    try {
+      const res = await A.adminFetch('/api/admin/results?limit=8');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      tbody.innerHTML = rows.length ? rows.slice(0, 8).map(r => {
+        const badgeCls = r.status === 'published' || r.status === 'approved' ? 'success'
+                       : r.status === 'draft' ? 'muted'
+                       : r.status && r.status.includes('rejected') ? 'danger'
+                       : 'warning';
+        return `
+          <tr>
+            <td>Student ${r.studentId}</td>
+            <td>Course ${r.courseId}</td>
+            <td class="num">${r.score}</td>
+            <td><span class="badge badge-${badgeCls}">${A.escapeHtml((r.status || '').replace(/_/g, ' '))}</span></td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="4" class="empty">No results yet.</td></tr>';
+    } catch {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load results.</td></tr>';
+    }
+  }
+
+  // ============================================================
+  // RECENT SYSTEM ACTIVITIES
+  // ============================================================
+  async function loadRecentActivity() {
+    const box = document.getElementById('recent-activity');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/audit?limit=8');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No activity yet.</p>';
+        return;
+      }
+
+      box.innerHTML = rows.map(r => {
+        const log = r.log || r;
+        const userName = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() : 'System';
+        return `
+          <div class="activity-item">
+            <div class="activity-icon">📝</div>
+            <div class="activity-content">
+              <strong>${A.escapeHtml(userName || 'System')}</strong>
+              <p>${A.escapeHtml(log.action || '')}${log.entity ? ' · ' + A.escapeHtml(log.entity) : ''}</p>
+            </div>
+            <span class="activity-time">${A.timeAgo(log.createdAt)}</span>
+          </div>`;
+      }).join('');
+    } catch {
+      box.innerHTML = '<p class="muted">Could not load activity.</p>';
+    }
+  }
+
+  // ============================================================
+  // RECENT NOTIFICATIONS
+  // ============================================================
+  async function loadRecentNotifications() {
+    const box = document.getElementById('recent-notifications');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/notifications');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No notifications.</p>';
+        return;
+      }
+
+      box.innerHTML = rows.slice(0, 6).map(n => `
+        <div class="session-item">
+          <div class="meta">
+            <strong>${A.escapeHtml(n.title || '')}</strong>
+            ${A.escapeHtml((n.body || '').slice(0, 80))}${n.body && n.body.length > 80 ? '…' : ''}
+          </div>
+          <div class="small muted">${A.timeAgo(n.createdAt)}</div>
+        </div>
+      `).join('');
+    } catch {
+      box.innerHTML = '<p class="muted">Could not load notifications.</p>';
+    }
+  }
+
+  // ============================================================
+  // UPCOMING ACADEMIC EVENTS
+  // ============================================================
+  async function loadUpcomingEvents() {
+    const box = document.getElementById('upcoming-events');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/exams?limit=5');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No upcoming events.</p>';
+        return;
+      }
+
+      box.innerHTML = rows.slice(0, 5).map(r => {
+        const exam = r.exam || r;
+        const course = r.course || {};
+        const d = exam.examDate ? new Date(exam.examDate) : null;
+        return `
+          <div class="session-item">
+            <div class="meta">
+              <strong>${A.escapeHtml(course.code || '')} — ${A.escapeHtml(course.title || 'Exam')}</strong>
+              <div class="small">${exam.startTime || ''} ${exam.endTime ? '- ' + exam.endTime : ''} · ${A.escapeHtml(exam.venue || '')}</div>
+            </div>
+            <div class="small muted">${d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : ''}</div>
+          </div>`;
+      }).join('');
+    } catch {
+      box.innerHTML = '<p class="muted">Could not load events.</p>';
+    }
+  }
+
+  // ============================================================
+  // RECENT USER LOGINS
+  // ============================================================
+  async function loadRecentLogins() {
+    const box = document.getElementById('recent-logins');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+
+    try {
+      const res = await A.adminFetch('/api/admin/login-history?limit=8');
+      const json = await res.json();
+      const rows = json.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<p class="muted">No logins yet.</p>';
+        return;
+      }
+
+      box.innerHTML = rows.map(r => {
+        const entry = r.entry || r;
+        const user = r.user || {};
+        const status = entry.success ? '✅' : '❌';
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || entry.email || 'Unknown';
+        return `
+          <div class="session-item">
+            <div class="meta">
+              <strong>${status} ${A.escapeHtml(name)}</strong>
+              <div class="small">${A.escapeHtml(entry.ipAddress || '')}</div>
+            </div>
+            <div class="small muted">${A.timeAgo(entry.createdAt)}</div>
+          </div>`;
+      }).join('');
+    } catch {
+      box.innerHTML = '<p class="muted">Could not load login history.</p>';
+    }
+  }
+
+  // ============================================================
+  // MAIN LOAD
+  // ============================================================
+  async function loadAll() {
+    // Stats + top tiles
+    await Promise.all([
+      loadStats(),
+      loadTopDepartments(),
+      loadPendingApprovals(),
+    ]);
+
+    // Charts — fire in parallel
+    await Promise.all([
+      loadStudentsByDept(),
+      loadStudentsByProgramme(),
+      loadStudentsByLevel(),
+      loadStudentGender(),
+      loadAdmissionTrend(),
+      loadApplicationStatus(),
+      loadPopulationTrend(),
+      loadPaymentStatus(),
+      loadRevenueTrend(),
+      loadRegistrationStats(),
+      loadDeptComparison(),
+      loadResultsStats(),
+    ]);
+
+    // Recent activity tables — fire in parallel
+    await Promise.all([
+      loadRecentStudents(),
+      loadRecentPayments(),
+      loadRecentApplications(),
+      loadRecentRegistrations(),
+      loadRecentResults(),
+      loadRecentActivity(),
+      loadRecentNotifications(),
+      loadUpcomingEvents(),
+      loadRecentLogins(),
+    ]);
+  }
+
+  // Global reload helper used by the range selector
+  window.dashReload = function () {
+    // Destroy existing charts before reloading
+    Object.keys(charts).forEach(destroyChart);
+    loadAll();
+  };
+
+  // Re-init when the dashboard partial loads
+  window.initDashboard = function () {
+    // Small delay to ensure DOM is fully painted
+    setTimeout(loadAll, 50);
+  };
+
+  // Auto-run on load (in case initDashboard isn't called externally)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
+  } else {
+    setTimeout(loadAll, 100);
+  }
+})();
+</script>

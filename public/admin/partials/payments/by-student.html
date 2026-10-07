@@ -1,0 +1,161 @@
+<!-- ============================================================
+     Admin → Payments → Student History
+     ------------------------------------------------------------
+     All payments ever made by one student, with:
+       • Header summary (due, paid, balance)
+       • Fee breakdown for the current session
+       • Full payment history table
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2>Payment History</h2>
+    <p class="muted small" id="ps-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="ps-back" onclick="FPU_ADMIN.goBack('payments')">← Back</button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: new URLSearchParams(window.location.hash.split('?')[1] || '').get('studentId') })">
+      View Student Profile
+    </button>
+    <button class="btn btn-primary btn-sm" id="ps-new-payment">
+      + Record Payment
+    </button>
+  </div>
+</section>
+
+<!-- Header -->
+<div class="panel" id="ps-header-panel">
+  <div class="panel-body">
+    <div id="ps-header">
+      <div class="loading"><span class="spinner"></span> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary stats -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta">
+      <span class="label">Total Due</span>
+      <span class="value" id="ps-due">—</span>
+    </div>
+    <div class="ic">📋</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta">
+      <span class="label">Total Paid</span>
+      <span class="value" id="ps-paid">—</span>
+    </div>
+    <div class="ic">💰</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta">
+      <span class="label">Balance</span>
+      <span class="value" id="ps-balance">—</span>
+    </div>
+    <div class="ic">💳</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta">
+      <span class="label">Payments</span>
+      <span class="value" id="ps-count">—</span>
+    </div>
+    <div class="ic">📊</div>
+  </div>
+</div>
+
+<!-- Fee breakdown -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Fee Breakdown</h3>
+    <span class="small muted" id="ps-fee-session">—</span>
+  </div>
+  <div class="panel-body" id="ps-fee-breakdown">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</div>
+
+<!-- Payments table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Payment History</h3>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th style="width:120px;">Amount</th>
+            <th style="width:110px;">Status</th>
+            <th style="width:110px;">Date</th>
+            <th>Bank</th>
+            <th style="width:180px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ps-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ps-header {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .ps-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#065f46,#f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .ps-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .ps-info { flex: 1; min-width: 200px; }
+  .ps-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #065f46;
+  }
+  .ps-meta {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 3px;
+  }
+  .fees-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .fees-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .fees-row.total {
+    background: #ecfdf5;
+    border: 1px solid #10b981;
+    font-weight: 800;
+    color: #065f46;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStudentPayments()
+</script>

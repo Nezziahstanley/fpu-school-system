@@ -1,0 +1,70 @@
+<!-- Settings tab: Finance -->
+<form class="settings-form" data-settings-section="finance" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Currency &amp; Format</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select class="form-select" name="currency">
+            <option value="NGN" selected>Nigerian Naira (₦)</option>
+            <option value="USD">US Dollar ($)</option>
+            <option value="GBP">British Pound (£)</option>
+            <option value="EUR">Euro (€)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency Symbol</label>
+          <input class="form-control" name="currency_symbol" value="₦" maxlength="4" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Payment Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Payment Reference Prefix</label>
+          <input class="form-control" name="payment_ref_prefix" value="FPU" maxlength="10" />
+          <div class="form-help">e.g. <code>FPU-2026-0042</code></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allow Installment Payments</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="allow_installments" checked />
+            <span>Yes — students can pay in multiple deposits</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Late Payment Fee (%)</label>
+          <input class="form-control" type="number" step="0.1" name="late_fee_percent" value="5" min="0" max="50" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Auto-Verify Below Amount (₦)</label>
+          <input class="form-control" type="number" name="auto_verify_amount" value="0" min="0" />
+          <div class="form-help">0 = always require manual verification</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Bank Accounts</h3></div>
+    <div class="panel-body">
+      <div id="bank-accounts-list"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="bank-add-btn" style="margin-top:12px;">
+        + Add Bank Account
+      </button>
+      <div class="form-help" style="margin-top:8px;">
+        These accounts appear on the Bursar page and the student payment instructions.
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-finance"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Finance Settings</button>
+  </div>
+</form>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administration — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .officer-card {
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--fpu-border);
+      transition: transform 0.25s, box-shadow 0.25s;
+      text-decoration: none;
+      display: block;
+      height: 100%;
+    }
+    .officer-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+    }
+    .officer-card .photo-wrap {
+      width: 100%;
+      height: 280px;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--fpu-primary), var(--fpu-primary-dark));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .officer-card .photo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+    }
+    .officer-card .photo-wrap .initials {
+      font-family: Poppins, sans-serif;
+      font-size: 4rem;
+      font-weight: 700;
+      color: var(--fpu-accent);
+      letter-spacing: 3px;
+    }
+    .officer-card .info {
+      padding: 22px 22px 24px;
+      text-align: center;
+    }
+    .officer-card .role-tag {
+      display: inline-block;
+      background: #ecfdf5;
+      color: var(--fpu-primary);
+      font-family: Poppins, sans-serif;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .officer-card h3 {
+      font-family: Poppins, sans-serif;
+      font-size: 1.15rem;
+      color: var(--fpu-ink);
+      margin: 0 0 6px;
+      line-height: 1.3;
+    }
+    .officer-card .subtitle {
+      font-size: 13px;
+      color: var(--fpu-muted);
+      margin: 0;
+    }
+    .officer-card .view-link {
+      display: inline-block;
+      margin-top: 16px;
+      font-family: Poppins, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--fpu-accent-dark);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="FPU" class="site-logo" /></a>
+      <nav class="nav-links" id="navLinks">
+        <li><a href="/">Home</a></li>
+        <li class="has-dropdown"><a href="/about.html">About</a>
+          <ul class="dropdown-menu">
+            <li><a href="/about.html">About FPU</a></li>
+            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/administration.html">Administration</a></li>
+          </ul>
+        </li>
+        <li class="has-dropdown"><a href="/programmes.html">Programmes</a>
+          <ul class="dropdown-menu">
+            <li><a href="/nd.html">ND Programmes</a></li>
+            <li><a href="/hnd.html">HND Programmes</a></li>
+          </ul>
+        </li>
+        <li><a href="/apply-status.html">Check Status</a></li>
+        <li><a href="/announcements.html">News</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </nav>
+      <div class="nav-auth">
+        <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+        <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        <button class="menu-toggle" id="menuToggle">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="page-header">
+    <div class="container">
+      <p style="color:#fef3c7;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:12px;margin:0 0 8px;">Leadership</p>
+      <h1 style="font-family:Poppins,sans-serif;">Administration</h1>
+      <p>Meet the Principal Officers of Federal Polytechnic Ugep</p>
+    </div>
+  </section>
+
+  <section style="padding: 70px 0;">
+    <div class="container">
+      <div style="text-align: center; max-width: 720px; margin: 0 auto 50px;" data-animate="fade-up">
+        <p style="font-size: 15.5px; line-height: 1.9; color: var(--fpu-ink); margin: 0;">
+          Federal Polytechnic Ugep is led by experienced administrators and academics committed to academic excellence,
+          innovation, and the welfare of students and staff. Our principal officers work together to deliver on our
+          mandate of training skilled, ethical, and globally competitive graduates.
+        </p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; max-width: 1100px; margin: 0 auto;">
+
+        <!-- Rector -->
+        <a href="/rector.html" class="officer-card" data-animate="fade-up">
+          <div class="photo-wrap">
+            <img src="https://fedpolyugep.edu.ng/admission/wp-content/uploads/2026/06/Rector-fedpoly2.jpg"
+                 alt="Dr Makoji Stephen"
+                 onerror="this.parentElement.innerHTML='<div class=\'initials\'>MS</div>'" />
+          </div>
+          <div class="info">
+            <span class="role-tag">Rector</span>
+            <h3>Dr Makoji Stephen</h3>
+            <p class="subtitle">Chief Executive Officer</p>
+            <span class="view-link">View Profile →</span>
+          </div>
+        </a>
+
+        <!-- Registrar -->
+        <a href="/registrar.html" class="officer-card" data-animate="fade-up">
+          <div class="photo-wrap">
+            <img src="https://fedpolyugep.edu.ng/admission/wp-content/uploads/2026/06/registrar2-1.png"
+                 alt="Barr. Obeten O. Okoi"
+                 onerror="this.parentElement.innerHTML='<div class=\'initials\'>OO</div>'" />
+          </div>
+          <div class="info">
+            <span class="role-tag">Registrar</span>
+            <h3>Barr. Obeten O. Okoi</h3>
+            <p class="subtitle">Chief Administrative Officer</p>
+            <span class="view-link">View Profile →</span>
+          </div>
+        </a>
+
+        <!-- Bursar -->
+        <a href="/bursar.html" class="officer-card" data-animate="fade-up">
+          <div class="photo-wrap">
+            <img src="https://fedpolyugep.edu.ng/admission/wp-content/uploads/2026/06/Bursar-fedpoly2.jpg"
+                 alt="Dr Okoi Asuquo Effiom"
+                 onerror="this.parentElement.innerHTML='<div class=\'initials\'>OE</div>'" />
+          </div>
+          <div class="info">
+            <span class="role-tag">Bursar</span>
+            <h3>Dr Okoi Asuquo Effiom</h3>
+            <p class="subtitle">Chief Financial Officer</p>
+            <span class="view-link">View Profile →</span>
+          </div>
+        </a>
+
+        <!-- Librarian -->
+        <a href="/librarian.html" class="officer-card" data-animate="fade-up">
+          <div class="photo-wrap">
+            <img src="https://fedpolyugep.edu.ng/admission/wp-content/uploads/2026/06/Librarian2.jpg"
+                 alt="Dr Romanus Okechukwu Attama"
+                 onerror="this.parentElement.innerHTML='<div class=\'initials\'>RA</div>'" />
+          </div>
+          <div class="info">
+            <span class="role-tag">Librarian</span>
+            <h3>Dr Romanus Okechukwu Attama</h3>
+            <p class="subtitle">Polytechnic Librarian</p>
+            <span class="view-link">View Profile →</span>
+          </div>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 60px 0; background: var(--fpu-bone, #f8faf8);">
+    <div class="container" style="max-width: 900px;">
+      <div style="text-align: center; margin-bottom: 32px;" data-animate="fade-up">
+        <h2 style="font-family:Poppins,sans-serif;color:var(--fpu-primary);font-size:1.5rem;margin:0;">Other Departments</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+        <div class="card" style="padding:20px;text-align:center;" data-animate="fade-up">
+          <div style="font-size:1.6rem;margin-bottom:8px;">📚</div>
+          <h3 style="font-family:Poppins,sans-serif;color:var(--fpu-primary);font-size:1rem;margin:0 0 4px;">Academic Office</h3>
+          <p style="font-size:13px;color:var(--fpu-muted);margin:0;">Curriculum, results, sessions</p>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;" data-animate="fade-up">
+          <div style="font-size:1.6rem;margin-bottom:8px;">📝</div>
+          <h3 style="font-family:Poppins,sans-serif;color:var(--fpu-primary);font-size:1rem;margin:0 0 4px;">Exams Office</h3>
+          <p style="font-size:13px;color:var(--fpu-muted);margin:0;">Schedules, invigilation, eligibility</p>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;" data-animate="fade-up">
+          <div style="font-size:1.6rem;margin-bottom:8px;">🎯</div>
+          <h3 style="font-family:Poppins,sans-serif;color:var(--fpu-primary);font-size:1rem;margin:0 0 4px;">Admissions</h3>
+          <p style="font-size:13px;color:var(--fpu-muted);margin:0;">Applications, screening, matriculation</p>
+        </div>
+        <div class="card" style="padding:20px;text-align:center;" data-animate="fade-up">
+          <div style="font-size:1.6rem;margin-bottom:8px;">💼</div>
+          <h3 style="font-family:Poppins,sans-serif;color:var(--fpu-primary);font-size:1rem;margin:0 0 4px;">Bursary</h3>
+          <p style="font-size:13px;color:var(--fpu-muted);margin:0;">Fees, payments, verification</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom"><p>© <span id="year"></span> Federal Polytechnic Ugep.</p></div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('active');
+    });
+  </script>
+</body>
+</html>

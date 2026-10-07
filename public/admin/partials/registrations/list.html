@@ -1,0 +1,244 @@
+<!-- ============================================================
+     Admin → Registrations → Overview (student-first)
+     ------------------------------------------------------------
+     Cards show, per student:
+       • total registered courses
+       • total credit units
+       • status split (pending / approved / rejected)
+     Click a student → full registration list, grouped by semester.
+     A separate "By Course" tab is available from the header.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Course Registrations</h2>
+    <p class="muted small">Review and approve student course registrations</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('registrations-by-course')">
+      By Course →
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadRegistrationStudents()">
+      Refresh
+    </button>
+    <button class="btn btn-accent btn-sm" id="reg-bulk-approve">
+      Approve All Pending
+    </button>
+  </div>
+</section>
+
+<!-- Session + semester filter -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="reg-filter-session"
+            data-lookup="sessions" data-placeholder="Current session"
+            onchange="FPU_ADMIN.loadRegistrationStudents()"></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="reg-filter-semester"
+            onchange="FPU_ADMIN.loadRegistrationStudents()">
+      <option value="">All semesters</option>
+      <option value="first">First</option>
+      <option value="second">Second</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="reg-filter-status"
+            onchange="FPU_ADMIN.loadRegistrationStudents()">
+      <option value="">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="reg-filter-dept"
+            data-lookup="departments" data-placeholder="All departments"
+            onchange="FPU_ADMIN.loadRegistrationStudents()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="reg-filter-search"
+           placeholder="Matric, name, or email…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadRegistrationStudents()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Students w/ Registrations</div>
+    <div class="value" id="reg-stat-students">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Pending Rows</div>
+    <div class="value" id="reg-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Approved Rows</div>
+    <div class="value" id="reg-stat-approved">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Total Units Registered</div>
+    <div class="value" id="reg-stat-units">—</div>
+  </div>
+</div>
+
+<!-- Student cards -->
+<div id="reg-student-grid" class="reg-student-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading registrations…
+  </div>
+</div>
+
+<style>
+  .reg-student-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .reg-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    padding: 16px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+  }
+  .reg-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    border-radius: 12px 0 0 12px;
+  }
+  .reg-card.has-pending::before { background: #f59e0b; }
+  .reg-card.all-approved::before { background: #10b981; }
+  .reg-card.has-rejected::before { background: #dc2626; }
+
+  .reg-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+
+  .reg-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .reg-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,#065f46,#f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .reg-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .reg-info { min-width: 0; flex: 1; }
+  .reg-info strong {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    color: #0f172a;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .reg-info .matric {
+    font-family: 'Courier New', monospace;
+    font-size: 11.5px;
+    color: #065f46;
+    background: #ecfdf5;
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 4px;
+    margin-top: 3px;
+    font-weight: 700;
+  }
+
+  .reg-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .reg-stat {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .reg-stat .num {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .reg-stat.units .num { color: #f59e0b; }
+  .reg-stat .label {
+    display: block;
+    font-size: 9.5px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .reg-split {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .reg-chip {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+  }
+  .reg-chip.pending  { background: #fef3c7; color: #92400e; }
+  .reg-chip.approved { background: #dcfce7; color: #15803d; }
+  .reg-chip.rejected { background: #fee2e2; color: #991b1b; }
+
+  .reg-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .reg-footer .arrow {
+    color: #f59e0b;
+    font-family: 'Poppins', sans-serif;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadRegistrationStudents()
+</script>

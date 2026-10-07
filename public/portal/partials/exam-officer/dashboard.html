@@ -1,0 +1,45 @@
+<!-- Portal → Exam Officer → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="eo-dash-avatar">E</div>
+    <div>
+      <h1>Welcome, <span id="eo-dash-name">Exam Officer</span></h1>
+      <div class="sub">Examinations Office</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="eo-dash-session">—</strong>
+    <span>Current Session</span>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Total Exams</div><div class="tile-value" id="eo-t-total">—</div><div class="tile-sub">scheduled</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Upcoming</div><div class="tile-value" id="eo-t-upcoming">—</div><div class="tile-sub">from today</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Past</div><div class="tile-value" id="eo-t-past">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Eligibility Checks</div><div class="tile-value" id="eo-t-elig">—</div><div class="tile-sub">available</div></div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('exam-officer-attendance')">Exam Attendance</a>
+  <a onclick="FPU_SPA.navigatePortal('exam-officer-eligibility')">Eligibility</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-exams')">All Schedules</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/exam-officer/dashboard');
+      const d = res.data || {};
+      document.getElementById('eo-dash-name').textContent = core.getPortalUser()?.firstName || 'Exam Officer';
+      document.getElementById('eo-dash-session').textContent = d.currentSession?.name || '—';
+      if (photo) photo.renderMyAvatar(document.getElementById('eo-dash-avatar'), core.getPortalUser());
+      document.getElementById('eo-t-total').textContent = d.totalSchedules ?? 0;
+      document.getElementById('eo-t-upcoming').textContent = d.upcoming ?? 0;
+      document.getElementById('eo-t-past').textContent = Math.max(0, (d.totalSchedules || 0) - (d.upcoming || 0));
+      document.getElementById('eo-t-elig').textContent = '✓';
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

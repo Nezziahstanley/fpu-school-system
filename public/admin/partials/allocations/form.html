@@ -1,0 +1,275 @@
+<!-- ============================================================
+     Admin → Allocations → Form (Create / Edit)
+     ------------------------------------------------------------
+     Branches on ?id= in URL hash. Supports prefill via:
+       ?departmentId=X   ?courseId=Y   ?lecturerId=Z
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="alloc-form-title">New Allocation</h2>
+    <p class="muted small" id="alloc-form-subtitle">Assign a lecturer to a course</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="alloc-form-back" onclick="FPU_ADMIN.goBack('allocations')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Allocation Details</h3></div>
+  <div class="panel-body">
+    <form id="allocation-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="alloc-session"
+                  data-lookup="sessions" data-placeholder="Select session…" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semester <span class="req">*</span></label>
+          <select class="form-select" name="semester" id="alloc-semester" required>
+            <option value="first">First Semester</option>
+            <option value="second">Second Semester</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School</label>
+          <select class="form-select" id="alloc-school"
+                  data-lookup="schools" data-placeholder="Select school…"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" id="alloc-dept"
+                  data-lookup="departments"
+                  data-depends-on="alloc-school"
+                  data-param="schoolId"
+                  data-placeholder="Select school first…"
+                  required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Course <span class="req">*</span></label>
+          <select class="form-select" name="courseId" id="alloc-course"
+                  data-lookup="courses"
+                  data-depends-on="alloc-dept"
+                  data-param="departmentId"
+                  data-placeholder="Select department first…"
+                  required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Lecturer <span class="req">*</span></label>
+          <select class="form-select" name="lecturerId" id="alloc-lecturer"
+                  data-lookup="lecturers"
+                  data-depends-on="alloc-dept"
+                  data-param="departmentId"
+                  data-placeholder="Select department first…"
+                  required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="alloc-submit">Create Allocation</button>
+        <button type="button" class="btn btn-ghost" id="alloc-cancel" onclick="FPU_ADMIN.goBack('allocations')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="alloc-delete"
+                style="margin-left:auto;display:none;">Delete Allocation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillDept   = params.get('departmentId');
+    const prefillCourse = params.get('courseId');
+    const prefillLect   = params.get('lecturerId');
+    const isEdit = !!id;
+
+    // ---------- Mode header ----------
+    if (isEdit) {
+      $('alloc-form-title').textContent = 'Edit Allocation';
+      $('alloc-form-subtitle').textContent = 'Update this allocation';
+      $('alloc-submit').textContent = 'Save Changes';
+      $('alloc-delete').style.display = 'inline-flex';
+    }
+
+    // ---------- Back / Cancel ----------
+    function goBack() {
+      const deptId = prefillDept || $('alloc-dept').value;
+      if (deptId) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('allocations-by-dept', {
+          departmentId: Number(deptId),
+          name: params.get('name') || 'Department',
+        });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('allocations');
+      }
+    }
+    $('alloc-form-back').addEventListener('click', goBack);
+    $('alloc-cancel').addEventListener('click', goBack);
+
+    // ---------- Load existing (edit) ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/allocations/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const a = json.data;
+
+        // Session + semester
+        setTimeout(() => {
+          if ($('alloc-session') && a.sessionId) $('alloc-session').value = String(a.sessionId);
+        }, 300);
+        $('alloc-semester').value = a.semester || 'first';
+
+        // Department (via course lookup once loaded)
+        // We set it after lookups are ready
+        setTimeout(() => {
+          // Fetch the course to find its department
+          A.adminFetch(`/api/admin/courses/${a.courseId}`).then((r) => r.json()).then((j) => {
+            if (!j.success) return;
+            const c = j.data;
+            if ($('alloc-dept') && c.departmentId) {
+              $('alloc-dept').value = String(c.departmentId);
+              $('alloc-dept').dispatchEvent(new Event('change'));
+            }
+            setTimeout(() => {
+              if ($('alloc-course') && a.courseId) $('alloc-course').value = String(a.courseId);
+              if ($('alloc-lecturer') && a.lecturerId) $('alloc-lecturer').value = String(a.lecturerId);
+            }, 600);
+          }).catch(() => {});
+        }, 500);
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------- Prefill (create mode) ----------
+    function applyPrefill() {
+      if (isEdit) return;
+      setTimeout(() => {
+        if (prefillDept && $('alloc-dept')) {
+          $('alloc-dept').value = String(prefillDept);
+          $('alloc-dept').dispatchEvent(new Event('change'));
+        }
+      }, 500);
+      setTimeout(() => {
+        if (prefillCourse && $('alloc-course')) {
+          $('alloc-course').value = String(prefillCourse);
+        }
+        if (prefillLect && $('alloc-lecturer')) {
+          $('alloc-lecturer').value = String(prefillLect);
+        }
+      }, 900);
+    }
+
+    // ---------- Submit ----------
+    $('allocation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const sessionId = $('alloc-session').value;
+      const semester = $('alloc-semester').value;
+      const courseId = $('alloc-course').value;
+      const lecturerId = $('alloc-lecturer').value;
+
+      if (!sessionId)  { A.showToast('⚠️ Session is required.', 'warning'); return; }
+      if (!courseId)   { A.showToast('⚠️ Course is required.', 'warning'); return; }
+      if (!lecturerId) { A.showToast('⚠️ Lecturer is required.', 'warning'); return; }
+
+      const payload = {
+        sessionId: Number(sessionId),
+        semester,
+        courseId: Number(courseId),
+        lecturerId: Number(lecturerId),
+      };
+
+      const btn = $('alloc-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit
+          ? `/api/admin/allocations/${id}`
+          : '/api/admin/allocations';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Allocation updated.' : '✅ Allocation created.');
+
+        // Return to department view
+        const deptId = $('alloc-dept').value;
+        if (deptId) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('allocations-by-dept', {
+            departmentId: Number(deptId),
+            name: params.get('name') || 'Department',
+          });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('allocations');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete (edit mode) ----------
+    $('alloc-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this allocation? The course will become unassigned.')) return;
+
+      const btn = $('alloc-delete');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        const res = await A.adminFetch(`/api/admin/allocations/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast('🗑️ Allocation removed.');
+        const deptId = $('alloc-dept').value;
+        if (deptId) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('allocations-by-dept', {
+            departmentId: Number(deptId),
+            name: params.get('name') || 'Department',
+          });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('allocations');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Init ----------
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

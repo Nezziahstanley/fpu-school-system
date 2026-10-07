@@ -1,0 +1,90 @@
+<!-- Admin → Academics → Programmes -->
+<section class="page-head">
+  <div>
+    <h2>Programmes</h2>
+    <p class="muted small">ND, HND, and Certificate programmes by department</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'programmes.csv')">
+      Export CSV
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadProgrammes()">Refresh</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('programme-form')">
+      + New Programme
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Programmes</div>
+    <div class="value" id="prog-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">ND</div>
+    <div class="value" id="prog-stat-nd">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">HND</div>
+    <div class="value" id="prog-stat-hnd">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Certificate</div>
+    <div class="value" id="prog-stat-cert">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="prog-filter-level" onchange="FPU_ADMIN.loadProgrammes()">
+      <option value="">All levels</option>
+      <option>ND</option>
+      <option>HND</option>
+      <option>CERT</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="prog-filter-dept" onchange="FPU_ADMIN.loadProgrammes()"
+            data-lookup="departments" data-placeholder="All departments"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="prog-filter-search"
+           placeholder="Code or name…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadProgrammes()" />
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>All Programmes</h3>
+    <span class="small muted">Programmes with enrolled students cannot be deleted</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>Level</th>
+            <th>Department</th>
+            <th>Duration</th>
+            <th>Students</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="programmes-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

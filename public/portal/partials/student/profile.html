@@ -1,0 +1,47 @@
+<!-- Portal → Student → Profile -->
+<section class="page-head">
+  <div><h2>My Student Profile</h2><p class="muted small">Your academic identity</p></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Bio-Data</h3></div>
+  <div class="panel-body">
+    <div class="grid grid-2" style="gap:1rem;">
+      <div><strong>Full Name:</strong> <span id="sp-name">—</span></div>
+      <div><strong>Matric No:</strong> <span id="sp-matric">—</span></div>
+      <div><strong>Email:</strong> <span id="sp-email">—</span></div>
+      <div><strong>Phone:</strong> <span id="sp-phone">—</span></div>
+      <div><strong>Gender:</strong> <span id="sp-gender">—</span></div>
+      <div><strong>Date of Birth:</strong> <span id="sp-dob">—</span></div>
+      <div><strong>State of Origin:</strong> <span id="sp-state">—</span></div>
+      <div><strong>Nationality:</strong> <span id="sp-nat">—</span></div>
+      <div><strong>Level:</strong> <span id="sp-level">—</span></div>
+      <div><strong>Department:</strong> <span id="sp-dept">—</span></div>
+      <div><strong>Programme:</strong> <span id="sp-prog">—</span></div>
+      <div><strong>School:</strong> <span id="sp-school">—</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/student/profile');
+      const u = res.data || {};
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || '—'; };
+      set('sp-name', `${u.firstName || ''} ${u.lastName || ''}`.trim());
+      set('sp-matric', u.matricNumber);
+      set('sp-email', u.email);
+      set('sp-phone', u.phone);
+      set('sp-gender', u.gender);
+      set('sp-dob', core.formatDate(u.dateOfBirth));
+      set('sp-state', u.stateOfOrigin);
+      set('sp-nat', u.nationality);
+      set('sp-level', u.level);
+      set('sp-dept', u.department?.name);
+      set('sp-prog', u.programme?.name);
+      set('sp-school', u.school?.name);
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

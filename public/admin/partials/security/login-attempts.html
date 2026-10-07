@@ -1,0 +1,91 @@
+<!-- ============================================================
+     Admin → Security → Login Attempts
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Login Attempts</h2>
+    <p class="muted small">Every login and failed attempt</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadLoginAttempts()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="la-export">Export CSV</button>
+  </div>
+</section>
+
+<!-- Status tabs -->
+<div class="staff-role-tabs" id="la-status-tabs">
+  <button class="staff-role-tab active" data-status="">All</button>
+  <button class="staff-role-tab" data-status="success">✅ Successful</button>
+  <button class="staff-role-tab" data-status="fail">❌ Failed</button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group" style="flex:2 1 240px;">
+    <label class="form-label">Email</label>
+    <input class="form-control" id="la-email"
+           placeholder="Filter by email…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadLoginAttempts()" />
+  </div>
+  <div class="form-group" style="flex:1 1 180px;">
+    <label class="form-label">IP address</label>
+    <input class="form-control" id="la-ip"
+           placeholder="Filter by IP…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadLoginAttempts()" />
+  </div>
+  <button class="btn btn-primary" onclick="FPU_ADMIN.loadLoginAttempts()">Apply</button>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Attempts</div>
+    <div class="value" id="la-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Successful</div>
+    <div class="value" id="la-stat-success">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Failed</div>
+    <div class="value" id="la-stat-fail">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Unique IPs</div>
+    <div class="value" id="la-stat-ips">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Attempts</h3>
+    <span class="small muted" id="la-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:140px;">IP</th>
+            <th>User Agent</th>
+            <th>Reason</th>
+            <th style="width:180px;">Time</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="la-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadLoginAttempts()
+</script>

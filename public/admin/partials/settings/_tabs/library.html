@@ -1,0 +1,146 @@
+<!-- Settings tab: Library -->
+<form class="settings-form" data-settings-section="library" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Borrowing Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Default Loan Duration (days)</label>
+          <input class="form-control" type="number" name="library_loan_days" value="14" min="1" max="90" />
+          <div class="form-help">Students must return books within this period.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maximum Books Per User</label>
+          <input class="form-control" type="number" name="library_max_books_per_user" value="3" min="1" max="20" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Renewals Per Book</label>
+          <input class="form-control" type="number" name="library_max_renewals" value="1" min="0" max="5" />
+          <div class="form-help">0 = renewals not allowed</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Renewal Duration (days)</label>
+          <input class="form-control" type="number" name="library_renewal_days" value="7" min="1" max="30" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Fines</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Fine Per Day Overdue (₦)</label>
+          <input class="form-control" type="number" name="library_fine_per_day" value="50" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maximum Fine Per Book (₦)</label>
+          <input class="form-control" type="number" name="library_max_fine" value="2000" min="0" />
+          <div class="form-help">0 = no cap. Recommended for student welfare.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fine for Lost Book (₦)</label>
+          <input class="form-control" type="number" name="library_lost_fine" value="5000" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fine for Damaged Book (₦)</label>
+          <input class="form-control" type="number" name="library_damaged_fine" value="2500" min="0" />
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="library-sweep-btn">
+          ⏰ Run Overdue Sweep Now
+        </button>
+      </div>
+      <div id="library-sweep-result" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Reservations</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Enable Reservations</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="library_enable_reservations" checked />
+            <span>Allow students to reserve books</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reservation Hold Duration (days)</label>
+          <input class="form-control" type="number" name="library_reservation_hold_days" value="3" min="1" max="14" />
+          <div class="form-help">How long a "ready" reservation is held before expiring.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Active Reservations Per User</label>
+          <input class="form-control" type="number" name="library_max_reservations" value="2" min="1" max="10" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Notifications</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Send Reminder Before Due Date</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="library_remind_before_due" checked />
+            <span>Email the user N days before the book is due</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reminder Lead Time (days)</label>
+          <input class="form-control" type="number" name="library_reminder_days" value="2" min="1" max="7" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Send Overdue Notices</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="library_remind_overdue" checked />
+            <span>Email users whose books are overdue (daily)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notify Librarian of New Reservations</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="library_notify_librarian" checked />
+            <span>Alert when a reservation is made</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-library"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Library Settings</button>
+  </div>
+</form>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const btn = document.getElementById('library-sweep-btn');
+    if (!btn || btn.__bound) return;
+    btn.__bound = true;
+
+    btn.addEventListener('click', async () => {
+      const result = document.getElementById('library-sweep-result');
+      if (!confirm('Run the overdue sweep now? This marks any past-due borrows as overdue.')) return;
+
+      result.innerHTML = '<div class="loading"><span class="spinner"></span> Sweeping…</div>';
+
+      try {
+        const res = await A.adminFetch('/api/admin/library/sweep-overdue', { method: 'POST' });
+        const json = await res.json();
+        result.innerHTML = `<div class="alert alert-success">✅ Swept ${json.count || 0} overdue borrow(s).</div>`;
+      } catch (err) {
+        result.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      }
+    });
+  })();
+</script>

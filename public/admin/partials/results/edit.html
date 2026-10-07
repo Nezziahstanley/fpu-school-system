@@ -1,0 +1,166 @@
+<!-- ============================================================
+     Admin → Results → Edit / Create
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="res-edit-title">Create Result</h2>
+    <p class="muted small">Enter a score — grade is computed automatically</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="res-edit-back" onclick="FPU_ADMIN.goBack('results')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Result</h3></div>
+  <div class="panel-body">
+    <form id="result-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="res-edit-session"
+                  data-lookup="sessions" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Semester <span class="req">*</span></label>
+          <select class="form-select" name="semester" id="res-edit-semester" required>
+            <option value="first">First</option>
+            <option value="second">Second</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Student <span class="req">*</span></label>
+          <select class="form-select" name="studentId" id="res-edit-student"
+                  data-lookup="students" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Course <span class="req">*</span></label>
+          <select class="form-select" name="courseId" id="res-edit-course"
+                  data-lookup="courses" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Score <span class="req">*</span></label>
+          <input class="form-control" type="number" step="0.01" min="0" max="100"
+                 name="score" id="res-edit-score" required />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="res-edit-submit">Save</button>
+        <button type="button" class="btn btn-ghost" id="res-edit-cancel" onclick="FPU_ADMIN.goBack('results')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillStudent = params.get('studentId');
+    const prefillCourse  = params.get('courseId');
+    const prefillSession = params.get('sessionId');
+    const prefillSem     = params.get('semester');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('res-edit-title').textContent = 'Edit Result';
+      $('res-edit-submit').textContent = 'Save Changes';
+    }
+
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('result-detail', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('results');
+      }
+    }
+    $('res-edit-back').addEventListener('click', goBack);
+    $('res-edit-cancel').addEventListener('click', goBack);
+
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/results/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const r = json.data;
+
+        setTimeout(() => {
+          if ($('res-edit-session') && r.sessionId) $('res-edit-session').value = String(r.sessionId);
+          if ($('res-edit-student') && r.studentId) $('res-edit-student').value = String(r.studentId);
+          if ($('res-edit-course') && r.courseId)   $('res-edit-course').value  = String(r.courseId);
+        }, 500);
+
+        $('res-edit-semester').value = r.semester || 'first';
+        $('res-edit-score').value = r.score ?? '';
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    function applyPrefill() {
+      if (isEdit) return;
+      setTimeout(() => {
+        if (prefillSession && $('res-edit-session')) $('res-edit-session').value = String(prefillSession);
+        if (prefillStudent && $('res-edit-student')) $('res-edit-student').value = String(prefillStudent);
+        if (prefillCourse  && $('res-edit-course'))  $('res-edit-course').value  = String(prefillCourse);
+      }, 500);
+      if (prefillSem) $('res-edit-semester').value = prefillSem;
+    }
+
+    $('result-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        sessionId: Number($('res-edit-session').value),
+        semester: $('res-edit-semester').value,
+        studentId: Number($('res-edit-student').value),
+        courseId: Number($('res-edit-course').value),
+        score: Number($('res-edit-score').value),
+      };
+
+      if (!payload.sessionId || !payload.studentId || !payload.courseId) {
+        A.showToast('⚠️ Session, student, and course are required.', 'warning');
+        return;
+      }
+      if (!Number.isFinite(payload.score) || payload.score < 0 || payload.score > 100) {
+        A.showToast('⚠️ Score must be between 0 and 100.', 'warning');
+        return;
+      }
+
+      const btn = $('res-edit-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      try {
+        const url = isEdit ? `/api/admin/results/${id}` : '/api/admin/results';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Result updated.' : '✅ Result created.');
+
+        if (isEdit) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('result-detail', { id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('results');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

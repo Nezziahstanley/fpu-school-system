@@ -1,0 +1,81 @@
+<!-- Portal → Shared → Complaints -->
+<section class="page-head">
+  <div><h2>My Complaints</h2><p class="muted small">Report an issue and track its status</p></div>
+  <div class="actions"><button class="btn btn-primary btn-sm" id="cmp-new">+ New Complaint</button></div>
+</section>
+
+<div class="panel" id="cmp-new-panel" style="display:none;">
+  <div class="panel-head"><h3>New Complaint</h3></div>
+  <div class="panel-body">
+    <form id="cmp-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Subject <span class="req">*</span></label><input class="form-control" name="subject" required /></div>
+        <div class="form-group"><label class="form-label">Category</label>
+          <select class="form-select" name="category">
+            <option value="">—</option>
+            <option>academic</option>
+            <option>facility</option>
+            <option>finance</option>
+            <option>welfare</option>
+            <option>other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">Message <span class="req">*</span></label><textarea class="form-control" name="body" rows="4" required></textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="button" class="btn btn-ghost" id="cmp-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="cmp-list" class="grid" style="gap:.5rem;">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+
+    async function load() {
+      const box = document.getElementById('cmp-list');
+      box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+      try {
+        const res = await core.portalFetch('/api/portal/complaints');
+        const rows = res.data || [];
+        box.innerHTML = rows.length ? rows.map((c) => `
+          <div class="session-item">
+            <div class="meta"><strong>${core.escapeHtml(c.subject)}</strong>${core.escapeHtml((c.body || '').slice(0, 140))}</div>
+            <div class="small muted">
+              <span class="badge badge-${c.status === 'resolved' ? 'success' : c.status === 'closed' ? 'muted' : 'warning'}">${core.escapeHtml(c.status)}</span>
+              · ${core.timeAgo(c.createdAt)}
+            </div>
+          </div>
+        `).join('') : '<p class="muted">No complaints filed.</p>';
+      } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+    }
+
+    document.getElementById('cmp-new').addEventListener('click', () => {
+      const p = document.getElementById('cmp-new-panel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('cmp-cancel').addEventListener('click', () => {
+      document.getElementById('cmp-new-panel').style.display = 'none';
+    });
+
+    document.getElementById('cmp-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await core.portalFetch('/api/portal/complaints', { method: 'POST', body: Object.fromEntries(fd) });
+        core.showToast('Complaint submitted.', 'success');
+        e.target.reset();
+        document.getElementById('cmp-new-panel').style.display = 'none';
+        load();
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+
+    load();
+  })();
+</script>

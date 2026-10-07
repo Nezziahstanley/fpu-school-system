@@ -1,0 +1,239 @@
+<!-- ============================================================
+     Admin → Results → Overview (department-first)
+     ------------------------------------------------------------
+     Shows every department with a breakdown of its results by
+     workflow status. Departments with results awaiting admin
+     approval (status = hod_verified) are highlighted.
+     Click a department → full drill-down by course.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Results</h2>
+    <p class="muted small">
+      HOD-verified results awaiting your approval — click a department to review
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadResultDepartments()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('grade-scales')">
+      Grade Scales
+    </button>
+    <button class="btn btn-accent btn-sm" id="res-bulk-publish">
+      Publish All Approved
+    </button>
+  </div>
+</section>
+
+<!-- Session + semester filter -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="res-filter-session"
+            data-lookup="sessions" data-placeholder="Current session"
+            onchange="FPU_ADMIN.loadResultDepartments()"></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="res-filter-semester"
+            onchange="FPU_ADMIN.loadResultDepartments()">
+      <option value="">All semesters</option>
+      <option value="first">First</option>
+      <option value="second">Second</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="res-filter-status"
+            onchange="FPU_ADMIN.loadResultDepartments()">
+      <option value="hod_verified">Awaiting admin approval</option>
+      <option value="approved">Approved (ready to publish)</option>
+      <option value="">All statuses</option>
+      <option value="draft">Draft</option>
+      <option value="submitted">Submitted</option>
+      <option value="published">Published</option>
+      <option value="hod_rejected">HOD rejected</option>
+      <option value="admin_rejected">Admin rejected</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">School</label>
+    <select class="form-select" id="res-filter-school"
+            data-lookup="schools" data-placeholder="All schools"
+            onchange="FPU_ADMIN.loadResultDepartments()"></select>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Departments w/ Results</div>
+    <div class="value" id="res-stat-depts">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Awaiting Approval</div>
+    <div class="value" id="res-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Ready to Publish</div>
+    <div class="value" id="res-stat-approved">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Total Rows</div>
+    <div class="value" id="res-stat-total">—</div>
+  </div>
+</div>
+
+<!-- Department cards -->
+<div id="res-dept-grid" class="res-dept-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading results…
+  </div>
+</div>
+
+<style>
+  .res-dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .res-dept-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .res-dept-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+  }
+  .res-dept-card.pending::before   { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .res-dept-card.approved::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+  .res-dept-card.clear::before     { background: linear-gradient(90deg, #cbd5e1, #e2e8f0); }
+  .res-dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+  .res-dept-card.empty {
+    opacity: 0.65;
+    cursor: default;
+  }
+  .res-dept-card.empty:hover { transform: none; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+
+  .rdc-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .rdc-code {
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+  .rdc-school {
+    background: linear-gradient(135deg,#065f46,#047857);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .res-dept-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.35;
+  }
+  .rdc-total {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .rdc-total .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.1rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .rdc-total .label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+
+  .rdc-status {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .rdc-status-item {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .rdc-status-item .num {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #065f46;
+  }
+  .rdc-status-item.pending .num  { color: #f59e0b; }
+  .rdc-status-item.approved .num { color: #10b981; }
+  .rdc-status-item.rejected .num { color: #dc2626; }
+  .rdc-status-item .label {
+    display: block;
+    font-size: 9.5px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .rdc-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .rdc-footer .arrow {
+    color: #f59e0b;
+    font-family: 'Poppins', sans-serif;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadResultDepartments()
+</script>

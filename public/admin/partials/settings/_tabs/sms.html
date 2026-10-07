@@ -1,0 +1,157 @@
+<!-- Settings tab: SMS -->
+<form class="settings-form" data-settings-section="sms" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Master Switch</h3></div>
+    <div class="panel-body">
+      <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+        <input type="checkbox" name="sms_enabled" />
+        <span>Enable outgoing SMS</span>
+      </label>
+      <div class="form-help">
+        When disabled, all SMS sending is silently skipped. Useful for development.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Provider</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">SMS Provider</label>
+          <select class="form-select" name="sms_provider">
+            <option value="termii" selected>Termii (Nigeria)</option>
+            <option value="twilio">Twilio</option>
+            <option value="africastalking">Africa's Talking</option>
+            <option value="bulksmsnigeria">BulkSMS Nigeria</option>
+            <option value="custom">Custom HTTP API</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Sender ID</label>
+          <input class="form-control" name="sms_sender_id" value="FPU" maxlength="11"
+                 placeholder="e.g. FPU or FEDPOLYUGE" />
+          <div class="form-help">Max 11 characters, alphanumeric. Must be pre-approved by provider.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>API Credentials</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <div style="position:relative;">
+            <input class="form-control" type="password" name="sms_api_key" id="sms-api-key" />
+            <button type="button" class="btn btn-ghost btn-sm"
+                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);"
+                    onclick="document.getElementById('sms-api-key').type = document.getElementById('sms-api-key').type === 'password' ? 'text' : 'password'">
+              👁
+            </button>
+          </div>
+          <div class="form-help">Stored encrypted at rest using APP_SECRET.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">API Secret / Token</label>
+          <div style="position:relative;">
+            <input class="form-control" type="password" name="sms_api_secret" id="sms-api-secret" />
+            <button type="button" class="btn btn-ghost btn-sm"
+                    style="position:absolute;right:6px;top:50%;transform:translateY(-50%);"
+                    onclick="document.getElementById('sms-api-secret').type = document.getElementById('sms-api-secret').type === 'password' ? 'text' : 'password'">
+              👁
+            </button>
+          </div>
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Custom API Endpoint (if applicable)</label>
+          <input class="form-control" name="sms_api_endpoint" placeholder="https://api.provider.com/v1/sms/send" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Delivery Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Daily SMS Cap Per User</label>
+          <input class="form-control" type="number" name="sms_daily_cap" value="5" min="1" max="50" />
+          <div class="form-help">Prevents accidental flooding. Per-user per-day.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Length (characters)</label>
+          <input class="form-control" type="number" name="sms_max_length" value="160" min="70" max="918" />
+          <div class="form-help">160 = 1 SMS unit; longer messages are split into multiple credits.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Send Fee Reminders via SMS</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="sms_send_fee_reminders" checked />
+            <span>Notify students of outstanding fees</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Send Result Notifications via SMS</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="sms_send_results" checked />
+            <span>Notify when results are published</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Send Admission Status via SMS</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="sms_send_admission" checked />
+            <span>Notify applicants on approval / rejection</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="button" class="btn btn-outline btn-sm" id="sms-test-btn">
+          📱 Send Test SMS
+        </button>
+      </div>
+      <div id="sms-test-result" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-sms"></span>
+    <button type="submit" class="btn btn-primary">💾 Save SMS Settings</button>
+  </div>
+</form>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const btn = document.getElementById('sms-test-btn');
+    if (!btn || btn.__bound) return;
+    btn.__bound = true;
+
+    btn.addEventListener('click', async () => {
+      const result = document.getElementById('sms-test-result');
+      const phone = prompt('Send test SMS to which phone number? (e.g. +2348012345678)');
+      if (!phone) return;
+
+      result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
+
+      try {
+        const res = await A.adminFetch('/api/admin/settings/sms/test', {
+          method: 'POST',
+          body: JSON.stringify({ phone }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          result.innerHTML = `<div class="alert alert-success">✅ Test SMS queued. Provider message ID: ${A.escapeHtml(json.messageId || '—')}</div>`;
+        } else {
+          result.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(json.error || 'Send failed')}</div>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      }
+    });
+  })();
+</script>

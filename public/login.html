@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .login-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--fpu-primary) 0%, var(--fpu-primary-dark) 100%);
+      padding: 60px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-page-wrap::before {
+      content: "";
+      position: absolute;
+      top: -100px; right: -100px;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.15) 0%, transparent 70%);
+    }
+    .login-page-wrap::after {
+      content: "";
+      position: absolute;
+      bottom: -200px; left: -200px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, transparent 70%);
+    }
+    .login-card-public {
+      position: relative;
+      z-index: 1;
+      background: #fff;
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+      border-top: 6px solid var(--fpu-accent);
+    }
+    @media (max-width: 480px) {
+      .login-card-public { padding: 32px 22px; }
+    }
+    .login-card-public h1 {
+      font-family: Poppins, sans-serif;
+      font-size: 1.5rem;
+      color: var(--fpu-primary);
+      text-align: center;
+      margin: 0 0 6px;
+    }
+    .login-card-public .sub {
+      text-align: center;
+      color: var(--fpu-muted);
+      font-size: 14px;
+      margin: 0 0 26px;
+    }
+    .login-logo {
+      display: block;
+      height: 60px;
+      margin: 0 auto 16px;
+    }
+    .role-hint {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      font-size: 12.5px;
+      color: var(--fpu-muted);
+    }
+    .role-hint strong { color: var(--fpu-primary); }
+  </style>
+</head>
+<body>
+
+  <div class="login-page-wrap">
+    <div class="login-card-public">
+      <img src="/images/logo.png" alt="FPU" class="login-logo" />
+      <h1>Portal Login</h1>
+      <p class="sub">Federal Polytechnic Ugep</p>
+
+      <div id="form-alert"></div>
+
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" name="email" required placeholder="you@example.com" autocomplete="username" autofocus />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div style="text-align:right;margin-bottom:16px;">
+          <a href="/register.html" style="font-size:13px;color:var(--fpu-primary);font-weight:600;">Forgot password?</a>
+        </div>
+        <button type="submit" class="btn btn-accent btn-lg" style="width:100%;" id="loginBtn">Sign In</button>
+      </form>
+
+      <div class="role-hint" style="margin-top:20px;">
+        <span>Works for: <strong>Student</strong></span>
+        <span>· <strong>Staff</strong></span>
+        <span>· <strong>Admin</strong></span>
+      </div>
+
+      <p style="text-align:center;font-size:13.5px;color:var(--fpu-muted);margin:22px 0 0;">
+        New applicant? <a href="/apply.html" style="color:var(--fpu-primary);font-weight:700;">Apply here</a>
+      </p>
+      <p style="text-align:center;font-size:13px;color:var(--fpu-muted);margin:6px 0 0;">
+        <a href="/" style="color:var(--fpu-muted);">← Back to homepage</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    async function handleLogin(event) {
+      event.preventDefault();
+      const form = event.target;
+      const alertBox = document.getElementById('form-alert');
+      const btn = document.getElementById('loginBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      const data = {
+        email: form.email.value.trim(),
+        password: form.password.value,
+      };
+
+      try {
+        const res = await fetch('/api/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+
+        if (!json.success) {
+          alertBox.className = 'alert alert-error';
+          alertBox.textContent = '❌ ' + (json.error || json.message || 'Invalid credentials.');
+          return;
+        }
+
+        // Save the session under both key sets for compatibility
+        // (portal-* used by the student portal, fpu_admin_* used by admin)
+        const token = json.token;
+        const user = json.user;
+        localStorage.setItem('portal_token', token);
+        localStorage.setItem('portal_user', JSON.stringify(user));
+        localStorage.setItem('fpu_admin_token', token);
+        localStorage.setItem('fpu_admin_user', JSON.stringify(user));
+
+        const role = String(user?.role || '').toLowerCase();
+
+        // ---- Single-step smart routing ----
+        let destination;
+        let message;
+
+        if (role === 'student') {
+          destination = '/portal/app.html';
+          message = '✅ Welcome back! Taking you to your dashboard…';
+        } else {
+          // Every other role is staff / admin
+          destination = '/admin/app.html';
+          message = '✅ Welcome! Taking you to your staff dashboard…';
+        }
+
+        alertBox.className = 'alert alert-success';
+        alertBox.textContent = message;
+
+        setTimeout(() => {
+          window.location.href = destination;
+        }, 700);
+      } catch (err) {
+        console.error('[login] error:', err);
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ Connection error. Please try again.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    }
+  </script>
+</body>
+</html>

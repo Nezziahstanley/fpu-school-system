@@ -1,0 +1,235 @@
+<!-- ============================================================
+     Admin → Allocations → Bulk
+     ------------------------------------------------------------
+     Paste a JSON array of allocations. Live parser shows a
+     preview table with per-row validation before submit.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Bulk Allocations</h2>
+    <p class="muted small">Paste a JSON array to create many allocations in one call</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('allocations')">
+      ← All Allocations
+    </button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>Paste JSON</h3>
+    <div class="tools">
+      <button class="btn btn-ghost btn-sm" id="bulk-fill-sample">Insert Sample</button>
+      <button class="btn btn-ghost btn-sm" id="bulk-clear">Clear</button>
+    </div>
+  </div>
+  <div class="panel-body">
+    <p class="muted small" style="margin-bottom:12px;">
+      Each row: <code>{ "courseId": 1, "lecturerId": 2, "sessionId": 3, "semester": "first" }</code>
+    </p>
+
+    <form id="bulk-allocation-form" data-skip-generic="1">
+      <textarea class="form-control" id="bulk-json" rows="12"
+        placeholder='[{"courseId":1,"lecturerId":2,"sessionId":3,"semester":"first"}]'
+        style="font-family:'Courier New',monospace;font-size:13px;"></textarea>
+
+      <div id="bulk-parse-msg" style="margin-top:10px;"></div>
+
+      <div id="bulk-preview-wrap" style="display:none;margin-top:16px;">
+        <div class="small muted" id="bulk-preview-count"></div>
+        <div class="table-wrap" style="max-height:300px;overflow-y:auto;margin-top:8px;">
+          <table class="table-admin">
+            <thead>
+              <tr>
+                <th style="width:50px;">#</th>
+                <th>Course</th>
+                <th>Lecturer</th>
+                <th>Session</th>
+                <th>Semester</th>
+                <th style="width:90px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="bulk-preview-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="submit" class="btn btn-primary" id="bulk-submit" disabled>
+          Submit Bulk Allocations
+        </button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('allocations')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    // Cache for name lookups
+    let coursesMap = {};
+    let lecturersMap = {};
+
+    // Preload courses + lecturers for a nicer preview
+    (async function preload() {
+      try {
+        const [cRes, lRes] = await Promise.all([
+          A.adminFetch('/api/admin/courses?limit=2000'),
+          A.adminFetch('/api/admin/lecturers'),
+        ]);
+        const courses = (await cRes.json()).data || [];
+        const lecturers = (await lRes.json()).data || [];
+        courses.forEach((c) => { coursesMap[c.id] = c; });
+        lecturers.forEach((l) => { lecturersMap[l.id] = l; });
+      } catch { /* silent — preview will show IDs */ }
+    })();
+
+    // ---------- Parse ----------
+    function parseAndRender() {
+      const raw = $('bulk-json').value.trim();
+      const msgEl = $('bulk-parse-msg');
+      const wrapEl = $('bulk-preview-wrap');
+      const tbody = $('bulk-preview-tbody');
+      const countEl = $('bulk-preview-count');
+      const submitBtn = $('bulk-submit');
+
+      if (!raw) {
+        msgEl.innerHTML = '';
+        wrapEl.style.display = 'none';
+        submitBtn.disabled = true;
+        return;
+      }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        msgEl.innerHTML = `<div class="alert alert-error">❌ JSON parse error: ${A.escapeHtml(err.message)}</div>`;
+        wrapEl.style.display = 'none';
+        submitBtn.disabled = true;
+        return;
+      }
+
+      if (!Array.isArray(parsed)) {
+        msgEl.innerHTML = `<div class="alert alert-error">❌ Root value must be a JSON array.</div>`;
+        wrapEl.style.display = 'none';
+        submitBtn.disabled = true;
+        return;
+      }
+
+      if (parsed.length === 0) {
+        msgEl.innerHTML = `<div class="alert alert-warning">⚠️ Array is empty.</div>`;
+        wrapEl.style.display = 'none';
+        submitBtn.disabled = true;
+        return;
+      }
+
+      // Validate each row
+      let okCount = 0;
+      const rowsHtml = parsed.map((r, i) => {
+        const errors = [];
+        if (!r.courseId) errors.push('courseId');
+        if (!r.lecturerId) errors.push('lecturerId');
+        if (!r.sessionId) errors.push('sessionId');
+        if (!['first', 'second'].includes(r.semester)) errors.push('semester');
+
+        const valid = errors.length === 0;
+        if (valid) okCount += 1;
+
+        const course = coursesMap[r.courseId];
+        const lect = lecturersMap[r.lecturerId];
+
+        return `
+          <tr style="${!valid ? 'background:#fef2f2;' : ''}">
+            <td>${i + 1}</td>
+            <td>${course
+              ? `<code>${A.escapeHtml(course.code)}</code> — ${A.escapeHtml(course.title)}`
+              : `<span class="muted">Course #${A.escapeHtml(String(r.courseId || '?'))}</span>`}</td>
+            <td>${lect
+              ? A.escapeHtml(`${lect.firstName || ''} ${lect.lastName || ''}`.trim())
+              : `<span class="muted">Lecturer #${A.escapeHtml(String(r.lecturerId || '?'))}</span>`}</td>
+            <td>#${A.escapeHtml(String(r.sessionId || '?'))}</td>
+            <td>${A.escapeHtml(r.semester || '?')}</td>
+            <td>${valid
+              ? '<span class="badge badge-success">Ready</span>'
+              : `<span class="badge badge-danger">${errors.join(', ')}</span>`}</td>
+          </tr>`;
+      }).join('');
+
+      tbody.innerHTML = rowsHtml;
+      countEl.textContent = `${parsed.length} row${parsed.length === 1 ? '' : 's'} · ${okCount} ready · ${parsed.length - okCount} invalid`;
+
+      msgEl.innerHTML = (parsed.length - okCount === 0)
+        ? `<div class="alert alert-success">✅ All ${parsed.length} rows look valid.</div>`
+        : `<div class="alert alert-warning">⚠️ ${parsed.length - okCount} row(s) have issues — fix them before submitting.</div>`;
+
+      wrapEl.style.display = 'block';
+      submitBtn.disabled = okCount === 0;
+    }
+
+    // ---------- Sample + Clear ----------
+    $('bulk-fill-sample').addEventListener('click', () => {
+      const sample = [
+        { courseId: 1, lecturerId: 1, sessionId: 1, semester: 'first' },
+        { courseId: 2, lecturerId: 1, sessionId: 1, semester: 'first' },
+        { courseId: 3, lecturerId: 2, sessionId: 1, semester: 'second' },
+      ];
+      $('bulk-json').value = JSON.stringify(sample, null, 2);
+      parseAndRender();
+    });
+
+    $('bulk-clear').addEventListener('click', () => {
+      $('bulk-json').value = '';
+      parseAndRender();
+    });
+
+    $('bulk-json').addEventListener('input', () => {
+      clearTimeout(window.__bulkParseTimer);
+      window.__bulkParseTimer = setTimeout(parseAndRender, 250);
+    });
+
+    // ---------- Submit ----------
+    $('bulk-allocation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      let rows;
+      try {
+        rows = JSON.parse($('bulk-json').value);
+      } catch (err) {
+        A.showToast('❌ Invalid JSON', 'error');
+        return;
+      }
+      if (!Array.isArray(rows) || !rows.length) {
+        A.showToast('⚠️ Paste a non-empty array.', 'warning');
+        return;
+      }
+
+      const btn = $('bulk-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await A.adminFetch('/api/admin/allocations/bulk', {
+          method: 'POST',
+          body: JSON.stringify({ rows }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(`✅ Created ${json.data.length} allocation(s).`);
+        A.FPU_ADMIN_SPA.navigateTo('allocations');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  })();
+</script>

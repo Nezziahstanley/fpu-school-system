@@ -1,0 +1,118 @@
+<!-- ============================================================
+     Admin → Users → All Users
+     ------------------------------------------------------------
+     Flat, searchable, filterable table of every user.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>All Users</h2>
+    <p class="muted small">Complete directory of every account in the system</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAllUsers()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'all-users.csv')">
+      Export CSV
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('user-form')">
+      + New User
+    </button>
+  </div>
+</section>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Role</label>
+    <select class="form-select" id="au-filter-role" onchange="FPU_ADMIN.loadAllUsers()">
+      <option value="">All roles</option>
+      <option value="student">Students</option>
+      <option value="lecturer">Lecturers</option>
+      <option value="hod">HODs</option>
+      <option value="bursar">Bursar</option>
+      <option value="registrar">Registrar</option>
+      <option value="rector">Rector</option>
+      <option value="librarian">Librarian</option>
+      <option value="exam_officer">Exam Officer</option>
+      <option value="academic_officer">Academic Officer</option>
+      <option value="admission_officer">Admission Officer</option>
+      <option value="admin">Admins</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="au-filter-active" onchange="FPU_ADMIN.loadAllUsers()">
+      <option value="">All</option>
+      <option value="true">Active</option>
+      <option value="false">Inactive</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="au-filter-dept"
+            data-lookup="departments" data-placeholder="All departments"
+            onchange="FPU_ADMIN.loadAllUsers()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 240px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="au-search"
+           placeholder="Name, email, or matric…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAllUsers()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Matching</div>
+    <div class="value" id="au-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Active</div>
+    <div class="value" id="au-stat-active">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Inactive</div>
+    <div class="value" id="au-stat-inactive">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Unique Roles</div>
+    <div class="value" id="au-stat-roles">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Users</h3>
+    <span class="small muted" id="au-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th style="width:120px;">Matric</th>
+            <th style="width:140px;">Role</th>
+            <th style="width:140px;">Department</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:140px;">Created</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="au-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadAllUsers()
+</script>

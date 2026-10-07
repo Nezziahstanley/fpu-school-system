@@ -1,0 +1,260 @@
+<!-- ============================================================
+     Admin → Announcements → Form (Create / Edit)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="af-title">New Announcement</h2>
+    <p class="muted small" id="af-subtitle">Publish to your chosen audience</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="af-back" onclick="FPU_ADMIN.goBack('announcements')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Announcement Content</h3></div>
+  <div class="panel-body">
+    <form id="announcement-form" data-skip-generic="1">
+      <div class="form-group">
+        <label class="form-label">Title <span class="req">*</span></label>
+        <input class="form-control" name="title" id="af-title-input" required
+               placeholder="e.g. Course Registration Opens Monday" />
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Audience <span class="req">*</span></label>
+          <select class="form-select" name="audience" id="af-audience" required>
+            <option value="all">Everyone</option>
+            <option value="student">Students</option>
+            <option value="staff">Staff (all)</option>
+            <option value="lecturer">Lecturers</option>
+            <option value="hod">HODs</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority <span class="req">*</span></label>
+          <select class="form-select" name="priority" id="af-priority" required>
+            <option value="normal">📢 Normal</option>
+            <option value="high">🔴 High / Urgent</option>
+            <option value="low">📝 Low / General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Publish Now?</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="isPublished" id="af-published" checked />
+            <span>Publish immediately</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expires At</label>
+          <input class="form-control" type="datetime-local" name="expiresAt" id="af-expires" />
+          <div class="form-help">Optional — the announcement will be hidden from portals after this date</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Body <span class="req">*</span></label>
+        <textarea class="form-control" name="body" id="af-body" rows="8" required
+                  placeholder="Write the announcement body here…"></textarea>
+      </div>
+
+      <!-- Preview -->
+      <div class="ann-preview" id="af-preview">
+        <div class="ann-preview-label">Live Preview</div>
+        <div class="ann-preview-body">
+          <span class="anc-badge priority-normal" id="af-prev-priority">📢 normal</span>
+          <span class="anc-badge audience" id="af-prev-audience">All</span>
+          <h3 id="af-prev-title">Announcement title…</h3>
+          <p id="af-prev-body">Announcement body will appear here…</p>
+        </div>
+      </div>
+
+      <div id="af-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="af-submit">Publish</button>
+        <button type="button" class="btn btn-ghost" id="af-cancel" onclick="FPU_ADMIN.goBack('announcements')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="af-delete"
+                style="margin-left:auto;display:none;">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .ann-preview {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+  }
+  .ann-preview-label {
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    margin-bottom: 12px;
+  }
+  .ann-preview-body {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    border-left: 4px solid #f59e0b;
+  }
+  .ann-preview-body .anc-badge { margin-right: 6px; }
+  .ann-preview-body h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 10px 0 6px;
+  }
+  .ann-preview-body p {
+    margin: 0;
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.6;
+  }
+</style>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('af-title').textContent = 'Edit Announcement';
+      $('af-subtitle').textContent = 'Update this announcement';
+      $('af-submit').textContent = 'Save Changes';
+      $('af-delete').style.display = 'inline-flex';
+    }
+
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('announcement-detail', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('announcements');
+      }
+    }
+    $('af-back').onclick = goBack;
+    $('af-cancel').onclick = goBack;
+
+    // Live preview
+    function updatePreview() {
+      const priority = $('af-priority').value;
+      const audience = $('af-audience').value;
+      const title = $('af-title-input').value.trim();
+      const body = $('af-body').value.trim();
+
+      const prevPriority = $('af-prev-priority');
+      prevPriority.className = 'anc-badge priority-' + priority;
+      prevPriority.textContent = (priority === 'high' ? '🔴 ' : priority === 'low' ? '📝 ' : '📢 ') + priority;
+
+      $('af-prev-audience').textContent = audience === 'all' ? 'Everyone' : audience.charAt(0).toUpperCase() + audience.slice(1);
+
+      $('af-prev-title').textContent = title || 'Announcement title…';
+      $('af-prev-body').textContent = body || 'Announcement body will appear here…';
+    }
+
+    ['af-priority', 'af-audience', 'af-title-input', 'af-body'].forEach((id) => {
+      $(id)?.addEventListener('input', updatePreview);
+      $(id)?.addEventListener('change', updatePreview);
+    });
+    updatePreview();
+
+    // Load existing
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/announcements/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const a = json.data;
+
+        $('af-title-input').value = a.title || '';
+        $('af-audience').value = a.audience || 'all';
+        $('af-priority').value = a.priority || 'normal';
+        $('af-body').value = a.body || '';
+        $('af-published').checked = a.isPublished !== false;
+
+        if (a.expiresAt) {
+          const d = new Date(a.expiresAt);
+          const pad = (n) => String(n).padStart(2, '0');
+          $('af-expires').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        updatePreview();
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // Submit
+    $('announcement-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('af-validation');
+      valEl.innerHTML = '';
+
+      const payload = {
+        title: $('af-title-input').value.trim(),
+        body: $('af-body').value.trim(),
+        audience: $('af-audience').value,
+        priority: $('af-priority').value,
+        isPublished: $('af-published').checked,
+        expiresAt: $('af-expires').value ? new Date($('af-expires').value).toISOString() : null,
+      };
+
+      if (!payload.title) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Title is required.</div>'; return; }
+      if (!payload.body) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Body is required.</div>'; return; }
+
+      const btn = $('af-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Publishing…';
+
+      try {
+        const url = isEdit ? `/api/admin/announcements/${id}` : '/api/admin/announcements';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Updated.' : '✅ Published.');
+        A.FPU_ADMIN_SPA.navigateTo('announcements');
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // Delete
+    $('af-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this announcement? This cannot be undone.')) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('🗑️ Deleted.');
+        A.FPU_ADMIN_SPA.navigateTo('announcements');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    });
+
+    loadExisting();
+  })();
+</script>

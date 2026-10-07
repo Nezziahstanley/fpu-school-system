@@ -1,0 +1,84 @@
+<!-- ============================================================
+     Admin → Library → Reservations
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Book Reservations</h2>
+    <p class="muted small">Students waiting for books</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadReservationsTable()">
+      Refresh
+    </button>
+  </div>
+</section>
+
+<!-- Tabs -->
+<div class="staff-role-tabs" id="res-status-tabs">
+  <button class="staff-role-tab active" data-status="">
+    All <span class="tab-count" id="res-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="pending">
+    Pending <span class="tab-count" id="res-count-pending">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="ready">
+    Ready <span class="tab-count" id="res-count-ready">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="fulfilled">
+    Fulfilled <span class="tab-count" id="res-count-fulfilled">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="cancelled">
+    Cancelled <span class="tab-count" id="res-count-cancelled">—</span>
+  </button>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="res-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Pending</div>
+    <div class="value" id="res-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Ready</div>
+    <div class="value" id="res-stat-ready">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Fulfilled</div>
+    <div class="value" id="res-stat-fulfilled">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Reservations</h3>
+    <span class="small muted" id="res-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Book</th>
+            <th>User</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:120px;">Reserved</th>
+            <th style="width:140px;">Expires</th>
+            <th style="width:220px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="res-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadReservationsTable()
+</script>

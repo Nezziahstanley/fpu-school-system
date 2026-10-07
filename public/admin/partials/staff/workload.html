@@ -1,0 +1,48 @@
+<!-- ============================================================
+     Admin → Staff → Workload
+     ------------------------------------------------------------
+     Pick a staff member → see their course allocations for
+     the current (or selected) session with:
+       • Total courses and total credit units
+       • Per-course rows
+       • Session + semester split
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Staff Workload</h2>
+    <p class="muted small">Course allocations per lecturer</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="sw-back" onclick="FPU_ADMIN.goBack('staff')">← Back</button>
+  </div>
+</section>
+
+<!-- Lookup bar -->
+<div class="panel">
+  <div class="panel-head"><h3>Select Staff Member</h3></div>
+  <div class="panel-body">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="form-group" style="flex:2 1 300px;">
+        <label class="form-label">Staff Member</label>
+        <select class="form-select" id="sw-lecturer" data-lookup="lecturers"></select>
+      </div>
+      <div class="form-group" style="flex:1 1 200px;">
+        <label class="form-label">Session</label>
+        <select class="form-select" id="sw-session" data-lookup="sessions"></select>
+      </div>
+      <button class="btn btn-primary" id="sw-load">Load Workload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="sw-result">
+  <div class="empty-state">
+    <div class="icon">👨‍🏫</div>
+    <p>Select a staff member above to view their workload.</p>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStaffWorkload()
+</script>

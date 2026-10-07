@@ -1,0 +1,125 @@
+<!-- ============================================================
+     Admin → Notifications → Compose
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Send Notification</h2>
+    <p class="muted small">Send a notification or message to a user</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="nc-back">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Compose</h3></div>
+  <div class="panel-body">
+    <form id="notif-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Recipient Role</label>
+          <select class="form-select" id="nc-role-filter" onchange="FPU_ADMIN.__populateNotifRecipients()">
+            <option value="">All roles</option>
+            <option value="student">Students</option>
+            <option value="lecturer">Lecturers</option>
+            <option value="hod">HODs</option>
+            <option value="bursar">Bursar</option>
+            <option value="registrar">Registrar</option>
+            <option value="admin">Admins</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Recipient <span class="req">*</span></label>
+          <select class="form-select" id="nc-recipient" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="nc-type">
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="success">Success</option>
+            <option value="complaint">Complaint</option>
+            <option value="fee">Fee</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Link (optional)</label>
+          <input class="form-control" id="nc-link" placeholder="/admin/app.html#payments" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Title <span class="req">*</span></label>
+        <input class="form-control" id="nc-title" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Body</label>
+        <textarea class="form-control" id="nc-body" rows="5"></textarea>
+      </div>
+
+      <div id="nc-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Send Notification</button>
+        <button type="button" class="btn btn-ghost" id="nc-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    // Back
+    $('nc-back').onclick = () => A.FPU_ADMIN_SPA.navigateTo('notifications');
+    $('nc-cancel').onclick = () => A.FPU_ADMIN_SPA.navigateTo('notifications');
+
+    // Recipient picker
+    A.FPU_ADMIN.__populateNotifRecipients = async function () {
+      const role = $('nc-role-filter').value;
+      const sel = $('nc-recipient');
+      sel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const qs = role ? `?roles=${role}` : '';
+        const res = await A.adminFetch(`/api/admin/lookups/users${qs}`);
+        const json = await res.json();
+        const users = json.data || [];
+        sel.innerHTML = '<option value="">— Choose a recipient —</option>' +
+          users.map((u) => `<option value="${u.id}">${A.escapeHtml(`${u.firstName} ${u.lastName}`)} (${A.escapeHtml(u.email || '')})</option>`).join('');
+      } catch (err) {
+        sel.innerHTML = `<option value="">Could not load users</option>`;
+      }
+    };
+    A.FPU_ADMIN.__populateNotifRecipients();
+
+    // Submit
+    $('notif-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('nc-validation');
+      valEl.innerHTML = '';
+
+      const userId = Number($('nc-recipient').value);
+      const title = $('nc-title').value.trim();
+      const body = $('nc-body').value.trim();
+      const type = $('nc-type').value;
+      const link = $('nc-link').value.trim() || null;
+
+      if (!userId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Recipient is required.</div>'; return; }
+      if (!title) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Title is required.</div>'; return; }
+
+      try {
+        await A.adminFetch('/api/admin/notifications', {
+          method: 'POST',
+          body: JSON.stringify({ userId, title, body, type, link }),
+        });
+        A.showToast('✅ Notification sent.');
+        A.FPU_ADMIN_SPA.navigateTo('notifications');
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      }
+    });
+  })();
+</script>

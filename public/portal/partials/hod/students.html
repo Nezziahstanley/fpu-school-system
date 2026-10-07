@@ -1,0 +1,51 @@
+<!-- Portal → HOD → Students -->
+<section class="page-head">
+  <div><h2>Department Students</h2><p class="muted small">All students in my department</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__hodStudLoad()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="hod-std-level" onchange="window.__hodStudLoad()">
+      <option value="">All</option><option>ND</option><option>HND</option>
+    </select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Students</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Matric</th><th>Name</th><th>Email</th><th>Level</th><th>Status</th></tr></thead>
+        <tbody id="hod-std-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__hodStudLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('hod-std-tbody');
+    const level = document.getElementById('hod-std-level').value;
+    const qs = new URLSearchParams();
+    if (level) qs.set('level', level);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/hod/students?${qs}`);
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((s) => `
+        <tr>
+          <td>${core.escapeHtml(s.matricNumber || '')}</td>
+          <td>${core.escapeHtml(s.firstName)} ${core.escapeHtml(s.lastName)}</td>
+          <td>${core.escapeHtml(s.email)}</td>
+          <td>${core.escapeHtml(s.level || '')}</td>
+          <td>${s.isActive ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-muted">Inactive</span>'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No students.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+  window.__hodStudLoad();
+</script>

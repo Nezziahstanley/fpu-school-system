@@ -1,0 +1,237 @@
+<!-- ============================================================
+     Admin → Users → Profile
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>User Profile</h2>
+    <p class="muted small" id="up-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="up-back" onclick="FPU_ADMIN.goBack('users')">← Back</button>
+    <button class="btn btn-outline btn-sm" id="up-activity">🔍 Activity</button>
+    <button class="btn btn-outline btn-sm" id="up-reset-pwd">🔑 Reset Password</button>
+    <button class="btn btn-outline btn-sm" id="up-toggle">Toggle Active</button>
+    <button class="btn btn-primary btn-sm" id="up-edit">Edit User</button>
+    <button class="btn btn-danger btn-sm" id="up-delete">Delete</button>
+  </div>
+</section>
+
+<div class="grid grid-2" style="gap:20px; align-items:flex-start;">
+  <div>
+    <div class="panel">
+      <div class="panel-body">
+        <div id="up-identity">
+          <div class="loading"><span class="spinner"></span> Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Contact</h3></div>
+      <div class="panel-body" id="up-contact">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Account</h3></div>
+      <div class="panel-body" id="up-account">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel" id="up-role-card">
+      <div class="panel-head"><h3>Role Details</h3></div>
+      <div class="panel-body" id="up-role-body">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Recent Activity</h3></div>
+      <div class="panel-body flush" id="up-activity-list">
+        <div class="loading"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .up-identity {
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
+  }
+  .up-avatar {
+    width: 88px; height: 88px; border-radius: 50%;
+    background: linear-gradient(135deg,#065f46,#f59e0b);
+    color: #fff; display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Poppins',sans-serif; font-size: 2rem; font-weight: 800;
+    flex-shrink: 0; overflow: hidden; border: 4px solid #fff;
+    box-shadow: 0 8px 20px rgba(15,23,42,0.12);
+  }
+  .up-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .up-info { flex: 1; min-width: 0; }
+  .up-info .name {
+    font-family: 'Poppins',sans-serif; font-size: 1.3rem; font-weight: 700; color: #0f172a;
+  }
+  .up-info .email { font-size: 13.5px; color: #6b7280; margin-top: 3px; }
+  .up-info .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .field-row {
+    display: flex; justify-content: space-between; padding: 8px 0;
+    border-bottom: 1px dashed #e5e7eb; font-size: 13.5px; gap: 12px;
+  }
+  .field-row:last-child { border-bottom: none; }
+  .field-row .k { color: #6b7280; flex-shrink: 0; }
+  .field-row .v { color: #0f172a; font-weight: 500; text-align: right; word-break: break-word; }
+</style>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+
+    if (!id) {
+      $('up-identity').innerHTML = '<p class="muted">No user selected.</p>';
+      return;
+    }
+
+    function row(k, v) {
+      return `<div class="field-row"><span class="k">${A.escapeHtml(k)}</span><span class="v">${A.escapeHtml(v || '—')}</span></div>`;
+    }
+
+    async function load() {
+      try {
+        // Try user-list first (works for all roles)
+        const res = await A.adminFetch(`/api/admin/user-list?limit=500`);
+        const json = await res.json();
+        const u = (json.data || []).find((x) => Number(x.id) === Number(id));
+        if (!u) throw new Error('User not found');
+
+        $('up-subtitle').textContent = `${u.email} · ${u.role}`;
+
+        // Identity
+        const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+        $('up-identity').innerHTML = `
+          <div class="up-identity">
+            <div class="up-avatar">${
+              u.photoUrl ? `<img src="${A.escapeHtml(u.photoUrl)}" alt="" />` : A.escapeHtml(initials)
+            }</div>
+            <div class="up-info">
+              <div class="name">${A.escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</div>
+              <div class="email">${A.escapeHtml(u.email || '')}</div>
+              <div class="badges">
+                ${A.badge(u.role)}
+                ${u.isActive !== false ? A.badge('active') : A.badge('inactive')}
+                ${u.mustChangePassword ? '<span class="badge badge-warning">Must change pwd</span>' : ''}
+              </div>
+            </div>
+          </div>`;
+
+        // Contact
+        $('up-contact').innerHTML = [
+          row('Phone', u.phone),
+          row('Gender', u.gender),
+          row('Date of Birth', u.dateOfBirth ? A.fmtDate(u.dateOfBirth) : ''),
+          row('State of Origin', u.stateOfOrigin),
+          row('Nationality', u.nationality),
+          row('Address', u.address),
+        ].join('');
+
+        // Account
+        $('up-account').innerHTML = [
+          row('User ID', u.id),
+          row('Role', String(u.role || '').replace(/_/g, ' ')),
+          row('Created', A.fmtDateTime(u.createdAt)),
+          row('Last Login', u.lastLoginAt ? A.fmtDateTime(u.lastLoginAt) : 'Never'),
+          row('Matric Number', u.matricNumber),
+          row('Staff Number', u.staffNumber),
+        ].join('');
+
+        // Role details
+        $('up-role-body').innerHTML = [
+          row('Department', u.departmentName || u.department?.name),
+          row('Programme', u.programmeName || u.programme?.name),
+          row('School', u.schoolName || u.school?.name),
+          row('Level', u.level),
+          row('Rank', u.staffProfile?.rank),
+          row('Specialization', u.staffProfile?.specialization),
+          row('Qualification', u.staffProfile?.qualification),
+        ].join('');
+
+        // Recent activity
+        A.adminFetch(`/api/admin/audit?userId=${id}&limit=8`)
+          .then((r) => r.json())
+          .then((j) => {
+            const logs = j.data || [];
+            $('up-activity-list').innerHTML = logs.length
+              ? logs.map((l) => {
+                  const log = l.log || l;
+                  return `<div class="activity-item">
+                    <div class="activity-icon">📝</div>
+                    <div class="activity-content">
+                      <strong>${A.escapeHtml(log.action)}</strong>
+                      <p>${A.escapeHtml(log.entity || '')}${log.entityId ? ' #' + A.escapeHtml(log.entityId) : ''}</p>
+                    </div>
+                    <span class="activity-time">${A.timeAgo(log.createdAt)}</span>
+                  </div>`;
+                }).join('')
+              : '<p class="muted" style="padding:16px;">No activity.</p>';
+          })
+          .catch(() => { $('up-activity-list').innerHTML = '<p class="muted" style="padding:16px;">Could not load activity.</p>'; });
+
+        // Wire action buttons
+        $('up-back').onclick = () => A.FPU_ADMIN_SPA.navigateTo('users-all');
+        $('up-edit').onclick = () => A.FPU_ADMIN_SPA.navigateToWithQuery('user-form', { id });
+        $('up-activity').onclick = () => A.FPU_ADMIN_SPA.navigateTo('audit');
+        $('up-reset-pwd').onclick = async () => {
+          const pwd = prompt('New password (default: admin1234):', 'admin1234');
+          if (pwd === null) return;
+          const endpoint = u.role === 'student'
+            ? `/api/admin/students/${id}/reset-password`
+            : u.role === 'admin'
+              ? `/api/admin/users/${id}/reset-password`
+              : `/api/admin/staff/${id}/reset-password`;
+          try {
+            await A.adminFetch(endpoint, { method: 'POST', body: JSON.stringify({ password: pwd }) });
+            A.showToast('Password reset.', 'success');
+          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+        };
+        $('up-toggle').onclick = async () => {
+          const endpoint = u.role === 'student'
+            ? `/api/admin/students/${id}/toggle-active`
+            : u.role === 'admin'
+              ? `/api/admin/users/${id}/toggle-active`
+              : `/api/admin/staff/${id}/toggle-active`;
+          try {
+            await A.adminFetch(endpoint, { method: 'POST' });
+            A.showToast('Status updated.', 'success');
+            load();
+          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+        };
+        $('up-delete').onclick = async () => {
+          if (!confirm(`Delete ${u.firstName} ${u.lastName}? This cannot be undone.`)) return;
+          const endpoint = u.role === 'student'
+            ? `/api/admin/students/${id}`
+            : u.role === 'admin'
+              ? `/api/admin/users/${id}`
+              : `/api/admin/staff/${id}`;
+          try {
+            await A.adminFetch(endpoint, { method: 'DELETE' });
+            A.showToast('Deleted.', 'success');
+            A.FPU_ADMIN_SPA.navigateTo('users-all');
+          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+        };
+      } catch (err) {
+        $('up-identity').innerHTML = `<div class="alert alert-danger">${A.escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    load();
+  })();
+</script>

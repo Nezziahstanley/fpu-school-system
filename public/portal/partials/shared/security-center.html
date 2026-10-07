@@ -1,0 +1,30 @@
+<!-- Portal → Shared → Security Center (deeper view) -->
+<section class="page-head">
+  <div><h2>Security Center</h2><p class="muted small">All security events on your account</p></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Security Events</h3></div>
+  <div class="panel-body">
+    <div id="sec-events" class="grid" style="gap:.5rem;">
+      <div class="loading"><span class="spinner"></span> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('sec-events');
+    try {
+      const res = await core.portalFetch('/api/portal/security');
+      const rows = res.events || [];
+      box.innerHTML = rows.length ? rows.map((e) => `
+        <div class="session-item">
+          <div class="meta"><strong>${core.escapeHtml(e.event)}</strong>${core.escapeHtml(e.severity)}</div>
+          <div class="small muted">${core.formatDateTime(e.createdAt)}</div>
+        </div>
+      `).join('') : '<p class="muted">No events.</p>';
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  })();
+</script>

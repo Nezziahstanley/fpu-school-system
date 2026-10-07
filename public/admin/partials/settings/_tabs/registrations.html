@@ -1,0 +1,122 @@
+<!-- Settings tab: Course Registrations -->
+<form class="settings-form" data-settings-section="registrations" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Registration Window</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Registration Opens</label>
+          <input class="form-control" type="datetime-local" name="registration_opens_at" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Registration Closes</label>
+          <input class="form-control" type="datetime-local" name="registration_closes_at" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Late Registration Closes</label>
+          <input class="form-control" type="datetime-local" name="registration_late_closes_at" />
+          <div class="form-help">After this date, students cannot register even with a late fee.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Late Registration Fee (₦)</label>
+          <input class="form-control" type="number" name="registration_late_fee" value="0" min="0" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Registration Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Require Fee Payment Before Registration</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_require_payment" checked />
+            <span>Students must pay first</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Require Clearance Before Registration</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_require_clearance" />
+            <span>Must have an approved clearance</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allow Deferred Registration</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_allow_defer" />
+            <span>Allow students to defer to next session</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Auto-Approve Registrations</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_auto_approve" />
+            <span>Skip HOD approval and mark all registrations as approved</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Unit Limits</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Maximum Units — ND Level</label>
+          <input class="form-control" type="number" name="registration_max_units_nd" value="24" min="6" max="40" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maximum Units — HND Level</label>
+          <input class="form-control" type="number" name="registration_max_units_hnd" value="24" min="6" max="40" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum Units (per semester)</label>
+          <input class="form-control" type="number" name="registration_min_units" value="12" min="1" max="20" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allow Elective Over-Limit</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_allow_over_limit" />
+            <span>Students can go over the max units if they accept a warning</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Approval Chain</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Require HOD Approval</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_require_hod" checked />
+            <span>Registrations go through the HOD before being approved</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Require Academic Officer Review</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="registration_require_academic" />
+            <span>Academic officer verifies after HOD approval</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Auto-Reject If Not Approved Within (days)</label>
+          <input class="form-control" type="number" name="registration_auto_reject_days" value="14" min="0" max="60" />
+          <div class="form-help">0 = never auto-reject</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-registrations"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Registration Settings</button>
+  </div>
+</form>

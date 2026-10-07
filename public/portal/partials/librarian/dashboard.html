@@ -1,0 +1,41 @@
+<!-- Portal → Librarian → Dashboard -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar" id="lib-dash-avatar">L</div>
+    <div>
+      <h1>Welcome, <span id="lib-dash-name">Librarian</span></h1>
+      <div class="sub">Library Department</div>
+    </div>
+  </div>
+</section>
+
+<div class="tile-grid">
+  <div class="tile"><div class="tile-label">Total Books</div><div class="tile-value" id="lib-t-books">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Active Borrows</div><div class="tile-value" id="lib-t-borrows">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Unpaid Fines</div><div class="tile-value" id="lib-t-fines">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Total Titles</div><div class="tile-value" id="lib-t-titles">—</div></div>
+</div>
+
+<div class="quick-actions">
+  <a onclick="FPU_SPA.navigatePortal('admin-library')">Browse Books</a>
+  <a onclick="FPU_SPA.navigatePortal('admin-borrows')">Borrow Records</a>
+  <a onclick="FPU_SPA.navigatePortal('librarian-reservations')">Reservations</a>
+  <a onclick="FPU_SPA.navigatePortal('librarian-fines')">Fines</a>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    const photo = window.FPU_PHOTO;
+    try {
+      const res = await core.portalFetch('/api/librarian/dashboard');
+      const d = res.data || {};
+      document.getElementById('lib-dash-name').textContent = core.getPortalUser()?.firstName || 'Librarian';
+      if (photo) photo.renderMyAvatar(document.getElementById('lib-dash-avatar'), core.getPortalUser());
+      document.getElementById('lib-t-books').textContent = d.totalBooks ?? 0;
+      document.getElementById('lib-t-borrows').textContent = d.activeBorrows ?? 0;
+      document.getElementById('lib-t-fines').textContent = d.unpaidFines ?? 0;
+      document.getElementById('lib-t-titles').textContent = d.totalBooks ?? 0;
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

@@ -1,0 +1,67 @@
+<!-- Portal → Student → Library -->
+<section class="page-head">
+  <div><h2>Library</h2><p class="muted small">Browse books and view my borrows</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studLibSearch()">Search</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="stud-lib-q" placeholder="Title, author or ISBN…" onkeydown="if(event.key==='Enter')window.__studLibSearch()" />
+  </div>
+</div>
+
+<div id="stud-lib-grid" class="grid grid-3">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<div class="panel mt-3">
+  <div class="panel-head"><h3>My Borrows</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody id="stud-borrow-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__studLibSearch = async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('stud-lib-grid');
+    const q = document.getElementById('stud-lib-q').value.trim();
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch(`/api/admin/library/books?limit=60${q ? '&search=' + encodeURIComponent(q) : ''}`);
+      const books = res.data || [];
+      box.innerHTML = books.length ? books.map((b) => `
+        <div class="card"><div class="card-body">
+          <h4>${core.escapeHtml(b.title)}</h4>
+          <p class="small muted">${core.escapeHtml(b.author || '')}</p>
+          <p class="small">Available: <strong>${b.copiesAvailable}</strong> / ${b.copiesTotal}</p>
+        </div></div>
+      `).join('') : '<p class="muted">No books found.</p>';
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  };
+
+  (async function loadBorrows() {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('stud-borrow-tbody');
+    try {
+      const res = await core.portalFetch('/api/student/borrows');
+      const rows = res.borrows || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.book?.title || '')}</td>
+          <td>${core.formatDate(r.borrow.borrowedAt)}</td>
+          <td>${core.formatDate(r.borrow.dueAt)}</td>
+          <td><span class="badge badge-${r.borrow.status === 'returned' ? 'success' : r.borrow.status === 'overdue' ? 'danger' : 'warning'}">${core.escapeHtml(r.borrow.status)}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" class="empty">No borrows.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  })();
+
+  document.addEventListener('DOMContentLoaded', window.__studLibSearch);
+</script>

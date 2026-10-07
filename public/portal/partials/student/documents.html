@@ -1,0 +1,84 @@
+<!-- Portal → Student → Documents -->
+<section class="page-head">
+  <div><h2>My Documents</h2><p class="muted small">Request transcripts, certificates, and letters</p></div>
+  <div class="actions"><button class="btn btn-primary btn-sm" id="stud-doc-new">+ Request</button></div>
+</section>
+
+<div class="panel" id="stud-doc-new-panel" style="display:none;">
+  <div class="panel-head"><h3>Request a Document</h3></div>
+  <div class="panel-body">
+    <form id="stud-doc-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Type <span class="req">*</span></label>
+          <select class="form-select" name="type" required>
+            <option value="transcript">Transcript</option>
+            <option value="certificate">Certificate</option>
+            <option value="attestation">Attestation Letter</option>
+            <option value="id-letter">ID Letter</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Submit Request</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>My Requests</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Requested</th><th></th></tr></thead>
+        <tbody id="stud-doc-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+
+    async function load() {
+      const tbody = document.getElementById('stud-doc-tbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+      try {
+        const res = await core.portalFetch('/api/student/documents');
+        const rows = res.data || [];
+        tbody.innerHTML = rows.length ? rows.map((d) => `
+          <tr>
+            <td>${core.escapeHtml(d.title)}</td>
+            <td>${core.escapeHtml(d.type)}</td>
+            <td><span class="badge badge-${d.status === 'issued' ? 'success' : d.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(d.status)}</span></td>
+            <td>${core.formatDate(d.requestedAt)}</td>
+            <td>${d.status === 'issued' && d.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(d.fileUrl)}" target="_blank">Download</a>` : ''}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="5" class="empty">No documents requested.</td></tr>';
+      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+    }
+
+    document.getElementById('stud-doc-new').addEventListener('click', () => {
+      const p = document.getElementById('stud-doc-new-panel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('stud-doc-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // The backend currently exposes /api/admin/documents for staff only.
+      // For the student self-service flow we use the shared complaints endpoint
+      // to log the request (staff will promote it to a formal document).
+      const fd = new FormData(e.target);
+      const subject = `Document Request: ${fd.get('title')}`;
+      const body = `Type: ${fd.get('type')}`;
+      try {
+        await core.portalFetch('/api/portal/complaints', { method: 'POST', body: { subject, body, category: 'document' } });
+        core.showToast('Request submitted.', 'success');
+        e.target.reset();
+        document.getElementById('stud-doc-new-panel').style.display = 'none';
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+
+    load();
+  })();
+</script>

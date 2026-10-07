@@ -1,0 +1,163 @@
+<!-- ============================================================
+     Admin → Attendance → Student × Course
+     ------------------------------------------------------------
+     Every class day for one student in one course, plus
+     summary. Admin can mark/edit/delete a specific day's record.
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2 id="abs-title">Student Attendance</h2>
+    <p class="muted small" id="abs-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="abs-back" onclick="FPU_ADMIN.goBack('attendance')">← Back to Course</button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: new URLSearchParams(window.location.hash.split('?')[1] || '').get('studentId') })">
+      View Student Profile
+    </button>
+  </div>
+</section>
+
+<!-- Summary card -->
+<div class="panel" id="abs-summary-panel">
+  <div class="panel-body">
+    <div class="abs-summary">
+      <div class="abs-summary-avatar" id="abs-avatar">S</div>
+      <div class="abs-summary-body">
+        <div class="abs-summary-name" id="abs-name">—</div>
+        <div class="abs-summary-meta" id="abs-meta">—</div>
+      </div>
+      <div class="abs-summary-stats">
+        <div class="abs-stat">
+          <div class="num" id="abs-total">—</div>
+          <div class="label">Classes</div>
+        </div>
+        <div class="abs-stat present">
+          <div class="num" id="abs-present">—</div>
+          <div class="label">Present</div>
+        </div>
+        <div class="abs-stat absent">
+          <div class="num" id="abs-absent">—</div>
+          <div class="label">Absent</div>
+        </div>
+        <div class="abs-stat late">
+          <div class="num" id="abs-late">—</div>
+          <div class="label">Late</div>
+        </div>
+        <div class="abs-stat excused">
+          <div class="num" id="abs-excused">—</div>
+          <div class="label">Excused</div>
+        </div>
+        <div class="abs-stat rate">
+          <div class="num" id="abs-rate">—</div>
+          <div class="label">Rate</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Records table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Class-by-Class Records</h3>
+    <span class="small muted" id="abs-count">—</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:130px;">Date</th>
+            <th style="width:130px;">Day</th>
+            <th style="width:130px;">Status</th>
+            <th>Remarks</th>
+            <th style="width:100px;">Recorded</th>
+            <th style="width:180px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="abs-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .abs-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .abs-summary-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .abs-summary-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .abs-summary-body { flex: 1; min-width: 220px; }
+  .abs-summary-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #065f46;
+  }
+  .abs-summary-meta {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 3px;
+  }
+  .abs-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    width: 100%;
+    margin-top: 12px;
+  }
+  @media (min-width: 900px) {
+    .abs-summary-stats { width: auto; margin-top: 0; }
+  }
+  .abs-stat {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: center;
+    min-width: 70px;
+  }
+  .abs-stat .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+  .abs-stat.present  .num { color: #047857; }
+  .abs-stat.absent   .num { color: #b91c1c; }
+  .abs-stat.late     .num { color: #b45309; }
+  .abs-stat.excused  .num { color: #1e40af; }
+  .abs-stat.rate     .num { color: #065f46; }
+  .abs-stat .label {
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 3px;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStudentCourseAttendance()
+</script>

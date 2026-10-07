@@ -1,0 +1,102 @@
+<!-- Settings tab: Attendance -->
+<form class="settings-form" data-settings-section="attendance" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Attendance Rules</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Minimum Attendance % for Exam Eligibility</label>
+          <input class="form-control" type="number" name="attendance_min_percent" value="75" min="0" max="100" />
+          <div class="form-help">
+            NBTE requirement: 75%. Students below this are marked ineligible.
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Count Late as Present?</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="attendance_count_late_present" checked />
+            <span>Late arrivals count towards attendance</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Count Excused as Present?</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="attendance_count_excused_present" checked />
+            <span>Excused absences count towards attendance</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Late Marking</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Grace Period (minutes)</label>
+          <input class="form-control" type="number" name="attendance_grace_minutes" value="10" min="0" max="60" />
+          <div class="form-help">
+            Students marked present within N minutes of class start. After that they're "late".
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Auto-Mark Absent After (minutes)</label>
+          <input class="form-control" type="number" name="attendance_absent_after" value="30" min="0" max="120" />
+          <div class="form-help">
+            No mark within this window → "absent". 0 = disable.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Notifications</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Alert Students Below Threshold</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="attendance_alert_low" checked />
+            <span>Send a warning when a student drops below the minimum</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alert HOD Weekly</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="attendance_alert_hod" checked />
+            <span>Weekly summary of at-risk students to HOD</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alert Lecturer on 3rd Consecutive Absence</label>
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
+            <input type="checkbox" name="attendance_alert_lecturer" checked />
+            <span>Notify the lecturer of consecutive absences</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Data Retention</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Keep Attendance Records For (months)</label>
+          <input class="form-control" type="number" name="attendance_retention_months" value="24" min="6" max="120" />
+          <div class="form-help">
+            Older records are archived/deleted. 0 = keep forever.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-attendance"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Attendance Settings</button>
+  </div>
+</form>

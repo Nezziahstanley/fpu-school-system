@@ -1,0 +1,95 @@
+<!-- Portal → Lecturer → Attendance -->
+<section class="page-head">
+  <div><h2>Attendance</h2><p class="muted small">Record class attendance</p></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Record Attendance</h3></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group"><label class="form-label">Course ID</label><input class="form-control" id="lec-att-course" type="number" required /></div>
+      <div class="form-group"><label class="form-label">Session ID</label><input class="form-control" id="lec-att-session" type="number" /></div>
+      <div class="form-group"><label class="form-label">Semester</label>
+        <select class="form-select" id="lec-att-semester"><option value="first">First</option><option value="second">Second</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-control" id="lec-att-date" type="date" /></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="lec-att-load-students">Load Students</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Students</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Matric</th><th>Name</th><th>Status</th></tr></thead>
+        <tbody id="lec-att-tbody"><tr><td colspan="3" class="empty">Load a course above.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel-body">
+    <button class="btn btn-primary" id="lec-att-submit">Save Attendance</button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+    let currentStudents = [];
+
+    document.getElementById('lec-att-load-students').addEventListener('click', async () => {
+      const courseId = document.getElementById('lec-att-course').value.trim();
+      const sessionId = document.getElementById('lec-att-session').value.trim();
+      if (!courseId) return core.showToast('Enter a course ID.', 'warning');
+
+      const tbody = document.getElementById('lec-att-tbody');
+      tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+      try {
+        const qs = new URLSearchParams({ courseId });
+        if (sessionId) qs.set('sessionId', sessionId);
+        const res = await core.portalFetch(`/api/lecturer/students?${qs}`);
+        currentStudents = res.data || [];
+        tbody.innerHTML = currentStudents.length ? currentStudents.map((r, i) => `
+          <tr>
+            <td>${core.escapeHtml(r.student?.matricNumber || '')}</td>
+            <td>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</td>
+            <td>
+              <select class="form-select att-status" data-idx="${i}" style="max-width:140px;">
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="excused">Excused</option>
+              </select>
+            </td>
+          </tr>
+        `).join('') : '<tr><td colspan="3" class="empty">No students found.</td></tr>';
+      } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+    });
+
+    document.getElementById('lec-att-submit').addEventListener('click', async () => {
+      const courseId = Number(document.getElementById('lec-att-course').value);
+      const sessionId = Number(document.getElementById('lec-att-session').value);
+      const semester = document.getElementById('lec-att-semester').value;
+      const date = document.getElementById('lec-att-date').value;
+      if (!courseId || !date) return core.showToast('Course and date required.', 'warning');
+      if (!currentStudents.length) return core.showToast('Load students first.', 'warning');
+
+      const rows = currentStudents.map((r, i) => ({
+        courseId,
+        studentId: r.student.id,
+        sessionId: sessionId || undefined,
+        semester,
+        date,
+        status: document.querySelector(`.att-status[data-idx="${i}"]`).value,
+      }));
+
+      try {
+        await core.portalFetch('/api/lecturer/attendance/bulk', { method: 'POST', body: { rows } });
+        core.showToast('Attendance saved.', 'success');
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+  })();
+</script>

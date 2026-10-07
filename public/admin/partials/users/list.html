@@ -1,0 +1,164 @@
+<!-- ============================================================
+     Admin → Users → Hub
+     ------------------------------------------------------------
+     Landing page with a quick overview and jump cards.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Users</h2>
+    <p class="muted small">Students, staff, admins, and system accounts</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadUsersHub()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('user-form')">
+      + New User
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Users</span><span class="value" id="us-stat-total">—</span></div>
+    <div class="ic">👥</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Students</span><span class="value" id="us-stat-students">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Staff</span><span class="value" id="us-stat-staff">—</span></div>
+    <div class="ic">👨‍🏫</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Admins</span><span class="value" id="us-stat-admins">—</span></div>
+    <div class="ic">🛡️</div>
+  </div>
+</div>
+
+<!-- User type jump cards -->
+<div class="us-jump-grid">
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('students')">
+    <div class="ujc-icon">🎓</div>
+    <h3>Students</h3>
+    <p>Browse students by department, view profiles, and manage accounts</p>
+    <div class="ujc-arrow">Browse by department →</div>
+  </a>
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('staff')">
+    <div class="ujc-icon">👨‍🏫</div>
+    <h3>Staff</h3>
+    <p>Lecturers, HODs, and principal officers</p>
+    <div class="ujc-arrow">Browse by role →</div>
+  </a>
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('users-admins')">
+    <div class="ujc-icon">🛡️</div>
+    <h3>Admins</h3>
+    <p>Accounts with the highest privilege</p>
+    <div class="ujc-arrow" id="ujc-admins-count">—</div>
+  </a>
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('users-all')">
+    <div class="ujc-icon">📋</div>
+    <h3>All Users</h3>
+    <p>Complete, searchable list of every account</p>
+    <div class="ujc-arrow">Open table →</div>
+  </a>
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('users-login-history')">
+    <div class="ujc-icon">🔐</div>
+    <h3>Login History</h3>
+    <p>Recent authentication attempts</p>
+    <div class="ujc-arrow" id="ujc-logins-count">—</div>
+  </a>
+  <a class="us-jump-card" onclick="FPU_ADMIN_SPA.navigateTo('users-with-photos')">
+    <div class="ujc-icon">📸</div>
+    <h3>Photo Directory</h3>
+    <p>Visual directory of account holders</p>
+    <div class="ujc-arrow">Open grid →</div>
+  </a>
+</div>
+
+<!-- Recent users -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>🆕 Recently Added</h3>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('users-all')">
+      View all →
+    </button>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th style="width:120px;">Role</th>
+            <th style="width:100px;">Status</th>
+            <th style="width:140px;">Created</th>
+          </tr>
+        </thead>
+        <tbody id="us-recent-tbody">
+          <tr><td colspan="5" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .us-jump-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  .us-jump-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 22px;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .us-jump-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+  .ujc-icon {
+    font-size: 2rem;
+    margin-bottom: 4px;
+  }
+  .us-jump-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+  }
+  .us-jump-card p {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.55;
+    margin: 0;
+    flex: 1;
+  }
+  .ujc-arrow {
+    font-family: 'Poppins', sans-serif;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #f59e0b;
+    margin-top: 8px;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadUsersHub()
+</script>

@@ -1,0 +1,265 @@
+<!-- Admin → Applications → Create (manual entry) -->
+<section class="page-head">
+  <div>
+    <h2>New Application</h2>
+    <p class="muted small">Create an application on behalf of an applicant (offline/walk-in)</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('applications')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Applicant Information</h3></div>
+  <div class="panel-body">
+    <form id="application-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">First Name <span class="req">*</span></label>
+          <input class="form-control" name="firstName" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name <span class="req">*</span></label>
+          <input class="form-control" name="lastName" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Middle Name</label>
+          <input class="form-control" name="middleName" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input class="form-control" type="email" name="email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone <span class="req">*</span></label>
+          <input class="form-control" name="phone" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select class="form-select" name="gender">
+            <option value="">—</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input class="form-control" type="date" name="dateOfBirth" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <select class="form-select" name="country" id="app-country"
+                  data-lookup="countries"
+                  data-placeholder="Select country…">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">State of Origin</label>
+          <select class="form-select" name="stateOfOrigin" id="app-state"
+                  data-lookup="states" data-depends-on="app-country"
+                  data-param="country"
+                  data-placeholder="Select state first…">
+            <option value="">Select country first…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Local Government Area</label>
+          <select class="form-select" name="lga" id="app-lga"
+                  data-placeholder="Select state first…">
+            <option value="">Select state first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Application Type</label>
+          <select class="form-select" name="type">
+            <option>ND</option>
+            <option>HND</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Level</label>
+          <select class="form-select" name="level">
+            <option>ND</option>
+            <option>HND</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">School</label>
+          <select class="form-select" name="schoolId" id="app-school"
+                  data-lookup="schools" data-placeholder="Select school…">
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-select" name="departmentId" id="app-dept"
+                  data-lookup="departments" data-depends-on="app-school"
+                  data-placeholder="Select school first…">
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Programme</label>
+          <select class="form-select" name="programmeId" id="app-prog"
+                  data-lookup="programmes" data-depends-on="app-dept"
+                  data-placeholder="Select department first…">
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <textarea class="form-control" name="address" rows="2"></textarea>
+      </div>
+
+      <!-- ============ PASSPORT UPLOADER ============ -->
+      <div class="form-group">
+        <label class="form-label">Passport Photograph</label>
+        <div class="passport-uploader" id="app-passport-uploader">
+          <input type="file" id="app-passport-file" accept="image/*" style="display:none" />
+          <div id="app-passport-preview">
+            <div class="upload-icon">📷</div>
+            <p style="margin:0;font-weight:600;color:var(--fpu-ink);">Click to upload the applicant's passport</p>
+            <p class="hint" style="margin:4px 0 0;">JPG or PNG · Max 5 MB · Square photo works best</p>
+          </div>
+        </div>
+        <input type="hidden" name="passportData" id="app-passport-data" />
+        <div class="small muted" style="margin-top:6px;">
+          Optional — if you skip this, the applicant can upload their photo later from the student portal.
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Application</button>
+        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN_SPA.navigateTo('applications')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .passport-uploader {
+    border: 2px dashed var(--fpu-border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f8fafc;
+  }
+  .passport-uploader:hover {
+    border-color: var(--fpu-primary);
+    background: #ecfdf5;
+  }
+  .passport-uploader.has-image {
+    border-style: solid;
+    border-color: var(--fpu-primary);
+    background: #ffffff;
+    padding: 12px;
+  }
+  .passport-uploader .preview-img {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin: 0 auto;
+    display: block;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  }
+  .passport-uploader .hint {
+    font-size: 13px;
+    color: var(--fpu-muted);
+    margin-top: 8px;
+  }
+  .passport-uploader .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+  }
+</style>
+
+<script>
+  (function () {
+    // ---------- Country → State → LGA cascade ----------
+    function wireGeo() {
+      const country = document.getElementById('app-country');
+      const state = document.getElementById('app-state');
+      const lga = document.getElementById('app-lga');
+      if (!country || !state || !lga) return;
+      if (country.__fpuGeoBound) return;
+      country.__fpuGeoBound = true;
+
+      country.addEventListener('change', () => {
+        state.innerHTML = '<option value="">Select state…</option>';
+        lga.innerHTML = '<option value="">Select state first…</option>';
+      });
+
+      state.addEventListener('change', async () => {
+        const c = country.value;
+        const s = state.value;
+        lga.innerHTML = '<option value="">Loading…</option>';
+        if (!s) {
+          lga.innerHTML = '<option value="">Select state first…</option>';
+          return;
+        }
+        try {
+          const res = await window.FPU_ADMIN.adminFetch(
+            `/api/admin/lookups/lgas?country=${encodeURIComponent(c || 'NG')}&state=${encodeURIComponent(s)}`
+          );
+          const json = await res.json();
+          const rows = json.data || [];
+          lga.innerHTML = '<option value="">Select LGA…</option>' +
+            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch (err) {
+          lga.innerHTML = `<option value="">Could not load: ${err.message}</option>`;
+        }
+      });
+    }
+
+    // ---------- Passport uploader ----------
+    function wireUploader() {
+      const uploader = document.getElementById('app-passport-uploader');
+      const file = document.getElementById('app-passport-file');
+      const preview = document.getElementById('app-passport-preview');
+      const dataInput = document.getElementById('app-passport-data');
+      if (!uploader || uploader.__fpuUploadBound) return;
+      uploader.__fpuUploadBound = true;
+
+      uploader.addEventListener('click', () => file.click());
+      file.addEventListener('change', () => {
+        const f = file.files[0];
+        if (!f) return;
+        if (!/^image\//.test(f.type)) {
+          alert('Please select an image file (JPG or PNG).');
+          file.value = '';
+          return;
+        }
+        if (f.size > 5 * 1024 * 1024) {
+          alert('File is too large. Maximum 5 MB.');
+          file.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const dataUrl = e.target.result;
+          preview.innerHTML = `<img src="${dataUrl}" alt="Passport" class="preview-img" />
+            <p class="hint">✅ Photo ready. Click to change.</p>`;
+          uploader.classList.add('has-image');
+          dataInput.value = dataUrl;
+        };
+        reader.readAsDataURL(f);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      wireGeo();
+      wireUploader();
+    });
+    window.addEventListener('hashchange', () => {
+      setTimeout(() => { wireGeo(); wireUploader(); }, 100);
+    });
+    setTimeout(() => { wireGeo(); wireUploader(); }, 200);
+  })();
+</script>

@@ -1,0 +1,61 @@
+<!-- Portal → Bursar → Clearances -->
+<section class="page-head">
+  <div><h2>Clearances</h2><p class="muted small">Mark students as cleared</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burClrLoad()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="bur-clr-status" onchange="window.__burClrLoad()">
+      <option value="">All</option><option value="pending">Pending</option><option value="cleared">Cleared</option><option value="rejected">Rejected</option>
+    </select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Clearance Queue</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Student</th><th>Type</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead>
+        <tbody id="bur-clr-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__burClrLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('bur-clr-tbody');
+    const status = document.getElementById('bur-clr-status').value;
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/bursar/clearances?${qs}`);
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td>${r.student ? core.escapeHtml(r.student.firstName + ' ' + r.student.lastName) : '—'}</td>
+          <td>${core.escapeHtml(r.clearance.type)}</td>
+          <td><span class="badge badge-${r.clearance.status === 'cleared' ? 'success' : r.clearance.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.clearance.status)}</span></td>
+          <td>${core.formatDate(r.clearance.createdAt)}</td>
+          <td>${r.clearance.status === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="window.__burClrClear(${r.clearance.id})">Clear</button>` : ''}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No clearances.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__burClrClear = async function (id) {
+    const core = window.FPU_PORTAL;
+    try {
+      await core.portalFetch(`/api/bursar/clearances/${id}/clear`, { method: 'POST' });
+      core.showToast('Cleared.', 'success');
+      window.__burClrLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__burClrLoad();
+</script>

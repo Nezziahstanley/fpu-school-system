@@ -1,0 +1,99 @@
+<div class="panel">
+  <div class="panel-head"><h3>Institution Logo</h3></div>
+  <div class="panel-body">
+    <div class="admin-avatar-uploader" id="institution-logo-uploader">
+      <input type="file" id="institution-logo-file" accept="image/*" style="display:none" />
+      <div class="avatar-preview" id="institution-logo-preview" style="border-radius:14px;">🏛️</div>
+      <p class="upload-hint"><strong>Click to upload school logo</strong><br/>PNG or JPG &middot; Max 2 MB</p>
+    </div>
+    <input type="hidden" id="institution-logo-data" />
+    <div class="form-group" style="margin-top:12px;">
+      <label class="form-label">Or paste a logo URL</label>
+      <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
+    </div>
+  </div>
+</div>
+<!-- Settings tab: Institution -->
+<form class="settings-form" data-settings-section="institution" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Identity</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Institution Name</label>
+          <input class="form-control" name="institution_name" value="Federal Polytechnic Ugep" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Short Name</label>
+          <input class="form-control" name="institution_short" value="FPU" maxlength="10" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motto</label>
+          <input class="form-control" name="institution_motto" value="Citadel of Technical Excellence" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">State</label>
+          <input class="form-control" name="institution_state" value="Cross River State" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input class="form-control" name="institution_country" value="Nigeria" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <textarea class="form-control" name="institution_address" rows="2">Km 95 Calabar–Ikom Highway, Ugep, Yakurr LGA, Cross River State</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Contact</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Primary Phone</label>
+          <input class="form-control" name="institution_phone" placeholder="+234 …" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Support Email</label>
+          <input class="form-control" type="email" name="institution_email" placeholder="contact@fedpolyugep.edu.ng" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Website</label>
+          <input class="form-control" name="institution_website" placeholder="https://fedpolyugep.edu.ng" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Matric Prefix</label>
+          <input class="form-control" name="matric_prefix" value="FPU" maxlength="6" />
+          <div class="form-help">Used for new matric numbers (e.g. <code>FPU/SST/CST/ND/26/001</code>)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Branding</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Logo URL</label>
+          <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Favicon URL</label>
+          <input class="form-control" name="institution_favicon_url" placeholder="/images/favicon.ico" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Primary Colour (hex)</label>
+        <input class="form-control" name="institution_primary_color" placeholder="#065f46" />
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-institution"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Institution Settings</button>
+  </div>
+</form>

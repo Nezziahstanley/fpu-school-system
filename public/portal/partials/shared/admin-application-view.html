@@ -1,0 +1,54 @@
+<!-- Portal → Shared → Application view -->
+<section class="page-head">
+  <div><h2>Application Detail</h2></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_SPA.navigatePortal('admin-applications-list')">← Back</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Applicant</h3></div>
+  <div class="panel-body" id="shared-app-view">
+    <p class="muted">Enter an application ID to view details.</p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">
+      <input class="form-control" id="shared-app-id" placeholder="Application ID" style="max-width:220px;" />
+      <button class="btn btn-primary btn-sm" id="shared-app-load">Load</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+    document.getElementById('shared-app-load').addEventListener('click', async () => {
+      const id = document.getElementById('shared-app-id').value.trim();
+      const out = document.getElementById('shared-app-view');
+      if (!id) return;
+      try {
+        const res = await core.portalFetch(`/api/admin/applications/${id}`);
+        const a = res.data;
+        out.innerHTML = `
+          <div class="grid grid-2" style="gap:1rem;">
+            <div><strong>No:</strong> ${core.escapeHtml(a.applicationNumber)}</div>
+            <div><strong>Status:</strong> ${core.escapeHtml(a.status)}</div>
+            <div><strong>Name:</strong> ${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</div>
+            <div><strong>Email:</strong> ${core.escapeHtml(a.email)}</div>
+            <div><strong>Phone:</strong> ${core.escapeHtml(a.phone)}</div>
+            <div><strong>Level:</strong> ${core.escapeHtml(a.level)}</div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary btn-sm" id="sh-app-approve">Approve</button>
+            <button class="btn btn-ghost btn-sm" id="sh-app-reject">Reject</button>
+          </div>
+        `;
+        document.getElementById('sh-app-approve').addEventListener('click', async () => {
+          try { await core.portalFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' }); core.showToast('Approved.', 'success'); }
+          catch (err) { core.showToast(err.message, 'error'); }
+        });
+        document.getElementById('sh-app-reject').addEventListener('click', async () => {
+          const r = prompt('Reason:'); if (r === null) return;
+          try { await core.portalFetch(`/api/admin/applications/${id}/reject`, { method: 'POST', body: { reason: r } }); core.showToast('Rejected.', 'warning'); }
+          catch (err) { core.showToast(err.message, 'error'); }
+        });
+      } catch (err) { out.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+    });
+  })();
+</script>

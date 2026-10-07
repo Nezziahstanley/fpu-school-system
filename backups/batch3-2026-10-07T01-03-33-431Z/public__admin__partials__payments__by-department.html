@@ -1,0 +1,105 @@
+<!-- ============================================================
+     Admin → Payments → By Department
+     ------------------------------------------------------------
+     Students in a department who have made payments.
+     Each row shows: student, total paid, total due, balance,
+     status (fully paid / partial / none), last payment date.
+     Click → student payment history.
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2 id="pd-title">Department Payments</h2>
+    <p class="muted small" id="pd-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('payments')">← All Departments</button>
+    <button class="btn btn-outline btn-sm" id="pd-export">Export CSV</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('payment-form')">
+      + Record Payment
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Students</div>
+    <div class="value" id="pdd-stat-students">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Fully Paid</div>
+    <div class="value" id="pdd-stat-fully">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Partial</div>
+    <div class="value" id="pdd-stat-partial">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Collected</div>
+    <div class="value" id="pdd-stat-collected">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Payment Status</label>
+    <select class="form-select" id="pdd-filter-status"
+            onchange="FPU_ADMIN.loadDepartmentPayments()">
+      <option value="">All who paid</option>
+      <option value="fully">Fully Paid</option>
+      <option value="partial">Partially Paid</option>
+      <option value="pending">Has Pending Payment</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Programme</label>
+    <select class="form-select" id="pdd-filter-programme"
+            data-lookup="programmes"
+            data-param="departmentId"
+            data-placeholder="All programmes"
+            onchange="FPU_ADMIN.loadDepartmentPayments()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="pdd-search"
+           placeholder="Name or matric…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadDepartmentPayments()" />
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Paid Students</h3>
+    <span class="small muted" id="pdd-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Matric</th>
+            <th>Student</th>
+            <th style="width:80px;">Level</th>
+            <th style="width:120px;">Total Due</th>
+            <th style="width:120px;">Total Paid</th>
+            <th style="width:120px;">Balance</th>
+            <th style="width:110px;">Status</th>
+            <th style="width:110px;">Last Payment</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pdd-tbody">
+          <tr><td colspan="9" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadDepartmentPayments()
+</script>

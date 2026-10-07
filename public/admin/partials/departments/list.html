@@ -1,0 +1,245 @@
+<!-- ============================================================
+     Admin → Departments → Overview
+     ------------------------------------------------------------
+     Card grid: one card per department showing
+       • school badge
+       • programmes count
+       • courses count + credit units
+       • students count
+       • HOD name (if assigned)
+     Clicking a card opens the department detail page.
+     Filter by school with the dropdown.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Departments</h2>
+    <p class="muted small">13 departments across 6 schools — click a card to view details</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadDepartmentCards()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('department-form')">
+      + New Department
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Departments</div>
+    <div class="value" id="dept-stat-total-all">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Programmes</div>
+    <div class="value" id="dept-stat-progs-all">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Courses</div>
+    <div class="value" id="dept-stat-courses-all">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Students</div>
+    <div class="value" id="dept-stat-students-all">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">School</label>
+    <select class="form-select" id="dept-filter-school"
+            data-lookup="schools" data-placeholder="All schools"
+            onchange="FPU_ADMIN.loadDepartmentCards()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="dept-search"
+           placeholder="Code or name…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadDepartmentCards()" />
+  </div>
+  <button class="btn btn-primary" onclick="FPU_ADMIN.loadDepartmentCards()">Apply</button>
+</div>
+
+<!-- Card grid -->
+<div id="dept-card-grid" class="dept-card-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading departments…
+  </div>
+</div>
+
+<style>
+  .dept-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+
+  .dept-card {
+    background: #ffffff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dept-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #065f46, #f59e0b);
+  }
+
+  .dept-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.10);
+    border-color: rgba(6, 95, 70, 0.3);
+  }
+
+  .dpt-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .dpt-code {
+    display: inline-block;
+    background: #ecfdf5;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .dpt-school {
+    font-family: 'Poppins', sans-serif;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #065f46, #047857);
+    color: #ffffff;
+  }
+
+  .dept-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .dpt-hod {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: #475569;
+  }
+
+  .dpt-hod .avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #f59e0b);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .dpt-hod .avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .dpt-hod .role {
+    color: #94a3b8;
+    font-size: 11px;
+    margin-left: auto;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .dpt-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .dpt-stat {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+
+  .dpt-stat .num {
+    display: block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+  }
+
+  .dpt-stat.units .num { color: #f59e0b; }
+  .dpt-stat.students .num { color: #8b5cf6; }
+
+  .dpt-stat .label {
+    display: block;
+    font-size: 9.5px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .dpt-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .dpt-footer .arrow {
+    color: #f59e0b;
+    font-family: 'Poppins', sans-serif;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadDepartmentCards()
+</script>

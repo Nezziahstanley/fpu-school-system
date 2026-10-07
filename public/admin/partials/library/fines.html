@@ -1,0 +1,84 @@
+<!-- ============================================================
+     Admin → Library → Fines
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Library Fines</h2>
+    <p class="muted small">Track and settle outstanding fines</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadFinesTable()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="fines-bulk-paid">
+      ✓ Mark selected paid
+    </button>
+  </div>
+</section>
+
+<!-- Tabs -->
+<div class="staff-role-tabs" id="fines-status-tabs">
+  <button class="staff-role-tab active" data-status="">
+    All <span class="tab-count" id="fines-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="unpaid">
+    Unpaid <span class="tab-count" id="fines-count-unpaid">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="paid">
+    Paid <span class="tab-count" id="fines-count-paid">—</span>
+  </button>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Fines</div>
+    <div class="value" id="fines-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Outstanding ₦</div>
+    <div class="value" id="fines-stat-unpaid">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Collected ₦</div>
+    <div class="value" id="fines-stat-paid">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Unpaid Count</div>
+    <div class="value" id="fines-stat-unpaid-count">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Fines</h3>
+    <span class="small muted" id="fines-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:32px;">
+              <input type="checkbox" id="fines-select-all" />
+            </th>
+            <th>User</th>
+            <th style="width:120px;">Amount</th>
+            <th>Reason</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:110px;">Created</th>
+            <th style="width:180px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="fines-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadFinesTable()
+</script>

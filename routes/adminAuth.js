@@ -1,0 +1,142 @@
+// ============================================================
+// FPU — Admin authentication
+// ------------------------------------------------------------
+// POST /api/admin/auth/login
+// POST /api/admin/auth/logout
+// GET  /api/admin/auth/me
+// ============================================================
+
+'use strict';
+
+const express = require('express');
+const crypto = require('crypto');
+const router = express.Router();
+
+const userQueries = require('../db/queries/users');
+const sessionQueries = require('../db/queries/sessions');
+const { comparePassword } = require('../utils/password');
+const { logAudit, logSecurity, logLogin, contextFromReq } = require('../utils/audit');
+const { requireUser } = require('../middleware/auth');
+const { loginLimiter } = require('../middleware/rateLimits');
+
+// ------------------------------------------------------------
+function sessionTtlMs() {
+  const hours = Number(process.env.SESSION_TTL_HOURS) || 72;
+  return hours * 60 * 60 * 1000;
+}
+
+function newToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// ------------------------------------------------------------
+// POST /api/admin/auth/login
+// ------------------------------------------------------------
+router.post('/login', loginLimiter, async (req, res, next) => {
+  const { email, password } = req.body || {};
+  const ctx = contextFromReq(req);
+
+  try {
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+    }
+
+    const user = await userQueries.findByEmail(email);
+
+    if (!user || !user.isActive) {
+      await logLogin({ req, email, success: false, reason: 'user_not_found_or_inactive' });
+      await logSecurity({ req, event: 'admin_login_failed', severity: 'warning', details: { email } });
+      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+    }
+
+    // Only staff roles may log in through the admin portal
+    const STAFF = [
+      'admin', 'rector', 'registrar', 'bursar', 'librarian',
+      'exam_officer', 'academic_officer', 'admission_officer',
+      'hod', 'lecturer',
+    ];
+    if (!STAFF.includes(user.role)) {
+      await logLogin({ req, userId: user.id, email, success: false, reason: 'role_not_allowed_admin' });
+      await logSecurity({ req, userId: user.id, event: 'admin_login_role_denied', severity: 'warning', details: { role: user.role } });
+      return res.status(403).json({ success: false, error: 'This portal is for staff only.' });
+    }
+
+    const ok = await comparePassword(password, user.passwordHash);
+    if (!ok) {
+      await logLogin({ req, userId: user.id, email, success: false, reason: 'bad_password' });
+      await logSecurity({ req, userId: user.id, event: 'admin_login_bad_password', severity: 'warning' });
+      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+    }
+
+    const token = newToken();
+    const expiresAt = new Date(Date.now() + sessionTtlMs());
+    await sessionQueries.createAdminSession({
+      userId: user.id,
+      token,
+      userAgent: ctx.userAgent,
+      ipAddress: ctx.ipAddress,
+      expiresAt,
+    });
+    await userQueries.touchLogin(user.id);
+
+    await logLogin({ req, userId: user.id, email, success: true });
+    await logAudit({ req, userId: user.id, action: 'admin.login', entity: 'user', entityId: user.id });
+
+    return res.json({
+      success: true,
+      token,
+      expiresAt,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        photoUrl: user.photoUrl,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ------------------------------------------------------------
+// POST /api/admin/auth/logout
+// ------------------------------------------------------------
+router.post('/logout', async (req, res, next) => {
+  try {
+    const token = req.authToken;
+    if (token) {
+      await sessionQueries.revokeAdminSession(token);
+      await sessionQueries.revokeUserSession(token);
+    }
+    await logAudit({ req, userId: req.user?.id, action: 'admin.logout' });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ------------------------------------------------------------
+// GET /api/admin/auth/me
+// ------------------------------------------------------------
+router.get('/me', requireUser, async (req, res) => {
+  return res.json({
+    success: true,
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      middleName: req.user.middleName,
+      photoUrl: req.user.photoUrl,
+      departmentId: req.user.departmentId,
+      schoolId: req.user.schoolId,
+      currentSessionId: req.user.currentSessionId,
+      mustChangePassword: req.user.mustChangePassword,
+    },
+  });
+});
+
+module.exports = router;

@@ -1,0 +1,101 @@
+<!-- ============================================================
+     Admin → Security → Compliance (NDPR)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Compliance</h2>
+    <p class="muted small">NDPR + internal policy checklist</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadCompliance()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="comp-export">
+      📥 Export Report
+    </button>
+  </div>
+</section>
+
+<div id="comp-root">
+  <div class="loading"><span class="spinner"></span> Checking compliance…</div>
+</div>
+
+<style>
+  .compliance-check {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    border-left: 5px solid #10b981;
+  }
+  .compliance-check.fail { border-left-color: #dc2626; background: #fef2f2; }
+  .compliance-check.warn { border-left-color: #f59e0b; background: #fffbeb; }
+  .compliance-check .cc-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .compliance-check .cc-body { flex: 1; min-width: 0; }
+  .compliance-check .cc-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .compliance-check .cc-detail {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.6;
+  }
+  .compliance-check .cc-fix {
+    font-size: 12.5px;
+    color: #065f46;
+    font-weight: 600;
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .compliance-check .cc-fix:hover { text-decoration: underline; }
+
+  .compliance-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .compliance-summary-item {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+  }
+  .compliance-summary-item .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .compliance-summary-item.pass .num { color: #047857; }
+  .compliance-summary-item.fail .num { color: #b91c1c; }
+  .compliance-summary-item.warn .num { color: #b45309; }
+  .compliance-summary-item .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadCompliance()
+</script>

@@ -1,0 +1,57 @@
+<!-- Portal → Shared → My borrows -->
+<section class="page-head">
+  <div><h2>My Borrows</h2></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Borrowed Books</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody id="shared-borrows-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Fines</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Reason</th><th>Amount</th><th>Paid?</th></tr></thead>
+        <tbody id="shared-fines-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/student/borrows');
+      const borrows = res.borrows || [];
+      document.getElementById('shared-borrows-tbody').innerHTML = borrows.length ? borrows.map((r) => `
+        <tr>
+          <td>${core.escapeHtml(r.book?.title || '')}</td>
+          <td>${core.formatDate(r.borrow.borrowedAt)}</td>
+          <td>${core.formatDate(r.borrow.dueAt)}</td>
+          <td>${core.escapeHtml(r.borrow.status)}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="4" class="empty">No borrows.</td></tr>';
+
+      const fines = res.fines || [];
+      document.getElementById('shared-fines-tbody').innerHTML = fines.length ? fines.map((f) => `
+        <tr>
+          <td>${core.escapeHtml(f.reason || '')}</td>
+          <td>${core.formatMoney(f.amount)}</td>
+          <td>${f.isPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Unpaid</span>'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="3" class="empty">No fines.</td></tr>';
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  })();
+</script>

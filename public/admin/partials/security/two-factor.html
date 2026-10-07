@@ -1,0 +1,143 @@
+<!-- ============================================================
+     Admin → Security → Two-Factor Authentication
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Two-Factor Authentication</h2>
+    <p class="muted small">Require 2FA for sensitive roles</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.load2FAConfig()">
+      Reset
+    </button>
+    <button class="btn btn-primary btn-sm" id="tfa-save">
+      💾 Save
+    </button>
+  </div>
+</section>
+
+<div class="info-banner" style="max-width:none;">
+  <strong>ℹ️ How it works:</strong>
+  When enabled for a role, users in that role must set up a 2FA method
+  (authenticator app or SMS) at next login. Sessions will require a fresh
+  TOTP code on every new device.
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Require 2FA By Role</h3></div>
+  <div class="panel-body">
+    <div class="tfa-role-grid" id="tfa-roles">
+      <div class="loading"><span class="spinner"></span> Loading roles…</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Allowed Methods</h3></div>
+  <div class="panel-body">
+    <div class="tfa-method-grid">
+      <label class="tfa-method-card">
+        <input type="checkbox" id="tfa-method-app" checked />
+        <div class="tmc-icon">📱</div>
+        <div class="tmc-title">Authenticator App</div>
+        <div class="tmc-desc">Google Authenticator, Authy, 1Password</div>
+      </label>
+      <label class="tfa-method-card">
+        <input type="checkbox" id="tfa-method-sms" />
+        <div class="tmc-icon">💬</div>
+        <div class="tmc-title">SMS Code</div>
+        <div class="tmc-desc">Send a 6-digit code by SMS</div>
+      </label>
+      <label class="tfa-method-card">
+        <input type="checkbox" id="tfa-method-email" />
+        <div class="tmc-icon">📧</div>
+        <div class="tmc-title">Email Code</div>
+        <div class="tmc-desc">Send a 6-digit code to the user's email</div>
+      </label>
+      <label class="tfa-method-card">
+        <input type="checkbox" id="tfa-method-backup" checked />
+        <div class="tmc-icon">🔑</div>
+        <div class="tmc-title">Backup Codes</div>
+        <div class="tmc-desc">Generate 10 single-use recovery codes</div>
+      </label>
+    </div>
+  </div>
+</div>
+
+<style>
+  .tfa-role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .tfa-role-item {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .tfa-role-item:hover { background: #ecfdf5; }
+  .tfa-role-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #065f46;
+    cursor: pointer;
+  }
+  .tfa-role-item .label {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .tfa-method-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .tfa-method-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+  }
+  .tfa-method-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(6,95,70,0.3);
+    box-shadow: 0 6px 16px rgba(15,23,42,0.08);
+  }
+  .tfa-method-card input[type="checkbox"] {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 18px;
+    height: 18px;
+    accent-color: #065f46;
+    cursor: pointer;
+  }
+  .tmc-icon { font-size: 1.6rem; }
+  .tmc-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .tmc-desc {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.load2FAConfig()
+</script>

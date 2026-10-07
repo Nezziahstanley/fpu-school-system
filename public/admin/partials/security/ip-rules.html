@@ -1,0 +1,102 @@
+<!-- ============================================================
+     Admin → Security → IP Rules
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>IP Rules</h2>
+    <p class="muted small">Whitelist trusted IPs, blacklist threats</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadIpRules()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm" id="ip-add-btn">
+      + Add IP Rule
+    </button>
+  </div>
+</section>
+
+<!-- Add IP form (inline) -->
+<div class="panel" id="ip-add-panel" style="display:none; border-left:4px solid #10b981;">
+  <div class="panel-head">
+    <h3>Add IP Rule</h3>
+    <button class="btn btn-ghost btn-sm" id="ip-add-cancel" onclick="FPU_ADMIN.goBack('security')">Cancel</button>
+  </div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">IP Address <span class="req">*</span></label>
+        <input class="form-control" id="ip-address" placeholder="e.g. 192.168.1.1 or 10.0.0.0/24" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rule <span class="req">*</span></label>
+        <select class="form-select" id="ip-rule">
+          <option value="block">🚫 Block</option>
+          <option value="allow">✅ Allow (whitelist)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Expires At (optional)</label>
+        <input class="form-control" type="datetime-local" id="ip-expires" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Reason</label>
+      <input class="form-control" id="ip-reason" placeholder="e.g. Brute force detected" />
+    </div>
+    <div id="ip-validation"></div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="ip-save">Add Rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Rules</div>
+    <div class="value" id="ip-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Whitelisted</div>
+    <div class="value" id="ip-stat-allow">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Blocked</div>
+    <div class="value" id="ip-stat-block">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Expiring Soon</div>
+    <div class="value" id="ip-stat-expiring">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Rules</h3>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>IP Address</th>
+            <th style="width:120px;">Rule</th>
+            <th>Reason</th>
+            <th style="width:180px;">Expires</th>
+            <th style="width:180px;">Created</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ip-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadIpRules()
+</script>

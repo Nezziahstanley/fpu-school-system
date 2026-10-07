@@ -1,0 +1,79 @@
+<!-- Admin → Academics → Sessions -->
+<section class="page-head">
+  <div>
+    <h2>Academic Sessions</h2>
+    <p class="muted small">Manage past, current, and future sessions</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSessions()">Refresh</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('session-form')">
+      + New Session
+    </button>
+  </div>
+</section>
+
+<!-- Current session highlight -->
+<div class="panel" id="current-session-panel" style="display:none; border-left:4px solid #10b981;">
+  <div class="panel-body">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div>
+        <div class="small muted" style="text-transform:uppercase;letter-spacing:1px;font-weight:700;">Current Session</div>
+        <h3 style="margin:4px 0 0;font-family:'Poppins',sans-serif;color:#065f46;font-size:1.4rem;" id="current-session-name">—</h3>
+        <div class="small muted" id="current-session-dates">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="small muted">Enrolled Students</div>
+        <div style="font-family:'Poppins',sans-serif;font-size:2rem;font-weight:800;color:#065f46;line-height:1;" id="current-session-count">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Sessions</div>
+    <div class="value" id="ses-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Current</div>
+    <div class="value" id="ses-stat-current">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Upcoming</div>
+    <div class="value" id="ses-stat-upcoming">—</div>
+  </div>
+  <div class="stat-inline">
+    <div class="label">Past</div>
+    <div class="value" id="ses-stat-past">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>All Sessions</h3>
+    <span class="small muted">The current session is highlighted in green</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Students</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sessions-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

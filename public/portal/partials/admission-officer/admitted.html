@@ -1,0 +1,51 @@
+<!-- Portal → Admissions Officer → Admitted -->
+<section class="page-head">
+  <div><h2>Admitted Applicants</h2><p class="muted small">Approved but not yet registered</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__adoAdmLoad()">Refresh</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Approved Applications</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>App No</th><th>Applicant</th><th>Email</th><th>Level</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="ado-adm-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.__adoAdmLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('ado-adm-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/admission-officer/admitted');
+      const rows = res.data || [];
+      tbody.innerHTML = rows.length ? rows.map((a) => `
+        <tr>
+          <td>${core.escapeHtml(a.applicationNumber)}</td>
+          <td>${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</td>
+          <td>${core.escapeHtml(a.email)}</td>
+          <td>${core.escapeHtml(a.level || '')}</td>
+          <td>${core.escapeHtml(a.status)}</td>
+          <td>${a.status === 'approved' ? `<button class="btn btn-sm btn-primary" onclick="window.__adoRegister(${a.id})">Register</button>` : ''}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" class="empty">No approved applications.</td></tr>';
+    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  };
+
+  window.__adoRegister = async function (id) {
+    const core = window.FPU_PORTAL;
+    if (!confirm('Create the student account and assign a matric number?')) return;
+    try {
+      const res = await core.portalFetch(`/api/admission-officer/applications/${id}/register`, { method: 'POST' });
+      core.showToast(`Registered: ${res.data.matricNumber}`, 'success');
+      window.__adoAdmLoad();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__adoAdmLoad();
+</script>

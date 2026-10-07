@@ -1,0 +1,228 @@
+<!-- ============================================================
+     Admin → Departments → Form (Create / Edit)
+     ------------------------------------------------------------
+     Branches on ?id= in the URL hash.
+     Supports ?schoolId= prefill when arriving from a school page.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="dept-form-title">New Department</h2>
+    <p class="muted small" id="dept-form-subtitle">Attach a department to a school</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="dept-form-back" onclick="FPU_ADMIN.goBack('departments')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Department Details</h3></div>
+  <div class="panel-body">
+    <form id="dept-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Code <span class="req">*</span></label>
+          <input class="form-control" name="code" id="dept-code"
+                 placeholder="e.g. CST" required
+                 style="text-transform:uppercase;" />
+          <div class="form-help">Short uppercase code (2–6 letters)</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Name <span class="req">*</span></label>
+          <input class="form-control" name="name" id="dept-name"
+                 placeholder="e.g. Computer Science" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" name="schoolId" id="dept-school"
+                  data-lookup="schools" data-placeholder="Select school…" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">HOD (optional)</label>
+          <select class="form-select" name="hodUserId" id="dept-hod"
+                  data-lookup="users"
+                  data-extra-params='{"roles":"hod"}'
+                  data-placeholder="— Not assigned —">
+            <option value="">— Not assigned —</option>
+          </select>
+          <div class="form-help">Only users with role = <code>hod</code> appear here.</div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="dept-submit">Create Department</button>
+        <button type="button" class="btn btn-ghost" id="dept-cancel" onclick="FPU_ADMIN.goBack('departments')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="dept-delete"
+                style="margin-left:auto;display:none;">Delete Department</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillSchoolId = params.get('schoolId');
+    const isEdit = !!id;
+
+    // ---------- Mode header ----------
+    if (isEdit) {
+      $('dept-form-title').textContent = 'Edit Department';
+      $('dept-form-subtitle').textContent = 'Update this department';
+      $('dept-submit').textContent = 'Save Changes';
+      $('dept-delete').style.display = 'inline-flex';
+    }
+
+    // ---------- Back / Cancel ----------
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('department-by-id', { id });
+      } else if (prefillSchoolId) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('school-by-id', { id: prefillSchoolId });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('departments');
+      }
+    }
+    $('dept-form-back').addEventListener('click', goBack);
+    $('dept-cancel').addEventListener('click', goBack);
+
+    // ---------- Load existing (edit) ----------
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/departments/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const d = json.data;
+
+        $('dept-code').value = d.code || '';
+        $('dept-name').value = d.name || '';
+
+        // School select is populated by lookups.
+        setTimeout(() => {
+          if ($('dept-school') && d.schoolId) {
+            $('dept-school').value = String(d.schoolId);
+          }
+        }, 400);
+
+        // HOD select.
+        setTimeout(() => {
+          if ($('dept-hod') && d.hodUserId) {
+            $('dept-hod').value = String(d.hodUserId);
+          }
+        }, 600);
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    // ---------- Prefill school (create from school page) ----------
+    function applyPrefill() {
+      if (isEdit || !prefillSchoolId) return;
+      setTimeout(() => {
+        if ($('dept-school')) {
+          $('dept-school').value = String(prefillSchoolId);
+        }
+      }, 400);
+    }
+
+    // ---------- Submit ----------
+    $('dept-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = String($('dept-code').value || '').trim().toUpperCase();
+      const name = String($('dept-name').value || '').trim();
+      const schoolId = $('dept-school').value;
+      const hodUserId = $('dept-hod').value || null;
+
+      if (!/^[A-Z]{2,6}$/.test(code)) {
+        A.showToast('⚠️ Code must be 2–6 uppercase letters (e.g. CST).', 'warning');
+        return;
+      }
+      if (!name) {
+        A.showToast('⚠️ Name is required.', 'warning');
+        return;
+      }
+      if (!schoolId) {
+        A.showToast('⚠️ School is required.', 'warning');
+        return;
+      }
+
+      const payload = {
+        code,
+        name,
+        schoolId: Number(schoolId),
+        hodUserId: hodUserId ? Number(hodUserId) : null,
+      };
+
+      const btn = $('dept-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit
+          ? `/api/admin/departments/${id}`
+          : '/api/admin/departments';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const res = await A.adminFetch(url, {
+          method,
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Department updated.' : '✅ Department created.');
+
+        if (isEdit) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('department-by-id', { id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('departments');
+        }
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Delete ----------
+    $('dept-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      const code = $('dept-code').value.trim();
+      if (!confirm(`Delete department "${code}"? Programmes, courses, and students must be reassigned first.`)) return;
+
+      const btn = $('dept-delete');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+
+      try {
+        const res = await A.adminFetch(`/api/admin/departments/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast('🗑️ Department deleted.');
+        A.FPU_ADMIN_SPA.navigateTo('departments');
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    // ---------- Init ----------
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

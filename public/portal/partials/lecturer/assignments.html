@@ -1,0 +1,117 @@
+<!-- Portal → Lecturer → Assignments -->
+<section class="page-head">
+  <div><h2>My Assignments</h2><p class="muted small">Create and grade student assignments</p></div>
+  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-asg-new">+ New Assignment</button></div>
+</section>
+
+<div class="panel" id="lec-asg-new-panel" style="display:none;">
+  <div class="panel-head"><h3>New Assignment</h3></div>
+  <div class="panel-body">
+    <form id="lec-asg-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Course ID <span class="req">*</span></label><input class="form-control" name="courseId" type="number" required /></div>
+        <div class="form-group"><label class="form-label">Session ID</label><input class="form-control" name="sessionId" type="number" /></div>
+        <div class="form-group"><label class="form-label">Semester</label>
+          <select class="form-select" name="semester"><option value="first">First</option><option value="second">Second</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Max Score</label><input class="form-control" name="maxScore" type="number" value="100" /></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input class="form-control" name="dueDate" type="datetime-local" /></div>
+      </div>
+      <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create</button>
+        <button type="button" class="btn btn-ghost" id="lec-asg-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>My Assignments</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Title</th><th>Course</th><th>Due</th><th>Max</th><th></th></tr></thead>
+        <tbody id="lec-asg-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const core = window.FPU_PORTAL;
+
+    async function load() {
+      const tbody = document.getElementById('lec-asg-tbody');
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+      try {
+        const res = await core.portalFetch('/api/lecturer/assignments');
+        const rows = res.data || [];
+        tbody.innerHTML = rows.length ? rows.map((a) => `
+          <tr>
+            <td>${core.escapeHtml(a.title)}</td>
+            <td>Course ${a.courseId}</td>
+            <td>${core.formatDateTime(a.dueDate)}</td>
+            <td class="num">${a.maxScore}</td>
+            <td><button class="btn btn-sm btn-outline" onclick="window.__lecAsgSubs(${a.id})">Submissions</button></td>
+          </tr>
+        `).join('') : '<tr><td colspan="5" class="empty">No assignments yet.</td></tr>';
+      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+    }
+
+    window.__lecAsgSubs = async function (id) {
+      const container = document.createElement('div');
+      container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+      try {
+        const res = await core.portalFetch(`/api/lecturer/assignments/${id}/submissions`);
+        const rows = res.data || [];
+        const html = rows.length ? rows.map((r) => `
+          <div class="session-item" style="margin-bottom:.5rem;">
+            <div class="meta"><strong>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</strong>${core.escapeHtml((r.submission.submissionText || '').slice(0, 140))}</div>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+              <input class="form-control" type="number" placeholder="Score" value="${r.submission.score || ''}" data-sub="${r.submission.id}" style="max-width:80px;" />
+              <button class="btn btn-sm btn-primary" onclick="window.__lecGradeSub(${r.submission.id})">Grade</button>
+            </div>
+          </div>
+        `).join('') : '<p class="muted">No submissions.</p>';
+        core.showToast('Open the browser console to see submissions (or paste into a modal).', 'info');
+        alert(rows.length + ' submissions loaded. Check console.');
+        console.log('Submissions', rows);
+      } catch (err) { core.showToast(err.message, 'error'); }
+    };
+
+    window.__lecGradeSub = async function (id) {
+      const input = document.querySelector(`[data-sub="${id}"]`);
+      const score = Number(input.value);
+      const feedback = prompt('Feedback (optional):') || null;
+      try {
+        await core.portalFetch(`/api/lecturer/assignments/submissions/${id}/grade`, { method: 'POST', body: { score, feedback } });
+        core.showToast('Graded.', 'success');
+      } catch (err) { core.showToast(err.message, 'error'); }
+    };
+
+    document.getElementById('lec-asg-new').addEventListener('click', () => {
+      const p = document.getElementById('lec-asg-new-panel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('lec-asg-cancel').addEventListener('click', () => {
+      document.getElementById('lec-asg-new-panel').style.display = 'none';
+    });
+
+    document.getElementById('lec-asg-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await core.portalFetch('/api/lecturer/assignments', { method: 'POST', body: Object.fromEntries(fd) });
+        core.showToast('Assignment created.', 'success');
+        e.target.reset();
+        document.getElementById('lec-asg-new-panel').style.display = 'none';
+        load();
+      } catch (err) { core.showToast(err.message, 'error'); }
+    });
+
+    load();
+  })();
+</script>

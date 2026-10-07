@@ -1,0 +1,257 @@
+<!-- ============================================================
+     Admin → Staff → Directory
+     ------------------------------------------------------------
+     Unified staff directory with role tabs. Shows:
+       • Counts per role at the top
+       • Search + department filter
+       • Role tabs: All / Lecturers / HODs / Principals / Admin
+       • Cards (grid) with avatar, name, role, department,
+         rank, workload, and quick actions
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Staff Directory</h2>
+    <p class="muted small">Lecturers, HODs, and principal officers</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadStaffDirectory()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadStaffDirectory('lecturer')">
+      Lecturers
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadStaffDirectory('hod')">
+      HODs
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('staff-form')">
+      + New Staff
+    </button>
+  </div>
+</section>
+
+<!-- Role tabs -->
+<div class="staff-role-tabs" id="staff-role-tabs">
+  <button class="staff-role-tab active" data-role="">
+    All Staff <span class="tab-count" id="staff-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-role="lecturer">
+    Lecturers <span class="tab-count" id="staff-count-lecturer">—</span>
+  </button>
+  <button class="staff-role-tab" data-role="hod">
+    HODs <span class="tab-count" id="staff-count-hod">—</span>
+  </button>
+  <button class="staff-role-tab" data-role="principal">
+    Principals <span class="tab-count" id="staff-count-principal">—</span>
+  </button>
+  <button class="staff-role-tab" data-role="admin">
+    Admins <span class="tab-count" id="staff-count-admin">—</span>
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="staff-filter-dept"
+            data-lookup="departments" data-placeholder="All departments"
+            onchange="FPU_ADMIN.loadStaffDirectory()"></select>
+  </div>
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="staff-search"
+           placeholder="Name, email, or staff number…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadStaffDirectory()" />
+  </div>
+</div>
+
+<!-- Staff cards -->
+<div id="staff-grid" class="staff-grid">
+  <div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading staff…
+  </div>
+</div>
+
+<style>
+  /* ---------- Role tabs ---------- */
+  .staff-role-tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--fpu-border);
+    margin-bottom: 20px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .staff-role-tab {
+    background: transparent;
+    border: none;
+    padding: 12px 20px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #6b7280;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .staff-role-tab:hover { color: #065f46; }
+  .staff-role-tab.active {
+    color: #065f46;
+    border-bottom-color: #f59e0b;
+  }
+  .staff-role-tab .tab-count {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.3px;
+  }
+  .staff-role-tab.active .tab-count {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+
+  /* ---------- Staff grid ---------- */
+  .staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .staff-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .staff-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+  }
+  .staff-card.role-lecturer::before  { background: #3b82f6; }
+  .staff-card.role-hod::before       { background: #8b5cf6; }
+  .staff-card.role-admin::before     { background: #065f46; }
+  .staff-card.role-principal::before { background: #f59e0b; }
+  .staff-card.role-inactive::before  { background: #cbd5e1; }
+
+  .staff-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.25);
+  }
+
+  .sc-head {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .sc-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sc-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .sc-info { flex: 1; min-width: 0; }
+  .sc-name {
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sc-email {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sc-role-badge {
+    display: inline-block;
+    font-family: 'Poppins', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-top: 6px;
+  }
+  .sc-role-badge.lecturer  { background: #dbeafe; color: #1e40af; }
+  .sc-role-badge.hod       { background: #ede9fe; color: #6d28d9; }
+  .sc-role-badge.admin     { background: #d1fae5; color: #065f46; }
+  .sc-role-badge.principal { background: #fef3c7; color: #92400e; }
+  .sc-role-badge.other     { background: #f1f5f9; color: #475569; }
+
+  .sc-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12.5px;
+    color: #475569;
+    padding: 10px 0 0;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .sc-meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sc-meta-row .k { color: #94a3b8; }
+  .sc-meta-row .v { font-weight: 600; color: #0f172a; text-align: right; }
+
+  .sc-workload {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #065f46;
+  }
+  .sc-workload.warn { color: #b45309; }
+  .sc-workload.none { color: #94a3b8; }
+
+  .sc-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+    justify-content: flex-end;
+  }
+  .sc-actions .btn { padding: 5px 10px; font-size: 11.5px; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadStaffDirectory()
+</script>

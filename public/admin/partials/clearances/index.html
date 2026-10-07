@@ -1,0 +1,29 @@
+<!-- Admin → Clearances -->
+<section class="page-head">
+  <div><h2>Clearances</h2><p class="muted small">Mark students cleared for exams / graduation</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadClearances()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="clearances-status" onchange="FPU_ADMIN.loadClearances()">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="cleared">Cleared</option>
+      <option value="rejected">Rejected</option>
+    </select>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Clearances</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Student</th><th>Type</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead>
+        <tbody id="clearances-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>

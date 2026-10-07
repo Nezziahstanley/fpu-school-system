@@ -1,0 +1,93 @@
+<!-- ============================================================
+     Admin → Security → Events
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Security Events</h2>
+    <p class="muted small">Severity-tagged security event feed</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSecurityEvents()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm" id="ev-export">Export CSV</button>
+  </div>
+</section>
+
+<!-- Severity tabs -->
+<div class="staff-role-tabs" id="ev-severity-tabs">
+  <button class="staff-role-tab active" data-severity="">All</button>
+  <button class="staff-role-tab" data-severity="critical">🔴 Critical</button>
+  <button class="staff-role-tab" data-severity="warning">🟡 Warning</button>
+  <button class="staff-role-tab" data-severity="info">🔵 Info</button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Event</label>
+    <input class="form-control" id="ev-event"
+           placeholder="e.g. admin_login_failed"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadSecurityEvents()" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">Resolved</label>
+    <select class="form-select" id="ev-resolved" onchange="FPU_ADMIN.loadSecurityEvents()">
+      <option value="">All</option>
+      <option value="false">Unresolved only</option>
+      <option value="true">Resolved only</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="FPU_ADMIN.loadSecurityEvents()">Apply</button>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Events</div>
+    <div class="value" id="ev-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Critical</div>
+    <div class="value" id="ev-stat-critical">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Warnings</div>
+    <div class="value" id="ev-stat-warning">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Unresolved</div>
+    <div class="value" id="ev-stat-unresolved">—</div>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Events</h3>
+    <span class="small muted" id="ev-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th style="width:100px;">Severity</th>
+            <th>User</th>
+            <th style="width:140px;">IP</th>
+            <th style="width:180px;">Time</th>
+            <th style="width:140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="ev-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadSecurityEvents()
+</script>

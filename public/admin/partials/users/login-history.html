@@ -1,0 +1,17 @@
+<!-- Admin → Users → Login History -->
+<section class="page-head">
+  <div><h2>Login History</h2><p class="muted small">Recent authentication attempts</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadLoginHistory()">Refresh</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Logins</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>User</th><th>Email</th><th>Result</th><th>IP</th><th>Reason</th><th>Time</th></tr></thead>
+        <tbody id="login-history-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>

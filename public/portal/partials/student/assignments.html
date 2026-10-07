@@ -1,0 +1,56 @@
+<!-- Portal → Student → Assignments -->
+<section class="page-head">
+  <div><h2>My Assignments</h2><p class="muted small">Submit and track graded work</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studAsgLoad()">Refresh</button></div>
+</section>
+
+<div id="stud-asg-list" class="grid" style="gap:.75rem;">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<script>
+  window.__studAsgLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const box = document.getElementById('stud-asg-list');
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch('/api/student/assignments');
+      const rows = res.data || [];
+      box.innerHTML = rows.length ? rows.map((r) => {
+        const a = r.assignment;
+        const s = r.submission;
+        return `
+          <div class="panel">
+            <div class="panel-head">
+              <h3>${core.escapeHtml(a.title)}</h3>
+              <div class="tools">${s ? '<span class="badge badge-success">Submitted</span>' : '<span class="badge badge-warning">Not Submitted</span>'}</div>
+            </div>
+            <div class="panel-body">
+              <p>${core.escapeHtml(a.description || '')}</p>
+              <div class="small muted">Due: ${core.formatDateTime(a.dueDate)} · Max score: ${a.maxScore}</div>
+              ${s && s.score !== null && s.score !== undefined ? `<div class="mt-2"><strong>Score: ${s.score}</strong> — ${core.escapeHtml(s.feedback || '')}</div>` : ''}
+              <form class="mt-2 stud-asg-submit" data-id="${a.id}">
+                <div class="form-group"><label class="form-label">Your Submission</label><textarea class="form-control" name="submissionText" rows="3" placeholder="Type your answer or paste a link…"></textarea></div>
+                <button class="btn btn-primary btn-sm" type="submit">Submit</button>
+              </form>
+            </div>
+          </div>
+        `;
+      }).join('') : '<p class="muted">No assignments yet.</p>';
+
+      box.querySelectorAll('.stud-asg-submit').forEach((f) => {
+        f.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const id = f.dataset.id;
+          const text = f.querySelector('[name="submissionText"]').value;
+          try {
+            await core.portalFetch(`/api/student/assignments/${id}/submit`, { method: 'POST', body: { submissionText: text } });
+            core.showToast('Submitted.', 'success');
+            window.__studAsgLoad();
+          } catch (err) { core.showToast(err.message, 'error'); }
+        });
+      });
+    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  };
+  window.__studAsgLoad();
+</script>

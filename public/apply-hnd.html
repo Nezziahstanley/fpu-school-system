@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HND Application — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .passport-uploader { border: 2px dashed var(--fpu-border); border-radius: 12px; padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--fpu-bone); }
+    .passport-uploader:hover { border-color: var(--fpu-primary); background: var(--fpu-primary-light); }
+    .passport-uploader.has-image { border-style: solid; border-color: var(--fpu-primary); background: #ffffff; padding: 12px; }
+    .passport-uploader .preview-img { width: 140px; height: 140px; object-fit: cover; border-radius: 10px; margin: 0 auto; display: block; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12); }
+    .passport-uploader .hint { font-size: 13px; color: var(--fpu-muted); margin-top: 8px; }
+    .passport-uploader .upload-icon { font-size: 2.5rem; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="FPU" class="site-logo" /></a>
+      <nav class="nav-links" id="navLinks">
+        <li><a href="/">Home</a></li>
+        <li class="has-dropdown"><a href="/about.html">About</a>
+          <ul class="dropdown-menu">
+            <li><a href="/about.html">About FPU</a></li>
+            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/administration.html">Administration</a></li>
+          </ul>
+        </li>
+        <li class="has-dropdown"><a href="/programmes.html">Programmes</a>
+          <ul class="dropdown-menu">
+            <li><a href="/nd.html">ND Programmes</a></li>
+            <li><a href="/hnd.html">HND Programmes</a></li>
+          </ul>
+        </li>
+        <li><a href="/apply-status.html">Check Status</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </nav>
+      <div class="nav-auth">
+        <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+        <button class="menu-toggle" id="menuToggle">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="page-header">
+    <div class="container">
+      <h1>HND Application</h1>
+      <p>2026/2027 Session — Higher National Diploma Programmes</p>
+    </div>
+  </section>
+
+  <section style="padding: 50px 0 80px; background: var(--fpu-bone, #f8faf8);">
+    <div class="container">
+
+      <div class="info-banner" style="max-width: 820px; margin: 0 auto 24px;">
+        <strong>ℹ️ This form is for HND applicants only.</strong>
+        You must have completed a relevant ND with a minimum Lower Credit (CGPA 2.50) and completed one year of Industrial Training (SIWES).
+        If you're applying for ND or Certificate, <a href="/apply.html">use this form →</a>
+      </div>
+
+      <form id="apply-hnd-form" class="application-card" data-wizard onsubmit="handleHndApplication(event)">
+
+        <div class="wizard-progress">
+          <div class="wizard-step-indicator" data-step-indicator="0"><span class="num"><span>1</span></span><span class="lbl">Personal</span></div>
+          <div class="wizard-step-indicator" data-step-indicator="1"><span class="num"><span>2</span></span><span class="lbl">ND Background</span></div>
+          <div class="wizard-step-indicator" data-step-indicator="2"><span class="num"><span>3</span></span><span class="lbl">Training</span></div>
+          <div class="wizard-step-indicator" data-step-indicator="3"><span class="num"><span>4</span></span><span class="lbl">Programme &amp; Docs</span></div>
+          <div class="wizard-step-indicator" data-step-indicator="4"><span class="num"><span>5</span></span><span class="lbl">Review</span></div>
+        </div>
+
+        <div id="form-alert"></div>
+
+        <!-- ============ STEP 1 — PERSONAL ============ -->
+        <div class="wizard-step active" data-step="0">
+          <h3 class="wizard-step-title">Step 1 · Personal Information</h3>
+          <p class="wizard-step-sub">All fields marked * are required.</p>
+
+          <div class="form-row">
+            <div class="form-group"><label>First Name <span style="color:#dc2626;">*</span></label><input type="text" name="firstName" required data-review="First Name" /></div>
+            <div class="form-group"><label>Last Name <span style="color:#dc2626;">*</span></label><input type="text" name="lastName" required data-review="Last Name" /></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>Middle Name</label><input type="text" name="middleName" data-review="Middle Name" /></div>
+            <div class="form-group"><label>Email Address <span style="color:#dc2626;">*</span></label><input type="email" name="email" required data-review="Email" /></div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>Phone Number <span style="color:#dc2626;">*</span></label><input type="tel" name="phone" required data-review="Phone" /></div>
+            <div class="form-group"><label>Gender <span style="color:#dc2626;">*</span></label>
+              <select name="gender" required data-review="Gender">
+                <option value="">Select gender</option>
+                <option>Male</option><option>Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>Date of Birth <span style="color:#dc2626;">*</span></label><input type="date" name="dateOfBirth" required data-review="Date of Birth" /></div>
+            <div class="form-group"><label>Marital Status <span style="color:#dc2626;">*</span></label>
+              <select name="maritalStatus" required data-review="Marital Status">
+                <option value="">Select status</option>
+                <option>Single</option><option>Married</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Country <span style="color:#dc2626;">*</span></label>
+              <select name="country" id="hnd-country" required data-review="Country">
+                <option value="Nigeria">Nigeria</option>
+                <option>Ghana</option>
+                <option>Cameroon</option>
+                <option>Benin</option>
+                <option>Niger</option>
+                <option>Chad</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>State of Origin <span style="color:#dc2626;">*</span></label>
+              <select name="stateOfOrigin" id="hnd-state" required data-review="State of Origin">
+                <option value="">Select state…</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Local Government Area <span style="color:#dc2626;">*</span></label>
+              <select name="lga" id="hnd-lga" required data-review="LGA">
+                <option value="">Select LGA…</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Nationality</label><input type="text" name="nationality" value="Nigerian" data-review="Nationality" /></div>
+          </div>
+
+          <div class="form-group"><label>Home Address <span style="color:#dc2626;">*</span></label><textarea name="address" rows="2" required data-review="Address"></textarea></div>
+        </div>
+
+        <!-- ============ STEP 2 — ND BACKGROUND ============ -->
+        <div class="wizard-step" data-step="1">
+          <h3 class="wizard-step-title">Step 2 · ND Academic Background</h3>
+          <p class="wizard-step-sub">Minimum Lower Credit (CGPA 2.50) required.</p>
+
+          <div class="form-group">
+            <label>ND Institution <span style="color:#dc2626;">*</span></label>
+            <select name="ndInstitution" required data-review="ND Institution">
+              <option value="">Select your ND institution</option>
+              <option>Federal Polytechnic Ugep</option>
+              <option>Federal Polytechnic Idah</option>
+              <option>Federal Polytechnic Nekede</option>
+              <option>Federal Polytechnic Kaduna</option>
+              <option>Federal Polytechnic Bauchi</option>
+              <option>Federal Polytechnic Bida</option>
+              <option>Federal Polytechnic Ede</option>
+              <option>Federal Polytechnic Ilaro</option>
+              <option>Federal Polytechnic Nasarawa</option>
+              <option>Federal Polytechnic Offa</option>
+              <option>Federal Polytechnic Oko</option>
+              <option>Other Federal Polytechnic</option>
+              <option>State Polytechnic</option>
+              <option>Private Polytechnic</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>ND Programme Studied <span style="color:#dc2626;">*</span></label>
+            <select name="ndProgramme" required data-review="ND Programme">
+              <option value="">Select your ND programme</option>
+              <option>Computer Engineering</option>
+              <option>Computer Science</option>
+              <option>Statistics</option>
+              <option>Business Administration</option>
+              <option>Public Administration</option>
+              <option>Accountancy</option>
+              <option>Hospitality Management</option>
+              <option>Civil Engineering Technology</option>
+              <option>Architecture Technology</option>
+              <option>Library &amp; Information Science</option>
+              <option>Electrical/Electronic Engineering</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>ND Matric Number <span style="color:#dc2626;">*</span></label><input type="text" name="ndMatric" required placeholder="e.g. FPU/CST/ND/23/001" data-review="ND Matric No" /></div>
+            <div class="form-group"><label>ND Year of Graduation <span style="color:#dc2626;">*</span></label>
+              <select name="ndYear" required data-review="ND Year">
+                <option value="">Select year</option>
+                <option>2022</option><option>2023</option><option>2024</option><option>2025</option><option>2026</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>ND Grade <span style="color:#dc2626;">*</span></label>
+              <select name="ndGrade" required data-review="ND Grade">
+                <option value="">Select grade</option>
+                <option>Distinction</option><option>Upper Credit</option><option>Lower Credit</option><option>Pass</option>
+              </select>
+            </div>
+            <div class="form-group"><label>ND CGPA <span style="color:#dc2626;">*</span></label>
+              <input type="number" name="ndCgpa" step="0.01" min="2.50" max="4.00" required placeholder="e.g. 3.25" data-review="ND CGPA" />
+              <div class="hint" style="font-size:12.5px;color:var(--fpu-muted);margin-top:6px;">Minimum 2.50 required for HND admission.</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>O'Level Results Summary <span style="color:#dc2626;">*</span></label>
+            <textarea name="oLevel" rows="3" required data-review="O'Level Results"></textarea>
+          </div>
+        </div>
+
+        <!-- ============ STEP 3 — INDUSTRIAL TRAINING ============ -->
+        <div class="wizard-step" data-step="2">
+          <h3 class="wizard-step-title">Step 3 · Industrial Training (SIWES)</h3>
+          <p class="wizard-step-sub">One year of industrial training is mandatory for HND admission.</p>
+
+          <div class="form-group">
+            <label>Have you completed Industrial Training (IT / SIWES)? <span style="color:#dc2626;">*</span></label>
+            <select name="itCompleted" required data-review="IT Completed">
+              <option value="">Select an answer</option>
+              <option>Yes</option><option>No</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>IT Duration <span style="color:#dc2626;">*</span></label>
+            <select name="itDuration" required data-review="IT Duration">
+              <option value="">Select duration</option>
+              <option>1 Year (12 months)</option>
+              <option>6 Months</option>
+              <option>3 Months</option>
+              <option>Not applicable</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group"><label>IT Placement Company</label><input type="text" name="itCompany" data-review="IT Company" /></div>
+            <div class="form-group"><label>IT Supervisor Name</label><input type="text" name="itSupervisor" data-review="IT Supervisor" /></div>
+          </div>
+        </div>
+
+        <!-- ============ STEP 4 — PROGRAMME + DOCS + PASSPORT ============ -->
+        <div class="wizard-step" data-step="3">
+          <h3 class="wizard-step-title">Step 4 · HND Programme &amp; Documents</h3>
+          <p class="wizard-step-sub">Choose your HND programme and upload your passport.</p>
+
+          <div class="form-group">
+            <label>HND Programme of Choice <span style="color:#dc2626;">*</span></label>
+            <select name="programmeId" id="programmeId" required data-review="HND Programme" onchange="onProgrammeChange()">
+              <option value="">Loading programmes…</option>
+            </select>
+          </div>
+
+          <input type="hidden" name="departmentId" id="departmentId" />
+          <div class="form-group">
+            <label>Department</label>
+            <input type="text" id="departmentName" readonly placeholder="Auto-filled from programme" style="background:var(--fpu-bone);cursor:not-allowed;" data-review="Department" />
+          </div>
+
+          <div class="form-group">
+            <label>Preferred Campus <span style="color:#dc2626;">*</span></label>
+            <select name="campus" required data-review="Campus">
+              <option value="">Select campus</option>
+              <option>Campus 1 — Ugep (Ediba Road)</option>
+              <option>Campus 2 — Calabar/Ikom Highway</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Passport Photograph <span style="color:#dc2626;">*</span></label>
+            <div class="passport-uploader" id="passportUploader">
+              <input type="file" id="passportFile" accept="image/*" style="display:none" />
+              <div id="passportPreview">
+                <div class="upload-icon">📷</div>
+                <p style="margin:0;font-weight:600;color:var(--fpu-ink);">Click to upload your passport</p>
+                <p class="hint" style="margin:4px 0 0;">JPG or PNG · Max 5 MB</p>
+              </div>
+            </div>
+            <input type="hidden" name="passportData" id="passportData" required data-review="Passport Photo" />
+          </div>
+
+          <div class="form-group">
+            <label>Documents You Have Ready</label>
+            <div class="doc-checklist">
+              <label class="doc-item"><input type="checkbox" name="docNdCert" data-review="ND Certificate Ready" /><span>ND Statement of Result</span></label>
+              <label class="doc-item"><input type="checkbox" name="docItCert" data-review="IT Certificate Ready" /><span>IT / SIWES Certificate</span></label>
+              <label class="doc-item"><input type="checkbox" name="docNdTranscript" data-review="ND Transcript Ready" /><span>ND Transcript</span></label>
+              <label class="doc-item"><input type="checkbox" name="docOLevel" data-review="O'Level Ready" /><span>O'Level Result</span></label>
+              <label class="doc-item"><input type="checkbox" name="docBirthCert" data-review="Birth Certificate Ready" /><span>Birth Certificate</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ STEP 5 — REVIEW ============ -->
+        <div class="wizard-step" data-step="4">
+          <h3 class="wizard-step-title">Step 5 · Review &amp; Submit</h3>
+          <p class="wizard-step-sub">Review carefully. Use Back to correct anything.</p>
+
+          <div data-review-container></div>
+
+          <div class="form-group" style="display:flex;align-items:flex-start;gap:10px;margin-top:20px;">
+            <input type="checkbox" name="terms" id="hnd-terms" required style="width:auto;margin-top:4px;" data-review="Declaration" />
+            <label for="hnd-terms" style="margin:0;font-size:14px;font-weight:400;line-height:1.6;">
+              I confirm that all information is accurate and that I meet the HND entry requirements (ND Lower Credit, CGPA 2.50+, and completed SIWES).
+            </label>
+          </div>
+        </div>
+
+        <div class="wizard-nav">
+          <button type="button" data-wizard-prev>← Back</button>
+          <button type="button" data-wizard-next>Next →</button>
+          <button type="submit" data-wizard-submit hidden>Submit HND Application</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom" style="padding-top:0;border-top:0;">
+        <p>© <span id="year"></span> Federal Polytechnic Ugep — Citadel of Technical Excellence</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/wizard.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('active');
+    });
+
+    // ---------- Country → State → LGA cascade (public HND form) ----------
+    (async function initGeo() {
+      const country = document.getElementById('hnd-country');
+      const state = document.getElementById('hnd-state');
+      const lga = document.getElementById('hnd-lga');
+
+      async function loadStates() {
+        state.innerHTML = '<option value="">Loading…</option>';
+        lga.innerHTML = '<option value="">Select state first…</option>';
+        try {
+          const res = await fetch(`/api/geo/states?country=${encodeURIComponent(country.value || 'Nigeria')}`);
+          const json = await res.json();
+          const rows = json.data || [];
+          state.innerHTML = '<option value="">Select state…</option>' +
+            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch {
+          state.innerHTML = '<option value="">Could not load states</option>';
+        }
+      }
+
+      async function loadLgas() {
+        const s = state.value;
+        if (!s) { lga.innerHTML = '<option value="">Select state first…</option>'; return; }
+        lga.innerHTML = '<option value="">Loading…</option>';
+        try {
+          const res = await fetch(`/api/geo/lgas?country=${encodeURIComponent(country.value || 'Nigeria')}&state=${encodeURIComponent(s)}`);
+          const json = await res.json();
+          const rows = json.data || [];
+          lga.innerHTML = '<option value="">Select LGA…</option>' +
+            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch {
+          lga.innerHTML = '<option value="">Could not load LGAs</option>';
+        }
+      }
+
+      country.addEventListener('change', loadStates);
+      state.addEventListener('change', loadLgas);
+      await loadStates();
+    })();
+
+    // ---------- Programmes (HND only) ----------
+    let ALL_PROGRAMMES = [];
+    let ALL_DEPARTMENTS = [];
+
+    (async function loadProgrammes() {
+      const select = document.getElementById('programmeId');
+      try {
+        const res = await fetch('/api/programmes');
+        const json = await res.json();
+        ALL_DEPARTMENTS = json.departments || [];
+        ALL_PROGRAMMES = (json.programmes || []).filter((p) => p.level === 'HND');
+        if (!ALL_PROGRAMMES.length) {
+          select.innerHTML = '<option value="">Select HND programme</option>' +
+            '<option value="1" data-department-id="1">Software &amp; Web Development</option>' +
+            '<option value="2" data-department-id="1">Networking &amp; Cloud Computing</option>';
+          return;
+        }
+        select.innerHTML = '<option value="">Select HND programme</option>' +
+          ALL_PROGRAMMES.map((p) => {
+            const dept = ALL_DEPARTMENTS.find((d) => d.id === p.departmentId);
+            return `<option value="${p.id}" data-department-id="${p.departmentId}" data-department-name="${dept ? dept.name : ''}">${p.name}</option>`;
+          }).join('');
+      } catch (err) {
+        select.innerHTML = '<option value="">Select HND programme</option>' +
+          '<option value="1">Software &amp; Web Development</option>' +
+          '<option value="2">Networking &amp; Cloud Computing</option>';
+      }
+    })();
+
+    function onProgrammeChange() {
+      const select = document.getElementById('programmeId');
+      const opt = select.options[select.selectedIndex];
+      if (!opt || !opt.value) {
+        document.getElementById('departmentId').value = '';
+        document.getElementById('departmentName').value = '';
+        return;
+      }
+      document.getElementById('departmentId').value = opt.dataset.departmentId || '';
+      document.getElementById('departmentName').value = opt.dataset.departmentName || '';
+    }
+
+    // ---------- Passport uploader ----------
+    const passportUploader = document.getElementById('passportUploader');
+    const passportFile = document.getElementById('passportFile');
+    const passportPreview = document.getElementById('passportPreview');
+    const passportData = document.getElementById('passportData');
+
+    passportUploader.addEventListener('click', () => passportFile.click());
+    passportFile.addEventListener('change', () => {
+      const file = passportFile.files[0];
+      if (!file) return;
+      if (!/^image\//.test(file.type)) { alert('Please select an image.'); passportFile.value = ''; return; }
+      if (file.size > 5 * 1024 * 1024) { alert('File too large. Max 5 MB.'); passportFile.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        passportPreview.innerHTML = `<img src="${e.target.result}" alt="Passport" class="preview-img" /><p class="hint">✅ Photo ready.</p>`;
+        passportUploader.classList.add('has-image');
+        passportData.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ---------- Submit ----------
+    async function handleHndApplication(event) {
+      event.preventDefault();
+      const form = event.target;
+      const alertBox = document.getElementById('form-alert');
+
+      const wizard = form.__wizard;
+      if (wizard) {
+        for (let i = 0; i < wizard.total - 1; i++) {
+          const prev = wizard.currentIndex;
+          wizard.currentIndex = i;
+          const ok = wizard.validate();
+          wizard.currentIndex = prev;
+          if (!ok) {
+            alertBox.className = 'alert alert-error';
+            alertBox.textContent = '❌ Please complete all previous steps.';
+            wizard.goto(i);
+            return;
+          }
+        }
+      }
+
+      const fd = new FormData(form);
+      const data = Object.fromEntries(fd.entries());
+      data.programmeId = Number(data.programmeId) || null;
+      data.departmentId = Number(data.departmentId) || null;
+      ['docNdCert','docItCert','docNdTranscript','docOLevel','docBirthCert'].forEach((k) => {
+        data[k] = fd.get(k) === 'on';
+      });
+      data.terms = fd.get('terms') === 'on';
+
+      if (parseFloat(data.ndCgpa) < 2.50) {
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ HND requires a minimum ND CGPA of 2.50.';
+        if (wizard) wizard.goto(1);
+        return;
+      }
+      if (data.itCompleted !== 'Yes') {
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ You must have completed SIWES to apply for HND.';
+        if (wizard) wizard.goto(2);
+        return;
+      }
+      if (!data.programmeId) {
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ Please select an HND programme.';
+        if (wizard) wizard.goto(3);
+        return;
+      }
+      if (!data.passportData) {
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ Please upload your passport photograph.';
+        if (wizard) wizard.goto(3);
+        return;
+      }
+
+      const btn = form.querySelector('[data-wizard-submit]');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await fetch('/api/apply-hnd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json = await res.json();
+
+        if (json.success) {
+          form.style.display = 'none';
+          alertBox.className = 'alert alert-success';
+          alertBox.innerHTML = `
+            <div style="text-align:center;padding:30px 20px;">
+              <div style="font-size:3.5rem;margin-bottom:16px;">🎉</div>
+              <h2 style="color:var(--fpu-primary);font-family:Poppins,sans-serif;margin:0 0 12px;">HND Application Submitted!</h2>
+              <p style="margin:0 0 8px;">Your application number is:</p>
+              <div style="background:var(--fpu-primary);color:#fff;font-family:'Courier New',monospace;font-size:1.4rem;font-weight:700;letter-spacing:2px;padding:16px;border-radius:10px;margin:12px auto 22px;max-width:400px;word-break:break-all;">
+                ${json.applicationNumber || '—'}
+              </div>
+              <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                <a href="/apply-status.html?number=${encodeURIComponent(json.applicationNumber || '')}" class="btn btn-accent btn-lg">Check Status</a>
+                <a href="/" class="btn btn-outline btn-lg" style="border-color:var(--fpu-primary);color:var(--fpu-primary);">Home</a>
+              </div>
+            </div>`;
+          alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          alertBox.className = 'alert alert-error';
+          alertBox.textContent = '❌ ' + (json.error || 'Submission failed.');
+          alertBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } catch (err) {
+        alertBox.className = 'alert alert-error';
+        alertBox.textContent = '❌ Connection error. Please try again.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+  </script>
+</body>
+</html>

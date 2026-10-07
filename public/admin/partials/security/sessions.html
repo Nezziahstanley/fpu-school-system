@@ -1,0 +1,95 @@
+<!-- ============================================================
+     Admin → Security → Active Sessions
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Active Sessions</h2>
+    <p class="muted small">Live user sessions across the system</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSecuritySessions()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('security')">
+      ← Back
+    </button>
+    <button class="btn btn-danger btn-sm" id="sess-purge">
+      🧹 Purge Expired
+    </button>
+  </div>
+</section>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Role</label>
+    <select class="form-select" id="sess-filter-role" onchange="FPU_ADMIN.loadSecuritySessions()">
+      <option value="">All roles</option>
+      <option value="student">Students</option>
+      <option value="lecturer">Lecturers</option>
+      <option value="hod">HODs</option>
+      <option value="admin">Admins</option>
+      <option value="bursar">Bursars</option>
+      <option value="registrar">Registrars</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 240px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="sess-search"
+           placeholder="Email or IP…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadSecuritySessions()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total Active</div>
+    <div class="value" id="sess-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Admins</div>
+    <div class="value" id="sess-stat-admins">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Unique IPs</div>
+    <div class="value" id="sess-stat-ips">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Oldest</div>
+    <div class="value" id="sess-stat-oldest">—</div>
+  </div>
+</div>
+
+<!-- Sessions table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Sessions</h3>
+    <span class="small muted" id="sess-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Role</th>
+            <th style="width:200px;">Device</th>
+            <th style="width:140px;">IP</th>
+            <th style="width:140px;">Started</th>
+            <th style="width:140px;">Expires</th>
+            <th style="width:140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sess-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadSecuritySessions()
+</script>

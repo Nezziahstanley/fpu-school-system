@@ -1,0 +1,117 @@
+<!-- Settings tab: Localisation -->
+<form class="settings-form" data-settings-section="localisation" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Time Zone &amp; Date</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Time Zone</label>
+          <select class="form-select" name="timezone">
+            <option value="Africa/Lagos" selected>Africa/Lagos (WAT — UTC+1)</option>
+            <option value="Africa/Accra">Africa/Accra (GMT — UTC+0)</option>
+            <option value="Africa/Douala">Africa/Douala (WAT — UTC+1)</option>
+            <option value="Africa/Nairobi">Africa/Nairobi (EAT — UTC+3)</option>
+            <option value="Europe/London">Europe/London (GMT/BST)</option>
+            <option value="UTC">UTC</option>
+          </select>
+          <div class="form-help">All timestamps are stored in UTC and displayed in this zone.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date Format</label>
+          <select class="form-select" name="date_format">
+            <option value="DD/MM/YYYY" selected>DD/MM/YYYY (e.g. 25/12/2026)</option>
+            <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 12/25/2026)</option>
+            <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-12-25)</option>
+            <option value="D MMM YYYY">25 Dec 2026</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time Format</label>
+          <select class="form-select" name="time_format">
+            <option value="12h" selected>12-hour (e.g. 3:30 PM)</option>
+            <option value="24h">24-hour (e.g. 15:30)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">First Day of Week</label>
+          <select class="form-select" name="week_starts_on">
+            <option value="monday" selected>Monday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Language &amp; Region</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Interface Language</label>
+          <select class="form-select" name="language">
+            <option value="en" selected>English</option>
+            <option value="fr">Français</option>
+            <option value="ha">Hausa</option>
+            <option value="ig">Igbo</option>
+            <option value="yo">Yorùbá</option>
+          </select>
+          <div class="form-help">Full translations are added over time; English is the fallback.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <select class="form-select" name="locale_country">
+            <option value="NG" selected>Nigeria</option>
+            <option value="GH">Ghana</option>
+            <option value="CM">Cameroon</option>
+            <option value="BJ">Benin</option>
+            <option value="NE">Niger</option>
+            <option value="TD">Chad</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Number &amp; Currency Formatting</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Thousands Separator</label>
+          <select class="form-select" name="number_thousands_sep">
+            <option value="," selected>Comma (1,234,567)</option>
+            <option value=".">Period (1.234.567)</option>
+            <option value=" ">Space (1 234 567)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Decimal Separator</label>
+          <select class="form-select" name="number_decimal_sep">
+            <option value="." selected>Period (1234.56)</option>
+            <option value=",">Comma (1234,56)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency Symbol Position</label>
+          <select class="form-select" name="currency_position">
+            <option value="before" selected>Before — ₦10,000</option>
+            <option value="after">After — 10,000 ₦</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency Decimal Places</label>
+          <select class="form-select" name="currency_decimals">
+            <option value="0">0 — ₦10,000</option>
+            <option value="2" selected>2 — ₦10,000.00</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-save-bar">
+    <span class="small muted" id="save-status-localisation"></span>
+    <button type="submit" class="btn btn-primary">💾 Save Localisation</button>
+  </div>
+</form>

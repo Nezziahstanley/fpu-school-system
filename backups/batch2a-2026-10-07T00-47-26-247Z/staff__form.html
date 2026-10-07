@@ -1,0 +1,265 @@
+<!-- ============================================================
+     Admin → Staff → Form (Create / Edit)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="sf-title">New Staff</h2>
+    <p class="muted small" id="sf-subtitle">Create a lecturer, HOD, or principal account</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="sf-back">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Staff Details</h3></div>
+  <div class="panel-body">
+    <form id="staff-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">First Name <span class="req">*</span></label>
+          <input class="form-control" name="firstName" id="sf-first" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name <span class="req">*</span></label>
+          <input class="form-control" name="lastName" id="sf-last" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Middle Name</label>
+          <input class="form-control" name="middleName" id="sf-middle" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input class="form-control" type="email" name="email" id="sf-email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input class="form-control" name="phone" id="sf-phone" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select class="form-select" name="gender" id="sf-gender">
+            <option value="">—</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role <span class="req">*</span></label>
+          <select class="form-select" name="role" id="sf-role" required>
+            <option value="lecturer">Lecturer</option>
+            <option value="hod">Head of Department</option>
+            <option value="bursar">Bursar</option>
+            <option value="registrar">Registrar</option>
+            <option value="rector">Rector</option>
+            <option value="librarian">Librarian</option>
+            <option value="exam_officer">Exam Officer</option>
+            <option value="academic_officer">Academic Officer</option>
+            <option value="admission_officer">Admission Officer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">School</label>
+          <select class="form-select" id="sf-school"
+                  data-lookup="schools" data-placeholder="Select school…"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-select" name="departmentId" id="sf-dept"
+                  data-lookup="departments"
+                  data-depends-on="sf-school"
+                  data-param="schoolId"
+                  data-placeholder="Select school first…">
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Rank</label>
+          <input class="form-control" name="rank" id="sf-rank" placeholder="e.g. Lecturer I" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Specialization</label>
+          <input class="form-control" name="specialization" id="sf-spec" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qualification</label>
+          <input class="form-control" name="qualification" id="sf-qual" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Employment Date</label>
+          <input class="form-control" type="date" name="employmentDate" id="sf-emp-date" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-control" name="password" id="sf-pwd"
+                 placeholder="Default: principal1234" />
+          <div class="form-help" id="sf-pwd-help">Leave blank to use the default.</div>
+        </div>
+      </div>
+
+      <div id="sf-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="sf-submit">Create Staff</button>
+        <button type="button" class="btn btn-ghost" id="sf-cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const prefillRole = params.get('role');
+    const prefillDept = params.get('departmentId');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('sf-title').textContent = 'Edit Staff';
+      $('sf-subtitle').textContent = 'Update this staff member';
+      $('sf-submit').textContent = 'Save Changes';
+      $('sf-pwd-help').textContent = 'Leave blank to keep the current password.';
+    }
+    if (prefillRole) $('sf-role').value = prefillRole;
+
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('staff');
+      }
+    }
+    $('sf-back').addEventListener('click', goBack);
+    $('sf-cancel').addEventListener('click', goBack);
+
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/staff/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const u = json.data;
+
+        $('sf-first').value   = u.firstName || '';
+        $('sf-last').value    = u.lastName || '';
+        $('sf-middle').value  = u.middleName || '';
+        $('sf-email').value   = u.email || '';
+        $('sf-phone').value   = u.phone || '';
+        $('sf-gender').value  = u.gender || '';
+        $('sf-role').value    = u.role || 'lecturer';
+
+        // Load staff profile bits
+        try {
+          const sp = u.staffProfile || {};
+          $('sf-rank').value  = sp.rank || '';
+          $('sf-spec').value  = sp.specialization || '';
+          $('sf-qual').value  = sp.qualification || '';
+          $('sf-emp-date').value = sp.employmentDate ? String(sp.employmentDate).slice(0, 10) : '';
+        } catch { /* ignore */ }
+
+        // Prefill department (chained)
+        setTimeout(() => {
+          if (u.department?.schoolId && $('sf-school')) {
+            $('sf-school').value = String(u.department.schoolId);
+            $('sf-school').dispatchEvent(new Event('change'));
+          }
+        }, 400);
+        setTimeout(() => {
+          if (u.departmentId && $('sf-dept')) {
+            $('sf-dept').value = String(u.departmentId);
+          }
+        }, 800);
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    function applyPrefill() {
+      if (isEdit) return;
+      setTimeout(() => {
+        if (prefillDept && $('sf-dept')) {
+          $('sf-dept').value = String(prefillDept);
+          $('sf-dept').dispatchEvent(new Event('change'));
+        }
+      }, 600);
+    }
+
+    $('staff-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('sf-validation');
+      valEl.innerHTML = '';
+
+      const role = $('sf-role').value;
+      const allowedRoles = ['lecturer','hod','bursar','rector','registrar','librarian','exam_officer','academic_officer','admission_officer','admin'];
+      if (!allowedRoles.includes(role)) {
+        valEl.innerHTML = '<div class="alert alert-error">⚠️ Invalid role.</div>';
+        return;
+      }
+
+      const payload = {
+        firstName: String($('sf-first').value || '').trim(),
+        lastName:  String($('sf-last').value || '').trim(),
+        middleName: String($('sf-middle').value || '').trim() || null,
+        email: String($('sf-email').value || '').trim().toLowerCase(),
+        phone: String($('sf-phone').value || '').trim() || null,
+        gender: $('sf-gender').value || null,
+        role,
+        departmentId: $('sf-dept').value ? Number($('sf-dept').value) : null,
+        rank: String($('sf-rank').value || '').trim() || null,
+        specialization: String($('sf-spec').value || '').trim() || null,
+        qualification: String($('sf-qual').value || '').trim() || null,
+        employmentDate: $('sf-emp-date').value || null,
+      };
+
+      const pwd = String($('sf-pwd').value || '').trim();
+      if (pwd) payload.password = pwd;
+
+      if (!payload.firstName || !payload.lastName || !payload.email) {
+        valEl.innerHTML = '<div class="alert alert-error">⚠️ First name, last name, and email are required.</div>';
+        return;
+      }
+
+      const btn = $('sf-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+
+      try {
+        const url = isEdit ? `/api/admin/staff/${id}` : '/api/admin/staff';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+
+        A.showToast(isEdit ? '✅ Staff updated.' : '✅ Staff created.');
+
+        if (isEdit) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id });
+        } else if (json.data?.id) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id: json.data.id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('staff');
+        }
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    loadExisting();
+    applyPrefill();
+  })();
+</script>

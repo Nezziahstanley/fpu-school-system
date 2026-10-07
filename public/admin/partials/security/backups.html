@@ -1,0 +1,77 @@
+<!-- ============================================================
+     Admin → Security → Backups
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Database Backups</h2>
+    <p class="muted small">Backup status, history, and manual trigger</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBackups()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm" id="bk-trigger">
+      💾 Trigger Backup Now
+    </button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Backup Schedule</h3></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Schedule</label>
+        <select class="form-select" id="bk-schedule">
+          <option value="hourly">Every hour</option>
+          <option value="6h">Every 6 hours</option>
+          <option value="daily" selected>Daily (02:00)</option>
+          <option value="weekly">Weekly (Sunday 02:00)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Retention (days)</label>
+        <input class="form-control" type="number" id="bk-retention" value="30" min="7" max="365" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Storage</label>
+        <select class="form-select" id="bk-storage">
+          <option value="local">Local disk</option>
+          <option value="s3">Amazon S3</option>
+          <option value="gcs">Google Cloud Storage</option>
+          <option value="azure">Azure Blob</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-outline btn-sm" id="bk-save-config">Save Config</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Backups</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:140px;">Size</th>
+            <th style="width:180px;">Started</th>
+            <th style="width:180px;">Completed</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bk-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadBackups()
+</script>

@@ -1,0 +1,129 @@
+<!-- ============================================================
+     Admin → Complaints → List
+     ------------------------------------------------------------
+     Status tabs + category filter + SLA-style sorting.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Complaints</h2>
+    <p class="muted small">Respond to student and staff complaints</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadComplaints()">
+      Refresh
+    </button>
+  </div>
+</section>
+
+<!-- Status tabs -->
+<div class="staff-role-tabs" id="cmp-status-tabs">
+  <button class="staff-role-tab active" data-status="">
+    All <span class="tab-count" id="cmp-count-all">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="open">
+    Open <span class="tab-count" id="cmp-count-open">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="in_review">
+    In Review <span class="tab-count" id="cmp-count-in_review">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="resolved">
+    Resolved <span class="tab-count" id="cmp-count-resolved">—</span>
+  </button>
+  <button class="staff-role-tab" data-status="closed">
+    Closed <span class="tab-count" id="cmp-count-closed">—</span>
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Category</label>
+    <select class="form-select" id="cmp-filter-category"
+            onchange="FPU_ADMIN.loadComplaints()">
+      <option value="">All categories</option>
+      <option value="academic">Academic</option>
+      <option value="facility">Facility</option>
+      <option value="finance">Finance</option>
+      <option value="welfare">Welfare</option>
+      <option value="document">Document</option>
+      <option value="contact">Contact</option>
+      <option value="other">Other</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Sort by</label>
+    <select class="form-select" id="cmp-filter-sort"
+            onchange="FPU_ADMIN.loadComplaints()">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first (SLA)</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="cmp-search"
+           placeholder="Subject or body…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadComplaints()" />
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="cmp-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Open</div>
+    <div class="value" id="cmp-stat-open">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">In Review</div>
+    <div class="value" id="cmp-stat-in-review">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Resolved</div>
+    <div class="value" id="cmp-stat-resolved">—</div>
+  </div>
+</div>
+
+<!-- Complaints table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Complaints</h3>
+    <span class="small muted" id="cmp-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>From</th>
+            <th style="width:110px;">Category</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:110px;">Age</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="cmp-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sla-critical {
+    color: #b91c1c !important;
+    font-weight: 800;
+  }
+  .sla-warning {
+    color: #b45309 !important;
+    font-weight: 700;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadComplaints()
+</script>

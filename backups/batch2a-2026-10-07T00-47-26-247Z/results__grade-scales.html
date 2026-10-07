@@ -1,0 +1,376 @@
+<!-- ============================================================
+     Admin → Grade Scales
+     ------------------------------------------------------------
+     Full CRUD for the active grade scale.
+       • Inline "Add band" row with live overlap detection
+       • Per-band edit (opens a modal)
+       • Toggle active / delete per band
+       • Live preview: enter a score, see what grade it gets
+       • Sanity check badge: total % coverage of 0–100
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Grade Scales</h2>
+    <p class="muted small">
+      Score → grade → point-value bands used to compute every result.
+      The active scale is used immediately the next time a score is saved.
+    </p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadGradeScales()">
+      Refresh
+    </button>
+    <button class="btn btn-primary btn-sm" id="gs-add-btn">
+      + Add Band
+    </button>
+  </div>
+</section>
+
+<!-- Health banner -->
+<div id="gs-health" class="panel" style="margin-bottom:16px;">
+  <div class="panel-body">
+    <div class="loading"><span class="spinner"></span> Checking coverage…</div>
+  </div>
+</div>
+
+<!-- Live preview -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Live Preview</h3>
+    <span class="small muted">Type a score to see the resulting grade</span>
+  </div>
+  <div class="panel-body">
+    <div class="gs-preview">
+      <div class="gs-preview-input">
+        <label class="form-label">Score</label>
+        <input class="form-control" type="number" id="gs-preview-score"
+               min="0" max="100" step="0.1" placeholder="e.g. 72" />
+      </div>
+      <div class="gs-preview-result" id="gs-preview-result">
+        <div class="gs-preview-empty">Enter a score to preview</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add form (inline, hidden by default) -->
+<div class="panel" id="gs-add-panel" style="display:none; border-left:4px solid #10b981;">
+  <div class="panel-head">
+    <h3>Add New Band</h3>
+    <div class="tools">
+      <button class="btn btn-ghost btn-sm" id="gs-add-cancel">Cancel</button>
+    </div>
+  </div>
+  <div class="panel-body">
+    <form id="gs-add-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Grade <span class="req">*</span></label>
+          <input class="form-control" name="grade" id="gs-add-grade"
+                 placeholder="A" maxlength="3" required
+                 style="text-transform:uppercase;" />
+          <div class="form-help">1–3 characters (A, B+, C, PASS…)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Min Score <span class="req">*</span></label>
+          <input class="form-control" type="number" name="minScore" id="gs-add-min"
+                 min="0" max="100" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Score <span class="req">*</span></label>
+          <input class="form-control" type="number" name="maxScore" id="gs-add-max"
+                 min="0" max="100" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Points <span class="req">*</span></label>
+          <input class="form-control" type="number" name="points" id="gs-add-points"
+                 min="0" max="5" step="0.1" required />
+          <div class="form-help">Typical NBTE: A=4.0, B=3.0, C=2.0, D=1.0, E=0.5, F=0.0</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Remark</label>
+          <input class="form-control" name="remark" id="gs-add-remark"
+                 placeholder="e.g. Excellent" />
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" name="isActive" id="gs-add-active" checked />
+            <span>Active</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="gs-add-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="gs-add-submit">Add Band</button>
+        <button type="button" class="btn btn-ghost" id="gs-add-cancel-2">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Bands table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Grade Bands</h3>
+    <span class="small muted" id="gs-count">—</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin" id="gs-table">
+        <thead>
+          <tr>
+            <th style="width:70px;">Grade</th>
+            <th>Score Range</th>
+            <th style="width:90px;">Points</th>
+            <th>Remark</th>
+            <th style="width:110px;">Status</th>
+            <th style="width:220px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="grade-scales-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Edit modal -->
+<div class="modal-backdrop" id="gs-modal" style="display:none;">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-head">
+      <h3 id="gs-modal-title">Edit Band</h3>
+      <button class="icon-btn" id="gs-modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="gs-edit-form" data-skip-generic="1">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Grade <span class="req">*</span></label>
+            <input class="form-control" name="grade" id="gs-edit-grade" maxlength="3" required
+                   style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Min Score <span class="req">*</span></label>
+            <input class="form-control" type="number" name="minScore" id="gs-edit-min"
+                   min="0" max="100" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Score <span class="req">*</span></label>
+            <input class="form-control" type="number" name="maxScore" id="gs-edit-max"
+                   min="0" max="100" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Points <span class="req">*</span></label>
+            <input class="form-control" type="number" name="points" id="gs-edit-points"
+                   min="0" max="5" step="0.1" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Remark</label>
+            <input class="form-control" name="remark" id="gs-edit-remark" />
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end;">
+            <label class="form-label" style="display:flex;align-items:center;gap:.5rem;">
+              <input type="checkbox" name="isActive" id="gs-edit-active" />
+              <span>Active</span>
+            </label>
+          </div>
+        </div>
+        <div id="gs-edit-validation"></div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="gs-edit-submit">Save Changes</button>
+          <button type="button" class="btn btn-ghost" id="gs-edit-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ---------- Preview ---------- */
+  .gs-preview {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .gs-preview-input {
+    flex: 0 0 200px;
+  }
+  .gs-preview-input input {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 14px;
+  }
+  .gs-preview-result {
+    flex: 1;
+    min-width: 280px;
+    background: #f8fafc;
+    border: 1px dashed var(--fpu-border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 24px;
+    min-height: 100px;
+  }
+  .gs-preview-empty {
+    color: #94a3b8;
+    font-size: 13.5px;
+  }
+  .gs-preview-hit {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+  }
+  .gs-preview-grade {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.9rem;
+    font-weight: 800;
+    background: #ecfdf5;
+    color: #065f46;
+    flex-shrink: 0;
+  }
+  .gs-preview-grade.F,
+  .gs-preview-grade.fail {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .gs-preview-grade.D,
+  .gs-preview-grade.E {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  .gs-preview-meta {
+    flex: 1;
+    min-width: 0;
+  }
+  .gs-preview-meta .label {
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .gs-preview-meta .value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .gs-preview-meta .sub {
+    font-size: 12.5px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  .gs-preview-miss {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+    font-weight: 600;
+    font-size: 14px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  /* ---------- Band pills in the table ---------- */
+  .gs-range {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .gs-points {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    color: #f59e0b;
+    font-size: 1.05rem;
+  }
+  .gs-grade-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    background: #ecfdf5;
+    color: #065f46;
+  }
+  .gs-grade-chip.F {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .gs-grade-chip.D,
+  .gs-grade-chip.E {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  /* ---------- Health banner ---------- */
+  .gs-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .gs-health-item {
+    text-align: center;
+    padding: 10px 8px;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+  .gs-health-item .num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #065f46;
+  }
+  .gs-health-item .num.warn { color: #b45309; }
+  .gs-health-item .num.err  { color: #b91c1c; }
+  .gs-health-item .num.ok   { color: #047857; }
+  .gs-health-item .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  .gs-overlap-list {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border-left: 3px solid #dc2626;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #991b1b;
+    line-height: 1.6;
+  }
+
+  /* ---------- Modal ---------- */
+  #gs-modal.open { display: flex; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadGradeScales()
+</script>

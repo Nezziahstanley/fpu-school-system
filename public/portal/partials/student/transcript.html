@@ -1,0 +1,67 @@
+<!-- Portal → Student → Transcript -->
+<section class="page-head">
+  <div><h2>My Transcript</h2><p class="muted small">Full academic record</p></div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Summary</h3></div>
+  <div class="panel-body">
+    <div class="gpa-summary">
+      <div class="item"><div class="label">CGPA</div><div class="value" id="tx-cgpa">—</div></div>
+      <div class="item"><div class="label">Total Units</div><div class="value" id="tx-units">—</div></div>
+      <div class="item"><div class="label">Classification</div><div class="value" style="font-size:1.1rem;" id="tx-class">—</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="tx-sheets"></div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/student/transcript');
+      const sum = res.summary || {};
+      document.getElementById('tx-cgpa').textContent = Number(sum.cgpa || 0).toFixed(2);
+      document.getElementById('tx-units').textContent = sum.totalUnits || 0;
+      document.getElementById('tx-class').textContent = sum.classification || '—';
+
+      // Group rows by semester
+      const groups = {};
+      (res.rows || []).forEach((r) => {
+        const k = `${r.result.sessionId}|${r.result.semester}`;
+        if (!groups[k]) groups[k] = [];
+        groups[k].push(r);
+      });
+
+      const sheets = document.getElementById('tx-sheets');
+      sheets.innerHTML = Object.entries(groups).map(([k, rows]) => `
+        <div class="panel">
+          <div class="panel-head"><h3>Session ${rows[0].result.sessionId} · ${core.escapeHtml(rows[0].result.semester)}</h3></div>
+          <div class="panel-body flush">
+            <div class="table-wrap">
+              <table class="table-admin result-table">
+                <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead>
+                <tbody>
+                  ${rows.map((r) => `
+                    <tr>
+                      <td>${core.escapeHtml(r.course?.code || '')}</td>
+                      <td>${core.escapeHtml(r.course?.title || '')}</td>
+                      <td class="num">${r.course?.unit || 0}</td>
+                      <td class="num">${r.result.score}</td>
+                      <td><span class="grade ${core.escapeHtml(r.result.grade || '')}">${core.escapeHtml(r.result.grade || '')}</span></td>
+                      <td class="num">${r.result.points}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `).join('') || '<p class="muted">No transcript entries yet.</p>';
+    } catch (err) { core.showToast(err.message, 'error'); }
+  })();
+</script>

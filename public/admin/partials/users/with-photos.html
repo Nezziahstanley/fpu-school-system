@@ -1,0 +1,14 @@
+<!-- Admin → Users → With Photos -->
+<section class="page-head">
+  <div><h2>Users With Photos</h2><p class="muted small">Visual directory of account holders</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadUsersWithPhotos()">Refresh</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Directory</h3></div>
+  <div class="panel-body">
+    <div class="grid grid-4" id="photos-grid">
+      <div class="loading"><span class="spinner"></span> Loading…</div>
+    </div>
+  </div>
+</div>

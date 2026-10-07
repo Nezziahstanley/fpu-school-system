@@ -1,0 +1,203 @@
+<!-- ============================================================
+     Admin → Courses → Flat List (Optional)
+     ------------------------------------------------------------
+     Flat, filterable list of every course in the system.
+     Useful for audits, bulk review, and CSV export.
+     Not wired to the sidebar by default — access via
+     FPU_ADMIN_SPA.navigateTo('courses-list') if you add a route.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>All Courses</h2>
+    <p class="muted small">Flat view — filter by level, semester, or search by code / title</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'courses.csv')">
+      Export CSV
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.loadCourses()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('courses')">
+      ← By Department
+    </button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('course-form')">
+      + New Course
+    </button>
+  </div>
+</section>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="courses-level" onchange="FPU_ADMIN.loadCourses()">
+      <option value="">All</option>
+      <option>ND</option>
+      <option>HND</option>
+      <option>CERT</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="courses-semester" onchange="FPU_ADMIN.loadCourses()">
+      <option value="">All</option>
+      <option value="first">First</option>
+      <option value="second">Second</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Department</label>
+    <select class="form-select" id="courses-dept"
+            data-lookup="departments"
+            data-placeholder="All departments"
+            onchange="FPU_ADMIN.loadCourses()"></select>
+  </div>
+
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="courses-search"
+           placeholder="Code or title…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadCourses()" />
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Course Catalogue</h3>
+    <span class="small muted" id="courses-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Unit</th>
+            <th>Level</th>
+            <th>Year</th>
+            <th>Semester</th>
+            <th>Programme</th>
+            <th>Type</th>
+            <th style="width:90px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="courses-tbody">
+          <tr><td colspan="9" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    // ------------------------------------------------------------
+    // Custom loader — extends the shared loadCourses() with the
+    // extra "Year" and "Programme" columns and a live count.
+    // ------------------------------------------------------------
+    async function loadFlatCourses() {
+      const tbody = $('courses-tbody');
+      const countEl = $('courses-count');
+      if (!tbody) return;
+
+      const level     = ($('courses-level') || {}).value || '';
+      const semester  = ($('courses-semester') || {}).value || '';
+      const deptId    = ($('courses-dept') || {}).value || '';
+      const search    = ($('courses-search') || {}).value || '';
+
+      const qs = new URLSearchParams({ limit: 1000 });
+      if (level)    qs.set('level', level);
+      if (semester) qs.set('semester', semester);
+      if (deptId)   qs.set('departmentId', deptId);
+      if (search)   qs.set('search', search);
+
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">Loading…</td></tr>';
+      if (countEl) countEl.textContent = 'Loading…';
+
+      try {
+        // Fetch both courses and programmes (so we can show the
+        // programme name in the last-but-one column) in parallel.
+        const [courseRes, progRes] = await Promise.all([
+          A.adminFetch(`/api/admin/courses?${qs}`),
+          A.adminFetch('/api/admin/programmes'),
+        ]);
+
+        const courses  = (await courseRes.json()).data || [];
+        const progs    = (await progRes.json()).data    || [];
+
+        const progMap = new Map(progs.map((p) => [p.id, p]));
+
+        if (countEl) {
+          countEl.textContent = `Showing ${courses.length} course${courses.length === 1 ? '' : 's'}`;
+        }
+
+        if (!courses.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="empty">No courses found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = courses.map((c) => {
+          const prog = progMap.get(c.programmeId);
+          const year = c.yearOfStudy
+            || (A.inferCourseYear ? A.inferCourseYear(c) : null)
+            || '—';
+
+          return `
+            <tr>
+              <td><code>${A.escapeHtml(c.code || '')}</code></td>
+              <td>${A.escapeHtml(c.title || '')}</td>
+              <td class="num">${Number(c.unit) || 0}</td>
+              <td>${A.badge(c.level)}</td>
+              <td>${year}</td>
+              <td>${c.semester === 'first' ? 'First' : c.semester === 'second' ? 'Second' : A.escapeHtml(c.semester || '')}</td>
+              <td>${prog ? A.escapeHtml(prog.code) : `#${c.programmeId}`}</td>
+              <td>${c.isElective ? '<span class="tag-pill gold">Elective</span>' : '<span class="tag-pill">Core</span>'}</td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn btn-sm btn-outline"
+                    onclick="FPU_ADMIN_SPA.navigateToWithQuery('course-form', { id: ${c.id} })">
+                    Edit
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty">${A.escapeHtml(err.message)}</td></tr>`;
+        if (countEl) countEl.textContent = '';
+      }
+    }
+
+    // Override the shared loadCourses for THIS page only by
+    // re-pointing the call in the SPA init to our local function.
+    // (Safest: also expose it as window.__coursesFlatLoad so the
+    // SPA init can call it if you wire a route for it.)
+    window.__coursesFlatLoad = loadFlatCourses;
+
+    // Buttons in the filter bar call FPU_ADMIN.loadCourses().
+    // We monkey-patch it once for this page load so the whole
+    // page behaves consistently without editing admin.js.
+    if (!A.__origLoadCourses) {
+      A.__origLoadCourses = A.loadCourses;
+      A.loadCourses = loadFlatCourses;
+    } else {
+      A.loadCourses = loadFlatCourses;
+    }
+
+    // Initial load
+    loadFlatCourses();
+  })();
+</script>

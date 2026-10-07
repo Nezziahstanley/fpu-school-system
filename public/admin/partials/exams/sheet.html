@@ -1,0 +1,246 @@
+<!-- ============================================================
+     Admin → Exams → Faculty Exam Sheet (A4)
+     ------------------------------------------------------------
+     NBTE examination timetable layout:
+       • Header: institution + school + title
+       • Sub-header: level + session + FIRST DRAFT COPY badge
+       • Table: DAYS | DATE | Period 1 | Period 2 | Period 3 | Period 4
+       • Each cell packs: COURSE CODE · TITLE / VENUE / INVIGILATORS
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2 id="exsheet-title">Exam Timetable</h2>
+    <p class="muted small" id="exsheet-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('exams')">
+      ← All Schools
+    </button>
+    <button class="btn btn-outline btn-sm" id="exsheet-draft-toggle">
+      Mark FINAL
+    </button>
+    <button class="btn btn-outline btn-sm" id="exsheet-export">
+      Export CSV
+    </button>
+    <button class="btn btn-primary btn-sm" id="exsheet-print">
+      🖨 Print A4
+    </button>
+    <button class="btn btn-accent btn-sm" id="exsheet-add">
+      + Add Exam
+    </button>
+  </div>
+</section>
+
+<div id="exsheet-root">
+  <div class="loading"><span class="spinner"></span> Loading exam schedule…</div>
+</div>
+
+<!-- ============================================================
+     A4 EXAM SHEET STYLES
+     ============================================================ -->
+<style>
+  .ex-sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 24px;
+    padding: 10mm 8mm;
+    background: #fff;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Inter', Arial, sans-serif;
+    color: #000;
+  }
+
+  /* ---------- Header ---------- */
+  .ex-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 6mm;
+    margin-bottom: 4mm;
+  }
+  .ex-head-logo {
+    width: 20mm;
+    height: 20mm;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ex-head-logo img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .ex-head-text {
+    flex: 1;
+    text-align: center;
+  }
+  .ex-head-text .institution {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 12pt;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 0.3px;
+    line-height: 1.15;
+    text-transform: uppercase;
+  }
+  .ex-head-text .faculty {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-top: 1.5mm;
+  }
+  .ex-head-text .title-line {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 11pt;
+    font-weight: 700;
+    color: #000;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-top: 1.5mm;
+  }
+  .ex-head-text .level-line {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #333;
+    margin-top: 2mm;
+  }
+
+  /* Draft / Final badge */
+  .ex-draft-badge {
+    position: absolute;
+    top: 10mm;
+    right: 10mm;
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #000;
+  }
+  .ex-sheet { position: relative; }
+
+  /* ---------- Main table ---------- */
+  .ex-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 7.5pt;
+    line-height: 1.25;
+    margin-top: 2mm;
+  }
+  .ex-table th {
+    border: 1px solid #000;
+    background: #fff;
+    padding: 2mm 1mm;
+    font-family: 'Poppins', Arial, sans-serif;
+    font-size: 7.5pt;
+    font-weight: 700;
+    color: #000;
+    text-align: center;
+    vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .ex-table td {
+    border: 1px solid #000;
+    padding: 1.5mm 1.5mm;
+    vertical-align: top;
+    font-size: 7.5pt;
+  }
+
+  /* Column widths */
+  .ex-table .col-days { width: 11mm; text-align: center; font-family: 'Poppins', Arial, sans-serif; font-weight: 700; font-size: 8pt; background: #fafafa; }
+  .ex-table .col-date { width: 15mm; text-align: center; font-size: 7.5pt; font-weight: 600; }
+  .ex-table .col-period { width: 22%; }
+
+  /* Period cell content */
+  .ex-cell-course {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 7.5pt;
+    color: #000;
+    line-height: 1.2;
+  }
+  .ex-cell-title {
+    font-size: 7pt;
+    color: #222;
+    margin-top: 0.5mm;
+    line-height: 1.2;
+  }
+  .ex-cell-venue {
+    font-size: 7pt;
+    color: #000;
+    margin-top: 0.8mm;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+  }
+  .ex-cell-inv {
+    font-size: 6.5pt;
+    color: #333;
+    margin-top: 0.5mm;
+    font-style: italic;
+    line-height: 1.15;
+  }
+  .ex-cell-block + .ex-cell-block {
+    margin-top: 1.5mm;
+    padding-top: 1.2mm;
+    border-top: 1px dotted #999;
+  }
+
+  /* Empty state inside a cell */
+  .ex-cell-empty {
+    color: #cbd5e1;
+    font-size: 7pt;
+  }
+
+  /* ---------- Footer / signature ---------- */
+  .ex-foot {
+    margin-top: auto;
+    padding-top: 8mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 8pt;
+  }
+  .ex-foot-sig {
+    font-size: 8.5pt;
+    line-height: 1.4;
+  }
+  .ex-foot-sig .role {
+    font-family: 'Poppins', Arial, sans-serif;
+    font-weight: 700;
+    color: #000;
+  }
+  .ex-foot-sig .name {
+    font-style: italic;
+    text-decoration: underline;
+    color: #000;
+  }
+
+  /* ---------- Print ---------- */
+  @media print {
+    .no-print, .sidebar, .topbar, .toast-wrap { display: none !important; }
+    .main { margin: 0 !important; padding: 0 !important; }
+    body { background: #fff !important; }
+
+    @page { size: A4 landscape; margin: 0; }
+
+    .ex-sheet {
+      box-shadow: none;
+      margin: 0;
+      page-break-after: always;
+    }
+    .ex-sheet:last-child { page-break-after: auto; }
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadExamSheet()
+</script>

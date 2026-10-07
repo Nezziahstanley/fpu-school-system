@@ -1,0 +1,198 @@
+<!-- ============================================================
+     Admin → Departments → Detail
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="dept-detail-title">Department</h2>
+    <p class="muted small" id="dept-detail-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('departments')">← All Departments</button>
+    <button class="btn btn-outline btn-sm" id="dept-detail-edit">Edit Department</button>
+    <button class="btn btn-outline btn-sm" id="dept-detail-view-courses">View Courses</button>
+    <button class="btn btn-primary btn-sm" id="dept-detail-new-prog">+ New Programme</button>
+  </div>
+</section>
+
+<div class="stats-inline">
+  <div class="stat-inline"><div class="label">Programmes</div><div class="value" id="dd-stat-progs">—</div></div>
+  <div class="stat-inline stat-inline-accent"><div class="label">Courses</div><div class="value" id="dd-stat-courses">—</div></div>
+  <div class="stat-inline stat-inline-primary"><div class="label">Credit Units</div><div class="value" id="dd-stat-units">—</div></div>
+  <div class="stat-inline stat-inline-success"><div class="label">Students</div><div class="value" id="dd-stat-students">—</div></div>
+</div>
+
+<div class="panel" id="dd-hod-panel" style="display:none; border-left:4px solid #f59e0b;">
+  <div class="panel-body">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="dpt-hod-avatar" id="dd-hod-avatar">—</div>
+      <div>
+        <div class="small muted" style="text-transform:uppercase;letter-spacing:1px;font-weight:700;">Head of Department</div>
+        <strong id="dd-hod-name" style="font-family:'Poppins',sans-serif;color:#065f46;font-size:1.05rem;">—</strong>
+        <div class="small muted" id="dd-hod-email">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Programmes</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Name</th><th>Level</th><th>Duration</th><th>Courses</th><th>Students</th></tr></thead>
+        <tbody id="dd-progs-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Courses</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Level</th><th>Year</th><th>Semester</th><th>Type</th></tr></thead>
+        <tbody id="dd-courses-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Staff</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Status</th></tr></thead>
+        <tbody id="dd-staff-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Students</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Matric</th><th>Name</th><th>Level</th><th>Programme</th><th>Status</th></tr></thead>
+        <tbody id="dd-students-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .dpt-hod-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #065f46, #f59e0b);
+    color: #fff; display: inline-flex; align-items: center; justify-content: center;
+    font-family: 'Poppins', sans-serif; font-size: 1.15rem; font-weight: 700;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .dpt-hod-avatar img { width: 100%; height: 100%; object-fit: cover; }
+</style>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+
+    if (!id) {
+      $('dd-progs-tbody').innerHTML = '<tr><td colspan="6" class="empty">No department ID provided.</td></tr>';
+      return;
+    }
+
+    $('dept-detail-edit').onclick = () => A.FPU_ADMIN_SPA.navigateToWithQuery('department-form', { id });
+    $('dept-detail-new-prog').onclick = () => A.FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { departmentId: Number(id) });
+
+    function openFullCourses() {
+      const name = $('dept-detail-title').textContent || 'Department';
+      A.FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', { departmentId: Number(id), name });
+    }
+    $('dept-detail-view-courses').onclick = openFullCourses;
+
+    async function load() {
+      try {
+        const [deptRes, progsRes, coursesRes, staffRes, studentsRes, schoolsRes] = await Promise.all([
+          A.adminFetch(`/api/admin/departments/${id}`),
+          A.adminFetch('/api/admin/programmes'),
+          A.adminFetch(`/api/admin/courses?departmentId=${id}&limit=1000`),
+          A.adminFetch(`/api/admin/staff?departmentId=${id}`),
+          A.adminFetch(`/api/admin/students?departmentId=${id}&limit=200`),
+          A.adminFetch('/api/admin/schools'),
+        ]);
+
+        const dept = (await deptRes.json()).data;
+        if (!dept) throw new Error('Department not found');
+
+        const allProgs = (await progsRes.json()).data || [];
+        const courses = (await coursesRes.json()).data || [];
+        const staff = (await staffRes.json()).data || [];
+        const students = (await studentsRes.json()).data || [];
+        const schools = (await schoolsRes.json()).data || [];
+
+        const school = schools.find((s) => s.id === dept.schoolId);
+        const progs = allProgs.filter((p) => p.departmentId === dept.id);
+
+        $('dept-detail-title').textContent = dept.name;
+        $('dept-detail-subtitle').textContent = `${dept.code}${school ? ' · ' + school.name : ''}`;
+
+        const totalUnits = courses.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+        $('dd-stat-progs').textContent = progs.length;
+        $('dd-stat-courses').textContent = courses.length;
+        $('dd-stat-units').textContent = totalUnits;
+        $('dd-stat-students').textContent = students.length;
+
+        // HOD panel
+        if (dept.hodUserId) {
+          const res = await A.adminFetch('/api/admin/hods');
+          const hods = (await res.json()).data || [];
+          const match = hods.find((h) => h.id === dept.hodUserId);
+          if (match) {
+            const initials = ((match.firstName || ' ')[0] + (match.lastName || ' ')[0]).toUpperCase().trim() || 'H';
+            const avatar = $('dd-hod-avatar');
+            avatar.innerHTML = match.photoUrl ? `<img src="${A.escapeHtml(match.photoUrl)}" alt="" />` : A.escapeHtml(initials);
+            $('dd-hod-name').textContent = `${match.firstName} ${match.lastName}`;
+            $('dd-hod-email').textContent = match.email || '';
+            $('dd-hod-panel').style.display = 'block';
+          }
+        }
+
+        // Programmes
+        $('dd-progs-tbody').innerHTML = progs.length ? progs.map((p) => {
+          const cCount = courses.filter((c) => c.programmeId === p.id).length;
+          const sCount = students.filter((s) => s.programmeId === p.id).length;
+          return `<tr><td><code>${A.escapeHtml(p.code)}</code></td><td>${A.escapeHtml(p.name)}</td><td>${A.badge(p.level)}</td><td>${p.durationYears || 2} yrs</td><td>${cCount}</td><td>${sCount}</td></tr>`;
+        }).join('') : '<tr><td colspan="6" class="empty">No programmes.</td></tr>';
+
+        // Courses
+        const sortedCourses = [...courses].sort((a, b) => String(a.code).localeCompare(String(b.code)));
+        $('dd-courses-tbody').innerHTML = sortedCourses.length ? sortedCourses.map((c) => {
+          const year = c.yearOfStudy || A.inferCourseYear(c) || '—';
+          return `<tr><td><code>${A.escapeHtml(c.code)}</code></td><td>${A.escapeHtml(c.title)}</td><td class="num">${Number(c.unit) || 0}</td><td>${A.badge(c.level)}</td><td>${year}</td><td>${A.escapeHtml(c.semester)}</td><td>${c.isElective ? 'Elective' : 'Core'}</td></tr>`;
+        }).join('') : '<tr><td colspan="7" class="empty">No courses.</td></tr>';
+
+        // Staff
+        $('dd-staff-tbody').innerHTML = staff.length ? staff.map((s) => `
+          <tr><td><strong>${A.escapeHtml(s.firstName)} ${A.escapeHtml(s.lastName)}</strong></td><td>${A.escapeHtml(s.email)}</td><td>${A.roleBadge(s.role)}</td><td>${A.escapeHtml(s.phone || '—')}</td><td>${s.isActive !== false ? A.badge('active') : A.badge('inactive')}</td></tr>
+        `).join('') : '<tr><td colspan="5" class="empty">No staff.</td></tr>';
+
+        // Students
+        const sortedStudents = [...students].sort((a, b) => String(a.matricNumber || '').localeCompare(String(b.matricNumber || '')));
+        $('dd-students-tbody').innerHTML = sortedStudents.length ? sortedStudents.slice(0, 20).map((u) => {
+          const prog = progs.find((p) => p.id === u.programmeId);
+          return `<tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: ${u.id} })"><td><code>${A.escapeHtml(u.matricNumber || '')}</code></td><td>${A.escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</td><td>${A.escapeHtml(u.level || '')}</td><td>${prog ? A.escapeHtml(prog.code) : '—'}</td><td>${u.isActive !== false ? A.badge('active') : A.badge('inactive')}</td></tr>`;
+        }).join('') : '<tr><td colspan="5" class="empty">No students.</td></tr>';
+      } catch (err) {
+        $('dd-progs-tbody').innerHTML = `<tr><td colspan="6" class="empty">${A.escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+    load();
+  })();
+</script>

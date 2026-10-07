@@ -1,0 +1,91 @@
+<!-- Portal → Shared → Profile -->
+<section class="page-head">
+  <div><h2>My Profile</h2><p class="muted small">View and update your details</p></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Account Information</h3></div>
+  <div class="panel-body">
+    <div class="grid grid-2" style="gap:1rem;">
+      <div><strong>Full Name:</strong> <span id="pf-name">—</span></div>
+      <div><strong>Email:</strong> <span id="pf-email">—</span></div>
+      <div><strong>Phone:</strong> <span id="pf-phone">—</span></div>
+      <div><strong>Gender:</strong> <span id="pf-gender">—</span></div>
+      <div><strong>State of Origin:</strong> <span id="pf-state">—</span></div>
+      <div><strong>Role:</strong> <span id="pf-role">—</span></div>
+      <div id="pf-matric-wrap"><strong>Matric Number:</strong> <span id="pf-matric">—</span></div>
+      <div id="pf-level-wrap"><strong>Level:</strong> <span id="pf-level">—</span></div>
+      <div id="pf-dept-wrap"><strong>Department:</strong> <span id="pf-dept">—</span></div>
+      <div id="pf-prog-wrap"><strong>Programme:</strong> <span id="pf-prog">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Editable Details</h3></div>
+  <div class="panel-body">
+    <form id="portal-profile-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" /></div>
+        <div class="form-group"><label class="form-label">Gender</label>
+          <select class="form-select" name="gender">
+            <option value="">—</option>
+            <option>Male</option>
+            <option>Female</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-control" type="date" name="dateOfBirth" /></div>
+        <div class="form-group"><label class="form-label">State of Origin</label><input class="form-control" name="stateOfOrigin" /></div>
+      </div>
+      <div class="form-group"><label class="form-label">Address</label><textarea class="form-control" name="address" rows="2"></textarea></div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const core = window.FPU_PORTAL;
+    try {
+      const res = await core.portalFetch('/api/portal/profile');
+      const u = res.data || {};
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v || '—'; };
+      set('pf-name', `${u.firstName || ''} ${u.lastName || ''}`.trim());
+      set('pf-email', u.email);
+      set('pf-phone', u.phone);
+      set('pf-gender', u.gender);
+      set('pf-state', u.stateOfOrigin);
+      set('pf-role', u.role);
+      set('pf-matric', u.matricNumber);
+      set('pf-level', u.level);
+      set('pf-dept', u.department?.name);
+      set('pf-prog', u.programme?.name);
+
+      if (!u.matricNumber) document.getElementById('pf-matric-wrap').style.display = 'none';
+      if (!u.level) document.getElementById('pf-level-wrap').style.display = 'none';
+      if (!u.department) document.getElementById('pf-dept-wrap').style.display = 'none';
+      if (!u.programme) document.getElementById('pf-prog-wrap').style.display = 'none';
+
+      // Prefill editable form
+      const form = document.getElementById('portal-profile-form');
+      form.phone.value = u.phone || '';
+      form.gender.value = u.gender || '';
+      form.dateOfBirth.value = (u.dateOfBirth || '').slice(0, 10);
+      form.stateOfOrigin.value = u.stateOfOrigin || '';
+      form.address.value = u.address || '';
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        try {
+          await core.portalFetch('/api/portal/profile', { method: 'PUT', body: Object.fromEntries(fd) });
+          core.showToast('Profile updated.', 'success');
+        } catch (err) { core.showToast(err.message, 'error'); }
+      });
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  })();
+</script>

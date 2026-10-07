@@ -1,0 +1,166 @@
+<!-- Admin → Students → By Department -->
+<section class="page-head">
+  <div>
+    <h2 id="dept-page-title">Department Students</h2>
+    <p class="muted small" id="dept-page-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('students')">← All Departments</button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'students.csv')">
+      Export CSV
+    </button>
+  </div>
+</section>
+
+<!-- Department stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Total</div>
+    <div class="value" id="dept-stat-total">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Active</div>
+    <div class="value" id="dept-stat-active">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">ND</div>
+    <div class="value" id="dept-stat-nd">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">HND</div>
+    <div class="value" id="dept-stat-hnd">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="dept-filter-level" onchange="FPU_ADMIN.loadDepartmentStudents()">
+      <option value="">All levels</option>
+      <option>ND</option>
+      <option>HND</option>
+      <option>CERT</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Programme</label>
+    <select class="form-select" id="dept-filter-programme"
+            data-lookup="programmes" data-param="departmentId"
+            data-placeholder="All programmes"
+            onchange="FPU_ADMIN.loadDepartmentStudents()"></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="dept-filter-status" onchange="FPU_ADMIN.loadDepartmentStudents()">
+      <option value="">All</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="dept-filter-search"
+           placeholder="Matric, name, or email…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadDepartmentStudents()" />
+  </div>
+</div>
+
+<!-- Bulk actions -->
+<div class="bulk-bar">
+  <div>
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;">
+      <input type="checkbox" id="dept-select-all" />
+      <span class="muted">Select all on this page</span>
+    </label>
+  </div>
+  <div class="bulk-actions">
+    <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkStudentAction('activate')">Activate</button>
+    <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.bulkStudentAction('deactivate')">Deactivate</button>
+    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.bulkStudentAction('reset-password')">Reset Password</button>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3 id="dept-table-title">Students</h3>
+    <span class="small muted">Click a row to view the student's profile</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Matric</th>
+            <th>Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="dept-students-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<style>
+  /* batch3: stu-avatar */
+  .stu-avatar { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg,#065f46,#f59e0b); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-family:'Poppins',sans-serif; font-size:12px; font-weight:700; vertical-align: middle; margin-right: 8px; }
+  .stu-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .stu-name-cell { display: flex; align-items: center; gap: 4px; }
+</style>
+<script>
+  // batch3: enhance student name cells with avatars
+  (function () {
+    const A = window.FPU_ADMIN;
+    if (!A) return;
+    let cache = null;
+    async function getStudents() {
+      if (cache) return cache;
+      try {
+        const res = await A.adminFetch('/api/admin/students?limit=5000');
+        const json = await res.json();
+        cache = json.data || [];
+        return cache;
+      } catch { return []; }
+    }
+    const observer = new MutationObserver(async () => {
+      const tbody = document.getElementById('dept-students-tbody');
+      if (!tbody) return;
+      const students = await getStudents();
+      tbody.querySelectorAll('tr').forEach((tr) => {
+        const cell = tr.children[2];
+        if (!cell || cell.querySelector('.stu-avatar')) return;
+        const avatarSrc = tr.querySelector('.applicant-avatar img');
+        if (avatarSrc) return; // already has one
+        const name = (cell.textContent || '').trim();
+        const match = students.find((s) => (s.firstName + ' ' + s.lastName).trim() === name);
+        if (!match || !match.photoUrl) return;
+        const initials = ((match.firstName || ' ')[0] + (match.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+        const avatar = document.createElement('div');
+        avatar.className = 'stu-avatar';
+        avatar.innerHTML = match.photoUrl
+          ? '<img src="' + A.escapeHtml(match.photoUrl) + '" alt="" />'
+          : A.escapeHtml(initials);
+        cell.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'stu-name-cell';
+        wrap.appendChild(avatar);
+        wrap.appendChild(document.createTextNode(name));
+        cell.appendChild(wrap);
+      });
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      const root = document.getElementById('dept-students-tbody');
+      if (root) observer.observe(root.parentElement || root, { childList: true, subtree: true });
+    });
+  })();
+</script>

@@ -1,0 +1,52 @@
+<!-- Admin → Students → Create -->
+<section class="page-head">
+  <div><h2>New Student</h2><p class="muted small">Manually create a student account with auto-assigned matric</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('students')">← Back</button></div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Student Details</h3></div>
+  <div class="panel-body">
+    <form id="student-form">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">First Name <span class="req">*</span></label><input class="form-control" name="firstName" required /></div>
+        <div class="form-group"><label class="form-label">Last Name <span class="req">*</span></label><input class="form-control" name="lastName" required /></div>
+        <div class="form-group"><label class="form-label">Middle Name</label><input class="form-control" name="middleName" /></div>
+        <div class="form-group"><label class="form-label">Email <span class="req">*</span></label><input class="form-control" type="email" name="email" required /></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-control" name="phone" /></div>
+        <div class="form-group"><label class="form-label">Gender</label>
+          <select class="form-select" name="gender">
+            <option value="">—</option><option>Male</option><option>Female</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-control" type="date" name="dateOfBirth" /></div>
+        <div class="form-group"><label class="form-label">State of Origin</label><input class="form-control" name="stateOfOrigin" /></div>
+        <div class="form-group"><label class="form-label">Level <span class="req">*</span></label>
+          <select class="form-select" name="level" id="student-level" required>
+            <option value="ND">ND</option><option value="HND">HND</option><option value="CERT">CERT</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" name="schoolId" id="student-school" data-lookup="schools" data-placeholder="Select school…" required></select>
+        </div>
+        <div class="form-group"><label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" name="departmentId" id="student-dept" data-lookup="departments" data-depends-on="student-school" required>
+            <option value="">Select school first…</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Programme <span class="req">*</span></label>
+          <select class="form-select" name="programmeId" id="student-prog" data-lookup="programmes" data-depends-on="student-dept" required>
+            <option value="">Select department first…</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Initial Password</label>
+          <input class="form-control" name="password" placeholder="default: student1234" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create Student</button>
+        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN_SPA.navigateTo('students')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

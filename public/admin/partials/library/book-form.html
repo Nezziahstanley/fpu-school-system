@@ -1,0 +1,188 @@
+<!-- ============================================================
+     Admin → Library → Book Form (Create / Edit)
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2 id="bf-title">New Book</h2>
+    <p class="muted small" id="bf-subtitle">Add a book to the library catalogue</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bf-back" onclick="FPU_ADMIN.goBack('library')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Book Details</h3></div>
+  <div class="panel-body">
+    <form id="book-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" name="title" id="bf-title-input" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Author</label>
+          <input class="form-control" name="author" id="bf-author" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ISBN</label>
+          <input class="form-control" name="isbn" id="bf-isbn" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" name="category" id="bf-category">
+            <option value="">—</option>
+            <option>Computer Science</option>
+            <option>Engineering</option>
+            <option>Mathematics</option>
+            <option>Physics</option>
+            <option>Chemistry</option>
+            <option>Biology</option>
+            <option>Business</option>
+            <option>Accountancy</option>
+            <option>Agriculture</option>
+            <option>Literature</option>
+            <option>General</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Publisher</label>
+          <input class="form-control" name="publisher" id="bf-publisher" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Year</label>
+          <input class="form-control" type="number" name="year" id="bf-year" min="1800" max="2100" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Copies <span class="req">*</span></label>
+          <input class="form-control" type="number" name="copiesTotal" id="bf-copies" min="1" value="1" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Shelf</label>
+          <input class="form-control" name="shelf" id="bf-shelf" placeholder="e.g. SH-A-01" />
+        </div>
+      </div>
+
+      <div id="bf-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="bf-submit">Add Book</button>
+        <button type="button" class="btn btn-ghost" id="bf-cancel" onclick="FPU_ADMIN.goBack('library')">Cancel</button>
+        <button type="button" class="btn btn-danger" id="bf-delete"
+                style="margin-left:auto;display:none;">Delete Book</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const isEdit = !!id;
+
+    if (isEdit) {
+      $('bf-title').textContent = 'Edit Book';
+      $('bf-subtitle').textContent = 'Update this book';
+      $('bf-submit').textContent = 'Save Changes';
+      $('bf-delete').style.display = 'inline-flex';
+    }
+
+    function goBack() {
+      if (isEdit) {
+        A.FPU_ADMIN_SPA.navigateToWithQuery('book-detail', { id });
+      } else {
+        A.FPU_ADMIN_SPA.navigateTo('library');
+      }
+    }
+    $('bf-back').onclick = goBack;
+    $('bf-cancel').onclick = goBack;
+
+    async function loadExisting() {
+      if (!isEdit) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/library/books/${id}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        const b = json.data;
+        $('bf-title-input').value = b.title || '';
+        $('bf-author').value = b.author || '';
+        $('bf-isbn').value = b.isbn || '';
+        $('bf-category').value = b.category || '';
+        $('bf-publisher').value = b.publisher || '';
+        $('bf-year').value = b.year || '';
+        $('bf-copies').value = b.copiesTotal || 1;
+        $('bf-shelf').value = b.shelf || '';
+      } catch (err) {
+        A.showToast('❌ ' + err.message, 'error');
+      }
+    }
+
+    $('book-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('bf-validation');
+      valEl.innerHTML = '';
+
+      const payload = {
+        title: $('bf-title-input').value.trim(),
+        author: $('bf-author').value.trim() || null,
+        isbn: $('bf-isbn').value.trim() || null,
+        category: $('bf-category').value || null,
+        publisher: $('bf-publisher').value.trim() || null,
+        year: $('bf-year').value ? Number($('bf-year').value) : null,
+        copiesTotal: Number($('bf-copies').value) || 1,
+        shelf: $('bf-shelf').value.trim() || null,
+      };
+
+      if (!payload.title) {
+        valEl.innerHTML = '<div class="alert alert-error">⚠️ Title is required.</div>';
+        return;
+      }
+
+      const btn = $('bf-submit');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = isEdit ? 'Saving…' : 'Adding…';
+
+      try {
+        const url = isEdit
+          ? `/api/admin/library/books/${id}`
+          : '/api/admin/library/books';
+        const method = isEdit ? 'PUT' : 'POST';
+        const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast(isEdit ? '✅ Book updated.' : '✅ Book added.');
+        if (isEdit) {
+          A.FPU_ADMIN_SPA.navigateToWithQuery('book-detail', { id });
+        } else {
+          A.FPU_ADMIN_SPA.navigateTo('library');
+        }
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+
+    $('bf-delete').addEventListener('click', async () => {
+      if (!isEdit) return;
+      if (!confirm('Delete this book? Any active borrows will be orphaned.')) return;
+      try {
+        const res = await A.adminFetch(`/api/admin/library/books/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('🗑️ Book deleted.');
+        A.FPU_ADMIN_SPA.navigateTo('library');
+      } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+    });
+
+    loadExisting();
+  })();
+</script>

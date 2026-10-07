@@ -1,0 +1,240 @@
+<!-- ============================================================
+     Admin → Security → Dashboard
+     ------------------------------------------------------------
+     Threat overview + recent activity + quick actions.
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Security Center</h2>
+    <p class="muted small">Monitor threats, sessions, and system access</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSecurityDashboard()">
+      Refresh
+    </button>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('security-export')">
+      📥 Export Report
+    </button>
+    <button class="btn btn-danger btn-sm" id="sec-lockdown">
+      🚨 Lockdown All Sessions
+    </button>
+  </div>
+</section>
+
+<!-- Threat score banner -->
+<div id="sec-threat-banner" class="sec-threat-banner">
+  <div class="loading"><span class="spinner"></span> Analysing threats…</div>
+</div>
+
+<!-- KPI tiles -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Active Sessions</span><span class="value" id="sec-kpi-sessions">—</span></div>
+    <div class="ic">🖥️</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Failed Logins (24h)</span><span class="value" id="sec-kpi-failed">—</span></div>
+    <div class="ic">🚫</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Locked Accounts</span><span class="value" id="sec-kpi-locked">—</span></div>
+    <div class="ic">🔒</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Blocked IPs</span><span class="value" id="sec-kpi-blocked">—</span></div>
+    <div class="ic">🛡️</div>
+  </div>
+</div>
+
+<!-- Quick actions grid -->
+<div class="sec-actions-grid">
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-sessions')">
+    <div class="sac-icon">🖥️</div>
+    <h3>Active Sessions</h3>
+    <p>View and revoke active user sessions</p>
+    <div class="sac-badge" id="sac-sessions-badge">—</div>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-logins')">
+    <div class="sac-icon">🔐</div>
+    <h3>Login Attempts</h3>
+    <p>Recent successful and failed logins</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-events')">
+    <div class="sac-icon">⚠️</div>
+    <h3>Security Events</h3>
+    <p>Severity-tagged security events feed</p>
+    <div class="sac-badge" id="sac-events-badge">—</div>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-permissions')">
+    <div class="sac-icon">🔑</div>
+    <h3>Permissions</h3>
+    <p>Role × resource permission matrix</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-ip-rules')">
+    <div class="sac-icon">🌐</div>
+    <h3>IP Rules</h3>
+    <p>Whitelist, blacklist, temporary bans</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-password')">
+    <div class="sac-icon">🔐</div>
+    <h3>Password Policy</h3>
+    <p>Complexity, rotation, lockout rules</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-2fa')">
+    <div class="sac-icon">📱</div>
+    <h3>Two-Factor Auth</h3>
+    <p>Require 2FA per role</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-backups')">
+    <div class="sac-icon">💾</div>
+    <h3>Backups</h3>
+    <p>Database backup status &amp; history</p>
+  </a>
+  <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-compliance')">
+    <div class="sac-icon">✅</div>
+    <h3>Compliance</h3>
+    <p>NDPR + internal policy checks</p>
+  </a>
+</div>
+
+<!-- Recent events -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>🔴 Recent Critical Events</h3>
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('security-events')">
+      View all →
+    </button>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Severity</th>
+            <th>User</th>
+            <th>IP</th>
+            <th style="width:160px;">Time</th>
+          </tr>
+        </thead>
+        <tbody id="sec-recent-events">
+          <tr><td colspan="5" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sec-threat-banner {
+    background: #fff;
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    border-left: 6px solid #10b981;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .sec-threat-banner.low { border-left-color: #10b981; }
+  .sec-threat-banner.medium { border-left-color: #f59e0b; }
+  .sec-threat-banner.high { border-left-color: #dc2626; }
+
+  .stb-score {
+    font-family: 'Poppins', sans-serif;
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1;
+    min-width: 90px;
+  }
+  .stb-score.low { color: #047857; }
+  .stb-score.medium { color: #b45309; }
+  .stb-score.high { color: #b91c1c; }
+  .stb-info { flex: 1; min-width: 220px; }
+  .stb-info h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.15rem;
+    color: #0f172a;
+    margin: 0 0 4px;
+  }
+  .stb-info p {
+    font-size: 13.5px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.6;
+  }
+  .stb-issues {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    font-size: 12.5px;
+    color: #475569;
+  }
+  .stb-issues span::before {
+    content: "•";
+    color: #dc2626;
+    margin-right: 6px;
+    font-weight: 800;
+  }
+
+  .sec-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .sec-action-card {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sec-action-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15,23,42,0.10);
+    border-color: rgba(6,95,70,0.3);
+  }
+  .sac-icon {
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .sec-action-card h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    color: #0f172a;
+    margin: 0;
+  }
+  .sec-action-card p {
+    font-size: 12.5px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.5;
+  }
+  .sac-badge {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: #fee2e2;
+    color: #991b1b;
+    font-family: 'Poppins', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadSecurityDashboard()
+</script>

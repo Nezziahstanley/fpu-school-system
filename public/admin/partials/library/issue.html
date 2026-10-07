@@ -1,0 +1,117 @@
+<!-- ============================================================
+     Admin → Library → Issue Book
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Issue a Book</h2>
+    <p class="muted small">Record a new borrow for a student or staff member</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('library-borrows')">← Back</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Borrow Details</h3></div>
+  <div class="panel-body">
+    <form id="borrow-issue-form" data-skip-generic="1">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Book <span class="req">*</span></label>
+          <select class="form-select" id="bi-book" required>
+            <option value="">Loading books…</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2;">
+          <label class="form-label">Borrower <span class="req">*</span></label>
+          <select class="form-select" id="bi-user" required>
+            <option value="">Loading users…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Borrow Date</label>
+          <input class="form-control" type="date" id="bi-borrow-date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date <span class="req">*</span></label>
+          <input class="form-control" type="date" id="bi-due-date" required />
+          <div class="form-help">Default: 14 days from now</div>
+        </div>
+      </div>
+
+      <div id="bi-validation"></div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Issue Book</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="FPU_ADMIN_SPA.navigateTo('library-borrows')">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const A = window.FPU_ADMIN;
+    const $ = (id) => document.getElementById(id);
+
+    // Default dates
+    const today = new Date();
+    const due = new Date(Date.now() + 14 * 24 * 3600 * 1000);
+    const toIso = (d) => d.toISOString().slice(0, 10);
+    $('bi-borrow-date').value = toIso(today);
+    $('bi-due-date').value = toIso(due);
+
+    // Load books
+    (async function loadBooks() {
+      try {
+        const res = await A.adminFetch('/api/admin/library/books?availableOnly=true&limit=1000');
+        const json = await res.json();
+        const books = json.data || [];
+        $('bi-book').innerHTML = '<option value="">— Choose a book —</option>' +
+          books.map((b) => `<option value="${b.id}">${A.escapeHtml(b.title)}${b.author ? ' — ' + A.escapeHtml(b.author) : ''} (${b.copiesAvailable} available)</option>`).join('');
+      } catch (err) {
+        $('bi-book').innerHTML = '<option value="">Could not load books</option>';
+      }
+    })();
+
+    // Load users
+    (async function loadUsers() {
+      try {
+        const res = await A.adminFetch('/api/admin/lookups/users');
+        const json = await res.json();
+        const users = json.data || [];
+        $('bi-user').innerHTML = '<option value="">— Choose a user —</option>' +
+          users.map((u) => `<option value="${u.id}">${A.escapeHtml(`${u.firstName} ${u.lastName}`)} (${A.escapeHtml(u.email || '')})</option>`).join('');
+      } catch (err) {
+        $('bi-user').innerHTML = '<option value="">Could not load users</option>';
+      }
+    })();
+
+    $('borrow-issue-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('bi-validation');
+      valEl.innerHTML = '';
+
+      const bookId = Number($('bi-book').value);
+      const userId = Number($('bi-user').value);
+      const dueAt = $('bi-due-date').value;
+
+      if (!bookId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Choose a book.</div>'; return; }
+      if (!userId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Choose a borrower.</div>'; return; }
+      if (!dueAt) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Due date is required.</div>'; return; }
+
+      try {
+        await A.adminFetch('/api/admin/library/borrows', {
+          method: 'POST',
+          body: JSON.stringify({ bookId, userId, dueAt: new Date(dueAt).toISOString() }),
+        });
+        A.showToast('✅ Book issued.');
+        A.FPU_ADMIN_SPA.navigateTo('library-borrows');
+      } catch (err) {
+        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+      }
+    });
+  })();
+</script>

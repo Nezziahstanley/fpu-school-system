@@ -1,0 +1,20 @@
+<!-- Admin → Academics → Sessions -->
+<section class="page-head">
+  <div><h2>Academic Sessions</h2><p class="muted small">Set the current session and manage past/future sessions</p></div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSessions()">Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('session-form')">+ New Session</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head"><h3>Sessions</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Name</th><th>Start</th><th>End</th><th>Current</th><th>Actions</th></tr></thead>
+        <tbody id="sessions-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,142 @@
+<!-- ============================================================
+     Admin → Notifications → Detail
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Notification</h2>
+    <p class="muted small" id="nd-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('notifications')">← Back</button>
+    <button class="btn btn-outline btn-sm" id="nd-mark-read">Mark Read</button>
+    <button class="btn btn-danger btn-sm" id="nd-delete">Delete</button>
+  </div>
+</section>
+
+<div id="nd-root">
+  <div class="loading"><span class="spinner"></span> Loading…</div>
+</div>
+
+<style>
+  .notif-detail {
+    max-width: 620px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(15,23,42,0.06);
+    border-top: 5px solid #065f46;
+  }
+  .notif-detail h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.35rem;
+    color: #0f172a;
+    margin: 16px 0 6px;
+    line-height: 1.35;
+  }
+  .notif-detail-meta {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: #6b7280;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .notif-detail-body {
+    font-size: 14.5px;
+    line-height: 1.8;
+    color: #1f2937;
+    white-space: pre-wrap;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+  }
+  .notif-detail-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 20px;
+    padding: 10px 16px;
+    background: #ecfdf5;
+    border-radius: 8px;
+    color: #065f46;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .notif-detail-link:hover { background: #d1fae5; }
+</style>
+
+<script>
+  (async function () {
+    const A = window.FPU_ADMIN;
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const id = params.get('id');
+    const root = document.getElementById('nd-root');
+
+    if (!id) {
+      root.innerHTML = '<div class="alert alert-warning">No notification selected.</div>';
+      return;
+    }
+
+    async function load() {
+      root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+      try {
+        const res = await A.adminFetch('/api/admin/notifications');
+        const json = await res.json();
+        const list = json.data || [];
+        const n = list.find((x) => Number(x.id) === Number(id));
+        if (!n) throw new Error('Notification not found');
+
+        const type = n.type || 'info';
+        const icon = type === 'warning' ? '⚠️' : type === 'success' ? '✅' : type === 'complaint' ? '📩' : type === 'fee' ? '💰' : 'ℹ️';
+
+        document.getElementById('nd-subtitle').textContent =
+          `${type} · ${A.timeAgo(n.createdAt)}`;
+
+        root.innerHTML = `
+          <div class="notif-detail">
+            <div style="font-size:2.5rem;line-height:1;">${icon}</div>
+            <h1>${A.escapeHtml(n.title || '')}</h1>
+            <div class="notif-detail-meta">
+              <span>📅 ${A.fmtDateTime(n.createdAt)}</span>
+              <span>🏷️ ${A.escapeHtml(type)}</span>
+              ${n.isRead ? '<span>✅ Read</span>' : '<span style="color:#b45309;font-weight:700;">● Unread</span>'}
+            </div>
+            <div class="notif-detail-body">${A.escapeHtml(n.body || 'No body.')}</div>
+            ${n.link ? `<a class="notif-detail-link" href="${A.escapeHtml(n.link)}">Open linked page →</a>` : ''}
+          </div>
+        `;
+
+        // If it was unread, mark it read
+        if (!n.isRead) {
+          A.adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }).catch(() => {});
+        }
+
+        document.getElementById('nd-mark-read').onclick = async () => {
+          try {
+            await A.adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' });
+            A.showToast('✅ Marked read.');
+            load();
+          } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+        };
+
+        document.getElementById('nd-delete').onclick = async () => {
+          if (!confirm('Delete this notification?')) return;
+          try {
+            await A.adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
+            A.showToast('🗑️ Deleted.');
+            A.FPU_ADMIN_SPA.navigateTo('notifications');
+          } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+        };
+      } catch (err) {
+        root.innerHTML = `<div class="alert alert-danger">${A.escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    load();
+  })();
+</script>

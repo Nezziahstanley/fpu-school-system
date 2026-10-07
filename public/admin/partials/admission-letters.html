@@ -1,0 +1,100 @@
+<!-- Portal → Admissions Officer → Admission Letters -->
+<section class="page-head">
+  <div><h2>Admission Letters</h2><p class="muted small">Generate and print letters for approved applicants</p></div>
+  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lettersLoad()">Refresh</button></div>
+</section>
+
+<div class="filters">
+  <div class="form-group" style="flex:2 1 260px;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="ltr-search" placeholder="Name or application number…"
+      onkeydown="if(event.key==='Enter')window.__lettersLoad()" />
+  </div>
+  <button class="btn btn-primary" onclick="window.__lettersLoad()">Search</button>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Approved Applicants</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>App No</th><th>Applicant</th><th>Level</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="ltr-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="ltr-preview-panel" class="panel" style="display:none;">
+  <div class="panel-head">
+    <h3>Letter Preview</h3>
+    <div class="tools">
+      <button class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ltr-preview-panel').style.display='none'">Close</button>
+    </div>
+  </div>
+  <div class="panel-body" id="ltr-preview-body"></div>
+</div>
+
+<script>
+  window.__lettersLoad = async function () {
+    const core = window.FPU_PORTAL;
+    const tbody = document.getElementById('ltr-tbody');
+    const q = (document.getElementById('ltr-search') || {}).value || '';
+    const qs = new URLSearchParams({ status: 'approved' });
+    if (q) qs.set('search', q);
+
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(`/api/admission-officer/admitted?${qs}`);
+      const rows = res.data || [];
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">No approved applicants.</td></tr>';
+        return;
+      }
+
+      window.FPU_PAGINATE.mount(tbody, rows, {
+        pageSize: 25,
+        renderRow: (a) => `
+          <tr>
+            <td><code>${core.escapeHtml(a.applicationNumber)}</code></td>
+            <td>${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</td>
+            <td>${core.escapeHtml(a.level || 'ND')}</td>
+            <td>${core.escapeHtml(a.status)}</td>
+            <td>
+              <div class="row-actions">
+                <button class="btn btn-sm btn-outline"
+                  onclick="window.__lettersPreview(${a.id})">Preview</button>
+                <button class="btn btn-sm btn-primary"
+                  onclick="window.__lettersPrint(${a.id})">Print</button>
+              </div>
+            </td>
+          </tr>`,
+      });
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`;
+    }
+  };
+
+  window.__lettersPreview = async function (id) {
+    const core = window.FPU_PORTAL;
+    const panel = document.getElementById('ltr-preview-panel');
+    const body = document.getElementById('ltr-preview-body');
+    panel.style.display = 'block';
+    body.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch(`/api/admission-officer/letters/${id}`);
+      body.innerHTML = res.html;
+    } catch (err) {
+      body.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`;
+    }
+  };
+
+  window.__lettersPrint = async function (id) {
+    await window.__lettersPreview(id);
+    setTimeout(() => window.print(), 250);
+  };
+
+  window.__lettersLoad();
+</script>

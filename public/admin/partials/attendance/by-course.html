@@ -1,0 +1,151 @@
+<!-- ============================================================
+     Admin → Attendance → By Course
+     ------------------------------------------------------------
+     Per-student attendance roster for one course:
+       • Header with course code + title + summary stats
+       • Table of students with:
+           - total classes held
+           - present / absent / late / excused counts
+           - attendance %
+       • Click a student row → their per-date breakdown for this
+         course.
+     ============================================================ -->
+<section class="page-head no-print">
+  <div>
+    <h2 id="abc-title">Course Attendance</h2>
+    <p class="muted small" id="abc-subtitle">Loading…</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="abc-back" onclick="FPU_ADMIN.goBack('attendance')">
+      ← Back
+    </button>
+    <button class="btn btn-outline btn-sm" id="abc-export">
+      Export CSV
+    </button>
+    <button class="btn btn-primary btn-sm" id="abc-mark">
+      + Mark Attendance
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline">
+    <div class="label">Students</div>
+    <div class="value" id="abc-stat-students">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Class Days</div>
+    <div class="value" id="abc-stat-days">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Course Rate</div>
+    <div class="value" id="abc-stat-rate">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Records</div>
+    <div class="value" id="abc-stat-records">—</div>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="abc-filter-status"
+            onchange="FPU_ADMIN.loadCourseAttendance()">
+      <option value="">All</option>
+      <option value="present">Present</option>
+      <option value="absent">Absent</option>
+      <option value="late">Late</option>
+      <option value="excused">Excused</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">From</label>
+    <input class="form-control" type="date" id="abc-filter-from"
+           onchange="FPU_ADMIN.loadCourseAttendance()" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">To</label>
+    <input class="form-control" type="date" id="abc-filter-to"
+           onchange="FPU_ADMIN.loadCourseAttendance()" />
+  </div>
+  <div class="form-group" style="flex:2 1 220px;">
+    <label class="form-label">Search student</label>
+    <input class="form-control" id="abc-filter-search"
+           placeholder="Matric or name…"
+           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadCourseAttendance()" />
+  </div>
+</div>
+
+<!-- Table -->
+<div class="panel">
+  <div class="panel-head">
+    <h3>Student Roster</h3>
+    <span class="small muted" id="abc-count">Loading…</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin" id="abc-table">
+        <thead>
+          <tr>
+            <th>Matric</th>
+            <th>Name</th>
+            <th style="width:70px;">Level</th>
+            <th style="width:80px;">Classes</th>
+            <th style="width:80px;" class="att-present">Present</th>
+            <th style="width:80px;" class="att-absent">Absent</th>
+            <th style="width:70px;" class="att-late">Late</th>
+            <th style="width:80px;" class="att-excused">Excused</th>
+            <th style="width:90px;">Rate</th>
+            <th style="width:100px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="abc-tbody">
+          <tr><td colspan="10" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .att-rate {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .att-rate-bar {
+    width: 54px;
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .att-rate-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+  .att-rate-fill.healthy  { background: #10b981; }
+  .att-rate-fill.warning  { background: #f59e0b; }
+  .att-rate-fill.critical { background: #dc2626; }
+  .att-rate .pct {
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    min-width: 34px;
+  }
+  .att-rate .pct.healthy  { color: #047857; }
+  .att-rate .pct.warning  { color: #b45309; }
+  .att-rate .pct.critical { color: #b91c1c; }
+
+  th.att-present  { color: #047857 !important; }
+  th.att-absent   { color: #b91c1c !important; }
+  th.att-late     { color: #b45309 !important; }
+  th.att-excused  { color: #1e40af !important; }
+</style>
+
+<script>
+  // SPA init calls FPU_ADMIN.loadCourseAttendance()
+</script>

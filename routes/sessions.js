@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin academic-sessions API
 // Mounted at /api/admin/sessions
 // ============================================================
@@ -16,7 +16,7 @@ const { logAudit } = require('../utils/audit');
 
 const { users } = schema;
 
-const STAFF = ['admin', 'registrar', 'academic_officer', 'rector'];
+const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
 
 // ------------------------------------------------------------
 // GET /api/admin/sessions

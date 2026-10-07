@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin settings API
 // Mounted at /api/admin/settings
 // ============================================================
@@ -12,7 +12,7 @@ const settingsQueries = require('../db/queries/settings');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'bursar'];
+const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'bursar', 'hod'];
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {

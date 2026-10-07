@@ -168,11 +168,27 @@ async function listStaff({ departmentId, role } = {}) {
   const conds = [sql`${users.role} <> 'student'`];
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
   if (role) conds.push(eq(users.role, role));
-  return db
+
+  const rows = await db
     .select(SAFE_COLS)
     .from(users)
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(and(...conds))
     .orderBy(asc(users.firstName), asc(users.lastName));
+
+  return rows.map((r) => {
+    const base = r.users || r;
+    const prog = r.programmes || {};
+    const dept = r.departments || {};
+    return {
+      ...base,
+      programmeName: prog.name || null,
+      programmeCode: prog.code || null,
+      departmentName: dept.name || null,
+      departmentCode: dept.code || null,
+    };
+  });
 }
 
 // ------------------------------------------------------------
@@ -184,11 +200,24 @@ async function listStudents({ departmentId, programmeId, level, sessionId } = {}
   if (programmeId) conds.push(eq(users.programmeId, Number(programmeId)));
   if (level) conds.push(eq(users.level, level));
   if (sessionId) conds.push(eq(users.currentSessionId, Number(sessionId)));
-  return db
+
+  const rows = await db
     .select(SAFE_COLS)
     .from(users)
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .where(and(...conds))
     .orderBy(asc(users.lastName), asc(users.firstName));
+
+  // Flatten join result: { users: {...}, programmes: {...} }
+  return rows.map((r) => {
+    const base = r.users || r;
+    const prog = r.programmes || {};
+    return {
+      ...base,
+      programmeName: prog.name || null,
+      programmeCode: prog.code || null,
+    };
+  });
 }
 
 // ------------------------------------------------------------

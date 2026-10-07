@@ -105,6 +105,13 @@ function requireRole(...roles) {
           error: 'You do not have permission to perform this action.',
         });
       }
+
+      // HOD / Lecturer auto-scope: force departmentId on GET
+      const ROLE_SCOPED = ['hod', 'lecturer'];
+      if (ROLE_SCOPED.includes(req.user.role) && req.user.departmentId && req.method === 'GET') {
+        req.query.departmentId = String(req.user.departmentId);
+      }
+
       return next();
     } catch (err) {
       return next(err);

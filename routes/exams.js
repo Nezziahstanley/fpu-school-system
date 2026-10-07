@@ -17,7 +17,14 @@ const STAFF = ['admin', 'registrar', 'exam_officer', 'academic_officer', 'hod', 
 // ---------------- Schedules ----------------
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const rows = await examQueries.listWithCourse(req.query);
+    const filters = { ...req.query };
+
+    // Force HOD to only see their own department's exams
+    if (req.user && req.user.role === 'hod' && req.user.departmentId) {
+      filters.departmentId = String(req.user.departmentId);
+    }
+
+    const rows = await examQueries.listWithCourse(filters);
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);

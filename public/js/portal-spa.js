@@ -38,10 +38,10 @@
   };
 
   // ----------------------------------------------------------
-  // SHARED PAGES — visible to every role
+  // SHARED PAGES — available to every role (visibility filtered)
   // ----------------------------------------------------------
   const SHARED_PAGES = [
-    // Core shared
+    // Personal
     { key: 'portal-profile',       label: 'My Profile',     icon: ICON.user },
     { key: 'portal-photo',         label: 'My Photo',       icon: ICON.photo },
     { key: 'portal-messages',      label: 'Messages',       icon: ICON.chat },
@@ -50,7 +50,7 @@
     { key: 'portal-complaints',    label: 'Complaints',     icon: ICON.chat },
     { key: 'portal-security',      label: 'Security',       icon: ICON.shield },
 
-    // Staff-facing shared pages (admin-* prefix in shared/)
+    // Staff-facing shared pages (admin-* prefix)
     { key: 'admin-applications-list', label: 'Applications', icon: ICON.clipboard },
     { key: 'admin-audit',             label: 'Audit Log',    icon: ICON.shield },
     { key: 'admin-borrows',           label: 'Borrows',      icon: ICON.book },
@@ -67,48 +67,120 @@
   ];
 
   // ----------------------------------------------------------
+  // ROLE-AWARE SHARED PAGES
+  // ----------------------------------------------------------
+  // '*' = every shared page (admin only)
+  const SHARED_BY_ROLE = {
+    student: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'portal-complaints', 'portal-security',
+    ],
+    lecturer: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'portal-complaints', 'portal-security',
+      'admin-exams', 'admin-courses', 'admin-documents',
+    ],
+    hod: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-exams', 'admin-courses', 'admin-programmes',
+      'admin-sessions', 'admin-transcript',
+    ],
+    bursar: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-documents', 'admin-transcript',
+    ],
+    rector: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-audit', 'admin-transcript',
+    ],
+    registrar: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-applications-list', 'admin-graduations',
+      'admin-sessions', 'admin-programmes',
+      'admin-transcript', 'admin-documents',
+    ],
+    librarian: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-library', 'admin-borrows',
+    ],
+    exam_officer: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-exams', 'admin-courses',
+    ],
+    academic_officer: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-programmes', 'admin-courses',
+      'admin-sessions', 'admin-exams',
+    ],
+    admission_officer: [
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
+      'admin-applications-list', 'admin-graduations',
+      'admin-documents',
+    ],
+    admin:      '*',
+    superadmin: '*',
+  };
+
+  function getSharedItemsForRole(role) {
+    const allowed = SHARED_BY_ROLE[role];
+    if (allowed === '*') return SHARED_PAGES;
+    if (!Array.isArray(allowed)) return [];
+    return SHARED_PAGES.filter((p) => allowed.includes(p.key));
+  }
+
+  // ----------------------------------------------------------
   // Role-specific sidebars
   // ----------------------------------------------------------
   const PORTAL_SIDEBAR = {
     student: [
-      { key: 'student-dashboard',     label: 'Dashboard',       icon: ICON.dash },
+      { key: 'student-dashboard',     label: 'Dashboard',           icon: ICON.dash },
       { key: 'student-registration',  label: 'Course Registration', icon: ICON.clipboard },
-      { key: 'student-results',       label: 'Results',         icon: ICON.chart },
-      { key: 'student-transcript',    label: 'Transcript',      icon: ICON.file },
-      { key: 'student-timetable',     label: 'Timetable',       icon: ICON.calendar },
-      { key: 'student-exams',         label: 'Exam Schedule',   icon: ICON.clipboard },
-      { key: 'student-attendance',    label: 'Attendance',      icon: ICON.check },
-      { key: 'student-materials',     label: 'Materials',       icon: ICON.book },
-      { key: 'student-assignments',   label: 'Assignments',     icon: ICON.book2 },
-      { key: 'student-fees',          label: 'Fees',            icon: ICON.money },
-      { key: 'student-clearance',     label: 'Clearance',       icon: ICON.check },
-      { key: 'student-documents',     label: 'Documents',       icon: ICON.file },
-      { key: 'student-id-card',       label: 'ID Card',         icon: ICON.idcard },
-      { key: 'student-graduation',    label: 'Graduation',      icon: ICON.award },
-      { key: 'student-library',       label: 'Library',         icon: ICON.library },
-      { key: 'student-announcements', label: 'Announcements',   icon: ICON.megaphone },
-      { key: 'student-notifications', label: 'Notifications',   icon: ICON.bell },
+      { key: 'student-results',       label: 'Results',             icon: ICON.chart },
+      { key: 'student-transcript',    label: 'Transcript',          icon: ICON.file },
+      { key: 'student-timetable',     label: 'Timetable',           icon: ICON.calendar },
+      { key: 'student-exams',         label: 'Exam Schedule',       icon: ICON.clipboard },
+      { key: 'student-attendance',    label: 'Attendance',          icon: ICON.check },
+      { key: 'student-materials',     label: 'Materials',           icon: ICON.book },
+      { key: 'student-assignments',   label: 'Assignments',         icon: ICON.book2 },
+      { key: 'student-fees',          label: 'Fees',                icon: ICON.money },
+      { key: 'student-clearance',     label: 'Clearance',           icon: ICON.check },
+      { key: 'student-documents',     label: 'Documents',           icon: ICON.file },
+      { key: 'student-id-card',       label: 'ID Card',             icon: ICON.idcard },
+      { key: 'student-graduation',    label: 'Graduation',          icon: ICON.award },
+      { key: 'student-library',       label: 'Library',             icon: ICON.library },
+      { key: 'student-announcements', label: 'Announcements',       icon: ICON.megaphone },
+      { key: 'student-notifications', label: 'Notifications',       icon: ICON.bell },
     ],
     lecturer: [
-      { key: 'lecturer-dashboard',   label: 'Dashboard',  icon: ICON.dash },
-      { key: 'lecturer-courses',     label: 'My Courses', icon: ICON.book },
-      { key: 'lecturer-students',    label: 'Students',   icon: ICON.users },
-      { key: 'lecturer-timetable',   label: 'Timetable',  icon: ICON.calendar },
-      { key: 'lecturer-attendance',  label: 'Attendance', icon: ICON.check },
-      { key: 'lecturer-assessments', label: 'Assessments',icon: ICON.clipboard },
-      { key: 'lecturer-assignments', label: 'Assignments',icon: ICON.book2 },
-      { key: 'lecturer-results',     label: 'Results',    icon: ICON.chart },
-      { key: 'lecturer-materials',   label: 'Materials',  icon: ICON.book },
-      { key: 'lecturer-messages',    label: 'Messages',   icon: ICON.mail },
-      { key: 'lecturer-requests',    label: 'Requests',   icon: ICON.chat },
-      { key: 'lecturer-reports',     label: 'Reports',    icon: ICON.chart },
+      { key: 'lecturer-dashboard',   label: 'Dashboard',   icon: ICON.dash },
+      { key: 'lecturer-courses',     label: 'My Courses',  icon: ICON.book },
+      { key: 'lecturer-students',    label: 'Students',    icon: ICON.users },
+      { key: 'lecturer-timetable',   label: 'Timetable',   icon: ICON.calendar },
+      { key: 'lecturer-attendance',  label: 'Attendance',  icon: ICON.check },
+      { key: 'lecturer-assessments', label: 'Assessments', icon: ICON.clipboard },
+      { key: 'lecturer-assignments', label: 'Assignments', icon: ICON.book2 },
+      { key: 'lecturer-results',     label: 'Results',     icon: ICON.chart },
+      { key: 'lecturer-materials',   label: 'Materials',   icon: ICON.book },
+      { key: 'lecturer-messages',    label: 'Messages',    icon: ICON.mail },
+      { key: 'lecturer-requests',    label: 'Requests',    icon: ICON.chat },
+      { key: 'lecturer-reports',     label: 'Reports',     icon: ICON.chart },
     ],
     hod: [
-      { key: 'hod-dashboard',        label: 'Dashboard',        icon: ICON.dash },
-      { key: 'hod-pending-results',  label: 'Pending Results',  icon: ICON.clipboard },
-      { key: 'hod-courses',          label: 'Courses',          icon: ICON.book },
-      { key: 'hod-students',         label: 'Students',         icon: ICON.users },
-      { key: 'hod-staff',            label: 'Staff',            icon: ICON.users },
+      { key: 'hod-dashboard',        label: 'Dashboard',       icon: ICON.dash },
+      { key: 'hod-pending-results',  label: 'Pending Results', icon: ICON.clipboard },
+      { key: 'hod-courses',          label: 'Courses',         icon: ICON.book },
+      { key: 'hod-students',         label: 'Students',        icon: ICON.users },
+      { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
     ],
     bursar: [
       { key: 'bursar-dashboard',  label: 'Dashboard',  icon: ICON.dash },
@@ -124,9 +196,9 @@
       { key: 'registrar-dashboard', label: 'Dashboard', icon: ICON.dash },
     ],
     librarian: [
-      { key: 'librarian-dashboard',     label: 'Dashboard',    icon: ICON.dash },
-      { key: 'librarian-reservations',  label: 'Reservations', icon: ICON.book },
-      { key: 'librarian-fines',         label: 'Fines',        icon: ICON.money },
+      { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
+      { key: 'librarian-reservations', label: 'Reservations', icon: ICON.book },
+      { key: 'librarian-fines',        label: 'Fines',        icon: ICON.money },
     ],
     exam_officer: [
       { key: 'exam-officer-dashboard',   label: 'Dashboard',   icon: ICON.dash },
@@ -144,40 +216,45 @@
     admin: [
       { key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash },
     ],
+    superadmin: [
+      { key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash },
+    ],
   };
 
   // ----------------------------------------------------------
   // Role → folder under /portal/partials/
   // ----------------------------------------------------------
   const ROLE_FOLDER = {
-    student: 'student',
-    lecturer: 'lecturer',
-    hod: 'hod',
-    bursar: 'bursar',
-    rector: 'rector',
-    registrar: 'registrar',
-    librarian: 'librarian',
-    exam_officer: 'exam-officer',
-    academic_officer: 'academic-officer',
+    student:           'student',
+    lecturer:          'lecturer',
+    hod:               'hod',
+    bursar:            'bursar',
+    rector:            'rector',
+    registrar:         'registrar',
+    librarian:         'librarian',
+    exam_officer:      'exam-officer',
+    academic_officer:  'academic-officer',
     admission_officer: 'admission-officer',
-    admin: 'superadmin',
+    admin:             'superadmin',
+    superadmin:        'superadmin',
   };
 
   // ----------------------------------------------------------
   // Landing page per role
   // ----------------------------------------------------------
   const DASHBOARD_CONFIG = {
-    student:          'student-dashboard',
-    lecturer:         'lecturer-dashboard',
-    hod:              'hod-dashboard',
-    bursar:           'bursar-dashboard',
-    rector:           'rector-dashboard',
-    registrar:        'registrar-dashboard',
-    librarian:        'librarian-dashboard',
-    exam_officer:     'exam-officer-dashboard',
-    academic_officer: 'academic-officer-dashboard',
-    admission_officer:'admission-officer-dashboard',
-    admin:            'superadmin-dashboard',
+    student:           'student-dashboard',
+    lecturer:          'lecturer-dashboard',
+    hod:               'hod-dashboard',
+    bursar:            'bursar-dashboard',
+    rector:            'rector-dashboard',
+    registrar:         'registrar-dashboard',
+    librarian:         'librarian-dashboard',
+    exam_officer:      'exam-officer-dashboard',
+    academic_officer:  'academic-officer-dashboard',
+    admission_officer: 'admission-officer-dashboard',
+    admin:             'superadmin-dashboard',
+    superadmin:        'superadmin-dashboard',
   };
 
   // ----------------------------------------------------------
@@ -193,17 +270,20 @@
   // Resolve a page key to a partial path
   // ----------------------------------------------------------
   function resolvePageConfig(pageKey) {
-    const user = core.getPortalUser();
+    const user = core.getPortalUser && core.getPortalUser();
     if (!user) return null;
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
+    // Guard: only admin can open admin-settings / admin-users
+    const adminOnly = ['admin-settings', 'admin-users', 'admin-audit'];
+    if (adminOnly.includes(pageKey) && role !== 'admin' && role !== 'superadmin') {
+      return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
+    }
+
     // Guard: students may not open admin-* pages
     if (pageKey.startsWith('admin-') && role === 'student') {
-      return {
-        url: '/portal/partials/shared/forbidden.html',
-        title: 'Access Denied',
-      };
+      return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
     // 1. Shared pages (including admin-*)
@@ -239,10 +319,10 @@
   }
 
   // ----------------------------------------------------------
-  // Render sidebar
+  // Render sidebar (role-aware)
   // ----------------------------------------------------------
   function renderSidebar(activeKey) {
-    const user = core.getPortalUser();
+    const user = core.getPortalUser && core.getPortalUser();
     if (!user) return;
     const role = user.role;
 
@@ -250,6 +330,8 @@
     if (!container) return;
 
     const roleItems = PORTAL_SIDEBAR[role] || [];
+    const sharedItems = getSharedItemsForRole(role);
+
     const buildGroup = (title, items) => {
       if (!items.length) return '';
       return `
@@ -263,7 +345,7 @@
 
     container.innerHTML = `
       ${buildGroup('Main', roleItems)}
-      ${buildGroup('Shared', SHARED_PAGES)}
+      ${buildGroup('Shared', sharedItems)}
       <div class="section-title">Account</div>
       <a class="nav-item" data-logout="1">
         <span class="icon">${ICON.logout}</span>
@@ -318,64 +400,81 @@
       if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
       const html = await res.text();
       view.innerHTML = html;
-
       executePartialScripts(view);
 
-      window.dispatchEvent(new CustomEvent('portal:page-loaded', { detail: { pageKey } }));
+      // Re-run dashboard init scripts if present
+      if (window.FPU_RUN_PARTIAL_SCRIPTS) {
+        window.FPU_RUN_PARTIAL_SCRIPTS(view);
+      }
     } catch (err) {
-      view.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`;
+      console.error('[portal-spa] load error:', err);
+      view.innerHTML = `<div class="panel"><div class="panel-body">
+        <div class="alert alert-error">Failed to load this page: ${err.message}</div>
+      </div></div>`;
+      core.showToast && core.showToast(err.message, 'error');
     }
   }
 
+  // ----------------------------------------------------------
+  // Public navigation API
+  // ----------------------------------------------------------
   function navigatePortal(pageKey) {
-    loadPage(pageKey);
-    core.closeSidebar();
+    if (window.innerWidth < 900) core.closeSidebar && core.closeSidebar();
+    return loadPage(pageKey);
   }
 
   // ----------------------------------------------------------
-  // Init
+  // Boot
   // ----------------------------------------------------------
   function initPortalSPA() {
-    const user = core.requirePortalAuth();
+    const user = core.requirePortalAuth && core.requirePortalAuth();
     if (!user) return;
 
+    const role = user.role;
+    const landing = DASHBOARD_CONFIG[role] || 'superadmin-dashboard';
+
+    // Topbar user info
     const nameEl = document.getElementById('topbar-name');
     const roleEl = document.getElementById('topbar-role');
-    if (nameEl) nameEl.textContent = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    if (roleEl) roleEl.textContent = String(user.role || '').replace(/_/g, ' ');
-
     const avatarEl = document.getElementById('topbar-avatar');
-    if (avatarEl && window.FPU_PHOTO) {
-      window.FPU_PHOTO.renderMyAvatar(avatarEl, user);
+    if (nameEl) nameEl.textContent = user.firstName
+      ? `${user.firstName} ${user.lastName || ''}`.trim()
+      : (user.email || 'User');
+    if (roleEl) roleEl.textContent = role;
+
+    if (avatarEl) {
+      if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+        window.FPU_PHOTO.renderMyAvatar(avatarEl, user);
+      } else {
+        avatarEl.textContent = (user.firstName || 'U')[0].toUpperCase();
+      }
     }
 
+    // Sidebar toggle + logout
+    const toggle = document.getElementById('sidebar-toggle');
+    if (toggle) toggle.addEventListener('click', () => core.toggleSidebar && core.toggleSidebar());
     const logoutBtn = document.getElementById('topbar-logout');
-    if (logoutBtn) logoutBtn.addEventListener('click', () => core.portalLogout());
+    if (logoutBtn) logoutBtn.addEventListener('click', () => core.portalLogout && core.portalLogout());
 
+    // Hash-based initial page, else landing dashboard
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    loadPage(hash || landing);
+
+    // Handle back/forward
     window.addEventListener('hashchange', () => {
-      const key = window.location.hash.replace('#', '');
-      if (key) loadPage(key);
+      const h = (window.location.hash || '').replace(/^#/, '');
+      if (h) loadPage(h);
     });
-
-    const initial = window.location.hash.replace('#', '') || DASHBOARD_CONFIG[user.role] || 'portal-profile';
-    loadPage(initial);
   }
 
-  window.FPU_SPA = {
-    PORTAL_SIDEBAR,
-    SHARED_PAGES,
-    DASHBOARD_CONFIG,
-    PORTAL_TITLES,
-    ROLE_FOLDER,
-    resolvePageConfig,
-    renderSidebar,
-    navigatePortal,
-    initPortalSPA,
-  };
+  // ----------------------------------------------------------
+  // Expose
+  // ----------------------------------------------------------
+  window.FPU_SPA = { navigatePortal, loadPage, renderSidebar, resolvePageConfig };
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (document.body && document.body.classList.contains('portal-app') && document.getElementById('page-view')) {
-      initPortalSPA();
-    }
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPortalSPA);
+  } else {
+    initPortalSPA();
+  }
 })();

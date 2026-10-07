@@ -4,38 +4,108 @@
     <div class="avatar" id="lib-dash-avatar">L</div>
     <div>
       <h1>Welcome, <span id="lib-dash-name">Librarian</span></h1>
-      <div class="sub">Library Department</div>
+      <div class="sub">Library Services</div>
     </div>
+  </div>
+  <div class="meta">
+    <strong>Library</strong>
+    <span>Unit</span>
   </div>
 </section>
 
 <div class="tile-grid">
   <div class="tile"><div class="tile-label">Total Books</div><div class="tile-value" id="lib-t-books">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Active Borrows</div><div class="tile-value" id="lib-t-borrows">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Unpaid Fines</div><div class="tile-value" id="lib-t-fines">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Total Titles</div><div class="tile-value" id="lib-t-titles">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Active Borrows</div><div class="tile-value" id="lib-t-borrows">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Overdue</div><div class="tile-value" id="lib-t-overdue">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Outstanding Fines (₦)</div><div class="tile-value" id="lib-t-fines">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('admin-library')">Browse Books</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-borrows')">Borrow Records</a>
-  <a onclick="FPU_SPA.navigatePortal('librarian-reservations')">Reservations</a>
-  <a onclick="FPU_SPA.navigatePortal('librarian-fines')">Fines</a>
+  <a class="btn btn-primary btn-sm" href="#admin-library">📚 Books</a>
+  <a class="btn btn-outline btn-sm" href="#librarian-reservations">📖 Reservations</a>
+  <a class="btn btn-outline btn-sm" href="#librarian-fines">💰 Fines</a>
+  <a class="btn btn-outline btn-sm" href="#admin-borrows">📤 Borrows</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Borrows</h3></div>
+  <div class="panel-body">
+    <div id="lib-recent-borrows" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Reservations Awaiting Action</h3></div>
+  <div class="panel-body">
+    <div id="lib-reservations" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/librarian/dashboard');
-      const d = res.data || {};
-      document.getElementById('lib-dash-name').textContent = core.getPortalUser()?.firstName || 'Librarian';
-      if (photo) photo.renderMyAvatar(document.getElementById('lib-dash-avatar'), core.getPortalUser());
-      document.getElementById('lib-t-books').textContent = d.totalBooks ?? 0;
-      document.getElementById('lib-t-borrows').textContent = d.activeBorrows ?? 0;
-      document.getElementById('lib-t-fines').textContent = d.unpaidFines ?? 0;
-      document.getElementById('lib-t-titles').textContent = d.totalBooks ?? 0;
-    } catch (err) { core.showToast(err.message, 'error'); }
+      document.getElementById('lib-dash-name').textContent = user.firstName || 'Librarian';
+      if (photo) photo.renderMyAvatar(document.getElementById('lib-dash-avatar'), user);
+
+      // Books count
+      try {
+        const b = await core.portalFetch('/api/library/books?limit=1');
+        const total = (b.pagination && b.pagination.total) || (b.data || b).length || 0;
+        document.getElementById('lib-t-books').textContent = total;
+      } catch { document.getElementById('lib-t-books').textContent = '—'; }
+
+      // Active borrows + overdue
+      try {
+        const r = await core.portalFetch('/api/library/borrows?limit=5');
+        const list = r.data || r || [];
+        const active = list.filter(x => !x.returnedAt);
+        const overdue = active.filter(x => x.dueAt && new Date(x.dueAt) < new Date());
+
+        document.getElementById('lib-t-borrows').textContent = active.length;
+        document.getElementById('lib-t-overdue').textContent = overdue.length;
+
+        document.getElementById('lib-recent-borrows').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.bookTitle || x.bookId || 'Book'}</strong>
+                 <span class="muted small">· ${x.studentName || x.userName || ''} · ${
+                   x.returnedAt ? 'Returned' : (x.dueAt ? 'Due ' + new Date(x.dueAt).toLocaleDateString() : 'Borrowed')
+                 }</span>
+               </div>`).join('')
+          : '<em>No borrows yet.</em>';
+      } catch {
+        document.getElementById('lib-recent-borrows').innerHTML = '<em>Could not load borrows.</em>';
+      }
+
+      // Reservations
+      try {
+        const rv = await core.portalFetch('/api/library/reservations');
+        const list = rv.data || rv || [];
+        document.getElementById('lib-reservations').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.bookTitle || 'Reservation'}</strong>
+                 <span class="muted small">· ${x.studentName || ''} · ${x.status || ''}</span>
+               </div>`).join('')
+          : '<em>No reservations.</em>';
+      } catch {
+        document.getElementById('lib-reservations').innerHTML = '<em>Could not load reservations.</em>';
+      }
+
+      // Fines total
+      try {
+        const f = await core.portalFetch('/api/library/fines');
+        const list = f.data || f || [];
+        const total = list
+          .filter(x => !x.paidAt)
+          .reduce((s, x) => s + Number(x.amount || 0), 0);
+        document.getElementById('lib-t-fines').textContent = total.toLocaleString();
+      } catch { document.getElementById('lib-t-fines').textContent = '—'; }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

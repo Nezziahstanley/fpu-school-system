@@ -4,55 +4,100 @@
     <div class="avatar" id="rec-dash-avatar">R</div>
     <div>
       <h1>Welcome, <span id="rec-dash-name">Rector</span></h1>
-      <div class="sub">Office of the Rector</div>
+      <div class="sub">Institution Overview</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="rec-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong>Executive</strong>
+    <span>Office</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="rec-t-students">—</div><div class="tile-sub">enrolled</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Lecturers</div><div class="tile-value" id="rec-t-lecturers">—</div><div class="tile-sub">active</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Total Staff</div><div class="tile-value" id="rec-t-staff">—</div><div class="tile-sub">all roles</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Applications</div><div class="tile-value" id="rec-t-apps">—</div><div class="tile-sub">pending</div></div>
-</div>
-
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">Pending Results</div><div class="tile-value" id="rec-t-results">—</div></div>
-  <div class="tile"><div class="tile-label">Pending Payments</div><div class="tile-value" id="rec-t-payments">—</div></div>
-  <div class="tile"><div class="tile-label">Open Complaints</div><div class="tile-value" id="rec-t-complaints">—</div></div>
-  <div class="tile"><div class="tile-label">Total Registrations</div><div class="tile-value" id="rec-t-regs">—</div></div>
+  <div class="tile"><div class="tile-label">Total Students</div><div class="tile-value" id="rec-t-students">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Total Staff</div><div class="tile-value" id="rec-t-staff">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending Applications</div><div class="tile-value" id="rec-t-apps">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Revenue (₦)</div><div class="tile-value" id="rec-t-revenue">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('admin-applications-list')">Applications</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-users')">Users</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-sessions')">Sessions</a>
-  <a onclick="FPU_SPA.navigatePortal('portal-announcements')">Announcements</a>
+  <a class="btn btn-primary btn-sm" href="#rector-overview">📊 Reports</a>
+  <a class="btn btn-outline btn-sm" href="#admin-students">🎓 Students</a>
+  <a class="btn btn-outline btn-sm" href="#admin-applications-list">📥 Applications</a>
+  <a class="btn btn-outline btn-sm" href="#admin-settings">⚙️ Settings</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Enrollment by Department</h3></div>
+  <div class="panel-body">
+    <div id="rec-enrollment" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Admission Trend</h3></div>
+  <div class="panel-body">
+    <div id="rec-admission-trend" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/rector/dashboard');
-      const d = res.data || {};
-      document.getElementById('rec-dash-name').textContent = core.getPortalUser()?.firstName || 'Rector';
-      document.getElementById('rec-dash-session').textContent = d.currentSession?.name || '—';
-      if (photo) photo.renderMyAvatar(document.getElementById('rec-dash-avatar'), core.getPortalUser());
+      document.getElementById('rec-dash-name').textContent = user.firstName || 'Rector';
+      if (photo) photo.renderMyAvatar(document.getElementById('rec-dash-avatar'), user);
 
-      document.getElementById('rec-t-students').textContent = d.students ?? 0;
-      document.getElementById('rec-t-lecturers').textContent = d.lecturers ?? 0;
-      document.getElementById('rec-t-staff').textContent = d.staff ?? 0;
-      document.getElementById('rec-t-apps').textContent = d.pendingApplications ?? 0;
-      document.getElementById('rec-t-results').textContent = d.pendingResults ?? 0;
-      document.getElementById('rec-t-payments').textContent = d.pendingPayments ?? 0;
-      document.getElementById('rec-t-complaints').textContent = d.openComplaints ?? 0;
-      document.getElementById('rec-t-regs').textContent = d.totalRegistrations ?? 0;
-    } catch (err) { core.showToast(err.message, 'error'); }
+      // Overview stats
+      try {
+        const o = await core.portalFetch('/api/reports/overview');
+        const d = o.data || o || {};
+        document.getElementById('rec-t-students').textContent = d.students ?? '—';
+        document.getElementById('rec-t-staff').textContent    = d.staff ?? d.lecturers ?? '—';
+        document.getElementById('rec-t-apps').textContent     = d.pendingApplications ?? '—';
+        document.getElementById('rec-t-revenue').textContent  = (d.totalRevenue || 0).toLocaleString();
+      } catch {}
+
+      // Enrollment by department
+      try {
+        const e = await core.portalFetch('/api/reports/enrollment-by-department');
+        const list = e.data || e || [];
+        document.getElementById('rec-enrollment').innerHTML = list.length
+          ? list.slice(0,8).map(x => {
+              const pct = x.percentage || 0;
+              return `<div style="padding:.5rem 0;">
+                        <div style="display:flex;justify-content:space-between;">
+                          <strong>${x.department || x.name || ''}</strong>
+                          <span>${x.count || x.total || 0}</span>
+                        </div>
+                        <div style="height:6px;background:#e5e7eb;border-radius:3px;margin-top:4px;overflow:hidden;">
+                          <div style="height:100%;width:${pct}%;background:var(--fpu-primary);"></div>
+                        </div>
+                      </div>`;
+            }).join('')
+          : '<em>No enrollment data.</em>';
+      } catch {
+        document.getElementById('rec-enrollment').innerHTML = '<em>Enrollment report unavailable.</em>';
+      }
+
+      // Admission trend
+      try {
+        const a = await core.portalFetch('/api/reports/admission-trend');
+        const list = a.data || a || [];
+        document.getElementById('rec-admission-trend').innerHTML = list.length
+          ? list.slice(-6).map(x =>
+              `<div style="padding:.4rem 0;display:flex;justify-content:space-between;">
+                 <strong>${x.period || x.year || ''}</strong>
+                 <span>${x.count || x.admitted || 0} admitted</span>
+               </div>`).join('')
+          : '<em>No admission trend data.</em>';
+      } catch {
+        document.getElementById('rec-admission-trend').innerHTML = '<em>Admission trend unavailable.</em>';
+      }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

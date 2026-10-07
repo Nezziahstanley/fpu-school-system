@@ -113,3 +113,7 @@ docker-compose.override.yml
 _deploy_backup_*/
 dump.txt
 *.dump.txt
+
+# Local-only artifacts
+_deploy_backup_*/
+dump.txt

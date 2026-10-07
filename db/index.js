@@ -31,4 +31,4 @@ async function close() {
   await pool.end();
 }
 
-module.exports = { db, pool, close };
+module.exports = { db, pool, close, schema };

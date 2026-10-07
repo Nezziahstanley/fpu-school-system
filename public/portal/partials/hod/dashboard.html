@@ -327,6 +327,21 @@
       const list = rs.data || rs || [];
       $('hod-stat-verified').textContent = list.filter(x => x.status === 'hod_verified').length;
       $('hod-stat-published').textContent = list.filter(x => x.status === 'published').length;
+    } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }    // Registered this session (department-scoped)
+    try {
+      const rg = await core.portalFetch('/api/registrations');
+      const payload = rg.data || rg || {};
+      const list = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
+      $('hod-stat-registered').textContent = list.length;
+    } catch { $('hod-stat-registered').textContent = '—'; }
+
+    // HOD-verified and Published (department-scoped)
+    try {
+      const rs = await core.portalFetch('/api/results');
+      const payload = rs.data || rs || {};
+      const list = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
+      $('hod-stat-verified').textContent = list.filter(x => x.status === 'hod_verified').length;
+      $('hod-stat-published').textContent = list.filter(x => x.status === 'published').length;
     } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }
 
     // Students with no registration

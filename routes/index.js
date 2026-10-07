@@ -1,9 +1,6 @@
 // ============================================================
-// FPU — API router aggregator
-// ------------------------------------------------------------
+// FPU — API router
 // Mounted in server.js as: app.use('/api', require('./routes'))
-// Every sub-router defines paths relative to /api.
-// Order matters: specific routes BEFORE wildcards.
 // ============================================================
 
 'use strict';
@@ -12,22 +9,22 @@ const express = require('express');
 const router = express.Router();
 
 // ------------------------------------------------------------
-// Health & auth (public)
+// Health & public
 // ------------------------------------------------------------
 router.use('/',           require('./health'));
 router.use('/admin/auth', require('./adminAuth'));       // /api/admin/auth/login
 router.use('/admin',      require('./adminAuth'));       // /api/admin/login  (alias)
 router.use('/admin/seed', require('./adminSeed'));       // /api/admin/seed/* (guarded)
-
-// ------------------------------------------------------------
-// Public forms
-// ------------------------------------------------------------
 router.use('/', require('./public'));                    // /api/apply, /api/contact, etc.
 
 // ------------------------------------------------------------
-// Admin / staff API (all require auth inside their routers)
+// Admin — lookups (dropdown data)
 // ------------------------------------------------------------
-router.use('/admin/lookups',        require('./adminLookups'));   // NEW: dropdown data
+router.use('/admin/lookups',        require('./adminLookups'));
+
+// ------------------------------------------------------------
+// Admin — core resources
+// ------------------------------------------------------------
 router.use('/admin/applications',   require('./applications'));
 router.use('/admin/students',       require('./students'));
 router.use('/admin/users',          require('./adminUsers'));   // MUST be before users.js
@@ -46,7 +43,6 @@ router.use('/admin/transcript',     require('./transcript'));
 router.use('/admin/staff',          require('./staff'));
 router.use('/admin/hods',           require('./hods'));
 router.use('/admin/lecturers',      require('./lecturers'));
-router.post('/admin/fees/copy', require('./fees-copy').copy);
 router.use('/admin/fees',           require('./fees'));
 router.use('/admin/payments',       require('./payments'));
 router.use('/admin/clearances',     require('./clearances'));
@@ -65,7 +61,7 @@ router.use('/admin/audit',          require('./audit'));
 router.use('/admin/announcements',  require('./announcements'));
 
 // ------------------------------------------------------------
-// Portal APIs — role-specific
+// Portal — per-role APIs
 // ------------------------------------------------------------
 router.use('/student',          require('./portal/student'));
 router.use('/lecturer',         require('./portal/lecturer'));
@@ -77,6 +73,11 @@ router.use('/librarian',        require('./portal/librarian'));
 router.use('/exam-officer',     require('./portal/examOfficer'));
 router.use('/academic-officer', require('./portal/academicOfficer'));
 router.use('/admission-officer',require('./portal/admissionOfficer'));
+
+// ------------------------------------------------------------
+// Portal — shared (profile, photo upload, etc.)
+// ------------------------------------------------------------
 router.use('/portal',           require('./portal/shared'));
+router.use('/portal',           require('./portal/profile'));   // NEW: photo upload
 
 module.exports = router;

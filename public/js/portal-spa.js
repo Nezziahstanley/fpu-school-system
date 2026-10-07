@@ -294,6 +294,33 @@
   };
 
   // ----------------------------------------------------------
+  // Map sidebar keys -> real filenames under /portal/partials/shared/
+  // ----------------------------------------------------------
+  const SHARED_FILE_MAP = {
+    'portal-profile':       'profile',
+    'portal-photo':         'photo',
+    'portal-messages':      'messages',
+    'portal-notifications': 'notifications',
+    'portal-announcements': 'announcements',
+    'portal-complaints':    'complaints',
+    'portal-security':      'security',
+
+    'admin-applications-list': 'admin-applications-list',
+    'admin-audit':             'admin-audit',
+    'admin-borrows':           'admin-borrows',
+    'admin-courses':           'admin-courses',
+    'admin-documents':         'admin-documents',
+    'admin-exams':             'admin-exams',
+    'admin-graduations':       'admin-graduations',
+    'admin-library':           'admin-library',
+    'admin-programmes':        'admin-programmes',
+    'admin-sessions':          'admin-sessions',
+    'admin-settings':          'admin-settings',
+    'admin-transcript':        'admin-transcript',
+    'admin-users':             'admin-users',
+  };
+
+  // ----------------------------------------------------------
   // Resolve a page key to a partial path
   // ----------------------------------------------------------
   function resolvePageConfig(pageKey) {

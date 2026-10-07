@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    FPU Portal — Shared core utilities
    ------------------------------------------------------------
    Every portal page loads this first. It provides:
@@ -12,25 +12,44 @@
 (function () {
   'use strict';
 
-  const TOKEN_KEY = 'fpu_portal_token';
-  const USER_KEY  = 'fpu_portal_user';
+  // Accept BOTH key conventions so /login.html, /portal/login.html,
+  // and /admin/login.html all agree on session state.
+  const TOKEN_KEYS = ['fpu_portal_token', 'portal_token', 'fpu_admin_token'];
+  const USER_KEYS  = ['fpu_portal_user',  'portal_user',  'fpu_admin_user'];
+
+  function getToken() {
+    for (const k of TOKEN_KEYS) {
+      const v = localStorage.getItem(k);
+      if (v) return v;
+    }
+    return null;
+  }
+  function getStoredUser() {
+    for (const k of USER_KEYS) {
+      const v = localStorage.getItem(k);
+      if (v) { try { return JSON.parse(v); } catch {} }
+    }
+    return null;
+  }
+  function setPortalSessionBoth({ token, user }) {
+    if (token) {
+      TOKEN_KEYS.forEach(k => localStorage.setItem(k, token));
+    }
+    if (user) {
+      USER_KEYS.forEach(k => localStorage.setItem(k, JSON.stringify(user)));
+    }
+  }
+  function clearPortalSessionBoth() {
+    TOKEN_KEYS.forEach(k => localStorage.removeItem(k));
+    USER_KEYS.forEach(k => localStorage.removeItem(k));
+  }
 
   // ----------------------------------------------------------
   // Session helpers
   // ----------------------------------------------------------
-  function getToken() { return localStorage.getItem(TOKEN_KEY); }
-  function getPortalUser() {
-    try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); }
-    catch { return null; }
-  }
-  function setPortalSession({ token, user }) {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-  }
-  function clearPortalSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-  }
+  function getPortalUser() { return getStoredUser(); }
+  function setPortalSession(s) { setPortalSessionBoth(s); }
+  function clearPortalSession() { clearPortalSessionBoth(); }
 
   // ----------------------------------------------------------
   // Redirect to login if not authenticated
@@ -66,7 +85,7 @@
 
     if (res.status === 401) {
       clearPortalSession();
-      window.location.href = '/portal/login.html';
+      window.location.href = '/login.html';
       throw new Error('Session expired. Please sign in again.');
     }
     if (!res.ok || json.success === false) {
@@ -82,7 +101,7 @@
     try { await portalFetch('/api/admin/auth/logout', { method: 'POST' }); }
     catch { /* ignore */ }
     clearPortalSession();
-    window.location.href = '/portal/login.html';
+    window.location.href = '/login.html';
   }
 
   // ----------------------------------------------------------

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -8,6 +8,26 @@
   <link rel="stylesheet" href="/css/admin.css" />
 </head>
 <body class="admin-app">
+  <script>
+    // Guard: only admin / superadmin may use the full admin panel.
+    // Everyone else is bounced back to their proper portal dashboard.
+    (function () {
+      try {
+        const keys = ['fpu_portal_user', 'portal_user', 'fpu_admin_user'];
+        let user = null;
+        for (const k of keys) {
+          const v = localStorage.getItem(k);
+          if (v) { try { user = JSON.parse(v); break; } catch {} }
+        }
+        if (!user) return; // let admin-spa.js handle login redirect
+        const role = String(user.role || '').toLowerCase();
+        const allowed = ['admin', 'superadmin'];
+        if (!allowed.includes(role)) {
+          window.location.replace('/portal/app.html');
+        }
+      } catch {}
+    })();
+  </script>
 
   <noscript>
     <div style="padding:40px;text-align:center;font-family:system-ui,sans-serif;">

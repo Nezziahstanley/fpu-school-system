@@ -58,7 +58,7 @@
     const token = getToken();
     if (!token) {
       const here = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/portal/login.html?redirect=${here}`;
+      window.location.href = `/login.html?redirect=${here}`;
       return null;
     }
     return getPortalUser();

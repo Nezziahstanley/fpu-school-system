@@ -73,6 +73,31 @@ async function attachUser(req) {
   return true;
 }
 
+// ------------------------------------------------------------
+// HOD / Lecturer auto-scope helper
+// ------------------------------------------------------------
+// After req.user is loaded, if the role is department-scoped,
+// force req.query.departmentId to the user's own department.
+// This ensures HODs and Lecturers only ever see their own dept.
+// ------------------------------------------------------------
+function applyDepartmentScope(req) {
+  if (!req.user) return;
+
+  const role = String(req.user.role || '').toLowerCase();
+  const SCOPE_ROLES = ['hod', 'lecturer'];
+
+  if (!SCOPE_ROLES.includes(role)) return;
+
+  // Only scope read operations so writes aren't silently redirected
+  if (req.method !== 'GET') return;
+
+  const deptId = req.user.departmentId || req.user.department_id;
+  if (!deptId) return;
+
+  // Force-apply — user cannot override via query string
+  req.query.departmentId = String(deptId);
+}
+
 // ============================================================
 // requireUser — any authenticated user
 // ============================================================
@@ -82,6 +107,7 @@ async function requireUser(req, res, next) {
     if (!ok) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
+    applyDepartmentScope(req);
     return next();
   } catch (err) {
     return next(err);
@@ -106,11 +132,8 @@ function requireRole(...roles) {
         });
       }
 
-      // HOD / Lecturer auto-scope: force departmentId on GET
-      const ROLE_SCOPED = ['hod', 'lecturer'];
-      if (ROLE_SCOPED.includes(req.user.role) && req.user.departmentId && req.method === 'GET') {
-        req.query.departmentId = String(req.user.departmentId);
-      }
+      // Apply department scoping AFTER role check succeeds
+      applyDepartmentScope(req);
 
       return next();
     } catch (err) {
@@ -131,6 +154,7 @@ async function requireAdmin(req, res, next) {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ success: false, error: 'Admin access required.' });
     }
+    applyDepartmentScope(req);
     return next();
   } catch (err) {
     return next(err);
@@ -144,6 +168,7 @@ async function requireAdmin(req, res, next) {
 async function optionalUser(req, _res, next) {
   try {
     await attachUser(req);
+    applyDepartmentScope(req);
   } catch {
     // swallow — treat as anonymous
   }

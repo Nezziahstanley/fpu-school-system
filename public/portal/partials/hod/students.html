@@ -2,101 +2,230 @@
 <section class="greeting">
   <div class="who">
     <div class="avatar">S</div>
-    <div><h1>Department Students</h1><div class="sub">All students enrolled in your department</div></div>
+    <div>
+      <h1>Department Students</h1>
+      <div class="sub" id="s-dept-sub">All students in your department</div>
+    </div>
   </div>
 </section>
 
+<!-- Filter bar -->
 <div class="filter-bar">
-  <input type="search" id="s-search" placeholder="Search matric, name…" />
+  <input type="search" id="s-search" placeholder="Search matric no. or name…" />
   <select id="s-level">
     <option value="">All Levels</option>
-    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
   </select>
   <select id="s-status">
     <option value="">All Status</option>
-    <option>active</option>
-    <option>inactive</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
   </select>
   <button class="btn btn-outline btn-sm" id="s-export">Export CSV</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Students</h3><span class="badge" id="s-count">0</span></div>
-  <div class="panel-body">
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Students</span><span class="value" id="s-total">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Students</span><span class="value" id="s-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Students</span><span class="value" id="s-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Active</span><span class="value" id="s-active">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Students</h3>
+    <span class="badge" id="s-count">0</span>
+  </div>
+  <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Matric No.</th><th>Full Name</th><th>Level</th><th>Programme</th>
-            <th>CGPA</th><th>Status</th>
+            <th>Matric No.</th>
+            <th>Full Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>CGPA</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody id="s-tbody">
-          <tr><td colspan="6" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL;
-  let ALL = [], FILTERED = [];
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const deptId = user.departmentId;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  function render() {
-    $('s-count').textContent = FILTERED.length;
-    $('s-tbody').innerHTML = FILTERED.length
-      ? FILTERED.map((s) => `
-          <tr>
-            <td><strong>${esc(s.matricNumber || '')}</strong></td>
-            <td>${esc(s.firstName || '')} ${esc(s.lastName || '')}</td>
-            <td><span class="chip chip-${(s.level || '').toLowerCase()}">${esc(s.level || '')}</span></td>
-            <td>${esc(s.programmeName || '')}</td>
-            <td>${s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'}</td>
-            <td><span class="badge-status ${s.isActive ? 'badge-active' : 'badge-inactive'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
-          </tr>`).join('')
-      : '<tr><td colspan="6" class="empty-cell">No students found.</td></tr>';
+  let ALL = [];
+  let FILTERED = [];
+
+  if (user.departmentName) {
+    const el = $('s-dept-sub');
+    if (el) el.textContent = `All students in ${user.departmentName}`;
   }
 
+  // ---------------------------------------------------------
+  // Field extractors — matched to your schema
+  // ---------------------------------------------------------
+  function getLevel(s) {
+    return String(s.level || '').toUpperCase().trim() || '—';
+  }
+  function getProgramme(s) {
+    return s.programmeName || s.programme?.name || (s.programmeCode ? s.programmeCode : '—');
+  }
+  function getCGPA(s) {
+    if (s.cgpa == null) return '—';
+    return Number(s.cgpa).toFixed(2);
+  }
+  function isActive(s) {
+    return s.isActive === true || s.isActive === 'true' || s.isActive === 1;
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('s-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('s-tbody').innerHTML =
+        '<tr><td colspan="6" class="empty">No students match your filters.</td></tr>';
+      return;
+    }
+
+    $('s-tbody').innerHTML = FILTERED.map((s) => {
+      const level = getLevel(s);
+      const chipClass = 'chip-' + level.toLowerCase();
+      const active = isActive(s);
+      return `
+        <tr style="cursor:pointer;" data-id="${s.id}">
+          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
+          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(getProgramme(s))}</td>
+          <td>${getCGPA(s)}</td>
+          <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
+        </tr>`;
+    }).join('');
+
+    // Row click → open transcript
+    $('s-tbody').querySelectorAll('tr[data-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = row.dataset.id;
+        if (core.navigatePortal) {
+          sessionStorage.setItem('transcript_student_id', id);
+          core.navigatePortal('admin-transcript');
+        }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
   function applyFilter() {
-    const q = ($('s-search').value || '').toLowerCase();
+    const q = ($('s-search').value || '').trim().toLowerCase();
     const lvl = $('s-level').value;
     const st = $('s-status').value;
+
     FILTERED = ALL.filter((s) => {
-      const hay = `${s.matricNumber||''} ${s.firstName||''} ${s.lastName||''}`.toLowerCase();
+      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (lvl && s.level !== lvl) return false;
-      if (st === 'active' && !s.isActive) return false;
-      if (st === 'inactive' && s.isActive) return false;
+      if (lvl && getLevel(s) !== lvl) return false;
+      if (st === 'active' && !isActive(s)) return false;
+      if (st === 'inactive' && isActive(s)) return false;
       return true;
     });
+
     render();
   }
 
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((s) => getLevel(s) === 'ND').length;
+    const hnd = ALL.filter((s) => getLevel(s) === 'HND').length;
+    const active = ALL.filter(isActive).length;
+
+    $('s-total').textContent = total;
+    $('s-nd').textContent = nd;
+    $('s-hnd').textContent = hnd;
+    $('s-active').textContent = active;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
   async function load() {
     try {
-      const user = core.getPortalUser() || {};
-      const r = await core.portalFetch('/api/students?departmentId=' + (user.departmentId || ''));
-      ALL = r.data || r || [];
+      const res = await core.portalFetch('/api/students?departmentId=' + deptId);
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload)
+        ? payload
+        : (payload.rows || payload.students || []);
+
+      console.log('[hod-students] Loaded', ALL.length, 'students. Sample:', ALL[0]);
+
+      updateStats();
       applyFilter();
-    } catch (e) {
-      $('s-tbody').innerHTML = `<tr><td colspan="6" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    } catch (err) {
+      console.error('[hod-students]', err);
+      $('s-tbody').innerHTML =
+        `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
   function exportCsv() {
-    const rows = [['Matric No','Full Name','Level','Programme','CGPA','Status']];
-    FILTERED.forEach((s) => rows.push([s.matricNumber, `${s.firstName} ${s.lastName}`, s.level, s.programmeName, s.cgpa, s.isActive ? 'Active' : 'Inactive']));
-    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const headers = ['Matric No', 'Full Name', 'Level', 'Programme', 'CGPA', 'Status'];
+    const rows = FILTERED.map((s) => [
+      s.matricNumber || '',
+      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+      getLevel(s),
+      getProgramme(s),
+      getCGPA(s),
+      isActive(s) ? 'Active' : 'Inactive',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `hod-students-${Date.now()}.csv`;
+    a.download = `hod-students-${(user.departmentCode || 'dept')}-${Date.now()}.csv`;
     a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   $('s-search').addEventListener('input', applyFilter);

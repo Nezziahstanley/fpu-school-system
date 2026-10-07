@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin courses API
 // Mounted at /api/admin/courses
 // ============================================================
@@ -15,6 +15,10 @@ const { logAudit } = require('../utils/audit');
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
+  // Auto-scope HODs to their own department
+  if (req.user && req.user.role === 'hod' && req.user.departmentId) {
+    req.query.departmentId = req.user.departmentId;
+  }
   try {
     const { programmeId, departmentId, level, semester, search, limit = 200, offset = 0 } = req.query;
     const rows = await courseQueries.list({

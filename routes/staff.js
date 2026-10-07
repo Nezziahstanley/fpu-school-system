@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin staff API (lecturers, HODs, principals)
 // Mounted at /api/admin/staff
 // ============================================================
@@ -14,7 +14,7 @@ const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { hashPassword, validatePassword } = require('../utils/password');
 
-const STAFF_ADMINS = ['admin', 'registrar', 'rector'];
+const STAFF_ADMINS = ['admin', 'registrar', 'rector', 'hod'];
 
 // GET /api/admin/staff
 router.get('/', requireRole(STAFF_ADMINS), async (req, res, next) => {

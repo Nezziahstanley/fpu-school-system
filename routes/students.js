@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin students API
 // Mounted at /api/admin/students
 // ============================================================
@@ -48,6 +48,10 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'bursar', 'rector', 'ho
 // GET /api/admin/students
 // ------------------------------------------------------------
 router.get('/', requireRole(STAFF), async (req, res, next) => {
+  // Auto-scope HODs to their own department
+  if (req.user && req.user.role === 'hod' && req.user.departmentId) {
+    req.query.departmentId = req.user.departmentId;
+  }
   try {
     const { departmentId, programmeId, level, search, limit = 100, offset = 0 } = req.query;
     const rows = await userQueries.list({

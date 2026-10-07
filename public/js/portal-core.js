@@ -82,7 +82,7 @@
       const role = me && me.role ? String(me.role).toLowerCase() : '';
       if (STAFF_ROLES.includes(role) && typeof path === 'string' && path.startsWith('/api/')) {
         const rest = path.slice(5);            // e.g. "results/pending-hod"
-        const seg = rest.split('/')[0];         // e.g. "results"
+        const seg = rest.split('?')[0].split('/')[0];   // strip query string first
         if (STAFF_PREFIX_MODULES.includes(seg)) {
           finalPath = '/api/admin/' + rest;
         }

@@ -415,3 +415,7 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
 .badge-success { background: #d1fae5; color: #065f46; }
 .badge-danger  { background: #fee2e2; color: #991b1b; }
 .badge-info    { background: #dbeafe; color: #1e40af; }
+
+/* Simple level chips (matches schema values 'ND' and 'HND') */
+.chip-nd  { background: #d1fae5; color: #065f46; }
+.chip-hnd { background: #fef3c7; color: #92400e; }

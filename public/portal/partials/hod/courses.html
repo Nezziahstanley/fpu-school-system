@@ -14,10 +14,8 @@
   <input type="search" id="c-search" placeholder="Search code, title, or lecturer…" />
   <select id="c-level">
     <option value="">All Levels</option>
-    <option>ND1</option>
-    <option>ND2</option>
-    <option>HND1</option>
-    <option>HND2</option>
+    <option>ND</option>
+    <option>HND</option>
   </select>
   <select id="c-semester">
     <option value="">All Semesters</option>
@@ -87,15 +85,45 @@
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // Header subtitle
-  // ---------------------------------------------------------
   if (user.departmentName) {
     $('c-dept-sub').textContent = `All courses in ${user.departmentName}`;
   }
 
   // ---------------------------------------------------------
-  // Render the table
+  // Helpers — handle multiple possible field names
+  // ---------------------------------------------------------
+  function getUnits(c) {
+    // Try every possible field name
+    const raw = c.units ?? c.creditUnits ?? c.credit_units ?? c.creditHours ?? c.credit_hours ?? c.credit ?? 0;
+    return Number(raw) || 0;
+  }
+
+  function getLevel(c) {
+    // Normalise to uppercase; combine level+year if separate
+    let lvl = String(c.level || '').toUpperCase().trim();
+    // If it's just "ND" or "HND", keep as-is
+    // If separate year field exists, append it
+    if (!lvl && c.yearOfStudy) {
+      lvl = String(c.yearOfStudy);
+    }
+    return lvl;
+  }
+
+  function getSemester(c) {
+    // Try multiple field names; normalise to "First" or "Second"
+    let s = c.semester || c.sem || c.semesterName || '';
+    s = String(s).trim();
+    if (/^1$|first/i.test(s)) return 'First';
+    if (/^2$|second/i.test(s)) return 'Second';
+    return s || '—';
+  }
+
+  function getLecturer(c) {
+    return c.lecturerName || c.lecturer_name || c.lecturer?.name || c.lecturer?.fullName || '—';
+  }
+
+  // ---------------------------------------------------------
+  // Render
   // ---------------------------------------------------------
   function render() {
     $('c-count').textContent = FILTERED.length;
@@ -107,24 +135,24 @@
     }
 
     $('c-tbody').innerHTML = FILTERED.map((c) => {
-      // Normalise level to show ND1/ND2/HND1/HND2
-      const levelRaw = (c.level || '').toUpperCase();
-      const chipClass = 'chip-' + levelRaw.toLowerCase();
+      const level = getLevel(c) || '—';
+      const chipClass = 'chip-' + level.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const units = getUnits(c);
       return `
         <tr>
           <td><strong>${esc(c.code || '')}</strong></td>
           <td>${esc(c.title || '')}</td>
-          <td>${c.units || 0}</td>
-          <td><span class="chip ${chipClass}">${esc(levelRaw)}</span></td>
-          <td>${esc(c.semester || '—')}</td>
-          <td>${esc(c.lecturerName || '—')}</td>
-          <td>${c.enrolledCount != null ? c.enrolledCount : '—'}</td>
+          <td>${units || '—'}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(getSemester(c))}</td>
+          <td>${esc(getLecturer(c))}</td>
+          <td>${c.enrolledCount != null ? c.enrolledCount : (c.enrolled != null ? c.enrolled : '—')}</td>
         </tr>`;
     }).join('');
   }
 
   // ---------------------------------------------------------
-  // Apply filters
+  // Filters
   // ---------------------------------------------------------
   function applyFilter() {
     const q = ($('c-search').value || '').trim().toLowerCase();
@@ -132,10 +160,16 @@
     const sem = $('c-semester').value;
 
     FILTERED = ALL.filter((c) => {
-      const hay = `${c.code || ''} ${c.title || ''} ${c.lecturerName || ''}`.toLowerCase();
+      const hay = `${c.code || ''} ${c.title || ''} ${getLecturer(c)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (lvl && (c.level || '').toUpperCase() !== lvl) return false;
-      if (sem && (c.semester || '').toLowerCase() !== sem.toLowerCase()) return false;
+      if (lvl) {
+        const level = getLevel(c);
+        if (!level.toUpperCase().startsWith(lvl)) return false;
+      }
+      if (sem) {
+        const s = getSemester(c);
+        if (s.toLowerCase() !== sem.toLowerCase()) return false;
+      }
       return true;
     });
 
@@ -143,13 +177,13 @@
   }
 
   // ---------------------------------------------------------
-  // Update the top stat tiles
+  // Stats
   // ---------------------------------------------------------
   function updateStats() {
     const total = ALL.length;
-    const nd = ALL.filter((c) => (c.level || '').toUpperCase().startsWith('ND')).length;
-    const hnd = ALL.filter((c) => (c.level || '').toUpperCase().startsWith('HND')).length;
-    const units = ALL.reduce((sum, c) => sum + Number(c.units || 0), 0);
+    const nd = ALL.filter((c) => getLevel(c).toUpperCase() === 'ND').length;
+    const hnd = ALL.filter((c) => getLevel(c).toUpperCase() === 'HND').length;
+    const units = ALL.reduce((sum, c) => sum + getUnits(c), 0);
 
     $('c-total').textContent = total;
     $('c-nd').textContent = nd;
@@ -158,7 +192,7 @@
   }
 
   // ---------------------------------------------------------
-  // Load courses from API (dept-scoped server-side)
+  // Load
   // ---------------------------------------------------------
   async function load() {
     try {
@@ -167,6 +201,12 @@
       ALL = Array.isArray(payload)
         ? payload
         : (payload.rows || payload.courses || []);
+
+      // Debug: log first course so we can see real field names
+      if (ALL.length) {
+        console.log('[hod-courses] Sample course:', ALL[0]);
+        console.log('[hod-courses] Keys:', Object.keys(ALL[0]));
+      }
 
       updateStats();
       applyFilter();
@@ -185,10 +225,10 @@
     const rows = FILTERED.map((c) => [
       c.code || '',
       c.title || '',
-      c.units || 0,
-      c.level || '',
-      c.semester || '',
-      c.lecturerName || '',
+      getUnits(c),
+      getLevel(c),
+      getSemester(c),
+      getLecturer(c),
       c.enrolledCount != null ? c.enrolledCount : '',
     ]);
 
@@ -204,15 +244,11 @@
     URL.revokeObjectURL(a.href);
   }
 
-  // ---------------------------------------------------------
-  // Wire up
-  // ---------------------------------------------------------
   $('c-search').addEventListener('input', applyFilter);
   $('c-level').addEventListener('change', applyFilter);
   $('c-semester').addEventListener('change', applyFilter);
   $('c-export').addEventListener('click', exportCsv);
 
-  // Go
   load();
 })();
 </script>

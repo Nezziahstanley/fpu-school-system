@@ -137,21 +137,6 @@ app.use(
 // ------------------------------------------------------------
 // API
 // ------------------------------------------------------------
-// ------------------------------------------------------------
-// HOD department auto-scoping — must run BEFORE routes so that
-// HODs only ever see their own department's data.
-// ------------------------------------------------------------
-try {
-  const hodDepartmentScope = require('./middleware/hodDepartmentScope');
-  app.use('/api/admin', (req, res, next) => {
-    // Run after auth middlewares have set req.user (requireUser is per-route)
-    // This is a pre-route hook that will be a no-op if req.user is missing.
-    hodDepartmentScope(req, res, next);
-  });
-} catch (err) {
-  console.warn('[server] hodDepartmentScope not loaded:', err.message);
-}
-
 app.use('/api', require('./routes'));
 
 // ------------------------------------------------------------

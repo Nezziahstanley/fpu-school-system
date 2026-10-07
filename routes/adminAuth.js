@@ -93,6 +93,20 @@ router.post('/login', loginLimiter, async (req, res, next) => {
         firstName: user.firstName,
         lastName: user.lastName,
         photoUrl: user.photoUrl,
+      },      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        middleName: user.middleName || null,
+        photoUrl: user.photoUrl || null,
+        departmentId: user.departmentId ?? null,
+        departmentName: user.departmentName ?? null,
+        departmentCode: user.departmentCode ?? null,
+        programmeId: user.programmeId ?? null,
+        level: user.level ?? null,
+        matricNumber: user.matricNumber ?? null,
       },
     });
   } catch (err) {

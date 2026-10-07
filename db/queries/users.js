@@ -101,6 +101,26 @@ async function findByEmail(email) {
     .where(sql`lower(${users.email}) = lower(${email})`)
     .limit(1);
   return row || null;
+}async function findByEmail(email) {
+  if (!email) return null;
+  const [row] = await db
+    .select()
+    .from(users)
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .where(sql`lower(${users.email}) = lower(${email})`)
+    .limit(1);
+
+  if (!row) return null;
+
+  // Drizzle returns joined rows nested: { users: {...}, departments: {...} }
+  const base = row.users || row;
+  const dept = row.departments || {};
+
+  return {
+    ...base,
+    departmentName: dept.name || null,
+    departmentCode: dept.code || null,
+  };
 }
 
 // ------------------------------------------------------------

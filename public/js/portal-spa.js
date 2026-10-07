@@ -56,7 +56,7 @@
   const SHARED_BY_ROLE = {
     student:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','portal-complaints','portal-security'],
     lecturer:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','portal-complaints','portal-security','admin-exams','admin-courses','admin-documents'],
-    hod:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','admin-exams','admin-courses','admin-programmes','admin-sessions','admin-transcript'],
+    hod:['portal-profile','portal-messages','portal-notifications','portal-announcements','admin-exams','admin-transcript'],
     bursar:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','admin-documents','admin-transcript'],
     rector:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','admin-audit','admin-transcript'],
     registrar:['portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','admin-applications-list','admin-graduations','admin-sessions','admin-programmes','admin-transcript','admin-documents'],

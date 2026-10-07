@@ -1,0 +1,29 @@
+﻿# ============================================================
+# FPU School Management System — Render blueprint
+# Commit this file and Render auto-configures the service.
+# ============================================================
+services:
+  - type: web
+    name: fpu-school-system
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false          # paste in Render dashboard
+      - key: APP_SECRET
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: BCRYPT_ROUNDS
+        value: "10"
+      - key: SESSION_TTL_HOURS
+        value: "72"
+      - key: EMAIL_ENABLED
+        value: "false"

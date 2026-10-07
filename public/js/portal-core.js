@@ -70,7 +70,26 @@
     const init = { ...opts, headers };
     if (opts.body && typeof opts.body !== 'string') init.body = JSON.stringify(opts.body);
 
-    const res = await fetch(path, init);
+    // ---- Auto-prefix staff API paths with /admin ----
+    // Staff roles use /api/admin/* endpoints (mounted in routes/index.js).
+    // Only student and public paths stay unprefixed.
+    const STAFF_ROLES = ['lecturer','hod','bursar','rector','registrar','librarian','exam_officer','academic_officer','admission_officer','admin','superadmin'];
+    const STAFF_PREFIX_MODULES = ['results','students','staff','courses','programmes','departments','sessions','library','payments','clearances','applications','registrations','announcements','notifications','exams','settings','reports','transcript','lecturers','hods','allocations','timetable','documents','attendance','complaints','graduation','security','audit','fees','adminUsers','adminLookups'];
+
+    let finalPath = path;
+    try {
+      const me = getStoredUser();
+      const role = me && me.role ? String(me.role).toLowerCase() : '';
+      if (STAFF_ROLES.includes(role) && typeof path === 'string' && path.startsWith('/api/')) {
+        const rest = path.slice(5);            // e.g. "results/pending-hod"
+        const seg = rest.split('/')[0];         // e.g. "results"
+        if (STAFF_PREFIX_MODULES.includes(seg)) {
+          finalPath = '/api/admin/' + rest;
+        }
+      }
+    } catch {}
+
+    const res = await fetch(finalPath, init);
     const text = await res.text();
     let json;
     try { json = text ? JSON.parse(text) : {}; } catch { json = { error: text }; }

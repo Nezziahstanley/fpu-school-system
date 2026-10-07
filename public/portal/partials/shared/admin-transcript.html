@@ -1,51 +1,293 @@
-<!-- Portal → Shared → Transcript (lookup) -->
-<section class="page-head">
-  <div><h2>Transcript Lookup</h2></div>
-</section>
-
-<div class="panel">
-  <div class="panel-head"><h3>Student</h3></div>
-  <div class="panel-body">
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <input class="form-control" id="shared-tx-student" placeholder="Student ID" style="max-width:220px;" />
-      <button class="btn btn-primary btn-sm" id="shared-tx-load">Load</button>
+<!-- Shared → Transcript -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📄</div>
+    <div>
+      <h1>Transcript</h1>
+      <div class="sub" id="tr-sub">Select a student to view their transcript</div>
     </div>
   </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="tr-search" placeholder="Search matric no. or student name…" />
+  <select id="tr-level">
+    <option value="">All Levels</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="tr-print" disabled>🖨 Print</button>
 </div>
 
-<div id="shared-tx-result"></div>
+<!-- Student list -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Students</h3>
+    <span class="badge" id="tr-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Matric No.</th>
+            <th>Full Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>CGPA</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tr-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Transcript view (hidden until student selected) -->
+<section class="panel" id="tr-result-panel" style="display:none;">
+  <div class="panel-head">
+    <h3 id="tr-result-title">Transcript</h3>
+    <button class="btn btn-outline btn-sm" id="tr-close">Close</button>
+  </div>
+  <div class="panel-body" id="tr-result-body">
+    <div class="loading"><span class="spinner"></span> Loading transcript…</div>
+  </div>
+</section>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
-    document.getElementById('shared-tx-load').addEventListener('click', async () => {
-      const id = document.getElementById('shared-tx-student').value.trim();
-      const out = document.getElementById('shared-tx-result');
-      if (!id) return;
-      out.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch(`/api/admin/transcript/${id}`);
-        out.innerHTML = `
-          <div class="gpa-summary">
-            <div class="item"><div class="label">CGPA</div><div class="value">${res.summary.cgpa.toFixed(2)}</div></div>
-            <div class="item"><div class="label">Units</div><div class="value">${res.summary.totalUnits}</div></div>
-            <div class="item"><div class="label">Class</div><div class="value" style="font-size:1rem;">${core.escapeHtml(res.summary.classification)}</div></div>
-          </div>
-          <div class="table-wrap"><table class="table-admin result-table">
-            <thead><tr><th>Course</th><th>Unit</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead>
-            <tbody>
-              ${res.rows.map((r) => `
-                <tr>
-                  <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
-                  <td class="num">${r.course?.unit || 0}</td>
-                  <td class="num">${r.result.score}</td>
-                  <td><span class="grade ${core.escapeHtml(r.result.grade || '')}">${core.escapeHtml(r.result.grade || '')}</span></td>
-                  <td class="num">${r.result.points}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table></div>`;
-      } catch (err) { out.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const deptId = user.departmentId;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  if (user.departmentName) {
+    $('tr-sub').textContent = `Select a ${user.departmentName} student to view their transcript`;
+  }
+
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
+  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
+  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
+
+  // ---------------------------------------------------------
+  // Render student list
+  // ---------------------------------------------------------
+  function render() {
+    $('tr-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('tr-tbody').innerHTML =
+        '<tr><td colspan="6" class="empty">No students found.</td></tr>';
+      return;
+    }
+
+    $('tr-tbody').innerHTML = FILTERED.map((s) => {
+      const level = getLevel(s);
+      const chipClass = 'chip-' + level.toLowerCase();
+      return `
+        <tr data-id="${s.id}" style="cursor:pointer;">
+          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
+          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(getProgramme(s))}</td>
+          <td>${getCGPA(s)}</td>
+          <td><button class="btn btn-outline btn-xs">View →</button></td>
+        </tr>`;
+    }).join('');
+
+    // Row click → load transcript
+    $('tr-tbody').querySelectorAll('tr[data-id]').forEach((row) => {
+      row.addEventListener('click', () => loadTranscript(row.dataset.id));
     });
-  })();
+  }
+
+  // ---------------------------------------------------------
+  // Filter
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('tr-search').value || '').trim().toLowerCase();
+    const lvl = $('tr-level').value;
+
+    FILTERED = ALL.filter((s) => {
+      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && getLevel(s) !== lvl) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Load student list
+  // ---------------------------------------------------------
+  async function loadStudents() {
+    try {
+      const res = await core.portalFetch('/api/students?departmentId=' + deptId);
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+      applyFilter();
+    } catch (err) {
+      console.error('[transcript]', err);
+      $('tr-tbody').innerHTML =
+        `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Load one transcript
+  // ---------------------------------------------------------
+  async function loadTranscript(studentId) {
+    const student = ALL.find((s) => String(s.id) === String(studentId));
+    if (!student) return;
+
+    $('tr-result-panel').style.display = 'block';
+    $('tr-result-title').textContent =
+      `Transcript — ${student.firstName || ''} ${student.lastName || ''} (${student.matricNumber || ''})`;
+    $('tr-result-body').innerHTML =
+      '<div class="loading"><span class="spinner"></span> Loading transcript…</div>';
+    $('tr-print').disabled = false;
+
+    // Scroll into view
+    $('tr-result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+      const res = await core.portalFetch('/api/transcript/' + studentId);
+      const payload = res.data || res || {};
+
+      const student_info = payload.student || student;
+      const sessions = payload.sessions || [];
+      const summary = payload.summary || {};
+
+      // ---------- Header ----------
+      const header = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
+          <div>
+            <div class="muted small">Name</div>
+            <strong>${esc((student_info.firstName||'') + ' ' + (student_info.lastName||''))}</strong>
+          </div>
+          <div>
+            <div class="muted small">Matric No.</div>
+            <strong>${esc(student_info.matricNumber || '—')}</strong>
+          </div>
+          <div>
+            <div class="muted small">Level</div>
+            <strong>${esc(student_info.level || '—')}</strong>
+          </div>
+          <div>
+            <div class="muted small">Programme</div>
+            <strong>${esc(getProgramme(student_info))}</strong>
+          </div>
+        </div>`;
+
+      // ---------- Sessions ----------
+      if (!sessions.length) {
+        $('tr-result-body').innerHTML = header +
+          '<p class="muted" style="text-align:center;padding:2rem;">No results recorded for this student yet.</p>';
+        return;
+      }
+
+      const sessionBlocks = sessions.map((sess) => {
+        const courses = sess.courses || sess.results || [];
+        const rows = courses.map((c) => `
+          <tr>
+            <td><strong>${esc(c.courseCode || '')}</strong></td>
+            <td>${esc(c.courseTitle || '')}</td>
+            <td>${c.units || 0}</td>
+            <td>${c.score != null ? c.score : '—'}</td>
+            <td><span class="chip">${esc(c.grade || '—')}</span></td>
+            <td>${c.gradePoint != null ? Number(c.gradePoint).toFixed(1) : '—'}</td>
+          </tr>`).join('');
+
+        return `
+          <div style="margin-bottom:1.5rem;">
+            <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:2px solid #e5e7eb;">
+              <strong>${esc(sess.sessionName || 'Session')} · ${esc(sess.semester || '')} Semester</strong>
+              <span class="muted small">
+                GPA: <strong>${sess.gpa != null ? Number(sess.gpa).toFixed(2) : '—'}</strong> ·
+                Units: <strong>${sess.totalUnits || 0}</strong>
+              </span>
+            </div>
+            <div class="table-wrap" style="margin-top:.5rem;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Code</th><th>Title</th><th>Units</th><th>Score</th><th>Grade</th><th>GP</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+
+      // ---------- Summary ----------
+      const summary_html = `
+        <div class="fees-breakdown" style="margin-top:1.5rem;border-top:2px solid #e5e7eb;padding-top:1rem;">
+          <div class="fees-row"><span>Total Units Earned</span><strong>${summary.totalUnits || 0}</strong></div>
+          <div class="fees-row"><span>Total Grade Points</span><strong>${summary.totalGradePoints || 0}</strong></div>
+          <div class="fees-row"><span><strong>CGPA</strong></span><strong style="color:var(--fpu-primary);font-size:1.1rem;">${summary.cgpa != null ? Number(summary.cgpa).toFixed(2) : '—'}</strong></div>
+        </div>`;
+
+      $('tr-result-body').innerHTML = header + sessionBlocks + summary_html;
+    } catch (err) {
+      console.error('[transcript]', err);
+      $('tr-result-body').innerHTML =
+        `<div class="alert alert-error">Could not load transcript: ${esc(err.message)}</div>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Print
+  // ---------------------------------------------------------
+  $('tr-print').addEventListener('click', () => {
+    const panel = $('tr-result-panel');
+    const printWindow = window.open('', '', 'width=900,height=700');
+    printWindow.document.write(`
+      <html><head><title>Transcript</title>
+      <style>
+        body { font-family: system-ui, sans-serif; padding: 2rem; color: #0f172a; }
+        h1 { font-size: 1.2rem; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+        th { background: #f3f4f6; font-weight: 600; }
+        .muted { color: #64748b; }
+        .chip { display: inline-block; padding: .15rem .55rem; border-radius: 999px; background: #e5e7eb; font-size: 11px; }
+        .fees-row { display: flex; justify-content: space-between; padding: .35rem 0; }
+      </style></head><body>
+      <h1>Federal Polytechnic Ugep — Official Transcript</h1>
+      ${panel.querySelector('.panel-body').innerHTML}
+      <p style="margin-top:2rem;font-size:11px;color:#64748b;">
+        Generated on ${new Date().toLocaleString()}
+      </p>
+      </body></html>`);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 300);
+  });
+
+  // Close
+  $('tr-close').addEventListener('click', () => {
+    $('tr-result-panel').style.display = 'none';
+    $('tr-print').disabled = true;
+  });
+
+  // Wire up
+  $('tr-search').addEventListener('input', applyFilter);
+  $('tr-level').addEventListener('change', applyFilter);
+
+  // Go
+  loadStudents();
+})();
 </script>

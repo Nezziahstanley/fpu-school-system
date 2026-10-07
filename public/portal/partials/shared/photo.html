@@ -1,40 +1,16 @@
-<!-- Portal → Shared → Photo -->
-<section class="page-head">
-  <div><h2>My Photo</h2><p class="muted small">Upload a passport photograph</p></div>
+﻿<section class="greeting">
+  <div class="who">
+    <div class="avatar">P</div>
+    <div>
+      <h1>My Photo</h1>
+      <div class="sub">Upload and manage your profile photo</div>
+    </div>
+  </div>
 </section>
 
 <div class="panel">
+  <div class="panel-head"><h3>Profile Photo</h3></div>
   <div class="panel-body">
-    <div class="photo-uploader">
-      <div class="preview" id="photo-preview">U</div>
-      <input type="file" id="photo-file" accept="image/*" style="display:none;" />
-      <button class="btn btn-primary" id="photo-pick">Choose Photo</button>
-      <p class="hint">JPG or PNG, max 5 MB. Square photos look best.</p>
-    </div>
+    <p class="muted small">Photo upload will be available here soon.</p>
   </div>
 </div>
-
-<script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const preview = document.getElementById('photo-preview');
-    const pick = document.getElementById('photo-pick');
-    const file = document.getElementById('photo-file');
-
-    if (photo) photo.renderMyAvatar(preview, core.getPortalUser());
-
-    pick.addEventListener('click', () => file.click());
-    file.addEventListener('change', async () => {
-      const f = file.files[0];
-      if (!f) return;
-      try {
-        const { url } = await photo.uploadAvatar(f);
-        preview.innerHTML = `<img src="${url}" alt="Photo" />`;
-        core.showToast('Photo updated.', 'success');
-      } catch (err) {
-        core.showToast(err.message, 'error');
-      }
-    });
-  })();
-</script>

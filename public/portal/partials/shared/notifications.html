@@ -1,46 +1,35 @@
-<!-- Portal → Shared → Notifications -->
-<section class="page-head">
-  <div><h2>Notifications</h2><p class="muted small">Recent system notifications</p></div>
-  <div class="actions">
-    <button class="btn btn-ghost btn-sm" id="notif-read-all">Mark all read</button>
+﻿<section class="greeting">
+  <div class="who">
+    <div class="avatar">N</div>
+    <div>
+      <h1>Notifications</h1>
+      <div class="sub">Your notifications</div>
+    </div>
   </div>
 </section>
 
 <div class="panel">
+  <div class="panel-head"><h3>Recent</h3></div>
   <div class="panel-body">
-    <div id="notif-list" class="grid" style="gap:.5rem;">
-      <div class="loading"><span class="spinner"></span> Loading…</div>
-    </div>
+    <div id="nt-list" class="muted small">Loading…</div>
   </div>
 </div>
 
 <script>
-  (function () {
+  (async function () {
     const core = window.FPU_PORTAL;
-
-    async function load() {
-      const box = document.getElementById('notif-list');
-      box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch('/api/portal/notifications');
-        const rows = res.data || [];
-        box.innerHTML = rows.length ? rows.map((n) => `
-          <div class="session-item ${n.isRead ? '' : 'current'}" data-id="${n.id}">
-            <div class="meta"><strong>${core.escapeHtml(n.title)}</strong>${core.escapeHtml(n.body || '')}</div>
-            <div class="small muted">${core.timeAgo(n.createdAt)}</div>
-          </div>
-        `).join('') : '<p class="muted">No notifications.</p>';
-      } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+    try {
+      const r = await core.portalFetch('/api/notifications');
+      const list = r.data || r || [];
+      document.getElementById('nt-list').innerHTML = list.length
+        ? list.slice(0, 10).map(n =>
+            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+               <strong>${core.escapeHtml(n.title || 'Notification')}</strong>
+               <div class="muted small">${core.escapeHtml(n.body || '')}</div>
+             </div>`).join('')
+        : '<em>No notifications.</em>';
+    } catch {
+      document.getElementById('nt-list').innerHTML = '<em>Could not load notifications.</em>';
     }
-
-    document.getElementById('notif-read-all').addEventListener('click', async () => {
-      try {
-        await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
-        core.showToast('All read.', 'success');
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
-
-    load();
   })();
 </script>

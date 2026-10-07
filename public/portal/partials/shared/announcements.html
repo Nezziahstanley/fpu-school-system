@@ -1,30 +1,35 @@
-<!-- Portal → Shared → Announcements -->
-<section class="page-head">
-  <div><h2>Announcements</h2><p class="muted small">News from the institution</p></div>
+﻿<section class="greeting">
+  <div class="who">
+    <div class="avatar">A</div>
+    <div>
+      <h1>Announcements</h1>
+      <div class="sub">Institution-wide announcements</div>
+    </div>
+  </div>
 </section>
 
-<div id="portal-ann-list" class="grid" style="gap:1rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
+<div class="panel">
+  <div class="panel-head"><h3>Latest</h3></div>
+  <div class="panel-body">
+    <div id="an-list" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
-    const box = document.getElementById('portal-ann-list');
     try {
-      const res = await core.portalFetch('/api/portal/announcements');
-      const rows = res.data || [];
-      box.innerHTML = rows.length ? rows.map((r) => {
-        const a = r.announcement || r;
-        return `<article class="panel">
-          <div class="panel-body">
-            <span class="badge badge-${a.priority === 'high' ? 'danger' : a.priority === 'low' ? 'muted' : 'info'}">${core.escapeHtml(a.priority || 'normal')}</span>
-            <h3 style="margin:.5rem 0 .3rem;">${core.escapeHtml(a.title)}</h3>
-            <p>${core.escapeHtml(a.body || '')}</p>
-            <div class="small muted">${core.formatDateTime(a.publishedAt)}</div>
-          </div>
-        </article>`;
-      }).join('') : '<p class="muted">No announcements.</p>';
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+      const r = await core.portalFetch('/api/announcements');
+      const list = r.data || r || [];
+      document.getElementById('an-list').innerHTML = list.length
+        ? list.slice(0, 10).map(a =>
+            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+               <strong>${core.escapeHtml(a.title || 'Announcement')}</strong>
+               <div class="muted small">${core.escapeHtml((a.body || '').slice(0, 160))}</div>
+             </div>`).join('')
+        : '<em>No announcements.</em>';
+    } catch {
+      document.getElementById('an-list').innerHTML = '<em>Could not load announcements.</em>';
+    }
   })();
 </script>

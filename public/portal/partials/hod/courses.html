@@ -2,15 +2,22 @@
 <section class="greeting">
   <div class="who">
     <div class="avatar">C</div>
-    <div><h1>Department Courses</h1><div class="sub">All courses assigned to your department</div></div>
+    <div>
+      <h1>Department Courses</h1>
+      <div class="sub" id="c-dept-sub">All courses in your department</div>
+    </div>
   </div>
 </section>
 
+<!-- Filter bar -->
 <div class="filter-bar">
-  <input type="search" id="c-search" placeholder="Search code, title, lecturer…" />
+  <input type="search" id="c-search" placeholder="Search code, title, or lecturer…" />
   <select id="c-level">
     <option value="">All Levels</option>
-    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+    <option>ND1</option>
+    <option>ND2</option>
+    <option>HND1</option>
+    <option>HND2</option>
   </select>
   <select id="c-semester">
     <option value="">All Semesters</option>
@@ -20,90 +27,192 @@
   <button class="btn btn-outline btn-sm" id="c-export">Export CSV</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Courses</h3><span class="badge" id="c-count">0</span></div>
-  <div class="panel-body">
+<!-- Stats row -->
+<div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Courses</span><span class="value" id="c-total">—</span></div>
+    <div class="ic">📚</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Courses</span><span class="value" id="c-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Courses</span><span class="value" id="c-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Total Units</span><span class="value" id="c-units">—</span></div>
+    <div class="ic">🎯</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Courses</h3>
+    <span class="badge" id="c-count">0</span>
+  </div>
+  <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Code</th><th>Title</th><th>Units</th><th>Level</th><th>Semester</th>
-            <th>Lecturer</th><th>Enrolled</th>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Units</th>
+            <th>Level</th>
+            <th>Semester</th>
+            <th>Lecturer</th>
+            <th>Enrolled</th>
           </tr>
         </thead>
         <tbody id="c-tbody">
-          <tr><td colspan="7" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL;
-  let ALL = [], FILTERED = [];
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const deptId = user.departmentId;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  function render() {
-    $('c-count').textContent = FILTERED.length;
-    $('c-tbody').innerHTML = FILTERED.length
-      ? FILTERED.map((c) => `
-          <tr>
-            <td><strong>${esc(c.code || '')}</strong></td>
-            <td>${esc(c.title || '')}</td>
-            <td>${c.units || 0}</td>
-            <td><span class="chip chip-${(c.level || '').toLowerCase()}">${esc(c.level || '')}</span></td>
-            <td>${esc(c.semester || '')}</td>
-            <td>${esc(c.lecturerName || '—')}</td>
-            <td>${c.enrolledCount || 0}</td>
-          </tr>`).join('')
-      : '<tr><td colspan="7" class="empty-cell">No courses found.</td></tr>';
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Header subtitle
+  // ---------------------------------------------------------
+  if (user.departmentName) {
+    $('c-dept-sub').textContent = `All courses in ${user.departmentName}`;
   }
 
+  // ---------------------------------------------------------
+  // Render the table
+  // ---------------------------------------------------------
+  function render() {
+    $('c-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('c-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No courses match your filters.</td></tr>';
+      return;
+    }
+
+    $('c-tbody').innerHTML = FILTERED.map((c) => {
+      // Normalise level to show ND1/ND2/HND1/HND2
+      const levelRaw = (c.level || '').toUpperCase();
+      const chipClass = 'chip-' + levelRaw.toLowerCase();
+      return `
+        <tr>
+          <td><strong>${esc(c.code || '')}</strong></td>
+          <td>${esc(c.title || '')}</td>
+          <td>${c.units || 0}</td>
+          <td><span class="chip ${chipClass}">${esc(levelRaw)}</span></td>
+          <td>${esc(c.semester || '—')}</td>
+          <td>${esc(c.lecturerName || '—')}</td>
+          <td>${c.enrolledCount != null ? c.enrolledCount : '—'}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Apply filters
+  // ---------------------------------------------------------
   function applyFilter() {
-    const q = ($('c-search').value || '').toLowerCase();
+    const q = ($('c-search').value || '').trim().toLowerCase();
     const lvl = $('c-level').value;
     const sem = $('c-semester').value;
+
     FILTERED = ALL.filter((c) => {
-      const hay = `${c.code||''} ${c.title||''} ${c.lecturerName||''}`.toLowerCase();
+      const hay = `${c.code || ''} ${c.title || ''} ${c.lecturerName || ''}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (lvl && c.level !== lvl) return false;
-      if (sem && c.semester !== sem) return false;
+      if (lvl && (c.level || '').toUpperCase() !== lvl) return false;
+      if (sem && (c.semester || '').toLowerCase() !== sem.toLowerCase()) return false;
       return true;
     });
+
     render();
   }
 
+  // ---------------------------------------------------------
+  // Update the top stat tiles
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((c) => (c.level || '').toUpperCase().startsWith('ND')).length;
+    const hnd = ALL.filter((c) => (c.level || '').toUpperCase().startsWith('HND')).length;
+    const units = ALL.reduce((sum, c) => sum + Number(c.units || 0), 0);
+
+    $('c-total').textContent = total;
+    $('c-nd').textContent = nd;
+    $('c-hnd').textContent = hnd;
+    $('c-units').textContent = units;
+  }
+
+  // ---------------------------------------------------------
+  // Load courses from API (dept-scoped server-side)
+  // ---------------------------------------------------------
   async function load() {
     try {
-      const user = core.getPortalUser() || {};
-      const r = await core.portalFetch('/api/courses?departmentId=' + (user.departmentId || ''));
-      ALL = r.data || r || [];
+      const res = await core.portalFetch('/api/courses?departmentId=' + deptId);
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload)
+        ? payload
+        : (payload.rows || payload.courses || []);
+
+      updateStats();
       applyFilter();
-    } catch (e) {
-      $('c-tbody').innerHTML = `<tr><td colspan="7" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    } catch (err) {
+      console.error('[hod-courses]', err);
+      $('c-tbody').innerHTML =
+        `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
   function exportCsv() {
-    const rows = [['Code','Title','Units','Level','Semester','Lecturer','Enrolled']];
-    FILTERED.forEach((c) => rows.push([c.code, c.title, c.units, c.level, c.semester, c.lecturerName, c.enrolledCount]));
-    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const headers = ['Code', 'Title', 'Units', 'Level', 'Semester', 'Lecturer', 'Enrolled'];
+    const rows = FILTERED.map((c) => [
+      c.code || '',
+      c.title || '',
+      c.units || 0,
+      c.level || '',
+      c.semester || '',
+      c.lecturerName || '',
+      c.enrolledCount != null ? c.enrolledCount : '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `hod-courses-${Date.now()}.csv`;
+    a.download = `hod-courses-${(user.departmentCode || 'dept')}-${Date.now()}.csv`;
     a.click();
+    URL.revokeObjectURL(a.href);
   }
 
+  // ---------------------------------------------------------
+  // Wire up
+  // ---------------------------------------------------------
   $('c-search').addEventListener('input', applyFilter);
   $('c-level').addEventListener('change', applyFilter);
   $('c-semester').addEventListener('change', applyFilter);
   $('c-export').addEventListener('click', exportCsv);
 
+  // Go
   load();
 })();
 </script>

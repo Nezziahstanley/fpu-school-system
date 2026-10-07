@@ -4,44 +4,111 @@
     <div class="avatar" id="reg-dash-avatar">R</div>
     <div>
       <h1>Welcome, <span id="reg-dash-name">Registrar</span></h1>
-      <div class="sub">Office of the Registrar</div>
+      <div class="sub">Registry & Student Records</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="reg-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong>Registry</strong>
+    <span>Department</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="reg-t-students">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending Documents</div><div class="tile-value" id="reg-t-docs">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Queued Graduations</div><div class="tile-value" id="reg-t-grads">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Total Records</div><div class="tile-value" id="reg-t-total">—</div></div>
+  <div class="tile"><div class="tile-label">Total Students</div><div class="tile-value" id="reg-t-students">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Active Sessions</div><div class="tile-value" id="reg-t-sessions">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending Registrations</div><div class="tile-value" id="reg-t-regs">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Pending Clearances</div><div class="tile-value" id="reg-t-clear">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('admin-users')">Students</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-documents')">Documents</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-graduations')">Graduations</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-transcript')">Transcripts</a>
+  <a class="btn btn-primary btn-sm" href="#registrar-students">🎓 Students</a>
+  <a class="btn btn-outline btn-sm" href="#registrar-sessions">📅 Sessions</a>
+  <a class="btn btn-outline btn-sm" href="#registrar-registrations">📋 Registrations</a>
+  <a class="btn btn-outline btn-sm" href="#registrar-transcript">📄 Transcripts</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Current Session</h3></div>
+  <div class="panel-body">
+    <div id="reg-session-block" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Pending Registrations</h3></div>
+  <div class="panel-body">
+    <div id="reg-pending-list" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/registrar/dashboard');
-      const d = res.data || {};
-      document.getElementById('reg-dash-name').textContent = core.getPortalUser()?.firstName || 'Registrar';
-      document.getElementById('reg-dash-session').textContent = d.currentSession?.name || '—';
-      if (photo) photo.renderMyAvatar(document.getElementById('reg-dash-avatar'), core.getPortalUser());
+      document.getElementById('reg-dash-name').textContent = user.firstName || 'Registrar';
+      if (photo) photo.renderMyAvatar(document.getElementById('reg-dash-avatar'), user);
 
-      document.getElementById('reg-t-students').textContent = d.students ?? 0;
-      document.getElementById('reg-t-docs').textContent = d.pendingDocuments ?? 0;
-      document.getElementById('reg-t-grads').textContent = d.queuedGraduations ?? 0;
-      document.getElementById('reg-t-total').textContent = (d.students ?? 0) + (d.pendingDocuments ?? 0) + (d.queuedGraduations ?? 0);
-    } catch (err) { core.showToast(err.message, 'error'); }
+      // Student count
+      try {
+        const s = await core.portalFetch('/api/reports/overview');
+        const d = s.data || s || {};
+        document.getElementById('reg-t-students').textContent = d.students ?? '—';
+      } catch { document.getElementById('reg-t-students').textContent = '—'; }
+
+      // Current session
+      try {
+        const cs = await core.portalFetch('/api/sessions/current');
+        const d = cs.data || cs || {};
+        document.getElementById('reg-session-block').innerHTML = d.name
+          ? `<div class="fees-breakdown">
+               <div class="fees-row"><span>Session</span><strong>${d.name}</strong></div>
+               <div class="fees-row"><span>Status</span><strong>${d.isCurrent ? 'Active' : 'Inactive'}</strong></div>
+               <div class="fees-row"><span>Starts</span><strong>${d.startDate ? new Date(d.startDate).toLocaleDateString() : '—'}</strong></div>
+               <div class="fees-row"><span>Ends</span><strong>${d.endDate ? new Date(d.endDate).toLocaleDateString() : '—'}</strong></div>
+             </div>`
+          : '<em>No current session configured.</em>';
+      } catch {
+        document.getElementById('reg-session-block').innerHTML = '<em>Session info unavailable.</em>';
+      }
+
+      // All sessions count
+      try {
+        const ss = await core.portalFetch('/api/sessions');
+        const list = ss.data || ss || [];
+        document.getElementById('reg-t-sessions').textContent = list.length;
+      } catch { document.getElementById('reg-t-sessions').textContent = '—'; }
+
+      // Registration stats + pending list
+      try {
+        const rs = await core.portalFetch('/api/registrations/stats');
+        const d = rs.data || rs || {};
+        document.getElementById('reg-t-regs').textContent = d.pending ?? 0;
+      } catch { document.getElementById('reg-t-regs').textContent = '—'; }
+
+      try {
+        const rl = await core.portalFetch('/api/registrations?status=pending&limit=5');
+        const list = rl.data || rl || [];
+        document.getElementById('reg-pending-list').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.studentName || x.studentId || 'Student'}</strong>
+                 <span class="muted small">· ${x.sessionName || ''} · ${x.status || ''}</span>
+               </div>`).join('')
+          : '<em>No pending registrations. 🎉</em>';
+      } catch {
+        document.getElementById('reg-pending-list').innerHTML = '<em>Could not load registrations.</em>';
+      }
+
+      // Clearances
+      try {
+        const c = await core.portalFetch('/api/clearances/stats');
+        const d = c.data || c || {};
+        document.getElementById('reg-t-clear').textContent = d.pending ?? 0;
+      } catch { document.getElementById('reg-t-clear').textContent = '—'; }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

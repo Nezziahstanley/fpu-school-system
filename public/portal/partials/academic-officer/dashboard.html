@@ -1,47 +1,81 @@
 <!-- Portal → Academic Officer → Dashboard -->
 <section class="greeting">
   <div class="who">
-    <div class="avatar" id="ao-dash-avatar">A</div>
+    <div class="avatar" id="aco-dash-avatar">A</div>
     <div>
-      <h1>Welcome, <span id="ao-dash-name">Academic Officer</span></h1>
-      <div class="sub">Academic Office</div>
+      <h1>Welcome, <span id="aco-dash-name">Academic Officer</span></h1>
+      <div class="sub">Academics & Curriculum</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="ao-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong>Academics</strong>
+    <span>Office</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="ao-t-students">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Queued Graduations</div><div class="tile-value" id="ao-t-grads">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Pending Results</div><div class="tile-value" id="ao-t-results">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Total Programmes</div><div class="tile-value" id="ao-t-progs">—</div></div>
+  <div class="tile"><div class="tile-label">Programmes</div><div class="tile-value" id="aco-t-progs">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Courses</div><div class="tile-value" id="aco-t-courses">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Departments</div><div class="tile-value" id="aco-t-depts">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Results Published</div><div class="tile-value" id="aco-t-results">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('admin-sessions')">Sessions</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-programmes')">Programmes</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-courses')">Courses</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-transcript')">Transcripts</a>
-  <a onclick="FPU_SPA.navigatePortal('admin-graduations')">Graduations</a>
+  <a class="btn btn-primary btn-sm" href="#admin-programmes">📚 Programmes</a>
+  <a class="btn btn-outline btn-sm" href="#admin-courses">📖 Courses</a>
+  <a class="btn btn-outline btn-sm" href="#admin-sessions">📅 Sessions</a>
+  <a class="btn btn-outline btn-sm" href="#admin-exams">📝 Exams</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Results Published</h3></div>
+  <div class="panel-body">
+    <div id="aco-recent-results" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/academic-officer/dashboard');
-      const d = res.data || {};
-      document.getElementById('ao-dash-name').textContent = core.getPortalUser()?.firstName || 'Academic Officer';
-      document.getElementById('ao-dash-session').textContent = d.currentSession?.name || '—';
-      if (photo) photo.renderMyAvatar(document.getElementById('ao-dash-avatar'), core.getPortalUser());
-      document.getElementById('ao-t-students').textContent = d.students ?? 0;
-      document.getElementById('ao-t-grads').textContent = d.queuedGraduations ?? 0;
-      document.getElementById('ao-t-results').textContent = d.pendingResults ?? 0;
-      document.getElementById('ao-t-progs').textContent = '—';
-    } catch (err) { core.showToast(err.message, 'error'); }
+      document.getElementById('aco-dash-name').textContent = user.firstName || 'Academic Officer';
+      if (photo) photo.renderMyAvatar(document.getElementById('aco-dash-avatar'), user);
+
+      // Counts
+      const safeCount = async (url, elId) => {
+        try {
+          const r = await core.portalFetch(url);
+          const list = r.data || r || [];
+          document.getElementById(elId).textContent = Array.isArray(list) ? list.length : '—';
+        } catch { document.getElementById(elId).textContent = '—'; }
+      };
+
+      await Promise.all([
+        safeCount('/api/programmes', 'aco-t-progs'),
+        safeCount('/api/courses',    'aco-t-courses'),
+        safeCount('/api/departments','aco-t-depts'),
+      ]);
+
+      // Recent results
+      try {
+        const r = await core.portalFetch('/api/results?status=published&limit=5');
+        const list = r.data || r || [];
+        document.getElementById('aco-t-results').textContent = list.length;
+        document.getElementById('aco-recent-results').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.courseCode || ''}</strong> — ${x.courseTitle || ''}
+                 <span class="muted small">· ${x.sessionName || ''}</span>
+               </div>`).join('')
+          : '<em>No published results yet.</em>';
+      } catch {
+        document.getElementById('aco-t-results').textContent = '—';
+        document.getElementById('aco-recent-results').innerHTML = '<em>Could not load results.</em>';
+      }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

@@ -1,47 +1,75 @@
-<!-- Portal → Admissions Officer → Dashboard -->
+<!-- Portal → Admission Officer → Dashboard -->
 <section class="greeting">
   <div class="who">
     <div class="avatar" id="ado-dash-avatar">A</div>
     <div>
-      <h1>Welcome, <span id="ado-dash-name">Admissions Officer</span></h1>
-      <div class="sub">Admissions Office</div>
+      <h1>Welcome, <span id="ado-dash-name">Admission Officer</span></h1>
+      <div class="sub">Admissions & Applications</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="ado-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong>Admissions</strong>
+    <span>Office</span>
   </div>
 </section>
 
 <div class="tile-grid">
   <div class="tile"><div class="tile-label">Total Applications</div><div class="tile-value" id="ado-t-total">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending</div><div class="tile-value" id="ado-t-pending">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Approved</div><div class="tile-value" id="ado-t-approved">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Registered</div><div class="tile-value" id="ado-t-registered">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Pending Review</div><div class="tile-value" id="ado-t-pending">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Admitted</div><div class="tile-value" id="ado-t-admitted">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Rejected</div><div class="tile-value" id="ado-t-rejected">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('admin-applications-list')">All Applications</a>
-  <a onclick="FPU_SPA.navigatePortal('admission-officer-admitted')">Admitted</a>
-  <a onclick="FPU_SPA.navigatePortal('admission-officer-letters')">Admission Letters</a>
+  <a class="btn btn-primary btn-sm" href="#admission-officer-admitted">✅ Admitted</a>
+  <a class="btn btn-outline btn-sm" href="#admission-officer-letters">✉️ Letters</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Applications</h3></div>
+  <div class="panel-body">
+    <div id="ado-recent-list" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/admission-officer/dashboard');
-      const d = res.data || {};
-      const s = d.byStatus || {};
-      document.getElementById('ado-dash-name').textContent = core.getPortalUser()?.firstName || 'Admissions Officer';
-      document.getElementById('ado-dash-session').textContent = d.currentSession?.name || '—';
-      if (photo) photo.renderMyAvatar(document.getElementById('ado-dash-avatar'), core.getPortalUser());
+      document.getElementById('ado-dash-name').textContent = user.firstName || 'Admission Officer';
+      if (photo) photo.renderMyAvatar(document.getElementById('ado-dash-avatar'), user);
 
-      document.getElementById('ado-t-total').textContent = d.total ?? 0;
-      document.getElementById('ado-t-pending').textContent = (s.pending || 0) + (s.under_review || 0);
-      document.getElementById('ado-t-approved').textContent = s.approved ?? 0;
-      document.getElementById('ado-t-registered').textContent = s.registered ?? 0;
-    } catch (err) { core.showToast(err.message, 'error'); }
+      // Application stats
+      try {
+        const s = await core.portalFetch('/api/applications/stats/summary');
+        const d = s.data || s || {};
+        document.getElementById('ado-t-total').textContent    = d.total ?? '—';
+        document.getElementById('ado-t-pending').textContent  = d.pending ?? d.submitted ?? '—';
+        document.getElementById('ado-t-admitted').textContent = d.admitted ?? d.approved ?? '—';
+        document.getElementById('ado-t-rejected').textContent = d.rejected ?? '—';
+      } catch {
+        ['total','pending','admitted','rejected'].forEach(k =>
+          document.getElementById('ado-t-' + k).textContent = '—');
+      }
+
+      // Recent applications
+      try {
+        const r = await core.portalFetch('/api/applications?limit=5');
+        const list = r.data || r || [];
+        document.getElementById('ado-recent-list').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.firstName || ''} ${x.lastName || ''}</strong>
+                 <span class="muted small">· ${x.programmeName || ''} · ${x.status || ''}</span>
+               </div>`).join('')
+          : '<em>No applications yet.</em>';
+      } catch {
+        document.getElementById('ado-recent-list').innerHTML = '<em>Could not load applications.</em>';
+      }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

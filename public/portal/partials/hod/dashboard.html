@@ -4,66 +4,95 @@
     <div class="avatar" id="hod-dash-avatar">H</div>
     <div>
       <h1>Welcome, <span id="hod-dash-name">HOD</span></h1>
-      <div class="sub" id="hod-dash-dept">—</div>
+      <div class="sub">Head of Department</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="hod-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong id="hod-dash-dept">—</strong>
+    <span>Department</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/></svg></div>
-    <div class="tile-label">Department Courses</div>
-    <div class="tile-value" id="hod-dash-courses">—</div>
-    <div class="tile-sub">total courses</div>
-  </div>
-  <div class="tile tile-accent">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="10" height="4" rx="1"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/></svg></div>
-    <div class="tile-label">Pending Results</div>
-    <div class="tile-value" id="hod-dash-pending">—</div>
-    <div class="tile-sub">awaiting HOD verification</div>
-  </div>
-  <div class="tile tile-blue">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/></svg></div>
-    <div class="tile-label">Students</div>
-    <div class="tile-value" id="hod-dash-students">—</div>
-    <div class="tile-sub">in department</div>
-  </div>
-  <div class="tile tile-purple">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg></div>
-    <div class="tile-label">Staff</div>
-    <div class="tile-value" id="hod-dash-staff">—</div>
-    <div class="tile-sub">lecturers + self</div>
-  </div>
+  <div class="tile"><div class="tile-label">Department Students</div><div class="tile-value" id="hod-t-students">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Department Staff</div><div class="tile-value" id="hod-t-staff">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending Results</div><div class="tile-value" id="hod-t-pending">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Active Courses</div><div class="tile-value" id="hod-t-courses">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('hod-pending-results')">Verify Results</a>
-  <a onclick="FPU_SPA.navigatePortal('hod-courses')">View Courses</a>
-  <a onclick="FPU_SPA.navigatePortal('hod-students')">View Students</a>
-  <a onclick="FPU_SPA.navigatePortal('hod-staff')">View Staff</a>
+  <a class="btn btn-primary btn-sm" href="#hod-pending-results">📋 Review Pending Results</a>
+  <a class="btn btn-outline btn-sm" href="#hod-staff">👥 Staff</a>
+  <a class="btn btn-outline btn-sm" href="#hod-students">🎓 Students</a>
+  <a class="btn btn-outline btn-sm" href="#hod-courses">📚 Courses</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Results Awaiting HOD Approval</h3></div>
+  <div class="panel-body">
+    <div id="hod-pending-list" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Department Staff</h3></div>
+  <div class="panel-body">
+    <div id="hod-staff-list" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/hod/dashboard');
-      const d = res.data || {};
-      document.getElementById('hod-dash-name').textContent = core.getPortalUser()?.firstName || 'HOD';
-      document.getElementById('hod-dash-dept').textContent = d.department?.name || '—';
-      document.getElementById('hod-dash-session').textContent = (core.getPortalUser()?.currentSessionId) ? '—' : '—';
+      document.getElementById('hod-dash-name').textContent = user.firstName || 'HOD';
+      document.getElementById('hod-dash-dept').textContent = user.departmentName || 'My Department';
+      if (photo) photo.renderMyAvatar(document.getElementById('hod-dash-avatar'), user);
 
-      if (photo) photo.renderMyAvatar(document.getElementById('hod-dash-avatar'), core.getPortalUser());
+      // Pending results for the department (HOD approval stage)
+      const r1 = await core.portalFetch('/api/results/pending-hod');
+      const pending = r1.data || r1 || [];
+      document.getElementById('hod-t-pending').textContent = pending.length;
+      document.getElementById('hod-pending-list').innerHTML = pending.length
+        ? pending.slice(0,5).map(p =>
+            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+               <strong>${p.courseCode||''}</strong> — ${p.courseTitle||''}
+               <span class="muted small">· ${p.lecturerName||''} · ${p.sessionName||''}</span>
+             </div>`).join('')
+        : '<em>No pending results. 🎉</em>';
 
-      document.getElementById('hod-dash-courses').textContent = d.totalCourses ?? 0;
-      document.getElementById('hod-dash-pending').textContent = d.pendingResults ?? 0;
-      document.getElementById('hod-dash-students').textContent = d.totalStudents ?? 0;
-      document.getElementById('hod-dash-staff').textContent = d.totalStaff ?? 0;
-    } catch (err) { core.showToast(err.message, 'error'); }
+      // Department students
+      try {
+        const s = await core.portalFetch('/api/students?departmentId=' + (user.departmentId || ''));
+        const list = s.data || s || [];
+        document.getElementById('hod-t-students').textContent = list.length;
+      } catch { document.getElementById('hod-t-students').textContent = '—'; }
+
+      // Staff in department
+      try {
+        const st = await core.portalFetch('/api/staff?departmentId=' + (user.departmentId || ''));
+        const list = st.data || st || [];
+        document.getElementById('hod-t-staff').textContent = list.length;
+        document.getElementById('hod-staff-list').innerHTML = list.length
+          ? list.slice(0,8).map(x =>
+              `<div style="padding:.4rem 0;">${x.firstName||''} ${x.lastName||''} <span class="muted small">· ${x.role||''}</span></div>`
+            ).join('')
+          : '<em>No staff records yet.</em>';
+      } catch {
+        document.getElementById('hod-t-staff').textContent = '—';
+        document.getElementById('hod-staff-list').innerHTML = '<em>Could not load staff.</em>';
+      }
+
+      // Active courses in department
+      try {
+        const c = await core.portalFetch('/api/courses?departmentId=' + (user.departmentId || ''));
+        const list = c.data || c || [];
+        document.getElementById('hod-t-courses').textContent = list.length;
+      } catch { document.getElementById('hod-t-courses').textContent = '—'; }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

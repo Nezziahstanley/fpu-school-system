@@ -4,66 +4,93 @@
     <div class="avatar" id="bur-dash-avatar">B</div>
     <div>
       <h1>Welcome, <span id="bur-dash-name">Bursar</span></h1>
-      <div class="sub">Bursary Department</div>
+      <div class="sub">Finance & Bursary</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="bur-dash-verified">—</strong>
-    <span>Total Verified</span>
+    <strong>Finance</strong>
+    <span>Department</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
-    <div class="tile-label">Verified Payments</div>
-    <div class="tile-value" id="bur-dash-vercount">—</div>
-    <div class="tile-sub" id="bur-dash-veramount">—</div>
-  </div>
-  <div class="tile tile-accent">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-    <div class="tile-label">Pending Payments</div>
-    <div class="tile-value" id="bur-dash-pendcount">—</div>
-    <div class="tile-sub" id="bur-dash-pendamount">—</div>
-  </div>
-  <div class="tile tile-blue">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
-    <div class="tile-label">Cleared Students</div>
-    <div class="tile-value" id="bur-dash-cleared">—</div>
-    <div class="tile-sub">all types</div>
-  </div>
-  <div class="tile tile-purple">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
-    <div class="tile-label">Total Records</div>
-    <div class="tile-value" id="bur-dash-total">—</div>
-    <div class="tile-sub">all statuses</div>
-  </div>
+  <div class="tile"><div class="tile-label">Today's Payments</div><div class="tile-value" id="bur-t-today">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Pending Verifications</div><div class="tile-value" id="bur-t-pending">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Total Collected (₦)</div><div class="tile-value" id="bur-t-total">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Clearances Awaiting</div><div class="tile-value" id="bur-t-clear">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('bursar-payments')">Verify Payments</a>
-  <a onclick="FPU_SPA.navigatePortal('bursar-fees')">Fee Structures</a>
-  <a onclick="FPU_SPA.navigatePortal('bursar-clearances')">Clearances</a>
-  <a onclick="FPU_SPA.navigatePortal('bursar-reports')">Reports</a>
+  <a class="btn btn-primary btn-sm" href="#bursar-payments">💰 Payments</a>
+  <a class="btn btn-outline btn-sm" href="#bursar-fees">📋 Fees</a>
+  <a class="btn btn-outline btn-sm" href="#bursar-clearances">✅ Clearances</a>
+  <a class="btn btn-outline btn-sm" href="#bursar-reports">📊 Reports</a>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Payments</h3></div>
+  <div class="panel-body">
+    <div id="bur-recent-list" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Payment Stats</h3></div>
+  <div class="panel-body">
+    <div id="bur-stats-block" class="muted small">Loading…</div>
+  </div>
 </div>
 
 <script>
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/bursar/dashboard');
-      const d = res.data || {};
-      document.getElementById('bur-dash-name').textContent = core.getPortalUser()?.firstName || 'Bursar';
-      if (photo) photo.renderMyAvatar(document.getElementById('bur-dash-avatar'), core.getPortalUser());
+      document.getElementById('bur-dash-name').textContent = user.firstName || 'Bursar';
+      if (photo) photo.renderMyAvatar(document.getElementById('bur-dash-avatar'), user);
 
-      const bs = d.byStatus || {};
-      document.getElementById('bur-dash-vercount').textContent = bs.verified || 0;
-      document.getElementById('bur-dash-veramount').textContent = core.formatMoney(d.totalVerified || 0);
-      document.getElementById('bur-dash-pendcount').textContent = bs.pending || 0;
-      document.getElementById('bur-dash-pendamount').textContent = core.formatMoney(d.totalPending || 0);
-      document.getElementById('bur-dash-cleared').textContent = (d.pendingClearances || {}).cleared || 0;
-      document.getElementById('bur-dash-total').textContent = Object.values(bs).reduce((a, b) => a + b, 0);
-    } catch (err) { core.showToast(err.message, 'error'); }
+      // Payment stats
+      try {
+        const s = await core.portalFetch('/api/payments/stats');
+        const d = s.data || s || {};
+        document.getElementById('bur-t-today').textContent  = d.today ?? 0;
+        document.getElementById('bur-t-pending').textContent = d.pending ?? 0;
+        document.getElementById('bur-t-total').textContent   = (d.totalAmount || 0).toLocaleString();
+        document.getElementById('bur-stats-block').innerHTML = `
+          <div class="fees-breakdown">
+            <div class="fees-row"><span>Verified today</span><strong>${d.todayVerified || 0}</strong></div>
+            <div class="fees-row"><span>Pending verification</span><strong>${d.pending || 0}</strong></div>
+            <div class="fees-row"><span>Rejected</span><strong>${d.rejected || 0}</strong></div>
+            <div class="fees-row"><span>Total collected</span><strong>₦${(d.totalAmount||0).toLocaleString()}</strong></div>
+          </div>`;
+      } catch {
+        document.getElementById('bur-stats-block').innerHTML = '<em>Stats unavailable.</em>';
+      }
+
+      // Clearances waiting
+      try {
+        const c = await core.portalFetch('/api/clearances/stats');
+        const d = c.data || c || {};
+        document.getElementById('bur-t-clear').textContent = d.pending ?? 0;
+      } catch { document.getElementById('bur-t-clear').textContent = '—'; }
+
+      // Recent payments
+      try {
+        const p = await core.portalFetch('/api/payments?limit=5');
+        const list = p.data || p || [];
+        document.getElementById('bur-recent-list').innerHTML = list.length
+          ? list.slice(0,5).map(x =>
+              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                 <strong>${x.studentName || 'Student'}</strong> — ₦${(x.amount||0).toLocaleString()}
+                 <span class="muted small">· ${x.status || ''} · ${x.reference || ''}</span>
+               </div>`).join('')
+          : '<em>No recent payments.</em>';
+      } catch {
+        document.getElementById('bur-recent-list').innerHTML = '<em>Could not load payments.</em>';
+      }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

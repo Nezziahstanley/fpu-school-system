@@ -4,59 +4,40 @@
     <div class="avatar" id="lec-dash-avatar">L</div>
     <div>
       <h1>Welcome, <span id="lec-dash-name">Lecturer</span></h1>
-      <div class="sub" id="lec-dash-dept">—</div>
+      <div class="sub">My Teaching Dashboard</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="lec-dash-session">—</strong>
-    <span>Current Session</span>
+    <strong id="lec-dash-dept">—</strong>
+    <span>Department</span>
   </div>
 </section>
 
 <div class="tile-grid">
-  <div class="tile">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/></svg></div>
-    <div class="tile-label">My Courses</div>
-    <div class="tile-value" id="lec-dash-courses">—</div>
-    <div class="tile-sub">courses allocated</div>
-  </div>
-  <div class="tile tile-blue">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 21v-1a6 6 0 0 1 12 0v1"/></svg></div>
-    <div class="tile-label">My Students</div>
-    <div class="tile-value" id="lec-dash-students">—</div>
-    <div class="tile-sub">unique students</div>
-  </div>
-  <div class="tile tile-accent">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div>
-    <div class="tile-label">Pending Results</div>
-    <div class="tile-value" id="lec-dash-pending">—</div>
-    <div class="tile-sub">drafts awaiting submission</div>
-  </div>
-  <div class="tile tile-purple">
-    <div class="tile-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/></svg></div>
-    <div class="tile-label">Notifications</div>
-    <div class="tile-value" id="lec-dash-notif">—</div>
-    <div class="tile-sub">unread</div>
-  </div>
+  <div class="tile"><div class="tile-label">My Courses</div><div class="tile-value" id="lec-t-courses">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">My Students</div><div class="tile-value" id="lec-t-students">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Pending Results</div><div class="tile-value" id="lec-t-pending">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Today's Classes</div><div class="tile-value" id="lec-t-today">—</div></div>
 </div>
 
 <div class="quick-actions">
-  <a onclick="FPU_SPA.navigatePortal('lecturer-courses')">My Courses</a>
-  <a onclick="FPU_SPA.navigatePortal('lecturer-attendance')">Take Attendance</a>
-  <a onclick="FPU_SPA.navigatePortal('lecturer-results')">Submit Results</a>
-  <a onclick="FPU_SPA.navigatePortal('lecturer-assignments')">Assignments</a>
-  <a onclick="FPU_SPA.navigatePortal('lecturer-materials')">Materials</a>
+  <a class="btn btn-primary btn-sm" href="#lecturer-courses">📚 My Courses</a>
+  <a class="btn btn-outline btn-sm" href="#lecturer-attendance">✅ Take Attendance</a>
+  <a class="btn btn-outline btn-sm" href="#lecturer-results">📊 Enter Results</a>
+  <a class="btn btn-outline btn-sm" href="#lecturer-materials">📁 Upload Materials</a>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>My Allocated Courses</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Semester</th></tr></thead>
-        <tbody id="lec-dash-course-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
-      </table>
-    </div>
+  <div class="panel-head"><h3>My Courses This Semester</h3></div>
+  <div class="panel-body">
+    <div id="lec-courses-list" class="muted small">Loading…</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Pending Result Submissions</h3></div>
+  <div class="panel-body">
+    <div id="lec-pending-list" class="muted small">Loading…</div>
   </div>
 </div>
 
@@ -64,31 +45,46 @@
   (async function () {
     const core = window.FPU_PORTAL;
     const photo = window.FPU_PHOTO;
+    const user = core.getPortalUser() || {};
     try {
-      const res = await core.portalFetch('/api/lecturer/dashboard');
-      const d = res.data || {};
-      const lec = d.lecturer || {};
+      document.getElementById('lec-dash-name').textContent = user.firstName || 'Lecturer';
+      if (photo) photo.renderMyAvatar(document.getElementById('lec-dash-avatar'), user);
 
-      document.getElementById('lec-dash-name').textContent = `${lec.firstName || ''} ${lec.lastName || ''}`.trim() || 'Lecturer';
-      document.getElementById('lec-dash-dept').textContent = lec.department?.name || '—';
-      document.getElementById('lec-dash-session').textContent = lec.currentSession?.name || '—';
+      // Courses assigned to this lecturer
+      const coursesRes = await core.portalFetch('/api/lecturers/' + user.id + '/courses');
+      const courses = coursesRes.data || coursesRes || [];
+      document.getElementById('lec-t-courses').textContent = courses.length;
+      const coursesList = document.getElementById('lec-courses-list');
+      if (!courses.length) {
+        coursesList.innerHTML = '<em>No courses assigned yet.</em>';
+      } else {
+        coursesList.innerHTML = courses.map(c =>
+          `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+             <strong>${c.code || ''}</strong> — ${c.title || 'Untitled'} 
+             <span class="muted small">(${c.units || 0} units, ${c.level || ''})</span>
+           </div>`).join('');
+      }
 
-      if (photo) photo.renderMyAvatar(document.getElementById('lec-dash-avatar'), lec);
+      // Pending results authored by this lecturer
+      const resultsRes = await core.portalFetch('/api/results?lecturerId=' + user.id + '&status=draft');
+      const results = resultsRes.data || resultsRes || [];
+      document.getElementById('lec-t-pending').textContent = results.length;
+      document.getElementById('lec-pending-list').innerHTML = results.length
+        ? results.slice(0,5).map(r =>
+            `<div style="padding:.4rem 0;"><strong>${r.courseCode||''}</strong> — ${r.sessionName||''} (${r.status||'draft'})</div>`
+          ).join('')
+        : '<em>Nothing pending. 🎉</em>';
 
-      document.getElementById('lec-dash-courses').textContent = d.totalCourses ?? 0;
-      document.getElementById('lec-dash-students').textContent = d.totalStudents ?? 0;
-      document.getElementById('lec-dash-pending').textContent = d.pendingResults ?? 0;
-      document.getElementById('lec-dash-notif').textContent = d.unreadNotifications ?? 0;
+      // Student count (approx — from reports endpoint filtered)
+      try {
+        const statsRes = await core.portalFetch('/api/reports/overview');
+        const s = statsRes.data || {};
+        document.getElementById('lec-t-students').textContent = s.students ?? '—';
+      } catch { document.getElementById('lec-t-students').textContent = '—'; }
 
-      const courses = d.courses || [];
-      document.getElementById('lec-dash-course-tbody').innerHTML = courses.length ? courses.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.course?.code || '')}</td>
-          <td>${core.escapeHtml(r.course?.title || '')}</td>
-          <td class="num">${r.course?.unit || 0}</td>
-          <td>${core.escapeHtml(r.allocation?.semester || '')}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No courses allocated yet.</td></tr>';
-    } catch (err) { core.showToast(err.message, 'error'); }
+      document.getElementById('lec-t-today').textContent = '—';
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   })();
 </script>

@@ -133,6 +133,45 @@
   const ALLOWED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
   // ---------------------------------------------------------
+  // Refresh BOTH the page avatar AND the topbar avatar
+  // ---------------------------------------------------------
+  function refreshAvatars(u) {
+    if (!u) return;
+    // Header avatar on this page
+    if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+      window.FPU_PHOTO.renderMyAvatar($('ph-avatar'), u);
+    }
+    // Topbar avatar (id="topbar-avatar" in portal/app.html)
+    const topbar = document.getElementById('topbar-avatar');
+    if (topbar && window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+      window.FPU_PHOTO.renderMyAvatar(topbar, u);
+    } else if (topbar && u.photoUrl) {
+      // Fallback: set as background image
+      topbar.style.backgroundImage = `url('${u.photoUrl}')`;
+      topbar.style.backgroundSize = 'cover';
+      topbar.style.backgroundPosition = 'center';
+      topbar.style.color = 'transparent';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Persist photoUrl into the localStorage user objects
+  // ---------------------------------------------------------
+  function saveUserToStorage(photoUrl) {
+    try {
+      for (const k of ['portal_user', 'fpu_portal_user', 'fpu_admin_user']) {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const u = JSON.parse(raw);
+        u.photoUrl = photoUrl;
+        localStorage.setItem(k, JSON.stringify(u));
+      }
+    } catch (e) {
+      console.warn('[photo] storage update failed:', e);
+    }
+  }
+
+  // ---------------------------------------------------------
   // Show existing photo (if any)
   // ---------------------------------------------------------
   function showPhoto(url) {
@@ -226,20 +265,13 @@
           const photoUrl = (json.data && json.data.photoUrl) || '';
           showPhoto(photoUrl);
 
-          // Update localStorage user object so the topbar avatar updates
-          try {
-            const keys = ['portal_user', 'fpu_portal_user'];
-            for (const k of keys) {
-              const raw = localStorage.getItem(k);
-              if (!raw) continue;
-              const u = JSON.parse(raw);
-              u.photoUrl = photoUrl;
-              localStorage.setItem(k, JSON.stringify(u));
-            }
-            if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
-              window.FPU_PHOTO.renderMyAvatar($('ph-avatar'), JSON.parse(localStorage.getItem('portal_user')));
-            }
-          } catch {}
+          // Update localStorage
+          saveUserToStorage(photoUrl);
+
+          // Refresh BOTH avatars immediately
+          const updatedUser = core.getPortalUser ? core.getPortalUser() : user;
+          updatedUser.photoUrl = photoUrl;
+          refreshAvatars(updatedUser);
 
           core.showToast && core.showToast('Photo uploaded successfully!', 'success');
         } else {
@@ -271,15 +303,12 @@
       showPhoto(null);
 
       // Update localStorage
-      try {
-        for (const k of ['portal_user', 'fpu_portal_user']) {
-          const raw = localStorage.getItem(k);
-          if (!raw) continue;
-          const u = JSON.parse(raw);
-          u.photoUrl = null;
-          localStorage.setItem(k, JSON.stringify(u));
-        }
-      } catch {}
+      saveUserToStorage(null);
+
+      // Refresh BOTH avatars immediately (with the null photo)
+      const updatedUser = core.getPortalUser ? core.getPortalUser() : user;
+      updatedUser.photoUrl = null;
+      refreshAvatars(updatedUser);
 
       core.showToast && core.showToast('Photo removed', 'success');
     } catch (e) {
@@ -322,12 +351,6 @@
   // Initialize
   // ---------------------------------------------------------
   showPhoto(user.photoUrl);
-
-  // Update the header avatar
-  if (user.photoUrl && window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
-    window.FPU_PHOTO.renderMyAvatar($('ph-avatar'), user);
-  } else if (user.firstName) {
-    $('ph-avatar').textContent = user.firstName[0].toUpperCase();
-  }
+  refreshAvatars(user);
 })();
 </script>

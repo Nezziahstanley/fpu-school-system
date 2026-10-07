@@ -9,6 +9,7 @@
   </div>
 </section>
 
+<!-- Filter bar — no Compose button (feature not yet available) -->
 <div class="filter-bar">
   <input type="search" id="ms-search" placeholder="Search messages…" />
   <select id="ms-status">
@@ -17,7 +18,6 @@
     <option value="read">Read</option>
   </select>
   <button class="btn btn-outline btn-sm" id="ms-refresh">Refresh</button>
-  <button class="btn btn-primary btn-sm" id="ms-compose">✏ Compose</button>
 </div>
 
 <section class="panel">
@@ -37,35 +37,51 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  let ALL = [], FILTERED = [];
+  let ALL = [];
+  let FILTERED = [];
 
+  // ----------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------
   function render() {
     $('ms-count').textContent = FILTERED.length;
 
+    // Empty state
     if (!FILTERED.length) {
       $('ms-list').innerHTML = `
-        <div style="text-align:center;padding:3rem 1rem;color:#94a3b8;">
-          <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
-          <p style="font-size:14px;font-weight:500;">No messages yet.</p>
-          <p style="font-size:12.5px;margin-top:.5rem;">Messages from staff and students will appear here.</p>
+        <div style="text-align:center;padding:3.5rem 1rem;color:#94a3b8;">
+          <div style="font-size:3.5rem;margin-bottom:1rem;">📭</div>
+          <p style="font-size:14.5px;font-weight:600;color:#475569;margin:0;">No messages yet</p>
+          <p style="font-size:12.5px;margin:.5rem 0 0;color:#94a3b8;">
+            Messages from staff and students will appear here once the messaging system is enabled.
+          </p>
         </div>`;
       return;
     }
 
+    // Message list
     $('ms-list').innerHTML = FILTERED.map((m) => `
       <div style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;${m.isRead ? '' : 'background:#f0fdf4;'}" data-id="${m.id}">
-        <div style="display:flex;justify-content:space-between;align-items:start;">
-          <strong>${esc(m.senderName || m.from || 'System')}</strong>
-          <span class="muted small">${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}</span>
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <strong style="color:#0f172a;">${esc(m.senderName || m.from || 'System')}</strong>
+          <span class="muted small" style="white-space:nowrap;">
+            ${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}
+          </span>
         </div>
-        <div style="margin-top:.35rem;color:#374151;font-weight:500;">${esc(m.subject || 'No subject')}</div>
-        <div style="margin-top:.25rem;color:#64748b;font-size:13px;">${esc((m.preview || m.body || '').slice(0, 100))}</div>
+        <div style="margin-top:.35rem;color:#1f2937;font-weight:500;">${esc(m.subject || 'No subject')}</div>
+        <div style="margin-top:.25rem;color:#64748b;font-size:13px;line-height:1.5;">
+          ${esc((m.preview || m.body || '').slice(0, 120))}${(m.body || '').length > 120 ? '…' : ''}
+        </div>
       </div>`).join('');
   }
 
+  // ----------------------------------------------------------
+  // Filter
+  // ----------------------------------------------------------
   function applyFilter() {
     const q = ($('ms-search').value || '').trim().toLowerCase();
     const st = $('ms-status').value;
+
     FILTERED = ALL.filter((m) => {
       const hay = `${m.senderName || ''} ${m.subject || ''} ${m.body || ''}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
@@ -73,31 +89,42 @@
       if (st === 'read' && !m.isRead) return false;
       return true;
     });
+
     render();
   }
 
-  // Messages API doesn't exist yet — show empty state.
-  // When the endpoint is built, un-comment the try block below.
+  // ----------------------------------------------------------
+  // Load messages
+  // ----------------------------------------------------------
+  // The messaging backend isn't built yet, so we gracefully
+  // show the empty state. When `/api/messages` is ready,
+  // uncomment the try block below to fetch real data.
+  // ----------------------------------------------------------
   async function load() {
     // try {
     //   const res = await core.portalFetch('/api/messages');
     //   const payload = res.data || res || {};
     //   const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
+    //   // Handle possible nesting: { message: {...} }
     //   ALL = raw.map((m) => m.message || m);
-    // } catch {
+    // } catch (err) {
+    //   console.warn('[messages] endpoint unavailable, showing empty state');
     //   ALL = [];
     // }
+
+    // Hardcoded empty for now
     ALL = [];
     applyFilter();
   }
 
+  // ----------------------------------------------------------
+  // Wire up
+  // ----------------------------------------------------------
   $('ms-search').addEventListener('input', applyFilter);
   $('ms-status').addEventListener('change', applyFilter);
   $('ms-refresh').addEventListener('click', load);
-  $('ms-compose').addEventListener('click', () => {
-    core.showToast && core.showToast('Compose feature coming soon', 'info');
-  });
 
+  // Go
   load();
 })();
 </script>

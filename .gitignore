@@ -107,3 +107,9 @@ docker-compose.override.yml
 .stylelintcache
 *.tgz
 *.tar.gz
+# ------------------------------------------------------------
+# Local-only deployment artifacts (do not commit)
+# ------------------------------------------------------------
+_deploy_backup_*/
+dump.txt
+*.dump.txt

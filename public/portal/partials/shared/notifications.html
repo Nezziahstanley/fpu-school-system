@@ -1,35 +1,102 @@
-﻿<section class="greeting">
+﻿<!-- Shared → Notifications -->
+<section class="greeting">
   <div class="who">
-    <div class="avatar">N</div>
+    <div class="avatar">🔔</div>
     <div>
       <h1>Notifications</h1>
-      <div class="sub">Your notifications</div>
+      <div class="sub">Recent activity and alerts</div>
     </div>
   </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Recent</h3></div>
-  <div class="panel-body">
-    <div id="nt-list" class="muted small">Loading…</div>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="nt-search" placeholder="Search notifications…" />
+  <select id="nt-status">
+    <option value="">All</option>
+    <option value="unread">Unread</option>
+    <option value="read">Read</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="nt-mark-all">Mark All Read</button>
 </div>
 
+<section class="panel">
+  <div class="panel-head"><h3>Recent</h3><span class="badge" id="nt-count">0</span></div>
+  <div class="panel-body" id="nt-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    try {
-      const r = await core.portalFetch('/api/notifications');
-      const list = r.data || r || [];
-      document.getElementById('nt-list').innerHTML = list.length
-        ? list.slice(0, 10).map(n =>
-            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-               <strong>${core.escapeHtml(n.title || 'Notification')}</strong>
-               <div class="muted small">${core.escapeHtml(n.body || '')}</div>
-             </div>`).join('')
-        : '<em>No notifications.</em>';
-    } catch {
-      document.getElementById('nt-list').innerHTML = '<em>Could not load notifications.</em>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [], FILTERED = [];
+
+  function render() {
+    $('nt-count').textContent = FILTERED.length;
+    if (!FILTERED.length) {
+      $('nt-list').innerHTML = `
+        <div style="text-align:center;padding:3rem 1rem;color:#94a3b8;">
+          <div style="font-size:3rem;margin-bottom:1rem;">🔔</div>
+          <p style="font-size:14px;">No notifications.</p>
+          <p style="font-size:12px;margin-top:.5rem;">You'll see alerts here when something needs your attention.</p>
+        </div>`;
+      return;
     }
-  })();
+    $('nt-list').innerHTML = FILTERED.map((n) => `
+      <div style="padding:1rem;border-bottom:1px solid #eee;${n.isRead ? '' : 'background:#f0fdf4;'}">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <div style="flex:1;">
+            <strong>${esc(n.title || 'Notification')}</strong>
+            <p style="margin:.25rem 0 0;color:#374151;">${esc(n.body || n.message || '')}</p>
+          </div>
+          <div class="muted small" style="white-space:nowrap;">
+            ${n.createdAt ? new Date(n.createdAt).toLocaleDateString() : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('nt-search').value || '').trim().toLowerCase();
+    const st = $('nt-status').value;
+    FILTERED = ALL.filter((n) => {
+      const hay = `${n.title || ''} ${n.body || ''} ${n.message || ''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (st === 'unread' && n.isRead) return false;
+      if (st === 'read' && !n.isRead) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
+    try {
+      const res = await core.portalFetch('/api/notifications');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.notifications || []);
+      applyFilter();
+    } catch (err) {
+      ALL = [];
+      applyFilter();
+    }
+  }
+
+  $('nt-search').addEventListener('input', applyFilter);
+  $('nt-status').addEventListener('change', applyFilter);
+  $('nt-mark-all').addEventListener('click', async () => {
+    try {
+      await core.portalFetch('/api/notifications/read-all', { method: 'POST' });
+      core.showToast('All marked as read', 'success');
+      load();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  });
+
+  load();
+})();
 </script>

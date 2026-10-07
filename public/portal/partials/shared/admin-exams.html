@@ -1,35 +1,178 @@
-<!-- Portal → Shared → Exam schedule -->
-<section class="page-head">
-  <div><h2>Exam Schedule</h2></div>
+<!-- Shared → Exams (read-only for HOD, manage for admin/exam-officer) -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📝</div>
+    <div>
+      <h1>Exams</h1>
+      <div class="sub" id="ex-sub">Exam schedule for your department</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Upcoming Exams</h3></div>
+<div class="filter-bar">
+  <input type="search" id="ex-search" placeholder="Search course, venue, session…" />
+  <select id="ex-session"><option value="">All Sessions</option></select>
+  <select id="ex-semester">
+    <option value="">All Semesters</option>
+    <option value="First">First</option>
+    <option value="Second">Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="ex-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="ex-export">Export CSV</button>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Exams</span><span class="value" id="ex-total">—</span></div><div class="ic">📝</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Upcoming</span><span class="value" id="ex-upcoming">—</span></div><div class="ic">📅</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Past</span><span class="value" id="ex-past">—</span></div><div class="ic">✅</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">ND / HND</span><span class="value" id="ex-split">—</span></div><div class="ic">🎯</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Exam Schedule</h3><span class="badge" id="ex-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Venue</th></tr></thead>
-        <tbody id="shared-exams-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Course</th><th>Title</th><th>Date</th><th>Time</th>
+            <th>Venue</th><th>Session</th><th>Level</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ex-tbody">
+          <tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-exams-tbody');
-    try {
-      const res = await core.portalFetch('/api/student/exams');
-      const rows = res.data || [];
-      box.innerHTML = rows.length ? rows.map((r) => `
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const deptId = user.departmentId;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [], FILTERED = [];
+
+  if (user.departmentName) {
+    $('ex-sub').textContent = `Exam schedule for ${user.departmentName}`;
+  }
+
+  function getCode(e) { return e.courseCode || e.code || '—'; }
+  function getTitle(e) { return e.courseTitle || e.title || '—'; }
+  function getDate(e) {
+    const d = e.examDate || e.date;
+    return d ? new Date(d).toLocaleDateString() : '—';
+  }
+  function getTime(e) {
+    const t = e.startTime || e.time || '';
+    const end = e.endTime || '';
+    return t ? (end ? `${t} - ${end}` : t) : '—';
+  }
+  function getVenue(e) { return e.venue || e.location || '—'; }
+  function getSession(e) { return e.sessionName || e.session || '—'; }
+  function getSemester(e) { return e.semesterName || e.semester || '—'; }
+  function getLevel(e) { return String(e.level || e.courseLevel || '').toUpperCase() || '—'; }
+  function isUpcoming(e) {
+    const d = e.examDate || e.date;
+    return d ? new Date(d) >= new Date() : false;
+  }
+
+  function render() {
+    $('ex-count').textContent = FILTERED.length;
+    if (!FILTERED.length) {
+      $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled.</td></tr>';
+      return;
+    }
+    $('ex-tbody').innerHTML = FILTERED.map((e) => {
+      const level = getLevel(e);
+      const chipClass = 'chip-' + level.toLowerCase();
+      const upcoming = isUpcoming(e);
+      return `
         <tr>
-          <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
-          <td>${core.formatDate(r.exam.examDate)}</td>
-          <td>${core.escapeHtml(r.exam.startTime)} – ${core.escapeHtml(r.exam.endTime)}</td>
-          <td>${core.escapeHtml(r.exam.venue || '')}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No exams scheduled.</td></tr>';
-    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  })();
+          <td><strong>${esc(getCode(e))}</strong></td>
+          <td>${esc(getTitle(e))}</td>
+          <td>${esc(getDate(e))}</td>
+          <td>${esc(getTime(e))}</td>
+          <td>${esc(getVenue(e))}</td>
+          <td>${esc(getSession(e))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td><span class="badge-status ${upcoming ? 'badge-active' : 'badge-inactive'}">${upcoming ? 'Upcoming' : 'Past'}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('ex-search').value || '').trim().toLowerCase();
+    const ses = $('ex-session').value;
+    const sem = $('ex-semester').value;
+    FILTERED = ALL.filter((e) => {
+      const hay = `${getCode(e)} ${getTitle(e)} ${getVenue(e)} ${getSession(e)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (ses && getSession(e) !== ses) return false;
+      if (sem && getSemester(e) !== sem) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    const total = ALL.length;
+    const upcoming = ALL.filter(isUpcoming).length;
+    const past = total - upcoming;
+    const nd = ALL.filter((e) => getLevel(e) === 'ND').length;
+    const hnd = ALL.filter((e) => getLevel(e) === 'HND').length;
+
+    $('ex-total').textContent = total;
+    $('ex-upcoming').textContent = upcoming;
+    $('ex-past').textContent = past;
+    $('ex-split').textContent = `${nd} / ${hnd}`;
+  }
+
+  async function load() {
+    $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/exams');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.exams || []);
+
+      const sessions = [...new Set(ALL.map(getSession).filter((s) => s && s !== '—'))];
+      const sel = $('ex-session');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">All Sessions</option>' +
+        sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      sel.value = cur;
+
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[exams]', err);
+      $('ex-tbody').innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const headers = ['Course', 'Title', 'Date', 'Time', 'Venue', 'Session', 'Semester', 'Level'];
+    const rows = FILTERED.map((e) => [getCode(e), getTitle(e), getDate(e), getTime(e), getVenue(e), getSession(e), getSemester(e), getLevel(e)]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `exams-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('ex-search').addEventListener('input', applyFilter);
+  $('ex-session').addEventListener('change', applyFilter);
+  $('ex-semester').addEventListener('change', applyFilter);
+  $('ex-refresh').addEventListener('click', load);
+  $('ex-export').addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

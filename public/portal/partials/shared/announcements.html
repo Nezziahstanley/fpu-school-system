@@ -1,6 +1,7 @@
-﻿<section class="greeting">
+﻿<!-- Shared → Announcements -->
+<section class="greeting">
   <div class="who">
-    <div class="avatar">A</div>
+    <div class="avatar">📢</div>
     <div>
       <h1>Announcements</h1>
       <div class="sub">Institution-wide announcements</div>
@@ -8,28 +9,90 @@
   </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Latest</h3></div>
-  <div class="panel-body">
-    <div id="an-list" class="muted small">Loading…</div>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="an-search" placeholder="Search announcements…" />
+  <select id="an-category">
+    <option value="">All Categories</option>
+    <option value="general">General</option>
+    <option value="academic">Academic</option>
+    <option value="event">Event</option>
+    <option value="urgent">Urgent</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="an-refresh">Refresh</button>
 </div>
 
+<section class="panel">
+  <div class="panel-head"><h3>Latest Announcements</h3><span class="badge" id="an-count">0</span></div>
+  <div class="panel-body" id="an-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    try {
-      const r = await core.portalFetch('/api/announcements');
-      const list = r.data || r || [];
-      document.getElementById('an-list').innerHTML = list.length
-        ? list.slice(0, 10).map(a =>
-            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-               <strong>${core.escapeHtml(a.title || 'Announcement')}</strong>
-               <div class="muted small">${core.escapeHtml((a.body || '').slice(0, 160))}</div>
-             </div>`).join('')
-        : '<em>No announcements.</em>';
-    } catch {
-      document.getElementById('an-list').innerHTML = '<em>Could not load announcements.</em>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [], FILTERED = [];
+
+  function getTitle(a) { return a.title || 'Untitled'; }
+  function getBody(a) { return a.body || a.content || a.message || ''; }
+  function getCategory(a) { return (a.category || 'general').toLowerCase(); }
+  function getDate(a) { return a.createdAt || a.publishedAt || a.date; }
+
+  function render() {
+    $('an-count').textContent = FILTERED.length;
+    if (!FILTERED.length) {
+      $('an-list').innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">No announcements.</p>';
+      return;
     }
-  })();
+    $('an-list').innerHTML = FILTERED.map((a) => `
+      <div style="padding:1rem 0;border-bottom:1px solid #eee;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;">
+              ${esc(getCategory(a))}
+            </div>
+            <strong style="font-size:1rem;color:#0f172a;">${esc(getTitle(a))}</strong>
+            <p style="margin:.5rem 0 0;color:#374151;line-height:1.6;">${esc(getBody(a))}</p>
+          </div>
+          <div class="muted small" style="white-space:nowrap;">
+            ${getDate(a) ? new Date(getDate(a)).toLocaleDateString() : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('an-search').value || '').trim().toLowerCase();
+    const cat = $('an-category').value;
+    FILTERED = ALL.filter((a) => {
+      const hay = `${getTitle(a)} ${getBody(a)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (cat && getCategory(a) !== cat) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
+    try {
+      const res = await core.portalFetch('/api/announcements');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      applyFilter();
+    } catch (err) {
+      console.error('[announcements]', err);
+      $('an-list').innerHTML = `<div class="alert alert-error">Could not load announcements: ${esc(err.message)}</div>`;
+    }
+  }
+
+  $('an-search').addEventListener('input', applyFilter);
+  $('an-category').addEventListener('change', applyFilter);
+  $('an-refresh').addEventListener('click', load);
+
+  load();
+})();
 </script>

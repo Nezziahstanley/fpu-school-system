@@ -2,98 +2,234 @@
 <section class="greeting">
   <div class="who">
     <div class="avatar">W</div>
-    <div><h1>Department Staff</h1><div class="sub">Lecturers and support staff in your department</div></div>
+    <div>
+      <h1>Department Staff</h1>
+      <div class="sub" id="st-dept-sub">Lecturers and staff in your department</div>
+    </div>
   </div>
 </section>
 
+<!-- Filter bar -->
 <div class="filter-bar">
-  <input type="search" id="st-search" placeholder="Search name, email…" />
+  <input type="search" id="st-search" placeholder="Search name, email, or phone…" />
   <select id="st-role">
     <option value="">All Roles</option>
-    <option>lecturer</option>
-    <option>hod</option>
+    <option value="hod">HOD</option>
+    <option value="lecturer">Lecturer</option>
+  </select>
+  <select id="st-status">
+    <option value="">All Status</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
   </select>
   <button class="btn btn-outline btn-sm" id="st-export">Export CSV</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Staff</h3><span class="badge" id="st-count">0</span></div>
-  <div class="panel-body">
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Staff</span><span class="value" id="st-total">—</span></div>
+    <div class="ic">👥</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Lecturers</span><span class="value" id="st-lecturers">—</span></div>
+    <div class="ic">👨‍🏫</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">HODs</span><span class="value" id="st-hods">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Active</span><span class="value" id="st-active">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Staff</h3>
+    <span class="badge" id="st-count">0</span>
+  </div>
+  <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Full Name</th><th>Role</th><th>Email</th><th>Phone</th>
-            <th>Courses</th><th>Status</th>
+            <th>Full Name</th>
+            <th>Role</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Courses</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody id="st-tbody">
-          <tr><td colspan="6" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL;
-  let ALL = [], FILTERED = [];
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const deptId = user.departmentId;
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  function render() {
-    $('st-count').textContent = FILTERED.length;
-    $('st-tbody').innerHTML = FILTERED.length
-      ? FILTERED.map((s) => `
-          <tr>
-            <td><strong>${esc(s.firstName || '')} ${esc(s.lastName || '')}</strong></td>
-            <td><span class="chip chip-${(s.role || '').toLowerCase()}">${esc(s.role || '')}</span></td>
-            <td>${esc(s.email || '')}</td>
-            <td>${esc(s.phone || '—')}</td>
-            <td>${s.courseCount || 0}</td>
-            <td><span class="badge-status ${s.isActive ? 'badge-active' : 'badge-inactive'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
-          </tr>`).join('')
-      : '<tr><td colspan="6" class="empty-cell">No staff found.</td></tr>';
+  let ALL = [];
+  let FILTERED = [];
+
+  if (user.departmentName) {
+    const el = $('st-dept-sub');
+    if (el) el.textContent = `Lecturers and staff in ${user.departmentName}`;
   }
 
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getRole(s) {
+    return String(s.role || '').toLowerCase().trim();
+  }
+  function getRoleLabel(s) {
+    const r = getRole(s);
+    if (r === 'hod') return 'HOD';
+    if (r === 'lecturer') return 'Lecturer';
+    return r || '—';
+  }
+  function getRoleChipClass(s) {
+    const r = getRole(s);
+    if (r === 'hod') return 'chip-hod';
+    if (r === 'lecturer') return 'chip-lecturer';
+    return 'chip';
+  }
+  function isActive(s) {
+    return s.isActive === true || s.isActive === 'true' || s.isActive === 1;
+  }
+  function getCourseCount(s) {
+    // Try multiple field names
+    if (s.courseCount != null) return s.courseCount;
+    if (s.coursesAssigned != null) return s.coursesAssigned;
+    if (Array.isArray(s.courses)) return s.courses.length;
+    return 0;
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('st-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('st-tbody').innerHTML =
+        '<tr><td colspan="6" class="empty">No staff match your filters.</td></tr>';
+      return;
+    }
+
+    $('st-tbody').innerHTML = FILTERED.map((s) => {
+      const active = isActive(s);
+      return `
+        <tr>
+          <td><strong>${esc(s.firstName || '')} ${esc(s.lastName || '')}</strong></td>
+          <td><span class="chip ${getRoleChipClass(s)}">${esc(getRoleLabel(s))}</span></td>
+          <td>${esc(s.email || '—')}</td>
+          <td>${esc(s.phone || '—')}</td>
+          <td>${getCourseCount(s)}</td>
+          <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
   function applyFilter() {
-    const q = ($('st-search').value || '').toLowerCase();
-    const r = $('st-role').value;
+    const q = ($('st-search').value || '').trim().toLowerCase();
+    const role = $('st-role').value;
+    const st = $('st-status').value;
+
     FILTERED = ALL.filter((s) => {
-      const hay = `${s.firstName||''} ${s.lastName||''} ${s.email||''}`.toLowerCase();
+      const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.email || ''} ${s.phone || ''}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (r && s.role !== r) return false;
+      if (role && getRole(s) !== role) return false;
+      if (st === 'active' && !isActive(s)) return false;
+      if (st === 'inactive' && isActive(s)) return false;
       return true;
     });
+
     render();
   }
 
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const lecturers = ALL.filter((s) => getRole(s) === 'lecturer').length;
+    const hods = ALL.filter((s) => getRole(s) === 'hod').length;
+    const active = ALL.filter(isActive).length;
+
+    $('st-total').textContent = total;
+    $('st-lecturers').textContent = lecturers;
+    $('st-hods').textContent = hods;
+    $('st-active').textContent = active;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
   async function load() {
     try {
-      const user = core.getPortalUser() || {};
-      const r = await core.portalFetch('/api/staff?departmentId=' + (user.departmentId || ''));
-      ALL = r.data || r || [];
+      const res = await core.portalFetch('/api/staff?departmentId=' + deptId);
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload)
+        ? payload
+        : (payload.rows || payload.staff || []);
+
+      console.log('[hod-staff] Loaded', ALL.length, 'staff. Sample:', ALL[0]);
+
+      updateStats();
       applyFilter();
-    } catch (e) {
-      $('st-tbody').innerHTML = `<tr><td colspan="6" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    } catch (err) {
+      console.error('[hod-staff]', err);
+      $('st-tbody').innerHTML =
+        `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
   function exportCsv() {
-    const rows = [['Name','Role','Email','Phone','Courses','Status']];
-    FILTERED.forEach((s) => rows.push([`${s.firstName} ${s.lastName}`, s.role, s.email, s.phone, s.courseCount, s.isActive ? 'Active' : 'Inactive']));
-    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const headers = ['Full Name', 'Role', 'Email', 'Phone', 'Courses', 'Status'];
+    const rows = FILTERED.map((s) => [
+      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+      getRoleLabel(s),
+      s.email || '',
+      s.phone || '',
+      getCourseCount(s),
+      isActive(s) ? 'Active' : 'Inactive',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `hod-staff-${Date.now()}.csv`;
+    a.download = `hod-staff-${(user.departmentCode || 'dept')}-${Date.now()}.csv`;
     a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   $('st-search').addEventListener('input', applyFilter);
   $('st-role').addEventListener('change', applyFilter);
+  $('st-status').addEventListener('change', applyFilter);
   $('st-export').addEventListener('click', exportCsv);
 
   load();

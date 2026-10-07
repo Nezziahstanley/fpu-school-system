@@ -342,7 +342,44 @@
       const list = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
       $('hod-stat-verified').textContent = list.filter(x => x.status === 'hod_verified').length;
       $('hod-stat-published').textContent = list.filter(x => x.status === 'published').length;
-    } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }
+    } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }    // ----------------------------------------------------------
+    // Department-scoped counts
+    // ----------------------------------------------------------
+    // Step 1: get the department's students (16 rows)
+    let deptStudentIds = [];
+    try {
+      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
+      const payload = s.data || s || {};
+      const students = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+      deptStudentIds = students.map((x) => x.id);
+    } catch {
+      deptStudentIds = [];
+    }
+
+    // Step 2: fetch registrations + results, then filter to only our students
+    try {
+      const rg = await core.portalFetch('/api/registrations');
+      const payload = rg.data || rg || {};
+      const allRegs = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
+      const deptRegs = deptStudentIds.length
+        ? allRegs.filter((r) => deptStudentIds.includes(r.studentId))
+        : [];
+      $('hod-stat-registered').textContent = deptRegs.length;
+    } catch { $('hod-stat-registered').textContent = '—'; }
+
+    try {
+      const rs = await core.portalFetch('/api/results');
+      const payload = rs.data || rs || {};
+      const allResults = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
+      const deptResults = deptStudentIds.length
+        ? allResults.filter((r) => deptStudentIds.includes(r.studentId))
+        : [];
+      $('hod-stat-verified').textContent = deptResults.filter((x) => x.status === 'hod_verified').length;
+      $('hod-stat-published').textContent = deptResults.filter((x) => x.status === 'published').length;
+    } catch {
+      $('hod-stat-verified').textContent = '—';
+      $('hod-stat-published').textContent = '—';
+    }
 
     // Students with no registration
     try {

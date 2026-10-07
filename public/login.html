@@ -160,18 +160,52 @@
 
         const role = String(user?.role || '').toLowerCase();
 
-        // ---- Single-step smart routing ----
-        let destination;
-        let message;
+        // ---- Role → destination map ----
+        // All staff roles (and admin) share the same portal shell,
+        // which loads the correct per-role dashboard partial.
+        const ROLE_ROUTES = {
+          // Student portal
+          student:           '/portal/app.html',
 
-        if (role === 'student') {
-          destination = '/portal/app.html';
-          message = '✅ Welcome back! Taking you to your dashboard…';
-        } else {
-          // Every other role is staff / admin
-          destination = '/admin/app.html';
-          message = '✅ Welcome! Taking you to your staff dashboard…';
-        }
+          // Applicant tracking
+          applicant:         '/apply-status.html',
+
+          // Staff portal (portal-spa.js picks the dashboard by role)
+          lecturer:          '/portal/app.html',
+          hod:               '/portal/app.html',
+          bursar:            '/portal/app.html',
+          rector:            '/portal/app.html',
+          registrar:         '/portal/app.html',
+          librarian:         '/portal/app.html',
+          exam_officer:      '/portal/app.html',
+          academic_officer:  '/portal/app.html',
+          admission_officer: '/portal/app.html',
+
+          // System admins
+          admin:             '/portal/app.html',
+          superadmin:        '/portal/app.html',
+        };
+
+        const destination = ROLE_ROUTES[role] || '/portal/app.html';
+
+        // Friendly per-role welcome messages
+        const WELCOME = {
+          student:           '✅ Welcome back! Taking you to your student dashboard…',
+          applicant:         '✅ Taking you to your application status…',
+          lecturer:          '✅ Welcome! Taking you to your lecturer dashboard…',
+          hod:               '✅ Welcome! Taking you to your HOD dashboard…',
+          bursar:            '✅ Welcome! Taking you to your bursar dashboard…',
+          rector:            '✅ Welcome! Taking you to your dashboard…',
+          registrar:         '✅ Welcome! Taking you to your registrar dashboard…',
+          librarian:         '✅ Welcome! Taking you to your librarian dashboard…',
+          exam_officer:      '✅ Welcome! Taking you to your exam officer dashboard…',
+          academic_officer:  '✅ Welcome! Taking you to your academic officer dashboard…',
+          admission_officer: '✅ Welcome! Taking you to your admission officer dashboard…',
+          admin:             '✅ Welcome! Taking you to your admin dashboard…',
+          superadmin:        '✅ Welcome! Taking you to your dashboard…',
+        };
+
+        const message = WELCOME[role] || '✅ Login successful. Redirecting…';
 
         alertBox.className = 'alert alert-success';
         alertBox.textContent = message;

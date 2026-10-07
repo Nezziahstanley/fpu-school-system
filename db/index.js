@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const { Pool } = require('pg');
 const { drizzle } = require('drizzle-orm/node-postgres');
+const { sql } = require('drizzle-orm');
 const schema = require('./schema');
 
 const connectionString = process.env.DATABASE_URL;
@@ -31,4 +32,5 @@ async function close() {
   await pool.end();
 }
 
-module.exports = { db, pool, close, schema };
+module.exports = { db, pool, close, schema, sql };
+

@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — User queries
 // Used by: routes/adminAuth, routes/adminUsers, routes/students,
 //          routes/staff, routes/hods, routes/lecturers,
@@ -9,7 +9,6 @@
 
 const { db, schema, sql } = require('..');
 const { eq, and, or, ilike, inArray, desc, asc, isNull } = require('drizzle-orm');
-
 const { users, departments, programmes, schools } = schema;
 
 // ------------------------------------------------------------

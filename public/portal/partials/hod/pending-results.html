@@ -1,66 +1,171 @@
-<!-- Portal → HOD → Pending Results -->
-<section class="page-head">
-  <div><h2>Pending Results</h2><p class="muted small">Submitted by lecturers, awaiting HOD verification</p></div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="window.__hodPendLoad()">Refresh</button>
+﻿<!-- Portal → HOD → Pending Results -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">R</div>
+    <div>
+      <h1>Pending Results</h1>
+      <div class="sub">Results submitted by lecturers awaiting your approval</div>
+    </div>
   </div>
 </section>
 
+<div class="filter-bar">
+  <input type="search" id="pr-search" placeholder="Search course, lecturer, session…" />
+  <select id="pr-session"><option value="">All Sessions</option></select>
+  <select id="pr-semester">
+    <option value="">All Semesters</option>
+    <option>First</option>
+    <option>Second</option>
+  </select>
+  <select id="pr-level">
+    <option value="">All Levels</option>
+    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="pr-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="pr-export">Export CSV</button>
+</div>
+
 <div class="panel">
-  <div class="panel-head"><h3>Submitted Results</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Student</th><th>Course</th><th>Score</th><th>Grade</th><th>Submitted</th><th>Actions</th></tr></thead>
-        <tbody id="hod-pend-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+  <div class="panel-head"><h3>Awaiting Approval</h3><span class="badge" id="pr-count">0</span></div>
+  <div class="panel-body">
+    <div id="pr-table-wrap" class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Title</th>
+            <th>Lecturer</th>
+            <th>Session</th>
+            <th>Sem</th>
+            <th>Level</th>
+            <th>Students</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="pr-tbody">
+          <tr><td colspan="9" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
 <script>
-  window.__hodPendLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('hod-pend-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch('/api/hod/pending-results');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}<br/><span class="small muted">${core.escapeHtml(r.student?.matricNumber || '')}</span></td>
-          <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
-          <td class="num">${r.result.score}</td>
-          <td><span class="grade ${core.escapeHtml(r.result.grade || '')}">${core.escapeHtml(r.result.grade || '')}</span></td>
-          <td>${core.formatDate(r.result.submittedAt)}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" onclick="window.__hodVerify(${r.result.id})">Verify</button>
-            <button class="btn btn-sm btn-ghost" onclick="window.__hodReject(${r.result.id})">Reject</button>
-          </td>
-        </tr>
-      `).join('') : '<tr><td colspan="6" class="empty">No pending results.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  let ALL = [], FILTERED = [];
 
-  window.__hodVerify = async function (id) {
-    const core = window.FPU_PORTAL;
-    try {
-      await core.portalFetch(`/api/hod/pending-results/${id}/verify`, { method: 'POST' });
-      core.showToast('Result verified.', 'success');
-      window.__hodPendLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
 
-  window.__hodReject = async function (id) {
-    const core = window.FPU_PORTAL;
-    const reason = prompt('Reason for rejection:');
-    if (reason === null) return;
-    try {
-      await core.portalFetch(`/api/hod/pending-results/${id}/reject`, { method: 'POST', body: { reason } });
-      core.showToast('Result rejected.', 'warning');
-      window.__hodPendLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+  function render() {
+    const tbody = $('pr-tbody');
+    $('pr-count').textContent = FILTERED.length;
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-cell">No pending results 🎉</td></tr>';
+      return;
+    }
+    tbody.innerHTML = FILTERED.map((r) => `
+      <tr data-id="${r.id}">
+        <td><strong>${esc(r.courseCode || '')}</strong></td>
+        <td>${esc(r.courseTitle || '')}</td>
+        <td>${esc(r.lecturerName || '')}</td>
+        <td>${esc(r.sessionName || '')}</td>
+        <td>${esc(r.semester || '')}</td>
+        <td><span class="chip chip-${(r.level || '').toLowerCase()}">${esc(r.level || '')}</span></td>
+        <td>${r.studentCount || 0}</td>
+        <td>${r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '—'}</td>
+        <td class="row-actions">
+          <button class="btn btn-primary btn-xs" data-act="approve">Approve</button>
+          <button class="btn btn-outline btn-xs" data-act="reject">Reject</button>
+        </td>
+      </tr>`).join('');
+  }
 
-  window.__hodPendLoad();
+  function applyFilter() {
+    const q = ($('pr-search').value || '').toLowerCase();
+    const ses = $('pr-session').value;
+    const sem = $('pr-semester').value;
+    const lvl = $('pr-level').value;
+    FILTERED = ALL.filter((r) => {
+      const hay = `${r.courseCode||''} ${r.courseTitle||''} ${r.lecturerName||''} ${r.sessionName||''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (ses && r.sessionName !== ses) return false;
+      if (sem && r.semester !== sem) return false;
+      if (lvl && r.level !== lvl) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
+    $('pr-tbody').innerHTML = '<tr><td colspan="9" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const r = await core.portalFetch('/api/results/pending-hod');
+      ALL = r.data || r || [];
+
+      // Populate session dropdown
+      const sessions = [...new Set(ALL.map((x) => x.sessionName).filter(Boolean))];
+      const sesSel = $('pr-session');
+      const cur = sesSel.value;
+      sesSel.innerHTML = '<option value="">All Sessions</option>' +
+        sessions.map((s) => `<option>${esc(s)}</option>`).join('');
+      sesSel.value = cur;
+
+      applyFilter();
+    } catch (e) {
+      $('pr-tbody').innerHTML = `<tr><td colspan="9" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+      core.showToast && core.showToast(e.message, 'error');
+    }
+  }
+
+  async function approve(id) {
+    if (!confirm('Approve this result sheet?')) return;
+    try {
+      await core.portalFetch(`/api/results/${id}/hod-verify`, { method: 'POST' });
+      core.showToast && core.showToast('Approved', 'success');
+      load();
+    } catch (e) { core.showToast && core.showToast(e.message, 'error'); }
+  }
+
+  async function reject(id) {
+    const reason = prompt('Reason for rejection?');
+    if (!reason) return;
+    try {
+      await core.portalFetch(`/api/results/${id}/hod-reject`, { method: 'POST', body: { reason } });
+      core.showToast && core.showToast('Rejected', 'success');
+      load();
+    } catch (e) { core.showToast && core.showToast(e.message, 'error'); }
+  }
+
+  function exportCsv() {
+    const rows = [['Course','Title','Lecturer','Session','Semester','Level','Students','Submitted']];
+    FILTERED.forEach((r) => rows.push([r.courseCode, r.courseTitle, r.lecturerName, r.sessionName, r.semester, r.level, r.studentCount, r.submittedAt]));
+    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `pending-results-${Date.now()}.csv`;
+    a.click();
+  }
+
+  // Events
+  $('pr-search').addEventListener('input', applyFilter);
+  $('pr-session').addEventListener('change', applyFilter);
+  $('pr-semester').addEventListener('change', applyFilter);
+  $('pr-level').addEventListener('change', applyFilter);
+  $('pr-refresh').addEventListener('click', load);
+  $('pr-export').addEventListener('click', exportCsv);
+  $('pr-tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.closest('tr').dataset.id;
+    if (btn.dataset.act === 'approve') approve(id);
+    if (btn.dataset.act === 'reject') reject(id);
+  });
+
+  load();
+})();
 </script>

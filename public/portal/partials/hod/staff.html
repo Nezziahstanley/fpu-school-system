@@ -1,39 +1,101 @@
-<!-- Portal → HOD → Staff -->
-<section class="page-head">
-  <div><h2>Department Staff</h2><p class="muted small">Lecturers and staff in my department</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__hodStaffLoad()">Refresh</button></div>
+﻿<!-- Portal → HOD → Staff -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">W</div>
+    <div><h1>Department Staff</h1><div class="sub">Lecturers and support staff in your department</div></div>
+  </div>
 </section>
 
+<div class="filter-bar">
+  <input type="search" id="st-search" placeholder="Search name, email…" />
+  <select id="st-role">
+    <option value="">All Roles</option>
+    <option>lecturer</option>
+    <option>hod</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="st-export">Export CSV</button>
+</div>
+
 <div class="panel">
-  <div class="panel-head"><h3>Staff</h3></div>
-  <div class="panel-body flush">
+  <div class="panel-head"><h3>Staff</h3><span class="badge" id="st-count">0</span></div>
+  <div class="panel-body">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Status</th></tr></thead>
-        <tbody id="hod-staff-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Full Name</th><th>Role</th><th>Email</th><th>Phone</th>
+            <th>Courses</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="st-tbody">
+          <tr><td colspan="6" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
 <script>
-  window.__hodStaffLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('hod-staff-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  let ALL = [], FILTERED = [];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+
+  function render() {
+    $('st-count').textContent = FILTERED.length;
+    $('st-tbody').innerHTML = FILTERED.length
+      ? FILTERED.map((s) => `
+          <tr>
+            <td><strong>${esc(s.firstName || '')} ${esc(s.lastName || '')}</strong></td>
+            <td><span class="chip chip-${(s.role || '').toLowerCase()}">${esc(s.role || '')}</span></td>
+            <td>${esc(s.email || '')}</td>
+            <td>${esc(s.phone || '—')}</td>
+            <td>${s.courseCount || 0}</td>
+            <td><span class="badge-status ${s.isActive ? 'badge-active' : 'badge-inactive'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
+          </tr>`).join('')
+      : '<tr><td colspan="6" class="empty-cell">No staff found.</td></tr>';
+  }
+
+  function applyFilter() {
+    const q = ($('st-search').value || '').toLowerCase();
+    const r = $('st-role').value;
+    FILTERED = ALL.filter((s) => {
+      const hay = `${s.firstName||''} ${s.lastName||''} ${s.email||''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (r && s.role !== r) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
     try {
-      const res = await core.portalFetch('/api/hod/staff');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((s) => `
-        <tr>
-          <td>${core.escapeHtml(s.firstName)} ${core.escapeHtml(s.lastName)}</td>
-          <td>${core.escapeHtml(s.email)}</td>
-          <td>${core.escapeHtml(s.role)}</td>
-          <td>${core.escapeHtml(s.phone || '')}</td>
-          <td>${s.isActive ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-muted">Inactive</span>'}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No staff.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__hodStaffLoad();
+      const user = core.getPortalUser() || {};
+      const r = await core.portalFetch('/api/staff?departmentId=' + (user.departmentId || ''));
+      ALL = r.data || r || [];
+      applyFilter();
+    } catch (e) {
+      $('st-tbody').innerHTML = `<tr><td colspan="6" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const rows = [['Name','Role','Email','Phone','Courses','Status']];
+    FILTERED.forEach((s) => rows.push([`${s.firstName} ${s.lastName}`, s.role, s.email, s.phone, s.courseCount, s.isActive ? 'Active' : 'Inactive']));
+    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hod-staff-${Date.now()}.csv`;
+    a.click();
+  }
+
+  $('st-search').addEventListener('input', applyFilter);
+  $('st-role').addEventListener('change', applyFilter);
+  $('st-export').addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

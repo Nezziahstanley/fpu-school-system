@@ -1,51 +1,109 @@
-<!-- Portal → HOD → Students -->
-<section class="page-head">
-  <div><h2>Department Students</h2><p class="muted small">All students in my department</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__hodStudLoad()">Refresh</button></div>
+﻿<!-- Portal → HOD → Students -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">S</div>
+    <div><h1>Department Students</h1><div class="sub">All students enrolled in your department</div></div>
+  </div>
 </section>
 
-<div class="filters">
-  <div class="form-group">
-    <label class="form-label">Level</label>
-    <select class="form-select" id="hod-std-level" onchange="window.__hodStudLoad()">
-      <option value="">All</option><option>ND</option><option>HND</option>
-    </select>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="s-search" placeholder="Search matric, name…" />
+  <select id="s-level">
+    <option value="">All Levels</option>
+    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+  </select>
+  <select id="s-status">
+    <option value="">All Status</option>
+    <option>active</option>
+    <option>inactive</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="s-export">Export CSV</button>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Students</h3></div>
-  <div class="panel-body flush">
+  <div class="panel-head"><h3>Students</h3><span class="badge" id="s-count">0</span></div>
+  <div class="panel-body">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Matric</th><th>Name</th><th>Email</th><th>Level</th><th>Status</th></tr></thead>
-        <tbody id="hod-std-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Matric No.</th><th>Full Name</th><th>Level</th><th>Programme</th>
+            <th>CGPA</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="s-tbody">
+          <tr><td colspan="6" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
 <script>
-  window.__hodStudLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('hod-std-tbody');
-    const level = document.getElementById('hod-std-level').value;
-    const qs = new URLSearchParams();
-    if (level) qs.set('level', level);
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  let ALL = [], FILTERED = [];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+
+  function render() {
+    $('s-count').textContent = FILTERED.length;
+    $('s-tbody').innerHTML = FILTERED.length
+      ? FILTERED.map((s) => `
+          <tr>
+            <td><strong>${esc(s.matricNumber || '')}</strong></td>
+            <td>${esc(s.firstName || '')} ${esc(s.lastName || '')}</td>
+            <td><span class="chip chip-${(s.level || '').toLowerCase()}">${esc(s.level || '')}</span></td>
+            <td>${esc(s.programmeName || '')}</td>
+            <td>${s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'}</td>
+            <td><span class="badge-status ${s.isActive ? 'badge-active' : 'badge-inactive'}">${s.isActive ? 'Active' : 'Inactive'}</span></td>
+          </tr>`).join('')
+      : '<tr><td colspan="6" class="empty-cell">No students found.</td></tr>';
+  }
+
+  function applyFilter() {
+    const q = ($('s-search').value || '').toLowerCase();
+    const lvl = $('s-level').value;
+    const st = $('s-status').value;
+    FILTERED = ALL.filter((s) => {
+      const hay = `${s.matricNumber||''} ${s.firstName||''} ${s.lastName||''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && s.level !== lvl) return false;
+      if (st === 'active' && !s.isActive) return false;
+      if (st === 'inactive' && s.isActive) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
     try {
-      const res = await core.portalFetch(`/api/hod/students?${qs}`);
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((s) => `
-        <tr>
-          <td>${core.escapeHtml(s.matricNumber || '')}</td>
-          <td>${core.escapeHtml(s.firstName)} ${core.escapeHtml(s.lastName)}</td>
-          <td>${core.escapeHtml(s.email)}</td>
-          <td>${core.escapeHtml(s.level || '')}</td>
-          <td>${s.isActive ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-muted">Inactive</span>'}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No students.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__hodStudLoad();
+      const user = core.getPortalUser() || {};
+      const r = await core.portalFetch('/api/students?departmentId=' + (user.departmentId || ''));
+      ALL = r.data || r || [];
+      applyFilter();
+    } catch (e) {
+      $('s-tbody').innerHTML = `<tr><td colspan="6" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const rows = [['Matric No','Full Name','Level','Programme','CGPA','Status']];
+    FILTERED.forEach((s) => rows.push([s.matricNumber, `${s.firstName} ${s.lastName}`, s.level, s.programmeName, s.cgpa, s.isActive ? 'Active' : 'Inactive']));
+    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hod-students-${Date.now()}.csv`;
+    a.click();
+  }
+
+  $('s-search').addEventListener('input', applyFilter);
+  $('s-level').addEventListener('change', applyFilter);
+  $('s-status').addEventListener('change', applyFilter);
+  $('s-export').addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

@@ -1,59 +1,109 @@
-<!-- Portal → HOD → Courses -->
-<section class="page-head">
-  <div><h2>Department Courses</h2><p class="muted small">All courses in my department</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__hodCoursesLoad()">Refresh</button></div>
+﻿<!-- Portal → HOD → Courses -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">C</div>
+    <div><h1>Department Courses</h1><div class="sub">All courses assigned to your department</div></div>
+  </div>
 </section>
 
-<div class="filters">
-  <div class="form-group">
-    <label class="form-label">Level</label>
-    <select class="form-select" id="hod-crs-level" onchange="window.__hodCoursesLoad()">
-      <option value="">All</option><option>ND</option><option>HND</option>
-    </select>
-  </div>
-  <div class="form-group">
-    <label class="form-label">Semester</label>
-    <select class="form-select" id="hod-crs-sem" onchange="window.__hodCoursesLoad()">
-      <option value="">All</option><option value="first">First</option><option value="second">Second</option>
-    </select>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="c-search" placeholder="Search code, title, lecturer…" />
+  <select id="c-level">
+    <option value="">All Levels</option>
+    <option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option>
+  </select>
+  <select id="c-semester">
+    <option value="">All Semesters</option>
+    <option>First</option>
+    <option>Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="c-export">Export CSV</button>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Courses</h3></div>
-  <div class="panel-body flush">
+  <div class="panel-head"><h3>Courses</h3><span class="badge" id="c-count">0</span></div>
+  <div class="panel-body">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Level</th><th>Semester</th></tr></thead>
-        <tbody id="hod-crs-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th><th>Title</th><th>Units</th><th>Level</th><th>Semester</th>
+            <th>Lecturer</th><th>Enrolled</th>
+          </tr>
+        </thead>
+        <tbody id="c-tbody">
+          <tr><td colspan="7" class="loading-cell"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
 <script>
-  window.__hodCoursesLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('hod-crs-tbody');
-    const level = document.getElementById('hod-crs-level').value;
-    const semester = document.getElementById('hod-crs-sem').value;
-    const qs = new URLSearchParams();
-    if (level) qs.set('level', level);
-    if (semester) qs.set('semester', semester);
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  let ALL = [], FILTERED = [];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s || '');
+
+  function render() {
+    $('c-count').textContent = FILTERED.length;
+    $('c-tbody').innerHTML = FILTERED.length
+      ? FILTERED.map((c) => `
+          <tr>
+            <td><strong>${esc(c.code || '')}</strong></td>
+            <td>${esc(c.title || '')}</td>
+            <td>${c.units || 0}</td>
+            <td><span class="chip chip-${(c.level || '').toLowerCase()}">${esc(c.level || '')}</span></td>
+            <td>${esc(c.semester || '')}</td>
+            <td>${esc(c.lecturerName || '—')}</td>
+            <td>${c.enrolledCount || 0}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="7" class="empty-cell">No courses found.</td></tr>';
+  }
+
+  function applyFilter() {
+    const q = ($('c-search').value || '').toLowerCase();
+    const lvl = $('c-level').value;
+    const sem = $('c-semester').value;
+    FILTERED = ALL.filter((c) => {
+      const hay = `${c.code||''} ${c.title||''} ${c.lecturerName||''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && c.level !== lvl) return false;
+      if (sem && c.semester !== sem) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
     try {
-      const res = await core.portalFetch(`/api/hod/courses?${qs}`);
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((c) => `
-        <tr>
-          <td>${core.escapeHtml(c.code)}</td>
-          <td>${core.escapeHtml(c.title)}</td>
-          <td class="num">${c.unit}</td>
-          <td>${core.escapeHtml(c.level)}</td>
-          <td>${core.escapeHtml(c.semester)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No courses.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__hodCoursesLoad();
+      const user = core.getPortalUser() || {};
+      const r = await core.portalFetch('/api/courses?departmentId=' + (user.departmentId || ''));
+      ALL = r.data || r || [];
+      applyFilter();
+    } catch (e) {
+      $('c-tbody').innerHTML = `<tr><td colspan="7" class="empty-cell">Error: ${esc(e.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const rows = [['Code','Title','Units','Level','Semester','Lecturer','Enrolled']];
+    FILTERED.forEach((c) => rows.push([c.code, c.title, c.units, c.level, c.semester, c.lecturerName, c.enrolledCount]));
+    const csv = rows.map((r) => r.map((v) => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hod-courses-${Date.now()}.csv`;
+    a.click();
+  }
+
+  $('c-search').addEventListener('input', applyFilter);
+  $('c-level').addEventListener('change', applyFilter);
+  $('c-semester').addEventListener('change', applyFilter);
+  $('c-export').addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

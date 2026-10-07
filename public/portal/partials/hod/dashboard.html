@@ -1,10 +1,10 @@
-<!-- Portal → HOD → Dashboard -->
+﻿<!-- Portal → HOD → Dashboard -->
 <section class="greeting">
   <div class="who">
     <div class="avatar" id="hod-dash-avatar">H</div>
     <div>
       <h1>Welcome, <span id="hod-dash-name">HOD</span></h1>
-      <div class="sub">Head of Department</div>
+      <div class="sub" id="hod-dash-sub">Head of Department</div>
     </div>
   </div>
   <div class="meta">
@@ -21,78 +21,139 @@
 </div>
 
 <div class="quick-actions">
-  <a class="btn btn-primary btn-sm" href="#hod-pending-results">📋 Review Pending Results</a>
-  <a class="btn btn-outline btn-sm" href="#hod-staff">👥 Staff</a>
-  <a class="btn btn-outline btn-sm" href="#hod-students">🎓 Students</a>
-  <a class="btn btn-outline btn-sm" href="#hod-courses">📚 Courses</a>
+  <a class="btn btn-primary btn-sm" href="#hod-pending-results">Review Pending Results</a>
+  <a class="btn btn-outline btn-sm" href="#hod-staff">Staff</a>
+  <a class="btn btn-outline btn-sm" href="#hod-students">Students</a>
+  <a class="btn btn-outline btn-sm" href="#hod-courses">Courses</a>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Results Awaiting HOD Approval</h3></div>
-  <div class="panel-body">
-    <div id="hod-pending-list" class="muted small">Loading…</div>
-  </div>
+  <div class="panel-head"><h3>Results Awaiting Your Approval</h3><a class="btn btn-outline btn-sm" href="#hod-pending-results">View All</a></div>
+  <div class="panel-body"><div id="hod-pending-list" class="muted small">Loading…</div></div>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Department Staff</h3></div>
-  <div class="panel-body">
-    <div id="hod-staff-list" class="muted small">Loading…</div>
-  </div>
+  <div class="panel-head"><h3>Department Staff</h3><a class="btn btn-outline btn-sm" href="#hod-staff">Manage</a></div>
+  <div class="panel-body"><div id="hod-staff-list" class="muted small">Loading…</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Department Courses</h3><a class="btn btn-outline btn-sm" href="#hod-courses">View All</a></div>
+  <div class="panel-body"><div id="hod-courses-list" class="muted small">Loading…</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Recent Student Registrations</h3></div>
+  <div class="panel-body"><div id="hod-registrations-list" class="muted small">Loading…</div></div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h3>Department Performance</h3></div>
+  <div class="panel-body"><div id="hod-performance" class="fees-breakdown"><div class="muted small">Loading…</div></div></div>
 </div>
 
 <script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  const photo = window.FPU_PHOTO;
+  const user = core.getPortalUser() || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => (core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s));
+
   (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
     try {
-      document.getElementById('hod-dash-name').textContent = user.firstName || 'HOD';
-      document.getElementById('hod-dash-dept').textContent = user.departmentName || 'My Department';
-      if (photo) photo.renderMyAvatar(document.getElementById('hod-dash-avatar'), user);
+      $('hod-dash-name').textContent = user.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'HOD';
+      $('hod-dash-dept').textContent = user.departmentName || 'My Department';
+      $('hod-dash-sub').textContent = user.departmentName
+        ? `Head of Department · ${user.departmentName}`
+        : 'Head of Department';
+      if (photo) photo.renderMyAvatar($('hod-dash-avatar'), user);
 
-      // Pending results for the department (HOD approval stage)
-      const r1 = await core.portalFetch('/api/results/pending-hod');
-      const pending = r1.data || r1 || [];
-      document.getElementById('hod-t-pending').textContent = pending.length;
-      document.getElementById('hod-pending-list').innerHTML = pending.length
-        ? pending.slice(0,5).map(p =>
-            `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-               <strong>${p.courseCode||''}</strong> — ${p.courseTitle||''}
-               <span class="muted small">· ${p.lecturerName||''} · ${p.sessionName||''}</span>
-             </div>`).join('')
-        : '<em>No pending results. 🎉</em>';
+      const deptId = user.departmentId || '';
 
-      // Department students
+      // Pending results
       try {
-        const s = await core.portalFetch('/api/students?departmentId=' + (user.departmentId || ''));
-        const list = s.data || s || [];
-        document.getElementById('hod-t-students').textContent = list.length;
-      } catch { document.getElementById('hod-t-students').textContent = '—'; }
+        const r1 = await core.portalFetch('/api/results/pending-hod');
+        const pending = r1.data || r1 || [];
+        $('hod-t-pending').textContent = pending.length;
+        $('hod-pending-list').innerHTML = pending.length
+          ? pending.slice(0, 5).map((p) => `
+              <div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <strong>${esc(p.courseCode || '')} — ${esc(p.courseTitle || '')}</strong>
+                  <a class="btn btn-outline btn-sm" href="#hod-pending-results">Review</a>
+                </div>
+                <span class="muted small">${esc(p.lecturerName || '')} · ${esc(p.sessionName || '')}</span>
+              </div>`).join('')
+          : '<em>No pending results. 🎉</em>';
+      } catch (e) { $('hod-t-pending').textContent = '—'; $('hod-pending-list').innerHTML = '<em>Could not load.</em>'; }
 
-      // Staff in department
+      // Staff
       try {
-        const st = await core.portalFetch('/api/staff?departmentId=' + (user.departmentId || ''));
+        const st = await core.portalFetch('/api/staff?departmentId=' + deptId);
         const list = st.data || st || [];
-        document.getElementById('hod-t-staff').textContent = list.length;
-        document.getElementById('hod-staff-list').innerHTML = list.length
-          ? list.slice(0,8).map(x =>
-              `<div style="padding:.4rem 0;">${x.firstName||''} ${x.lastName||''} <span class="muted small">· ${x.role||''}</span></div>`
-            ).join('')
-          : '<em>No staff records yet.</em>';
-      } catch {
-        document.getElementById('hod-t-staff').textContent = '—';
-        document.getElementById('hod-staff-list').innerHTML = '<em>Could not load staff.</em>';
-      }
+        $('hod-t-staff').textContent = list.length;
+        $('hod-staff-list').innerHTML = list.length
+          ? list.slice(0, 6).map((x) => `
+              <div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                <strong>${esc(x.firstName || '')} ${esc(x.lastName || '')}</strong>
+                <span class="muted small"> · ${esc(x.role || '')}</span>
+              </div>`).join('')
+          : '<em>No staff yet.</em>';
+      } catch { $('hod-t-staff').textContent = '—'; $('hod-staff-list').innerHTML = '<em>Could not load.</em>'; }
 
-      // Active courses in department
+      // Courses
       try {
-        const c = await core.portalFetch('/api/courses?departmentId=' + (user.departmentId || ''));
+        const c = await core.portalFetch('/api/courses?departmentId=' + deptId);
         const list = c.data || c || [];
-        document.getElementById('hod-t-courses').textContent = list.length;
-      } catch { document.getElementById('hod-t-courses').textContent = '—'; }
+        $('hod-t-courses').textContent = list.length;
+        $('hod-courses-list').innerHTML = list.length
+          ? list.slice(0, 6).map((x) => `
+              <div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                <strong>${esc(x.code || '')}</strong> — ${esc(x.title || '')}
+                <span class="muted small"> · ${x.units || 0} units · ${esc(x.level || '')}</span>
+              </div>`).join('')
+          : '<em>No courses yet.</em>';
+      } catch { $('hod-t-courses').textContent = '—'; $('hod-courses-list').innerHTML = '<em>Could not load.</em>'; }
+
+      // Students
+      try {
+        const s = await core.portalFetch('/api/students?departmentId=' + deptId);
+        const list = s.data || s || [];
+        $('hod-t-students').textContent = list.length;
+      } catch { $('hod-t-students').textContent = '—'; }
+
+      // Registrations
+      try {
+        const rg = await core.portalFetch('/api/registrations?limit=6');
+        const list = rg.data || rg || [];
+        $('hod-registrations-list').innerHTML = list.length
+          ? list.slice(0, 6).map((x) => `
+              <div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                <strong>${esc(x.studentName || 'Student')}</strong>
+                <span class="muted small"> · ${esc(x.courseCode || '')} · ${esc(x.status || '')}</span>
+              </div>`).join('')
+          : '<em>No recent registrations.</em>';
+      } catch { $('hod-registrations-list').innerHTML = '<em>Could not load.</em>'; }
+
+      // Performance
+      try {
+        const perf = await core.portalFetch('/api/reports/overview');
+        const d = perf.data || perf || {};
+        $('hod-performance').innerHTML = `
+          <div class="fees-row"><span>Total students (institution)</span><strong>${d.students || 0}</strong></div>
+          <div class="fees-row"><span>Total lecturers</span><strong>${d.lecturers || 0}</strong></div>
+          <div class="fees-row"><span>Pending results (institution)</span><strong>${d.pendingResults || 0}</strong></div>
+          <div class="fees-row"><span>Current session</span><strong>${esc(d.currentSession || '—')}</strong></div>
+        `;
+      } catch { $('hod-performance').innerHTML = '<div class="muted small">Data unavailable.</div>'; }
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      console.error('[hod-dashboard]', err);
+      core.showToast && core.showToast(err.message || 'Error', 'error');
     }
   })();
+})();
 </script>

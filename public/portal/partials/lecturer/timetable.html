@@ -1,46 +1,225 @@
 <!-- Portal → Lecturer → Timetable -->
-<section class="page-head">
-  <div><h2>My Timetable</h2><p class="muted small">Weekly schedule of my lectures</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecTTLoad()">Refresh</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📅</div>
+    <div>
+      <h1>My Timetable</h1>
+      <div class="sub">Your weekly teaching schedule</div>
+    </div>
+  </div>
 </section>
 
-<div id="lec-tt-grid" class="grid" style="gap:.5rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
+<div class="filter-bar">
+  <select id="lt-day">
+    <option value="">All Days</option>
+    <option value="Monday">Monday</option>
+    <option value="Tuesday">Tuesday</option>
+    <option value="Wednesday">Wednesday</option>
+    <option value="Thursday">Thursday</option>
+    <option value="Friday">Friday</option>
+  </select>
+  <select id="lt-course"><option value="">All Courses</option></select>
+  <button class="btn btn-outline btn-sm" id="lt-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="lt-export">Export CSV</button>
 </div>
 
-<script>
-  window.__lecTTLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('lec-tt-grid');
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-    try {
-      const res = await core.portalFetch('/api/lecturer/timetable');
-      const rows = res.data || [];
-      if (!rows.length) { box.innerHTML = '<p class="muted">No timetable slots yet.</p>'; return; }
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Slots</span><span class="value" id="lt-total">—</span></div><div class="ic">📅</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Today's Classes</span><span class="value" id="lt-today">—</span></div><div class="ic">🎯</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">This Week</span><span class="value" id="lt-week">—</span></div><div class="ic">📆</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Active Courses</span><span class="value" id="lt-courses">—</span></div><div class="ic">📚</div></div>
+</div>
 
-      const byDay = {};
-      rows.forEach((r) => {
-        const day = r.slot.dayOfWeek;
-        if (!byDay[day]) byDay[day] = [];
-        byDay[day].push(r);
-      });
-      const ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      box.innerHTML = ORDER.filter((d) => byDay[d]).map((day) => `
-        <div class="panel">
-          <div class="panel-head"><h3>${day}</h3></div>
-          <div class="panel-body">
-            ${byDay[day].map((r) => `
-              <div class="fees-row" style="margin-bottom:.4rem;">
-                <div>
-                  <strong>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</strong><br/>
-                  <span class="small muted">${core.escapeHtml(r.slot.startTime)} – ${core.escapeHtml(r.slot.endTime)} · ${core.escapeHtml(r.slot.venue || '')}</span>
-                </div>
-              </div>
-            `).join('')}
+<section class="panel">
+  <div class="panel-head">
+    <h3>Weekly Schedule</h3>
+    <span class="badge" id="lt-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Time</th>
+            <th>Course</th>
+            <th>Venue</th>
+            <th>Level</th>
+            <th>Semester</th>
+          </tr>
+        </thead>
+        <tbody id="lt-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const t = r.timetable || r;
+    const crs = r.course || {};
+    return {
+      id: t.id,
+      day: t.dayOfWeek || t.day || '—',
+      startTime: t.startTime || t.start_time || '',
+      endTime: t.endTime || t.end_time || '',
+      courseCode: crs.code || t.courseCode || '—',
+      courseTitle: crs.title || t.courseTitle || '',
+      venue: t.venue || t.room || '—',
+      level: crs.level || t.level || '—',
+      semester: t.semester || '—',
+    };
+  }
+
+  function getTimeLabel(t) {
+    if (!t.startTime) return '—';
+    return t.endTime ? `${t.startTime} – ${t.endTime}` : t.startTime;
+  }
+
+  function render() {
+    const countEl = $('lt-count'); const tbody = $('lt-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="6" class="empty" style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">📅</div>
+          <div style="font-weight:600;color:#475569;">No scheduled classes</div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
+            Your timetable will appear once the academic officer assigns slots.
           </div>
-        </div>
-      `).join('');
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
-  };
-  window.__lecTTLoad();
+        </td></tr>`;
+      return;
+    }
+
+    // Sort by day order, then start time
+    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
+    FILTERED.sort((a, b) => {
+      const d = (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
+      if (d) return d;
+      return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+
+    tbody.innerHTML = FILTERED.map((t) => {
+      const lvl = String(t.level || '').toUpperCase();
+      const chipClass = 'chip-' + lvl.toLowerCase();
+      return `
+        <tr>
+          <td><strong>${esc(t.day)}</strong></td>
+          <td>${esc(getTimeLabel(t))}</td>
+          <td>
+            <strong>${esc(t.courseCode)}</strong>
+            ${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}
+          </td>
+          <td>${esc(t.venue)}</td>
+          <td><span class="chip ${chipClass}">${esc(lvl || '—')}</span></td>
+          <td>${esc(t.semester)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const day = $('lt-day')?.value || '';
+    const course = $('lt-course')?.value || '';
+    FILTERED = ALL.filter((t) => {
+      if (day && t.day !== day) return false;
+      if (course && t.courseCode !== course) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('lt-total', ALL.length);
+    setText('lt-today', ALL.filter((t) => t.day === todayName).length);
+    setText('lt-week', ALL.length);
+    setText('lt-courses', new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—')).size);
+  }
+
+  function populateCourses() {
+    const sel = $('lt-course');
+    if (!sel) return;
+    const courses = [...new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—'))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Courses</option>' +
+      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  async function load() {
+    const tbody = $('lt-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      // Try to get timetable filtered to lecturer's courses
+      const res = await core.portalFetch('/api/timetable');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.timetable || []);
+
+      let list = raw.map(unwrap);
+
+      // Client-side filter: only show slots for courses the lecturer teaches
+      try {
+        const allocRes = await core.portalFetch('/api/allocations/my');
+        const allocPayload = allocRes.data || allocRes || {};
+        const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
+        const myCodes = new Set(allocRaw.map((a) => {
+          const alloc = a.allocation || a;
+          const crs = a.course || {};
+          return crs.code || alloc.courseCode;
+        }).filter(Boolean));
+
+        if (myCodes.size) {
+          list = list.filter((t) => myCodes.has(t.courseCode));
+        }
+      } catch (e) { console.warn('[timetable] allocations filter failed:', e.message); }
+
+      ALL = list;
+      console.log('[lecturer-timetable] Loaded', ALL.length, 'from', raw.length, 'total slots');
+      populateCourses();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.warn('[lecturer-timetable]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
+
+  function exportCsv() {
+    const headers = ['Day', 'Time', 'Course', 'Title', 'Venue', 'Level', 'Semester'];
+    const rows = FILTERED.map((t) => [t.day, getTimeLabel(t), t.courseCode, t.courseTitle, t.venue, t.level, t.semester]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lecturer-timetable-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('lt-day')?.addEventListener('change', applyFilter);
+  $('lt-course')?.addEventListener('change', applyFilter);
+  $('lt-refresh')?.addEventListener('click', load);
+  $('lt-export')?.addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

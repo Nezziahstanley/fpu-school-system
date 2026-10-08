@@ -1,45 +1,250 @@
 <!-- Portal → Lecturer → Reports -->
-<section class="page-head">
-  <div><h2>Reports</h2><p class="muted small">Summary of my course activity</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecRepLoad()">Refresh</button></div>
-</section>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">Courses</div><div class="tile-value" id="lec-rep-courses">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Total Result Rows</div><div class="tile-value" id="lec-rep-total">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Drafts</div><div class="tile-value" id="lec-rep-draft">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Published</div><div class="tile-value" id="lec-rep-pub">—</div></div>
-</div>
-
-<div class="panel">
-  <div class="panel-head"><h3>By Status</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Status</th><th>Count</th></tr></thead>
-        <tbody id="lec-rep-tbody"><tr><td colspan="2" class="empty">Loading…</td></tr></tbody>
-      </table>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📈</div>
+    <div>
+      <h1>Teaching Reports</h1>
+      <div class="sub">Analytics on your courses, students, and results</div>
     </div>
   </div>
+</section>
+
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="lr2-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="lr2-print">🖨 Print</button>
 </div>
 
-<script>
-  window.__lecRepLoad = async function () {
-    const core = window.FPU_PORTAL;
-    try {
-      const res = await core.portalFetch('/api/lecturer/reports');
-      const d = res.data || {};
-      const s = d.summary || {};
-      document.getElementById('lec-rep-courses').textContent = s.totalCourses ?? 0;
-      document.getElementById('lec-rep-total').textContent = s.totalResultRows ?? 0;
-      document.getElementById('lec-rep-draft').textContent = (s.byStatus || {}).draft ?? 0;
-      document.getElementById('lec-rep-pub').textContent = (s.byStatus || {}).published ?? 0;
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">My Courses</span><span class="value" id="lr2-courses">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">My Students</span><span class="value" id="lr2-students">—</span></div><div class="ic">🎓</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Results Recorded</span><span class="value" id="lr2-results">—</span></div><div class="ic">📊</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Attendance Sessions</span><span class="value" id="lr2-attendance">—</span></div><div class="ic">✅</div></div>
+</div>
 
-      const entries = Object.entries(s.byStatus || {});
-      document.getElementById('lec-rep-tbody').innerHTML = entries.length
-        ? entries.map(([k, v]) => `<tr><td>${core.escapeHtml(k)}</td><td class="num">${v}</td></tr>`).join('')
-        : '<tr><td colspan="2" class="empty">No data.</td></tr>';
-    } catch (err) { core.showToast(err.message, 'error'); }
+<section class="panel">
+  <div class="panel-head"><h3>📊 Analytics</h3><span class="small muted">Based on your teaching data</span></div>
+  <div class="panel-body">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Grade Distribution</h3><span class="chart-badge">Bar</span></div>
+        <div class="chart-body"><canvas id="lr2-chart-grades"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Result Status</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="lr2-chart-status"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Students by Level</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="lr2-chart-levels"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>📋 Performance Summary</h3></div>
+  <div class="panel-body">
+    <div class="fees-breakdown" id="lr2-summary">
+      <div class="muted small">Loading…</div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  const COLORS = {
+    green: '#065f46', gold: '#f59e0b', blue: '#3b82f6',
+    purple: '#8b5cf6', red: '#dc2626', pink: '#ec4899',
+    teal: '#14b8a6', slate: '#64748b',
   };
-  window.__lecRepLoad();
+  const PALETTE = [COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple, COLORS.pink, COLORS.teal, COLORS.red];
+  const charts = {};
+
+  function destroyAllCharts() {
+    Object.keys(charts).forEach((id) => {
+      try { charts[id].destroy(); } catch {}
+      delete charts[id];
+    });
+    if (window.Chart && typeof Chart.getChart === 'function') {
+      ['lr2-chart-grades', 'lr2-chart-status', 'lr2-chart-levels'].forEach((id) => {
+        const canvas = document.getElementById(id);
+        if (canvas) {
+          const inst = Chart.getChart(canvas);
+          if (inst) try { inst.destroy(); } catch {}
+        }
+      });
+    }
+  }
+
+  function emptyChart(id, msg) {
+    const el = $(id);
+    if (!el || !el.parentElement) return;
+    el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13.5px;">${esc(msg || 'No data')}</div>`;
+  }
+
+  function makeBar(id, labels, data, opts) {
+    if (typeof Chart === 'undefined') return emptyChart(id, 'Chart library not loaded');
+    opts = opts || {};
+    const el = $(id); if (!el) return;
+    try { charts[id] && charts[id].destroy(); } catch {}
+    charts[id] = new Chart(el, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: 22 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                  x: { ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }, grid: { display: false } } } },
+    });
+  }
+
+  function makeDoughnut(id, labels, data, colors) {
+    if (typeof Chart === 'undefined') return emptyChart(id, 'Chart library not loaded');
+    const el = $(id); if (!el) return;
+    try { charts[id] && charts[id].destroy(); } catch {}
+    charts[id] = new Chart(el, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors || PALETTE.slice(0, labels.length), borderColor: '#fff', borderWidth: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#0f172a', padding: 12, font: { size: 12, weight: 600 } } } } },
+    });
+  }
+
+  let MY_COURSES = [];
+  let MY_STUDENTS = [];
+  let MY_RESULTS = [];
+  let MY_ATTENDANCE = [];
+
+  async function loadAll() {
+    destroyAllCharts();
+
+    // Fetch in parallel
+    const tasks = [
+      core.portalFetch('/api/allocations/my').then((r) => r.data || r).catch(() => []),
+      core.portalFetch('/api/students').then((r) => r.data || r).catch(() => []),
+      core.portalFetch('/api/results/with-student?limit=5000').then((r) => r.data || r).catch(() => []),
+      core.portalFetch('/api/attendance').then((r) => r.data || r).catch(() => []),
+    ];
+
+    const [crsRaw, stuRaw, resRaw, attRaw] = await Promise.all(tasks);
+
+    // Courses
+    MY_COURSES = Array.isArray(crsRaw) ? crsRaw : (crsRaw.rows || crsRaw.allocations || []);
+
+    // Students (dept-scoped)
+    MY_STUDENTS = Array.isArray(stuRaw) ? stuRaw : (stuRaw.rows || stuRaw.students || []);
+    if (user.departmentId) {
+      MY_STUDENTS = MY_STUDENTS.filter((s) => !s.departmentId || String(s.departmentId) === String(user.departmentId));
+    }
+
+    // Results (only mine)
+    const resList = Array.isArray(resRaw) ? resRaw : (resRaw.rows || resRaw.results || []);
+    MY_RESULTS = resList.filter((r) => {
+      const rec = r.result || r;
+      return !rec.lecturerId || rec.lecturerId === user.id || rec.submittedBy === user.id;
+    });
+
+    // Attendance
+    MY_ATTENDANCE = Array.isArray(attRaw) ? attRaw : (attRaw.rows || attRaw.attendance || []);
+
+    // Update stats
+    setText('lr2-courses', MY_COURSES.length);
+    setText('lr2-students', MY_STUDENTS.length);
+    setText('lr2-results', MY_RESULTS.length);
+    setText('lr2-attendance', MY_ATTENDANCE.length);
+
+    // Build charts
+    buildCharts();
+    buildSummary();
+  }
+
+  function buildCharts() {
+    // Grade distribution
+    const grades = {};
+    MY_RESULTS.forEach((r) => {
+      const rec = r.result || r;
+      const g = rec.grade || '?';
+      grades[g] = (grades[g] || 0) + 1;
+    });
+    const gKeys = Object.keys(grades).sort();
+    if (gKeys.length) {
+      const gradeColors = { A: COLORS.green, B: COLORS.blue, C: COLORS.gold, D: COLORS.purple, E: COLORS.pink, F: COLORS.red };
+      makeBar('lr2-chart-grades', gKeys, gKeys.map((k) => grades[k]), {
+        label: 'Students',
+        colors: gKeys.map((k) => gradeColors[k] || COLORS.slate),
+      });
+    } else {
+      emptyChart('lr2-chart-grades', 'No results');
+    }
+
+    // Result status
+    const statuses = {};
+    MY_RESULTS.forEach((r) => {
+      const rec = r.result || r;
+      const st = (rec.status || 'draft').toLowerCase();
+      statuses[st] = (statuses[st] || 0) + 1;
+    });
+    const stKeys = Object.keys(statuses);
+    if (stKeys.length) {
+      const colorMap = { draft: COLORS.slate, submitted: COLORS.blue, hod_verified: COLORS.purple, approved: COLORS.green, published: COLORS.green, hod_rejected: COLORS.red, admin_rejected: COLORS.red };
+      makeDoughnut('lr2-chart-status', stKeys.map((s) => s.replace(/_/g, ' ')), stKeys.map((s) => statuses[s]), stKeys.map((s) => colorMap[s] || COLORS.slate));
+    } else {
+      emptyChart('lr2-chart-status', 'No results');
+    }
+
+    // Students by level
+    const levels = {};
+    MY_STUDENTS.forEach((s) => {
+      const l = String(s.level || '?').toUpperCase();
+      levels[l] = (levels[l] || 0) + 1;
+    });
+    const lKeys = Object.keys(levels);
+    if (lKeys.length) {
+      makeDoughnut('lr2-chart-levels', lKeys, lKeys.map((k) => levels[k]), [COLORS.purple, COLORS.gold, COLORS.teal]);
+    } else {
+      emptyChart('lr2-chart-levels', 'No students');
+    }
+  }
+
+  function buildSummary() {
+    const box = $('lr2-summary');
+    if (!box) return;
+
+    // GPA stats
+    const scores = MY_RESULTS
+      .map((r) => {
+        const rec = r.result || r;
+        return rec.score != null ? Number(rec.score) : null;
+      })
+      .filter((s) => s != null);
+
+    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '—';
+    const highest = scores.length ? Math.max(...scores) : '—';
+    const lowest = scores.length ? Math.min(...scores) : '—';
+    const passes = scores.filter((s) => s >= 40).length;
+    const passRate = scores.length ? Math.round((passes / scores.length) * 100) : 0;
+
+    box.innerHTML = `
+      <div class="fees-row"><span>Average Score</span><strong>${avg}${avg !== '—' ? '%' : ''}</strong></div>
+      <div class="fees-row"><span>Highest Score</span><strong>${highest}${highest !== '—' ? '%' : ''}</strong></div>
+      <div class="fees-row"><span>Lowest Score</span><strong>${lowest}${lowest !== '—' ? '%' : ''}</strong></div>
+      <div class="fees-row"><span>Pass Rate (≥40%)</span><strong>${passRate}%</strong></div>
+      <div class="fees-row"><span>Total Scores Recorded</span><strong>${scores.length}</strong></div>
+      <div class="fees-row"><span>Attendance Sessions</span><strong>${MY_ATTENDANCE.length}</strong></div>
+    `;
+  }
+
+  $('lr2-refresh')?.addEventListener('click', loadAll);
+  $('lr2-print')?.addEventListener('click', () => window.print());
+
+  loadAll();
+})();
 </script>

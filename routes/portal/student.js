@@ -482,7 +482,7 @@ router.get('/security', only, async (req, res, next) => {
 // ------------------------------------------------------------
 // Courses the student can register for:
 //   - Matches their level (ND / HND)
-//   - Matches their programme (or is a shared course like GNS/MTH)
+//   - Matches their programme (or is a shared course)
 //   - Not already registered
 // ============================================================
 router.get('/available-courses', only, async (req, res, next) => {
@@ -494,36 +494,33 @@ router.get('/available-courses', only, async (req, res, next) => {
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
       .where(eq(courseRegistrations.studentId, req.user.id));
-    const registeredIds = registeredRows.map((r) => r.courseId);
 
-    // Filter courses by level + (programme or shared)
-    const conditions = [
-      eq(courses.level, req.user.level || 'ND'),
-      eq(courses.isActive, true),
-    ];
+    const registeredIds = new Set(registeredRows.map((r) => Number(r.courseId)));
 
-    // Exclude already-registered
-    if (registeredIds.length) {
-      conditions.push(sql`${courses.id} <> ALL(${registeredIds})`);
-    }
-
-    // Programme match OR shared course (GNS, MTH, EED, ENT etc.)
-    const SHARED_PREFIXES = ['GNS', 'MTH', 'EED', 'ENT', 'STA'];
+    // All active courses matching the student's level
     const allCourses = await db
       .select()
       .from(courses)
-      .where(and(...conditions))
+      .where(eq(courses.level, req.user.level || 'ND'))
       .orderBy(courses.code);
 
-    const filtered = allCourses.filter((c) => {
-      if (!c.programmeId) return true;              // shared across programmes
-      if (c.programmeId === req.user.programmeId) return true; // matches student's programme
+    // Shared course prefixes (available to all programmes)
+    const SHARED_PREFIXES = ['GNS', 'MTH', 'EED', 'ENT', 'STA'];
+
+    const available = allCourses.filter((c) => {
+      // Skip already-registered courses
+      if (registeredIds.has(Number(c.id))) return false;
+      // Skip inactive
+      if (c.isActive === false) return false;
+      // Match programme OR is a shared course
+      if (c.programmeId && Number(c.programmeId) === Number(req.user.programmeId)) return true;
       const code = String(c.code || '').split(' ')[0].toUpperCase();
-      return SHARED_PREFIXES.includes(code);         // shared-course prefix
+      return SHARED_PREFIXES.includes(code);
     });
 
-    return res.json({ success: true, data: filtered });
+    return res.json({ success: true, data: available });
   } catch (err) {
+    console.error('[available-courses] error:', err);
     return next(err);
   }
 });

@@ -419,3 +419,131 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
 /* Simple level chips (matches schema values 'ND' and 'HND') */
 .chip-nd  { background: #d1fae5; color: #065f46; }
 .chip-hnd { background: #fef3c7; color: #92400e; }
+
+/* ============================================================
+   PORTAL — Profile & Forms (additions)
+   ============================================================ */
+
+/* ----- Tabs ----- */
+.filter-bar [data-tab] {
+  transition: all .15s ease;
+}
+.filter-bar [data-tab].btn-primary {
+  background: var(--fpu-primary);
+  color: #fff;
+  border-color: var(--fpu-primary);
+}
+
+/* ----- Form groups ----- */
+.form-group {
+  margin-bottom: 1rem;
+}
+.form-group label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: .35rem;
+  letter-spacing: .01em;
+}
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group input[type="date"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: .6rem .75rem;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  box-sizing: border-box;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--fpu-primary);
+  box-shadow: 0 0 0 3px rgba(6, 95, 70, .1);
+  background: #fff;
+}
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: not-allowed;
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.5;
+}
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* ----- Profile header (avatar circle) ----- */
+.greeting .avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Poppins, sans-serif;
+  font-weight: 700;
+  background: var(--fpu-accent);
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* ----- Quick action buttons row ----- */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+.quick-actions .btn {
+  min-width: 120px;
+}
+
+/* ----- Password strength bar ----- */
+#pf-strength-bar {
+  border-radius: 2px;
+}
+
+/* ----- Photo tab area ----- */
+#pf-photo-wrap {
+  position: relative;
+}
+
+/* ----- Small screens: stack 2–3 column form grids ----- */
+@media (max-width: 900px) {
+  #pf-tab-details form > div[style*="grid-template-columns:1fr 1fr 1fr"],
+  #pf-tab-details form > div[style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ----- Responsive tabs ----- */
+@media (max-width: 520px) {
+  .filter-bar [data-tab] {
+    flex: 1 1 45%;
+  }
+  .quick-actions .btn {
+    min-width: 0;
+    flex: 1 1 45%;
+  }
+}

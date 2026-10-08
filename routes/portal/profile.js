@@ -153,4 +153,111 @@ router.get('/profile', requireUser, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// PATCH /api/portal/profile
+// Update the current user's editable details.
+// ============================================================
+router.patch('/profile', requireUser, async (req, res, next) => {
+  try {
+    const ALLOWED = [
+      'firstName', 'lastName', 'middleName',
+      'phone', 'gender', 'dateOfBirth',
+      'stateOfOrigin', 'nationality', 'address',
+    ];
+
+    const patch = {};
+    for (const k of ALLOWED) {
+      if (req.body && req.body[k] !== undefined) {
+        patch[k] = req.body[k] === '' ? null : req.body[k];
+      }
+    }
+
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({ success: false, error: 'No editable fields provided.' });
+    }
+
+    // Basic validation
+    if (patch.firstName !== undefined && (!patch.firstName || String(patch.firstName).trim().length < 2)) {
+      return res.status(400).json({ success: false, error: 'First name must be at least 2 characters.' });
+    }
+    if (patch.lastName !== undefined && (!patch.lastName || String(patch.lastName).trim().length < 2)) {
+      return res.status(400).json({ success: false, error: 'Last name must be at least 2 characters.' });
+    }
+    if (patch.phone && !/^[0-9+\-\s()]{7,20}$/.test(String(patch.phone))) {
+      return res.status(400).json({ success: false, error: 'Invalid phone number format.' });
+    }
+
+    const updated = await userQueries.update(req.user.id, patch);
+    if (!updated) return res.status(404).json({ success: false, error: 'User not found.' });
+
+    // Return safe user (no password hash)
+    delete updated.passwordHash;
+    delete updated.password_hash;
+
+    await logAudit({
+      req,
+      userId: req.user.id,
+      action: 'portal.profile.update',
+      entity: 'user',
+      entityId: req.user.id,
+      details: { fields: Object.keys(patch) },
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/portal/profile/change-password
+// Requires current password for verification.
+// ============================================================
+router.post('/profile/change-password', requireUser, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ success: false, error: 'All password fields are required.' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, error: 'New passwords do not match.' });
+    }
+
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, error: 'New password must be at least 8 characters.' });
+    }
+
+    // Load the full user (with passwordHash)
+    const full = await userQueries.findByEmail(req.user.email);
+    if (!full) return res.status(404).json({ success: false, error: 'User not found.' });
+
+    // Verify current password
+    const { comparePassword, hashPassword } = require('../../utils/password');
+    const ok = await comparePassword(currentPassword, full.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ success: false, error: 'Current password is incorrect.' });
+    }
+
+    // Hash and save new password
+    const newHash = await hashPassword(newPassword);
+    await userQueries.update(req.user.id, {
+      passwordHash: newHash,
+      mustChangePassword: false,
+    });
+
+    await logAudit({
+      req,
+      userId: req.user.id,
+      action: 'portal.profile.change_password',
+      entity: 'user',
+      entityId: req.user.id,
+    });
+
+    return res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err) {
+    return next(err);
+  }
+});
 module.exports = router;

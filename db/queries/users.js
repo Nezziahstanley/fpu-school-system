@@ -41,9 +41,25 @@ const SAFE_COLS = {
   updatedAt: users.updatedAt,
 };
 
-// ============================================================
-// Lookups
-// ============================================================
+// ------------------------------------------------------------
+// Helper: unwrap Drizzle join result { users: {...}, departments: {...} }
+// ------------------------------------------------------------
+function unwrapJoin(row) {
+  if (!row) return null;
+  const base = row.users || row;
+  const dept = row.departments || {};
+  const prog = row.programmes || {};
+  const sch  = row.schools || {};
+
+  return {
+    ...base,
+    departmentName: dept.name || null,
+    departmentCode: dept.code || null,
+    programmeName: prog.name || null,
+    programmeCode: prog.code || null,
+    schoolName: sch.name || null,
+  };
+}
 
 // ------------------------------------------------------------
 // findById — includes department/programme/school names
@@ -60,26 +76,11 @@ async function findById(id) {
     .limit(1);
 
   if (!rows.length) return null;
-  const row = rows[0];
-
-  const base = row.users || row;
-  const dept = row.departments || {};
-  const prog = row.programmes || {};
-  const sch = row.schools || {};
-
-  return {
-    ...base,
-    departmentName: dept.name || null,
-    departmentCode: dept.code || null,
-    programmeName: prog.name || null,
-    programmeCode: prog.code || null,
-    schoolName: sch.name || null,
-  };
+  return unwrapJoin(rows[0]);
 }
 
 // ------------------------------------------------------------
-// findByEmail — includes passwordHash (login) AND joins
-// departments so req.user.departmentId is available everywhere.
+// findByEmail — includes passwordHash (login)
 // ------------------------------------------------------------
 async function findByEmail(email) {
   if (!email) return null;
@@ -92,19 +93,7 @@ async function findByEmail(email) {
     .limit(1);
 
   if (!rows.length) return null;
-  const row = rows[0];
-
-  const base = row.users || row;
-  const dept = row.departments || {};
-  const prog = row.programmes || {};
-
-  return {
-    ...base,
-    departmentName: dept.name || null,
-    departmentCode: dept.code || null,
-    programmeName: prog.name || null,
-    programmeCode: prog.code || null,
-  };
+  return unwrapJoin(rows[0]);
 }
 
 // ------------------------------------------------------------
@@ -121,12 +110,8 @@ async function emailExists(email, exceptId = null) {
   return true;
 }
 
-// ============================================================
-// Lists
-// ============================================================
-
 // ------------------------------------------------------------
-// list — paginated user list with filters
+// list
 // ------------------------------------------------------------
 async function list({
   role, departmentId, schoolId, programmeId, level, search, isActive,
@@ -162,7 +147,7 @@ async function list({
 }
 
 // ------------------------------------------------------------
-// listStaff — non-student users
+// listStaff
 // ------------------------------------------------------------
 async function listStaff({ departmentId, role } = {}) {
   const conds = [sql`${users.role} <> 'student'`];
@@ -172,27 +157,16 @@ async function listStaff({ departmentId, role } = {}) {
   const rows = await db
     .select(SAFE_COLS)
     .from(users)
-    .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .where(and(...conds))
     .orderBy(asc(users.firstName), asc(users.lastName));
 
-  return rows.map((r) => {
-    const base = r.users || r;
-    const prog = r.programmes || {};
-    const dept = r.departments || {};
-    return {
-      ...base,
-      programmeName: prog.name || null,
-      programmeCode: prog.code || null,
-      departmentName: dept.name || null,
-      departmentCode: dept.code || null,
-    };
-  });
+  return rows.map((r) => unwrapJoin(r));
 }
 
 // ------------------------------------------------------------
-// listStudents — only students, with filters
+// listStudents
 // ------------------------------------------------------------
 async function listStudents({ departmentId, programmeId, level, sessionId } = {}) {
   const conds = [eq(users.role, 'student')];
@@ -205,19 +179,11 @@ async function listStudents({ departmentId, programmeId, level, sessionId } = {}
     .select(SAFE_COLS)
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(and(...conds))
     .orderBy(asc(users.lastName), asc(users.firstName));
 
-  // Flatten join result: { users: {...}, programmes: {...} }
-  return rows.map((r) => {
-    const base = r.users || r;
-    const prog = r.programmes || {};
-    return {
-      ...base,
-      programmeName: prog.name || null,
-      programmeCode: prog.code || null,
-    };
-  });
+  return rows.map((r) => unwrapJoin(r));
 }
 
 // ------------------------------------------------------------
@@ -238,12 +204,8 @@ async function count({ role, departmentId, schoolId, programmeId, level, isActiv
   return rows.length;
 }
 
-// ============================================================
-// Writes
-// ============================================================
-
 // ------------------------------------------------------------
-// create — insert a new user
+// create
 // ------------------------------------------------------------
 async function create(payload) {
   const [row] = await db
@@ -276,7 +238,7 @@ async function create(payload) {
 }
 
 // ------------------------------------------------------------
-// update — patch a user (allow-list protects forbidden fields)
+// update — allow-list protects forbidden fields
 // ------------------------------------------------------------
 async function update(id, patch) {
   const allowed = [
@@ -284,15 +246,14 @@ async function update(id, patch) {
     'gender', 'dateOfBirth', 'stateOfOrigin', 'nationality', 'address',
     'matricNumber', 'level', 'programmeId', 'departmentId', 'schoolId',
     'currentSessionId', 'isActive', 'mustChangePassword',
-    'photoUrl',           // <-- profile photo path (NEW)
-    'passwordHash',       // only set internally via password util
+    'photoUrl',
+    'passwordHash',
   ];
   const clean = {};
   for (const k of allowed) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   }
 
-  // Numeric casts
   if (clean.programmeId !== undefined) clean.programmeId = clean.programmeId ? Number(clean.programmeId) : null;
   if (clean.departmentId !== undefined) clean.departmentId = clean.departmentId ? Number(clean.departmentId) : null;
   if (clean.schoolId !== undefined) clean.schoolId = clean.schoolId ? Number(clean.schoolId) : null;
@@ -332,7 +293,7 @@ async function remove(id) {
 }
 
 // ------------------------------------------------------------
-// touchLogin — update lastLoginAt
+// touchLogin
 // ------------------------------------------------------------
 async function touchLogin(id) {
   try {

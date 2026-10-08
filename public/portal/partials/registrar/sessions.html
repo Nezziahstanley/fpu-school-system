@@ -1,0 +1,269 @@
+<!-- Portal → Registrar → Sessions -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📅</div>
+    <div>
+      <h1>Academic Sessions</h1>
+      <div class="sub">All academic sessions and current status</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="rs2-search" placeholder="Search session name or dates…" />
+  <select id="rs2-status">
+    <option value="">All Sessions</option>
+    <option value="current">Current only</option>
+    <option value="past">Past only</option>
+    <option value="upcoming">Upcoming only</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="rs2-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="rs2-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Sessions</span><span class="value" id="rs2-total">—</span></div>
+    <div class="ic">📅</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Current</span><span class="value" id="rs2-current">—</span></div>
+    <div class="ic">⭐</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Past</span><span class="value" id="rs2-past">—</span></div>
+    <div class="ic">✔️</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Upcoming</span><span class="value" id="rs2-upcoming">—</span></div>
+    <div class="ic">⏩</div>
+  </div>
+</div>
+
+<!-- Current session highlight -->
+<section class="panel" id="rs2-current-panel" style="display:none;">
+  <div class="panel-head">
+    <h3>⭐ Current Session</h3>
+  </div>
+  <div class="panel-body">
+    <div class="fees-breakdown" id="rs2-current-details">
+      <div class="muted small">Loading…</div>
+    </div>
+  </div>
+</section>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>All Sessions</h3>
+    <span class="badge" id="rs2-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="rs2-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getName(s) {
+    return s.name || s.sessionName || s.title || `Session ${s.id}`;
+  }
+  function getStart(s) {
+    return s.startDate || s.start_date || s.startsAt || null;
+  }
+  function getEnd(s) {
+    return s.endDate || s.end_date || s.endsAt || null;
+  }
+  function isCurrent(s) {
+    return s.isCurrent === true || s.isCurrent === 'true' || s.current === true;
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+    catch { return '—'; }
+  }
+  function duration(start, end) {
+    if (!start || !end) return '—';
+    const ms = new Date(end) - new Date(start);
+    const days = Math.round(ms / (1000 * 60 * 60 * 24));
+    if (days < 30) return `${days} days`;
+    const months = Math.round(days / 30);
+    if (months < 24) return `${months} months`;
+    return `${Math.round(months / 12)} years`;
+  }
+
+  // ---------------------------------------------------------
+  // Session status (current / past / upcoming)
+  // ---------------------------------------------------------
+  function getStatus(s) {
+    if (isCurrent(s)) return 'current';
+    const now = new Date();
+    const start = getStart(s) ? new Date(getStart(s)) : null;
+    const end = getEnd(s) ? new Date(getEnd(s)) : null;
+    if (start && start > now) return 'upcoming';
+    if (end && end < now) return 'past';
+    return 'past';  // default fallback
+  }
+
+  function statusBadge(s) {
+    const st = getStatus(s);
+    if (st === 'current')  return '<span class="badge-status badge-active">Current</span>';
+    if (st === 'upcoming') return '<span class="badge-status badge-warning">Upcoming</span>';
+    return '<span class="badge-status badge-inactive">Past</span>';
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('rs2-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('rs2-tbody').innerHTML =
+        '<tr><td colspan="5" class="empty">No sessions match your filters.</td></tr>';
+      return;
+    }
+
+    $('rs2-tbody').innerHTML = FILTERED.map((s) => {
+      return `
+        <tr>
+          <td><strong>${esc(getName(s))}</strong></td>
+          <td>${esc(fmtDate(getStart(s)))}</td>
+          <td>${esc(fmtDate(getEnd(s)))}</td>
+          <td>${esc(duration(getStart(s), getEnd(s)))}</td>
+          <td>${statusBadge(s)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('rs2-search').value || '').trim().toLowerCase();
+    const st = $('rs2-status').value;
+
+    FILTERED = ALL.filter((s) => {
+      const hay = `${getName(s)} ${fmtDate(getStart(s))} ${fmtDate(getEnd(s))}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (st && getStatus(s) !== st) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const current = ALL.filter((s) => getStatus(s) === 'current').length;
+    const past = ALL.filter((s) => getStatus(s) === 'past').length;
+    const upcoming = ALL.filter((s) => getStatus(s) === 'upcoming').length;
+
+    $('rs2-total').textContent = total;
+    $('rs2-current').textContent = current;
+    $('rs2-past').textContent = past;
+    $('rs2-upcoming').textContent = upcoming;
+  }
+
+  // ---------------------------------------------------------
+  // Current session highlight panel
+  // ---------------------------------------------------------
+  function renderCurrentPanel() {
+    const cur = ALL.find(isCurrent);
+    const panel = $('rs2-current-panel');
+    if (!cur) { panel.style.display = 'none'; return; }
+
+    panel.style.display = 'block';
+    $('rs2-current-details').innerHTML = `
+      <div class="fees-row"><span>Session</span><strong>${esc(getName(cur))}</strong></div>
+      <div class="fees-row"><span>Starts</span><strong>${esc(fmtDate(getStart(cur)))}</strong></div>
+      <div class="fees-row"><span>Ends</span><strong>${esc(fmtDate(getEnd(cur)))}</strong></div>
+      <div class="fees-row"><span>Duration</span><strong>${esc(duration(getStart(cur), getEnd(cur)))}</strong></div>
+      <div class="fees-row"><span>Status</span><strong><span class="badge-status badge-active">Current</span></strong></div>
+    `;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('rs2-tbody').innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/sessions');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
+      console.log('[registrar-sessions] Loaded', ALL.length);
+      updateStats();
+      renderCurrentPanel();
+      applyFilter();
+    } catch (err) {
+      console.error('[registrar-sessions]', err);
+      $('rs2-tbody').innerHTML = `<tr><td colspan="5" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['Session', 'Start Date', 'End Date', 'Duration', 'Status'];
+    const rows = FILTERED.map((s) => [
+      getName(s),
+      fmtDate(getStart(s)),
+      fmtDate(getEnd(s)),
+      duration(getStart(s), getEnd(s)),
+      getStatus(s),
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `registrar-sessions-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---------------------------------------------------------
+  // Wire up
+  // ---------------------------------------------------------
+  $('rs2-search').addEventListener('input', applyFilter);
+  $('rs2-status').addEventListener('change', applyFilter);
+  $('rs2-refresh').addEventListener('click', load);
+  $('rs2-export').addEventListener('click', exportCsv);
+
+  load();
+})();
+</script>

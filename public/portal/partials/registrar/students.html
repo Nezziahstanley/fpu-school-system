@@ -1,0 +1,241 @@
+<!-- Portal → Registrar → Students -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">🎓</div>
+    <div>
+      <h1>All Students</h1>
+      <div class="sub">Institution-wide student records</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="rs-search" placeholder="Search matric, name, or email…" />
+  <select id="rs-level">
+    <option value="">All Levels</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
+  </select>
+  <select id="rs-department"><option value="">All Departments</option></select>
+  <select id="rs-programme"><option value="">All Programmes</option></select>
+  <select id="rs-status">
+    <option value="">All Status</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="rs-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Students</span><span class="value" id="rs-total">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Students</span><span class="value" id="rs-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Students</span><span class="value" id="rs-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Active</span><span class="value" id="rs-active">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Students</h3>
+    <span class="badge" id="rs-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Matric No.</th>
+            <th>Full Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>Department</th>
+            <th>CGPA</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="rs-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
+  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
+  function getDepartment(s) { return s.departmentName || s.department?.name || '—'; }
+  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
+  function isActive(s) { return s.isActive === true || s.isActive === 'true' || s.isActive === 1; }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('rs-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('rs-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No students match your filters.</td></tr>';
+      return;
+    }
+
+    $('rs-tbody').innerHTML = FILTERED.map((s) => {
+      const level = getLevel(s);
+      const chipClass = 'chip-' + level.toLowerCase();
+      const active = isActive(s);
+      return `
+        <tr>
+          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
+          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(getProgramme(s))}</td>
+          <td>${esc(getDepartment(s))}</td>
+          <td>${getCGPA(s)}</td>
+          <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('rs-search').value || '').trim().toLowerCase();
+    const lvl = $('rs-level').value;
+    const dept = $('rs-department').value;
+    const prog = $('rs-programme').value;
+    const st = $('rs-status').value;
+
+    FILTERED = ALL.filter((s) => {
+      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''} ${s.email || ''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && getLevel(s) !== lvl) return false;
+      if (dept && getDepartment(s) !== dept) return false;
+      if (prog && getProgramme(s) !== prog) return false;
+      if (st === 'active' && !isActive(s)) return false;
+      if (st === 'inactive' && isActive(s)) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((s) => getLevel(s) === 'ND').length;
+    const hnd = ALL.filter((s) => getLevel(s) === 'HND').length;
+    const active = ALL.filter(isActive).length;
+
+    $('rs-total').textContent = total;
+    $('rs-nd').textContent = nd;
+    $('rs-hnd').textContent = hnd;
+    $('rs-active').textContent = active;
+  }
+
+  // ---------------------------------------------------------
+  // Populate dropdowns
+  // ---------------------------------------------------------
+  function populateDropdowns() {
+    const depts = [...new Set(ALL.map(getDepartment).filter((d) => d && d !== '—'))].sort();
+    const deptSel = $('rs-department');
+    const curDept = deptSel.value;
+    deptSel.innerHTML = '<option value="">All Departments</option>' +
+      depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+    deptSel.value = curDept;
+
+    const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
+    const progSel = $('rs-programme');
+    const curProg = progSel.value;
+    progSel.innerHTML = '<option value="">All Programmes</option>' +
+      progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    progSel.value = curProg;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('rs-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/students');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload)
+        ? payload
+        : (payload.rows || payload.students || []);
+      console.log('[registrar-students] Loaded', ALL.length);
+      populateDropdowns();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[registrar-students]', err);
+      $('rs-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['Matric No', 'Full Name', 'Level', 'Programme', 'Department', 'CGPA', 'Status'];
+    const rows = FILTERED.map((s) => [
+      s.matricNumber || '',
+      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+      getLevel(s),
+      getProgramme(s),
+      getDepartment(s),
+      getCGPA(s),
+      isActive(s) ? 'Active' : 'Inactive',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `registrar-students-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('rs-search').addEventListener('input', applyFilter);
+  $('rs-level').addEventListener('change', applyFilter);
+  $('rs-department').addEventListener('change', applyFilter);
+  $('rs-programme').addEventListener('change', applyFilter);
+  $('rs-status').addEventListener('change', applyFilter);
+  $('rs-export').addEventListener('click', exportCsv);
+
+  load();
+})();
+</script>

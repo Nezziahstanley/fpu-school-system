@@ -42,7 +42,7 @@ function savePassport(dataUrl, prefix = 'student') {
   try { __fs.writeFileSync(__path.join(dir, filename), buf); } catch { return null; }
   return '/uploads/' + filename;
 }
-const STAFF = ['admin', 'registrar', 'academic_officer', 'bursar', 'rector', 'hod'];
+const STAFF = ['admin', 'registrar', 'academic_officer', 'bursar', 'rector', 'hod', 'lecturer'];
 
 // ------------------------------------------------------------
 // GET /api/admin/students

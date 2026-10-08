@@ -75,10 +75,12 @@
       'portal-complaints', 'portal-security',
     ],
     lecturer: [
-      'portal-profile', 'portal-photo', 'portal-messages',
-      'portal-notifications', 'portal-announcements',
+      // Personal
+      'portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements',
+      // Staff-relevant shared
+      'admin-exams', 'admin-courses', 'admin-documents', 'admin-transcript',
+      // Support
       'portal-complaints', 'portal-security',
-      'admin-exams', 'admin-courses', 'admin-documents',
     ],
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',

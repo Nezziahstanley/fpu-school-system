@@ -14,7 +14,12 @@ const { users, departments, programmes, schools } = schema;
 // ------------------------------------------------------------
 // Safe select — never leaks password_hash
 // ------------------------------------------------------------
+// IMPORTANT: This includes joined columns from programmes,
+// departments, and schools (as flat aliases). Whenever a
+// query uses .leftJoin(), these aliases will populate the row.
+// ------------------------------------------------------------
 const SAFE_COLS = {
+  // ---- users table ----
   id: users.id,
   email: users.email,
   role: users.role,
@@ -39,13 +44,28 @@ const SAFE_COLS = {
   lastLoginAt: users.lastLoginAt,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
+
+  // ---- joined: programmes ----
+  programmeName: programmes.name,
+  programmeCode: programmes.code,
+
+  // ---- joined: departments ----
+  departmentName: departments.name,
+  departmentCode: departments.code,
+
+  // ---- joined: schools ----
+  schoolName: schools.name,
 };
 
 // ------------------------------------------------------------
-// Helper: unwrap Drizzle join result { users: {...}, departments: {...} }
+// Helper: normalize a row from a join query.
+// Drizzle may return nested objects ({ users: {...}, programmes: {...} })
+// OR already-flat rows (when SAFE_COLS aliases the joined fields).
+// This handles both shapes.
 // ------------------------------------------------------------
 function unwrapJoin(row) {
   if (!row) return null;
+
   const base = row.users || row;
   const dept = row.departments || {};
   const prog = row.programmes || {};
@@ -53,16 +73,22 @@ function unwrapJoin(row) {
 
   return {
     ...base,
-    departmentName: dept.name || null,
-    departmentCode: dept.code || null,
-    programmeName: prog.name || null,
-    programmeCode: prog.code || null,
-    schoolName: sch.name || null,
+    // Prefer explicitly-aliased columns if present, else fall back
+    // to the joined object's fields.
+    departmentName: base.departmentName || dept.name || null,
+    departmentCode: base.departmentCode || dept.code || null,
+    programmeName:  base.programmeName  || prog.name || null,
+    programmeCode:  base.programmeCode  || prog.code || null,
+    schoolName:     base.schoolName     || sch.name  || null,
   };
 }
 
+// ============================================================
+// Lookups
+// ============================================================
+
 // ------------------------------------------------------------
-// findById — includes department/programme/school names
+// findById — full user with department/programme/school names
 // ------------------------------------------------------------
 async function findById(id) {
   if (!id) return null;
@@ -80,7 +106,7 @@ async function findById(id) {
 }
 
 // ------------------------------------------------------------
-// findByEmail — includes passwordHash (login)
+// findByEmail — includes passwordHash (login) + joined names
 // ------------------------------------------------------------
 async function findByEmail(email) {
   if (!email) return null;
@@ -110,8 +136,12 @@ async function emailExists(email, exceptId = null) {
   return true;
 }
 
+// ============================================================
+// Lists
+// ============================================================
+
 // ------------------------------------------------------------
-// list
+// list — paginated user list with filters
 // ------------------------------------------------------------
 async function list({
   role, departmentId, schoolId, programmeId, level, search, isActive,
@@ -140,6 +170,8 @@ async function list({
   return db
     .select(SAFE_COLS)
     .from(users)
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(where)
     .orderBy(desc(users.createdAt))
     .limit(Math.min(Number(limit) || 50, 500))
@@ -147,7 +179,7 @@ async function list({
 }
 
 // ------------------------------------------------------------
-// listStaff
+// listStaff — all non-student users (with dept + prog names)
 // ------------------------------------------------------------
 async function listStaff({ departmentId, role } = {}) {
   const conds = [sql`${users.role} <> 'student'`];
@@ -157,8 +189,8 @@ async function listStaff({ departmentId, role } = {}) {
   const rows = await db
     .select(SAFE_COLS)
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(and(...conds))
     .orderBy(asc(users.firstName), asc(users.lastName));
 
@@ -166,7 +198,7 @@ async function listStaff({ departmentId, role } = {}) {
 }
 
 // ------------------------------------------------------------
-// listStudents
+// listStudents — only students (with programme + dept names)
 // ------------------------------------------------------------
 async function listStudents({ departmentId, programmeId, level, sessionId } = {}) {
   const conds = [eq(users.role, 'student')];
@@ -204,8 +236,12 @@ async function count({ role, departmentId, schoolId, programmeId, level, isActiv
   return rows.length;
 }
 
+// ============================================================
+// Writes
+// ============================================================
+
 // ------------------------------------------------------------
-// create
+// create — insert a new user
 // ------------------------------------------------------------
 async function create(payload) {
   const [row] = await db
@@ -254,6 +290,7 @@ async function update(id, patch) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   }
 
+  // Numeric casts
   if (clean.programmeId !== undefined) clean.programmeId = clean.programmeId ? Number(clean.programmeId) : null;
   if (clean.departmentId !== undefined) clean.departmentId = clean.departmentId ? Number(clean.departmentId) : null;
   if (clean.schoolId !== undefined) clean.schoolId = clean.schoolId ? Number(clean.schoolId) : null;
@@ -293,7 +330,7 @@ async function remove(id) {
 }
 
 // ------------------------------------------------------------
-// touchLogin
+// touchLogin — update lastLoginAt
 // ------------------------------------------------------------
 async function touchLogin(id) {
   try {

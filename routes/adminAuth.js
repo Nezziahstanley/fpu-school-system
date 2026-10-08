@@ -49,16 +49,18 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
     }
 
-    // Only staff roles may log in through the admin portal
-    const STAFF = [
+    // Any authenticated user can log in through this endpoint:
+    //   - Staff → /admin/app.html or /portal/app.html
+    //   - Student → /portal/app.html (student SPA)
+    const ALLOWED_ROLES = [
       'admin', 'rector', 'registrar', 'bursar', 'librarian',
       'exam_officer', 'academic_officer', 'admission_officer',
-      'hod', 'lecturer',
+      'hod', 'lecturer', 'student',
     ];
-    if (!STAFF.includes(user.role)) {
-      await logLogin({ req, userId: user.id, email, success: false, reason: 'role_not_allowed_admin' });
+    if (!ALLOWED_ROLES.includes(user.role)) {
+      await logLogin({ req, userId: user.id, email, success: false, reason: 'role_not_allowed' });
       await logSecurity({ req, userId: user.id, event: 'admin_login_role_denied', severity: 'warning', details: { role: user.role } });
-      return res.status(403).json({ success: false, error: 'This portal is for staff only.' });
+      return res.status(403).json({ success: false, error: 'This role cannot log in here.' });
     }
 
     const ok = await comparePassword(password, user.passwordHash);

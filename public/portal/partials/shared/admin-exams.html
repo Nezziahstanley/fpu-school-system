@@ -142,7 +142,7 @@
       const hay = `${e.courseCode} ${e.courseTitle} ${e.venue} ${e.sessionName}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (ses && e.sessionName !== ses) return false;
-      if (sem && e.semester !== sem) return false;
+      if (sem && String(e.semester).toLowerCase() !== String(sem).toLowerCase()) return false;
       return true;
     });
     render();

@@ -88,12 +88,31 @@
   let FILTERED = [];
 
   // ---------------------------------------------------------
-  // Extractors
+  // Extractors — API returns { graduation, student, programme, session }
   // ---------------------------------------------------------
+  function unwrap(r) {
+    const g = r.graduation || r;
+    const stu = r.student || {};
+    const prog = r.programme || {};
+    return {
+      id: g.id,
+      status: (g.status || 'pending').toLowerCase(),
+      cgpa: g.cgpa != null ? Number(g.cgpa) : null,
+      classification: g.classification || null,
+      level: g.level || stu.level || '—',
+      studentId: stu.id,
+      firstName: stu.firstName || '',
+      lastName: stu.lastName || '',
+      matricNumber: stu.matricNumber || '—',
+      programmeName: prog.name || '—',
+      programmeCode: prog.code || '',
+    };
+  }
+
   function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
-  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
-  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa) : null; }
-  function getCGPADisplay(s) { const g = getCGPA(s); return g != null ? g.toFixed(2) : '—'; }
+  function getProgramme(s) { return s.programmeName || '—'; }
+  function getCGPA(s) { return s.cgpa; }
+  function getCGPADisplay(s) { const g = s.cgpa; return g != null ? g.toFixed(2) : '—'; }
 
   function classify(cgpa) {
     if (cgpa == null) return '—';
@@ -105,10 +124,11 @@
   }
 
   function getStatus(s) {
-    // If already graduated (has graduatedAt or graduationStatus)
-    if (s.graduatedAt || s.graduationStatus === 'graduated') return 'graduated';
-    const cgpa = getCGPA(s);
-    if (cgpa != null && cgpa >= 2.00) return 'eligible';
+    if (s.status === 'graduated') return 'graduated';
+    if (s.status === 'approved')  return 'eligible';
+    if (s.status === 'pending')   return 'not_eligible';
+    if (s.status === 'rejected')  return 'not_eligible';
+    if (s.cgpa != null && s.cgpa >= 2.00) return 'eligible';
     return 'not_eligible';
   }
 
@@ -140,8 +160,8 @@
         : `<span class="muted small">—</span>`;
       return `
         <tr>
-          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
-          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td><strong>${esc(s.matricNumber)}</strong></td>
+          <td>${esc((s.firstName + ' ' + s.lastName).trim() || '—')}</td>
           <td>${esc(getProgramme(s))}</td>
           <td><span class="chip ${chipClass}">${esc(level)}</span></td>
           <td><strong>${getCGPADisplay(s)}</strong></td>
@@ -170,7 +190,7 @@
     const st = $('gr-status').value;
 
     FILTERED = ALL.filter((s) => {
-      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''} ${getProgramme(s)}`.toLowerCase();
+      const hay = `${s.matricNumber} ${s.firstName} ${s.lastName} ${getProgramme(s)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (lvl && getLevel(s) !== lvl) return false;
       if (prog && getProgramme(s) !== prog) return false;
@@ -216,8 +236,9 @@
     try {
       const res = await core.portalFetch('/api/graduation');
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.graduations || []);
-      console.log('[graduation] Loaded', ALL.length);
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.graduations || []);
+      ALL = raw.map(unwrap);
+      console.log('[graduation] Loaded', ALL.length, ALL[0]);
       populateProgrammes();
       updateStats();
       applyFilter();
@@ -247,8 +268,8 @@
   function exportCsv() {
     const headers = ['Matric', 'Full Name', 'Programme', 'Level', 'CGPA', 'Classification', 'Status'];
     const rows = FILTERED.map((s) => [
-      s.matricNumber || '',
-      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
+      s.matricNumber,
+      `${s.firstName} ${s.lastName}`.trim(),
       getProgramme(s),
       getLevel(s),
       getCGPADisplay(s),

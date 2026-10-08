@@ -87,7 +87,13 @@
       endTime: e.endTime || e.end_time || '',
       venue: e.venue || e.location || '—',
       sessionName: e.sessionName || s.name || '—',
-      semester: e.semesterName || e.semester || '—',
+      semester: (function () {
+        let s = e.semesterName || e.semester || '—';
+        s = String(s).trim();
+        if (/^1$|first/i.test(s)) return 'First';
+        if (/^2$|second/i.test(s)) return 'Second';
+        return s;
+      })(),
       level: c.level || e.level || '—',
     };
   }

@@ -48,8 +48,6 @@
     { key: 'portal-announcements', label: 'Announcements',  icon: ICON.megaphone },
     { key: 'portal-complaints',    label: 'Complaints',     icon: ICON.chat },
     { key: 'portal-security',      label: 'Security',       icon: ICON.shield },
-
-    // Staff-facing shared pages (admin-* prefix)
     { key: 'admin-applications-list', label: 'Applications', icon: ICON.clipboard },
     { key: 'admin-audit',             label: 'Audit Log',    icon: ICON.shield },
     { key: 'admin-borrows',           label: 'Borrows',      icon: ICON.book },
@@ -66,8 +64,7 @@
   ];
 
   // ----------------------------------------------------------
-  // ROLE-AWARE SHARED PAGES
-  // '*' = every shared page (admin only)
+  // ROLE-AWARE SHARED MENUS
   // ----------------------------------------------------------
   const SHARED_BY_ROLE = {
     student: [
@@ -97,10 +94,11 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
+      // Registry work pages (grouped separately)
+      'admin-applications-list', 'admin-documents', 'admin-graduations',
+      // Personal pages
       'portal-profile', 'portal-photo', 'portal-messages',
-      'portal-notifications', 'portal-announcements',
-      'admin-applications-list', 'admin-graduations',
-      'admin-documents', 'admin-transcript',
+      'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-messages',
@@ -115,25 +113,41 @@
     academic_officer: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-programmes', 'admin-courses',
-      'admin-sessions', 'admin-exams',
+      'admin-programmes', 'admin-courses', 'admin-sessions', 'admin-exams',
     ],
     admission_officer: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-applications-list', 'admin-graduations',
-      'admin-documents',
+      'admin-applications-list', 'admin-graduations', 'admin-documents',
     ],
     admin:      '*',
     superadmin: '*',
   };
 
-  function getSharedItemsForRole(role) {
-    const allowed = SHARED_BY_ROLE[role];
-    if (allowed === '*') return SHARED_PAGES;
-    if (!Array.isArray(allowed)) return [];
-    return SHARED_PAGES.filter((p) => allowed.includes(p.key));
-  }
+  // ----------------------------------------------------------
+  // GROUP DEFINITIONS — one per role
+  // Maps role to an array of { title, keys } groups
+  // For most roles: 2 groups (Main + Shared)
+  // For registrar:  3 groups (Main + Registry + Personal)
+  // ----------------------------------------------------------
+  const MENU_GROUPS_BY_ROLE = {
+    registrar: (role, roleItems, sharedItems) => {
+      const registryKeys = ['admin-applications-list', 'admin-documents', 'admin-graduations'];
+      const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
+      const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
+
+      return [
+        { title: 'Main',     items: roleItems },
+        { title: 'Registry', items: registryItems },
+        { title: 'Personal', items: personalItems },
+      ];
+    },
+    // Default: Main + Shared
+    default: (role, roleItems, sharedItems) => [
+      { title: 'Main',   items: roleItems },
+      { title: 'Shared', items: sharedItems },
+    ],
+  };
 
   // ----------------------------------------------------------
   // Role-specific MAIN sidebars
@@ -214,12 +228,8 @@
       { key: 'admission-officer-admitted',  label: 'Admitted',  icon: ICON.check },
       { key: 'admission-officer-letters',   label: 'Letters',   icon: ICON.file },
     ],
-    admin: [
-      { key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash },
-    ],
-    superadmin: [
-      { key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash },
-    ],
+    admin:      [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
+    superadmin: [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
   };
 
   // ----------------------------------------------------------
@@ -259,7 +269,7 @@
   };
 
   // ----------------------------------------------------------
-  // Shared page key → actual filename (fixes portal-profile → profile, etc.)
+  // Shared page key → actual filename
   // ----------------------------------------------------------
   const SHARED_FILE_MAP = {
     'portal-profile':       'profile',
@@ -294,6 +304,16 @@
   SHARED_PAGES.forEach((item) => { PORTAL_TITLES[item.key] = item.label; });
 
   // ----------------------------------------------------------
+  // Helpers
+  // ----------------------------------------------------------
+  function getSharedItemsForRole(role) {
+    const allowed = SHARED_BY_ROLE[role];
+    if (allowed === '*') return SHARED_PAGES;
+    if (!Array.isArray(allowed)) return [];
+    return SHARED_PAGES.filter((p) => allowed.includes(p.key));
+  }
+
+  // ----------------------------------------------------------
   // Resolve a page key to a partial path
   // ----------------------------------------------------------
   function resolvePageConfig(pageKey) {
@@ -302,13 +322,11 @@
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
-    // Only real admins can see these
     const adminOnly = ['admin-settings', 'admin-users', 'admin-audit'];
     if (adminOnly.includes(pageKey) && role !== 'admin' && role !== 'superadmin') {
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
-    // Shared pages
     if (SHARED_PAGES.some((p) => p.key === pageKey) || pageKey.startsWith('admin-')) {
       const file = SHARED_FILE_MAP[pageKey] || pageKey;
       return {
@@ -317,7 +335,6 @@
       };
     }
 
-    // Role pages
     const roleList = PORTAL_SIDEBAR[role] || [];
     const roleItem = roleList.find((p) => p.key === pageKey);
     if (roleItem) {
@@ -334,7 +351,6 @@
       };
     }
 
-    // Fallback
     return {
       url: `/portal/partials/${folder}/${pageKey}.html`,
       title: pageKey,
@@ -342,7 +358,7 @@
   }
 
   // ----------------------------------------------------------
-  // Render sidebar
+  // Render sidebar (multi-group, role-aware)
   // ----------------------------------------------------------
   function renderSidebar(activeKey) {
     const user = core.getPortalUser && core.getPortalUser();
@@ -354,6 +370,10 @@
 
     const roleItems = PORTAL_SIDEBAR[role] || [];
     const sharedItems = getSharedItemsForRole(role);
+
+    // Get group structure for this role
+    const groupFn = MENU_GROUPS_BY_ROLE[role] || MENU_GROUPS_BY_ROLE.default;
+    const groups = groupFn(role, roleItems, sharedItems);
 
     const buildGroup = (title, items) => {
       if (!items.length) return '';
@@ -367,8 +387,7 @@
     };
 
     container.innerHTML = `
-      ${buildGroup('Main', roleItems)}
-      ${buildGroup('Shared', sharedItems)}
+      ${groups.map((g) => buildGroup(g.title, g.items)).join('')}
       <div class="section-title">Account</div>
       <a class="nav-item" data-logout="1">
         <span class="icon">${ICON.logout}</span>
@@ -383,7 +402,7 @@
   }
 
   // ----------------------------------------------------------
-  // Script executor — runs scripts inside partials
+  // Script executor
   // ----------------------------------------------------------
   function executePartialScripts(view) {
     if (window.FPU_EXECUTE_PARTIAL_SCRIPTS) {
@@ -442,9 +461,6 @@
   }
 
   // ----------------------------------------------------------
-  // Boot
-  // ----------------------------------------------------------
-  // ----------------------------------------------------------
   // Profile dropdown (topbar avatar)
   // ----------------------------------------------------------
   function initUserDropdown() {
@@ -454,12 +470,10 @@
 
     const user = core.getPortalUser ? core.getPortalUser() : {};
 
-    // Populate header
     const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     set('user-menu-name', user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user.email || 'User'));
     set('user-menu-email', user.email || '');
 
-    // Populate avatars
     ['user-menu-avatar', 'topbar-avatar'].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -470,7 +484,6 @@
       }
     });
 
-    // Toggle
     function closeMenu() {
       menu.hidden = true;
       chip.setAttribute('aria-expanded', 'false');
@@ -485,17 +498,14 @@
       if (menu.hidden) openMenu(); else closeMenu();
     });
 
-    // Click outside closes
     document.addEventListener('click', (e) => {
       if (!menu.hidden && !menu.contains(e.target) && !chip.contains(e.target)) closeMenu();
     });
 
-    // Escape closes
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !menu.hidden) closeMenu();
     });
 
-    // Menu item clicks
     menu.querySelectorAll('[data-menu]').forEach((item) => {
       item.addEventListener('click', () => {
         closeMenu();
@@ -504,7 +514,6 @@
         if (action === 'photo')          navigatePortal('portal-photo');
         if (action === 'notifications')  navigatePortal('portal-notifications');
         if (action === 'password') {
-          // Go to profile then auto-switch to password tab
           navigatePortal('portal-profile');
           setTimeout(() => {
             const pwTab = document.querySelector('[data-tab="password"]');
@@ -518,6 +527,9 @@
     });
   }
 
+  // ----------------------------------------------------------
+  // Boot
+  // ----------------------------------------------------------
   function initPortalSPA() {
     const user = core.requirePortalAuth && core.requirePortalAuth();
     if (!user) return;
@@ -525,7 +537,6 @@
     const role = user.role;
     const landing = DASHBOARD_CONFIG[role] || 'superadmin-dashboard';
 
-    // Topbar user info
     const nameEl = document.getElementById('topbar-name');
     const roleEl = document.getElementById('topbar-role');
     const avatarEl = document.getElementById('topbar-avatar');
@@ -542,16 +553,15 @@
       }
     }
 
-    // Sidebar toggle + logout
     const toggle = document.getElementById('sidebar-toggle');
     if (toggle) toggle.addEventListener('click', () => core.toggleSidebar && core.toggleSidebar());
-// Init the profile dropdown (topbar avatar)
+
+    // Init the profile dropdown
     initUserDropdown();
 
     const logoutBtn = document.getElementById('topbar-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', () => core.portalLogout && core.portalLogout());
 
-    // Hash-based initial page, else landing dashboard
     const hash = (window.location.hash || '').replace(/^#/, '');
     loadPage(hash || landing);
 

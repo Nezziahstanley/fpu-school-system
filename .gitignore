@@ -117,3 +117,7 @@ dump.txt
 # Local-only artifacts
 _deploy_backup_*/
 dump.txt
+
+# Local editor/runtime backups
+*.bak
+*.broken

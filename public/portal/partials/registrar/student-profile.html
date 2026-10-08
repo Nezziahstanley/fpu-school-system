@@ -1,0 +1,441 @@
+<!-- Portal → Registrar → Student Profile -->
+<section class="greeting" id="sp-greeting">
+  <div class="who">
+    <div class="avatar" id="sp-avatar" style="width:72px;height:72px;overflow:hidden;">🎓</div>
+    <div>
+      <h1 id="sp-name">Loading…</h1>
+      <div class="sub" id="sp-sub">—</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="sp-level-badge">—</strong>
+    <span>Level</span>
+  </div>
+</section>
+
+<!-- Back link -->
+<div style="margin-bottom:1rem;">
+  <a href="#registrar-students" class="btn btn-outline btn-sm">← Back to Students</a>
+</div>
+
+<!-- KPI tiles -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Current CGPA</span><span class="value" id="sp-cgpa">—</span></div>
+    <div class="ic">📊</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Level</span><span class="value" id="sp-level">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Status</span><span class="value" id="sp-status">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Registrations</span><span class="value" id="sp-reg-count">—</span></div>
+    <div class="ic">📋</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="filter-bar" style="padding:.5rem;gap:.25rem;">
+  <button class="btn btn-primary btn-sm" data-sp-tab="personal">👤 Personal</button>
+  <button class="btn btn-outline btn-sm" data-sp-tab="academic">🎓 Academic</button>
+  <button class="btn btn-outline btn-sm" data-sp-tab="registrations">📋 Registrations</button>
+  <button class="btn btn-outline btn-sm" data-sp-tab="actions">⚙️ Actions</button>
+</div>
+
+<!-- ============ TAB: PERSONAL ============ -->
+<section class="panel" id="sp-tab-personal">
+  <div class="panel-head"><h3>Personal Information</h3></div>
+  <div class="panel-body">
+    <form id="sp-personal-form" onsubmit="return false;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" name="firstName" />
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" name="lastName" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>🔒 Email <span class="locked-hint">(cannot be changed here)</span></label>
+          <input type="email" name="email" disabled readonly />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" name="phone" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>Gender</label>
+          <select name="gender">
+            <option value="">— Select —</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input type="date" name="dateOfBirth" />
+        </div>
+        <div class="form-group">
+          <label>Nationality</label>
+          <input type="text" name="nationality" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>State of Origin</label>
+          <input type="text" name="stateOfOrigin" />
+        </div>
+        <div class="form-group">
+          <label>Matric Number</label>
+          <input type="text" name="matricNumber" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Address</label>
+        <textarea name="address" rows="2"></textarea>
+      </div>
+
+      <div class="quick-actions" style="margin-top:1rem;">
+        <button class="btn btn-primary btn-sm" id="sp-save-btn">💾 Save Changes</button>
+        <button class="btn btn-outline btn-sm" id="sp-reload-btn">↺ Reload</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ TAB: ACADEMIC ============ -->
+<section class="panel" id="sp-tab-academic" style="display:none;">
+  <div class="panel-head"><h3>Academic Information</h3></div>
+  <div class="panel-body">
+    <div class="fees-breakdown">
+      <div class="fees-row"><span>Programme</span><strong id="sp-acad-programme">—</strong></div>
+      <div class="fees-row"><span>Department</span><strong id="sp-acad-dept">—</strong></div>
+      <div class="fees-row"><span>Level</span><strong id="sp-acad-level">—</strong></div>
+      <div class="fees-row"><span>Current Session</span><strong id="sp-acad-session">—</strong></div>
+      <div class="fees-row"><span>CGPA</span><strong id="sp-acad-cgpa">—</strong></div>
+      <div class="fees-row"><span>Admitted On</span><strong id="sp-acad-created">—</strong></div>
+      <div class="fees-row"><span>Account Status</span><strong id="sp-acad-status">—</strong></div>
+    </div>
+
+    <div style="margin-top:1.5rem;">
+      <h4 style="margin:0 0 .75rem;font-size:.95rem;">Change Level</h4>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <select id="sp-change-level" style="padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:8px;">
+          <option value="">— Select Level —</option>
+          <option value="ND1">ND1</option>
+          <option value="ND2">ND2</option>
+          <option value="HND1">HND1</option>
+          <option value="HND2">HND2</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="sp-change-level-btn">Update Level</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB: REGISTRATIONS ============ -->
+<section class="panel" id="sp-tab-registrations" style="display:none;">
+  <div class="panel-head">
+    <h3>Course Registrations</h3>
+    <span class="badge" id="sp-reg-badge">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Course Code</th>
+            <th>Title</th>
+            <th>Units</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="sp-reg-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TAB: ACTIONS ============ -->
+<section class="panel" id="sp-tab-actions" style="display:none;">
+  <div class="panel-head"><h3>Quick Actions</h3></div>
+  <div class="panel-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <button class="btn btn-outline" id="sp-action-reset-pw" style="justify-content:flex-start;padding:.85rem 1rem;">
+        🔑 <span style="margin-left:.5rem;">Reset Password</span>
+      </button>
+      <button class="btn btn-outline" id="sp-action-transcript" style="justify-content:flex-start;padding:.85rem 1rem;">
+        📄 <span style="margin-left:.5rem;">View Transcript</span>
+      </button>
+      <button class="btn btn-outline" id="sp-action-toggle" style="justify-content:flex-start;padding:.85rem 1rem;">
+        ⏸ <span style="margin-left:.5rem;" id="sp-toggle-label">Deactivate Account</span>
+      </button>
+      <button class="btn btn-outline" id="sp-action-print" style="justify-content:flex-start;padding:.85rem 1rem;">
+        🖨 <span style="margin-left:.5rem;">Print Profile</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let STUDENT = null;
+  let ORIGINAL = {};
+
+  // ---------------------------------------------------------
+  // Read ?id=X from URL
+  // ---------------------------------------------------------
+  function getStudentId() {
+    // hash format: #registrar-student-profile?id=123
+    const hash = window.location.hash || '';
+    const q = hash.split('?')[1] || '';
+    const params = new URLSearchParams(q);
+    return params.get('id');
+  }
+
+  // ---------------------------------------------------------
+  // Tab switching
+  // ---------------------------------------------------------
+  document.querySelectorAll('[data-sp-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.spTab;
+      document.querySelectorAll('[data-sp-tab]').forEach((b) => {
+        b.className = b.dataset.spTab === tab ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+      });
+      ['personal', 'academic', 'registrations', 'actions'].forEach((t) => {
+        $('sp-tab-' + t).style.display = (t === tab) ? '' : 'none';
+      });
+    });
+  });
+
+  // ---------------------------------------------------------
+  // Fetch student
+  // ---------------------------------------------------------
+  async function loadStudent() {
+    const id = getStudentId();
+    if (!id) {
+      document.getElementById('page-view').innerHTML =
+        '<div class="panel"><div class="panel-body"><div class="alert alert-error">No student ID provided.</div></div></div>';
+      return;
+    }
+
+    try {
+      const res = await core.portalFetch('/api/students/' + id);
+      STUDENT = res.data || res;
+      console.log('[student-profile] Loaded', STUDENT);
+      fillProfile(STUDENT);
+      loadRegistrations(id);
+    } catch (err) {
+      console.error('[student-profile]', err);
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Fill profile
+  // ---------------------------------------------------------
+  function fillProfile(s) {
+    // Header
+    $('sp-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student';
+    $('sp-sub').textContent = `${s.matricNumber || '—'} · ${s.programmeName || ''}`;
+    $('sp-level-badge').textContent = s.level || '—';
+
+    // Avatar
+    if (s.photoUrl && window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+      window.FPU_PHOTO.renderMyAvatar($('sp-avatar'), s);
+    } else {
+      $('sp-avatar').textContent = (s.firstName || 'S')[0].toUpperCase();
+    }
+
+    // KPI tiles
+    $('sp-cgpa').textContent = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
+    $('sp-level').textContent = s.level || '—';
+    $('sp-status').textContent = s.isActive ? 'Active' : 'Inactive';
+
+    // Personal form
+    const f = $('sp-personal-form');
+    f.firstName.value = s.firstName || '';
+    f.lastName.value = s.lastName || '';
+    f.email.value = s.email || '';
+    f.phone.value = s.phone || '';
+    f.gender.value = s.gender || '';
+    f.dateOfBirth.value = s.dateOfBirth ? String(s.dateOfBirth).slice(0, 10) : '';
+    f.nationality.value = s.nationality || '';
+    f.stateOfOrigin.value = s.stateOfOrigin || '';
+    f.matricNumber.value = s.matricNumber || '';
+    f.address.value = s.address || '';
+
+    // Snapshot for change detection
+    ORIGINAL = {
+      firstName: s.firstName || '',
+      lastName: s.lastName || '',
+      phone: s.phone || '',
+      gender: s.gender || '',
+      dateOfBirth: s.dateOfBirth ? String(s.dateOfBirth).slice(0, 10) : '',
+      nationality: s.nationality || '',
+      stateOfOrigin: s.stateOfOrigin || '',
+      matricNumber: s.matricNumber || '',
+      address: s.address || '',
+    };
+
+    // Academic tab
+    $('sp-acad-programme').textContent = s.programmeName || '—';
+    $('sp-acad-dept').textContent = s.departmentName || '—';
+    $('sp-acad-level').textContent = s.level || '—';
+    $('sp-acad-session').textContent = s.sessionName || '—';
+    $('sp-acad-cgpa').textContent = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
+    $('sp-acad-created').textContent = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—';
+    $('sp-acad-status').textContent = s.isActive ? 'Active' : 'Inactive';
+
+    // Toggle label
+    $('sp-toggle-label').textContent = s.isActive ? 'Deactivate Account' : 'Activate Account';
+  }
+
+  // ---------------------------------------------------------
+  // Save personal edits
+  // ---------------------------------------------------------
+  $('sp-save-btn').addEventListener('click', async () => {
+    const f = $('sp-personal-form');
+    const patch = {};
+    ['firstName', 'lastName', 'phone', 'gender', 'dateOfBirth', 'nationality', 'stateOfOrigin', 'matricNumber', 'address'].forEach((k) => {
+      const v = f[k].value.trim();
+      if (v !== (ORIGINAL[k] || '')) patch[k] = v || null;
+    });
+    if (!Object.keys(patch).length) {
+      core.showToast && core.showToast('No changes to save', 'info');
+      return;
+    }
+    const btn = $('sp-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      await core.portalFetch('/api/students/' + STUDENT.id, { method: 'PUT', body: patch });
+      core.showToast && core.showToast('Profile updated', 'success');
+      loadStudent();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Save Changes';
+    }
+  });
+
+  $('sp-reload-btn').addEventListener('click', loadStudent);
+
+  // ---------------------------------------------------------
+  // Change level
+  // ---------------------------------------------------------
+  $('sp-change-level-btn').addEventListener('click', async () => {
+    const lvl = $('sp-change-level').value;
+    if (!lvl) return core.showToast && core.showToast('Select a level', 'info');
+    try {
+      await core.portalFetch('/api/students/' + STUDENT.id, { method: 'PUT', body: { level: lvl } });
+      core.showToast && core.showToast('Level updated', 'success');
+      loadStudent();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  // ---------------------------------------------------------
+  // Load registrations
+  // ---------------------------------------------------------
+  async function loadRegistrations(studentId) {
+    const tbody = $('sp-reg-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/registrations/with-student?studentId=' + studentId);
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
+      const rows = raw.map((r) => {
+        const reg = r.registration || r;
+        const crs = r.course || {};
+        return {
+          code: crs.code || '—',
+          title: crs.title || '',
+          unit: crs.unit || 0,
+          session: r.session?.name || reg.sessionName || '—',
+          semester: reg.semester || '—',
+          status: (reg.status || 'pending').toLowerCase(),
+        };
+      });
+      $('sp-reg-count').textContent = rows.length;
+      $('sp-reg-badge').textContent = rows.length;
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No course registrations.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map((r) => `
+        <tr>
+          <td><strong>${esc(r.code)}</strong></td>
+          <td>${esc(r.title)}</td>
+          <td>${r.unit}</td>
+          <td>${esc(r.session)}</td>
+          <td>${esc(r.semester)}</td>
+          <td><span class="badge-status ${r.status === 'approved' ? 'badge-active' : 'badge-warning'}">${esc(r.status)}</span></td>
+        </tr>`).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Action buttons
+  // ---------------------------------------------------------
+  $('sp-action-reset-pw').addEventListener('click', async () => {
+    if (!confirm('Reset this student\'s password to "Admin@12345"?')) return;
+    try {
+      await core.portalFetch(`/api/students/${STUDENT.id}/reset-password`, { method: 'POST' });
+      core.showToast && core.showToast('Password reset to Admin@12345', 'success');
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  $('sp-action-transcript').addEventListener('click', () => {
+    sessionStorage.setItem('transcript_student_id', STUDENT.id);
+    if (core.navigatePortal) core.navigatePortal('admin-transcript');
+  });
+
+  $('sp-action-toggle').addEventListener('click', async () => {
+    const msg = STUDENT.isActive ? 'Deactivate this account?' : 'Activate this account?';
+    if (!confirm(msg)) return;
+    try {
+      await core.portalFetch(`/api/students/${STUDENT.id}/toggle-active`, { method: 'POST' });
+      core.showToast && core.showToast('Account status changed', 'success');
+      loadStudent();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  $('sp-action-print').addEventListener('click', () => {
+    window.print();
+  });
+
+  // ---------------------------------------------------------
+  // Go
+  // ---------------------------------------------------------
+  loadStudent();
+})();
+</script>

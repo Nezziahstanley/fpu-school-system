@@ -134,12 +134,14 @@
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
     registrar: (role, roleItems, sharedItems) => {
+      // Hide the profile page from the sidebar
+      const visibleRoleItems = roleItems.filter((it) => it.key !== 'registrar-student-profile');
       const registryKeys = ['admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations'];
       const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
       const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
 
       return [
-        { title: 'Main',     items: roleItems },
+        { title: 'Main',     items: visibleRoleItems },
         { title: 'Registry', items: registryItems },
         { title: 'Personal', items: personalItems },
       ];
@@ -211,6 +213,7 @@
       { key: 'registrar-sessions',       label: 'Sessions',       icon: ICON.calendar },
       { key: 'registrar-programmes',     label: 'Programmes',     icon: ICON.book2 },
       { key: 'registrar-registrations',  label: 'Registrations',  icon: ICON.clipboard },
+      { key: 'registrar-student-profile', label: 'Student Profile', icon: ICON.user },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

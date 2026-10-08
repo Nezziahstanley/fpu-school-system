@@ -111,7 +111,7 @@
       const chipClass = 'chip-' + level.toLowerCase();
       const active = isActive(s);
       return `
-        <tr>
+        <tr data-id="${s.id}" style="cursor:pointer;">
           <td><strong>${esc(s.matricNumber || '—')}</strong></td>
           <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
           <td><span class="chip ${chipClass}">${esc(level)}</span></td>
@@ -121,6 +121,14 @@
           <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
         </tr>`;
     }).join('');
+
+    // Click row → open student profile
+    $('rs-tbody').querySelectorAll('tr[data-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = row.dataset.id;
+        window.location.hash = `registrar-student-profile?id=${id}`;
+      });
+    });
   }
 
   // ---------------------------------------------------------

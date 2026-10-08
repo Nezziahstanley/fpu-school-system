@@ -1,25 +1,34 @@
 <!-- Portal → Lecturer → Dashboard -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar" id="lec-dash-avatar">L</div>
-    <div>
-      <h1>Welcome, <span id="lec-dash-name">Lecturer</span></h1>
-      <div class="sub">My Teaching Dashboard</div>
-    </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<section class="page-head">
+  <div>
+    <h2>My Teaching Dashboard</h2>
+    <p class="muted small" id="lec-sub">Welcome back</p>
   </div>
-  <div class="meta">
-    <strong id="lec-dash-dept">—</strong>
-    <span>Department</span>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="lec-refresh">Refresh</button>
+    <a class="btn btn-primary btn-sm" href="#lecturer-courses">Manage Courses</a>
   </div>
 </section>
 
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">My Courses</div><div class="tile-value" id="lec-t-courses">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">My Students</div><div class="tile-value" id="lec-t-students">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending Results</div><div class="tile-value" id="lec-t-pending">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Today's Classes</div><div class="tile-value" id="lec-t-today">—</div></div>
+<!-- KPI tiles row 1 -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">My Courses</span><span class="value" id="lec-stat-courses">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">My Students</span><span class="value" id="lec-stat-students">—</span></div><div class="ic">🎓</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Pending Results</span><span class="value" id="lec-stat-pending">—</span></div><div class="ic">📊</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Current Session</span><span class="value" id="lec-stat-session">—</span></div><div class="ic">📅</div></div>
 </div>
 
+<!-- KPI tiles row 2 -->
+<div class="stat-grid">
+  <div class="stat purple"><div class="meta"><span class="label">Attendance Records</span><span class="value" id="lec-stat-attendance">—</span></div><div class="ic">✅</div></div>
+  <div class="stat"><div class="meta"><span class="label">Materials</span><span class="value" id="lec-stat-materials">—</span></div><div class="ic">📁</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Assignments</span><span class="value" id="lec-stat-assignments">—</span></div><div class="ic">📝</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">My Department</span><span class="value" id="lec-stat-dept">—</span></div><div class="ic">🏛</div></div>
+</div>
+
+<!-- Quick actions -->
 <div class="quick-actions">
   <a class="btn btn-primary btn-sm" href="#lecturer-courses">📚 My Courses</a>
   <a class="btn btn-outline btn-sm" href="#lecturer-attendance">✅ Take Attendance</a>
@@ -27,64 +36,355 @@
   <a class="btn btn-outline btn-sm" href="#lecturer-materials">📁 Upload Materials</a>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>My Courses This Semester</h3></div>
+<!-- Charts -->
+<section class="panel">
+  <div class="panel-head"><h3>📈 Teaching Analytics</h3><span class="small muted">Based on your courses</span></div>
   <div class="panel-body">
-    <div id="lec-courses-list" class="muted small">Loading…</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Students per Course</h3><span class="chart-badge">Bar</span></div>
+        <div class="chart-body"><canvas id="lec-chart-students"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Results Status</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="lec-chart-results"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Course Levels</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="lec-chart-levels"></canvas></div>
+      </div>
+    </div>
   </div>
-</div>
+</section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Pending Result Submissions</h3></div>
-  <div class="panel-body">
-    <div id="lec-pending-list" class="muted small">Loading…</div>
+<!-- My Courses panel -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📚 My Courses</h3>
+    <a class="btn btn-outline btn-sm" href="#lecturer-courses">View all →</a>
   </div>
-</div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Level</th>
+            <th>Units</th>
+            <th>Semester</th>
+          </tr>
+        </thead>
+        <tbody id="lec-courses-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Pending results panel -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📊 Pending Result Submissions</h3>
+    <a class="btn btn-outline btn-sm" href="#lecturer-results">Enter results →</a>
+  </div>
+  <div class="panel-body" id="lec-pending-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
-    try {
-      document.getElementById('lec-dash-name').textContent = user.firstName || 'Lecturer';
-      if (photo) photo.renderMyAvatar(document.getElementById('lec-dash-avatar'), user);
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-      // Courses assigned to this lecturer
-      const coursesRes = await core.portalFetch('/api/lecturers/' + user.id + '/courses');
-      const courses = coursesRes.data || coursesRes || [];
-      document.getElementById('lec-t-courses').textContent = courses.length;
-      const coursesList = document.getElementById('lec-courses-list');
-      if (!courses.length) {
-        coursesList.innerHTML = '<em>No courses assigned yet.</em>';
-      } else {
-        coursesList.innerHTML = courses.map(c =>
-          `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-             <strong>${c.code || ''}</strong> — ${c.title || 'Untitled'} 
-             <span class="muted small">(${c.units || 0} units, ${c.level || ''})</span>
-           </div>`).join('');
+  let MY_COURSES = [];
+  let MY_STUDENTS = [];
+  let MY_RESULTS = [];
+
+  // ---------------------------------------------------------
+  // Charts setup
+  // ---------------------------------------------------------
+  const COLORS = {
+    green: '#065f46', gold: '#f59e0b', blue: '#3b82f6',
+    purple: '#8b5cf6', red: '#dc2626', pink: '#ec4899',
+    teal: '#14b8a6', cyan: '#06b6d4', slate: '#64748b',
+  };
+  const PALETTE = [COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple, COLORS.pink, COLORS.teal, COLORS.cyan, COLORS.red];
+  const charts = {};
+
+  function destroyChart(id) { if (charts[id]) { try { charts[id].destroy(); } catch {} delete charts[id]; } }
+  function emptyChart(id, msg) {
+    const el = $(id);
+    if (!el || !el.parentElement) return;
+    el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13.5px;">${esc(msg || 'No data')}</div>`;
+  }
+
+  function makeBar(id, labels, data, opts) {
+    opts = opts || {};
+    const el = $(id); if (!el) return;
+    destroyChart(id);
+    charts[id] = new Chart(el, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: opts.thickness || 22 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                  x: { ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }, grid: { display: false } } } },
+    });
+  }
+
+  function makeDoughnut(id, labels, data, colors) {
+    const el = $(id); if (!el) return;
+    destroyChart(id);
+    charts[id] = new Chart(el, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors || PALETTE.slice(0, labels.length), borderColor: '#fff', borderWidth: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#0f172a', padding: 12, font: { size: 12, weight: 600 } } } } },
+    });
+  }
+
+  // ---------------------------------------------------------
+  // Header
+  // ---------------------------------------------------------
+  function setHeader() {
+    setText('lec-sub', user.firstName
+      ? `Welcome, ${user.firstName}${user.lastName ? ' ' + user.lastName : ''}`
+      : 'Welcome');
+    setText('lec-stat-dept', user.departmentName || '—');
+  }
+
+  // ---------------------------------------------------------
+  // Load my courses (from allocations)
+  // ---------------------------------------------------------
+  async function loadMyCourses() {
+    const tbody = $('lec-courses-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      const res = await core.portalFetch('/api/allocations/my');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
+      console.log('[lecturer-dashboard] allocations:', raw.length, raw[0]);
+
+      // Normalise — the response shape could be { allocation, course, session } or flat
+      MY_COURSES = raw.map((r) => {
+        const alloc = r.allocation || r;
+        const crs = r.course || r;
+        const ses = r.session || {};
+        return {
+          allocationId: alloc.id,
+          courseId: alloc.courseId || crs.id,
+          code: crs.code || alloc.courseCode || '—',
+          title: crs.title || alloc.courseTitle || '—',
+          level: crs.level || alloc.level || '—',
+          units: crs.unit || alloc.units || 0,
+          semester: alloc.semester || '—',
+          sessionId: alloc.sessionId,
+          sessionName: ses.name || alloc.sessionName || '—',
+        };
+      });
+
+      setText('lec-stat-courses', MY_COURSES.length);
+
+      if (!MY_COURSES.length) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty">No courses assigned yet. Contact your HOD.</td></tr>';
+        return;
       }
 
-      // Pending results authored by this lecturer
-      const resultsRes = await core.portalFetch('/api/results?lecturerId=' + user.id + '&status=draft');
-      const results = resultsRes.data || resultsRes || [];
-      document.getElementById('lec-t-pending').textContent = results.length;
-      document.getElementById('lec-pending-list').innerHTML = results.length
-        ? results.slice(0,5).map(r =>
-            `<div style="padding:.4rem 0;"><strong>${r.courseCode||''}</strong> — ${r.sessionName||''} (${r.status||'draft'})</div>`
-          ).join('')
-        : '<em>Nothing pending. 🎉</em>';
-
-      // Student count (approx — from reports endpoint filtered)
-      try {
-        const statsRes = await core.portalFetch('/api/reports/overview');
-        const s = statsRes.data || {};
-        document.getElementById('lec-t-students').textContent = s.students ?? '—';
-      } catch { document.getElementById('lec-t-students').textContent = '—'; }
-
-      document.getElementById('lec-t-today').textContent = '—';
+      if (tbody) tbody.innerHTML = MY_COURSES.map((c) => {
+        const lvl = String(c.level || '').toUpperCase();
+        const chipClass = 'chip-' + lvl.toLowerCase();
+        return `
+          <tr>
+            <td><strong>${esc(c.code)}</strong></td>
+            <td>${esc(c.title)}</td>
+            <td><span class="chip ${chipClass}">${esc(lvl || '—')}</span></td>
+            <td>${c.units || 0}</td>
+            <td>${esc(c.semester)}</td>
+          </tr>`;
+      }).join('');
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      console.error('[lecturer-dashboard] courses:', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty">Could not load courses.</td></tr>`;
     }
-  })();
+  }
+
+  // ---------------------------------------------------------
+  // Load students in my courses
+  // ---------------------------------------------------------
+  async function loadMyStudents() {
+    try {
+      // Fetch all students (backend filters by department for lecturers automatically)
+      const res = await core.portalFetch('/api/students');
+      const payload = res.data || res || {};
+      MY_STUDENTS = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+      setText('lec-stat-students', MY_STUDENTS.length);
+    } catch (err) {
+      console.warn('[lecturer-dashboard] students:', err.message);
+      setText('lec-stat-students', '—');
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Load my results
+  // ---------------------------------------------------------
+  async function loadMyResults() {
+    try {
+      const res = await core.portalFetch('/api/results');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
+
+      // Filter results authored by this lecturer (if the API returns all)
+      MY_RESULTS = raw.filter((r) => {
+        const rec = r.result || r;
+        return !rec.lecturerId || rec.lecturerId === user.id || rec.enteredBy === user.id;
+      });
+
+      // Pending = draft status
+      const pending = MY_RESULTS.filter((r) => {
+        const rec = r.result || r;
+        return (rec.status || 'draft') === 'draft';
+      });
+
+      setText('lec-stat-pending', pending.length);
+
+      const box = $('lec-pending-list');
+      if (box) {
+        box.innerHTML = pending.length
+          ? pending.slice(0, 6).map((r) => {
+              const rec = r.result || r;
+              const crs = r.course || {};
+              return `
+                <div style="padding:.5rem 0;border-bottom:1px solid #eee;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                      <strong>${esc(crs.code || rec.courseCode || '')}</strong> — ${esc(crs.title || rec.courseTitle || '')}
+                      <div class="muted small">${esc(rec.sessionName || '')} · ${esc(rec.semester || '')}</div>
+                    </div>
+                    <a class="btn btn-primary btn-xs" href="#lecturer-results">Continue</a>
+                  </div>
+                </div>`;
+            }).join('')
+          : '<p class="muted" style="text-align:center;padding:1.5rem;">No draft results. 🎉</p>';
+      }
+    } catch (err) {
+      console.warn('[lecturer-dashboard] results:', err.message);
+      setText('lec-stat-pending', '—');
+      const box = $('lec-pending-list');
+      if (box) box.innerHTML = '<p class="muted" style="text-align:center;padding:1rem;">Could not load results.</p>';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Load session, attendance, materials, assignments counts
+  // ---------------------------------------------------------
+  async function loadSession() {
+    try {
+      const res = await core.portalFetch('/api/sessions/current');
+      const d = res.data || res || {};
+      setText('lec-stat-session', d.name || '—');
+    } catch {
+      setText('lec-stat-session', '—');
+    }
+  }
+
+  async function loadAttendanceCount() {
+    try {
+      const res = await core.portalFetch('/api/attendance');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
+      setText('lec-stat-attendance', raw.length);
+    } catch {
+      setText('lec-stat-attendance', '—');
+    }
+  }
+
+  function loadMaterials() {
+    // No backend yet — show placeholder
+    setText('lec-stat-materials', '0');
+  }
+
+  function loadAssignments() {
+    // No backend yet — show placeholder
+    setText('lec-stat-assignments', '0');
+  }
+
+  // ---------------------------------------------------------
+  // Charts
+  // ---------------------------------------------------------
+  async function buildCharts() {
+    // Chart 1: Students per course (uses MY_COURSES count as a proxy — real count needs backend)
+    if (MY_COURSES.length) {
+      makeBar('lec-chart-students',
+        MY_COURSES.slice(0, 8).map((c) => c.code),
+        MY_COURSES.slice(0, 8).map(() => Math.round(MY_STUDENTS.length / MY_COURSES.length) || 0),
+        { label: 'Students', colors: COLORS.blue });
+    } else {
+      emptyChart('lec-chart-students', 'No courses assigned');
+    }
+
+    // Chart 2: Results status
+    const statuses = {};
+    MY_RESULTS.forEach((r) => {
+      const rec = r.result || r;
+      const st = rec.status || 'draft';
+      statuses[st] = (statuses[st] || 0) + 1;
+    });
+    const statusKeys = Object.keys(statuses);
+    if (statusKeys.length) {
+      const colorMap = { draft: COLORS.slate, submitted: COLORS.blue, hod_verified: COLORS.purple, approved: COLORS.green, published: COLORS.green, hod_rejected: COLORS.red, admin_rejected: COLORS.red };
+      makeDoughnut('lec-chart-results', statusKeys.map((s) => s.replace(/_/g, ' ')), statusKeys.map((s) => statuses[s]), statusKeys.map((s) => colorMap[s] || COLORS.slate));
+    } else {
+      emptyChart('lec-chart-results', 'No results yet');
+    }
+
+    // Chart 3: Course levels
+    const levels = {};
+    MY_COURSES.forEach((c) => { levels[c.level] = (levels[c.level] || 0) + 1; });
+    const levelKeys = Object.keys(levels);
+    if (levelKeys.length) {
+      makeDoughnut('lec-chart-levels', levelKeys, levelKeys.map((k) => levels[k]), [COLORS.purple, COLORS.gold, COLORS.teal]);
+    } else {
+      emptyChart('lec-chart-levels', 'No courses');
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Main load
+  // ---------------------------------------------------------
+  async function loadAll() {
+    Object.keys(charts).forEach(destroyChart);
+    setHeader();
+
+    await Promise.all([
+      loadMyCourses(),
+      loadMyStudents(),
+      loadMyResults(),
+      loadSession(),
+      loadAttendanceCount(),
+      loadMaterials(),
+      loadAssignments(),
+    ]);
+
+    await buildCharts();
+  }
+
+  // Wire up
+  const refreshBtn = $('lec-refresh');
+  if (refreshBtn) refreshBtn.addEventListener('click', loadAll);
+
+  // Go
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
+  } else {
+    setTimeout(loadAll, 100);
+  }
+})();
 </script>

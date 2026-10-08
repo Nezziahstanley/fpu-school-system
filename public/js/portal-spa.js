@@ -324,28 +324,31 @@
   // Resolve a page key to a partial path
   // ----------------------------------------------------------
   function resolvePageConfig(pageKey) {
+    // Strip query string from pageKey: "registrar-student-profile?id=85" → "registrar-student-profile"
+    const cleanKey = String(pageKey || '').split('?')[0];
+
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return null;
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
     const adminOnly = ['admin-settings', 'admin-users', 'admin-audit'];
-    if (adminOnly.includes(pageKey) && role !== 'admin' && role !== 'superadmin') {
+    if (adminOnly.includes(cleanKey) && role !== 'admin' && role !== 'superadmin') {
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
-    if (SHARED_PAGES.some((p) => p.key === pageKey) || pageKey.startsWith('admin-')) {
-      const file = SHARED_FILE_MAP[pageKey] || pageKey;
+    if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
+      const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       return {
         url: `/portal/partials/shared/${file}.html`,
-        title: PORTAL_TITLES[pageKey] || pageKey.replace(/-/g, ' '),
+        title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }
 
     const roleList = PORTAL_SIDEBAR[role] || [];
-    const roleItem = roleList.find((p) => p.key === pageKey);
+    const roleItem = roleList.find((p) => p.key === cleanKey);
     if (roleItem) {
-      const file = pageKey
+      const file = cleanKey
         .replace(/^exam-officer-/, '')
         .replace(/^academic-officer-/, '')
         .replace(/^admission-officer-/, '')
@@ -359,11 +362,10 @@
     }
 
     return {
-      url: `/portal/partials/${folder}/${pageKey}.html`,
-      title: pageKey,
+      url: `/portal/partials/${folder}/${cleanKey}.html`,
+      title: cleanKey,
     };
   }
-
   // ----------------------------------------------------------
   // Render sidebar (multi-group, role-aware)
   // ----------------------------------------------------------

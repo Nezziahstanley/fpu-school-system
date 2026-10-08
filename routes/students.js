@@ -75,7 +75,7 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 // ------------------------------------------------------------
 router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
-    const student = await userQueries.findByIdWithRelations(req.params.id);
+    const student = await userQueries.findById(req.params.id);
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }

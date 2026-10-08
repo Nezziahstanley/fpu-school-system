@@ -12,7 +12,6 @@
   </div>
 </section>
 
-<!-- KPI tiles row 1 -->
 <div class="stat-grid">
   <div class="stat"><div class="meta"><span class="label">My Courses</span><span class="value" id="lec-stat-courses">—</span></div><div class="ic">📚</div></div>
   <div class="stat blue"><div class="meta"><span class="label">My Students</span><span class="value" id="lec-stat-students">—</span></div><div class="ic">🎓</div></div>
@@ -20,7 +19,6 @@
   <div class="stat accent"><div class="meta"><span class="label">Current Session</span><span class="value" id="lec-stat-session">—</span></div><div class="ic">📅</div></div>
 </div>
 
-<!-- KPI tiles row 2 -->
 <div class="stat-grid">
   <div class="stat purple"><div class="meta"><span class="label">Attendance Records</span><span class="value" id="lec-stat-attendance">—</span></div><div class="ic">✅</div></div>
   <div class="stat"><div class="meta"><span class="label">Materials</span><span class="value" id="lec-stat-materials">—</span></div><div class="ic">📁</div></div>
@@ -28,7 +26,6 @@
   <div class="stat accent"><div class="meta"><span class="label">My Department</span><span class="value" id="lec-stat-dept">—</span></div><div class="ic">🏛</div></div>
 </div>
 
-<!-- Quick actions -->
 <div class="quick-actions">
   <a class="btn btn-primary btn-sm" href="#lecturer-courses">📚 My Courses</a>
   <a class="btn btn-outline btn-sm" href="#lecturer-attendance">✅ Take Attendance</a>
@@ -36,7 +33,6 @@
   <a class="btn btn-outline btn-sm" href="#lecturer-materials">📁 Upload Materials</a>
 </div>
 
-<!-- Charts -->
 <section class="panel">
   <div class="panel-head"><h3>📈 Teaching Analytics</h3><span class="small muted">Based on your courses</span></div>
   <div class="panel-body">
@@ -57,7 +53,6 @@
   </div>
 </section>
 
-<!-- My Courses panel -->
 <section class="panel">
   <div class="panel-head">
     <h3>📚 My Courses</h3>
@@ -83,7 +78,6 @@
   </div>
 </section>
 
-<!-- Pending results panel -->
 <section class="panel">
   <div class="panel-head">
     <h3>📊 Pending Result Submissions</h3>
@@ -108,7 +102,7 @@
   let MY_RESULTS = [];
 
   // ---------------------------------------------------------
-  // Chart helpers
+  // Chart helpers — DEFENSIVE: check Chart is loaded
   // ---------------------------------------------------------
   const COLORS = {
     green: '#065f46', gold: '#f59e0b', blue: '#3b82f6',
@@ -119,12 +113,10 @@
   const charts = {};
 
   function destroyAllCharts() {
-    // Destroy tracked charts
     Object.keys(charts).forEach((id) => {
       try { charts[id].destroy(); } catch {}
       delete charts[id];
     });
-    // Also destroy any orphan Chart.js instances on our canvases
     if (window.Chart && typeof Chart.getChart === 'function') {
       ['lec-chart-students', 'lec-chart-results', 'lec-chart-levels'].forEach((id) => {
         const canvas = document.getElementById(id);
@@ -143,6 +135,12 @@
   }
 
   function makeBar(id, labels, data, opts) {
+    // Guard: Chart.js not loaded?
+    if (typeof Chart === 'undefined') {
+      console.warn('[chart] Chart.js not loaded, skipping', id);
+      emptyChart(id, 'Chart library not loaded');
+      return;
+    }
     opts = opts || {};
     const el = $(id); if (!el) return;
     try { charts[id] && charts[id].destroy(); } catch {}
@@ -157,6 +155,11 @@
   }
 
   function makeDoughnut(id, labels, data, colors) {
+    if (typeof Chart === 'undefined') {
+      console.warn('[chart] Chart.js not loaded, skipping', id);
+      emptyChart(id, 'Chart library not loaded');
+      return;
+    }
     const el = $(id); if (!el) return;
     try { charts[id] && charts[id].destroy(); } catch {}
     charts[id] = new Chart(el, {
@@ -232,14 +235,28 @@
   }
 
   // ---------------------------------------------------------
-  // Load my students (department-scoped by middleware)
+  // Load my students — CLIENT-SIDE department filter as safety
   // ---------------------------------------------------------
   async function loadMyStudents() {
     try {
-      const res = await core.portalFetch('/api/students');
+      // Pass departmentId explicitly so we don't rely solely on middleware
+      const deptId = user.departmentId;
+      const url = deptId ? `/api/students?departmentId=${deptId}` : '/api/students';
+      const res = await core.portalFetch(url);
       const payload = res.data || res || {};
-      MY_STUDENTS = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+      let list = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+
+      // CLIENT-SIDE SAFETY: filter to own department
+      if (deptId) {
+        list = list.filter((s) => {
+          const sDept = s.departmentId ?? s.department_id;
+          return !sDept || String(sDept) === String(deptId);
+        });
+      }
+
+      MY_STUDENTS = list;
       setText('lec-stat-students', MY_STUDENTS.length);
+      console.log('[lecturer-dashboard] students filtered to', MY_STUDENTS.length, 'in dept', deptId);
     } catch (err) {
       console.warn('[lecturer-dashboard] students:', err.message);
       setText('lec-stat-students', '—');
@@ -295,7 +312,7 @@
   }
 
   // ---------------------------------------------------------
-  // Load current session
+  // Session / attendance / materials / assignments
   // ---------------------------------------------------------
   async function loadSession() {
     try {
@@ -303,14 +320,11 @@
       const d = res.data || res || {};
       setText('lec-stat-session', d.name || '—');
     } catch (err) {
-      console.warn('[lecturer-dashboard] sessions/current:', err.message);
+      console.warn('[lecturer-dashboard] sessions:', err.message);
       setText('lec-stat-session', '—');
     }
   }
 
-  // ---------------------------------------------------------
-  // Attendance count
-  // ---------------------------------------------------------
   async function loadAttendanceCount() {
     try {
       const res = await core.portalFetch('/api/attendance');
@@ -330,20 +344,18 @@
   // Charts
   // ---------------------------------------------------------
   async function buildCharts() {
-    // Chart 1: Students per course
     if (MY_COURSES.length) {
-      const avgPerCourse = MY_STUDENTS.length && MY_COURSES.length
+      const avg = MY_STUDENTS.length && MY_COURSES.length
         ? Math.max(1, Math.round(MY_STUDENTS.length / MY_COURSES.length))
         : 0;
       makeBar('lec-chart-students',
         MY_COURSES.slice(0, 8).map((c) => c.code),
-        MY_COURSES.slice(0, 8).map(() => avgPerCourse),
+        MY_COURSES.slice(0, 8).map(() => avg),
         { label: 'Students', colors: COLORS.blue });
     } else {
       emptyChart('lec-chart-students', 'No courses assigned');
     }
 
-    // Chart 2: Results status
     const statuses = {};
     MY_RESULTS.forEach((r) => {
       const rec = r.result || r;
@@ -358,7 +370,6 @@
       emptyChart('lec-chart-results', 'No results yet');
     }
 
-    // Chart 3: Course levels
     const levels = {};
     MY_COURSES.forEach((c) => { levels[c.level] = (levels[c.level] || 0) + 1; });
     const levelKeys = Object.keys(levels);
@@ -373,7 +384,6 @@
   // Main load
   // ---------------------------------------------------------
   async function loadAll() {
-    // Destroy charts FIRST (fixes "Canvas already in use" error)
     destroyAllCharts();
     setHeader();
 
@@ -390,11 +400,9 @@
     await buildCharts();
   }
 
-  // Wire up
   const refreshBtn = $('lec-refresh');
   if (refreshBtn) refreshBtn.addEventListener('click', loadAll);
 
-  // Go
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
   } else {

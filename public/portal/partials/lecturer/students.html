@@ -4,7 +4,7 @@
     <div class="avatar">🎓</div>
     <div>
       <h1>My Students</h1>
-      <div class="sub">Students in your department</div>
+      <div class="sub" id="ls-sub">Students in your department</div>
     </div>
   </div>
 </section>
@@ -58,11 +58,18 @@
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
   let ALL = [], FILTERED = [];
+
+  // Header subtitle
+  if (user.departmentName) {
+    const el = $('ls-sub');
+    if (el) el.textContent = `Students in ${user.departmentName}`;
+  }
 
   function getLevel(s) { return String(s.level || '').toUpperCase() || '—'; }
   function getProg(s) { return s.programmeName || s.programme?.name || '—'; }
@@ -130,11 +137,26 @@
   async function load() {
     const tbody = $('ls-tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
-      const res = await core.portalFetch('/api/students');
+      // Pass departmentId explicitly — the middleware should also do this,
+      // but we force it here as a safety net
+      const deptId = user.departmentId;
+      const url = deptId ? `/api/students?departmentId=${deptId}` : '/api/students';
+      const res = await core.portalFetch(url);
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
-      console.log('[lecturer-students] Loaded', ALL.length);
+      let list = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+
+      // CLIENT-SIDE SAFETY: filter to own department
+      if (deptId) {
+        list = list.filter((s) => {
+          const sDept = s.departmentId ?? s.department_id;
+          return !sDept || String(sDept) === String(deptId);
+        });
+      }
+
+      ALL = list;
+      console.log('[lecturer-students] Loaded', ALL.length, 'in dept', deptId);
       populateProgrammes();
       updateStats();
       applyFilter();

@@ -10,7 +10,7 @@
 </section>
 
 <div class="filter-bar">
-  <select id="lr-course"><option value="">Select a course…</option></select>
+  <select id="lr-course"><option value="">All Courses</option></select>
   <select id="lr-session"><option value="">All Sessions</option></select>
   <select id="lr-status">
     <option value="">All Status</option>
@@ -68,32 +68,46 @@
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
   let ALL = [], FILTERED = [];
+  let COURSE_MAP = {};   // { 505: { code, title } }
+  let SESSION_MAP = {};  // { 3: '2025/2026' }
 
+  // ---------------------------------------------------------
+  // Unwrap the nested { result, student, course } shape
+  // ---------------------------------------------------------
   function unwrap(r) {
     const res = r.result || r;
     const stu = r.student || {};
-    const crs = r.course || {};
+    const crs = r.course || COURSE_MAP[res.courseId] || {};
+    const ses = r.session || {};
+    const sesName = ses.name || SESSION_MAP[res.sessionId] || '—';
+
     return {
       id: res.id,
+      studentId: res.studentId,
+      courseId: res.courseId,
+      departmentId: stu.departmentId,
       studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${res.studentId || ''}`,
       matric: stu.matricNumber || '—',
-      courseCode: crs.code || res.courseCode || '—',
+      courseCode: crs.code || '—',
       courseTitle: crs.title || '',
       score: res.score != null ? Number(res.score) : null,
       grade: res.grade || '—',
-      sessionName: res.sessionName || r.session?.name || '—',
+      sessionName: sesName,
       semester: res.semester || '—',
       status: (res.status || 'draft').toLowerCase(),
     };
   }
 
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
   function render() {
     const countEl = $('lr-count'); const tbody = $('lr-tbody');
     if (countEl) countEl.textContent = FILTERED.length;
     if (!tbody) return;
 
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No results yet. Select a course to begin entering scores.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No results yet.</td></tr>';
       return;
     }
 
@@ -110,8 +124,8 @@
         <tr>
           <td>${esc(r.studentName)}</td>
           <td><code>${esc(r.matric)}</code></td>
-          <td><strong>${esc(r.courseCode)}</strong></td>
-          <td><strong>${r.score != null ? r.score : '—'}</strong></td>
+          <td><strong>${esc(r.courseCode)}</strong> ${r.courseTitle ? `<div class="muted small">${esc(r.courseTitle)}</div>` : ''}</td>
+          <td><strong>${r.score != null ? r.score.toFixed(0) : '—'}</strong></td>
           <td>${esc(r.grade)}</td>
           <td>${esc(r.sessionName)}</td>
           <td><span class="badge-status ${badgeClass}">${esc(r.status)}</span></td>
@@ -129,6 +143,9 @@
     });
   }
 
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
   function applyFilter() {
     const course = $('lr-course')?.value || '';
     const session = $('lr-session')?.value || '';
@@ -169,16 +186,57 @@
     }
   }
 
+  // ---------------------------------------------------------
+  // Load — get with-student + courses + sessions for lookups
+  // ---------------------------------------------------------
   async function load() {
     const tbody = $('lr-tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
 
     try {
-      const res = await core.portalFetch('/api/results');
-      const payload = res.data || res || {};
+      // Fetch with-student (has student info)
+      const resultsRes = await core.portalFetch('/api/results/with-student?limit=5000');
+      const payload = resultsRes.data || resultsRes || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
-      ALL = raw.map(unwrap);
-      console.log('[lecturer-results] Loaded', ALL.length);
+
+      // Fetch courses for lookup (client-side)
+      try {
+        const crsRes = await core.portalFetch('/api/courses');
+        const crsPayload = crsRes.data || crsRes || {};
+        const crsList = Array.isArray(crsPayload) ? crsPayload : (crsPayload.rows || crsPayload.courses || []);
+        COURSE_MAP = Object.fromEntries(crsList.map((c) => [c.id, { code: c.code, title: c.title }]));
+      } catch (e) { console.warn('[results] courses lookup failed:', e.message); }
+
+      // Fetch sessions for lookup (client-side)
+      try {
+        const sesRes = await core.portalFetch('/api/sessions');
+        const sesPayload = sesRes.data || sesRes || {};
+        const sesList = Array.isArray(sesPayload) ? sesPayload : (sesPayload.rows || sesPayload.sessions || []);
+        SESSION_MAP = Object.fromEntries(sesList.map((s) => [s.id, s.name]));
+      } catch (e) { console.warn('[results] sessions lookup failed:', e.message); }
+
+      // Unwrap and FILTER to lecturer's department (safety)
+      let list = raw.map(unwrap);
+      if (user.departmentId) {
+        list = list.filter((r) => !r.departmentId || String(r.departmentId) === String(user.departmentId));
+      }
+
+      // Also filter to only courses this lecturer teaches
+      try {
+        const allocRes = await core.portalFetch('/api/allocations/my');
+        const allocPayload = allocRes.data || allocRes || {};
+        const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
+        const myCourseIds = new Set(allocRaw.map((a) => {
+          const alloc = a.allocation || a;
+          return String(alloc.courseId);
+        }));
+        if (myCourseIds.size) {
+          list = list.filter((r) => myCourseIds.has(String(r.courseId)));
+        }
+      } catch (e) { console.warn('[results] allocations filter failed:', e.message); }
+
+      ALL = list;
+      console.log('[lecturer-results] Loaded', ALL.length, '(from', raw.length, 'raw)');
       populateDropdowns();
       updateStats();
       applyFilter();
@@ -188,6 +246,9 @@
     }
   }
 
+  // ---------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------
   function editResult(id) {
     const rec = ALL.find((r) => String(r.id) === String(id));
     if (!rec) return;
@@ -220,6 +281,9 @@
     }
   }
 
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
   function exportCsv() {
     const headers = ['Student', 'Matric', 'Course', 'Score', 'Grade', 'Session', 'Status'];
     const rows = FILTERED.map((r) => [r.studentName, r.matric, r.courseCode, r.score ?? '', r.grade, r.sessionName, r.status]);

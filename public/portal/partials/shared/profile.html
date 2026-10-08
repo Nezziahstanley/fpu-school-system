@@ -43,8 +43,8 @@
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
         <div class="form-group">
-          <label>Email (locked)</label>
-          <input type="email" name="email" disabled style="background:#f1f5f9;color:#64748b;cursor:not-allowed;" />
+          <label>🔒 Email <span class="locked-hint">(cannot be changed)</span></label>
+          <input type="email" name="email" disabled readonly />
         </div>
         <div class="form-group">
           <label>Phone</label>
@@ -77,8 +77,8 @@
           <input type="text" name="stateOfOrigin" placeholder="e.g. Cross River" />
         </div>
         <div class="form-group">
-          <label>Department (locked)</label>
-          <input type="text" name="departmentName" disabled style="background:#f1f5f9;color:#64748b;cursor:not-allowed;" />
+          <label>🔒 Department <span class="locked-hint">(assigned by admin)</span></label>
+          <input type="text" name="departmentName" disabled readonly />
         </div>
       </div>
 
@@ -187,8 +187,15 @@
     if (!u) return;
     const name = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'My Profile';
     $('pf-name').textContent = name;
-    $('pf-sub').textContent = u.departmentName
-      ? `${u.departmentName} · ${u.role || ''}`
+    const deptName = u.departmentName || (function () {
+      try {
+        const raw = localStorage.getItem('portal_user') || localStorage.getItem('fpu_portal_user');
+        if (!raw) return '';
+        return JSON.parse(raw).departmentName || '';
+      } catch { return ''; }
+    })();
+    $('pf-sub').textContent = deptName
+      ? `${deptName} · ${u.role || ''}`
       : (u.role || '');
     $('pf-role-badge').textContent = u.role || '—';
     if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
@@ -213,7 +220,16 @@
     f.dateOfBirth.value    = u.dateOfBirth ? String(u.dateOfBirth).slice(0, 10) : '';
     f.nationality.value    = u.nationality || '';
     f.stateOfOrigin.value  = u.stateOfOrigin || '';
-    f.departmentName.value = u.departmentName || '';
+    f.departmentName.value =
+      u.departmentName ||
+      (function () {
+        try {
+          const raw = localStorage.getItem('portal_user') || localStorage.getItem('fpu_portal_user');
+          if (!raw) return '';
+          const cached = JSON.parse(raw);
+          return cached.departmentName || '';
+        } catch { return ''; }
+      })();
     f.address.value        = u.address || '';
 
     ORIGINAL = {

@@ -547,3 +547,32 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     flex: 1 1 45%;
   }
 }
+
+/* ------------------------------------------------------------
+   Locked fields (Email, Department, etc.) — always visible,
+   clearly read-only
+   ------------------------------------------------------------ */
+.locked-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: .25rem;
+}
+
+.form-group input[readonly]:disabled,
+.form-group input[readonly][disabled] {
+  background: #f1f5f9;
+  color: #334155;
+  cursor: not-allowed;
+  font-weight: 600;
+  border-style: dashed;
+  border-color: #cbd5e1;
+}
+
+/* Add a subtle lock indicator */
+.form-group input[readonly]:disabled::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}

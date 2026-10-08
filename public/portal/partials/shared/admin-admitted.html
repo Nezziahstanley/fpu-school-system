@@ -1,0 +1,253 @@
+<!-- Shared → Admitted (staff view) -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">✅</div>
+    <div>
+      <h1>Admitted Students</h1>
+      <div class="sub">Applicants who have been offered admission</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="ad-search" placeholder="Search application no., name, or email…" />
+  <select id="ad-level">
+    <option value="">All Levels</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
+  </select>
+  <select id="ad-programme"><option value="">All Programmes</option></select>
+  <select id="ad-status">
+    <option value="">All Status</option>
+    <option value="admitted">Admitted</option>
+    <option value="registered">Registered</option>
+    <option value="accepted">Accepted</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="ad-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="ad-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Admitted</span><span class="value" id="ad-total">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Admitted</span><span class="value" id="ad-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Admitted</span><span class="value" id="ad-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Registered</span><span class="value" id="ad-registered">—</span></div>
+    <div class="ic">🎓</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Admitted List</h3>
+    <span class="badge" id="ad-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>App No.</th>
+            <th>Applicant Name</th>
+            <th>Email</th>
+            <th>Programme</th>
+            <th>Level</th>
+            <th>Admitted On</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ad-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors — API returns { application: {...}, programme: {...} } or flat
+  // ---------------------------------------------------------
+  function unwrap(r) {
+    const app = r.application || r;
+    const prog = r.programme || {};
+    return {
+      id: app.id,
+      applicationNumber: app.applicationNumber || app.appNumber || `APP-${app.id}`,
+      firstName: app.firstName || '',
+      lastName: app.lastName || '',
+      email: app.email || '',
+      programmeName: prog.name || app.programmeName || '—',
+      level: app.level || prog.level || '—',
+      status: (app.status || 'admitted').toLowerCase(),
+      admittedAt: app.admittedAt || app.approvedAt || app.updatedAt,
+    };
+  }
+
+  function getName(a) { return `${a.firstName} ${a.lastName}`.trim() || '—'; }
+  function getLevel(a) { return String(a.level || '').toUpperCase().trim() || '—'; }
+  function getProgramme(a) { return a.programmeName || '—'; }
+  function isRegistered(a) { return a.status === 'registered'; }
+
+  function statusBadge(a) {
+    const map = {
+      admitted:   'badge-active',
+      registered: 'badge-success',
+      accepted:   'badge-warning',
+    };
+    return `<span class="badge-status ${map[a.status] || 'badge-inactive'}">${esc(a.status)}</span>`;
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('ad-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('ad-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No admitted students match your filters.</td></tr>';
+      return;
+    }
+
+    $('ad-tbody').innerHTML = FILTERED.map((a) => {
+      const level = getLevel(a);
+      const chipClass = 'chip-' + level.toLowerCase();
+      return `
+        <tr>
+          <td><code>${esc(a.applicationNumber)}</code></td>
+          <td><strong>${esc(getName(a))}</strong></td>
+          <td>${esc(a.email)}</td>
+          <td>${esc(getProgramme(a))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${a.admittedAt ? new Date(a.admittedAt).toLocaleDateString() : '—'}</td>
+          <td>${statusBadge(a)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('ad-search').value || '').trim().toLowerCase();
+    const lvl = $('ad-level').value;
+    const prog = $('ad-programme').value;
+    const st = $('ad-status').value;
+
+    FILTERED = ALL.filter((a) => {
+      const hay = `${a.applicationNumber} ${a.firstName} ${a.lastName} ${a.email} ${getProgramme(a)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && getLevel(a) !== lvl) return false;
+      if (prog && getProgramme(a) !== prog) return false;
+      if (st && a.status !== st) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((a) => getLevel(a) === 'ND').length;
+    const hnd = ALL.filter((a) => getLevel(a) === 'HND').length;
+    const registered = ALL.filter(isRegistered).length;
+
+    $('ad-total').textContent = total;
+    $('ad-nd').textContent = nd;
+    $('ad-hnd').textContent = hnd;
+    $('ad-registered').textContent = registered;
+  }
+
+  // ---------------------------------------------------------
+  // Programme dropdown
+  // ---------------------------------------------------------
+  function populateProgrammes() {
+    const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
+    const sel = $('ad-programme');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Programmes</option>' +
+      progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('ad-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      // Fetch applications with admitted or registered status
+      const res = await core.portalFetch('/api/applications?status=admitted,registered,accepted&limit=1000');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.applications || []);
+      ALL = raw.map(unwrap);
+      console.log('[admitted] Loaded', ALL.length);
+      populateProgrammes();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[admitted]', err);
+      $('ad-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['App No', 'Name', 'Email', 'Programme', 'Level', 'Admitted On', 'Status'];
+    const rows = FILTERED.map((a) => [
+      a.applicationNumber,
+      getName(a),
+      a.email,
+      getProgramme(a),
+      getLevel(a),
+      a.admittedAt ? new Date(a.admittedAt).toLocaleDateString() : '',
+      a.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `admitted-students-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('ad-search').addEventListener('input', applyFilter);
+  $('ad-level').addEventListener('change', applyFilter);
+  $('ad-programme').addEventListener('change', applyFilter);
+  $('ad-status').addEventListener('change', applyFilter);
+  $('ad-refresh').addEventListener('click', load);
+  $('ad-export').addEventListener('click', exportCsv);
+
+  load();
+})();
+</script>

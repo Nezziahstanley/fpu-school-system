@@ -48,7 +48,7 @@
     { key: 'portal-announcements', label: 'Announcements',  icon: ICON.megaphone },
     { key: 'portal-complaints',    label: 'Complaints',     icon: ICON.chat },
     { key: 'portal-security',      label: 'Security',       icon: ICON.shield },
-    { key: 'admin-applications-list', label: 'Applications', icon: ICON.clipboard },
+    { key: 'admin-admitted',          label: 'Admitted',     icon: ICON.check },
     { key: 'admin-audit',             label: 'Audit Log',    icon: ICON.shield },
     { key: 'admin-borrows',           label: 'Borrows',      icon: ICON.book },
     { key: 'admin-courses',           label: 'Courses',      icon: ICON.book },
@@ -95,7 +95,7 @@
     ],
     registrar: [
       // Registry work pages (grouped separately)
-      'admin-applications-list', 'admin-documents', 'admin-graduations',
+      'admin-applications-list', 'admin-documents', 'admin-graduations', 'admin-admitted',
       // Personal pages
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
@@ -132,7 +132,7 @@
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
     registrar: (role, roleItems, sharedItems) => {
-      const registryKeys = ['admin-applications-list', 'admin-documents', 'admin-graduations'];
+      const registryKeys = ['admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations'];
       const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
       const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
 

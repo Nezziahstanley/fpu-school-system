@@ -107,6 +107,38 @@
       courseTitle: crs.title || reg.courseTitle || '',
       units: crs.unit || reg.units || 0,
     };
+  }  function unwrap(r) {
+    const reg = r.registration || r;
+    const stu = r.student || {};
+    const crs = r.course || {};
+    const ses = r.session || {};
+
+    // Session can appear under many keys — check them all
+    const sessionName =
+      reg.sessionName ||
+      reg.session_name ||
+      ses.name ||
+      ses.sessionName ||
+      (reg.sessionId ? `Session ${reg.sessionId}` : '—');
+
+    // Semester may be `semester` or `semesterName`; normalise to First/Second
+    let semester = reg.semesterName || reg.semester_name || reg.semester || '—';
+    semester = String(semester).trim();
+    if (/^1$|first/i.test(semester)) semester = 'First';
+    else if (/^2$|second/i.test(semester)) semester = 'Second';
+
+    return {
+      id: reg.id,
+      status: (reg.status || 'pending').toLowerCase(),
+      sessionName,
+      semester,
+      studentId: stu.id || reg.studentId,
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${reg.studentId || ''}`,
+      matric: stu.matricNumber || '—',
+      courseCode: crs.code || reg.courseCode || `Course ${reg.courseId || ''}`,
+      courseTitle: crs.title || reg.courseTitle || '',
+      units: crs.unit || reg.units || 0,
+    };
   }
 
   // ---------------------------------------------------------

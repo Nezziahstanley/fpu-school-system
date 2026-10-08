@@ -125,12 +125,21 @@
   // ---------------------------------------------------------
   function getStatus(s) {
     if (isCurrent(s)) return 'current';
+
     const now = new Date();
     const start = getStart(s) ? new Date(getStart(s)) : null;
-    const end = getEnd(s) ? new Date(getEnd(s)) : null;
+    const end   = getEnd(s)   ? new Date(getEnd(s))   : null;
+
+    // If it starts in the future → upcoming
     if (start && start > now) return 'upcoming';
+
+    // If it ended in the past → past
     if (end && end < now) return 'past';
-    return 'past';  // default fallback
+
+    // Active right now → treat as current (fallback)
+    if (start && end && start <= now && now <= end) return 'current';
+
+    return 'past';
   }
 
   function statusBadge(s) {

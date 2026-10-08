@@ -25,7 +25,7 @@ const notifQueries = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const settingsQueries = require('../../db/queries/settings');
 const { db, schema } = require('../../db');
-const { eq, and, desc, inArray, sql } = require('drizzle-orm');
+const { eq, and, desc, inArray, sql, or } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 const { logSecurity } = require('../../utils/audit');
@@ -34,94 +34,10 @@ const { scoreToGrade } = require('../../utils/gradeScale');
 const {
   courseMaterials, assignments, assignmentSubmissions, documents,
   graduations, academicSessions, users, books, borrowRecords,
-  bookReservations, libraryFines, departments,
+  bookReservations, libraryFines,
 } = schema;
 
 const only = requireRole('student');
-
-// ============================================================
-// LIBRARY SCOPING HELPERS
-// ------------------------------------------------------------
-// A student may see/borrow:
-//   1. Books explicitly assigned to their department
-//      (books.department_id — used if/when the column exists)
-//   2. Books whose category matches their department's subjects
-//   3. General / story books (fiction, novel, biography, etc.)
-//   4. Books with no category at all
-// ============================================================
-
-// Department code → subject keywords matched against books.category
-const DEPT_CATEGORY_MAP = {
-  // Engineering & technology
-  CSE: ['computer', 'computing', 'software', 'ict', 'information tech'],
-  MEE: ['mechanical', 'engineering', 'workshop', 'thermodynamics'],
-  EEE: ['electrical', 'electronics', 'engineering', 'circuit'],
-  CEE: ['civil', 'engineering', 'structures', 'surveying'],
-  ACE: ['agricultural', 'agric', 'engineering'],
-  MEC: ['mechatronics', 'robotics', 'automation'],
-  STE: ['science', 'technology', 'engineering'],
-
-  // Sciences
-  SCI: ['science', 'physics', 'chemistry', 'biology', 'mathematics', 'statistics'],
-  MTH: ['mathematics', 'statistics', 'calculus'],
-  PHY: ['physics', 'astronomy'],
-  CHM: ['chemistry', 'biochemistry'],
-  BIO: ['biology', 'botany', 'zoology', 'microbiology'],
-
-  // Business & management
-  BAM: ['business', 'management', 'accounting', 'marketing', 'economics'],
-  ACC: ['accounting', 'finance', 'auditing', 'taxation'],
-  BUS: ['business', 'management', 'entrepreneurship', 'economics'],
-  FIN: ['finance', 'banking', 'insurance', 'accounting'],
-
-  // Arts, humanities, social science
-  ART: ['arts', 'literature', 'language', 'linguistics', 'fine art'],
-  LAN: ['language', 'english', 'literature', 'linguistics'],
-  SOC: ['social', 'sociology', 'government', 'political science'],
-  HIS: ['history', 'civilisation', 'culture'],
-
-  // Education
-  EDU: ['education', 'pedagogy', 'teaching', 'curriculum'],
-
-  // Health & environmental
-  HSC: ['health', 'nursing', 'public health', 'medical'],
-  ENV: ['environment', 'ecology', 'conservation', 'geography'],
-  URP: ['urban', 'regional', 'planning', 'architecture'],
-
-  // Libraries & information
-  LIB: ['library', 'information science', 'archival', 'cataloguing'],
-};
-
-// Always visible regardless of department
-const GENERAL_CATEGORIES = [
-  'fiction', 'story', 'novel', 'literature',
-  'biography', 'autobiography', 'memoir',
-  'general', 'reference', 'dictionary', 'encyclopedia',
-  'religion', 'philosophy', 'psychology',
-  'inspirational', 'self-help', 'self help',
-  'nigeria', 'africa', 'african',
-  'history', 'poetry', 'drama', 'plays',
-];
-
-function normaliseCategory(str) {
-  return String(str || '').trim().toLowerCase();
-}
-
-async function resolveDeptCode(departmentId) {
-  if (!departmentId) return null;
-  const [dept] = await db
-    .select({ code: departments.code })
-    .from(departments)
-    .where(eq(departments.id, Number(departmentId)))
-    .limit(1);
-  return dept ? String(dept.code).toUpperCase() : null;
-}
-
-function isGeneralCategory(cat) {
-  if (!cat) return true;
-  if (GENERAL_CATEGORIES.includes(cat)) return true;
-  return GENERAL_CATEGORIES.some((g) => cat.includes(g));
-}
 
 // ============================================================
 // GET /api/student/registered-courses
@@ -214,45 +130,28 @@ router.get('/timetable', only, async (req, res, next) => {
 // ============================================================
 // GET /api/student/library/catalogue
 // ------------------------------------------------------------
-// Books available to this student:
-//   - Departmental books (matched by category keywords OR
-//     explicit books.department_id when the column exists)
-//   - Story / general books (fiction, novel, biography…)
-//   - Uncategorised books
-// Each row is annotated with `_scope: 'department' | 'general'`
-// so the frontend can render a badge.
+// Strict scoping:
+//   1. Books with department_id = student's departmentId
+//   2. Books with is_general = true (visible to all students)
+//   Nothing else. No category heuristic.
 // ============================================================
 router.get('/library/catalogue', only, async (req, res, next) => {
   try {
-    const deptCode = await resolveDeptCode(req.user.departmentId);
-    const deptKeywords = deptCode && DEPT_CATEGORY_MAP[deptCode]
-      ? DEPT_CATEGORY_MAP[deptCode]
-      : [];
+    const deptId = req.user.departmentId ? Number(req.user.departmentId) : null;
 
-    const allBooks = await db.select().from(books).orderBy(books.title);
+    const scopes = [eq(books.isGeneral, true)];
+    if (deptId) scopes.push(eq(books.departmentId, deptId));
 
-    const visible = allBooks.filter((b) => {
-      const cat = normaliseCategory(b.category);
+    const rows = await db
+      .select()
+      .from(books)
+      .where(or(...scopes))
+      .orderBy(books.title);
 
-      // 1. Explicit department assignment (if books.department_id exists)
-      if (b.departmentId && Number(b.departmentId) === Number(req.user.departmentId)) {
-        return true;
-      }
-
-      // 2. General / story / uncategorised
-      if (isGeneralCategory(cat)) return true;
-
-      // 3. Department-matched by category keyword
-      if (deptKeywords.length && deptKeywords.some((k) => cat.includes(k))) {
-        return true;
-      }
-
-      return false;
-    });
-
-    const data = visible.map((b) => ({
+    // Annotate for the frontend badge
+    const data = rows.map((b) => ({
       ...b,
-      _scope: isGeneralCategory(normaliseCategory(b.category)) ? 'general' : 'department',
+      _scope: b.isGeneral ? 'general' : 'department',
     }));
 
     return res.json({ success: true, data });
@@ -266,10 +165,7 @@ router.get('/library/catalogue', only, async (req, res, next) => {
 // POST /api/student/library/borrow
 // ------------------------------------------------------------
 // Body: { bookId }
-// Enforces the same scope as /catalogue, then:
-//   - Blocks duplicate active borrow of same book
-//   - Decrements books.copiesAvailable atomically
-//   - Creates a borrow_records row with status='borrowed'
+// Enforces same scope as catalogue + blocks duplicates.
 // ============================================================
 router.post('/library/borrow', only, async (req, res, next) => {
   try {
@@ -278,20 +174,15 @@ router.post('/library/borrow', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'bookId is required.' });
     }
 
+    const deptId = req.user.departmentId ? Number(req.user.departmentId) : null;
+
     const [book] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
     if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
 
-    // Re-check scope — never trust the client
-    const deptCode = await resolveDeptCode(req.user.departmentId);
-    const deptKeywords = deptCode && DEPT_CATEGORY_MAP[deptCode]
-      ? DEPT_CATEGORY_MAP[deptCode]
-      : [];
-    const cat = normaliseCategory(book.category);
-
+    // Scope check — must be same department OR general
     const inScope =
-      (book.departmentId && Number(book.departmentId) === Number(req.user.departmentId)) ||
-      isGeneralCategory(cat) ||
-      (deptKeywords.length && deptKeywords.some((k) => cat.includes(k)));
+      book.isGeneral === true ||
+      (deptId && book.departmentId && Number(book.departmentId) === deptId);
 
     if (!inScope) {
       return res.status(403).json({
@@ -304,7 +195,7 @@ router.post('/library/borrow', only, async (req, res, next) => {
       return res.status(409).json({ success: false, error: 'No copies available.' });
     }
 
-    // Already has an active borrow for the same book?
+    // Block duplicate active borrow
     const existing = await db
       .select({ id: borrowRecords.id })
       .from(borrowRecords)
@@ -360,7 +251,6 @@ router.post('/library/borrow', only, async (req, res, next) => {
 router.get('/exams', only, async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
-
     const regs = await regQueries.list({
       studentId: req.user.id,
       sessionId,
@@ -588,7 +478,6 @@ router.get('/id-card', only, async (req, res, next) => {
       : await sessionQueries.getCurrentAcademic();
 
     const barcodeData = student.matricNumber || `STU-${student.id}`;
-
     const baseUrl = process.env.PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
     const lookupUrl = `${baseUrl}/id-lookup.html?matric=${encodeURIComponent(barcodeData)}`;
 
@@ -638,9 +527,6 @@ router.get('/graduation', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/borrows
-// ------------------------------------------------------------
-// Returns { borrows, fines, reservations }.
-// Each borrow entry is shaped { borrow, book, user }.
 // ============================================================
 router.get('/borrows', only, async (req, res, next) => {
   try {
@@ -740,11 +626,6 @@ router.get('/security', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/available-courses
-// ------------------------------------------------------------
-// Courses the student can register for:
-//   - Matches their level (ND / HND)
-//   - Matches their programme (or is a shared course)
-//   - Not already registered
 // ============================================================
 router.get('/available-courses', only, async (req, res, next) => {
   try {
@@ -782,9 +663,6 @@ router.get('/available-courses', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/student/register-course
-// ------------------------------------------------------------
-// Body: { courseId, sessionId?, semester? }
-// Enforces: settings.max_units, no duplicate active registration.
 // ============================================================
 router.post('/register-course', only, async (req, res, next) => {
   try {

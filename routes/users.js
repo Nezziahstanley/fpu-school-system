@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { db, schema, sql } = require('..');
+const { db, schema, sql } = require('../db');
 const { eq, and, or, ilike, inArray, desc, asc, isNull } = require('drizzle-orm');
 const { users, departments, programmes, schools } = schema;
 

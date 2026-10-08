@@ -1,43 +1,172 @@
-<!-- Portal → Lecturer → Courses -->
-<section class="page-head">
-  <div><h2>My Courses</h2><p class="muted small">All courses allocated to me</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecCoursesLoad()">Refresh</button></div>
+<!-- Portal → Lecturer → My Courses -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📚</div>
+    <div>
+      <h1>My Courses</h1>
+      <div class="sub">Courses assigned to you</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Allocated Courses</h3></div>
+<div class="filter-bar">
+  <input type="search" id="lc-search" placeholder="Search course code or title…" />
+  <select id="lc-level">
+    <option value="">All Levels</option>
+    <option value="ND1">ND1</option>
+    <option value="ND2">ND2</option>
+    <option value="HND1">HND1</option>
+    <option value="HND2">HND2</option>
+  </select>
+  <select id="lc-semester">
+    <option value="">All Semesters</option>
+    <option value="First">First</option>
+    <option value="Second">Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="lc-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="lc-export">Export CSV</button>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Courses</span><span class="value" id="lc-total">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">ND Courses</span><span class="value" id="lc-nd">—</span></div><div class="ic">📘</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">HND Courses</span><span class="value" id="lc-hnd">—</span></div><div class="ic">📗</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Total Units</span><span class="value" id="lc-units">—</span></div><div class="ic">🎯</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Courses</h3>
+    <span class="badge" id="lc-count">0</span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Semester</th><th>Session ID</th><th></th></tr></thead>
-        <tbody id="lec-courses-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Level</th>
+            <th>Units</th>
+            <th>Semester</th>
+            <th>Session</th>
+          </tr>
+        </thead>
+        <tbody id="lc-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  window.__lecCoursesLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('lec-courses-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch('/api/lecturer/courses');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  let ALL = [], FILTERED = [];
+
+  function getLevel(c) { return String(c.level || '').toUpperCase() || '—'; }
+
+  function render() {
+    const countEl = $('lc-count'); const tbody = $('lc-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No courses match your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map((c) => {
+      const lvl = getLevel(c);
+      const chipClass = 'chip-' + lvl.toLowerCase();
+      return `
         <tr>
-          <td>${core.escapeHtml(r.course?.code || '')}</td>
-          <td>${core.escapeHtml(r.course?.title || '')}</td>
-          <td class="num">${r.course?.unit || 0}</td>
-          <td>${core.escapeHtml(r.allocation.semester)}</td>
-          <td>${r.allocation.sessionId}</td>
-          <td>
-            <button class="btn btn-sm btn-outline" onclick="FPU_SPA.navigatePortal('lecturer-students')">Students</button>
-            <button class="btn btn-sm btn-primary" onclick="FPU_SPA.navigatePortal('lecturer-results')">Results</button>
-          </td>
-        </tr>
-      `).join('') : '<tr><td colspan="6" class="empty">No courses allocated yet.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__lecCoursesLoad();
+          <td><strong>${esc(c.code)}</strong></td>
+          <td>${esc(c.title)}</td>
+          <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
+          <td>${c.units || 0}</td>
+          <td>${esc(c.semester || '—')}</td>
+          <td>${esc(c.sessionName || '—')}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('lc-search')?.value || '').trim().toLowerCase();
+    const lvl = $('lc-level')?.value || '';
+    const sem = $('lc-semester')?.value || '';
+
+    FILTERED = ALL.filter((c) => {
+      const hay = `${c.code} ${c.title} ${c.sessionName}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && getLevel(c) !== lvl) return false;
+      if (sem && c.semester !== sem) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('lc-total', ALL.length);
+    setText('lc-nd', ALL.filter((c) => getLevel(c).startsWith('ND')).length);
+    setText('lc-hnd', ALL.filter((c) => getLevel(c).startsWith('HND')).length);
+    setText('lc-units', ALL.reduce((s, c) => s + Number(c.units || 0), 0));
+  }
+
+  async function load() {
+    const tbody = $('lc-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/allocations/my');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
+      ALL = raw.map((r) => {
+        const alloc = r.allocation || r;
+        const crs = r.course || r;
+        const ses = r.session || {};
+        return {
+          id: alloc.id,
+          code: crs.code || alloc.courseCode || '—',
+          title: crs.title || alloc.courseTitle || '—',
+          level: crs.level || alloc.level || '—',
+          units: crs.unit || alloc.units || 0,
+          semester: alloc.semester || '—',
+          sessionName: ses.name || alloc.sessionName || '—',
+        };
+      });
+      console.log('[lecturer-courses] Loaded', ALL.length);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[lecturer-courses]', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const headers = ['Code', 'Title', 'Level', 'Units', 'Semester', 'Session'];
+    const rows = FILTERED.map((c) => [c.code, c.title, getLevel(c), c.units, c.semester, c.sessionName]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lecturer-courses-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('lc-search')?.addEventListener('input', applyFilter);
+  $('lc-level')?.addEventListener('change', applyFilter);
+  $('lc-semester')?.addEventListener('change', applyFilter);
+  $('lc-refresh')?.addEventListener('click', load);
+  $('lc-export')?.addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

@@ -1,95 +1,180 @@
 <!-- Portal → Lecturer → Attendance -->
-<section class="page-head">
-  <div><h2>Attendance</h2><p class="muted small">Record class attendance</p></div>
-</section>
-
-<div class="panel">
-  <div class="panel-head"><h3>Record Attendance</h3></div>
-  <div class="panel-body">
-    <div class="form-grid">
-      <div class="form-group"><label class="form-label">Course ID</label><input class="form-control" id="lec-att-course" type="number" required /></div>
-      <div class="form-group"><label class="form-label">Session ID</label><input class="form-control" id="lec-att-session" type="number" /></div>
-      <div class="form-group"><label class="form-label">Semester</label>
-        <select class="form-select" id="lec-att-semester"><option value="first">First</option><option value="second">Second</option></select>
-      </div>
-      <div class="form-group"><label class="form-label">Date</label><input class="form-control" id="lec-att-date" type="date" /></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" id="lec-att-load-students">Load Students</button>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">✅</div>
+    <div>
+      <h1>Attendance</h1>
+      <div class="sub">View and manage attendance records</div>
     </div>
   </div>
+</section>
+
+<div class="filter-bar">
+  <input type="search" id="la-search" placeholder="Search by student or course…" />
+  <select id="la-course"><option value="">All Courses</option></select>
+  <select id="la-status">
+    <option value="">All Status</option>
+    <option value="present">Present</option>
+    <option value="absent">Absent</option>
+    <option value="late">Late</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="la-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="la-export">Export CSV</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Students</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Records</span><span class="value" id="la-total">—</span></div><div class="ic">📋</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Present</span><span class="value" id="la-present">—</span></div><div class="ic">✅</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Absent</span><span class="value" id="la-absent">—</span></div><div class="ic">❌</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Late</span><span class="value" id="la-late">—</span></div><div class="ic">⏰</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Attendance Records</h3>
+    <span class="badge" id="la-count">0</span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Matric</th><th>Name</th><th>Status</th></tr></thead>
-        <tbody id="lec-att-tbody"><tr><td colspan="3" class="empty">Load a course above.</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Course</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="la-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-  <div class="panel-body">
-    <button class="btn btn-primary" id="lec-att-submit">Save Attendance</button>
-  </div>
-</div>
+</section>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
-    let currentStudents = [];
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    document.getElementById('lec-att-load-students').addEventListener('click', async () => {
-      const courseId = document.getElementById('lec-att-course').value.trim();
-      const sessionId = document.getElementById('lec-att-session').value.trim();
-      if (!courseId) return core.showToast('Enter a course ID.', 'warning');
+  let ALL = [], FILTERED = [];
 
-      const tbody = document.getElementById('lec-att-tbody');
-      tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
-      try {
-        const qs = new URLSearchParams({ courseId });
-        if (sessionId) qs.set('sessionId', sessionId);
-        const res = await core.portalFetch(`/api/lecturer/students?${qs}`);
-        currentStudents = res.data || [];
-        tbody.innerHTML = currentStudents.length ? currentStudents.map((r, i) => `
-          <tr>
-            <td>${core.escapeHtml(r.student?.matricNumber || '')}</td>
-            <td>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</td>
-            <td>
-              <select class="form-select att-status" data-idx="${i}" style="max-width:140px;">
-                <option value="present">Present</option>
-                <option value="absent">Absent</option>
-                <option value="late">Late</option>
-                <option value="excused">Excused</option>
-              </select>
-            </td>
-          </tr>
-        `).join('') : '<tr><td colspan="3" class="empty">No students found.</td></tr>';
-      } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  function unwrap(r) {
+    const att = r.attendance || r;
+    const stu = r.student || {};
+    const crs = r.course || {};
+    return {
+      id: att.id,
+      date: att.date || att.createdAt,
+      status: (att.status || 'present').toLowerCase(),
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || '—',
+      matric: stu.matricNumber || '—',
+      courseCode: crs.code || '—',
+      courseTitle: crs.title || '',
+    };
+  }
+
+  function render() {
+    const countEl = $('la-count'); const tbody = $('la-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No attendance records.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map((a) => {
+      const badgeClass = a.status === 'present' ? 'badge-active'
+                       : a.status === 'absent' ? 'badge-inactive'
+                       : 'badge-warning';
+      return `
+        <tr>
+          <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
+          <td>${esc(a.studentName)}</td>
+          <td><code>${esc(a.matric)}</code></td>
+          <td><strong>${esc(a.courseCode)}</strong> ${esc(a.courseTitle)}</td>
+          <td><span class="badge-status ${badgeClass}">${esc(a.status)}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('la-search')?.value || '').trim().toLowerCase();
+    const course = $('la-course')?.value || '';
+    const st = $('la-status')?.value || '';
+
+    FILTERED = ALL.filter((a) => {
+      const hay = `${a.studentName} ${a.matric} ${a.courseCode} ${a.courseTitle}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (course && a.courseCode !== course) return false;
+      if (st && a.status !== st) return false;
+      return true;
     });
+    render();
+  }
 
-    document.getElementById('lec-att-submit').addEventListener('click', async () => {
-      const courseId = Number(document.getElementById('lec-att-course').value);
-      const sessionId = Number(document.getElementById('lec-att-session').value);
-      const semester = document.getElementById('lec-att-semester').value;
-      const date = document.getElementById('lec-att-date').value;
-      if (!courseId || !date) return core.showToast('Course and date required.', 'warning');
-      if (!currentStudents.length) return core.showToast('Load students first.', 'warning');
+  function updateStats() {
+    setText('la-total', ALL.length);
+    setText('la-present', ALL.filter((a) => a.status === 'present').length);
+    setText('la-absent', ALL.filter((a) => a.status === 'absent').length);
+    setText('la-late', ALL.filter((a) => a.status === 'late').length);
+  }
 
-      const rows = currentStudents.map((r, i) => ({
-        courseId,
-        studentId: r.student.id,
-        sessionId: sessionId || undefined,
-        semester,
-        date,
-        status: document.querySelector(`.att-status[data-idx="${i}"]`).value,
-      }));
+  function populateCourses() {
+    const sel = $('la-course');
+    if (!sel) return;
+    const courses = [...new Set(ALL.map((a) => a.courseCode).filter((c) => c && c !== '—'))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Courses</option>' +
+      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.value = cur;
+  }
 
-      try {
-        await core.portalFetch('/api/lecturer/attendance/bulk', { method: 'POST', body: { rows } });
-        core.showToast('Attendance saved.', 'success');
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
-  })();
+  async function load() {
+    const tbody = $('la-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/attendance');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
+      ALL = raw.map(unwrap);
+      console.log('[lecturer-attendance] Loaded', ALL.length);
+      populateCourses();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[lecturer-attendance]', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function exportCsv() {
+    const headers = ['Date', 'Student', 'Matric', 'Course', 'Status'];
+    const rows = FILTERED.map((a) => [
+      a.date ? new Date(a.date).toLocaleDateString() : '',
+      a.studentName, a.matric, a.courseCode, a.status,
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lecturer-attendance-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('la-search')?.addEventListener('input', applyFilter);
+  $('la-course')?.addEventListener('change', applyFilter);
+  $('la-status')?.addEventListener('change', applyFilter);
+  $('la-refresh')?.addEventListener('click', load);
+  $('la-export')?.addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

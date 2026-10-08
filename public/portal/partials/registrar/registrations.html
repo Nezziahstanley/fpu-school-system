@@ -1,0 +1,291 @@
+<!-- Portal → Registrar → Registrations -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📋</div>
+    <div>
+      <h1>Course Registrations</h1>
+      <div class="sub">Review and approve student course registrations</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="rr-search" placeholder="Search student or course…" />
+  <select id="rr-status">
+    <option value="">All Status</option>
+    <option value="pending">Pending</option>
+    <option value="approved">Approved</option>
+    <option value="rejected">Rejected</option>
+  </select>
+  <select id="rr-session"><option value="">All Sessions</option></select>
+  <select id="rr-semester">
+    <option value="">All Semesters</option>
+    <option value="First">First</option>
+    <option value="Second">Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="rr-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="rr-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Registrations</span><span class="value" id="rr-total">—</span></div>
+    <div class="ic">📋</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Pending Approval</span><span class="value" id="rr-pending">—</span></div>
+    <div class="ic">⏳</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Approved</span><span class="value" id="rr-approved">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Rejected</span><span class="value" id="rr-rejected">—</span></div>
+    <div class="ic">❌</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Registrations</h3>
+    <span class="badge" id="rr-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Course</th>
+            <th>Title</th>
+            <th>Units</th>
+            <th>Session</th>
+            <th>Semester</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="rr-tbody">
+          <tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors — API returns { registration: {...}, student: {...}, course: {...} }
+  // ---------------------------------------------------------
+  function unwrap(r) {
+    const reg = r.registration || r;
+    const stu = r.student || {};
+    const crs = r.course || {};
+    return {
+      id: reg.id,
+      status: (reg.status || 'pending').toLowerCase(),
+      sessionName: reg.sessionName || r.session?.name || '—',
+      semester: reg.semester || reg.semesterName || '—',
+      studentId: stu.id || reg.studentId,
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${reg.studentId || ''}`,
+      matric: stu.matricNumber || '—',
+      courseCode: crs.code || reg.courseCode || `Course ${reg.courseId || ''}`,
+      courseTitle: crs.title || reg.courseTitle || '',
+      units: crs.unit || reg.units || 0,
+    };
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('rr-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('rr-tbody').innerHTML =
+        '<tr><td colspan="9" class="empty">No registrations match your filters.</td></tr>';
+      return;
+    }
+
+    $('rr-tbody').innerHTML = FILTERED.map((r) => {
+      const badgeClass = r.status === 'approved' ? 'badge-active'
+                       : r.status === 'rejected' ? 'badge-inactive'
+                       : 'badge-warning';
+      const actions = r.status === 'pending'
+        ? `<button class="btn btn-primary btn-xs" data-act="approve" data-id="${r.id}">Approve</button>
+           <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}">Reject</button>`
+        : `<span class="muted small">—</span>`;
+      return `
+        <tr>
+          <td>${esc(r.studentName)}</td>
+          <td><code>${esc(r.matric)}</code></td>
+          <td><strong>${esc(r.courseCode)}</strong></td>
+          <td>${esc(r.courseTitle)}</td>
+          <td>${r.units}</td>
+          <td>${esc(r.sessionName)}</td>
+          <td>${esc(r.semester)}</td>
+          <td><span class="badge-status ${badgeClass}">${esc(r.status)}</span></td>
+          <td class="row-actions">${actions}</td>
+        </tr>`;
+    }).join('');
+
+    // Wire action buttons
+    $('rr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (btn.dataset.act === 'approve') approveReg(id);
+        if (btn.dataset.act === 'reject') rejectReg(id);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('rr-search').value || '').trim().toLowerCase();
+    const st = $('rr-status').value;
+    const ses = $('rr-session').value;
+    const sem = $('rr-semester').value;
+
+    FILTERED = ALL.filter((r) => {
+      const hay = `${r.studentName} ${r.matric} ${r.courseCode} ${r.courseTitle}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (st && r.status !== st) return false;
+      if (ses && r.sessionName !== ses) return false;
+      if (sem && r.semester !== sem) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const pending = ALL.filter((r) => r.status === 'pending').length;
+    const approved = ALL.filter((r) => r.status === 'approved').length;
+    const rejected = ALL.filter((r) => r.status === 'rejected').length;
+
+    $('rr-total').textContent = total;
+    $('rr-pending').textContent = pending;
+    $('rr-approved').textContent = approved;
+    $('rr-rejected').textContent = rejected;
+  }
+
+  // ---------------------------------------------------------
+  // Session dropdown
+  // ---------------------------------------------------------
+  function populateSessions() {
+    const sessions = [...new Set(ALL.map((r) => r.sessionName).filter((s) => s && s !== '—'))].sort();
+    const sel = $('rr-session');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Sessions</option>' +
+      sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('rr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/registrations/with-student');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
+      ALL = raw.map(unwrap);
+      console.log('[registrar-registrations] Loaded', ALL.length);
+      populateSessions();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[registrar-registrations]', err);
+      $('rr-tbody').innerHTML = `<tr><td colspan="9" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------
+  async function approveReg(id) {
+    if (!confirm('Approve this registration?')) return;
+    try {
+      await core.portalFetch(`/api/registrations/${id}/approve`, { method: 'POST' });
+      core.showToast && core.showToast('Registration approved', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message || 'Approval failed', 'error');
+    }
+  }
+
+  async function rejectReg(id) {
+    const reason = prompt('Reason for rejection (optional):') || '';
+    try {
+      await core.portalFetch(`/api/registrations/${id}/reject`, {
+        method: 'POST',
+        body: { reason },
+      });
+      core.showToast && core.showToast('Registration rejected', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message || 'Rejection failed', 'error');
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['Student', 'Matric', 'Course', 'Title', 'Units', 'Session', 'Semester', 'Status'];
+    const rows = FILTERED.map((r) => [
+      r.studentName,
+      r.matric,
+      r.courseCode,
+      r.courseTitle,
+      r.units,
+      r.sessionName,
+      r.semester,
+      r.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `registrar-registrations-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---------------------------------------------------------
+  // Wire up
+  // ---------------------------------------------------------
+  $('rr-search').addEventListener('input', applyFilter);
+  $('rr-status').addEventListener('change', applyFilter);
+  $('rr-session').addEventListener('change', applyFilter);
+  $('rr-semester').addEventListener('change', applyFilter);
+  $('rr-refresh').addEventListener('click', load);
+  $('rr-export').addEventListener('click', exportCsv);
+
+  load();
+})();
+</script>

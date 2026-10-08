@@ -1,132 +1,235 @@
 <!-- Portal → Student → Dashboard -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <section class="greeting">
   <div class="who">
-    <div class="avatar" id="stu-dash-avatar">S</div>
+    <div class="avatar" id="sd-avatar">S</div>
     <div>
-      <h1>Welcome, <span id="stu-dash-name">Student</span></h1>
-      <div class="sub" id="stu-dash-matric">—</div>
+      <h1>Welcome, <span id="sd-name">Student</span></h1>
+      <div class="sub" id="sd-sub">—</div>
     </div>
   </div>
   <div class="meta">
-    <strong id="stu-dash-level">—</strong>
+    <strong id="sd-level-badge">—</strong>
     <span>Level</span>
   </div>
 </section>
 
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">Registered Courses</div><div class="tile-value" id="stu-t-courses">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Current GPA</div><div class="tile-value" id="stu-t-gpa">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">CGPA</div><div class="tile-value" id="stu-t-cgpa">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Outstanding Fees (₦)</div><div class="tile-value" id="stu-t-fees">—</div></div>
+<!-- KPI tiles -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Registered Courses</span><span class="value" id="sd-stat-courses">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Current GPA</span><span class="value" id="sd-stat-gpa">—</span></div><div class="ic">📊</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">CGPA</span><span class="value" id="sd-stat-cgpa">—</span></div><div class="ic">🎯</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Total Units</span><span class="value" id="sd-stat-units">—</span></div><div class="ic">🎓</div></div>
 </div>
 
+<!-- Quick actions -->
 <div class="quick-actions">
   <a class="btn btn-primary btn-sm" href="#student-registration">📝 Register Courses</a>
   <a class="btn btn-outline btn-sm" href="#student-results">📊 My Results</a>
-  <a class="btn btn-outline btn-sm" href="#student-fees">💰 Fees</a>
   <a class="btn btn-outline btn-sm" href="#student-timetable">📅 Timetable</a>
+  <a class="btn btn-outline btn-sm" href="#student-transcript">📄 Transcript</a>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>My Courses This Semester</h3></div>
-  <div class="panel-body">
-    <div id="stu-courses-list" class="muted small">Loading…</div>
+<!-- My Courses This Semester -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📚 My Courses This Semester</h3>
+    <a class="btn btn-outline btn-sm" href="#student-registration">Manage →</a>
   </div>
-</div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Code</th><th>Title</th><th>Units</th><th>Semester</th><th>Status</th></tr>
+        </thead>
+        <tbody id="sd-courses-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Recent Results</h3></div>
-  <div class="panel-body">
-    <div id="stu-results-list" class="muted small">Loading…</div>
+<!-- Recent Results -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📊 Recent Results</h3>
+    <a class="btn btn-outline btn-sm" href="#student-results">View all →</a>
   </div>
-</div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Course</th><th>Title</th><th>Score</th><th>Grade</th><th>Session</th></tr>
+        </thead>
+        <tbody id="sd-results-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Latest Announcements</h3></div>
-  <div class="panel-body">
-    <div id="stu-announcements" class="muted small">Loading…</div>
+<!-- Announcements -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>📢 Latest Announcements</h3>
+    <a class="btn btn-outline btn-sm" href="#portal-announcements">View all →</a>
   </div>
-</div>
+  <div class="panel-body" id="sd-announcements">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  let MY_COURSES = [];
+  let MY_RESULTS = [];
+
+  // Header
+  setText('sd-name', user.firstName || 'Student');
+  setText('sd-sub', user.matricNumber || '—');
+  setText('sd-level-badge', user.level || '—');
+  if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+    window.FPU_PHOTO.renderMyAvatar($('sd-avatar'), user);
+  } else {
+    $('sd-avatar').textContent = (user.firstName || 'S')[0].toUpperCase();
+  }
+
+  // ---------------------------------------------------------
+  // Load registered courses
+  // ---------------------------------------------------------
+  async function loadCourses() {
+    const tbody = $('sd-courses-tbody');
     try {
-      document.getElementById('stu-dash-name').textContent = user.firstName || 'Student';
-      document.getElementById('stu-dash-matric').textContent = user.matricNumber || 'No matric number';
-      document.getElementById('stu-dash-level').textContent = user.level ? ('Level ' + user.level) : '—';
-      if (photo) photo.renderMyAvatar(document.getElementById('stu-dash-avatar'), user);
+      const res = await core.portalFetch('/api/student/registered-courses');
+      const raw = res.data || res || [];
+      MY_COURSES = raw.map((r) => {
+        const reg = r.registration || r;
+        const crs = r.course || {};
+        return {
+          id: reg.id,
+          code: crs.code || '—',
+          title: crs.title || '',
+          units: crs.unit || 0,
+          semester: reg.semester || '—',
+          status: (reg.status || 'pending').toLowerCase(),
+          level: crs.level,
+        };
+      });
 
-      // Registered courses
-      try {
-        const r = await core.portalFetch('/api/registrations?studentId=' + user.id);
-        const list = r.data || r || [];
-        document.getElementById('stu-t-courses').textContent = list.length;
-        document.getElementById('stu-courses-list').innerHTML = list.length
-          ? list.slice(0,8).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.courseCode || ''}</strong> — ${x.courseTitle || ''}
-                 <span class="muted small">· ${x.units || 0} units · ${x.status || ''}</span>
-               </div>`).join('')
-          : '<em>You have not registered any courses yet.</em>';
-      } catch {
-        document.getElementById('stu-courses-list').innerHTML = '<em>Could not load courses.</em>';
-      }
+      setText('sd-stat-courses', MY_COURSES.length);
+      setText('sd-stat-units', MY_COURSES.reduce((s, c) => s + c.units, 0));
 
-      // Results
-      try {
-        const r = await core.portalFetch('/api/results?studentId=' + user.id);
-        const list = r.data || r || [];
-        document.getElementById('stu-results-list').innerHTML = list.length
-          ? list.slice(0,5).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.courseCode || ''}</strong> — ${x.courseTitle || ''}
-                 <span class="muted small">· ${x.grade || '—'} · ${x.sessionName || ''}</span>
-               </div>`).join('')
-          : '<em>No results published yet.</em>';
-      } catch {
-        document.getElementById('stu-results-list').innerHTML = '<em>Could not load results.</em>';
-      }
-
-      // CGPA/GPA
-      try {
-        const t = await core.portalFetch('/api/transcript/' + user.id);
-        const d = t.data || t || {};
-        document.getElementById('stu-t-gpa').textContent  = d.gpa  != null ? Number(d.gpa).toFixed(2)  : '—';
-        document.getElementById('stu-t-cgpa').textContent = d.cgpa != null ? Number(d.cgpa).toFixed(2) : '—';
-      } catch {
-        document.getElementById('stu-t-gpa').textContent = '—';
-        document.getElementById('stu-t-cgpa').textContent = '—';
-      }
-
-      // Outstanding fees
-      try {
-        const p = await core.portalFetch('/api/payments?studentId=' + user.id);
-        const list = p.data || p || [];
-        const due = list
-          .filter(x => x.status !== 'verified' && x.status !== 'paid')
-          .reduce((s, x) => s + Number(x.amount || 0), 0);
-        document.getElementById('stu-t-fees').textContent = due.toLocaleString();
-      } catch { document.getElementById('stu-t-fees').textContent = '—'; }
-
-      // Announcements
-      try {
-        const a = await core.portalFetch('/api/announcements?limit=3');
-        const list = a.data || a || [];
-        document.getElementById('stu-announcements').innerHTML = list.length
-          ? list.slice(0,3).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.title || 'Announcement'}</strong>
-                 <div class="muted small">${(x.body || '').slice(0,120)}…</div>
-               </div>`).join('')
-          : '<em>No announcements.</em>';
-      } catch {
-        document.getElementById('stu-announcements').innerHTML = '<em>Could not load announcements.</em>';
+      if (tbody) {
+        tbody.innerHTML = MY_COURSES.length
+          ? MY_COURSES.slice(0, 8).map((c) => {
+              const badge = c.status === 'approved' ? 'badge-active' : c.status === 'rejected' ? 'badge-inactive' : 'badge-warning';
+              return `
+                <tr>
+                  <td><strong>${esc(c.code)}</strong></td>
+                  <td>${esc(c.title)}</td>
+                  <td>${c.units}</td>
+                  <td>${esc(c.semester)}</td>
+                  <td><span class="badge-status ${badge}">${esc(c.status)}</span></td>
+                </tr>`;
+            }).join('')
+          : '<tr><td colspan="5" class="empty">No registered courses. <a href="#student-registration">Register now →</a></td></tr>';
       }
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      console.warn('[student-dashboard] courses:', err.message);
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load courses.</td></tr>';
     }
-  })();
+  }
+
+  // ---------------------------------------------------------
+  // Load results
+  // ---------------------------------------------------------
+  async function loadResults() {
+    const tbody = $('sd-results-tbody');
+    try {
+      const res = await core.portalFetch('/api/student/results');
+      const raw = res.data || res || [];
+      MY_RESULTS = raw.map((r) => {
+        const rec = r.result || r;
+        return {
+          id: rec.id,
+          courseCode: r.course?.code || rec.courseCode || '—',
+          courseTitle: r.course?.title || rec.courseTitle || '',
+          score: rec.score != null ? Number(rec.score) : null,
+          grade: rec.grade || '—',
+          sessionId: rec.sessionId,
+          semester: rec.semester || '—',
+          points: rec.points != null ? Number(rec.points) : null,
+        };
+      });
+
+      // GPA calculation
+      let totalUnits = 0, totalPoints = 0;
+      MY_RESULTS.forEach((r) => {
+        const c = MY_COURSES.find((cc) => cc.code === r.courseCode);
+        if (c && r.points != null) {
+          totalUnits += c.units;
+          totalPoints += c.units * r.points;
+        }
+      });
+      const gpa = totalUnits ? (totalPoints / totalUnits).toFixed(2) : '—';
+      setText('sd-stat-gpa', gpa);
+      setText('sd-stat-cgpa', gpa); // same until we compute cumulative separately
+
+      if (tbody) {
+        tbody.innerHTML = MY_RESULTS.length
+          ? MY_RESULTS.slice(0, 8).map((r) => `
+              <tr>
+                <td><strong>${esc(r.courseCode)}</strong></td>
+                <td>${esc(r.courseTitle)}</td>
+                <td>${r.score != null ? r.score.toFixed(0) : '—'}</td>
+                <td><span class="chip">${esc(r.grade)}</span></td>
+                <td>${esc(r.semester)}</td>
+              </tr>`).join('')
+          : '<tr><td colspan="5" class="empty">No results yet.</td></tr>';
+      }
+    } catch (err) {
+      console.warn('[student-dashboard] results:', err.message);
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load results.</td></tr>';
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Load announcements
+  // ---------------------------------------------------------
+  async function loadAnnouncements() {
+    const box = $('sd-announcements');
+    if (!box) return;
+    try {
+      const res = await core.portalFetch('/api/announcements');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      const list = raw.map((r) => r.announcement || r).slice(0, 5);
+
+      box.innerHTML = list.length
+        ? list.map((a) => `
+            <div style="padding:.75rem 0;border-bottom:1px solid #eee;">
+              <strong>${esc(a.title || 'Announcement')}</strong>
+              <div class="muted small">${esc((a.body || '').slice(0, 100))}${(a.body || '').length > 100 ? '…' : ''}</div>
+            </div>`).join('')
+        : '<p class="muted">No announcements.</p>';
+    } catch (err) {
+      box.innerHTML = '<p class="muted">Could not load announcements.</p>';
+    }
+  }
+
+  // Go
+  loadCourses();
+  loadResults();
+  loadAnnouncements();
+})();
 </script>

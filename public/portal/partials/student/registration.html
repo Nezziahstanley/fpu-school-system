@@ -1,92 +1,208 @@
-<!-- Portal → Student → Course Registration -->
-<section class="page-head">
-  <div><h2>Course Registration</h2><p class="muted small">Register your courses for the current semester</p></div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="window.__studRegLoad()">Refresh</button>
+<!-- Portal → Student → Registration -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📝</div>
+    <div>
+      <h1>Course Registration</h1>
+      <div class="sub">Register for courses this semester</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="sr-units">0 / 24</strong>
+    <span>Units</span>
   </div>
 </section>
 
-<div class="tile-grid" style="margin-bottom:1rem;">
-  <div class="tile"><div class="tile-label">Registered Units</div><div class="tile-value" id="reg-units">0</div></div>
-  <div class="tile"><div class="tile-label">Max Units</div><div class="tile-value" id="reg-max">24</div></div>
-  <div class="tile"><div class="tile-label">Courses Selected</div><div class="tile-value" id="reg-count">0</div></div>
+<!-- KPI tiles -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Registered Courses</span><span class="value" id="sr-total">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Total Units</span><span class="value" id="sr-units-tile">—</span></div><div class="ic">🎯</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Approved</span><span class="value" id="sr-approved">—</span></div><div class="ic">✅</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Pending Approval</span><span class="value" id="sr-pending">—</span></div><div class="ic">⏳</div></div>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Add Course</h3></div>
-  <div class="panel-body">
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <input class="form-control" id="reg-course-id" type="number" placeholder="Course ID" style="max-width:180px;" />
-      <input class="form-control" id="reg-session-id" type="number" placeholder="Session ID (optional)" style="max-width:220px;" />
-      <select class="form-select" id="reg-semester" style="max-width:180px;">
-        <option value="first">First</option><option value="second">Second</option>
-      </select>
-      <button class="btn btn-primary" id="reg-add">Register</button>
-    </div>
+<!-- My Registered Courses -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>My Registered Courses</h3>
+    <span class="badge" id="sr-count">0</span>
   </div>
-</div>
-
-<div class="panel">
-  <div class="panel-head"><h3>My Registrations</h3></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Semester</th><th>Status</th><th></th></tr></thead>
-        <tbody id="reg-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr><th>Code</th><th>Title</th><th>Units</th><th>Semester</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody id="sr-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
+
+<!-- Register New Course -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Register a New Course</h3>
+  </div>
+  <div class="panel-body">
+    <div class="form-group">
+      <label>Select a course to register</label>
+      <select id="sr-available" style="max-width:500px;">
+        <option value="">— Loading available courses…</option>
+      </select>
+    </div>
+    <div class="quick-actions">
+      <button class="btn btn-primary btn-sm" id="sr-register-btn">📝 Register Course</button>
+    </div>
+    <div id="sr-alert" style="margin-top:.75rem;"></div>
+  </div>
+</section>
 
 <script>
-  window.__studRegLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('reg-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  const MAX_UNITS = 24;
+  let REGISTERED = [];
+  let AVAILABLE = [];
+
+  async function loadRegistered() {
+    const tbody = $('sr-tbody');
     try {
       const res = await core.portalFetch('/api/student/registered-courses');
-      const rows = res.data || [];
-      document.getElementById('reg-units').textContent = res.totalUnits || 0;
-      document.getElementById('reg-count').textContent = rows.length;
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.course?.code || '')}</td>
-          <td>${core.escapeHtml(r.course?.title || '')}</td>
-          <td class="num">${r.course?.unit || 0}</td>
-          <td>${core.escapeHtml(r.registration.semester)}</td>
-          <td><span class="badge badge-${r.registration.status === 'approved' ? 'success' : r.registration.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.registration.status)}</span></td>
-          <td>${r.registration.status !== 'approved' ? `<button class="btn btn-sm btn-ghost" onclick="window.__studRegRemove(${r.registration.id})">Remove</button>` : ''}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="6" class="empty">No courses registered yet.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+      const raw = res.data || res || [];
+      REGISTERED = raw.map((r) => {
+        const reg = r.registration || r;
+        const crs = r.course || {};
+        return {
+          regId: reg.id,
+          courseId: crs.id,
+          code: crs.code || '—',
+          title: crs.title || '',
+          units: crs.unit || 0,
+          semester: reg.semester || '—',
+          status: (reg.status || 'pending').toLowerCase(),
+        };
+      });
 
-  window.__studRegRemove = async function (id) {
-    const core = window.FPU_PORTAL;
-    if (!confirm('Remove this course from your registration?')) return;
+      const units = REGISTERED.reduce((s, c) => s + c.units, 0);
+      setText('sr-total', REGISTERED.length);
+      setText('sr-units-tile', units);
+      setText('sr-units', `${units} / ${MAX_UNITS}`);
+      setText('sr-approved', REGISTERED.filter((c) => c.status === 'approved').length);
+      setText('sr-pending', REGISTERED.filter((c) => c.status === 'pending').length);
+      setText('sr-count', REGISTERED.length);
+
+      if (tbody) {
+        tbody.innerHTML = REGISTERED.length
+          ? REGISTERED.map((c) => {
+              const badge = c.status === 'approved' ? 'badge-active' : c.status === 'rejected' ? 'badge-inactive' : 'badge-warning';
+              const dropBtn = c.status !== 'approved'
+                ? `<button class="btn btn-outline btn-xs" data-drop="${c.regId}">Drop</button>`
+                : '<span class="muted small">—</span>';
+              return `
+                <tr>
+                  <td><strong>${esc(c.code)}</strong></td>
+                  <td>${esc(c.title)}</td>
+                  <td>${c.units}</td>
+                  <td>${esc(c.semester)}</td>
+                  <td><span class="badge-status ${badge}">${esc(c.status)}</span></td>
+                  <td>${dropBtn}</td>
+                </tr>`;
+            }).join('')
+          : '<tr><td colspan="6" class="empty">You haven\'t registered for any courses yet.</td></tr>';
+
+        tbody.querySelectorAll('[data-drop]').forEach((btn) => {
+          btn.addEventListener('click', () => dropCourse(btn.dataset.drop));
+        });
+      }
+    } catch (err) {
+      console.error('[registration] registered:', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // Load available courses to register (from catalogue)
+  async function loadAvailable() {
+    const sel = $('sr-available');
+    if (!sel) return;
     try {
-      await core.portalFetch(`/api/student/unregister-course/${id}`, { method: 'POST' });
-      core.showToast('Removed.', 'success');
-      window.__studRegLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+      const res = await core.portalFetch('/api/courses');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.courses || []);
+      // Filter to student's level, exclude already-registered
+      const registeredIds = new Set(REGISTERED.map((c) => String(c.courseId)));
+      AVAILABLE = raw
+        .filter((c) => {
+          const lvl = String(c.level || '').toUpperCase();
+          const myLevel = String(user.level || '').toUpperCase();
+          if (myLevel && lvl !== myLevel) return false;
+          if (registeredIds.has(String(c.id))) return false;
+          return true;
+        })
+        .sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
-  document.getElementById('reg-add').addEventListener('click', async () => {
-    const core = window.FPU_PORTAL;
-    const courseId = document.getElementById('reg-course-id').value.trim();
-    const sessionId = document.getElementById('reg-session-id').value.trim();
-    const semester = document.getElementById('reg-semester').value;
-    if (!courseId) return core.showToast('Enter a course ID.', 'warning');
+      sel.innerHTML = AVAILABLE.length
+        ? '<option value="">— Select a course —</option>' + AVAILABLE.map((c) =>
+            `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)} (${c.unit || 0} units)</option>`
+          ).join('')
+        : '<option value="">No available courses to register</option>';
+    } catch (err) {
+      console.warn('[registration] available:', err.message);
+      sel.innerHTML = '<option value="">Could not load courses</option>';
+    }
+  }
+
+  async function registerCourse() {
+    const courseId = $('sr-available')?.value;
+    const alert = $('sr-alert');
+    if (!courseId) {
+      if (alert) { alert.textContent = '⚠ Please select a course'; alert.className = 'alert alert-warning'; }
+      return;
+    }
+
+    const btn = $('sr-register-btn');
+    btn.disabled = true; btn.textContent = 'Registering…';
     try {
       await core.portalFetch('/api/student/register-course', {
         method: 'POST',
-        body: { courseId: Number(courseId), sessionId: sessionId ? Number(sessionId) : undefined, semester },
+        body: { courseId: Number(courseId) },
       });
-      core.showToast('Course registered.', 'success');
-      document.getElementById('reg-course-id').value = '';
-      window.__studRegLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  });
+      if (alert) { alert.textContent = '✅ Course registered successfully'; alert.className = 'alert alert-success'; }
+      await loadRegistered();
+      await loadAvailable();
+    } catch (err) {
+      if (alert) { alert.textContent = '❌ ' + err.message; alert.className = 'alert alert-error'; }
+    } finally {
+      btn.disabled = false; btn.textContent = '📝 Register Course';
+    }
+  }
 
-  window.__studRegLoad();
+  async function dropCourse(regId) {
+    if (!confirm('Drop this course? This cannot be undone.')) return;
+    try {
+      await core.portalFetch('/api/student/unregister-course/' + regId, { method: 'POST' });
+      core.showToast && core.showToast('Course dropped', 'success');
+      await loadRegistered();
+      await loadAvailable();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  $('sr-register-btn')?.addEventListener('click', registerCourse);
+
+  // Init
+  (async () => {
+    await loadRegistered();
+    await loadAvailable();
+  })();
+})();
 </script>

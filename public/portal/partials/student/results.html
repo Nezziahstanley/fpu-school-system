@@ -1,53 +1,204 @@
 <!-- Portal → Student → Results -->
-<section class="page-head">
-  <div><h2>My Results</h2><p class="muted small">Published results only</p></div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="window.__studResultsLoad()">Refresh</button>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📊</div>
+    <div>
+      <h1>My Results</h1>
+      <div class="sub">Academic results and GPA</div>
+    </div>
+  </div>
+  <div class="meta">
+    <strong id="sr2-cgpa-badge">—</strong>
+    <span>CGPA</span>
   </div>
 </section>
 
-<div class="gpa-summary">
-  <div class="item"><div class="label">CGPA</div><div class="value" id="res-cgpa">—</div></div>
-  <div class="item"><div class="label">Total Units</div><div class="value" id="res-units">—</div></div>
-  <div class="item"><div class="label">Classification</div><div class="value" style="font-size:1.1rem;" id="res-class">—</div></div>
+<div class="filter-bar">
+  <select id="sr2-session"><option value="">All Sessions</option></select>
+  <select id="sr2-semester">
+    <option value="">All Semesters</option>
+    <option value="first">First</option>
+    <option value="second">Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="sr2-print">🖨 Print</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Result Sheet</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Courses</span><span class="value" id="sr2-total">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Current GPA</span><span class="value" id="sr2-gpa">—</span></div><div class="ic">📊</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">CGPA</span><span class="value" id="sr2-cgpa">—</span></div><div class="ic">🎯</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Classification</span><span class="value" id="sr2-class">—</span></div><div class="ic">🏆</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Results</h3>
+    <span class="badge" id="sr2-count">0</span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin result-table">
-        <thead><tr><th>Code</th><th>Title</th><th>Unit</th><th>Score</th><th>Grade</th><th>Points</th><th>Semester</th></tr></thead>
-        <tbody id="res-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr><th>Code</th><th>Course Title</th><th>Units</th><th>Score</th><th>Grade</th><th>Points</th><th>Semester</th></tr>
+        </thead>
+        <tbody id="sr2-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
+
+<!-- Grade scale reference -->
+<section class="panel">
+  <div class="panel-head"><h3>📖 Grade Scale Reference</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Score Range</th><th>Grade</th><th>Grade Point</th></tr></thead>
+        <tbody>
+          <tr><td>75 – 100</td><td><span class="chip">A</span></td><td>4.0</td></tr>
+          <tr><td>65 – 74</td><td><span class="chip">B</span></td><td>3.0</td></tr>
+          <tr><td>55 – 64</td><td><span class="chip">C</span></td><td>2.0</td></tr>
+          <tr><td>45 – 54</td><td><span class="chip">D</span></td><td>1.0</td></tr>
+          <tr><td>0 – 44</td><td><span class="chip">F</span></td><td>0.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
 <script>
-  window.__studResultsLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('res-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  let ALL = [], FILTERED = [];
+  let COURSE_UNITS = {};
+
+  function unwrap(r) {
+    const rec = r.result || r;
+    const crs = r.course || {};
+    return {
+      id: rec.id,
+      courseId: rec.courseId,
+      courseCode: crs.code || rec.courseCode || '—',
+      courseTitle: crs.title || rec.courseTitle || '',
+      units: crs.unit || COURSE_UNITS[rec.courseId] || 0,
+      score: rec.score != null ? Number(rec.score) : null,
+      grade: rec.grade || '—',
+      points: rec.points != null ? Number(rec.points) : 0,
+      semester: rec.semester || '—',
+      sessionId: rec.sessionId,
+    };
+  }
+
+  function classify(cgpa) {
+    if (cgpa == null || cgpa === '—') return '—';
+    const g = Number(cgpa);
+    if (g >= 3.50) return 'Distinction';
+    if (g >= 3.00) return 'Upper Credit';
+    if (g >= 2.50) return 'Lower Credit';
+    if (g >= 2.00) return 'Pass';
+    return 'Fail';
+  }
+
+  function render() {
+    const countEl = $('sr2-count'); const tbody = $('sr2-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No results match your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map((r) => `
+      <tr>
+        <td><strong>${esc(r.courseCode)}</strong></td>
+        <td>${esc(r.courseTitle)}</td>
+        <td>${r.units}</td>
+        <td><strong>${r.score != null ? r.score.toFixed(0) : '—'}</strong></td>
+        <td><span class="chip">${esc(r.grade)}</span></td>
+        <td>${r.points.toFixed(1)}</td>
+        <td>${esc(r.semester)}</td>
+      </tr>`).join('');
+  }
+
+  function computeGPA(list) {
+    let units = 0, points = 0;
+    list.forEach((r) => {
+      units += r.units;
+      points += r.units * r.points;
+    });
+    return units ? (points / units).toFixed(2) : '—';
+  }
+
+  function updateStats() {
+    setText('sr2-total', ALL.length);
+    const currentGPA = computeGPA(ALL);
+    setText('sr2-gpa', currentGPA);
+    setText('sr2-cgpa', currentGPA);
+    setText('sr2-cgpa-badge', currentGPA);
+    setText('sr2-class', classify(currentGPA));
+  }
+
+  function applyFilter() {
+    const ses = $('sr2-session')?.value || '';
+    const sem = $('sr2-semester')?.value || '';
+    FILTERED = ALL.filter((r) => {
+      if (ses && String(r.sessionId) !== String(ses)) return false;
+      if (sem && String(r.semester).toLowerCase() !== sem.toLowerCase()) return false;
+      return true;
+    });
+    render();
+  }
+
+  function populateSessions() {
+    const sel = $('sr2-session');
+    if (!sel) return;
+    const ids = [...new Set(ALL.map((r) => r.sessionId).filter((x) => x != null))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Sessions</option>' +
+      ids.map((id) => `<option value="${id}">Session ${id}</option>`).join('');
+    sel.value = cur;
+  }
+
+  async function load() {
+    const tbody = $('sr2-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
+      // Get course units map from registered courses
+      try {
+        const crsRes = await core.portalFetch('/api/student/registered-courses');
+        const crsRaw = crsRes.data || crsRes || [];
+        crsRaw.forEach((r) => {
+          const crs = r.course || {};
+          if (crs.id) COURSE_UNITS[crs.id] = crs.unit || 0;
+        });
+      } catch (e) { /* ignore */ }
+
       const res = await core.portalFetch('/api/student/results');
-      const rows = res.data || [];
-      const sum = res.summary || {};
-      document.getElementById('res-cgpa').textContent = Number(sum.cgpa || 0).toFixed(2);
-      document.getElementById('res-units').textContent = sum.totalUnits || 0;
-      document.getElementById('res-class').textContent = sum.classification || '—';
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.course?.code || '')}</td>
-          <td>${core.escapeHtml(r.course?.title || '')}</td>
-          <td class="num">${r.course?.unit || 0}</td>
-          <td class="num">${r.result.score}</td>
-          <td><span class="grade ${core.escapeHtml(r.result.grade || '')}">${core.escapeHtml(r.result.grade || '')}</span></td>
-          <td class="num">${r.result.points}</td>
-          <td>${core.escapeHtml(r.result.semester)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="7" class="empty">No published results yet.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__studResultsLoad();
+      const raw = res.data || res || [];
+      ALL = raw.map(unwrap);
+      console.log('[student-results] Loaded', ALL.length);
+      populateSessions();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[student-results]', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  $('sr2-session')?.addEventListener('change', applyFilter);
+  $('sr2-semester')?.addEventListener('change', applyFilter);
+  $('sr2-print')?.addEventListener('click', () => window.print());
+
+  load();
+})();
 </script>

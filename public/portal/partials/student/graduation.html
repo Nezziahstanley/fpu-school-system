@@ -1,36 +1,72 @@
 <!-- Portal → Student → Graduation -->
-<section class="page-head">
-  <div><h2>Graduation</h2><p class="muted small">Your graduation queue status</p></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">🎓</div>
+    <div>
+      <h1>Graduation Status</h1>
+      <div class="sub">Your graduation clearance</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Status</h3></div>
-  <div class="panel-body" id="stud-grad-body">
-    <div class="loading"><span class="spinner"></span> Loading…</div>
-  </div>
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="sg-refresh">Refresh</button>
 </div>
 
+<section class="panel">
+  <div class="panel-head"><h3>Status</h3></div>
+  <div class="panel-body" id="sg-content">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('stud-grad-body');
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  async function load() {
+    const box = $('sg-content');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
     try {
       const res = await core.portalFetch('/api/student/graduation');
-      const g = res.data;
-      if (!g) {
-        box.innerHTML = '<p class="muted">You are not yet queued for graduation. Complete all your courses and clearances first.</p>';
-      } else {
+      const d = res.data || res || null;
+
+      if (!d) {
         box.innerHTML = `
-          <div class="grid grid-2" style="gap:1rem;">
-            <div><strong>Level:</strong> ${core.escapeHtml(g.level)}</div>
-            <div><strong>CGPA:</strong> ${g.cgpa || '—'}</div>
-            <div><strong>Classification:</strong> ${core.escapeHtml(g.classification || '—')}</div>
-            <div><strong>Status:</strong> <span class="badge badge-${g.status === 'graduated' ? 'success' : g.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(g.status)}</span></div>
-            <div><strong>Queued:</strong> ${core.formatDate(g.createdAt)}</div>
-            <div><strong>Approved:</strong> ${core.formatDate(g.approvedAt)}</div>
-          </div>
-        `;
+          <div style="text-align:center;padding:2rem 1rem;">
+            <div style="font-size:3rem;margin-bottom:.75rem;">🎓</div>
+            <h3 style="margin:0 0 .5rem;color:#0f172a;">Not Yet a Graduation Candidate</h3>
+            <p class="muted" style="max-width:400px;margin:0 auto;">
+              You'll appear here once the Registrar queues you for graduation after your final results are published.
+            </p>
+          </div>`;
+        return;
       }
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
-  })();
+
+      const badge = d.status === 'graduated' ? 'badge-active'
+                   : d.status === 'rejected' ? 'badge-inactive'
+                   : 'badge-warning';
+
+      box.innerHTML = `
+        <div class="fees-breakdown">
+          <div class="fees-row"><span>Status</span><strong><span class="badge-status ${badge}">${esc(d.status || 'pending')}</span></strong></div>
+          <div class="fees-row"><span>Level</span><strong>${esc(d.level || '—')}</strong></div>
+          <div class="fees-row"><span>CGPA</span><strong>${d.cgpa != null ? Number(d.cgpa).toFixed(2) : '—'}</strong></div>
+          <div class="fees-row"><span>Classification</span><strong>${esc(d.classification || '—')}</strong></div>
+          <div class="fees-row"><span>Approved</span><strong>${d.approvedAt ? new Date(d.approvedAt).toLocaleDateString() : '—'}</strong></div>
+          <div class="fees-row"><span>Remarks</span><strong>${esc(d.remarks || '—')}</strong></div>
+        </div>`;
+    } catch (err) {
+      console.warn('[student-graduation]', err.message);
+      box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load graduation status.</p>';
+    }
+  }
+
+  $('sg-refresh')?.addEventListener('click', load);
+  load();
+})();
 </script>

@@ -1,54 +1,167 @@
 <!-- Portal → Student → Timetable -->
-<section class="page-head">
-  <div><h2>My Timetable</h2><p class="muted small">Weekly lecture schedule for your programme</p></div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="window.__studTTLoad()">Refresh</button>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📅</div>
+    <div>
+      <h1>My Timetable</h1>
+      <div class="sub">Weekly class schedule</div>
+    </div>
   </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Slots</h3></div>
-  <div class="panel-body">
-    <div id="stud-tt-grid" class="grid" style="gap:.5rem;">
-      <div class="loading"><span class="spinner"></span> Loading…</div>
-    </div>
-  </div>
+<div class="filter-bar">
+  <select id="stt-day">
+    <option value="">All Days</option>
+    <option value="Monday">Monday</option>
+    <option value="Tuesday">Tuesday</option>
+    <option value="Wednesday">Wednesday</option>
+    <option value="Thursday">Thursday</option>
+    <option value="Friday">Friday</option>
+  </select>
+  <select id="stt-course"><option value="">All Courses</option></select>
+  <button class="btn btn-outline btn-sm" id="stt-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="stt-print">🖨 Print</button>
 </div>
 
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Slots</span><span class="value" id="stt-total">—</span></div><div class="ic">📅</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Today</span><span class="value" id="stt-today">—</span></div><div class="ic">🎯</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">This Week</span><span class="value" id="stt-week">—</span></div><div class="ic">📆</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Courses</span><span class="value" id="stt-courses">—</span></div><div class="ic">📚</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Weekly Schedule</h3><span class="badge" id="stt-count">0</span></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Day</th><th>Time</th><th>Course</th><th>Venue</th><th>Level</th><th>Semester</th></tr>
+        </thead>
+        <tbody id="stt-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <script>
-  window.__studTTLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('stud-tt-grid');
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const s = r.slot || r;
+    const crs = r.course || {};
+    return {
+      id: s.id,
+      day: s.dayOfWeek || '—',
+      startTime: s.startTime || '',
+      endTime: s.endTime || '',
+      courseCode: crs.code || '—',
+      courseTitle: crs.title || '',
+      venue: s.venue || '—',
+      level: crs.level || '—',
+      semester: s.semester || '—',
+    };
+  }
+
+  function getTime(t) {
+    if (!t.startTime) return '—';
+    return t.endTime ? `${t.startTime} – ${t.endTime}` : t.startTime;
+  }
+
+  function render() {
+    const countEl = $('stt-count'), tbody = $('stt-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No scheduled classes.</td></tr>';
+      return;
+    }
+
+    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
+    FILTERED.sort((a, b) => {
+      const d = (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
+      return d || (a.startTime || '').localeCompare(b.startTime || '');
+    });
+
+    tbody.innerHTML = FILTERED.map((t) => {
+      const lvl = String(t.level).toUpperCase();
+      const chipClass = 'chip-' + lvl.toLowerCase();
+      return `
+        <tr>
+          <td><strong>${esc(t.day)}</strong></td>
+          <td>${esc(getTime(t))}</td>
+          <td><strong>${esc(t.courseCode)}</strong>${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}</td>
+          <td>${esc(t.venue)}</td>
+          <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
+          <td>${esc(t.semester)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const day = $('stt-day')?.value || '';
+    const course = $('stt-course')?.value || '';
+    FILTERED = ALL.filter((t) => {
+      if (day && t.day !== day) return false;
+      if (course && t.courseCode !== course) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('stt-total', ALL.length);
+    setText('stt-today', ALL.filter((t) => t.day === todayName).length);
+    setText('stt-week', ALL.length);
+    setText('stt-courses', new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—')).size);
+  }
+
+  function populateCourses() {
+    const sel = $('stt-course');
+    if (!sel) return;
+    const courses = [...new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—'))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Courses</option>' +
+      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  async function load() {
+    const tbody = $('stt-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/timetable');
-      const rows = res.data || [];
-      if (!rows.length) { box.innerHTML = '<p class="muted">No timetable slots yet.</p>'; return; }
+      const raw = res.data || res || [];
+      ALL = raw.map(unwrap);
+      console.log('[student-timetable] Loaded', ALL.length);
+      populateCourses();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.warn('[student-timetable]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
 
-      const byDay = {};
-      rows.forEach((r) => {
-        const day = r.slot.dayOfWeek;
-        if (!byDay[day]) byDay[day] = [];
-        byDay[day].push(r);
-      });
+  $('stt-day')?.addEventListener('change', applyFilter);
+  $('stt-course')?.addEventListener('change', applyFilter);
+  $('stt-refresh')?.addEventListener('click', load);
+  $('stt-print')?.addEventListener('click', () => window.print());
 
-      const ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      box.innerHTML = ORDER.filter((d) => byDay[d]).map((day) => `
-        <div class="panel">
-          <div class="panel-head"><h3>${day}</h3></div>
-          <div class="panel-body">
-            ${byDay[day].map((r) => `
-              <div class="fees-row" style="margin-bottom:.4rem;">
-                <div>
-                  <strong>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</strong><br/>
-                  <span class="small muted">${core.escapeHtml(r.slot.startTime)} – ${core.escapeHtml(r.slot.endTime)} · ${core.escapeHtml(r.slot.venue || '')}</span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
-  };
-  window.__studTTLoad();
+  load();
+})();
 </script>

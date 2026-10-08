@@ -1,38 +1,161 @@
 <!-- Portal → Student → Exams -->
-<section class="page-head">
-  <div><h2>Exam Schedule</h2><p class="muted small">My upcoming exams</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studExamsLoad()">Refresh</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📝</div>
+    <div>
+      <h1>Exam Schedule</h1>
+      <div class="sub">Your exam timetable</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Upcoming Exams</h3></div>
+<div class="filter-bar">
+  <input type="search" id="se-search" placeholder="Search course or venue…" />
+  <select id="se-semester">
+    <option value="">All Semesters</option>
+    <option value="first">First</option>
+    <option value="second">Second</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="se-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="se-print">🖨 Print</button>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Exams</span><span class="value" id="se-total">—</span></div><div class="ic">📝</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Upcoming</span><span class="value" id="se-upcoming">—</span></div><div class="ic">📅</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Past</span><span class="value" id="se-past">—</span></div><div class="ic">✅</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Venues</span><span class="value" id="se-venues">—</span></div><div class="ic">🏛</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Exam Schedule</h3><span class="badge" id="se-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Course</th><th>Date</th><th>Time</th><th>Venue</th></tr></thead>
-        <tbody id="stud-exams-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr><th>Course</th><th>Title</th><th>Date</th><th>Time</th><th>Venue</th><th>Semester</th><th>Status</th></tr>
+        </thead>
+        <tbody id="se-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  window.__studExamsLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('stud-exams-tbody');
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const e = r.exam || r;
+    const crs = r.course || {};
+    return {
+      id: e.id,
+      courseCode: crs.code || '—',
+      courseTitle: crs.title || '',
+      examDate: e.examDate || e.date,
+      startTime: e.startTime || '',
+      endTime: e.endTime || '',
+      venue: e.venue || '—',
+      semester: (function () {
+        let s = e.semesterName || e.semester || '—';
+        s = String(s).trim();
+        if (/^1$|first/i.test(s)) return 'First';
+        if (/^2$|second/i.test(s)) return 'Second';
+        return s;
+      })(),
+    };
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+    catch { return '—'; }
+  }
+
+  function fmtTime(e) {
+    if (!e.startTime) return '—';
+    return e.endTime ? `${e.startTime} – ${e.endTime}` : e.startTime;
+  }
+
+  function isUpcoming(e) {
+    return e.examDate ? new Date(e.examDate) >= new Date() : false;
+  }
+
+  function render() {
+    const countEl = $('se-count'), tbody = $('se-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No exams scheduled.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map((e) => {
+      const up = isUpcoming(e);
+      return `
+        <tr>
+          <td><strong>${esc(e.courseCode)}</strong></td>
+          <td>${esc(e.courseTitle)}</td>
+          <td>${esc(fmtDate(e.examDate))}</td>
+          <td>${esc(fmtTime(e))}</td>
+          <td>${esc(e.venue)}</td>
+          <td>${esc(e.semester)}</td>
+          <td><span class="badge-status ${up ? 'badge-active' : 'badge-inactive'}">${up ? 'Upcoming' : 'Past'}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('se-search')?.value || '').trim().toLowerCase();
+    const sem = $('se-semester')?.value || '';
+    FILTERED = ALL.filter((e) => {
+      const hay = `${e.courseCode} ${e.courseTitle} ${e.venue}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (sem && e.semester.toLowerCase() !== sem) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('se-total', ALL.length);
+    setText('se-upcoming', ALL.filter(isUpcoming).length);
+    setText('se-past', ALL.filter((e) => !isUpcoming(e)).length);
+    setText('se-venues', new Set(ALL.map((e) => e.venue).filter((v) => v && v !== '—')).size);
+  }
+
+  async function load() {
+    const tbody = $('se-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/exams');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.course?.code || '')} — ${core.escapeHtml(r.course?.title || '')}</td>
-          <td>${core.formatDate(r.exam.examDate)}</td>
-          <td>${core.escapeHtml(r.exam.startTime)} – ${core.escapeHtml(r.exam.endTime)}</td>
-          <td>${core.escapeHtml(r.exam.venue || '')}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No exams scheduled.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__studExamsLoad();
+      const raw = res.data || res || [];
+      ALL = raw.map(unwrap);
+      console.log('[student-exams] Loaded', ALL.length);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.warn('[student-exams]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
+
+  $('se-search')?.addEventListener('input', applyFilter);
+  $('se-semester')?.addEventListener('change', applyFilter);
+  $('se-refresh')?.addEventListener('click', load);
+  $('se-print')?.addEventListener('click', () => window.print());
+
+  load();
+})();
 </script>

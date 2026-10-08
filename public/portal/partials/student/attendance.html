@@ -1,50 +1,151 @@
 <!-- Portal → Student → Attendance -->
-<section class="page-head">
-  <div><h2>My Attendance</h2><p class="muted small">Lecture attendance summary</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studAttLoad()">Refresh</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">✅</div>
+    <div>
+      <h1>My Attendance</h1>
+      <div class="sub">Attendance records by course</div>
+    </div>
+  </div>
 </section>
 
-<div class="gpa-summary">
-  <div class="item"><div class="label">Total</div><div class="value" id="att-total">—</div></div>
-  <div class="item"><div class="label">Present</div><div class="value" id="att-present">—</div></div>
-  <div class="item"><div class="label">Absent</div><div class="value" id="att-absent">—</div></div>
-  <div class="item"><div class="label">Late</div><div class="value" id="att-late">—</div></div>
+<div class="filter-bar">
+  <input type="search" id="sa-search" placeholder="Search course…" />
+  <select id="sa-course"><option value="">All Courses</option></select>
+  <select id="sa-status">
+    <option value="">All Status</option>
+    <option value="present">Present</option>
+    <option value="absent">Absent</option>
+    <option value="late">Late</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="sa-refresh">Refresh</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Records</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Records</span><span class="value" id="sa-total">—</span></div><div class="ic">📋</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Present</span><span class="value" id="sa-present">—</span></div><div class="ic">✅</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Absent</span><span class="value" id="sa-absent">—</span></div><div class="ic">❌</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Attendance Rate</span><span class="value" id="sa-rate">—</span></div><div class="ic">📊</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Attendance Records</h3><span class="badge" id="sa-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
+      <table class="data-table">
         <thead><tr><th>Date</th><th>Course</th><th>Status</th></tr></thead>
-        <tbody id="stud-att-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+        <tbody id="sa-tbody">
+          <tr><td colspan="3" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  window.__studAttLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('stud-att-tbody');
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const a = r.attendance || r;
+    const crs = r.course || {};
+    return {
+      id: a.id,
+      date: a.date || a.createdAt,
+      courseCode: crs.code || '—',
+      courseTitle: crs.title || '',
+      status: (a.status || 'present').toLowerCase(),
+    };
+  }
+
+  function render() {
+    const countEl = $('sa-count'), tbody = $('sa-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="empty">No attendance records.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map((a) => {
+      const badge = a.status === 'present' ? 'badge-active'
+                   : a.status === 'absent' ? 'badge-inactive'
+                   : 'badge-warning';
+      return `
+        <tr>
+          <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
+          <td><strong>${esc(a.courseCode)}</strong> ${esc(a.courseTitle)}</td>
+          <td><span class="badge-status ${badge}">${esc(a.status)}</span></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('sa-search')?.value || '').trim().toLowerCase();
+    const course = $('sa-course')?.value || '';
+    const status = $('sa-status')?.value || '';
+    FILTERED = ALL.filter((a) => {
+      const hay = `${a.courseCode} ${a.courseTitle}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (course && a.courseCode !== course) return false;
+      if (status && a.status !== status) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('sa-total', ALL.length);
+    const present = ALL.filter((a) => a.status === 'present').length;
+    const absent = ALL.filter((a) => a.status === 'absent').length;
+    setText('sa-present', present);
+    setText('sa-absent', absent);
+    const rate = ALL.length ? Math.round((present / ALL.length) * 100) : 0;
+    setText('sa-rate', `${rate}%`);
+  }
+
+  function populateCourses() {
+    const sel = $('sa-course');
+    if (!sel) return;
+    const courses = [...new Set(ALL.map((a) => a.courseCode).filter((c) => c && c !== '—'))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Courses</option>' +
+      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  async function load() {
+    const tbody = $('sa-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/attendance');
-      const sum = res.summary || {};
-      document.getElementById('att-total').textContent = sum.total ?? '—';
-      document.getElementById('att-present').textContent = sum.present ?? '—';
-      document.getElementById('att-absent').textContent = sum.absent ?? '—';
-      document.getElementById('att-late').textContent = sum.late ?? '—';
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
+      ALL = raw.map(unwrap);
+      console.log('[student-attendance] Loaded', ALL.length);
+      populateCourses();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.warn('[student-attendance]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
 
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.formatDate(r.date)}</td>
-          <td>Course ${r.courseId}</td>
-          <td><span class="badge badge-${r.status === 'present' ? 'success' : r.status === 'absent' ? 'danger' : 'warning'}">${core.escapeHtml(r.status)}</span></td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="empty">No attendance records.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__studAttLoad();
+  $('sa-search')?.addEventListener('input', applyFilter);
+  $('sa-course')?.addEventListener('change', applyFilter);
+  $('sa-status')?.addEventListener('change', applyFilter);
+  $('sa-refresh')?.addEventListener('click', load);
+
+  load();
+})();
 </script>

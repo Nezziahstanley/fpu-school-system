@@ -1,68 +1,89 @@
 <!-- Portal → Student → Fees -->
-<section class="page-head">
-  <div><h2>My Fees</h2><p class="muted small">Fee structure and payment history</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studFeesLoad()">Refresh</button></div>
-</section>
-
-<div class="gpa-summary">
-  <div class="item"><div class="label">Total Due</div><div class="value" id="fee-due">—</div></div>
-  <div class="item"><div class="label">Total Paid</div><div class="value" id="fee-paid">—</div></div>
-  <div class="item"><div class="label">Balance</div><div class="value" id="fee-bal">—</div></div>
-</div>
-
-<div class="panel">
-  <div class="panel-head"><h3>Fee Breakdown</h3></div>
-  <div class="panel-body">
-    <div class="fees-breakdown" id="fee-breakdown">
-      <div class="loading"><span class="spinner"></span> Loading…</div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">💰</div>
+    <div>
+      <h1>My Fees</h1>
+      <div class="sub">Fee payments and outstanding balance</div>
     </div>
   </div>
+</section>
+
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="sf-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="sf-print">🖨 Print</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Payment History</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Fees Due</span><span class="value" id="sf-due">—</span></div><div class="ic">💵</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Total Paid</span><span class="value" id="sf-paid">—</span></div><div class="ic">✅</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Balance</span><span class="value" id="sf-balance">—</span></div><div class="ic">⚠️</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Payments</span><span class="value" id="sf-count">—</span></div><div class="ic">📋</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Payment History</h3><span class="badge" id="sf-pay-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Reference</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody id="stud-pay-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Reference</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
+        <tbody id="sf-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  window.__studFeesLoad = async function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  function fmtMoney(n) { return '₦' + Number(n || 0).toLocaleString(); }
+
+  async function load() {
+    const tbody = $('sf-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/fees');
-      document.getElementById('fee-due').textContent = core.formatMoney(res.totalDue);
-      document.getElementById('fee-paid').textContent = core.formatMoney(res.totalPaid);
-      document.getElementById('fee-bal').textContent = core.formatMoney(res.balance);
+      const d = res.data || res || {};
+      setText('sf-due', fmtMoney(d.totalDue));
+      setText('sf-paid', fmtMoney(d.totalPaid));
+      setText('sf-balance', fmtMoney(d.balance));
 
-      const fs = res.feeStructure;
-      const bd = document.getElementById('fee-breakdown');
-      if (fs) {
-        const items = [
-          ['Tuition', fs.tuition], ['Acceptance', fs.acceptance], ['Medical', fs.medical],
-          ['Library', fs.library], ['ICT', fs.ict], ['Sports', fs.sports], ['Other', fs.other],
-        ];
-        bd.innerHTML = items.map(([k, v]) => `
-          <div class="fees-row"><span>${k}</span><strong>${core.formatMoney(v)}</strong></div>
-        `).join('') + `<div class="fees-row total"><span>Total</span><strong>${core.formatMoney(fs.total)}</strong></div>`;
-      } else {
-        bd.innerHTML = '<p class="muted">No fee structure set for your programme yet.</p>';
+      const payments = d.payments || [];
+      setText('sf-count', payments.length);
+      setText('sf-pay-count', payments.length);
+
+      if (tbody) {
+        tbody.innerHTML = payments.length
+          ? payments.map((p) => {
+              const badge = p.status === 'verified' ? 'badge-active'
+                           : p.status === 'rejected' ? 'badge-inactive'
+                           : 'badge-warning';
+              return `
+                <tr>
+                  <td>${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}</td>
+                  <td><code>${esc(p.reference || '—')}</code></td>
+                  <td><strong>${fmtMoney(p.amount)}</strong></td>
+                  <td>${esc(p.method || '—')}</td>
+                  <td><span class="badge-status ${badge}">${esc(p.status || 'pending')}</span></td>
+                </tr>`;
+            }).join('')
+          : '<tr><td colspan="5" class="empty">No payments yet.</td></tr>';
       }
+    } catch (err) {
+      console.warn('[student-fees]', err.message);
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load fees. (Backend fix pending.)</td></tr>';
+    }
+  }
 
-      document.getElementById('stud-pay-tbody').innerHTML = (res.payments || []).length ? res.payments.map((p) => `
-        <tr>
-          <td>${core.escapeHtml(p.reference)}</td>
-          <td class="num">${core.formatMoney(p.amount)}</td>
-          <td><span class="badge badge-${p.status === 'verified' ? 'success' : p.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(p.status)}</span></td>
-          <td>${core.formatDate(p.createdAt)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No payments yet.</td></tr>';
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
-  window.__studFeesLoad();
+  $('sf-refresh')?.addEventListener('click', load);
+  $('sf-print')?.addEventListener('click', () => window.print());
+  load();
+})();
 </script>

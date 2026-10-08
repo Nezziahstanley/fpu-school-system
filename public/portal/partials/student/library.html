@@ -1,67 +1,119 @@
 <!-- Portal → Student → Library -->
-<section class="page-head">
-  <div><h2>Library</h2><p class="muted small">Browse books and view my borrows</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studLibSearch()">Search</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📚</div>
+    <div>
+      <h1>My Library</h1>
+      <div class="sub">Borrowed books, reservations, and fines</div>
+    </div>
+  </div>
 </section>
 
-<div class="filters">
-  <div class="form-group" style="flex:2 1 260px;">
-    <label class="form-label">Search</label>
-    <input class="form-control" id="stud-lib-q" placeholder="Title, author or ISBN…" onkeydown="if(event.key==='Enter')window.__studLibSearch()" />
-  </div>
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="sl-refresh">Refresh</button>
 </div>
 
-<div id="stud-lib-grid" class="grid grid-3">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Active Borrows</span><span class="value" id="sl-borrows">—</span></div><div class="ic">📤</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Reservations</span><span class="value" id="sl-res">—</span></div><div class="ic">📖</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Unpaid Fines</span><span class="value" id="sl-fines">—</span></div><div class="ic">💰</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Total Owed</span><span class="value" id="sl-owed">—</span></div><div class="ic">💵</div></div>
 </div>
 
-<div class="panel mt-3">
-  <div class="panel-head"><h3>My Borrows</h3></div>
+<section class="panel">
+  <div class="panel-head"><h3>Borrowed Books</h3><span class="badge" id="sl-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Status</th></tr></thead>
-        <tbody id="stud-borrow-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Status</th></tr></thead>
+        <tbody id="sl-borrows-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h3>Fines</h3><span class="badge" id="sl-fine-count">0</span></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody id="sl-fines-tbody">
+          <tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
 <script>
-  window.__studLibSearch = async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('stud-lib-grid');
-    const q = document.getElementById('stud-lib-q').value.trim();
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-    try {
-      const res = await core.portalFetch(`/api/admin/library/books?limit=60${q ? '&search=' + encodeURIComponent(q) : ''}`);
-      const books = res.data || [];
-      box.innerHTML = books.length ? books.map((b) => `
-        <div class="card"><div class="card-body">
-          <h4>${core.escapeHtml(b.title)}</h4>
-          <p class="small muted">${core.escapeHtml(b.author || '')}</p>
-          <p class="small">Available: <strong>${b.copiesAvailable}</strong> / ${b.copiesTotal}</p>
-        </div></div>
-      `).join('') : '<p class="muted">No books found.</p>';
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
-  };
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  function fmtMoney(n) { return '₦' + Number(n || 0).toLocaleString(); }
 
-  (async function loadBorrows() {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('stud-borrow-tbody');
+  async function load() {
+    const bTbody = $('sl-borrows-tbody'), fTbody = $('sl-fines-tbody');
     try {
       const res = await core.portalFetch('/api/student/borrows');
-      const rows = res.borrows || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.book?.title || '')}</td>
-          <td>${core.formatDate(r.borrow.borrowedAt)}</td>
-          <td>${core.formatDate(r.borrow.dueAt)}</td>
-          <td><span class="badge badge-${r.borrow.status === 'returned' ? 'success' : r.borrow.status === 'overdue' ? 'danger' : 'warning'}">${core.escapeHtml(r.borrow.status)}</span></td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No borrows.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  })();
+      const payload = res.data || res || {};
+      const borrows = payload.borrows || [];
+      const fines = payload.fines || [];
+      const reservations = payload.reservations || [];
 
-  document.addEventListener('DOMContentLoaded', window.__studLibSearch);
+      const active = borrows.filter((b) => !b.returnedAt);
+      setText('sl-borrows', active.length);
+      setText('sl-res', reservations.length);
+      setText('sl-fines', fines.length);
+      setText('sl-owed', fmtMoney(fines.filter((f) => !f.paidAt).reduce((s, f) => s + Number(f.amount || 0), 0)));
+      setText('sl-count', borrows.length);
+      setText('sl-fine-count', fines.length);
+
+      if (bTbody) {
+        bTbody.innerHTML = borrows.length
+          ? borrows.map((b) => {
+              const badge = b.returnedAt ? 'badge-active' : (b.dueAt && new Date(b.dueAt) < new Date() ? 'badge-inactive' : 'badge-warning');
+              const label = b.returnedAt ? 'Returned' : (b.dueAt && new Date(b.dueAt) < new Date() ? 'Overdue' : 'Borrowed');
+              const book = b.book || {};
+              return `
+                <tr>
+                  <td><strong>${esc(book.title || b.bookTitle || '—')}</strong></td>
+                  <td>${b.borrowedAt ? new Date(b.borrowedAt).toLocaleDateString() : '—'}</td>
+                  <td>${b.dueAt ? new Date(b.dueAt).toLocaleDateString() : '—'}</td>
+                  <td>${b.returnedAt ? new Date(b.returnedAt).toLocaleDateString() : '—'}</td>
+                  <td><span class="badge-status ${badge}">${label}</span></td>
+                </tr>`;
+            }).join('')
+          : '<tr><td colspan="5" class="empty">No borrowed books.</td></tr>';
+      }
+
+      if (fTbody) {
+        fTbody.innerHTML = fines.length
+          ? fines.map((f) => {
+              const badge = f.paidAt ? 'badge-active' : 'badge-inactive';
+              return `
+                <tr>
+                  <td><strong>${fmtMoney(f.amount)}</strong></td>
+                  <td>${esc(f.reason || '—')}</td>
+                  <td><span class="badge-status ${badge}">${f.paidAt ? 'Paid' : 'Unpaid'}</span></td>
+                  <td>${f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '—'}</td>
+                </tr>`;
+            }).join('')
+          : '<tr><td colspan="4" class="empty">No fines.</td></tr>';
+      }
+    } catch (err) {
+      console.warn('[student-library]', err.message);
+      if (bTbody) bTbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load library data.</td></tr>';
+      if (fTbody) fTbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load fines.</td></tr>';
+    }
+  }
+
+  $('sl-refresh')?.addEventListener('click', load);
+  load();
+})();
 </script>

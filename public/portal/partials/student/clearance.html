@@ -1,51 +1,105 @@
 <!-- Portal → Student → Clearance -->
-<section class="page-head">
-  <div><h2>My Clearance</h2><p class="muted small">Semester clearance status</p></div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="window.__studClrLoad()">Refresh</button>
-    <button class="btn btn-primary btn-sm" id="stud-clr-request">Request Clearance</button>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">✔️</div>
+    <div>
+      <h1>My Clearance</h1>
+      <div class="sub">Clearance status and requests</div>
+    </div>
   </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Clearance Records</h3></div>
+<div class="filter-bar">
+  <button class="btn btn-primary btn-sm" id="sc-request">📝 Request Clearance</button>
+  <button class="btn btn-outline btn-sm" id="sc-refresh">Refresh</button>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Clearance Records</h3><span class="badge" id="sc-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Type</th><th>Status</th><th>Cleared At</th><th>Remarks</th></tr></thead>
-        <tbody id="stud-clr-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead><tr><th>Type</th><th>Session</th><th>Status</th><th>Requested</th></tr></thead>
+        <tbody id="sc-tbody">
+          <tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  window.__studClrLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('stud-clr-tbody');
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+  function unwrap(r) {
+    const c = r.clearance || r;
+    return {
+      id: c.id,
+      type: c.type || 'semester',
+      sessionName: r.session?.name || c.sessionName || `Session ${c.sessionId}`,
+      status: (c.status || 'pending').toLowerCase(),
+      requestedAt: c.requestedAt || c.createdAt,
+    };
+  }
+
+  function render(list) {
+    const tbody = $('sc-tbody'), countEl = $('sc-count');
+    if (countEl) countEl.textContent = list.length;
+    if (!tbody) return;
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No clearance requests yet. Click <strong>Request Clearance</strong> to start.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map((c) => {
+      const badge = c.status === 'cleared' || c.status === 'approved' ? 'badge-active'
+                   : c.status === 'rejected' ? 'badge-inactive'
+                   : 'badge-warning';
+      return `
+        <tr>
+          <td><strong>${esc(c.type)}</strong></td>
+          <td>${esc(c.sessionName)}</td>
+          <td><span class="badge-status ${badge}">${esc(c.status)}</span></td>
+          <td>${c.requestedAt ? new Date(c.requestedAt).toLocaleDateString() : '—'}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function load() {
+    const tbody = $('sc-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/clearance');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((c) => `
-        <tr>
-          <td>${core.escapeHtml(c.type)}</td>
-          <td><span class="badge badge-${c.status === 'cleared' ? 'success' : c.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(c.status)}</span></td>
-          <td>${core.formatDateTime(c.clearedAt)}</td>
-          <td>${core.escapeHtml(c.remarks || '')}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No clearances.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+      const raw = res.data || res || [];
+      render(raw.map(unwrap));
+    } catch (err) {
+      console.warn('[student-clearance]', err.message);
+      render([]);
+    }
+  }
 
-  document.getElementById('stud-clr-request').addEventListener('click', async () => {
-    const core = window.FPU_PORTAL;
+  async function request() {
+    if (!confirm('Request clearance for the current session?')) return;
     try {
-      await core.portalFetch('/api/student/clearance/request', { method: 'POST' });
-      core.showToast('Clearance requested.', 'success');
-      window.__studClrLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  });
+      await core.portalFetch('/api/student/clearance/request', {
+        method: 'POST',
+        body: { type: 'semester' },
+      });
+      core.showToast && core.showToast('Clearance requested', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
 
-  window.__studClrLoad();
+  $('sc-request')?.addEventListener('click', request);
+  $('sc-refresh')?.addEventListener('click', load);
+  load();
+})();
 </script>

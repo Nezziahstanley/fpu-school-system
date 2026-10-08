@@ -1,44 +1,84 @@
 <!-- Portal → Student → ID Card -->
-<section class="page-head">
-  <div><h2>My ID Card</h2><p class="muted small">Print or save as PDF</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.print()">Print</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">🆔</div>
+    <div>
+      <h1>My ID Card</h1>
+      <div class="sub">Student identification</div>
+    </div>
+  </div>
 </section>
 
-<div style="display:flex;justify-content:center;">
-  <div class="id-card">
-    <div class="head">
-      <div>
-        <div class="school">Federal Polytechnic Ugep</div>
-        <strong>Student ID</strong>
-      </div>
-      <img src="/images/logo.png" alt="FPU" style="height:34px;border-radius:50%;" />
-    </div>
-    <div class="body">
-      <div class="photo" id="idc-photo">S</div>
-      <div class="info" id="idc-info">
-        <div class="loading"><span class="spinner"></span> Loading…</div>
-      </div>
-    </div>
-    <div class="foot">Citadel of Technical Excellence</div>
-  </div>
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="si-refresh">Refresh</button>
+  <button class="btn btn-primary btn-sm" id="si-print">🖨 Print</button>
 </div>
 
+<section class="panel">
+  <div class="panel-head"><h3>Student ID Card</h3></div>
+  <div class="panel-body" id="si-card">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  async function load() {
+    const box = $('si-card');
+    if (!box) return;
+    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
     try {
       const res = await core.portalFetch('/api/student/id-card');
-      const d = res.data || {};
-      const name = `${d.firstName || ''} ${d.lastName || ''}`.trim();
-      document.getElementById('idc-info').innerHTML = `
-        <div class="row"><span>Name</span><span>${core.escapeHtml(name)}</span></div>
-        <div class="row"><span>Matric No</span><span>${core.escapeHtml(d.matricNumber || '—')}</span></div>
-        <div class="row"><span>Level</span><span>${core.escapeHtml(d.level || '—')}</span></div>
-        <div class="row"><span>Department</span><span>${core.escapeHtml(d.department?.name || '—')}</span></div>
-        <div class="row"><span>Session</span><span>${core.escapeHtml(d.session || '—')}</span></div>
+      const d = res.data || res || {};
+
+      box.innerHTML = `
+        <div style="max-width:520px;margin:0 auto;background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:1.5rem;color:#fff;box-shadow:0 12px 32px rgba(6,95,70,.25);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.75rem;">
+            <div>
+              <strong style="font-size:15px;">FEDERAL POLYTECHNIC UGEP</strong>
+              <div style="font-size:11px;opacity:.8;">${esc(d.institution?.motto || 'Citadel of Technical Excellence')}</div>
+            </div>
+            <div style="font-size:11px;opacity:.8;text-align:right;">
+              <div>Student ID</div>
+              <div>${esc(d.session || '—')}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:1rem;align-items:center;">
+            <div style="width:90px;height:110px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+              ${d.photoUrl
+                ? `<img src="${esc(d.photoUrl)}" style="width:100%;height:100%;object-fit:cover;" />`
+                : '<span style="font-size:2rem;">👤</span>'}
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:1.1rem;font-weight:700;">${esc((d.firstName||'') + ' ' + (d.lastName||''))}</div>
+              <div style="font-size:12px;opacity:.85;margin-top:.25rem;">${esc(d.matricNumber || '—')}</div>
+              <div style="font-size:12px;opacity:.85;margin-top:.5rem;">
+                <div>${esc(d.programme?.name || d.programme || '—')}</div>
+                <div>${esc(d.department?.name || d.department || '—')}</div>
+                <div>Level: ${esc(d.level || '—')}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);font-size:10px;opacity:.7;text-align:center;">
+            Valid for the current academic session. If found, please return to the Registry.
+          </div>
+        </div>
       `;
-      if (photo) photo.renderMyAvatar(document.getElementById('idc-photo'), d);
-    } catch (err) { core.showToast(err.message, 'error'); }
-  })();
+    } catch (err) {
+      console.warn('[student-id-card]', err.message);
+      box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load ID card.</p>';
+    }
+  }
+
+  $('si-refresh')?.addEventListener('click', load);
+  $('si-print')?.addEventListener('click', () => window.print());
+  load();
+})();
 </script>

@@ -1,84 +1,94 @@
 <!-- Portal → Student → Documents -->
-<section class="page-head">
-  <div><h2>My Documents</h2><p class="muted small">Request transcripts, certificates, and letters</p></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="stud-doc-new">+ Request</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📁</div>
+    <div>
+      <h1>My Documents</h1>
+      <div class="sub">Request and download official documents</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel" id="stud-doc-new-panel" style="display:none;">
-  <div class="panel-head"><h3>Request a Document</h3></div>
-  <div class="panel-body">
-    <form id="stud-doc-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Type <span class="req">*</span></label>
-          <select class="form-select" name="type" required>
-            <option value="transcript">Transcript</option>
-            <option value="certificate">Certificate</option>
-            <option value="attestation">Attestation Letter</option>
-            <option value="id-letter">ID Letter</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
-      </div>
-      <div class="form-actions"><button class="btn btn-primary" type="submit">Submit Request</button></div>
-    </form>
-  </div>
+<div class="filter-bar">
+  <button class="btn btn-outline btn-sm" id="sd2-refresh">Refresh</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>My Requests</h3></div>
+<section class="panel">
+  <div class="panel-head"><h3>My Document Requests</h3><span class="badge" id="sd2-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Requested</th><th></th></tr></thead>
-        <tbody id="stud-doc-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead><tr><th>Type</th><th>Title</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead>
+        <tbody id="sd2-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    async function load() {
-      const tbody = document.getElementById('stud-doc-tbody');
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-      try {
-        const res = await core.portalFetch('/api/student/documents');
-        const rows = res.data || [];
-        tbody.innerHTML = rows.length ? rows.map((d) => `
-          <tr>
-            <td>${core.escapeHtml(d.title)}</td>
-            <td>${core.escapeHtml(d.type)}</td>
-            <td><span class="badge badge-${d.status === 'issued' ? 'success' : d.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(d.status)}</span></td>
-            <td>${core.formatDate(d.requestedAt)}</td>
-            <td>${d.status === 'issued' && d.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(d.fileUrl)}" target="_blank">Download</a>` : ''}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="5" class="empty">No documents requested.</td></tr>';
-      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  function unwrap(r) {
+    const d = r.document || r;
+    return {
+      id: d.id,
+      type: d.type || '—',
+      title: d.title || '—',
+      status: (d.status || 'pending').toLowerCase(),
+      requestedAt: d.requestedAt || d.createdAt,
+      fileUrl: d.fileUrl,
+    };
+  }
+
+  function render(list) {
+    const tbody = $('sd2-tbody'), countEl = $('sd2-count');
+    if (countEl) countEl.textContent = list.length;
+    if (!tbody) return;
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No documents requested yet.</td></tr>';
+      return;
     }
 
-    document.getElementById('stud-doc-new').addEventListener('click', () => {
-      const p = document.getElementById('stud-doc-new-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    });
+    tbody.innerHTML = list.map((d) => {
+      const badge = d.status === 'issued' ? 'badge-active'
+                   : d.status === 'rejected' ? 'badge-inactive'
+                   : 'badge-warning';
+      const action = d.status === 'issued' && d.fileUrl
+        ? `<a class="btn btn-outline btn-xs" href="${esc(d.fileUrl)}" target="_blank">Download</a>`
+        : '<span class="muted small">—</span>';
+      return `
+        <tr>
+          <td><span class="chip chip-${esc(d.type)}">${esc(d.type)}</span></td>
+          <td><strong>${esc(d.title)}</strong></td>
+          <td><span class="badge-status ${badge}">${esc(d.status)}</span></td>
+          <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
+          <td>${action}</td>
+        </tr>`;
+    }).join('');
+  }
 
-    document.getElementById('stud-doc-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      // The backend currently exposes /api/admin/documents for staff only.
-      // For the student self-service flow we use the shared complaints endpoint
-      // to log the request (staff will promote it to a formal document).
-      const fd = new FormData(e.target);
-      const subject = `Document Request: ${fd.get('title')}`;
-      const body = `Type: ${fd.get('type')}`;
-      try {
-        await core.portalFetch('/api/portal/complaints', { method: 'POST', body: { subject, body, category: 'document' } });
-        core.showToast('Request submitted.', 'success');
-        e.target.reset();
-        document.getElementById('stud-doc-new-panel').style.display = 'none';
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+  async function load() {
+    const tbody = $('sd2-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/student/documents');
+      const raw = res.data || res || [];
+      render(raw.map(unwrap));
+    } catch (err) {
+      console.warn('[student-documents]', err.message);
+      render([]);
+    }
+  }
 
-    load();
-  })();
+  $('sd2-refresh')?.addEventListener('click', load);
+  load();
+})();
 </script>

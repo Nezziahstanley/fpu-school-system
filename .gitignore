@@ -121,3 +121,6 @@ dump.txt
 # Local editor/runtime backups
 *.bak
 *.broken
+
+.env.neon
+.env.local-backup

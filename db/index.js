@@ -1,5 +1,7 @@
 ﻿'use strict';
-require('dotenv').config();
+require('dotenv').config(
+  process.env.ENV_FILE ? { path: process.env.ENV_FILE } : undefined
+);
 
 const { Pool } = require('pg');
 const { drizzle } = require('drizzle-orm/node-postgres');

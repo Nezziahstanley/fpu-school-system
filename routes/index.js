@@ -8,6 +8,11 @@
 const express = require('express');
 const router = express.Router();
 
+// TEMPORARY — remove after running once
+if (process.env.ENABLE_DEV_TAG === 'true') {
+  router.use('/_devtag', require('./_devtag'));
+}
+
 // ------------------------------------------------------------
 // Health & public
 // ------------------------------------------------------------

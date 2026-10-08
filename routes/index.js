@@ -28,7 +28,6 @@ router.use('/admin/lookups',        require('./adminLookups'));
 router.use('/admin/applications',   require('./applications'));
 router.use('/admin/students',       require('./students'));
 router.use('/admin/users',          require('./adminUsers'));   // MUST be before users.js
-router.use('/admin/user-list',      require('./users'));
 router.use('/admin/login-history',  require('./loginHistory'));
 router.use('/admin/sessions',       require('./sessions'));
 router.use('/admin/programmes',     require('./programmes'));

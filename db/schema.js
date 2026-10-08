@@ -606,10 +606,13 @@ const books = pgTable('books', {
   copiesTotal: smallint('copies_total').notNull().default(1),
   copiesAvailable: smallint('copies_available').notNull().default(1),
   shelf: varchar('shelf', { length: 40 }),
+  departmentId: integer('department_id'),
+  isGeneral: boolean('is_general').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   titleIdx: index('idx_books_title').on(t.title),
   isbnIdx: index('idx_books_isbn').on(t.isbn),
+  deptIdx: index('idx_books_department').on(t.departmentId),
 }));
 
 // ============================================================

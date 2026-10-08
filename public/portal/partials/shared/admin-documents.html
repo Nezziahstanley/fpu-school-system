@@ -1,35 +1,275 @@
-﻿<!-- Portal → Shared → Documents (my requests) -->
-<section class="page-head">
-  <div><h2>My Documents</h2></div>
+﻿<!-- Shared → Documents (staff view) -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📄</div>
+    <div>
+      <h1>Document Requests</h1>
+      <div class="sub">Student requests for transcripts, letters, and certificates</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Requests</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Requested</th><th></th></tr></thead>
-        <tbody id="shared-docs-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
-      </table>
-    </div>
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="dc-search" placeholder="Search student, matric, or type…" />
+  <select id="dc-type">
+    <option value="">All Types</option>
+    <option value="transcript">Transcript</option>
+    <option value="attestation">Attestation</option>
+    <option value="reference">Reference Letter</option>
+    <option value="certificate">Certificate</option>
+    <option value="other">Other</option>
+  </select>
+  <select id="dc-status">
+    <option value="">All Status</option>
+    <option value="pending">Pending</option>
+    <option value="approved">Approved</option>
+    <option value="issued">Issued</option>
+    <option value="rejected">Rejected</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="dc-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="dc-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Requests</span><span class="value" id="dc-total">—</span></div>
+    <div class="ic">📄</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Pending</span><span class="value" id="dc-pending">—</span></div>
+    <div class="ic">⏳</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Approved</span><span class="value" id="dc-approved">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Issued</span><span class="value" id="dc-issued">—</span></div>
+    <div class="ic">📬</div>
   </div>
 </div>
 
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Document Queue</h3>
+    <span class="badge" id="dc-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Type</th>
+            <th>Title / Notes</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="dc-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-docs-tbody');
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors — API returns { document: {...}, student: {...} } or flat
+  // ---------------------------------------------------------
+  function unwrap(r) {
+    const doc = r.document || r;
+    const stu = r.student || {};
+    return {
+      id: doc.id,
+      type: (doc.type || doc.documentType || 'other').toLowerCase(),
+      title: doc.title || doc.subject || '',
+      notes: doc.notes || doc.body || doc.description || '',
+      status: (doc.status || 'pending').toLowerCase(),
+      requestedAt: doc.requestedAt || doc.createdAt,
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || '—',
+      matric: stu.matricNumber || doc.matricNumber || '—',
+    };
+  }
+
+  function statusBadge(s) {
+    const map = {
+      pending: 'badge-warning',
+      approved: 'badge-active',
+      issued: 'badge-success',
+      rejected: 'badge-inactive',
+    };
+    return `<span class="badge-status ${map[s.status] || 'badge-inactive'}">${esc(s.status)}</span>`;
+  }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('dc-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('dc-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No document requests match your filters.</td></tr>';
+      return;
+    }
+
+    $('dc-tbody').innerHTML = FILTERED.map((d) => {
+      let actions = '<span class="muted small">—</span>';
+      if (d.status === 'pending') {
+        actions = `
+          <button class="btn btn-primary btn-xs" data-act="approve" data-id="${d.id}">Approve</button>
+          <button class="btn btn-outline btn-xs" data-act="reject" data-id="${d.id}">Reject</button>`;
+      } else if (d.status === 'approved') {
+        actions = `<button class="btn btn-primary btn-xs" data-act="issue" data-id="${d.id}">Mark Issued</button>`;
+      }
+      return `
+        <tr>
+          <td>${esc(d.studentName)}</td>
+          <td><code>${esc(d.matric)}</code></td>
+          <td><span class="chip chip-${d.type}">${esc(d.type)}</span></td>
+          <td>${esc(d.title || d.notes || '—')}</td>
+          <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
+          <td>${statusBadge(d)}</td>
+          <td class="row-actions">${actions}</td>
+        </tr>`;
+    }).join('');
+
+    $('dc-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        if (act === 'approve') approveDoc(id);
+        if (act === 'reject')  rejectDoc(id);
+        if (act === 'issue')   issueDoc(id);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('dc-search').value || '').trim().toLowerCase();
+    const type = $('dc-type').value;
+    const st = $('dc-status').value;
+
+    FILTERED = ALL.filter((d) => {
+      const hay = `${d.studentName} ${d.matric} ${d.title} ${d.notes}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (type && d.type !== type) return false;
+      if (st && d.status !== st) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const pending = ALL.filter((d) => d.status === 'pending').length;
+    const approved = ALL.filter((d) => d.status === 'approved').length;
+    const issued = ALL.filter((d) => d.status === 'issued').length;
+
+    $('dc-total').textContent = total;
+    $('dc-pending').textContent = pending;
+    $('dc-approved').textContent = approved;
+    $('dc-issued').textContent = issued;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('dc-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/documents');
-      box.innerHTML = (res.data || []).map((d) => `
-        <tr>
-          <td>${core.escapeHtml(d.title)}</td>
-          <td>${core.escapeHtml(d.type)}</td>
-          <td>${core.escapeHtml(d.status)}</td>
-          <td>${core.formatDate(d.requestedAt)}</td>
-          <td>${d.status === 'issued' && d.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(d.fileUrl)}" target="_blank">Download</a>` : ''}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="5" class="empty">No documents requested.</td></tr>';
-    } catch (err) { box.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  })();
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
+      ALL = raw.map(unwrap);
+      console.log('[documents] Loaded', ALL.length);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[documents]', err);
+      $('dc-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------
+  async function approveDoc(id) {
+    if (!confirm('Approve this document request?')) return;
+    try {
+      await core.portalFetch(`/api/documents/${id}/approve`, { method: 'POST' });
+      core.showToast && core.showToast('Approved', 'success');
+      load();
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+  async function rejectDoc(id) {
+    const reason = prompt('Rejection reason (optional):') || '';
+    try {
+      await core.portalFetch(`/api/documents/${id}/reject`, { method: 'POST', body: { reason } });
+      core.showToast && core.showToast('Rejected', 'success');
+      load();
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+  async function issueDoc(id) {
+    if (!confirm('Mark this document as issued?')) return;
+    try {
+      await core.portalFetch(`/api/documents/${id}/issue`, { method: 'POST' });
+      core.showToast && core.showToast('Issued', 'success');
+      load();
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['Student', 'Matric', 'Type', 'Title', 'Requested', 'Status'];
+    const rows = FILTERED.map((d) => [
+      d.studentName, d.matric, d.type, d.title,
+      d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '',
+      d.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `document-requests-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('dc-search').addEventListener('input', applyFilter);
+  $('dc-type').addEventListener('change', applyFilter);
+  $('dc-status').addEventListener('change', applyFilter);
+  $('dc-refresh').addEventListener('click', load);
+  $('dc-export').addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

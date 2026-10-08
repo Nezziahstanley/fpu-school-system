@@ -759,3 +759,10 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     min-width: 220px;
   }
 }
+
+/* Document type chips */
+.chip-transcript   { background: #dbeafe; color: #1e40af; }
+.chip-attestation  { background: #d1fae5; color: #065f46; }
+.chip-reference    { background: #fef3c7; color: #92400e; }
+.chip-certificate  { background: #fce7f3; color: #9d174d; }
+.chip-other        { background: #e5e7eb; color: #374151; }

@@ -63,7 +63,6 @@
   'use strict';
   const core = window.FPU_PORTAL || {};
   const user = core.getPortalUser ? core.getPortalUser() : {};
-  const deptId = user.departmentId;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
@@ -135,9 +134,12 @@
   // ---------------------------------------------------------
   async function loadStudents() {
     try {
+      // For HOD, departmentId is auto-injected by middleware.
+      // For Registrar and other staff, this returns all students.
       const res = await core.portalFetch('/api/students');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
+      console.log('[transcript] Loaded', ALL.length, 'students');
       applyFilter();
     } catch (err) {
       console.error('[transcript]', err);
@@ -151,7 +153,12 @@
   // ---------------------------------------------------------
   async function loadTranscript(studentId) {
     const student = ALL.find((s) => String(s.id) === String(studentId));
-    if (!student) return;
+    if (!student) {
+      console.warn('[transcript] student not found in list:', studentId);
+      return;
+    }
+
+    console.log('[transcript] Loading transcript for', studentId, student.firstName, student.lastName);
 
     $('tr-result-panel').style.display = 'block';
     $('tr-result-title').textContent =
@@ -167,7 +174,7 @@
       const res = await core.portalFetch('/api/transcript/' + studentId);
       const payload = res.data || res || {};
 
-      const student_info = payload.student || student;
+      const studentInfo = payload.student || student;
       const sessions = payload.sessions || [];
       const summary = payload.summary || {};
 
@@ -176,19 +183,19 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">
           <div>
             <div class="muted small">Name</div>
-            <strong>${esc((student_info.firstName||'') + ' ' + (student_info.lastName||''))}</strong>
+            <strong>${esc((studentInfo.firstName||'') + ' ' + (studentInfo.lastName||''))}</strong>
           </div>
           <div>
             <div class="muted small">Matric No.</div>
-            <strong>${esc(student_info.matricNumber || '—')}</strong>
+            <strong>${esc(studentInfo.matricNumber || '—')}</strong>
           </div>
           <div>
             <div class="muted small">Level</div>
-            <strong>${esc(student_info.level || '—')}</strong>
+            <strong>${esc(studentInfo.level || '—')}</strong>
           </div>
           <div>
             <div class="muted small">Programme</div>
-            <strong>${esc(getProgramme(student_info))}</strong>
+            <strong>${esc(getProgramme(studentInfo))}</strong>
           </div>
         </div>`;
 
@@ -234,14 +241,14 @@
       }).join('');
 
       // ---------- Summary ----------
-      const summary_html = `
+      const summaryHtml = `
         <div class="fees-breakdown" style="margin-top:1.5rem;border-top:2px solid #e5e7eb;padding-top:1rem;">
           <div class="fees-row"><span>Total Units Earned</span><strong>${summary.totalUnits || 0}</strong></div>
           <div class="fees-row"><span>Total Grade Points</span><strong>${summary.totalGradePoints || 0}</strong></div>
           <div class="fees-row"><span><strong>CGPA</strong></span><strong style="color:var(--fpu-primary);font-size:1.1rem;">${summary.cgpa != null ? Number(summary.cgpa).toFixed(2) : '—'}</strong></div>
         </div>`;
 
-      $('tr-result-body').innerHTML = header + sessionBlocks + summary_html;
+      $('tr-result-body').innerHTML = header + sessionBlocks + summaryHtml;
     } catch (err) {
       console.error('[transcript]', err);
       $('tr-result-body').innerHTML =
@@ -287,7 +294,22 @@
   $('tr-search').addEventListener('input', applyFilter);
   $('tr-level').addEventListener('change', applyFilter);
 
-  // Go
-  loadStudents();
+  // ---------------------------------------------------------
+  // Init — load students, then auto-load if requested
+  // ---------------------------------------------------------
+  async function init() {
+    await loadStudents();
+
+    // Auto-load transcript if coming from student profile
+    const targetId = sessionStorage.getItem('transcript_student_id');
+    if (targetId) {
+      sessionStorage.removeItem('transcript_student_id');
+      console.log('[transcript] auto-loading student', targetId);
+      // Wait a tick for render to finish
+      setTimeout(() => loadTranscript(targetId), 300);
+    }
+  }
+
+  init();
 })();
 </script>

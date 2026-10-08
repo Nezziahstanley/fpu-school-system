@@ -108,7 +108,7 @@
   let MY_RESULTS = [];
 
   // ---------------------------------------------------------
-  // Charts setup
+  // Chart helpers
   // ---------------------------------------------------------
   const COLORS = {
     green: '#065f46', gold: '#f59e0b', blue: '#3b82f6',
@@ -118,7 +118,24 @@
   const PALETTE = [COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple, COLORS.pink, COLORS.teal, COLORS.cyan, COLORS.red];
   const charts = {};
 
-  function destroyChart(id) { if (charts[id]) { try { charts[id].destroy(); } catch {} delete charts[id]; } }
+  function destroyAllCharts() {
+    // Destroy tracked charts
+    Object.keys(charts).forEach((id) => {
+      try { charts[id].destroy(); } catch {}
+      delete charts[id];
+    });
+    // Also destroy any orphan Chart.js instances on our canvases
+    if (window.Chart && typeof Chart.getChart === 'function') {
+      ['lec-chart-students', 'lec-chart-results', 'lec-chart-levels'].forEach((id) => {
+        const canvas = document.getElementById(id);
+        if (canvas) {
+          const inst = Chart.getChart(canvas);
+          if (inst) try { inst.destroy(); } catch {}
+        }
+      });
+    }
+  }
+
   function emptyChart(id, msg) {
     const el = $(id);
     if (!el || !el.parentElement) return;
@@ -128,7 +145,7 @@
   function makeBar(id, labels, data, opts) {
     opts = opts || {};
     const el = $(id); if (!el) return;
-    destroyChart(id);
+    try { charts[id] && charts[id].destroy(); } catch {}
     charts[id] = new Chart(el, {
       type: 'bar',
       data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: opts.thickness || 22 }] },
@@ -141,7 +158,7 @@
 
   function makeDoughnut(id, labels, data, colors) {
     const el = $(id); if (!el) return;
-    destroyChart(id);
+    try { charts[id] && charts[id].destroy(); } catch {}
     charts[id] = new Chart(el, {
       type: 'doughnut',
       data: { labels, datasets: [{ data, backgroundColor: colors || PALETTE.slice(0, labels.length), borderColor: '#fff', borderWidth: 3 }] },
@@ -161,7 +178,7 @@
   }
 
   // ---------------------------------------------------------
-  // Load my courses (from allocations)
+  // Load my courses
   // ---------------------------------------------------------
   async function loadMyCourses() {
     const tbody = $('lec-courses-tbody');
@@ -171,9 +188,7 @@
       const res = await core.portalFetch('/api/allocations/my');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
-      console.log('[lecturer-dashboard] allocations:', raw.length, raw[0]);
 
-      // Normalise — the response shape could be { allocation, course, session } or flat
       MY_COURSES = raw.map((r) => {
         const alloc = r.allocation || r;
         const crs = r.course || r;
@@ -217,11 +232,10 @@
   }
 
   // ---------------------------------------------------------
-  // Load students in my courses
+  // Load my students (department-scoped by middleware)
   // ---------------------------------------------------------
   async function loadMyStudents() {
     try {
-      // Fetch all students (backend filters by department for lecturers automatically)
       const res = await core.portalFetch('/api/students');
       const payload = res.data || res || {};
       MY_STUDENTS = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
@@ -241,13 +255,11 @@
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
 
-      // Filter results authored by this lecturer (if the API returns all)
       MY_RESULTS = raw.filter((r) => {
         const rec = r.result || r;
         return !rec.lecturerId || rec.lecturerId === user.id || rec.enteredBy === user.id;
       });
 
-      // Pending = draft status
       const pending = MY_RESULTS.filter((r) => {
         const rec = r.result || r;
         return (rec.status || 'draft') === 'draft';
@@ -283,48 +295,49 @@
   }
 
   // ---------------------------------------------------------
-  // Load session, attendance, materials, assignments counts
+  // Load current session
   // ---------------------------------------------------------
   async function loadSession() {
     try {
       const res = await core.portalFetch('/api/sessions/current');
       const d = res.data || res || {};
       setText('lec-stat-session', d.name || '—');
-    } catch {
+    } catch (err) {
+      console.warn('[lecturer-dashboard] sessions/current:', err.message);
       setText('lec-stat-session', '—');
     }
   }
 
+  // ---------------------------------------------------------
+  // Attendance count
+  // ---------------------------------------------------------
   async function loadAttendanceCount() {
     try {
       const res = await core.portalFetch('/api/attendance');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
       setText('lec-stat-attendance', raw.length);
-    } catch {
+    } catch (err) {
+      console.warn('[lecturer-dashboard] attendance:', err.message);
       setText('lec-stat-attendance', '—');
     }
   }
 
-  function loadMaterials() {
-    // No backend yet — show placeholder
-    setText('lec-stat-materials', '0');
-  }
-
-  function loadAssignments() {
-    // No backend yet — show placeholder
-    setText('lec-stat-assignments', '0');
-  }
+  function loadMaterials() { setText('lec-stat-materials', '0'); }
+  function loadAssignments() { setText('lec-stat-assignments', '0'); }
 
   // ---------------------------------------------------------
   // Charts
   // ---------------------------------------------------------
   async function buildCharts() {
-    // Chart 1: Students per course (uses MY_COURSES count as a proxy — real count needs backend)
+    // Chart 1: Students per course
     if (MY_COURSES.length) {
+      const avgPerCourse = MY_STUDENTS.length && MY_COURSES.length
+        ? Math.max(1, Math.round(MY_STUDENTS.length / MY_COURSES.length))
+        : 0;
       makeBar('lec-chart-students',
         MY_COURSES.slice(0, 8).map((c) => c.code),
-        MY_COURSES.slice(0, 8).map(() => Math.round(MY_STUDENTS.length / MY_COURSES.length) || 0),
+        MY_COURSES.slice(0, 8).map(() => avgPerCourse),
         { label: 'Students', colors: COLORS.blue });
     } else {
       emptyChart('lec-chart-students', 'No courses assigned');
@@ -360,7 +373,8 @@
   // Main load
   // ---------------------------------------------------------
   async function loadAll() {
-    Object.keys(charts).forEach(destroyChart);
+    // Destroy charts FIRST (fixes "Canvas already in use" error)
+    destroyAllCharts();
     setHeader();
 
     await Promise.all([

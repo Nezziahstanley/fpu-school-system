@@ -82,31 +82,28 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     await logLogin({ req, userId: user.id, email, success: true });
     await logAudit({ req, userId: user.id, action: 'admin.login', entity: 'user', entityId: user.id });
 
+    // Fetch user again with joins so department/programme names are populated
+    const fullUser = await userQueries.findById(user.id);
+
     return res.json({
       success: true,
       token,
       expiresAt,
       user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        photoUrl: user.photoUrl,
-      },      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        middleName: user.middleName || null,
-        photoUrl: user.photoUrl || null,
-        departmentId: user.departmentId ?? null,
-        departmentName: user.departmentName ?? null,
-        departmentCode: user.departmentCode ?? null,
-        programmeId: user.programmeId ?? null,
-        level: user.level ?? null,
-        matricNumber: user.matricNumber ?? null,
+        id: fullUser.id,
+        email: fullUser.email,
+        role: fullUser.role,
+        firstName: fullUser.firstName,
+        lastName: fullUser.lastName,
+        middleName: fullUser.middleName || null,
+        photoUrl: fullUser.photoUrl || null,
+        departmentId: fullUser.departmentId ?? null,
+        departmentName: fullUser.departmentName ?? null,
+        departmentCode: fullUser.departmentCode ?? null,
+        programmeId: fullUser.programmeId ?? null,
+        programmeName: fullUser.programmeName ?? null,
+        level: fullUser.level ?? null,
+        matricNumber: fullUser.matricNumber ?? null,
       },
     });
   } catch (err) {
@@ -132,25 +129,20 @@ router.post('/logout', async (req, res, next) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/admin/auth/me
+// GET /api/admin/auth/me — current user
 // ------------------------------------------------------------
-router.get('/me', requireUser, async (req, res) => {
-  return res.json({
-    success: true,
-    user: {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      middleName: req.user.middleName,
-      photoUrl: req.user.photoUrl,
-      departmentId: req.user.departmentId,
-      schoolId: req.user.schoolId,
-      currentSessionId: req.user.currentSessionId,
-      mustChangePassword: req.user.mustChangePassword,
-    },
-  });
+router.get('/me', requireUser, async (req, res, next) => {
+  try {
+    const user = await userQueries.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
+
+    delete user.passwordHash;
+    delete user.password_hash;
+
+    return res.json({ success: true, user });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 module.exports = router;

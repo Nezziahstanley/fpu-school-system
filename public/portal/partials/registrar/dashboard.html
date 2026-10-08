@@ -1,114 +1,339 @@
-<!-- Portal → Registrar → Dashboard -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar" id="reg-dash-avatar">R</div>
-    <div>
-      <h1>Welcome, <span id="reg-dash-name">Registrar</span></h1>
-      <div class="sub">Registry & Student Records</div>
-    </div>
+<!-- ============================================================
+     Portal → Registrar → Dashboard
+     Full analytics: 8 KPI tiles + 6 charts + recent activity
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<section class="page-head">
+  <div>
+    <h2>Dashboard Overview</h2>
+    <p class="muted small" id="reg-sub">Live analytics for the Registry</p>
   </div>
-  <div class="meta">
-    <strong>Registry</strong>
-    <span>Department</span>
+  <div class="actions">
+    <select id="reg-range" class="form-select" style="max-width: 180px;">
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="365" selected>Last 12 months</option>
+      <option value="all">All time</option>
+    </select>
+    <button class="btn btn-outline btn-sm" id="reg-refresh">Refresh</button>
+    <a class="btn btn-primary btn-sm" href="#registrar-students">Manage Students</a>
   </div>
 </section>
 
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">Total Students</div><div class="tile-value" id="reg-t-students">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Active Sessions</div><div class="tile-value" id="reg-t-sessions">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending Registrations</div><div class="tile-value" id="reg-t-regs">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Pending Clearances</div><div class="tile-value" id="reg-t-clear">—</div></div>
+<!-- KPI tiles row 1 -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Students</span><span class="value" id="reg-stat-students">—</span></div><div class="ic">🎓</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">ND Students</span><span class="value" id="reg-stat-nd">—</span></div><div class="ic">📘</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">HND Students</span><span class="value" id="reg-stat-hnd">—</span></div><div class="ic">📗</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Active Session</span><span class="value" id="reg-stat-session">—</span></div><div class="ic">📅</div></div>
 </div>
 
-<div class="quick-actions">
-  <a class="btn btn-primary btn-sm" href="#registrar-students">🎓 Students</a>
-  <a class="btn btn-outline btn-sm" href="#registrar-sessions">📅 Sessions</a>
-  <a class="btn btn-outline btn-sm" href="#registrar-registrations">📋 Registrations</a>
-  <a class="btn btn-outline btn-sm" href="#registrar-transcript">📄 Transcripts</a>
+<!-- KPI tiles row 2 -->
+<div class="stat-grid">
+  <div class="stat red"><div class="meta"><span class="label">Pending Registrations</span><span class="value" id="reg-stat-registrations">—</span></div><div class="ic">📋</div></div>
+  <div class="stat"><div class="meta"><span class="label">Pending Applications</span><span class="value" id="reg-stat-apps">—</span></div><div class="ic">📥</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Programmes</span><span class="value" id="reg-stat-progs">—</span></div><div class="ic">📖</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Pending Clearances</span><span class="value" id="reg-stat-clearances">—</span></div><div class="ic">✅</div></div>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Current Session</h3></div>
+<!-- Charts row 1: Demographics -->
+<section class="panel">
+  <div class="panel-head"><h3>👥 Student Demographics</h3><span class="small muted">Institution-wide</span></div>
   <div class="panel-body">
-    <div id="reg-session-block" class="muted small">Loading…</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Students by Level</h3><span class="chart-badge">Bar</span></div>
+        <div class="chart-body"><canvas id="reg-chart-level"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Students by Department</h3><span class="chart-badge">Bar</span></div>
+        <div class="chart-body"><canvas id="reg-chart-dept"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Student Gender</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="reg-chart-gender"></canvas></div>
+      </div>
+    </div>
   </div>
-</div>
+</section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Pending Registrations</h3></div>
+<!-- Charts row 2: Trends -->
+<section class="panel">
+  <div class="panel-head"><h3>📈 Trends</h3><span class="small muted">Time-based analytics</span></div>
   <div class="panel-body">
-    <div id="reg-pending-list" class="muted small">Loading…</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Enrollment Trend</h3><span class="chart-badge">Line</span></div>
+        <div class="chart-body"><canvas id="reg-chart-enrollment"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Registration Status</h3><span class="chart-badge">Doughnut</span></div>
+        <div class="chart-body"><canvas id="reg-chart-registrations"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header"><h3>Admission Trend</h3><span class="chart-badge">Line</span></div>
+        <div class="chart-body"><canvas id="reg-chart-admission"></canvas></div>
+      </div>
+    </div>
   </div>
-</div>
+</section>
+
+<!-- Recent tables -->
+<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+  <div class="panel">
+    <div class="panel-head"><h3>📋 Recent Students</h3><a class="btn btn-outline btn-sm" href="#registrar-students">View all →</a></div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Matric</th><th>Name</th><th>Level</th><th>Programme</th></tr></thead>
+          <tbody id="reg-recent-students"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h3>📥 Recent Applications</h3><a class="btn btn-outline btn-sm" href="#admin-applications-list">View all →</a></div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>App No</th><th>Applicant</th><th>Type</th><th>Status</th></tr></thead>
+          <tbody id="reg-recent-apps"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  if (user.firstName) {
+    const el = $('reg-sub');
+    if (el) el.textContent = `Live analytics · ${user.firstName} ${user.lastName || ''}`.trim();
+  }
+
+  const COLORS = {
+    green: '#065f46', greenLight: '#10b981',
+    gold: '#f59e0b', blue: '#3b82f6', red: '#dc2626',
+    purple: '#8b5cf6', pink: '#ec4899', teal: '#14b8a6',
+    cyan: '#06b6d4', slate: '#64748b',
+  };
+  const PALETTE = [COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple, COLORS.pink, COLORS.teal, COLORS.cyan, COLORS.red];
+
+  const charts = {};
+  function destroyChart(id) { if (charts[id]) { try { charts[id].destroy(); } catch {} delete charts[id]; } }
+  function emptyChart(id, msg) {
+    const el = $(id);
+    if (!el || !el.parentElement) return;
+    el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13.5px;">${esc(msg || 'No data available')}</div>`;
+  }
+
+  function makeBar(id, labels, data, opts) {
+    opts = opts || {};
+    const el = $(id); if (!el) return;
+    destroyChart(id);
+    charts[id] = new Chart(el, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: opts.thickness || 22 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                  x: { ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }, grid: { display: false } } } },
+    });
+  }
+  function makeDoughnut(id, labels, data, colors) {
+    const el = $(id); if (!el) return;
+    destroyChart(id);
+    charts[id] = new Chart(el, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colors || PALETTE.slice(0, labels.length), borderColor: '#fff', borderWidth: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#0f172a', padding: 12, font: { size: 12, weight: 600 } } } } },
+    });
+  }
+  function makeLine(id, labels, data, opts) {
+    opts = opts || {};
+    const el = $(id); if (!el) return;
+    destroyChart(id);
+    charts[id] = new Chart(el, {
+      type: 'line',
+      data: { labels, datasets: [{ label: opts.label || 'Count', data, borderColor: opts.color || COLORS.green, backgroundColor: opts.fill || 'rgba(6,95,70,0.1)', tension: 0.4, fill: true, pointRadius: 5, borderWidth: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
+                  x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { display: false } } } },
+    });
+  }
+
+  // ---------------- Stats ----------------
+  async function loadStats() {
     try {
-      document.getElementById('reg-dash-name').textContent = user.firstName || 'Registrar';
-      if (photo) photo.renderMyAvatar(document.getElementById('reg-dash-avatar'), user);
+      const s = await core.portalFetch('/api/students');
+      const list = s.data || s || [];
+      $('reg-stat-students').textContent = list.length;
+      $('reg-stat-nd').textContent = list.filter(x => String(x.level).toUpperCase() === 'ND').length;
+      $('reg-stat-hnd').textContent = list.filter(x => String(x.level).toUpperCase() === 'HND').length;
+    } catch {}
 
-      // Student count
-      try {
-        const s = await core.portalFetch('/api/reports/overview');
-        const d = s.data || s || {};
-        document.getElementById('reg-t-students').textContent = d.students ?? '—';
-      } catch { document.getElementById('reg-t-students').textContent = '—'; }
+    try {
+      const cs = await core.portalFetch('/api/sessions/current');
+      const d = cs.data || cs || {};
+      $('reg-stat-session').textContent = d.name || '—';
+    } catch { $('reg-stat-session').textContent = '—'; }
 
-      // Current session
-      try {
-        const cs = await core.portalFetch('/api/sessions/current');
-        const d = cs.data || cs || {};
-        document.getElementById('reg-session-block').innerHTML = d.name
-          ? `<div class="fees-breakdown">
-               <div class="fees-row"><span>Session</span><strong>${d.name}</strong></div>
-               <div class="fees-row"><span>Status</span><strong>${d.isCurrent ? 'Active' : 'Inactive'}</strong></div>
-               <div class="fees-row"><span>Starts</span><strong>${d.startDate ? new Date(d.startDate).toLocaleDateString() : '—'}</strong></div>
-               <div class="fees-row"><span>Ends</span><strong>${d.endDate ? new Date(d.endDate).toLocaleDateString() : '—'}</strong></div>
-             </div>`
-          : '<em>No current session configured.</em>';
-      } catch {
-        document.getElementById('reg-session-block').innerHTML = '<em>Session info unavailable.</em>';
-      }
+    try {
+      const rs = await core.portalFetch('/api/registrations/stats');
+      const d = rs.data || rs || {};
+      $('reg-stat-registrations').textContent = d.pending ?? 0;
+    } catch { $('reg-stat-registrations').textContent = '—'; }
 
-      // All sessions count
-      try {
-        const ss = await core.portalFetch('/api/sessions');
-        const list = ss.data || ss || [];
-        document.getElementById('reg-t-sessions').textContent = list.length;
-      } catch { document.getElementById('reg-t-sessions').textContent = '—'; }
+    try {
+      const a = await core.portalFetch('/api/applications/stats/summary');
+      const d = a.data || a || {};
+      $('reg-stat-apps').textContent = d.pending ?? 0;
+    } catch { $('reg-stat-apps').textContent = '—'; }
 
-      // Registration stats + pending list
-      try {
-        const rs = await core.portalFetch('/api/registrations/stats');
-        const d = rs.data || rs || {};
-        document.getElementById('reg-t-regs').textContent = d.pending ?? 0;
-      } catch { document.getElementById('reg-t-regs').textContent = '—'; }
+    try {
+      const p = await core.portalFetch('/api/programmes');
+      const list = p.data || p || [];
+      $('reg-stat-progs').textContent = list.length;
+    } catch { $('reg-stat-progs').textContent = '—'; }
 
-      try {
-        const rl = await core.portalFetch('/api/registrations?status=pending&limit=5');
-        const list = rl.data || rl || [];
-        document.getElementById('reg-pending-list').innerHTML = list.length
-          ? list.slice(0,5).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.studentName || x.studentId || 'Student'}</strong>
-                 <span class="muted small">· ${x.sessionName || ''} · ${x.status || ''}</span>
-               </div>`).join('')
-          : '<em>No pending registrations. 🎉</em>';
-      } catch {
-        document.getElementById('reg-pending-list').innerHTML = '<em>Could not load registrations.</em>';
-      }
+    try {
+      const c = await core.portalFetch('/api/clearances/stats');
+      const d = c.data || c || {};
+      $('reg-stat-clearances').textContent = d.pending ?? 0;
+    } catch { $('reg-stat-clearances').textContent = '—'; }
+  }
 
-      // Clearances
-      try {
-        const c = await core.portalFetch('/api/clearances/stats');
-        const d = c.data || c || {};
-        document.getElementById('reg-t-clear').textContent = d.pending ?? 0;
-      } catch { document.getElementById('reg-t-clear').textContent = '—'; }
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  })();
+  // ---------------- Charts ----------------
+  async function chartLevel() {
+    try {
+      const s = await core.portalFetch('/api/students');
+      const list = s.data || s || [];
+      const counts = { ND: 0, HND: 0 };
+      list.forEach(x => { const l = String(x.level).toUpperCase(); if (counts[l] !== undefined) counts[l]++; });
+      makeBar('reg-chart-level', ['ND', 'HND'], [counts.ND, counts.HND], { label: 'Students', colors: COLORS.purple, thickness: 50 });
+    } catch { emptyChart('reg-chart-level'); }
+  }
+
+  async function chartDept() {
+    try {
+      const s = await core.portalFetch('/api/students');
+      const list = s.data || s || [];
+      const counts = {};
+      list.forEach(x => {
+        const k = x.departmentName || `Dept ${x.departmentId || '?'}`;
+        counts[k] = (counts[k] || 0) + 1;
+      });
+      const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+      if (!entries.length) return emptyChart('reg-chart-dept');
+      makeBar('reg-chart-dept', entries.map(e=>e[0]), entries.map(e=>e[1]), { label: 'Students', colors: COLORS.blue });
+    } catch { emptyChart('reg-chart-dept'); }
+  }
+
+  async function chartGender() {
+    try {
+      const s = await core.portalFetch('/api/students');
+      const list = s.data || s || [];
+      let m=0, f=0, o=0;
+      list.forEach(x => { const g = String(x.gender||'').toLowerCase(); if (g==='male') m++; else if (g==='female') f++; else o++; });
+      makeDoughnut('reg-chart-gender', ['Male','Female','Not Specified'], [m,f,o], [COLORS.blue, COLORS.pink, COLORS.slate]);
+    } catch { emptyChart('reg-chart-gender'); }
+  }
+
+  async function chartEnrollment() {
+    try {
+      const s = await core.portalFetch('/api/students');
+      const list = s.data || s || [];
+      const monthly = {};
+      list.forEach(x => {
+        if (!x.createdAt) return;
+        const d = new Date(x.createdAt);
+        const k = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+        monthly[k] = (monthly[k] || 0) + 1;
+      });
+      const sorted = Object.entries(monthly).reverse();
+      let cum = 0;
+      const data = sorted.map(([,v]) => { cum += v; return cum; });
+      if (!sorted.length) return emptyChart('reg-chart-enrollment');
+      makeLine('reg-chart-enrollment', sorted.map(e=>e[0]), data, { label: 'Students', color: COLORS.purple });
+    } catch { emptyChart('reg-chart-enrollment'); }
+  }
+
+  async function chartRegistrations() {
+    try {
+      const r = await core.portalFetch('/api/registrations?limit=1000');
+      const list = r.data || r || [];
+      const counts = {};
+      list.forEach(x => { const s = x.status || 'pending'; counts[s] = (counts[s]||0)+1; });
+      const colorMap = { pending: COLORS.gold, approved: COLORS.green, rejected: COLORS.red };
+      const keys = Object.keys(counts);
+      if (!keys.length) return emptyChart('reg-chart-registrations');
+      makeDoughnut('reg-chart-registrations', keys, keys.map(k=>counts[k]), keys.map(k=>colorMap[k]||COLORS.slate));
+    } catch { emptyChart('reg-chart-registrations'); }
+  }
+
+  async function chartAdmission() {
+    try {
+      const a = await core.portalFetch('/api/applications?limit=1000');
+      const list = a.data || a || [];
+      const monthly = {};
+      list.forEach(x => {
+        if (!x.createdAt) return;
+        const d = new Date(x.createdAt);
+        const k = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+        monthly[k] = (monthly[k] || 0) + 1;
+      });
+      const sorted = Object.entries(monthly).reverse();
+      if (!sorted.length) return emptyChart('reg-chart-admission');
+      makeLine('reg-chart-admission', sorted.map(e=>e[0]), sorted.map(e=>e[1]), { label: 'Applications', color: COLORS.gold });
+    } catch { emptyChart('reg-chart-admission'); }
+  }
+
+  // ---------------- Recent tables ----------------
+  async function loadRecentStudents() {
+    const tbody = $('reg-recent-students');
+    try {
+      const s = await core.portalFetch('/api/students?limit=8');
+      const list = (s.data || s || []).slice(0, 8);
+      tbody.innerHTML = list.length
+        ? list.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No students.</td></tr>';
+    } catch { tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
+  }
+
+  async function loadRecentApps() {
+    const tbody = $('reg-recent-apps');
+    try {
+      const a = await core.portalFetch('/api/applications?limit=8');
+      const list = (a.data || a || []).slice(0, 8);
+      tbody.innerHTML = list.length
+        ? list.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No applications.</td></tr>';
+    } catch { tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
+  }
+
+  // ---------------- Main ----------------
+  async function loadAll() {
+    Object.keys(charts).forEach(destroyChart);
+    await Promise.all([loadStats(), loadRecentStudents(), loadRecentApps()]);
+    await Promise.all([chartLevel(), chartDept(), chartGender(), chartEnrollment(), chartRegistrations(), chartAdmission()]);
+  }
+
+  $('reg-refresh').addEventListener('click', loadAll);
+  $('reg-range').addEventListener('change', loadAll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
+  } else {
+    setTimeout(loadAll, 100);
+  }
+})();
 </script>

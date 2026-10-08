@@ -51,15 +51,35 @@
                    : d.status === 'rejected' ? 'badge-inactive'
                    : 'badge-warning';
 
-      box.innerHTML = `
-        <div class="fees-breakdown">
-          <div class="fees-row"><span>Status</span><strong><span class="badge-status ${badge}">${esc(d.status || 'pending')}</span></strong></div>
-          <div class="fees-row"><span>Level</span><strong>${esc(d.level || '—')}</strong></div>
-          <div class="fees-row"><span>CGPA</span><strong>${d.cgpa != null ? Number(d.cgpa).toFixed(2) : '—'}</strong></div>
-          <div class="fees-row"><span>Classification</span><strong>${esc(d.classification || '—')}</strong></div>
-          <div class="fees-row"><span>Approved</span><strong>${d.approvedAt ? new Date(d.approvedAt).toLocaleDateString() : '—'}</strong></div>
-          <div class="fees-row"><span>Remarks</span><strong>${esc(d.remarks || '—')}</strong></div>
-        </div>`;
+      const cgpa = d.cgpa != null ? Number(d.cgpa).toFixed(2) : '—';
+const classText = d.classification || '—';
+const session = d.sessionName || '—';
+const programme = d.programmeName || '—';
+
+// Status → friendly copy
+const statusCopy = {
+  pending:   'Your application is being reviewed by the Registrar.',
+  approved:  'You have been approved for graduation. Awaiting convocation.',
+  graduated: 'Congratulations — you have graduated!',
+  rejected:  'Your graduation application was not approved.',
+};
+
+box.innerHTML = `
+  <div style="margin-bottom:1rem;">
+    <p class="muted" style="margin:0;">
+      ${esc(statusCopy[d.status] || '')}
+    </p>
+  </div>
+  <div class="fees-breakdown">
+    <div class="fees-row"><span>Status</span><strong><span class="badge-status ${badge}">${esc(d.status || 'pending')}</span></strong></div>
+    <div class="fees-row"><span>Level</span><strong>${esc(d.level || '—')}</strong></div>
+    <div class="fees-row"><span>Programme</span><strong>${esc(programme)}</strong></div>
+    <div class="fees-row"><span>Session</span><strong>${esc(session)}</strong></div>
+    <div class="fees-row"><span>CGPA</span><strong>${cgpa}</strong></div>
+    <div class="fees-row"><span>Classification</span><strong>${esc(classText)}</strong></div>
+    <div class="fees-row"><span>Approved</span><strong>${d.approvedAt ? new Date(d.approvedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</strong></div>
+    <div class="fees-row"><span>Remarks</span><strong>${esc(d.remarks || '—')}</strong></div>
+  </div>`;
     } catch (err) {
       console.warn('[student-graduation]', err.message);
       box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load graduation status.</p>';

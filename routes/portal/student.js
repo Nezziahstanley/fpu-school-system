@@ -510,6 +510,11 @@ router.get('/id-card', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/graduation
+// ------------------------------------------------------------
+// Returns the student's graduation record (if any), enriched
+// with LIVE CGPA + classification computed from published
+// results — so a pending application always shows up-to-date
+// academic standing.
 // ============================================================
 router.get('/graduation', only, async (req, res, next) => {
   try {
@@ -519,7 +524,46 @@ router.get('/graduation', only, async (req, res, next) => {
       .where(eq(graduations.studentId, req.user.id))
       .orderBy(desc(graduations.createdAt))
       .limit(1);
-    return res.json({ success: true, data: row || null });
+
+    if (!row) {
+      return res.json({ success: true, data: null });
+    }
+
+    // Compute LIVE CGPA + classification from published results
+    const results = await resultQueries.publishedForStudent(req.user.id, {});
+    const summary = computeStudentCGPA(
+      results.map((r) => ({
+        unit: Number(r.course?.unit) || 0,
+        points: Number(r.result?.points) || 0,
+        sessionId: r.result?.sessionId,
+        semester: r.result?.semester,
+      }))
+    );
+
+    // Get session name + programme name for display
+    const student = await userQueries.findByIdWithRelations(req.user.id);
+
+    let sessionName = null;
+    if (row.sessionId) {
+      const sess = await sessionQueries.findAcademicById(row.sessionId);
+      sessionName = sess?.name || null;
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        ...row,
+        // Live-computed fields override any stored values
+        cgpa: summary.cgpa ?? row.cgpa,
+        classification: classifyDegree(summary.cgpa) ?? row.classification,
+        totalUnits: summary.totalUnits,
+        // Joined names for display
+        programmeName: student?.programmeName || null,
+        departmentName: student?.departmentName || null,
+        level: student?.level || row.level,
+        sessionName,
+      },
+    });
   } catch (err) {
     return next(err);
   }

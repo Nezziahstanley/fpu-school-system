@@ -121,25 +121,25 @@
   }
 
   // ---------------------------------------------------------
-  // Session status (current / past / upcoming)
+  // Status — DATE FIRST, fall back to isCurrent flag
+  // This makes the UI resilient to stale is_current values.
   // ---------------------------------------------------------
   function getStatus(s) {
-    if (isCurrent(s)) return 'current';
-
     const now = new Date();
     const start = getStart(s) ? new Date(getStart(s)) : null;
     const end   = getEnd(s)   ? new Date(getEnd(s))   : null;
 
-    // If it starts in the future → upcoming
-    if (start && start > now) return 'upcoming';
+    // Dates take priority
+    if (start && start > now) return 'upcoming';   // hasn't started yet
+    if (end && end < now)     return 'past';       // already ended
 
-    // If it ended in the past → past
-    if (end && end < now) return 'past';
+    // Within [start, end] — trust the isCurrent flag to decide current vs past
+    if (start && end) {
+      return isCurrent(s) ? 'current' : 'past';
+    }
 
-    // Active right now → treat as current (fallback)
-    if (start && end && start <= now && now <= end) return 'current';
-
-    return 'past';
+    // No dates — fall back to isCurrent flag
+    return isCurrent(s) ? 'current' : 'past';
   }
 
   function statusBadge(s) {
@@ -209,7 +209,7 @@
   // Current session highlight panel
   // ---------------------------------------------------------
   function renderCurrentPanel() {
-    const cur = ALL.find(isCurrent);
+    const cur = ALL.find((s) => getStatus(s) === 'current');
     const panel = $('rs2-current-panel');
     if (!cur) { panel.style.display = 'none'; return; }
 
@@ -232,7 +232,14 @@
       const res = await core.portalFetch('/api/sessions');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
-      console.log('[registrar-sessions] Loaded', ALL.length);
+      console.log('[registrar-sessions] Loaded', ALL.length, 'sessions');
+      console.table(ALL.map((s) => ({
+        name: getName(s),
+        start: fmtDate(getStart(s)),
+        end: fmtDate(getEnd(s)),
+        isCurrent: isCurrent(s),
+        status: getStatus(s),
+      })));
       updateStats();
       renderCurrentPanel();
       applyFilter();

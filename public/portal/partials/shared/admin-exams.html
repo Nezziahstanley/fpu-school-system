@@ -1,10 +1,10 @@
-<!-- Shared → Exams (read-only for HOD, manage for admin/exam-officer) -->
+<!-- Shared → Exams -->
 <section class="greeting">
   <div class="who">
     <div class="avatar">📝</div>
     <div>
       <h1>Exams</h1>
-      <div class="sub" id="ex-sub">Exam schedule for your department</div>
+      <div class="sub" id="ex-sub">Exam schedule</div>
     </div>
   </div>
 </section>
@@ -54,50 +54,68 @@
   const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
   let ALL = [], FILTERED = [];
+  let MY_COURSE_IDS = new Set();
 
-  if (user.departmentName) {
-    const el = $('ex-sub');
-    if (el) el.textContent = `Exam schedule for ${user.departmentName}`;
-  }
+  // Update subtitle based on role
+  (function () {
+    const sub = $('ex-sub');
+    if (!sub) return;
+    const role = String(user.role || '').toLowerCase();
+    if (role === 'lecturer') sub.textContent = 'Exams for your courses';
+    else if (role === 'hod') sub.textContent = `Exams in ${user.departmentName || 'your department'}`;
+    else sub.textContent = 'Institution-wide exam schedule';
+  })();
 
-  // Rows come as { exam: {...}, course: {...} }
+  // ---------------------------------------------------------
+  // Extractors — API returns { exam, course, session } or flat
+  // ---------------------------------------------------------
   function unwrap(r) {
     const e = r.exam || r;
     const c = r.course || {};
+    const s = r.session || {};
     return {
       id: e.id,
-      courseCode: e.courseCode || c.code || '—',
-      courseTitle: e.courseTitle || c.title || '—',
-      examDate: e.examDate || e.date,
+      courseId: e.courseId,
+      courseCode: c.code || e.courseCode || '—',
+      courseTitle: c.title || e.courseTitle || '',
+      departmentId: c.departmentId,
+      examDate: e.examDate || e.date || null,
       startTime: e.startTime || e.start_time || '',
       endTime: e.endTime || e.end_time || '',
       venue: e.venue || e.location || '—',
-      sessionName: e.sessionName || r.session?.name || '—',
+      sessionName: e.sessionName || s.name || '—',
       semester: e.semesterName || e.semester || '—',
-      level: e.level || c.level || '—',
+      level: c.level || e.level || '—',
     };
   }
 
   function getDate(e) {
-    return e.examDate ? new Date(e.examDate).toLocaleDateString() : '—';
+    if (!e.examDate) return '—';
+    try { return new Date(e.examDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+    catch { return '—'; }
   }
   function getTime(e) {
     if (!e.startTime) return '—';
-    return e.endTime ? `${e.startTime} - ${e.endTime}` : e.startTime;
+    return e.endTime ? `${e.startTime} – ${e.endTime}` : e.startTime;
   }
   function isUpcoming(e) {
     return e.examDate ? new Date(e.examDate) >= new Date() : false;
   }
 
   function render() {
-    $('ex-count').textContent = FILTERED.length;
+    const countEl = $('ex-count'); const tbody = $('ex-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
     if (!FILTERED.length) {
-      $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled for your department.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled.</td></tr>';
       return;
     }
-    $('ex-tbody').innerHTML = FILTERED.map((e) => {
+
+    tbody.innerHTML = FILTERED.map((e) => {
       const level = String(e.level || '').toUpperCase();
       const chipClass = 'chip-' + level.toLowerCase();
       const upcoming = isUpcoming(e);
@@ -116,9 +134,10 @@
   }
 
   function applyFilter() {
-    const q = ($('ex-search').value || '').trim().toLowerCase();
-    const ses = $('ex-session').value;
-    const sem = $('ex-semester').value;
+    const q = ($('ex-search')?.value || '').trim().toLowerCase();
+    const ses = $('ex-session')?.value || '';
+    const sem = $('ex-semester')?.value || '';
+
     FILTERED = ALL.filter((e) => {
       const hay = `${e.courseCode} ${e.courseTitle} ${e.venue} ${e.sessionName}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
@@ -136,35 +155,68 @@
     const nd = ALL.filter((e) => String(e.level).toUpperCase() === 'ND').length;
     const hnd = ALL.filter((e) => String(e.level).toUpperCase() === 'HND').length;
 
-    $('ex-total').textContent = total;
-    $('ex-upcoming').textContent = upcoming;
-    $('ex-past').textContent = past;
-    $('ex-split').textContent = `${nd} / ${hnd}`;
+    setText('ex-total', total);
+    setText('ex-upcoming', upcoming);
+    setText('ex-past', past);
+    setText('ex-split', `${nd} / ${hnd}`);
+  }
+
+  function populateSessions() {
+    const sel = $('ex-session');
+    if (!sel) return;
+    const sessions = [...new Set(ALL.map((e) => e.sessionName).filter((s) => s && s !== '—'))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Sessions</option>' +
+      sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+    sel.value = cur;
   }
 
   async function load() {
-    $('ex-tbody').innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    const tbody = $('ex-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
+      const role = String(user.role || '').toLowerCase();
+
+      // For lecturers: fetch their course IDs first
+      if (role === 'lecturer') {
+        try {
+          const allocRes = await core.portalFetch('/api/allocations/my');
+          const allocPayload = allocRes.data || allocRes || {};
+          const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
+          MY_COURSE_IDS = new Set(allocRaw.map((a) => {
+            const alloc = a.allocation || a;
+            return String(alloc.courseId);
+          }));
+          console.log('[exams] Lecturer course IDs:', [...MY_COURSE_IDS]);
+        } catch (e) { console.warn('[exams] allocations failed:', e.message); }
+      }
+
+      // Fetch all exams
       const res = await core.portalFetch('/api/exams');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.exams || []);
 
-      // Filter out broken rows (all nulls) — those come from a broken server query
-      const valid = raw.filter((r) => r && (r.exam || r.courseCode));
-      ALL = valid.map(unwrap);
+      let list = raw.map(unwrap);
 
-      const sessions = [...new Set(ALL.map((e) => e.sessionName).filter((s) => s && s !== '—'))];
-      const sel = $('ex-session');
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">All Sessions</option>' +
-        sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-      sel.value = cur;
+      // CLIENT-SIDE FILTER by role
+      if (role === 'lecturer' && MY_COURSE_IDS.size) {
+        // Only exams for this lecturer's courses
+        list = list.filter((e) => MY_COURSE_IDS.has(String(e.courseId)));
+      } else if (role === 'hod' && user.departmentId) {
+        // Only exams in this HOD's department
+        list = list.filter((e) => !e.departmentId || String(e.departmentId) === String(user.departmentId));
+      }
+      // admin, registrar, exam_officer see everything
 
+      ALL = list;
+      console.log('[exams] Filtered to', ALL.length, 'from', raw.length, 'total (role:', role, ')');
+      populateSessions();
       updateStats();
       applyFilter();
     } catch (err) {
       console.error('[exams]', err);
-      $('ex-tbody').innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -180,11 +232,11 @@
     URL.revokeObjectURL(a.href);
   }
 
-  $('ex-search').addEventListener('input', applyFilter);
-  $('ex-session').addEventListener('change', applyFilter);
-  $('ex-semester').addEventListener('change', applyFilter);
-  $('ex-refresh').addEventListener('click', load);
-  $('ex-export').addEventListener('click', exportCsv);
+  $('ex-search')?.addEventListener('input', applyFilter);
+  $('ex-session')?.addEventListener('change', applyFilter);
+  $('ex-semester')?.addEventListener('change', applyFilter);
+  $('ex-refresh')?.addEventListener('click', load);
+  $('ex-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

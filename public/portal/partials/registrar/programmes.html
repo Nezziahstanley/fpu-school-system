@@ -1,0 +1,211 @@
+<!-- Portal → Registrar → Programmes -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📖</div>
+    <div>
+      <h1>Programmes</h1>
+      <div class="sub">All academic programmes across the institution</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="rp-search" placeholder="Search code, name, or department…" />
+  <select id="rp-level">
+    <option value="">All Levels</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
+  </select>
+  <select id="rp-department"><option value="">All Departments</option></select>
+  <button class="btn btn-outline btn-sm" id="rp-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="rp-export">Export CSV</button>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Programmes</span><span class="value" id="rp-total">—</span></div>
+    <div class="ic">📖</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">ND Programmes</span><span class="value" id="rp-nd">—</span></div>
+    <div class="ic">📘</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">HND Programmes</span><span class="value" id="rp-hnd">—</span></div>
+    <div class="ic">📗</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Departments</span><span class="value" id="rp-depts">—</span></div>
+    <div class="ic">🏛</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>All Programmes</h3>
+    <span class="badge" id="rp-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Programme Name</th>
+            <th>Level</th>
+            <th>Department</th>
+          </tr>
+        </thead>
+        <tbody id="rp-tbody">
+          <tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ---------------------------------------------------------
+  // Extractors
+  // ---------------------------------------------------------
+  function getCode(p)   { return p.code || '—'; }
+  function getName(p)   { return p.name || p.title || '—'; }
+  function getLevel(p)  { return String(p.level || '').toUpperCase().trim() || '—'; }
+  function getDept(p)   { return p.departmentName || p.department?.name || '—'; }
+
+  // ---------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------
+  function render() {
+    $('rp-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('rp-tbody').innerHTML =
+        '<tr><td colspan="4" class="empty">No programmes match your filters.</td></tr>';
+      return;
+    }
+
+    $('rp-tbody').innerHTML = FILTERED.map((p) => {
+      const level = getLevel(p);
+      const chipClass = 'chip-' + level.toLowerCase();
+      return `
+        <tr>
+          <td><strong>${esc(getCode(p))}</strong></td>
+          <td>${esc(getName(p))}</td>
+          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
+          <td>${esc(getDept(p))}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------
+  // Filters
+  // ---------------------------------------------------------
+  function applyFilter() {
+    const q = ($('rp-search').value || '').trim().toLowerCase();
+    const lvl = $('rp-level').value;
+    const dept = $('rp-department').value;
+
+    FILTERED = ALL.filter((p) => {
+      const hay = `${getCode(p)} ${getName(p)} ${getDept(p)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (lvl && getLevel(p) !== lvl) return false;
+      if (dept && getDept(p) !== dept) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ---------------------------------------------------------
+  // Stats
+  // ---------------------------------------------------------
+  function updateStats() {
+    const total = ALL.length;
+    const nd = ALL.filter((p) => getLevel(p) === 'ND').length;
+    const hnd = ALL.filter((p) => getLevel(p) === 'HND').length;
+    const depts = new Set(ALL.map(getDept).filter((d) => d && d !== '—')).size;
+
+    $('rp-total').textContent = total;
+    $('rp-nd').textContent = nd;
+    $('rp-hnd').textContent = hnd;
+    $('rp-depts').textContent = depts;
+  }
+
+  // ---------------------------------------------------------
+  // Populate department dropdown
+  // ---------------------------------------------------------
+  function populateDepartments() {
+    const depts = [...new Set(ALL.map(getDept).filter((d) => d && d !== '—'))].sort();
+    const sel = $('rp-department');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All Departments</option>' +
+      depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+    sel.value = cur;
+  }
+
+  // ---------------------------------------------------------
+  // Load
+  // ---------------------------------------------------------
+  async function load() {
+    $('rp-tbody').innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/programmes');
+      const payload = res.data || res || {};
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.programmes || []);
+      console.log('[registrar-programmes] Loaded', ALL.length);
+      populateDepartments();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[registrar-programmes]', err);
+      $('rp-tbody').innerHTML = `<tr><td colspan="4" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // Export CSV
+  // ---------------------------------------------------------
+  function exportCsv() {
+    const headers = ['Code', 'Programme Name', 'Level', 'Department'];
+    const rows = FILTERED.map((p) => [
+      getCode(p),
+      getName(p),
+      getLevel(p),
+      getDept(p),
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `registrar-programmes-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ---------------------------------------------------------
+  // Wire up
+  // ---------------------------------------------------------
+  $('rp-search').addEventListener('input', applyFilter);
+  $('rp-level').addEventListener('change', applyFilter);
+  $('rp-department').addEventListener('change', applyFilter);
+  $('rp-refresh').addEventListener('click', load);
+  $('rp-export').addEventListener('click', exportCsv);
+
+  load();
+})();
+</script>

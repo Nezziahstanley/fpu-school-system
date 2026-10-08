@@ -1,4 +1,4 @@
-<!-- Shared → Transcript -->
+﻿<!-- Shared → Transcript -->
 <section class="greeting">
   <div class="who">
     <div class="avatar">📄</div>
@@ -135,7 +135,7 @@
   // ---------------------------------------------------------
   async function loadStudents() {
     try {
-      const res = await core.portalFetch('/api/students?departmentId=' + deptId);
+      const res = await core.portalFetch('/api/students');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
       applyFilter();

@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Documents (my requests) -->
+﻿<!-- Portal → Shared → Documents (my requests) -->
 <section class="page-head">
   <div><h2>My Documents</h2></div>
 </section>
@@ -20,7 +20,7 @@
     const core = window.FPU_PORTAL;
     const box = document.getElementById('shared-docs-tbody');
     try {
-      const res = await core.portalFetch('/api/student/documents');
+      const res = await core.portalFetch('/api/documents');
       box.innerHTML = (res.data || []).map((d) => `
         <tr>
           <td>${core.escapeHtml(d.title)}</td>

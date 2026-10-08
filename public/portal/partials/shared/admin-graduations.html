@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Graduations (my status) -->
+﻿<!-- Portal → Shared → Graduations (my status) -->
 <section class="page-head">
   <div><h2>Graduation</h2></div>
 </section>
@@ -15,7 +15,7 @@
     const core = window.FPU_PORTAL;
     const box = document.getElementById('shared-grad-body');
     try {
-      const res = await core.portalFetch('/api/student/graduation');
+      const res = await core.portalFetch('/api/graduation');
       const g = res.data;
       box.innerHTML = g
         ? `<div class="grid grid-2" style="gap:1rem;">

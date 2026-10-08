@@ -87,41 +87,24 @@
 
   let ALL = [];
   let FILTERED = [];
+  let SESSION_MAP = {};  // { 3: '2025/2026', ... }
 
   // ---------------------------------------------------------
-  // Extractors — API returns { registration: {...}, student: {...}, course: {...} }
+  // Extractors
   // ---------------------------------------------------------
   function unwrap(r) {
     const reg = r.registration || r;
     const stu = r.student || {};
     const crs = r.course || {};
-    return {
-      id: reg.id,
-      status: (reg.status || 'pending').toLowerCase(),
-      sessionName: reg.sessionName || r.session?.name || '—',
-      semester: reg.semester || reg.semesterName || '—',
-      studentId: stu.id || reg.studentId,
-      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${reg.studentId || ''}`,
-      matric: stu.matricNumber || '—',
-      courseCode: crs.code || reg.courseCode || `Course ${reg.courseId || ''}`,
-      courseTitle: crs.title || reg.courseTitle || '',
-      units: crs.unit || reg.units || 0,
-    };
-  }  function unwrap(r) {
-    const reg = r.registration || r;
-    const stu = r.student || {};
-    const crs = r.course || {};
-    const ses = r.session || {};
 
-    // Session can appear under many keys — check them all
+    // Session: prefer name, else look up from map by sessionId
     const sessionName =
       reg.sessionName ||
       reg.session_name ||
-      ses.name ||
-      ses.sessionName ||
+      r.session?.name ||
+      SESSION_MAP[reg.sessionId] ||
       (reg.sessionId ? `Session ${reg.sessionId}` : '—');
 
-    // Semester may be `semester` or `semesterName`; normalise to First/Second
     let semester = reg.semesterName || reg.semester_name || reg.semester || '—';
     semester = String(semester).trim();
     if (/^1$|first/i.test(semester)) semester = 'First';
@@ -175,7 +158,6 @@
         </tr>`;
     }).join('');
 
-    // Wire action buttons
     $('rr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -235,11 +217,34 @@
   }
 
   // ---------------------------------------------------------
+  // Load sessions map (so we can resolve sessionId → name)
+  // ---------------------------------------------------------
+  async function loadSessionMap() {
+    try {
+      const res = await core.portalFetch('/api/sessions');
+      const payload = res.data || res || {};
+      const list = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
+      SESSION_MAP = {};
+      list.forEach((s) => {
+        if (s && s.id != null) {
+          SESSION_MAP[s.id] = s.name || s.sessionName || s.title || `Session ${s.id}`;
+        }
+      });
+      console.log('[registrations] Session map:', SESSION_MAP);
+    } catch (err) {
+      console.warn('[registrations] could not load sessions:', err.message);
+    }
+  }
+
+  // ---------------------------------------------------------
   // Load
   // ---------------------------------------------------------
   async function load() {
     $('rr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
+      // Fetch sessions map first so extraction has names
+      await loadSessionMap();
+
       const res = await core.portalFetch('/api/registrations/with-student');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
@@ -288,14 +293,8 @@
   function exportCsv() {
     const headers = ['Student', 'Matric', 'Course', 'Title', 'Units', 'Session', 'Semester', 'Status'];
     const rows = FILTERED.map((r) => [
-      r.studentName,
-      r.matric,
-      r.courseCode,
-      r.courseTitle,
-      r.units,
-      r.sessionName,
-      r.semester,
-      r.status,
+      r.studentName, r.matric, r.courseCode, r.courseTitle,
+      r.units, r.sessionName, r.semester, r.status,
     ]);
     const csv = [headers, ...rows]
       .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))

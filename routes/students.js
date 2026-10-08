@@ -17,43 +17,33 @@ const { assignFIFOMatric } = require('../utils/matricHelper');
 const { getMatricPrefix } = require('../db/queries/settings');
 const { getYearShort } = require('../config/departments');
 
-
-// ------------------------------------------------------------
-// Passport image saver
-// ------------------------------------------------------------
-const __crypto = require('crypto');
-const __fs = require('fs');
-const __path = require('path');
-
-function savePassport(dataUrl, prefix = 'student') {
-  if (!dataUrl || typeof dataUrl !== 'string') return null;
-  if (!dataUrl.startsWith('data:image/')) return null;
-  const m = dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
-  if (!m) return null;
-  const mime = m[1];
-  if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(mime)) return null;
-  let buf;
-  try { buf = Buffer.from(m[2], 'base64'); } catch { return null; }
-  if (buf.length > 5 * 1024 * 1024) return null;
-  const ext = (mime.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg';
-  const dir = __path.join(__dirname, '..', 'public', 'uploads');
-  try { __fs.mkdirSync(dir, { recursive: true }); } catch { return null; }
-  const filename = prefix + '-' + Date.now() + '-' + __crypto.randomBytes(3).toString('hex') + '.' + ext;
-  try { __fs.writeFileSync(__path.join(dir, filename), buf); } catch { return null; }
-  return '/uploads/' + filename;
-}
 const STAFF = ['admin', 'registrar', 'academic_officer', 'bursar', 'rector', 'hod', 'lecturer'];
 
 // ------------------------------------------------------------
+// Helper: auto-scope HODs and Lecturers to their own department
+// ------------------------------------------------------------
+function applyDeptScope(req) {
+  if (!req.user) return;
+  const role = String(req.user.role || '').toLowerCase();
+  if ((role === 'hod' || role === 'lecturer') && req.user.departmentId) {
+    req.query.departmentId = String(req.user.departmentId);
+  }
+}
+
+// ------------------------------------------------------------
 // GET /api/admin/students
+// List students (paginated). HODs/Lecturers are auto-scoped
+// to their own department.
 // ------------------------------------------------------------
 router.get('/', requireRole(STAFF), async (req, res, next) => {
-  // Auto-scope HODs to their own department
-  if (req.user && req.user.role === 'hod' && req.user.departmentId) {
-    req.query.departmentId = req.user.departmentId;
-  }
+  applyDeptScope(req);
+
   try {
-    const { departmentId, programmeId, level, search, limit = 100, offset = 0 } = req.query;
+    const {
+      departmentId, programmeId, level, search,
+      limit = 100, offset = 0,
+    } = req.query;
+
     const rows = await userQueries.list({
       role: 'student',
       departmentId,
@@ -63,7 +53,9 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
       limit: Number(limit),
       offset: Number(offset),
     });
+
     const total = await userQueries.count({ role: 'student', departmentId, programmeId, level });
+
     return res.json({ success: true, data: rows, total });
   } catch (err) {
     return next(err);
@@ -87,21 +79,27 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
 
 // ------------------------------------------------------------
 // POST /api/admin/students
-// Body: email, password?, firstName, lastName, level, departmentId,
-//       programmeId, schoolId?, phone?, gender?, dob?, stateOfOrigin?
+// Create a new student (admin / registrar only)
 // ------------------------------------------------------------
 router.post('/', requireRole(['admin', 'registrar']), async (req, res, next) => {
   try {
     const {
-      email, password, firstName, lastName, middleName,
+      email, password,
+      firstName, lastName, middleName,
       phone, gender, dateOfBirth, address, stateOfOrigin,
-      level = 'ND', departmentId, programmeId, schoolId,
+      departmentId, programmeId, schoolId,
+      level,
     } = req.body || {};
 
-    if (!email || !firstName || !lastName || !departmentId || !programmeId) {
-      return res.status(400).json({ success: false, error: 'email, firstName, lastName, departmentId, programmeId are required.' });
+    // Validation
+    if (!email || !firstName || !lastName) {
+      return res.status(400).json({ success: false, error: 'Email, first name, and last name are required.' });
+    }
+    if (!departmentId || !programmeId) {
+      return res.status(400).json({ success: false, error: 'Department and programme are required.' });
     }
 
+    // Duplicate check
     if (await userQueries.emailExists(email)) {
       return res.status(409).json({ success: false, error: 'A user with this email already exists.' });
     }
@@ -111,38 +109,54 @@ router.post('/', requireRole(['admin', 'registrar']), async (req, res, next) => 
 
     const resolvedSchoolId = Number(schoolId) || dept.schoolId;
     const school = await courseQueries.findSchoolById(resolvedSchoolId);
+    if (!school) return res.status(400).json({ success: false, error: 'Invalid schoolId.' });
 
-    const prefix = await getMatricPrefix();
-    const year = getYearShort(new Date());
-    const matric = await assignFIFOMatric({
-      prefix,
-      schoolCode: school?.code || 'SST',
-      deptCode: dept.code,
-      level,
-      year,
-    });
-
+    // Password
     const plain = password || 'student1234';
     const { valid, reasons } = validatePassword(plain);
-    if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
-
+    if (!valid) {
+      return res.status(400).json({ success: false, error: reasons.join(' ') });
+    }
     const passwordHash = await hashPassword(plain);
 
-    const __passportUrl = savePassport(req.body && req.body.passportData, 'student');
+    // Auto-generate matric number
+    const prefix = await getMatricPrefix();
+    const yearShort = getYearShort();
+    const matric = await assignFIFOMatric({
+      prefix,
+      departmentCode: dept.code,
+      level,
+      yearShort,
+    });
+
+    // Create
     const user = await userQueries.create({
-      email, passwordHash, role: 'student',
-      firstName, lastName, middleName,
-      phone, gender, dateOfBirth, address, stateOfOrigin,
-      matricNumber: matric, level,
+      email,
+      passwordHash,
+      role: 'student',
+      firstName,
+      lastName,
+      middleName,
+      phone,
+      gender,
+      dateOfBirth,
+      address,
+      stateOfOrigin,
+      matricNumber: matric,
+      level,
       departmentId: Number(departmentId),
       programmeId: Number(programmeId),
       schoolId: resolvedSchoolId,
       mustChangePassword: true,
-    
-      photoUrl: __passportUrl || undefined,
     });
 
-    await logAudit({ req, action: 'student.create', entity: 'user', entityId: user.id, after: { matric } });
+    await logAudit({
+      req,
+      action: 'student.create',
+      entity: 'user',
+      entityId: user.id,
+      after: { email, firstName, lastName, matricNumber: matric },
+    });
 
     return res.status(201).json({ success: true, data: user });
   } catch (err) {
@@ -152,6 +166,7 @@ router.post('/', requireRole(['admin', 'registrar']), async (req, res, next) => 
 
 // ------------------------------------------------------------
 // PUT /api/admin/students/:id
+// Update student details (admin / registrar only)
 // ------------------------------------------------------------
 router.put('/:id', requireRole(['admin', 'registrar']), async (req, res, next) => {
   try {
@@ -159,6 +174,7 @@ router.put('/:id', requireRole(['admin', 'registrar']), async (req, res, next) =
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
+
     const patch = { ...req.body };
     delete patch.password;
     delete patch.passwordHash;
@@ -166,7 +182,16 @@ router.put('/:id', requireRole(['admin', 'registrar']), async (req, res, next) =
     delete patch.role;
 
     const updated = await userQueries.update(student.id, patch);
-    await logAudit({ req, action: 'student.update', entity: 'user', entityId: student.id, before: student, after: updated });
+
+    await logAudit({
+      req,
+      action: 'student.update',
+      entity: 'user',
+      entityId: student.id,
+      before: student,
+      after: updated,
+    });
+
     return res.json({ success: true, data: updated });
   } catch (err) {
     return next(err);
@@ -182,13 +207,21 @@ router.post('/:id/reset-password', requireRole(['admin', 'registrar']), async (r
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
+
     const plain = req.body?.password || 'student1234';
     const { valid, reasons } = validatePassword(plain);
     if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
 
     const passwordHash = await hashPassword(plain);
     await userQueries.updatePassword(student.id, passwordHash);
-    await logAudit({ req, action: 'student.password_reset', entity: 'user', entityId: student.id });
+
+    await logAudit({
+      req,
+      action: 'student.password_reset',
+      entity: 'user',
+      entityId: student.id,
+    });
+
     return res.json({ success: true });
   } catch (err) {
     return next(err);
@@ -204,8 +237,17 @@ router.post('/:id/toggle-active', requireRole(['admin', 'registrar']), async (re
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
+
     const updated = await userQueries.setActive(student.id, !student.isActive);
-    await logAudit({ req, action: 'student.toggle_active', entity: 'user', entityId: student.id, after: { isActive: updated.isActive } });
+
+    await logAudit({
+      req,
+      action: 'student.toggle_active',
+      entity: 'user',
+      entityId: student.id,
+      after: { isActive: updated.isActive },
+    });
+
     return res.json({ success: true, data: updated });
   } catch (err) {
     return next(err);
@@ -221,8 +263,17 @@ router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
+
     await userQueries.remove(student.id);
-    await logAudit({ req, action: 'student.delete', entity: 'user', entityId: student.id, before: student });
+
+    await logAudit({
+      req,
+      action: 'student.delete',
+      entity: 'user',
+      entityId: student.id,
+      before: student,
+    });
+
     return res.json({ success: true });
   } catch (err) {
     return next(err);

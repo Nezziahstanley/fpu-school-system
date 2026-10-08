@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Admin transcript API
 // Mounted at /api/admin/transcript
 // ============================================================
@@ -18,7 +18,7 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
 // GET /api/admin/transcript/:studentId
 router.get('/:studentId', requireRole(STAFF), async (req, res, next) => {
   try {
-    const student = await userQueries.findByIdWithRelations(req.params.studentId);
+    const student = await userQueries.findById(req.params.studentId);
     if (!student || student.role !== 'student') {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }

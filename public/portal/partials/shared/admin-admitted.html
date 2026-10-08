@@ -21,6 +21,7 @@
   <select id="ad-status">
     <option value="">All Status</option>
     <option value="admitted">Admitted</option>
+    <option value="approved">Approved</option>
     <option value="registered">Registered</option>
     <option value="accepted">Accepted</option>
   </select>
@@ -87,7 +88,7 @@
   let FILTERED = [];
 
   // ---------------------------------------------------------
-  // Extractors — API returns { application: {...}, programme: {...} } or flat
+  // Extractors — API may return nested { application, programme }
   // ---------------------------------------------------------
   function unwrap(r) {
     const app = r.application || r;
@@ -100,8 +101,8 @@
       email: app.email || '',
       programmeName: prog.name || app.programmeName || '—',
       level: app.level || prog.level || '—',
-      status: (app.status || 'admitted').toLowerCase(),
-      admittedAt: app.admittedAt || app.approvedAt || app.updatedAt,
+      status: (app.status || 'pending').toLowerCase(),
+      admittedAt: app.admittedAt || app.approvedAt || app.reviewedAt || app.updatedAt,
     };
   }
 
@@ -113,6 +114,7 @@
   function statusBadge(a) {
     const map = {
       admitted:   'badge-active',
+      approved:   'badge-active',
       registered: 'badge-success',
       accepted:   'badge-warning',
     };
@@ -126,8 +128,14 @@
     $('ad-count').textContent = FILTERED.length;
 
     if (!FILTERED.length) {
-      $('ad-tbody').innerHTML =
-        '<tr><td colspan="7" class="empty">No admitted students match your filters.</td></tr>';
+      $('ad-tbody').innerHTML = `
+        <tr><td colspan="7" class="empty" style="padding:2rem 1rem;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:.5rem;">📥</div>
+          <div style="font-weight:600;color:#475569;">No admitted students yet</div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
+            Once applications are approved and marked as admitted, they'll appear here.
+          </div>
+        </td></tr>`;
       return;
     }
 
@@ -196,23 +204,41 @@
   }
 
   // ---------------------------------------------------------
-  // Load
+  // Load — fetch all applications, filter client-side
   // ---------------------------------------------------------
   async function load() {
     $('ad-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
-      // Fetch applications with admitted or registered status
-      const res = await core.portalFetch('/api/applications?status=admitted,registered,accepted&limit=1000');
+      // Fetch ALL applications (no filters — server handles them badly)
+      const res = await core.portalFetch('/api/applications?limit=1000');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.applications || []);
-      ALL = raw.map(unwrap);
-      console.log('[admitted] Loaded', ALL.length);
+
+      // Filter client-side to only admitted/approved/registered/accepted
+      const ADMITTED_STATUSES = ['admitted', 'approved', 'registered', 'accepted'];
+      ALL = raw
+        .map(unwrap)
+        .filter((a) => ADMITTED_STATUSES.includes(a.status));
+
+      console.log(`[admitted] Loaded ${ALL.length} admitted from ${raw.length} total applications`);
+
       populateProgrammes();
       updateStats();
       applyFilter();
     } catch (err) {
       console.error('[admitted]', err);
-      $('ad-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      // Graceful empty state even on error
+      ALL = [];
+      updateStats();
+      $('ad-tbody').innerHTML = `
+        <tr><td colspan="7" class="empty" style="padding:2rem 1rem;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:.5rem;">📥</div>
+          <div style="font-weight:600;color:#475569;">No admitted students yet</div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
+            Applications will appear here once they've been approved.
+          </div>
+        </td></tr>`;
     }
   }
 

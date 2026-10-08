@@ -16,7 +16,7 @@ const { logAudit } = require('../utils/audit');
 
 const { users } = schema;
 
-const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
+const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod', 'lecturer'];
 
 // ------------------------------------------------------------
 // GET /api/admin/sessions

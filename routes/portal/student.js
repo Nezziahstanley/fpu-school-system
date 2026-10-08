@@ -25,7 +25,7 @@ const notifQueries = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const settingsQueries = require('../../db/queries/settings');
 const { db, schema } = require('../../db');
-const { eq, and, desc, inArray } = require('drizzle-orm');
+const { eq, and, desc, inArray, sql } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 const { logSecurity } = require('../../utils/audit');
@@ -473,6 +473,56 @@ router.get('/security', only, async (req, res, next) => {
     const sessions = await sessionQueries.listUserSessions(req.user.id);
     const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
     return res.json({ success: true, sessions, logins });
+  } catch (err) {
+    return next(err);
+  }
+});
+// ============================================================
+// GET /api/student/available-courses
+// ------------------------------------------------------------
+// Courses the student can register for:
+//   - Matches their level (ND / HND)
+//   - Matches their programme (or is a shared course like GNS/MTH)
+//   - Not already registered
+// ============================================================
+router.get('/available-courses', only, async (req, res, next) => {
+  try {
+    const { courses, courseRegistrations } = schema;
+
+    // Which courses is this student already registered for?
+    const registeredRows = await db
+      .select({ courseId: courseRegistrations.courseId })
+      .from(courseRegistrations)
+      .where(eq(courseRegistrations.studentId, req.user.id));
+    const registeredIds = registeredRows.map((r) => r.courseId);
+
+    // Filter courses by level + (programme or shared)
+    const conditions = [
+      eq(courses.level, req.user.level || 'ND'),
+      eq(courses.isActive, true),
+    ];
+
+    // Exclude already-registered
+    if (registeredIds.length) {
+      conditions.push(sql`${courses.id} <> ALL(${registeredIds})`);
+    }
+
+    // Programme match OR shared course (GNS, MTH, EED, ENT etc.)
+    const SHARED_PREFIXES = ['GNS', 'MTH', 'EED', 'ENT', 'STA'];
+    const allCourses = await db
+      .select()
+      .from(courses)
+      .where(and(...conditions))
+      .orderBy(courses.code);
+
+    const filtered = allCourses.filter((c) => {
+      if (!c.programmeId) return true;              // shared across programmes
+      if (c.programmeId === req.user.programmeId) return true; // matches student's programme
+      const code = String(c.code || '').split(' ')[0].toUpperCase();
+      return SHARED_PREFIXES.includes(code);         // shared-course prefix
+    });
+
+    return res.json({ success: true, data: filtered });
   } catch (err) {
     return next(err);
   }

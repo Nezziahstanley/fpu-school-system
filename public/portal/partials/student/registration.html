@@ -13,7 +13,6 @@
   </div>
 </section>
 
-<!-- KPI tiles -->
 <div class="stat-grid">
   <div class="stat"><div class="meta"><span class="label">Registered Courses</span><span class="value" id="sr-total">—</span></div><div class="ic">📚</div></div>
   <div class="stat blue"><div class="meta"><span class="label">Total Units</span><span class="value" id="sr-units-tile">—</span></div><div class="ic">🎯</div></div>
@@ -21,7 +20,6 @@
   <div class="stat purple"><div class="meta"><span class="label">Pending Approval</span><span class="value" id="sr-pending">—</span></div><div class="ic">⏳</div></div>
 </div>
 
-<!-- My Registered Courses -->
 <section class="panel">
   <div class="panel-head">
     <h3>My Registered Courses</h3>
@@ -41,15 +39,15 @@
   </div>
 </section>
 
-<!-- Register New Course -->
 <section class="panel">
   <div class="panel-head">
     <h3>Register a New Course</h3>
+    <span class="badge" id="sr-avail-count">0</span>
   </div>
   <div class="panel-body">
     <div class="form-group">
       <label>Select a course to register</label>
-      <select id="sr-available" style="max-width:500px;">
+      <select id="sr-available" style="max-width:600px;">
         <option value="">— Loading available courses…</option>
       </select>
     </div>
@@ -129,33 +127,32 @@
     }
   }
 
-  // Load available courses to register (from catalogue)
   async function loadAvailable() {
     const sel = $('sr-available');
+    const countEl = $('sr-avail-count');
     if (!sel) return;
+
     try {
-      const res = await core.portalFetch('/api/courses');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.courses || []);
-      // Filter to student's level, exclude already-registered
-      const registeredIds = new Set(REGISTERED.map((c) => String(c.courseId)));
-      AVAILABLE = raw
-        .filter((c) => {
-          const lvl = String(c.level || '').toUpperCase();
-          const myLevel = String(user.level || '').toUpperCase();
-          if (myLevel && lvl !== myLevel) return false;
-          if (registeredIds.has(String(c.id))) return false;
-          return true;
-        })
-        .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+      const res = await core.portalFetch('/api/student/available-courses');
+      const raw = res.data || res || [];
+      AVAILABLE = raw.map((c) => ({
+        id: c.id,
+        code: c.code || '—',
+        title: c.title || '',
+        units: c.unit || 0,
+        level: c.level,
+      }));
+
+      if (countEl) countEl.textContent = AVAILABLE.length;
 
       sel.innerHTML = AVAILABLE.length
         ? '<option value="">— Select a course —</option>' + AVAILABLE.map((c) =>
-            `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)} (${c.unit || 0} units)</option>`
+            `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)} (${c.units} units)</option>`
           ).join('')
         : '<option value="">No available courses to register</option>';
     } catch (err) {
       console.warn('[registration] available:', err.message);
+      if (countEl) countEl.textContent = '0';
       sel.innerHTML = '<option value="">Could not load courses</option>';
     }
   }
@@ -199,7 +196,6 @@
 
   $('sr-register-btn')?.addEventListener('click', registerCourse);
 
-  // Init
   (async () => {
     await loadRegistered();
     await loadAvailable();

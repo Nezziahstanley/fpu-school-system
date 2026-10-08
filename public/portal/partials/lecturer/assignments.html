@@ -1,117 +1,280 @@
 <!-- Portal → Lecturer → Assignments -->
-<section class="page-head">
-  <div><h2>My Assignments</h2><p class="muted small">Create and grade student assignments</p></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-asg-new">+ New Assignment</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📝</div>
+    <div>
+      <h1>Assignments</h1>
+      <div class="sub">Post and manage assignments for your courses</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel" id="lec-asg-new-panel" style="display:none;">
-  <div class="panel-head"><h3>New Assignment</h3></div>
-  <div class="panel-body">
-    <form id="lec-asg-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Course ID <span class="req">*</span></label><input class="form-control" name="courseId" type="number" required /></div>
-        <div class="form-group"><label class="form-label">Session ID</label><input class="form-control" name="sessionId" type="number" /></div>
-        <div class="form-group"><label class="form-label">Semester</label>
-          <select class="form-select" name="semester"><option value="first">First</option><option value="second">Second</option></select>
-        </div>
-        <div class="form-group"><label class="form-label">Max Score</label><input class="form-control" name="maxScore" type="number" value="100" /></div>
-        <div class="form-group"><label class="form-label">Due Date</label><input class="form-control" name="dueDate" type="datetime-local" /></div>
-      </div>
-      <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
-      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Create</button>
-        <button type="button" class="btn btn-ghost" id="lec-asg-cancel">Cancel</button>
-      </div>
-    </form>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="las-search" placeholder="Search assignments…" />
+  <select id="las-course"><option value="">All Courses</option></select>
+  <select id="las-status">
+    <option value="">All Status</option>
+    <option value="open">Open</option>
+    <option value="closed">Closed</option>
+    <option value="graded">Graded</option>
+  </select>
+  <button class="btn btn-primary btn-sm" id="las-new-btn">➕ New Assignment</button>
+  <button class="btn btn-outline btn-sm" id="las-refresh">Refresh</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>My Assignments</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total</span><span class="value" id="las-total">—</span></div><div class="ic">📝</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Open</span><span class="value" id="las-open">—</span></div><div class="ic">🟢</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Closed</span><span class="value" id="las-closed">—</span></div><div class="ic">🔴</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Submissions</span><span class="value" id="las-subs">—</span></div><div class="ic">📥</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Assignments</h3>
+    <span class="badge" id="las-count">0</span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Title</th><th>Course</th><th>Due</th><th>Max</th><th></th></tr></thead>
-        <tbody id="lec-asg-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Course</th>
+            <th>Due Date</th>
+            <th>Submissions</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="las-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
+    </div>
+  </div>
+</section>
+
+<!-- New Assignment modal -->
+<div id="las-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;max-width:560px;width:90%;max-height:90vh;overflow:auto;">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+      <strong>New Assignment</strong>
+      <button class="btn btn-outline btn-xs" id="las-modal-close">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" id="las-title" placeholder="e.g., Chapter 3 Exercises" />
+      </div>
+      <div class="form-group">
+        <label>Course *</label>
+        <select id="las-modal-course"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Instructions</label>
+        <textarea id="las-desc" rows="4" placeholder="What should students do?"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group">
+          <label>Due Date *</label>
+          <input type="date" id="las-due" />
+        </div>
+        <div class="form-group">
+          <label>Max Score</label>
+          <input type="number" id="las-max" min="1" max="1000" value="100" />
+        </div>
+      </div>
+      <div class="quick-actions" style="margin-top:1rem;">
+        <button class="btn btn-primary btn-sm" id="las-submit">📝 Create Assignment</button>
+        <button class="btn btn-outline btn-sm" id="las-cancel">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    async function load() {
-      const tbody = document.getElementById('lec-asg-tbody');
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-      try {
-        const res = await core.portalFetch('/api/lecturer/assignments');
-        const rows = res.data || [];
-        tbody.innerHTML = rows.length ? rows.map((a) => `
-          <tr>
-            <td>${core.escapeHtml(a.title)}</td>
-            <td>Course ${a.courseId}</td>
-            <td>${core.formatDateTime(a.dueDate)}</td>
-            <td class="num">${a.maxScore}</td>
-            <td><button class="btn btn-sm btn-outline" onclick="window.__lecAsgSubs(${a.id})">Submissions</button></td>
-          </tr>
-        `).join('') : '<tr><td colspan="5" class="empty">No assignments yet.</td></tr>';
-      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const a = r.assignment || r;
+    const crs = r.course || {};
+    return {
+      id: a.id,
+      title: a.title || '—',
+      courseCode: crs.code || a.courseCode || '—',
+      dueDate: a.dueDate || a.due_at || null,
+      maxScore: a.maxScore || a.max_score || 100,
+      submissions: a.submissionCount || a.submissions || 0,
+      status: (a.status || 'open').toLowerCase(),
+    };
+  }
+
+  function render() {
+    const countEl = $('las-count'); const tbody = $('las-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="6" class="empty" style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">📝</div>
+          <div style="font-weight:600;color:#475569;">No assignments yet</div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
+            Click <strong>New Assignment</strong> to post your first one.
+          </div>
+        </td></tr>`;
+      return;
     }
 
-    window.__lecAsgSubs = async function (id) {
-      const container = document.createElement('div');
-      container.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch(`/api/lecturer/assignments/${id}/submissions`);
-        const rows = res.data || [];
-        const html = rows.length ? rows.map((r) => `
-          <div class="session-item" style="margin-bottom:.5rem;">
-            <div class="meta"><strong>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</strong>${core.escapeHtml((r.submission.submissionText || '').slice(0, 140))}</div>
-            <div style="display:flex;gap:.5rem;align-items:center;">
-              <input class="form-control" type="number" placeholder="Score" value="${r.submission.score || ''}" data-sub="${r.submission.id}" style="max-width:80px;" />
-              <button class="btn btn-sm btn-primary" onclick="window.__lecGradeSub(${r.submission.id})">Grade</button>
-            </div>
-          </div>
-        `).join('') : '<p class="muted">No submissions.</p>';
-        core.showToast('Open the browser console to see submissions (or paste into a modal).', 'info');
-        alert(rows.length + ' submissions loaded. Check console.');
-        console.log('Submissions', rows);
-      } catch (err) { core.showToast(err.message, 'error'); }
-    };
+    tbody.innerHTML = FILTERED.map((a) => {
+      const badgeClass = a.status === 'open' ? 'badge-active'
+                       : a.status === 'closed' ? 'badge-inactive'
+                       : 'badge-warning';
+      return `
+        <tr>
+          <td><strong>${esc(a.title)}</strong></td>
+          <td>${esc(a.courseCode)}</td>
+          <td>${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}</td>
+          <td>${a.submissions}</td>
+          <td><span class="badge-status ${badgeClass}">${esc(a.status)}</span></td>
+          <td class="row-actions">
+            <button class="btn btn-outline btn-xs" data-act="view" data-id="${a.id}">View</button>
+            <button class="btn btn-outline btn-xs" data-act="delete" data-id="${a.id}">Delete</button>
+          </td>
+        </tr>`;
+    }).join('');
 
-    window.__lecGradeSub = async function (id) {
-      const input = document.querySelector(`[data-sub="${id}"]`);
-      const score = Number(input.value);
-      const feedback = prompt('Feedback (optional):') || null;
-      try {
-        await core.portalFetch(`/api/lecturer/assignments/submissions/${id}/grade`, { method: 'POST', body: { score, feedback } });
-        core.showToast('Graded.', 'success');
-      } catch (err) { core.showToast(err.message, 'error'); }
-    };
-
-    document.getElementById('lec-asg-new').addEventListener('click', () => {
-      const p = document.getElementById('lec-asg-new-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    tbody.querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        if (btn.dataset.act === 'view') viewSubmissions(id);
+        if (btn.dataset.act === 'delete') deleteAssignment(id);
+      });
     });
-    document.getElementById('lec-asg-cancel').addEventListener('click', () => {
-      document.getElementById('lec-asg-new-panel').style.display = 'none';
-    });
+  }
 
-    document.getElementById('lec-asg-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/lecturer/assignments', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Assignment created.', 'success');
-        e.target.reset();
-        document.getElementById('lec-asg-new-panel').style.display = 'none';
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
+  function applyFilter() {
+    const q = ($('las-search')?.value || '').trim().toLowerCase();
+    const course = $('las-course')?.value || '';
+    const status = $('las-status')?.value || '';
+    FILTERED = ALL.filter((a) => {
+      const hay = `${a.title} ${a.courseCode}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (course && a.courseCode !== course) return false;
+      if (status && a.status !== status) return false;
+      return true;
     });
+    render();
+  }
 
-    load();
-  })();
+  function updateStats() {
+    setText('las-total', ALL.length);
+    setText('las-open', ALL.filter((a) => a.status === 'open').length);
+    setText('las-closed', ALL.filter((a) => a.status === 'closed').length);
+    setText('las-subs', ALL.reduce((s, a) => s + Number(a.submissions || 0), 0));
+  }
+
+  async function populateCourses() {
+    const sel = $('las-course');
+    const modalSel = $('las-modal-course');
+    try {
+      const res = await core.portalFetch('/api/allocations/my');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
+      const courses = raw.map((r) => {
+        const crs = r.course || r;
+        return { code: crs.code || '—', id: crs.id };
+      }).filter((c) => c.code && c.code !== '—').sort((a, b) => a.code.localeCompare(b.code));
+
+      const options = courses.map((c) => `<option value="${esc(c.code)}">${esc(c.code)}</option>`).join('');
+      if (sel) sel.innerHTML = '<option value="">All Courses</option>' + options;
+      if (modalSel) modalSel.innerHTML = '<option value="">— Select —</option>' + options;
+    } catch (err) {
+      console.warn('[assignments] could not load courses:', err.message);
+    }
+  }
+
+  async function load() {
+    const tbody = $('las-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      const res = await core.portalFetch('/api/assignments');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.assignments || []);
+      ALL = raw.map(unwrap);
+      console.log('[lecturer-assignments] Loaded', ALL.length);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.warn('[lecturer-assignments]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
+
+  async function deleteAssignment(id) {
+    if (!confirm('Delete this assignment? Student submissions will be kept.')) return;
+    try {
+      await core.portalFetch('/api/assignments/' + id, { method: 'DELETE' });
+      core.showToast && core.showToast('Assignment deleted', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  function viewSubmissions(id) {
+    core.showToast && core.showToast('Submissions view coming soon', 'info');
+  }
+
+  // Modal
+  function openModal() { const m = $('las-modal'); if (m) m.style.display = 'flex'; }
+  function closeModal() { const m = $('las-modal'); if (m) m.style.display = 'none'; }
+
+  $('las-new-btn')?.addEventListener('click', openModal);
+  $('las-modal-close')?.addEventListener('click', closeModal);
+  $('las-cancel')?.addEventListener('click', closeModal);
+
+  $('las-submit')?.addEventListener('click', async () => {
+    const title = ($('las-title')?.value || '').trim();
+    const courseCode = $('las-modal-course')?.value || '';
+    const description = ($('las-desc')?.value || '').trim();
+    const dueDate = $('las-due')?.value || '';
+    const maxScore = Number($('las-max')?.value || 100);
+
+    if (!title) return core.showToast && core.showToast('Title is required', 'error');
+    if (!courseCode) return core.showToast && core.showToast('Course is required', 'error');
+    if (!dueDate) return core.showToast && core.showToast('Due date is required', 'error');
+
+    try {
+      await core.portalFetch('/api/assignments', {
+        method: 'POST',
+        body: { title, courseCode, description, dueDate, maxScore },
+      });
+      core.showToast && core.showToast('Assignment created', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  $('las-search')?.addEventListener('input', applyFilter);
+  $('las-course')?.addEventListener('change', applyFilter);
+  $('las-status')?.addEventListener('change', applyFilter);
+  $('las-refresh')?.addEventListener('click', load);
+
+  populateCourses();
+  load();
+})();
 </script>

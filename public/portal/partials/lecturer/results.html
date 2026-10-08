@@ -1,103 +1,243 @@
 <!-- Portal → Lecturer → Results -->
-<section class="page-head">
-  <div><h2>Results</h2><p class="muted small">Enter scores and submit to HOD</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__lecResLoad()">Refresh</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📊</div>
+    <div>
+      <h1>Enter Results</h1>
+      <div class="sub">Enter and submit student results for your courses</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Add / Update Score</h3></div>
-  <div class="panel-body">
-    <form id="lec-res-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Student ID</label><input class="form-control" name="studentId" type="number" required /></div>
-        <div class="form-group"><label class="form-label">Course ID</label><input class="form-control" name="courseId" type="number" required /></div>
-        <div class="form-group"><label class="form-label">Session ID</label><input class="form-control" name="sessionId" type="number" /></div>
-        <div class="form-group"><label class="form-label">Semester</label>
-          <select class="form-select" name="semester"><option value="first">First</option><option value="second">Second</option></select>
-        </div>
-        <div class="form-group"><label class="form-label">Score</label><input class="form-control" name="score" type="number" step="0.01" min="0" max="100" required /></div>
-      </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Save Score</button>
-      </div>
-    </form>
-  </div>
+<div class="filter-bar">
+  <select id="lr-course"><option value="">Select a course…</option></select>
+  <select id="lr-session"><option value="">All Sessions</option></select>
+  <select id="lr-status">
+    <option value="">All Status</option>
+    <option value="draft">Draft</option>
+    <option value="submitted">Submitted</option>
+    <option value="hod_verified">HOD Verified</option>
+    <option value="published">Published</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="lr-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="lr-export">Export CSV</button>
 </div>
 
-<div class="panel">
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Results</span><span class="value" id="lr-total">—</span></div><div class="ic">📊</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Drafts</span><span class="value" id="lr-drafts">—</span></div><div class="ic">✏️</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Submitted</span><span class="value" id="lr-submitted">—</span></div><div class="ic">📤</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Published</span><span class="value" id="lr-published">—</span></div><div class="ic">✅</div></div>
+</div>
+
+<section class="panel">
   <div class="panel-head">
-    <h3>My Results</h3>
-    <div class="tools"><button class="btn btn-accent btn-sm" id="lec-res-submit">Submit All Drafts</button></div>
+    <h3>Results</h3>
+    <span class="badge" id="lr-count">0</span>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>ID</th><th>Student</th><th>Course</th><th>Score</th><th>Grade</th><th>Status</th><th></th></tr></thead>
-        <tbody id="lec-res-tbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Course</th>
+            <th>Score</th>
+            <th>Grade</th>
+            <th>Session</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="lr-tbody">
+          <tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const user = core.getPortalUser ? core.getPortalUser() : {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    async function load() {
-      const tbody = document.getElementById('lec-res-tbody');
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
-      try {
-        const res = await core.portalFetch('/api/lecturer/results');
-        const rows = res.data || [];
-        tbody.innerHTML = rows.length ? rows.map((r) => `
-          <tr>
-            <td>${r.id}</td>
-            <td>Student ${r.studentId}</td>
-            <td>Course ${r.courseId}</td>
-            <td class="num">${r.score}</td>
-            <td>${core.escapeHtml(r.grade || '')}</td>
-            <td><span class="badge badge-${r.status === 'draft' ? 'muted' : r.status === 'hod_rejected' ? 'danger' : r.status === 'published' ? 'success' : 'info'}">${core.escapeHtml(r.status)}</span></td>
-            <td>${r.status === 'draft' ? `<button class="btn btn-sm btn-outline" data-id="${r.id}">Submit</button>` : ''}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="7" class="empty">No results yet.</td></tr>';
+  let ALL = [], FILTERED = [];
 
-        tbody.querySelectorAll('button[data-id]').forEach((b) => {
-          b.addEventListener('click', () => submitOne(b.dataset.id));
-        });
-      } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  function unwrap(r) {
+    const res = r.result || r;
+    const stu = r.student || {};
+    const crs = r.course || {};
+    return {
+      id: res.id,
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${res.studentId || ''}`,
+      matric: stu.matricNumber || '—',
+      courseCode: crs.code || res.courseCode || '—',
+      courseTitle: crs.title || '',
+      score: res.score != null ? Number(res.score) : null,
+      grade: res.grade || '—',
+      sessionName: res.sessionName || r.session?.name || '—',
+      semester: res.semester || '—',
+      status: (res.status || 'draft').toLowerCase(),
+    };
+  }
+
+  function render() {
+    const countEl = $('lr-count'); const tbody = $('lr-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No results yet. Select a course to begin entering scores.</td></tr>';
+      return;
     }
 
-    async function submitOne(id) {
-      try {
-        await core.portalFetch('/api/lecturer/results/submit', { method: 'POST', body: { ids: [Number(id)] } });
-        core.showToast('Submitted.', 'success');
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
+    tbody.innerHTML = FILTERED.map((r) => {
+      const badgeClass = r.status === 'published' ? 'badge-active'
+                       : r.status === 'submitted' || r.status === 'hod_verified' ? 'badge-warning'
+                       : 'badge-inactive';
+      const canEdit = r.status === 'draft';
+      const actions = canEdit
+        ? `<button class="btn btn-primary btn-xs" data-act="edit" data-id="${r.id}">Edit</button>
+           <button class="btn btn-outline btn-xs" data-act="submit" data-id="${r.id}">Submit</button>`
+        : `<span class="muted small">—</span>`;
+      return `
+        <tr>
+          <td>${esc(r.studentName)}</td>
+          <td><code>${esc(r.matric)}</code></td>
+          <td><strong>${esc(r.courseCode)}</strong></td>
+          <td><strong>${r.score != null ? r.score : '—'}</strong></td>
+          <td>${esc(r.grade)}</td>
+          <td>${esc(r.sessionName)}</td>
+          <td><span class="badge-status ${badgeClass}">${esc(r.status)}</span></td>
+          <td class="row-actions">${actions}</td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (btn.dataset.act === 'edit') editResult(id);
+        if (btn.dataset.act === 'submit') submitResult(id);
+      });
+    });
+  }
+
+  function applyFilter() {
+    const course = $('lr-course')?.value || '';
+    const session = $('lr-session')?.value || '';
+    const status = $('lr-status')?.value || '';
+
+    FILTERED = ALL.filter((r) => {
+      if (course && r.courseCode !== course) return false;
+      if (session && r.sessionName !== session) return false;
+      if (status && r.status !== status) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('lr-total', ALL.length);
+    setText('lr-drafts', ALL.filter((r) => r.status === 'draft').length);
+    setText('lr-submitted', ALL.filter((r) => r.status === 'submitted' || r.status === 'hod_verified').length);
+    setText('lr-published', ALL.filter((r) => r.status === 'published').length);
+  }
+
+  function populateDropdowns() {
+    const courseSel = $('lr-course');
+    if (courseSel) {
+      const courses = [...new Set(ALL.map((r) => r.courseCode).filter((c) => c && c !== '—'))].sort();
+      const cur = courseSel.value;
+      courseSel.innerHTML = '<option value="">All Courses</option>' +
+        courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      courseSel.value = cur;
     }
+    const sesSel = $('lr-session');
+    if (sesSel) {
+      const sessions = [...new Set(ALL.map((r) => r.sessionName).filter((s) => s && s !== '—'))].sort();
+      const cur = sesSel.value;
+      sesSel.innerHTML = '<option value="">All Sessions</option>' +
+        sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+      sesSel.value = cur;
+    }
+  }
 
-    document.getElementById('lec-res-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
+  async function load() {
+    const tbody = $('lr-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      const res = await core.portalFetch('/api/results');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
+      ALL = raw.map(unwrap);
+      console.log('[lecturer-results] Loaded', ALL.length);
+      populateDropdowns();
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[lecturer-results]', err);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function editResult(id) {
+    const rec = ALL.find((r) => String(r.id) === String(id));
+    if (!rec) return;
+    const newScore = prompt(`New score for ${rec.studentName} (0-100):`, rec.score ?? '');
+    if (newScore === null) return;
+    const score = Number(newScore);
+    if (isNaN(score) || score < 0 || score > 100) {
+      core.showToast && core.showToast('Invalid score (must be 0-100)', 'error');
+      return;
+    }
+    (async () => {
       try {
-        await core.portalFetch('/api/lecturer/results', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Saved.', 'success');
-        e.target.reset();
+        await core.portalFetch('/api/results/' + id, { method: 'PUT', body: { score } });
+        core.showToast && core.showToast('Score updated', 'success');
         load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+      } catch (err) {
+        core.showToast && core.showToast(err.message, 'error');
+      }
+    })();
+  }
 
-    document.getElementById('lec-res-submit').addEventListener('click', async () => {
-      if (!confirm('Submit all draft results to your HOD?')) return;
-      try {
-        const res = await core.portalFetch('/api/lecturer/results');
-        const ids = (res.data || []).filter((r) => r.status === 'draft').map((r) => r.id);
-        if (!ids.length) return core.showToast('No drafts to submit.', 'info');
-        await core.portalFetch('/api/lecturer/results/submit', { method: 'POST', body: { ids } });
-        core.showToast(`Submitted ${ids.length} results.`, 'success');
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+  async function submitResult(id) {
+    if (!confirm('Submit this result to your HOD for verification?')) return;
+    try {
+      await core.portalFetch('/api/results/' + id + '/submit', { method: 'POST' });
+      core.showToast && core.showToast('Submitted to HOD', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
 
-    load();
-  })();
+  function exportCsv() {
+    const headers = ['Student', 'Matric', 'Course', 'Score', 'Grade', 'Session', 'Status'];
+    const rows = FILTERED.map((r) => [r.studentName, r.matric, r.courseCode, r.score ?? '', r.grade, r.sessionName, r.status]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `lecturer-results-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('lr-course')?.addEventListener('change', applyFilter);
+  $('lr-session')?.addEventListener('change', applyFilter);
+  $('lr-status')?.addEventListener('change', applyFilter);
+  $('lr-refresh')?.addEventListener('click', load);
+  $('lr-export')?.addEventListener('click', exportCsv);
+
+  load();
+})();
 </script>

@@ -1,88 +1,286 @@
 <!-- Portal → Lecturer → Materials -->
-<section class="page-head">
-  <div><h2>Course Materials</h2><p class="muted small">Upload lecture notes and resources</p></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-mat-new">+ New Material</button></div>
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📁</div>
+    <div>
+      <h1>Course Materials</h1>
+      <div class="sub">Upload and manage learning materials for your courses</div>
+    </div>
+  </div>
 </section>
 
-<div class="panel" id="lec-mat-new-panel" style="display:none;">
-  <div class="panel-head"><h3>New Material</h3></div>
-  <div class="panel-body">
-    <form id="lec-mat-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Course ID <span class="req">*</span></label><input class="form-control" name="courseId" type="number" required /></div>
-        <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-control" name="title" required /></div>
-        <div class="form-group"><label class="form-label">Type</label>
-          <select class="form-select" name="materialType">
-            <option value="note">Lecture Note</option>
-            <option value="slide">Slide</option>
-            <option value="video">Video</option>
-            <option value="link">Link</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">File URL</label><input class="form-control" name="fileUrl" /></div>
-      </div>
-      <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Upload</button>
-        <button type="button" class="btn btn-ghost" id="lec-mat-cancel">Cancel</button>
-      </div>
-    </form>
-  </div>
+<div class="filter-bar">
+  <input type="search" id="lm-search" placeholder="Search materials…" />
+  <select id="lm-course"><option value="">All Courses</option></select>
+  <button class="btn btn-primary btn-sm" id="lm-upload-btn">📤 Upload Material</button>
+  <button class="btn btn-outline btn-sm" id="lm-refresh">Refresh</button>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>My Materials</h3></div>
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Materials</span><span class="value" id="lm-total">—</span></div><div class="ic">📁</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">PDFs</span><span class="value" id="lm-pdfs">—</span></div><div class="ic">📄</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Docs</span><span class="value" id="lm-docs">—</span></div><div class="ic">📝</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Videos</span><span class="value" id="lm-videos">—</span></div><div class="ic">🎥</div></div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Materials</h3>
+    <span class="badge" id="lm-count">0</span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Created</th><th></th></tr></thead>
-        <tbody id="lec-mat-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Course</th>
+            <th>Type</th>
+            <th>Uploaded</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="lm-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
       </table>
+    </div>
+  </div>
+</section>
+
+<!-- Upload modal -->
+<div id="lm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:12px;max-width:520px;width:90%;max-height:90vh;overflow:auto;">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+      <strong>Upload Course Material</strong>
+      <button class="btn btn-outline btn-xs" id="lm-modal-close">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" id="lm-title" placeholder="e.g., Week 1 — Introduction" />
+      </div>
+      <div class="form-group">
+        <label>Course *</label>
+        <select id="lm-modal-course"><option value="">— Select —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="lm-desc" rows="3" placeholder="Optional notes for students…"></textarea>
+      </div>
+      <div class="form-group">
+        <label>File *</label>
+        <input type="file" id="lm-file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.mp4,.mp3" />
+        <div class="muted small" style="margin-top:.35rem;">Max 20 MB. PDF, DOC, PPT, TXT, MP4, MP3.</div>
+      </div>
+      <div class="quick-actions" style="margin-top:1rem;">
+        <button class="btn btn-primary btn-sm" id="lm-submit">📤 Upload</button>
+        <button class="btn btn-outline btn-sm" id="lm-cancel">Cancel</button>
+      </div>
+      <div id="lm-alert" style="margin-top:.75rem;"></div>
     </div>
   </div>
 </div>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-    async function load() {
-      const tbody = document.getElementById('lec-mat-tbody');
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-      try {
-        const res = await core.portalFetch('/api/lecturer/materials');
-        const rows = res.data || [];
-        tbody.innerHTML = rows.length ? rows.map((m) => `
-          <tr>
-            <td>${core.escapeHtml(m.title)}</td>
-            <td>Course ${m.courseId}</td>
-            <td>${core.escapeHtml(m.materialType || 'note')}</td>
-            <td>${core.formatDate(m.createdAt)}</td>
-            <td>${m.fileUrl ? `<a class="btn btn-sm btn-outline" href="${core.escapeHtml(m.fileUrl)}" target="_blank">Open</a>` : ''}</td>
-          </tr>
-        `).join('') : '<tr><td colspan="5" class="empty">No materials uploaded.</td></tr>';
-      } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+  let ALL = [], FILTERED = [];
+
+  function unwrap(r) {
+    const m = r.material || r;
+    const crs = r.course || {};
+    return {
+      id: m.id,
+      title: m.title || '—',
+      description: m.description || '',
+      courseCode: crs.code || m.courseCode || '—',
+      type: (m.type || m.fileType || detectType(m.fileUrl || m.fileName || '')).toLowerCase(),
+      fileUrl: m.fileUrl || m.url || '',
+      uploadedAt: m.createdAt || m.uploadedAt,
+    };
+  }
+
+  function detectType(name) {
+    const n = String(name).toLowerCase();
+    if (n.endsWith('.pdf')) return 'pdf';
+    if (n.match(/\.(doc|docx)$/)) return 'doc';
+    if (n.match(/\.(ppt|pptx)$/)) return 'ppt';
+    if (n.match(/\.(mp4|mov|avi)$/)) return 'video';
+    if (n.match(/\.(mp3|wav)$/)) return 'audio';
+    return 'other';
+  }
+
+  function render() {
+    const countEl = $('lm-count'); const tbody = $('lm-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="5" class="empty" style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">📁</div>
+          <div style="font-weight:600;color:#475569;">No materials uploaded yet</div>
+          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
+            Click <strong>Upload Material</strong> to add your first file.
+          </div>
+        </td></tr>`;
+      return;
     }
 
-    document.getElementById('lec-mat-new').addEventListener('click', () => {
-      const p = document.getElementById('lec-mat-new-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    });
-    document.getElementById('lec-mat-cancel').addEventListener('click', () => {
-      document.getElementById('lec-mat-new-panel').style.display = 'none';
-    });
-    document.getElementById('lec-mat-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/lecturer/materials', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Material uploaded.', 'success');
-        e.target.reset();
-        document.getElementById('lec-mat-new-panel').style.display = 'none';
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+    tbody.innerHTML = FILTERED.map((m) => `
+      <tr>
+        <td>
+          <strong>${esc(m.title)}</strong>
+          ${m.description ? `<div class="muted small">${esc(m.description.slice(0, 60))}${m.description.length > 60 ? '…' : ''}</div>` : ''}
+        </td>
+        <td><strong>${esc(m.courseCode)}</strong></td>
+        <td><span class="chip chip-${m.type}">${esc(m.type)}</span></td>
+        <td>${m.uploadedAt ? new Date(m.uploadedAt).toLocaleDateString() : '—'}</td>
+        <td class="row-actions">
+          ${m.fileUrl ? `<a class="btn btn-outline btn-xs" href="${esc(m.fileUrl)}" target="_blank">Open</a>` : ''}
+          <button class="btn btn-outline btn-xs" data-act="delete" data-id="${m.id}">Delete</button>
+        </td>
+      </tr>`).join('');
 
-    load();
-  })();
+    tbody.querySelectorAll('button[data-act="delete"]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteMaterial(btn.dataset.id));
+    });
+  }
+
+  function applyFilter() {
+    const q = ($('lm-search')?.value || '').trim().toLowerCase();
+    const course = $('lm-course')?.value || '';
+    FILTERED = ALL.filter((m) => {
+      const hay = `${m.title} ${m.description} ${m.courseCode}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (course && m.courseCode !== course) return false;
+      return true;
+    });
+    render();
+  }
+
+  function updateStats() {
+    setText('lm-total', ALL.length);
+    setText('lm-pdfs', ALL.filter((m) => m.type === 'pdf').length);
+    setText('lm-docs', ALL.filter((m) => m.type === 'doc' || m.type === 'ppt').length);
+    setText('lm-videos', ALL.filter((m) => m.type === 'video' || m.type === 'audio').length);
+  }
+
+  async function populateCourses() {
+    const sel = $('lm-course');
+    const modalSel = $('lm-modal-course');
+    try {
+      const res = await core.portalFetch('/api/allocations/my');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
+      const courses = raw.map((r) => {
+        const crs = r.course || r;
+        return { code: crs.code || '—', id: crs.id };
+      }).filter((c) => c.code && c.code !== '—').sort((a, b) => a.code.localeCompare(b.code));
+
+      const options = courses.map((c) => `<option value="${esc(c.code)}">${esc(c.code)}</option>`).join('');
+      if (sel) sel.innerHTML = '<option value="">All Courses</option>' + options;
+      if (modalSel) modalSel.innerHTML = '<option value="">— Select —</option>' + options;
+    } catch (err) {
+      console.warn('[materials] could not load courses:', err.message);
+    }
+  }
+
+  async function load() {
+    const tbody = $('lm-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      const res = await core.portalFetch('/api/materials');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.materials || []);
+      ALL = raw.map(unwrap);
+      console.log('[lecturer-materials] Loaded', ALL.length);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      // Endpoint might not exist — show empty state
+      console.warn('[lecturer-materials]', err.message);
+      ALL = [];
+      updateStats();
+      applyFilter();
+    }
+  }
+
+  async function deleteMaterial(id) {
+    if (!confirm('Delete this material?')) return;
+    try {
+      await core.portalFetch('/api/materials/' + id, { method: 'DELETE' });
+      core.showToast && core.showToast('Material deleted', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // Modal
+  function openModal() { const m = $('lm-modal'); if (m) m.style.display = 'flex'; }
+  function closeModal() { const m = $('lm-modal'); if (m) m.style.display = 'none'; }
+
+  $('lm-upload-btn')?.addEventListener('click', openModal);
+  $('lm-modal-close')?.addEventListener('click', closeModal);
+  $('lm-cancel')?.addEventListener('click', closeModal);
+
+  $('lm-submit')?.addEventListener('click', async () => {
+    const title = ($('lm-title')?.value || '').trim();
+    const courseCode = $('lm-modal-course')?.value || '';
+    const desc = ($('lm-desc')?.value || '').trim();
+    const file = $('lm-file')?.files?.[0];
+
+    const alertBox = $('lm-alert');
+    if (alertBox) { alertBox.textContent = ''; alertBox.className = ''; }
+
+    if (!title) return core.showToast && core.showToast('Title is required', 'error');
+    if (!courseCode) return core.showToast && core.showToast('Course is required', 'error');
+    if (!file) return core.showToast && core.showToast('File is required', 'error');
+    if (file.size > 20 * 1024 * 1024) return core.showToast && core.showToast('File too large (max 20 MB)', 'error');
+
+    const token = localStorage.getItem('fpu_portal_token') || localStorage.getItem('portal_token');
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('courseCode', courseCode);
+    fd.append('description', desc);
+    fd.append('file', file);
+
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/admin/materials');
+      if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+      xhr.onload = () => {
+        let json = {};
+        try { json = JSON.parse(xhr.responseText); } catch {}
+        if (xhr.status >= 200 && xhr.status < 300 && json.success) {
+          core.showToast && core.showToast('Material uploaded', 'success');
+          closeModal();
+          load();
+        } else {
+          core.showToast && core.showToast(json.error || `Upload failed (${xhr.status})`, 'error');
+        }
+      };
+      xhr.onerror = () => core.showToast && core.showToast('Network error', 'error');
+      xhr.send(fd);
+    } catch (e) {
+      core.showToast && core.showToast(e.message, 'error');
+    }
+  });
+
+  $('lm-search')?.addEventListener('input', applyFilter);
+  $('lm-course')?.addEventListener('change', applyFilter);
+  $('lm-refresh')?.addEventListener('click', load);
+
+  populateCourses();
+  load();
+})();
 </script>

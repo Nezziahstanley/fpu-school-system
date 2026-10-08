@@ -29,22 +29,10 @@
 
 <!-- Stats row -->
 <div class="stat-grid">
-  <div class="stat">
-    <div class="meta"><span class="label">Total Students</span><span class="value" id="rs-total">—</span></div>
-    <div class="ic">🎓</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">ND Students</span><span class="value" id="rs-nd">—</span></div>
-    <div class="ic">📘</div>
-  </div>
-  <div class="stat accent">
-    <div class="meta"><span class="label">HND Students</span><span class="value" id="rs-hnd">—</span></div>
-    <div class="ic">📗</div>
-  </div>
-  <div class="stat purple">
-    <div class="meta"><span class="label">Active</span><span class="value" id="rs-active">—</span></div>
-    <div class="ic">✅</div>
-  </div>
+  <div class="stat"><div class="meta"><span class="label">Total Students</span><span class="value" id="rs-total">—</span></div><div class="ic">🎓</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">ND Students</span><span class="value" id="rs-nd">—</span></div><div class="ic">📘</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">HND Students</span><span class="value" id="rs-hnd">—</span></div><div class="ic">📗</div></div>
+  <div class="stat purple"><div class="meta"><span class="label">Active</span><span class="value" id="rs-active">—</span></div><div class="ic">✅</div></div>
 </div>
 
 <!-- Table -->
@@ -81,32 +69,29 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // Extractors
-  // ---------------------------------------------------------
   function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
   function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
   function getDepartment(s) { return s.departmentName || s.department?.name || '—'; }
   function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
   function isActive(s) { return s.isActive === true || s.isActive === 'true' || s.isActive === 1; }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   function render() {
-    $('rs-count').textContent = FILTERED.length;
+    const countEl = $('rs-count');
+    const tbody = $('rs-tbody');
+    if (countEl) countEl.textContent = FILTERED.length;
+    if (!tbody) return;
 
     if (!FILTERED.length) {
-      $('rs-tbody').innerHTML =
-        '<tr><td colspan="7" class="empty">No students match your filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No students match your filters.</td></tr>';
       return;
     }
 
-    $('rs-tbody').innerHTML = FILTERED.map((s) => {
+    tbody.innerHTML = FILTERED.map((s) => {
       const level = getLevel(s);
       const chipClass = 'chip-' + level.toLowerCase();
       const active = isActive(s);
@@ -122,24 +107,26 @@
         </tr>`;
     }).join('');
 
-    // Click row → open student profile
-    $('rs-tbody').querySelectorAll('tr[data-id]').forEach((row) => {
+    // Row click → student profile
+    tbody.querySelectorAll('tr[data-id]').forEach((row) => {
       row.addEventListener('click', () => {
-        const id = row.dataset.id;
-        window.location.hash = `registrar-student-profile?id=${id}`;
+        window.location.hash = `registrar-student-profile?id=${row.dataset.id}`;
       });
     });
   }
 
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
   function applyFilter() {
-    const q = ($('rs-search').value || '').trim().toLowerCase();
-    const lvl = $('rs-level').value;
-    const dept = $('rs-department').value;
-    const prog = $('rs-programme').value;
-    const st = $('rs-status').value;
+    const searchEl = $('rs-search');
+    const levelEl = $('rs-level');
+    const deptEl = $('rs-department');
+    const progEl = $('rs-programme');
+    const statusEl = $('rs-status');
+
+    const q = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
+    const lvl = levelEl ? levelEl.value : '';
+    const dept = deptEl ? deptEl.value : '';
+    const prog = progEl ? progEl.value : '';
+    const st = statusEl ? statusEl.value : '';
 
     FILTERED = ALL.filter((s) => {
       const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''} ${s.email || ''}`.toLowerCase();
@@ -155,64 +142,53 @@
     render();
   }
 
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
   function updateStats() {
-    const total = ALL.length;
-    const nd = ALL.filter((s) => getLevel(s) === 'ND').length;
-    const hnd = ALL.filter((s) => getLevel(s) === 'HND').length;
-    const active = ALL.filter(isActive).length;
-
-    $('rs-total').textContent = total;
-    $('rs-nd').textContent = nd;
-    $('rs-hnd').textContent = hnd;
-    $('rs-active').textContent = active;
+    setText('rs-total', ALL.length);
+    setText('rs-nd', ALL.filter((s) => getLevel(s) === 'ND').length);
+    setText('rs-hnd', ALL.filter((s) => getLevel(s) === 'HND').length);
+    setText('rs-active', ALL.filter(isActive).length);
   }
 
-  // ---------------------------------------------------------
-  // Populate dropdowns
-  // ---------------------------------------------------------
   function populateDropdowns() {
-    const depts = [...new Set(ALL.map(getDepartment).filter((d) => d && d !== '—'))].sort();
+    // Departments
     const deptSel = $('rs-department');
-    const curDept = deptSel.value;
-    deptSel.innerHTML = '<option value="">All Departments</option>' +
-      depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-    deptSel.value = curDept;
+    if (deptSel) {
+      const depts = [...new Set(ALL.map(getDepartment).filter((d) => d && d !== '—'))].sort();
+      const curDept = deptSel.value;
+      deptSel.innerHTML = '<option value="">All Departments</option>' +
+        depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+      deptSel.value = curDept;
+    }
 
-    const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
+    // Programmes
     const progSel = $('rs-programme');
-    const curProg = progSel.value;
-    progSel.innerHTML = '<option value="">All Programmes</option>' +
-      progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-    progSel.value = curProg;
+    if (progSel) {
+      const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
+      const curProg = progSel.value;
+      progSel.innerHTML = '<option value="">All Programmes</option>' +
+        progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+      progSel.value = curProg;
+    }
   }
 
-  // ---------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------
   async function load() {
-    $('rs-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    const tbody = $('rs-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
       const res = await core.portalFetch('/api/students');
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload)
-        ? payload
-        : (payload.rows || payload.students || []);
+      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
       console.log('[registrar-students] Loaded', ALL.length);
       populateDropdowns();
       updateStats();
       applyFilter();
     } catch (err) {
       console.error('[registrar-students]', err);
-      $('rs-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
   function exportCsv() {
     const headers = ['Matric No', 'Full Name', 'Level', 'Programme', 'Department', 'CGPA', 'Status'];
     const rows = FILTERED.map((s) => [
@@ -224,11 +200,9 @@
       getCGPA(s),
       isActive(s) ? 'Active' : 'Inactive',
     ]);
-
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
       .join('\n');
-
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -237,12 +211,13 @@
     URL.revokeObjectURL(a.href);
   }
 
-  $('rs-search').addEventListener('input', applyFilter);
-  $('rs-level').addEventListener('change', applyFilter);
-  $('rs-department').addEventListener('change', applyFilter);
-  $('rs-programme').addEventListener('change', applyFilter);
-  $('rs-status').addEventListener('change', applyFilter);
-  $('rs-export').addEventListener('click', exportCsv);
+  // Safe wire-up
+  const searchEl = $('rs-search'); if (searchEl) searchEl.addEventListener('input', applyFilter);
+  const levelEl = $('rs-level'); if (levelEl) levelEl.addEventListener('change', applyFilter);
+  const deptEl = $('rs-department'); if (deptEl) deptEl.addEventListener('change', applyFilter);
+  const progEl = $('rs-programme'); if (progEl) progEl.addEventListener('change', applyFilter);
+  const statusEl = $('rs-status'); if (statusEl) statusEl.addEventListener('change', applyFilter);
+  const exportEl = $('rs-export'); if (exportEl) exportEl.addEventListener('click', exportCsv);
 
   load();
 })();

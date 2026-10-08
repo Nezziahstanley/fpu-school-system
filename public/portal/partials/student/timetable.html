@@ -4,12 +4,17 @@
     <div class="avatar">📅</div>
     <div>
       <h1>My Timetable</h1>
-      <div class="sub">Weekly class schedule</div>
+      <div class="sub">Weekly class schedule grouped by semester</div>
     </div>
   </div>
 </section>
 
 <div class="filter-bar">
+  <select id="stt-semester">
+    <option value="">All Semesters</option>
+    <option value="first">First Semester</option>
+    <option value="second">Second Semester</option>
+  </select>
   <select id="stt-day">
     <option value="">All Days</option>
     <option value="Monday">Monday</option>
@@ -18,33 +23,19 @@
     <option value="Thursday">Thursday</option>
     <option value="Friday">Friday</option>
   </select>
-  <select id="stt-course"><option value="">All Courses</option></select>
   <button class="btn btn-outline btn-sm" id="stt-refresh">Refresh</button>
   <button class="btn btn-outline btn-sm" id="stt-print">🖨 Print</button>
 </div>
 
 <div class="stat-grid">
   <div class="stat"><div class="meta"><span class="label">Total Slots</span><span class="value" id="stt-total">—</span></div><div class="ic">📅</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Today</span><span class="value" id="stt-today">—</span></div><div class="ic">🎯</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">This Week</span><span class="value" id="stt-week">—</span></div><div class="ic">📆</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">First Semester</span><span class="value" id="stt-first">—</span></div><div class="ic">1️⃣</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Second Semester</span><span class="value" id="stt-second">—</span></div><div class="ic">2️⃣</div></div>
   <div class="stat purple"><div class="meta"><span class="label">Courses</span><span class="value" id="stt-courses">—</span></div><div class="ic">📚</div></div>
 </div>
 
-<section class="panel">
-  <div class="panel-head"><h3>Weekly Schedule</h3><span class="badge" id="stt-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead>
-          <tr><th>Day</th><th>Time</th><th>Course</th><th>Venue</th><th>Level</th><th>Semester</th></tr>
-        </thead>
-        <tbody id="stt-tbody">
-          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+<!-- Two panels: First + Second semester -->
+<div id="stt-content"></div>
 
 <script>
 (function () {
@@ -55,12 +46,14 @@
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  let ALL = [], FILTERED = [];
+  let ALL = [];
 
   function unwrap(r) {
     const s = r.slot || r;
     const crs = r.course || {};
+    let sem = String(s.semester || '').trim();
+    if (/^1$|first/i.test(sem)) sem = 'first';
+    else if (/^2$|second/i.test(sem)) sem = 'second';
     return {
       id: s.id,
       day: s.dayOfWeek || '—',
@@ -70,7 +63,7 @@
       courseTitle: crs.title || '',
       venue: s.venue || '—',
       level: crs.level || '—',
-      semester: s.semester || '—',
+      semester: sem,
     };
   }
 
@@ -79,23 +72,24 @@
     return t.endTime ? `${t.startTime} – ${t.endTime}` : t.startTime;
   }
 
-  function render() {
-    const countEl = $('stt-count'), tbody = $('stt-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No scheduled classes.</td></tr>';
-      return;
-    }
-
+  function sortSlots(list) {
     const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
-    FILTERED.sort((a, b) => {
+    return list.sort((a, b) => {
       const d = (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
       return d || (a.startTime || '').localeCompare(b.startTime || '');
     });
+  }
 
-    tbody.innerHTML = FILTERED.map((t) => {
+  function renderTable(slots, title, badge) {
+    if (!slots.length) {
+      return `
+        <section class="panel">
+          <div class="panel-head"><h3>${esc(title)}</h3><span class="badge">0</span></div>
+          <div class="panel-body"><p class="muted" style="text-align:center;padding:1.5rem;">No classes scheduled for this semester.</p></div>
+        </section>`;
+    }
+
+    const rows = sortSlots(slots).map((t) => {
       const lvl = String(t.level).toUpperCase();
       const chipClass = 'chip-' + lvl.toLowerCase();
       return `
@@ -105,60 +99,75 @@
           <td><strong>${esc(t.courseCode)}</strong>${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}</td>
           <td>${esc(t.venue)}</td>
           <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
-          <td>${esc(t.semester)}</td>
         </tr>`;
     }).join('');
+
+    return `
+      <section class="panel">
+        <div class="panel-head">
+          <h3>${esc(title)}</h3>
+          <span class="badge" style="background:${badge};">${slots.length}</span>
+        </div>
+        <div class="panel-body flush">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Day</th><th>Time</th><th>Course</th><th>Venue</th><th>Level</th></tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      </section>`;
   }
 
-  function applyFilter() {
-    const day = $('stt-day')?.value || '';
-    const course = $('stt-course')?.value || '';
-    FILTERED = ALL.filter((t) => {
-      if (day && t.day !== day) return false;
-      if (course && t.courseCode !== course) return false;
-      return true;
-    });
-    render();
-  }
+  function render() {
+    const semFilter = $('stt-semester')?.value || '';
+    const dayFilter = $('stt-day')?.value || '';
 
-  function updateStats() {
+    let filtered = ALL.slice();
+    if (semFilter) filtered = filtered.filter((t) => t.semester === semFilter);
+    if (dayFilter) filtered = filtered.filter((t) => t.day === dayFilter);
+
+    const first = filtered.filter((t) => t.semester === 'first');
+    const second = filtered.filter((t) => t.semester === 'second');
+    const other = filtered.filter((t) => t.semester !== 'first' && t.semester !== 'second');
+
+    const content = $('stt-content');
+    if (!content) return;
+
+    let html = '';
+    if (first.length || !semFilter) html += renderTable(first, '📘 First Semester', '#065f46');
+    if (second.length || !semFilter) html += renderTable(second, '📗 Second Semester', '#f59e0b');
+    if (other.length) html += renderTable(other, '📅 Other Slots', '#64748b');
+
+    content.innerHTML = html || '<p class="muted" style="text-align:center;padding:2rem;">No classes found.</p>';
+
+    // Stats
     setText('stt-total', ALL.length);
-    setText('stt-today', ALL.filter((t) => t.day === todayName).length);
-    setText('stt-week', ALL.length);
+    setText('stt-first', ALL.filter((t) => t.semester === 'first').length);
+    setText('stt-second', ALL.filter((t) => t.semester === 'second').length);
     setText('stt-courses', new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—')).size);
   }
 
-  function populateCourses() {
-    const sel = $('stt-course');
-    if (!sel) return;
-    const courses = [...new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—'))].sort();
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Courses</option>' +
-      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    sel.value = cur;
-  }
-
   async function load() {
-    const tbody = $('stt-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    const content = $('stt-content');
+    if (content) content.innerHTML = '<div class="loading" style="text-align:center;padding:2rem;"><span class="spinner"></span> Loading…</div>';
     try {
       const res = await core.portalFetch('/api/student/timetable');
       const raw = res.data || res || [];
       ALL = raw.map(unwrap);
-      console.log('[student-timetable] Loaded', ALL.length);
-      populateCourses();
-      updateStats();
-      applyFilter();
+      console.log('[student-timetable] Loaded', ALL.length, 'slots');
+      render();
     } catch (err) {
       console.warn('[student-timetable]', err.message);
       ALL = [];
-      updateStats();
-      applyFilter();
+      render();
     }
   }
 
-  $('stt-day')?.addEventListener('change', applyFilter);
-  $('stt-course')?.addEventListener('change', applyFilter);
+  $('stt-semester')?.addEventListener('change', render);
+  $('stt-day')?.addEventListener('change', render);
   $('stt-refresh')?.addEventListener('click', load);
   $('stt-print')?.addEventListener('click', () => window.print());
 

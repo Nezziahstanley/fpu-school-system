@@ -4,29 +4,41 @@
     <div class="avatar">📚</div>
     <div>
       <h1>My Library</h1>
-      <div class="sub">Borrowed books, reservations, and fines</div>
+      <div class="sub">Browse books, borrow, and manage fines</div>
     </div>
   </div>
 </section>
 
-<div class="filter-bar">
-  <button class="btn btn-outline btn-sm" id="sl-refresh">Refresh</button>
-</div>
-
 <div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Active Borrows</span><span class="value" id="sl-borrows">—</span></div><div class="ic">📤</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Reservations</span><span class="value" id="sl-res">—</span></div><div class="ic">📖</div></div>
+  <div class="stat"><div class="meta"><span class="label">Available Books</span><span class="value" id="sl-avail">—</span></div><div class="ic">📚</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">My Borrows</span><span class="value" id="sl-borrows">—</span></div><div class="ic">📤</div></div>
   <div class="stat red"><div class="meta"><span class="label">Unpaid Fines</span><span class="value" id="sl-fines">—</span></div><div class="ic">💰</div></div>
   <div class="stat accent"><div class="meta"><span class="label">Total Owed</span><span class="value" id="sl-owed">—</span></div><div class="ic">💵</div></div>
 </div>
 
-<section class="panel">
-  <div class="panel-head"><h3>Borrowed Books</h3><span class="badge" id="sl-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
+<!-- Tabs -->
+<div class="filter-bar" style="padding:.5rem;gap:.25rem;">
+  <button class="btn btn-primary btn-sm" data-slt="catalogue">📖 Catalogue</button>
+  <button class="btn btn-outline btn-sm" data-slt="borrows">📤 My Borrows</button>
+  <button class="btn btn-outline btn-sm" data-slt="fines">💰 Fines</button>
+</div>
+
+<!-- Catalogue -->
+<section class="panel" id="sl-tab-catalogue">
+  <div class="panel-head">
+    <h3>Books for You</h3>
+    <span class="badge" id="sl-cat-count">0</span>
+  </div>
+  <div class="panel-body">
+    <div class="filter-bar" style="box-shadow:none;background:transparent;padding:0 .5rem .5rem 0;">
+      <input type="search" id="sl-cat-search" placeholder="Search title, author, category…" />
+      <select id="sl-cat-category"><option value="">All Categories</option></select>
+      <button class="btn btn-outline btn-sm" id="sl-cat-refresh">Refresh</button>
+    </div>
+    <div class="table-wrap" style="margin-top:.5rem;">
       <table class="data-table">
-        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Status</th></tr></thead>
-        <tbody id="sl-borrows-tbody">
+        <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Copies</th><th>Action</th></tr></thead>
+        <tbody id="sl-cat-tbody">
           <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
@@ -34,14 +46,30 @@
   </div>
 </section>
 
-<section class="panel">
-  <div class="panel-head"><h3>Fines</h3><span class="badge" id="sl-fine-count">0</span></div>
+<!-- Borrows -->
+<section class="panel" id="sl-tab-borrows" style="display:none;">
+  <div class="panel-head"><h3>My Borrowed Books</h3><span class="badge" id="sl-b-count">0</span></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Status</th></tr></thead>
+        <tbody id="sl-borrows-tbody">
+          <tr><td colspan="5" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Fines -->
+<section class="panel" id="sl-tab-fines" style="display:none;">
+  <div class="panel-head"><h3>My Fines</h3><span class="badge" id="sl-f-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th></tr></thead>
         <tbody id="sl-fines-tbody">
-          <tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="4" class="empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -51,69 +79,253 @@
 <script>
 (function () {
   'use strict';
+
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const esc = (s) => (core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s));
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-  function fmtMoney(n) { return '₦' + Number(n || 0).toLocaleString(); }
+  const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const dt = new Date(d);
+    return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
-  async function load() {
-    const bTbody = $('sl-borrows-tbody'), fTbody = $('sl-fines-tbody');
+  // Student endpoints — no /admin prefix
+  const API = '/api/student/library';
+
+  let CATALOGUE = [];
+  let CAT_FILTERED = [];
+
+  // ---------- Tabs ----------
+  function initTabs() {
+    document.querySelectorAll('[data-slt]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.slt;
+        document.querySelectorAll('[data-slt]').forEach((b) => {
+          b.classList.toggle('btn-primary', b === btn);
+          b.classList.toggle('btn-outline', b !== btn);
+        });
+        ['catalogue', 'borrows', 'fines'].forEach((t) => {
+          const panel = $('sl-tab-' + t);
+          if (panel) panel.style.display = t === tab ? '' : 'none';
+        });
+        if (tab === 'borrows') loadBorrows();
+        if (tab === 'fines') loadFines();
+      });
+    });
+  }
+
+  // ---------- Stats ----------
+  async function refreshStats() {
     try {
-      const res = await core.portalFetch('/api/student/borrows');
-      const payload = res.data || res || {};
-      const borrows = payload.borrows || [];
-      const fines = payload.fines || [];
-      const reservations = payload.reservations || [];
+      const [borrowsRes, finesRes] = await Promise.all([
+        core.portalFetch('/api/student/borrows').catch(() => ({ borrows: [], fines: [] })),
+        Promise.resolve(null),
+      ]);
+      const borrows = (borrowsRes && borrowsRes.borrows) || [];
+      const fines = (borrowsRes && borrowsRes.fines) || [];
 
-      const active = borrows.filter((b) => !b.returnedAt);
-      setText('sl-borrows', active.length);
-      setText('sl-res', reservations.length);
-      setText('sl-fines', fines.length);
-      setText('sl-owed', fmtMoney(fines.filter((f) => !f.paidAt).reduce((s, f) => s + Number(f.amount || 0), 0)));
-      setText('sl-count', borrows.length);
-      setText('sl-fine-count', fines.length);
+      const activeBorrows = borrows.filter((b) => (b.borrow && b.borrow.status) === 'borrowed');
+      setText('sl-borrows', activeBorrows.length);
 
-      if (bTbody) {
-        bTbody.innerHTML = borrows.length
-          ? borrows.map((b) => {
-              const badge = b.returnedAt ? 'badge-active' : (b.dueAt && new Date(b.dueAt) < new Date() ? 'badge-inactive' : 'badge-warning');
-              const label = b.returnedAt ? 'Returned' : (b.dueAt && new Date(b.dueAt) < new Date() ? 'Overdue' : 'Borrowed');
-              const book = b.book || {};
-              return `
-                <tr>
-                  <td><strong>${esc(book.title || b.bookTitle || '—')}</strong></td>
-                  <td>${b.borrowedAt ? new Date(b.borrowedAt).toLocaleDateString() : '—'}</td>
-                  <td>${b.dueAt ? new Date(b.dueAt).toLocaleDateString() : '—'}</td>
-                  <td>${b.returnedAt ? new Date(b.returnedAt).toLocaleDateString() : '—'}</td>
-                  <td><span class="badge-status ${badge}">${label}</span></td>
-                </tr>`;
-            }).join('')
-          : '<tr><td colspan="5" class="empty">No borrowed books.</td></tr>';
-      }
+      const unpaid = fines.filter((f) => !f.isPaid);
+      setText('sl-fines', unpaid.length);
 
-      if (fTbody) {
-        fTbody.innerHTML = fines.length
-          ? fines.map((f) => {
-              const badge = f.paidAt ? 'badge-active' : 'badge-inactive';
-              return `
-                <tr>
-                  <td><strong>${fmtMoney(f.amount)}</strong></td>
-                  <td>${esc(f.reason || '—')}</td>
-                  <td><span class="badge-status ${badge}">${f.paidAt ? 'Paid' : 'Unpaid'}</span></td>
-                  <td>${f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '—'}</td>
-                </tr>`;
-            }).join('')
-          : '<tr><td colspan="4" class="empty">No fines.</td></tr>';
-      }
-    } catch (err) {
-      console.warn('[student-library]', err.message);
-      if (bTbody) bTbody.innerHTML = '<tr><td colspan="5" class="empty">Could not load library data.</td></tr>';
-      if (fTbody) fTbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load fines.</td></tr>';
+      const owed = unpaid.reduce((n, f) => n + Number(f.amount || 0), 0);
+      setText('sl-owed', fmtMoney(owed));
+    } catch {
+      // leave em-dashes
     }
   }
 
-  $('sl-refresh')?.addEventListener('click', load);
-  load();
+  // ---------- Catalogue ----------
+  async function loadCatalogue() {
+    const tbody = $('sl-cat-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+
+    try {
+      const json = await core.portalFetch('/api/student/library/catalogue');
+      CATALOGUE = (json && json.data) || [];
+      populateCategories(CATALOGUE);
+      applyCatalogueFilters();
+
+      const avail = CATALOGUE.reduce((n, b) => n + Number(b.copiesAvailable || 0), 0);
+      setText('sl-avail', avail);
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  function populateCategories(rows) {
+    const sel = $('sl-cat-category');
+    if (!sel) return;
+    const cats = [...new Set(rows.map((b) => b.category).filter(Boolean))].sort();
+    sel.innerHTML =
+      '<option value="">All Categories</option>' +
+      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  }
+
+  function applyCatalogueFilters() {
+    const q = ($('sl-cat-search')?.value || '').trim().toLowerCase();
+    const cat = $('sl-cat-category')?.value || '';
+
+    CAT_FILTERED = CATALOGUE.filter((b) => {
+      if (cat && b.category !== cat) return false;
+      if (!q) return true;
+      return (
+        (b.title || '').toLowerCase().includes(q) ||
+        (b.author || '').toLowerCase().includes(q) ||
+        (b.category || '').toLowerCase().includes(q)
+      );
+    });
+
+    renderCatalogue(CAT_FILTERED);
+    setText('sl-cat-count', CAT_FILTERED.length);
+  }
+
+  function renderCatalogue(rows) {
+    const tbody = $('sl-cat-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No books match your search.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows
+      .map((b) => {
+        const available = Number(b.copiesAvailable || 0) > 0;
+        const tag = b._scope === 'general'
+          ? ' <span class="badge" title="Open to all students">General</span>'
+          : '';
+        return `
+          <tr>
+            <td>${esc(b.title)}${tag}</td>
+            <td>${esc(b.author || '—')}</td>
+            <td>${esc(b.category || '—')}</td>
+            <td>${b.copiesAvailable ?? 0} / ${b.copiesTotal ?? 0}</td>
+            <td>
+              <button class="btn btn-sm ${available ? 'btn-primary' : 'btn-outline'}"
+                      data-borrow="${b.id}" ${available ? '' : 'disabled'}>
+                ${available ? 'Borrow' : 'Unavailable'}
+              </button>
+            </td>
+          </tr>`;
+      })
+      .join('');
+
+    tbody.querySelectorAll('[data-borrow]').forEach((btn) => {
+      btn.addEventListener('click', () => borrowBook(btn.dataset.borrow));
+    });
+  }
+
+  async function borrowBook(bookId) {
+    if (!confirm('Borrow this book?')) return;
+    try {
+      await core.portalFetch('/api/student/library/borrow', {
+        method: 'POST',
+        body: { bookId: Number(bookId) },
+      });
+      core.showToast && core.showToast('Book borrowed successfully.', 'success');
+      loadCatalogue();
+      refreshStats();
+    } catch (err) {
+      core.showToast ? core.showToast(err.message, 'error') : alert(err.message);
+    }
+  }
+
+  // ---------- Borrows ----------
+  async function loadBorrows() {
+    const tbody = $('sl-borrows-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+
+    try {
+      const json = await core.portalFetch('/api/student/borrows');
+      const rows = (json && json.borrows) || [];
+      setText('sl-b-count', rows.length);
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">No borrows yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows
+        .map((entry) => {
+          const b = entry.borrow || {};
+          const book = entry.book || {};
+          const overdue = b.status === 'borrowed' && b.dueAt && new Date(b.dueAt) < new Date();
+          const badge = overdue
+            ? '<span class="badge red">Overdue</span>'
+            : b.status === 'returned'
+            ? '<span class="badge">Returned</span>'
+            : b.status === 'lost'
+            ? '<span class="badge red">Lost</span>'
+            : '<span class="badge blue">Borrowed</span>';
+          return `
+            <tr>
+              <td>${esc(book.title || '—')}</td>
+              <td>${fmtDate(b.borrowedAt)}</td>
+              <td>${fmtDate(b.dueAt)}</td>
+              <td>${b.returnedAt ? fmtDate(b.returnedAt) : '—'}</td>
+              <td>${badge}</td>
+            </tr>`;
+        })
+        .join('');
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // ---------- Fines ----------
+  async function loadFines() {
+    const tbody = $('sl-fines-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+
+    try {
+      const json = await core.portalFetch('/api/student/borrows');
+      const rows = (json && json.fines) || [];
+      setText('sl-f-count', rows.length);
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No fines. 🎉</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows
+        .map((f) => `
+          <tr>
+            <td>${fmtMoney(f.amount)}</td>
+            <td>${esc(f.reason || '—')}</td>
+            <td>${f.isPaid
+              ? '<span class="badge">Paid</span>'
+              : '<span class="badge red">Unpaid</span>'}</td>
+            <td>${fmtDate(f.createdAt)}</td>
+          </tr>`)
+        .join('');
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // ---------- Wire up ----------
+  function init() {
+    initTabs();
+    $('sl-cat-search')?.addEventListener('input', applyCatalogueFilters);
+    $('sl-cat-category')?.addEventListener('change', applyCatalogueFilters);
+    $('sl-cat-refresh')?.addEventListener('click', () => {
+      loadCatalogue();
+      refreshStats();
+    });
+
+    loadCatalogue();
+    refreshStats();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script>

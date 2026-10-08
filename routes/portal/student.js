@@ -31,9 +31,97 @@ const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 const { logSecurity } = require('../../utils/audit');
 const { scoreToGrade } = require('../../utils/gradeScale');
 
-const { courseMaterials, assignments, assignmentSubmissions, documents, graduations, academicSessions, users } = schema;
+const {
+  courseMaterials, assignments, assignmentSubmissions, documents,
+  graduations, academicSessions, users, books, borrowRecords,
+  bookReservations, libraryFines, departments,
+} = schema;
 
 const only = requireRole('student');
+
+// ============================================================
+// LIBRARY SCOPING HELPERS
+// ------------------------------------------------------------
+// A student may see/borrow:
+//   1. Books explicitly assigned to their department
+//      (books.department_id — used if/when the column exists)
+//   2. Books whose category matches their department's subjects
+//   3. General / story books (fiction, novel, biography, etc.)
+//   4. Books with no category at all
+// ============================================================
+
+// Department code → subject keywords matched against books.category
+const DEPT_CATEGORY_MAP = {
+  // Engineering & technology
+  CSE: ['computer', 'computing', 'software', 'ict', 'information tech'],
+  MEE: ['mechanical', 'engineering', 'workshop', 'thermodynamics'],
+  EEE: ['electrical', 'electronics', 'engineering', 'circuit'],
+  CEE: ['civil', 'engineering', 'structures', 'surveying'],
+  ACE: ['agricultural', 'agric', 'engineering'],
+  MEC: ['mechatronics', 'robotics', 'automation'],
+  STE: ['science', 'technology', 'engineering'],
+
+  // Sciences
+  SCI: ['science', 'physics', 'chemistry', 'biology', 'mathematics', 'statistics'],
+  MTH: ['mathematics', 'statistics', 'calculus'],
+  PHY: ['physics', 'astronomy'],
+  CHM: ['chemistry', 'biochemistry'],
+  BIO: ['biology', 'botany', 'zoology', 'microbiology'],
+
+  // Business & management
+  BAM: ['business', 'management', 'accounting', 'marketing', 'economics'],
+  ACC: ['accounting', 'finance', 'auditing', 'taxation'],
+  BUS: ['business', 'management', 'entrepreneurship', 'economics'],
+  FIN: ['finance', 'banking', 'insurance', 'accounting'],
+
+  // Arts, humanities, social science
+  ART: ['arts', 'literature', 'language', 'linguistics', 'fine art'],
+  LAN: ['language', 'english', 'literature', 'linguistics'],
+  SOC: ['social', 'sociology', 'government', 'political science'],
+  HIS: ['history', 'civilisation', 'culture'],
+
+  // Education
+  EDU: ['education', 'pedagogy', 'teaching', 'curriculum'],
+
+  // Health & environmental
+  HSC: ['health', 'nursing', 'public health', 'medical'],
+  ENV: ['environment', 'ecology', 'conservation', 'geography'],
+  URP: ['urban', 'regional', 'planning', 'architecture'],
+
+  // Libraries & information
+  LIB: ['library', 'information science', 'archival', 'cataloguing'],
+};
+
+// Always visible regardless of department
+const GENERAL_CATEGORIES = [
+  'fiction', 'story', 'novel', 'literature',
+  'biography', 'autobiography', 'memoir',
+  'general', 'reference', 'dictionary', 'encyclopedia',
+  'religion', 'philosophy', 'psychology',
+  'inspirational', 'self-help', 'self help',
+  'nigeria', 'africa', 'african',
+  'history', 'poetry', 'drama', 'plays',
+];
+
+function normaliseCategory(str) {
+  return String(str || '').trim().toLowerCase();
+}
+
+async function resolveDeptCode(departmentId) {
+  if (!departmentId) return null;
+  const [dept] = await db
+    .select({ code: departments.code })
+    .from(departments)
+    .where(eq(departments.id, Number(departmentId)))
+    .limit(1);
+  return dept ? String(dept.code).toUpperCase() : null;
+}
+
+function isGeneralCategory(cat) {
+  if (!cat) return true;
+  if (GENERAL_CATEGORIES.includes(cat)) return true;
+  return GENERAL_CATEGORIES.some((g) => cat.includes(g));
+}
 
 // ============================================================
 // GET /api/student/registered-courses
@@ -124,17 +212,173 @@ router.get('/timetable', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/student/library/catalogue
+// ------------------------------------------------------------
+// Books available to this student:
+//   - Departmental books (matched by category keywords OR
+//     explicit books.department_id when the column exists)
+//   - Story / general books (fiction, novel, biography…)
+//   - Uncategorised books
+// Each row is annotated with `_scope: 'department' | 'general'`
+// so the frontend can render a badge.
+// ============================================================
+router.get('/library/catalogue', only, async (req, res, next) => {
+  try {
+    const deptCode = await resolveDeptCode(req.user.departmentId);
+    const deptKeywords = deptCode && DEPT_CATEGORY_MAP[deptCode]
+      ? DEPT_CATEGORY_MAP[deptCode]
+      : [];
+
+    const allBooks = await db.select().from(books).orderBy(books.title);
+
+    const visible = allBooks.filter((b) => {
+      const cat = normaliseCategory(b.category);
+
+      // 1. Explicit department assignment (if books.department_id exists)
+      if (b.departmentId && Number(b.departmentId) === Number(req.user.departmentId)) {
+        return true;
+      }
+
+      // 2. General / story / uncategorised
+      if (isGeneralCategory(cat)) return true;
+
+      // 3. Department-matched by category keyword
+      if (deptKeywords.length && deptKeywords.some((k) => cat.includes(k))) {
+        return true;
+      }
+
+      return false;
+    });
+
+    const data = visible.map((b) => ({
+      ...b,
+      _scope: isGeneralCategory(normaliseCategory(b.category)) ? 'general' : 'department',
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[library/catalogue]', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/student/library/borrow
+// ------------------------------------------------------------
+// Body: { bookId }
+// Enforces the same scope as /catalogue, then:
+//   - Blocks duplicate active borrow of same book
+//   - Decrements books.copiesAvailable atomically
+//   - Creates a borrow_records row with status='borrowed'
+// ============================================================
+router.post('/library/borrow', only, async (req, res, next) => {
+  try {
+    const bookId = Number(req.body && req.body.bookId);
+    if (!bookId) {
+      return res.status(400).json({ success: false, error: 'bookId is required.' });
+    }
+
+    const [book] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
+    if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
+
+    // Re-check scope — never trust the client
+    const deptCode = await resolveDeptCode(req.user.departmentId);
+    const deptKeywords = deptCode && DEPT_CATEGORY_MAP[deptCode]
+      ? DEPT_CATEGORY_MAP[deptCode]
+      : [];
+    const cat = normaliseCategory(book.category);
+
+    const inScope =
+      (book.departmentId && Number(book.departmentId) === Number(req.user.departmentId)) ||
+      isGeneralCategory(cat) ||
+      (deptKeywords.length && deptKeywords.some((k) => cat.includes(k)));
+
+    if (!inScope) {
+      return res.status(403).json({
+        success: false,
+        error: 'This book is not available for your department.',
+      });
+    }
+
+    if (Number(book.copiesAvailable) <= 0) {
+      return res.status(409).json({ success: false, error: 'No copies available.' });
+    }
+
+    // Already has an active borrow for the same book?
+    const existing = await db
+      .select({ id: borrowRecords.id })
+      .from(borrowRecords)
+      .where(
+        and(
+          eq(borrowRecords.userId, req.user.id),
+          eq(borrowRecords.bookId, bookId),
+          eq(borrowRecords.status, 'borrowed')
+        )
+      )
+      .limit(1);
+
+    if (existing.length) {
+      return res.status(409).json({
+        success: false,
+        error: 'You already have this book borrowed.',
+      });
+    }
+
+    const LOAN_DAYS = Number(process.env.LIBRARY_LOAN_DAYS || 14);
+    const dueAt = new Date(Date.now() + LOAN_DAYS * 24 * 60 * 60 * 1000);
+
+    const row = await db.transaction(async (tx) => {
+      const [borrow] = await tx
+        .insert(borrowRecords)
+        .values({
+          bookId,
+          userId: req.user.id,
+          dueAt,
+          status: 'borrowed',
+          issuedBy: null,
+        })
+        .returning();
+
+      await tx
+        .update(books)
+        .set({ copiesAvailable: sql`${books.copiesAvailable} - 1` })
+        .where(eq(books.id, bookId));
+
+      return borrow;
+    });
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[library/borrow]', err);
+    return next(err);
+  }
+});
+
+// ============================================================
 // GET /api/student/exams
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
-    const rows = await examQueries.listWithCourse({
+
+    const regs = await regQueries.list({
+      studentId: req.user.id,
       sessionId,
       semester,
-      programmeId: req.user.programmeId,
     });
-    return res.json({ success: true, data: rows });
+    const courseIds = regs
+      .filter((r) => ['pending', 'approved'].includes(r.status))
+      .map((r) => r.courseId);
+
+    if (!courseIds.length) return res.json({ success: true, data: [] });
+
+    const allExams = await examQueries.listWithCourse({ sessionId, semester });
+    const filtered = allExams.filter((e) => {
+      const exam = e.exam || e;
+      return courseIds.includes(exam.courseId);
+    });
+
+    return res.json({ success: true, data: filtered });
   } catch (err) {
     return next(err);
   }
@@ -342,19 +586,32 @@ router.get('/id-card', only, async (req, res, next) => {
     const session = req.user.currentSessionId
       ? await sessionQueries.findAcademicById(req.user.currentSessionId)
       : await sessionQueries.getCurrentAcademic();
+
+    const barcodeData = student.matricNumber || `STU-${student.id}`;
+
+    const baseUrl = process.env.PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
+    const lookupUrl = `${baseUrl}/id-lookup.html?matric=${encodeURIComponent(barcodeData)}`;
+
     return res.json({
       success: true,
       data: {
+        id: student.id,
         matricNumber: student.matricNumber,
         firstName: student.firstName,
         lastName: student.lastName,
+        middleName: student.middleName,
         level: student.level,
         department: student.department,
+        departmentName: student.departmentName,
         programme: student.programme,
+        programmeName: student.programmeName,
         school: student.school,
+        schoolName: student.schoolName,
         photoUrl: student.photoUrl,
         session: session?.name || null,
         institution: await settingsQueries.getInstitution(),
+        barcodeData,
+        lookupUrl,
       },
     });
   } catch (err) {
@@ -381,6 +638,9 @@ router.get('/graduation', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/borrows
+// ------------------------------------------------------------
+// Returns { borrows, fines, reservations }.
+// Each borrow entry is shaped { borrow, book, user }.
 // ============================================================
 router.get('/borrows', only, async (req, res, next) => {
   try {
@@ -477,6 +737,7 @@ router.get('/security', only, async (req, res, next) => {
     return next(err);
   }
 });
+
 // ============================================================
 // GET /api/student/available-courses
 // ------------------------------------------------------------
@@ -489,7 +750,6 @@ router.get('/available-courses', only, async (req, res, next) => {
   try {
     const { courses, courseRegistrations } = schema;
 
-    // Which courses is this student already registered for?
     const registeredRows = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
@@ -497,22 +757,17 @@ router.get('/available-courses', only, async (req, res, next) => {
 
     const registeredIds = new Set(registeredRows.map((r) => Number(r.courseId)));
 
-    // All active courses matching the student's level
     const allCourses = await db
       .select()
       .from(courses)
       .where(eq(courses.level, req.user.level || 'ND'))
       .orderBy(courses.code);
 
-    // Shared course prefixes (available to all programmes)
     const SHARED_PREFIXES = ['GNS', 'MTH', 'EED', 'ENT', 'STA'];
 
     const available = allCourses.filter((c) => {
-      // Skip already-registered courses
       if (registeredIds.has(Number(c.id))) return false;
-      // Skip inactive
       if (c.isActive === false) return false;
-      // Match programme OR is a shared course
       if (c.programmeId && Number(c.programmeId) === Number(req.user.programmeId)) return true;
       const code = String(c.code || '').split(' ')[0].toUpperCase();
       return SHARED_PREFIXES.includes(code);

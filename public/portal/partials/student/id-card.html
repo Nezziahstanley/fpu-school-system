@@ -1,10 +1,12 @@
 <!-- Portal → Student → ID Card -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/barcodes/JsBarcode.code128.min.js" />
+
 <section class="greeting">
   <div class="who">
     <div class="avatar">🆔</div>
     <div>
       <h1>My ID Card</h1>
-      <div class="sub">Student identification</div>
+      <div class="sub">Your official student identification</div>
     </div>
   </div>
 </section>
@@ -21,6 +23,21 @@
   </div>
 </section>
 
+<section class="panel" id="si-lost-panel" style="display:none;">
+  <div class="panel-head"><h3>🔍 Lost Card Lookup</h3></div>
+  <div class="panel-body">
+    <p class="muted small" style="margin-top:0;">
+      If this card is lost, anyone can scan the barcode or visit the URL below to reach the owner's department.
+    </p>
+    <div class="form-group">
+      <label>Public Lookup URL</label>
+      <input type="text" id="si-lookup-url" readonly style="width:100%;max-width:560px;" />
+    </div>
+    <a class="btn btn-outline btn-sm" id="si-open-lookup" target="_blank">Open Lookup Page</a>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script>
 (function () {
   'use strict';
@@ -31,49 +48,92 @@
   async function load() {
     const box = $('si-card');
     if (!box) return;
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    box.innerHTML = '<div class="loading" style="text-align:center;padding:2rem;"><span class="spinner"></span> Loading…</div>';
+
     try {
       const res = await core.portalFetch('/api/student/id-card');
       const d = res.data || res || {};
+      const inst = d.institution || {};
 
       box.innerHTML = `
-        <div style="max-width:520px;margin:0 auto;background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:1.5rem;color:#fff;box-shadow:0 12px 32px rgba(6,95,70,.25);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.75rem;">
-            <div>
-              <strong style="font-size:15px;">FEDERAL POLYTECHNIC UGEP</strong>
-              <div style="font-size:11px;opacity:.8;">${esc(d.institution?.motto || 'Citadel of Technical Excellence')}</div>
+        <div style="max-width:600px;margin:0 auto;">
+          <!-- FRONT -->
+          <div style="background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:1.5rem;color:#fff;box-shadow:0 12px 32px rgba(6,95,70,.25);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.75rem;">
+              <div>
+                <strong style="font-size:15px;">${esc(inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase()}</strong>
+                <div style="font-size:11px;opacity:.8;">${esc(inst.motto || 'Citadel of Technical Excellence')}</div>
+              </div>
+              <div style="font-size:11px;opacity:.8;text-align:right;">
+                <div>Student ID</div>
+                <div>${esc(d.session || '—')}</div>
+              </div>
             </div>
-            <div style="font-size:11px;opacity:.8;text-align:right;">
-              <div>Student ID</div>
-              <div>${esc(d.session || '—')}</div>
+
+            <div style="display:flex;gap:1rem;align-items:center;">
+              <div style="width:100px;height:120px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                ${d.photoUrl
+                  ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" onerror="this.replaceWith(document.createTextNode('👤'))" />`
+                  : '<span style="font-size:2.5rem;">👤</span>'}
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:1.1rem;font-weight:700;">${esc((d.firstName||'') + ' ' + (d.middleName||'') + ' ' + (d.lastName||'')).trim()}</div>
+                <div style="font-size:12px;opacity:.85;margin-top:.25rem;">${esc(d.matricNumber || '—')}</div>
+                <div style="font-size:12px;opacity:.85;margin-top:.5rem;">
+                  <div><strong>Programme:</strong> ${esc(d.programmeName || d.programme?.name || '—')}</div>
+                  <div><strong>Department:</strong> ${esc(d.departmentName || d.department?.name || '—')}</div>
+                  <div><strong>Level:</strong> ${esc(d.level || '—')}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);text-align:center;">
+              <svg id="si-barcode" style="background:#fff;padding:.5rem;border-radius:4px;max-width:100%;"></svg>
             </div>
           </div>
 
-          <div style="display:flex;gap:1rem;align-items:center;">
-            <div style="width:90px;height:110px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-              ${d.photoUrl
-                ? `<img src="${esc(d.photoUrl)}" style="width:100%;height:100%;object-fit:cover;" />`
-                : '<span style="font-size:2rem;">👤</span>'}
-            </div>
-            <div style="flex:1;">
-              <div style="font-size:1.1rem;font-weight:700;">${esc((d.firstName||'') + ' ' + (d.lastName||''))}</div>
-              <div style="font-size:12px;opacity:.85;margin-top:.25rem;">${esc(d.matricNumber || '—')}</div>
-              <div style="font-size:12px;opacity:.85;margin-top:.5rem;">
-                <div>${esc(d.programme?.name || d.programme || '—')}</div>
-                <div>${esc(d.department?.name || d.department || '—')}</div>
-                <div>Level: ${esc(d.level || '—')}</div>
+          <!-- LOST-FOUND INSTRUCTIONS -->
+          <div style="margin-top:1rem;padding:1rem;background:#f9fafb;border-radius:12px;border-left:4px solid #065f46;">
+            <strong style="font-size:13px;">📞 If found, please contact:</strong>
+            <div style="font-size:12.5px;margin-top:.5rem;line-height:1.7;">
+              <div><strong>${esc(inst.name || 'Federal Polytechnic Ugep')}</strong></div>
+              <div>${esc(inst.address || 'Ugep, Cross River State, Nigeria')}</div>
+              <div>📧 ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
+              <div>📞 ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
+              <div style="margin-top:.5rem;">🌐 ${esc(inst.website || 'https://fedpolyugep.edu.ng')}</div>
+              <div style="margin-top:.5rem;padding:.5rem;background:#fff;border-radius:6px;font-size:11.5px;">
+                <strong>Verify at:</strong> ${esc(d.lookupUrl || '—')}
               </div>
             </div>
           </div>
-
-          <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);font-size:10px;opacity:.7;text-align:center;">
-            Valid for the current academic session. If found, please return to the Registry.
-          </div>
         </div>
       `;
+
+      // Generate barcode
+      if (typeof JsBarcode !== 'undefined' && d.barcodeData) {
+        try {
+          JsBarcode('#si-barcode', d.barcodeData, {
+            format: 'CODE128',
+            width: 2,
+            height: 60,
+            displayValue: true,
+            fontSize: 14,
+            margin: 4,
+          });
+        } catch (e) {
+          console.warn('[id-card] barcode error:', e);
+        }
+      }
+
+      // Update lost panel
+      if (d.lookupUrl) {
+        $('si-lost-panel').style.display = 'block';
+        $('si-lookup-url').value = d.lookupUrl;
+        $('si-open-lookup').href = d.lookupUrl;
+      }
     } catch (err) {
       console.warn('[student-id-card]', err.message);
-      box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load ID card.</p>';
+      box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load ID card. Please try again.</p>';
     }
   }
 

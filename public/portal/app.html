@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -42,11 +42,31 @@
       <button class="icon-btn" title="Messages" onclick="FPU_SPA.navigatePortal('portal-messages')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
       </button>
-      <div class="user-chip" onclick="FPU_SPA.navigatePortal('portal-profile')">
-        <div class="avatar" id="topbar-avatar">U</div>
-        <div>
-          <div class="name" id="topbar-name">User</div>
-          <div class="role" id="topbar-role">student</div>
+      <div class="user-chip-wrap" id="topbar-user-wrap">
+        <button class="user-chip" id="topbar-user-chip" type="button" aria-haspopup="menu" aria-expanded="false">
+          <div class="avatar" id="topbar-avatar">U</div>
+          <div>
+            <div class="name" id="topbar-name">User</div>
+            <div class="role" id="topbar-role">student</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="user-menu" id="topbar-user-menu" role="menu" hidden>
+          <div class="user-menu-header">
+            <div class="avatar" id="user-menu-avatar">U</div>
+            <div>
+              <div class="name" id="user-menu-name">User</div>
+              <div class="email" id="user-menu-email">user@example.com</div>
+            </div>
+          </div>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item" role="menuitem" data-menu="profile">👤 My Profile</button>
+          <button class="user-menu-item" role="menuitem" data-menu="photo">📷 My Photo</button>
+          <button class="user-menu-item" role="menuitem" data-menu="password">🔒 Change Password</button>
+          <button class="user-menu-item" role="menuitem" data-menu="notifications">🔔 Notifications</button>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item user-menu-danger" role="menuitem" data-menu="logout">🚪 Sign Out</button>
         </div>
       </div>
       <button class="icon-btn" title="Sign out" id="topbar-logout">

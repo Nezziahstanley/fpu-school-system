@@ -444,6 +444,80 @@
   // ----------------------------------------------------------
   // Boot
   // ----------------------------------------------------------
+  // ----------------------------------------------------------
+  // Profile dropdown (topbar avatar)
+  // ----------------------------------------------------------
+  function initUserDropdown() {
+    const chip = document.getElementById('topbar-user-chip');
+    const menu = document.getElementById('topbar-user-menu');
+    if (!chip || !menu) return;
+
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+
+    // Populate header
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set('user-menu-name', user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user.email || 'User'));
+    set('user-menu-email', user.email || '');
+
+    // Populate avatars
+    ['user-menu-avatar', 'topbar-avatar'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+        window.FPU_PHOTO.renderMyAvatar(el, user);
+      } else {
+        el.textContent = (user.firstName || 'U')[0].toUpperCase();
+      }
+    });
+
+    // Toggle
+    function closeMenu() {
+      menu.hidden = true;
+      chip.setAttribute('aria-expanded', 'false');
+    }
+    function openMenu() {
+      menu.hidden = false;
+      chip.setAttribute('aria-expanded', 'true');
+    }
+
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menu.hidden) openMenu(); else closeMenu();
+    });
+
+    // Click outside closes
+    document.addEventListener('click', (e) => {
+      if (!menu.hidden && !menu.contains(e.target) && !chip.contains(e.target)) closeMenu();
+    });
+
+    // Escape closes
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !menu.hidden) closeMenu();
+    });
+
+    // Menu item clicks
+    menu.querySelectorAll('[data-menu]').forEach((item) => {
+      item.addEventListener('click', () => {
+        closeMenu();
+        const action = item.dataset.menu;
+        if (action === 'profile')        navigatePortal('portal-profile');
+        if (action === 'photo')          navigatePortal('portal-photo');
+        if (action === 'notifications')  navigatePortal('portal-notifications');
+        if (action === 'password') {
+          // Go to profile then auto-switch to password tab
+          navigatePortal('portal-profile');
+          setTimeout(() => {
+            const pwTab = document.querySelector('[data-tab="password"]');
+            if (pwTab) pwTab.click();
+          }, 400);
+        }
+        if (action === 'logout') {
+          if (confirm('Sign out of your account?')) core.portalLogout && core.portalLogout();
+        }
+      });
+    });
+  }
+
   function initPortalSPA() {
     const user = core.requirePortalAuth && core.requirePortalAuth();
     if (!user) return;
@@ -471,6 +545,9 @@
     // Sidebar toggle + logout
     const toggle = document.getElementById('sidebar-toggle');
     if (toggle) toggle.addEventListener('click', () => core.toggleSidebar && core.toggleSidebar());
+// Init the profile dropdown (topbar avatar)
+    initUserDropdown();
+
     const logoutBtn = document.getElementById('topbar-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', () => core.portalLogout && core.portalLogout());
 

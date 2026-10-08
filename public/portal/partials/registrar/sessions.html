@@ -107,12 +107,16 @@
   }
   function fmtDate(d) {
     if (!d) return '—';
-    try { return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-    catch { return '—'; }
+    try {
+      return new Date(d).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      });
+    } catch { return '—'; }
   }
   function duration(start, end) {
     if (!start || !end) return '—';
     const ms = new Date(end) - new Date(start);
+    if (isNaN(ms)) return '—';
     const days = Math.round(ms / (1000 * 60 * 60 * 24));
     if (days < 30) return `${days} days`;
     const months = Math.round(days / 30);
@@ -121,24 +125,25 @@
   }
 
   // ---------------------------------------------------------
-  // Status — DATE FIRST, fall back to isCurrent flag
-  // This makes the UI resilient to stale is_current values.
+  // Status — pure date-based, with isCurrent fallback
+  // ---------------------------------------------------------
+  // Dates are the source of truth. The DB flag is used only
+  // when a session has no dates at all.
   // ---------------------------------------------------------
   function getStatus(s) {
     const now = new Date();
-    const start = getStart(s) ? new Date(getStart(s)) : null;
-    const end   = getEnd(s)   ? new Date(getEnd(s))   : null;
+    const startRaw = getStart(s);
+    const endRaw = getEnd(s);
+    const start = startRaw ? new Date(startRaw) : null;
+    const end   = endRaw   ? new Date(endRaw)   : null;
 
-    // Dates take priority
-    if (start && start > now) return 'upcoming';   // hasn't started yet
-    if (end && end < now)     return 'past';       // already ended
-
-    // Within [start, end] — trust the isCurrent flag to decide current vs past
-    if (start && end) {
-      return isCurrent(s) ? 'current' : 'past';
+    if (start && end && !isNaN(start) && !isNaN(end)) {
+      if (now < start) return 'upcoming';
+      if (now > end)   return 'past';
+      return 'current';
     }
 
-    // No dates — fall back to isCurrent flag
+    // No usable dates — trust the flag
     return isCurrent(s) ? 'current' : 'past';
   }
 
@@ -161,16 +166,14 @@
       return;
     }
 
-    $('rs2-tbody').innerHTML = FILTERED.map((s) => {
-      return `
-        <tr>
-          <td><strong>${esc(getName(s))}</strong></td>
-          <td>${esc(fmtDate(getStart(s)))}</td>
-          <td>${esc(fmtDate(getEnd(s)))}</td>
-          <td>${esc(duration(getStart(s), getEnd(s)))}</td>
-          <td>${statusBadge(s)}</td>
-        </tr>`;
-    }).join('');
+    $('rs2-tbody').innerHTML = FILTERED.map((s) => `
+      <tr>
+        <td><strong>${esc(getName(s))}</strong></td>
+        <td>${esc(fmtDate(getStart(s)))}</td>
+        <td>${esc(fmtDate(getEnd(s)))}</td>
+        <td>${esc(duration(getStart(s), getEnd(s)))}</td>
+        <td>${statusBadge(s)}</td>
+      </tr>`).join('');
   }
 
   // ---------------------------------------------------------
@@ -232,7 +235,9 @@
       const res = await core.portalFetch('/api/sessions');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
+
       console.log('[registrar-sessions] Loaded', ALL.length, 'sessions');
+      console.log('[registrar-sessions] Today:', new Date().toISOString().slice(0, 10));
       console.table(ALL.map((s) => ({
         name: getName(s),
         start: fmtDate(getStart(s)),
@@ -240,6 +245,7 @@
         isCurrent: isCurrent(s),
         status: getStatus(s),
       })));
+
       updateStats();
       renderCurrentPanel();
       applyFilter();

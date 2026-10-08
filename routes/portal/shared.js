@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Shared portal API (works for any authenticated user)
 // Mounted at /api/portal
 // ------------------------------------------------------------
@@ -30,43 +30,13 @@ const { photoUploads } = schema;
 // ============================================================
 // GET /api/portal/profile
 // ============================================================
-router.get('/profile', requireUser, async (req, res, next) => {
-  try {
-    const user = await userQueries.findByIdWithRelations(req.user.id);
-    return res.json({ success: true, data: user });
-  } catch (err) { return next(err); }
-});
 
-// ============================================================
-// PUT /api/portal/profile
-// Tight mass-assignment blocklist.
-// ============================================================
-router.put('/profile', requireUser, async (req, res, next) => {
-  try {
-    const patch = { ...req.body };
-    // Protected fields — never editable via this endpoint
-    delete patch.role;
-    delete patch.password;
-    delete patch.passwordHash;
-    delete patch.email;
-    delete patch.matricNumber;
-    delete patch.departmentId;
-    delete patch.programmeId;
-    delete patch.schoolId;
-    delete patch.isActive;
-    delete patch.mustChangePassword;
-    delete patch.level;
-    delete patch.currentSessionId;
+// ------------------------------------------------------------
+// NOTE: /profile GET and PUT were removed from this file.
+// They are now handled by routes/portal/profile.js which is
+// mounted at /api/portal (and provides PATCH + password change).
+// ------------------------------------------------------------
 
-    const updated = await userQueries.update(req.user.id, patch);
-    await logAudit({ req, action: 'portal.profile_update', entity: 'user', entityId: req.user.id, after: patch });
-    return res.json({ success: true, data: updated });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// POST /api/portal/change-password
-// ============================================================
 router.post('/change-password', requireUser, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body || {};

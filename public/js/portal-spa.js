@@ -74,10 +74,8 @@
     lecturer: [
       // Personal
       'portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements',
-      // Staff-relevant references
-      'admin-courses', 'admin-exams', 'admin-documents', 'admin-transcript',
-      // Support
-      'portal-complaints', 'portal-security',
+      // Staff-relevant reference (read-only exam list)
+      'admin-exams',
     ],
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',
@@ -140,14 +138,12 @@
     },
     lecturer: (role, roleItems, sharedItems) => {
       const personalKeys = ['portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements'];
-      const referenceKeys = ['admin-courses', 'admin-exams', 'admin-documents', 'admin-transcript'];
-      const supportKeys = ['portal-complaints', 'portal-security'];
+      const referenceKeys = ['admin-exams'];
 
       return [
         { title: 'Main',       items: roleItems },
         { title: 'Personal',   items: sharedItems.filter((p) => personalKeys.includes(p.key)) },
         { title: 'References', items: sharedItems.filter((p) => referenceKeys.includes(p.key)) },
-        { title: 'Support',    items: sharedItems.filter((p) => supportKeys.includes(p.key)) },
       ];
     },
     default: (role, roleItems, sharedItems) => [

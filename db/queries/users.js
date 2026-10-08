@@ -11,15 +11,15 @@ const { db, schema, sql } = require('..');
 const { eq, and, or, ilike, inArray, desc, asc, isNull } = require('drizzle-orm');
 const { users, departments, programmes, schools } = schema;
 
-// ------------------------------------------------------------
-// Safe select — never leaks password_hash
-// ------------------------------------------------------------
-// IMPORTANT: This includes joined columns from programmes,
-// departments, and schools (as flat aliases). Whenever a
-// query uses .leftJoin(), these aliases will populate the row.
-// ------------------------------------------------------------
-const SAFE_COLS = {
-  // ---- users table ----
+// ============================================================
+// SAFE SELECT MAPS
+// ============================================================
+// Two versions so every query only references tables it actually joins.
+//   SAFE_COLS_BASE → users + programmes + departments (no schools)
+//   SAFE_COLS_FULL → users + programmes + departments + schools
+// ============================================================
+
+const USER_FIELDS = {
   id: users.id,
   email: users.email,
   role: users.role,
@@ -44,24 +44,26 @@ const SAFE_COLS = {
   lastLoginAt: users.lastLoginAt,
   createdAt: users.createdAt,
   updatedAt: users.updatedAt,
+};
 
-  // ---- joined: programmes ----
+// Used by: list, listStaff, listStudents  (join: programmes + departments)
+const SAFE_COLS = {
+  ...USER_FIELDS,
   programmeName: programmes.name,
   programmeCode: programmes.code,
-
-  // ---- joined: departments ----
   departmentName: departments.name,
   departmentCode: departments.code,
+};
 
-  // ---- joined: schools ----
+// Used by: findById, findByEmail  (join: programmes + departments + schools)
+const SAFE_COLS_FULL = {
+  ...SAFE_COLS,
   schoolName: schools.name,
 };
 
 // ------------------------------------------------------------
 // Helper: normalize a row from a join query.
-// Drizzle may return nested objects ({ users: {...}, programmes: {...} })
-// OR already-flat rows (when SAFE_COLS aliases the joined fields).
-// This handles both shapes.
+// Handles both flat and nested Drizzle results.
 // ------------------------------------------------------------
 function unwrapJoin(row) {
   if (!row) return null;
@@ -73,8 +75,6 @@ function unwrapJoin(row) {
 
   return {
     ...base,
-    // Prefer explicitly-aliased columns if present, else fall back
-    // to the joined object's fields.
     departmentName: base.departmentName || dept.name || null,
     departmentCode: base.departmentCode || dept.code || null,
     programmeName:  base.programmeName  || prog.name || null,
@@ -88,25 +88,30 @@ function unwrapJoin(row) {
 // ============================================================
 
 // ------------------------------------------------------------
-// findById — full user with department/programme/school names
+// findById — full user, includes school join
 // ------------------------------------------------------------
 async function findById(id) {
   if (!id) return null;
   const rows = await db
-    .select()
+    .select(SAFE_COLS_FULL)
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(schools, eq(users.schoolId, schools.id))
     .where(eq(users.id, Number(id)))
     .limit(1);
 
   if (!rows.length) return null;
-  return unwrapJoin(rows[0]);
+
+  // SAFE_COLS_FULL already flattens names, so no unwrap needed
+  return rows[0];
 }
 
 // ------------------------------------------------------------
-// findByEmail — includes passwordHash (login) + joined names
+// findByEmail — for login; includes passwordHash
+// ------------------------------------------------------------
+// NOTE: passwordHash is NOT in SAFE_COLS_FULL, so we select
+// everything with .select() and then join manually.
 // ------------------------------------------------------------
 async function findByEmail(email) {
   if (!email) return null;
@@ -141,7 +146,7 @@ async function emailExists(email, exceptId = null) {
 // ============================================================
 
 // ------------------------------------------------------------
-// list — paginated user list with filters
+// list — paginated user list (joins programmes + departments)
 // ------------------------------------------------------------
 async function list({
   role, departmentId, schoolId, programmeId, level, search, isActive,
@@ -179,26 +184,24 @@ async function list({
 }
 
 // ------------------------------------------------------------
-// listStaff — all non-student users (with dept + prog names)
+// listStaff — non-students (joins programmes + departments)
 // ------------------------------------------------------------
 async function listStaff({ departmentId, role } = {}) {
   const conds = [sql`${users.role} <> 'student'`];
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
   if (role) conds.push(eq(users.role, role));
 
-  const rows = await db
+  return db
     .select(SAFE_COLS)
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(and(...conds))
     .orderBy(asc(users.firstName), asc(users.lastName));
-
-  return rows.map((r) => unwrapJoin(r));
 }
 
 // ------------------------------------------------------------
-// listStudents — only students (with programme + dept names)
+// listStudents — students only (joins programmes + departments)
 // ------------------------------------------------------------
 async function listStudents({ departmentId, programmeId, level, sessionId } = {}) {
   const conds = [eq(users.role, 'student')];
@@ -207,15 +210,13 @@ async function listStudents({ departmentId, programmeId, level, sessionId } = {}
   if (level) conds.push(eq(users.level, level));
   if (sessionId) conds.push(eq(users.currentSessionId, Number(sessionId)));
 
-  const rows = await db
+  return db
     .select(SAFE_COLS)
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(and(...conds))
     .orderBy(asc(users.lastName), asc(users.firstName));
-
-  return rows.map((r) => unwrapJoin(r));
 }
 
 // ------------------------------------------------------------
@@ -241,7 +242,7 @@ async function count({ role, departmentId, schoolId, programmeId, level, isActiv
 // ============================================================
 
 // ------------------------------------------------------------
-// create — insert a new user
+// create
 // ------------------------------------------------------------
 async function create(payload) {
   const [row] = await db
@@ -290,7 +291,6 @@ async function update(id, patch) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   }
 
-  // Numeric casts
   if (clean.programmeId !== undefined) clean.programmeId = clean.programmeId ? Number(clean.programmeId) : null;
   if (clean.departmentId !== undefined) clean.departmentId = clean.departmentId ? Number(clean.departmentId) : null;
   if (clean.schoolId !== undefined) clean.schoolId = clean.schoolId ? Number(clean.schoolId) : null;
@@ -330,7 +330,7 @@ async function remove(id) {
 }
 
 // ------------------------------------------------------------
-// touchLogin — update lastLoginAt
+// touchLogin
 // ------------------------------------------------------------
 async function touchLogin(id) {
   try {
@@ -358,4 +358,5 @@ module.exports = {
   remove,
   touchLogin,
   SAFE_COLS,
+  SAFE_COLS_FULL,
 };

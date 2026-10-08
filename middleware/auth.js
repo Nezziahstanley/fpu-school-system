@@ -74,11 +74,11 @@ async function attachUser(req) {
 }
 
 // ------------------------------------------------------------
-// HOD / Lecturer auto-scope helper
+// HOD / Lecturer auto-scope
 // ------------------------------------------------------------
-// After req.user is loaded, if the role is department-scoped,
-// force req.query.departmentId to the user's own department.
-// This ensures HODs and Lecturers only ever see their own dept.
+// After req.user is loaded, force req.query.departmentId to the
+// user's own department for GET requests. Ensures HODs and
+// Lecturers only ever see their own department's data.
 // ------------------------------------------------------------
 function applyDepartmentScope(req) {
   if (!req.user) return;
@@ -88,7 +88,7 @@ function applyDepartmentScope(req) {
 
   if (!SCOPE_ROLES.includes(role)) return;
 
-  // Only scope read operations so writes aren't silently redirected
+  // Only scope read operations
   if (req.method !== 'GET') return;
 
   const deptId = req.user.departmentId || req.user.department_id;
@@ -162,8 +162,7 @@ async function requireAdmin(req, res, next) {
 }
 
 // ============================================================
-// optionalUser — attaches req.user if a valid token is present,
-// otherwise continues as anonymous. Never 401s.
+// optionalUser — attaches req.user if valid token, else continues
 // ============================================================
 async function optionalUser(req, _res, next) {
   try {
@@ -200,6 +199,7 @@ module.exports = {
   requireRole,
   requireAdmin,
   optionalUser,
+  applyDepartmentScope,
   PRINCIPAL_ROLES,
   STAFF_ROLES,
 };

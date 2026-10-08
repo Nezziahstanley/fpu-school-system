@@ -12,7 +12,7 @@ const notifQueries = require('../db/queries/notifications');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-const STAFF = ['admin', 'registrar', 'rector', 'hod', 'bursar', 'librarian', 'exam_officer', 'academic_officer'];
+const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'lecturer', 'hod', 'bursar', 'librarian', 'exam_officer', 'admission_officer'];
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {

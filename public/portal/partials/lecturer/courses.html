@@ -13,15 +13,13 @@
   <input type="search" id="lc-search" placeholder="Search course code or title…" />
   <select id="lc-level">
     <option value="">All Levels</option>
-    <option value="ND1">ND1</option>
-    <option value="ND2">ND2</option>
-    <option value="HND1">HND1</option>
-    <option value="HND2">HND2</option>
+    <option value="ND">ND</option>
+    <option value="HND">HND</option>
   </select>
   <select id="lc-semester">
     <option value="">All Semesters</option>
-    <option value="First">First</option>
-    <option value="Second">Second</option>
+    <option value="first">First</option>
+    <option value="second">Second</option>
   </select>
   <button class="btn btn-outline btn-sm" id="lc-refresh">Refresh</button>
   <button class="btn btn-outline btn-sm" id="lc-export">Export CSV</button>
@@ -35,21 +33,13 @@
 </div>
 
 <section class="panel">
-  <div class="panel-head">
-    <h3>Courses</h3>
-    <span class="badge" id="lc-count">0</span>
-  </div>
+  <div class="panel-head"><h3>Courses</h3><span class="badge" id="lc-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Code</th>
-            <th>Title</th>
-            <th>Level</th>
-            <th>Units</th>
-            <th>Semester</th>
-            <th>Session</th>
+            <th>Code</th><th>Title</th><th>Level</th><th>Units</th><th>Semester</th><th>Session</th>
           </tr>
         </thead>
         <tbody id="lc-tbody">
@@ -106,7 +96,7 @@
       const hay = `${c.code} ${c.title} ${c.sessionName}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (lvl && getLevel(c) !== lvl) return false;
-      if (sem && c.semester !== sem) return false;
+      if (sem && String(c.semester).toLowerCase() !== sem) return false;
       return true;
     });
     render();
@@ -114,8 +104,8 @@
 
   function updateStats() {
     setText('lc-total', ALL.length);
-    setText('lc-nd', ALL.filter((c) => getLevel(c).startsWith('ND')).length);
-    setText('lc-hnd', ALL.filter((c) => getLevel(c).startsWith('HND')).length);
+    setText('lc-nd', ALL.filter((c) => getLevel(c) === 'ND').length);
+    setText('lc-hnd', ALL.filter((c) => getLevel(c) === 'HND').length);
     setText('lc-units', ALL.reduce((s, c) => s + Number(c.units || 0), 0));
   }
 
@@ -126,12 +116,14 @@
       const res = await core.portalFetch('/api/allocations/my');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
+
       ALL = raw.map((r) => {
         const alloc = r.allocation || r;
         const crs = r.course || r;
         const ses = r.session || {};
         return {
           id: alloc.id,
+          courseId: alloc.courseId || crs.id,
           code: crs.code || alloc.courseCode || '—',
           title: crs.title || alloc.courseTitle || '—',
           level: crs.level || alloc.level || '—',
@@ -140,6 +132,7 @@
           sessionName: ses.name || alloc.sessionName || '—',
         };
       });
+
       console.log('[lecturer-courses] Loaded', ALL.length);
       updateStats();
       applyFilter();

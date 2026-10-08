@@ -14,7 +14,7 @@ const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
 const { documents, users } = schema;
-const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'bursar'];
+const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'bursar', 'lecturer', 'hod'];
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {

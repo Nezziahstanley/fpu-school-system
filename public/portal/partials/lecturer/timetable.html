@@ -31,21 +31,13 @@
 </div>
 
 <section class="panel">
-  <div class="panel-head">
-    <h3>Weekly Schedule</h3>
-    <span class="badge" id="lt-count">0</span>
-  </div>
+  <div class="panel-head"><h3>Weekly Schedule</h3><span class="badge" id="lt-count">0</span></div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Day</th>
-            <th>Time</th>
-            <th>Course</th>
-            <th>Venue</th>
-            <th>Level</th>
-            <th>Semester</th>
+            <th>Day</th><th>Time</th><th>Course</th><th>Venue</th><th>Level</th><th>Semester</th>
           </tr>
         </thead>
         <tbody id="lt-tbody">
@@ -60,7 +52,6 @@
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
@@ -69,12 +60,15 @@
   const todayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
   let ALL = [], FILTERED = [];
+  let MY_COURSE_IDS = new Set();
 
+  // NOTE: response shape is { slot: {...}, course: {...}, lecturer: {...} }
   function unwrap(r) {
-    const t = r.timetable || r;
+    const t = r.slot || r.timetable || r;
     const crs = r.course || {};
     return {
       id: t.id,
+      courseId: t.courseId,
       day: t.dayOfWeek || t.day || '—',
       startTime: t.startTime || t.start_time || '',
       endTime: t.endTime || t.end_time || '',
@@ -108,7 +102,6 @@
       return;
     }
 
-    // Sort by day order, then start time
     const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
     FILTERED.sort((a, b) => {
       const d = (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
@@ -123,10 +116,7 @@
         <tr>
           <td><strong>${esc(t.day)}</strong></td>
           <td>${esc(getTimeLabel(t))}</td>
-          <td>
-            <strong>${esc(t.courseCode)}</strong>
-            ${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}
-          </td>
+          <td><strong>${esc(t.courseCode)}</strong>${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}</td>
           <td>${esc(t.venue)}</td>
           <td><span class="chip ${chipClass}">${esc(lvl || '—')}</span></td>
           <td>${esc(t.semester)}</td>
@@ -167,31 +157,30 @@
     if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
 
     try {
-      // Try to get timetable filtered to lecturer's courses
-      const res = await core.portalFetch('/api/timetable');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.timetable || []);
-
-      let list = raw.map(unwrap);
-
-      // Client-side filter: only show slots for courses the lecturer teaches
+      // First: get lecturer's assigned courses
       try {
         const allocRes = await core.portalFetch('/api/allocations/my');
         const allocPayload = allocRes.data || allocRes || {};
         const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
-        const myCodes = new Set(allocRaw.map((a) => {
+        MY_COURSE_IDS = new Set(allocRaw.map((a) => {
           const alloc = a.allocation || a;
-          const crs = a.course || {};
-          return crs.code || alloc.courseCode;
-        }).filter(Boolean));
+          return String(alloc.courseId);
+        }));
+      } catch (e) { console.warn('[timetable] allocations failed:', e.message); }
 
-        if (myCodes.size) {
-          list = list.filter((t) => myCodes.has(t.courseCode));
-        }
-      } catch (e) { console.warn('[timetable] allocations filter failed:', e.message); }
+      // Second: fetch all timetable slots
+      const res = await core.portalFetch('/api/timetable');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.timetable || []);
+
+      // Filter to only lecturer's courses (if we have allocations)
+      let list = raw.map(unwrap);
+      if (MY_COURSE_IDS.size) {
+        list = list.filter((t) => MY_COURSE_IDS.has(String(t.courseId)));
+      }
 
       ALL = list;
-      console.log('[lecturer-timetable] Loaded', ALL.length, 'from', raw.length, 'total slots');
+      console.log('[lecturer-timetable] Filtered to', ALL.length, 'slots (from', raw.length, 'total)');
       populateCourses();
       updateStats();
       applyFilter();

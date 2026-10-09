@@ -322,18 +322,43 @@ router.get('/materials', only, async (req, res, next) => {
 });
 // ============================================================
 // GET /api/student/assignments
+// ------------------------------------------------------------
+// Returns assignments for courses the student is registered
+// for, plus their submission (if any) and joined course code.
 // ============================================================
 router.get('/assignments', only, async (req, res, next) => {
   try {
-    const regs = await regQueries.list({ studentId: req.user.id, sessionId: req.query.sessionId, semester: req.query.semester });
+    const { courses } = schema;
+
+    const regs = await regQueries.list({
+      studentId: req.user.id,
+      sessionId: req.query.sessionId,
+      semester: req.query.semester,
+    });
     const courseIds = regs
       .filter((r) => ['pending', 'approved'].includes(r.status))
       .map((r) => r.courseId);
+
     if (!courseIds.length) return res.json({ success: true, data: [] });
 
     const assigns = await db
-      .select()
+      .select({
+        id: assignments.id,
+        courseId: assignments.courseId,
+        lecturerId: assignments.lecturerId,
+        sessionId: assignments.sessionId,
+        semester: assignments.semester,
+        title: assignments.title,
+        description: assignments.description,
+        dueDate: assignments.dueDate,
+        maxScore: assignments.maxScore,
+        attachmentUrl: assignments.attachmentUrl,
+        createdAt: assignments.createdAt,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+      })
       .from(assignments)
+      .leftJoin(courses, eq(courses.id, assignments.courseId))
       .where(inArray(assignments.courseId, courseIds))
       .orderBy(desc(assignments.createdAt));
 
@@ -342,7 +367,10 @@ router.get('/assignments', only, async (req, res, next) => {
       ? await db
           .select()
           .from(assignmentSubmissions)
-          .where(and(eq(assignmentSubmissions.studentId, req.user.id), inArray(assignmentSubmissions.assignmentId, assignIds)))
+          .where(and(
+            eq(assignmentSubmissions.studentId, req.user.id),
+            inArray(assignmentSubmissions.assignmentId, assignIds)
+          ))
       : [];
     const subMap = new Map(subs.map((s) => [s.assignmentId, s]));
 
@@ -352,10 +380,10 @@ router.get('/assignments', only, async (req, res, next) => {
     }));
     return res.json({ success: true, data });
   } catch (err) {
+    console.error('[student/assignments]', err);
     return next(err);
   }
 });
-
 // ============================================================
 // POST /api/student/assignments/:id/submit
 // ============================================================

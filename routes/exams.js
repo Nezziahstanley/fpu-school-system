@@ -12,7 +12,7 @@ const examQueries = require('../db/queries/exams');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-const STAFF = ['admin', 'registrar', 'exam_officer', 'academic_officer', 'hod', 'lecturer'];
+const STAFF = ['admin', 'registrar', 'exam_officer', 'academic_officer', 'hod', 'lecturer', 'rector', 'librarian'];
 
 // ---------------- Schedules ----------------
 router.get('/', requireRole(STAFF), async (req, res, next) => {

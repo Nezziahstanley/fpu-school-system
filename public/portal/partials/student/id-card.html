@@ -42,7 +42,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // Print-only CSS (CR80 size: 85.6mm × 54mm)
+  // ---- Print CSS: exact CR80 (85.6 × 54 mm) ----
   if (!document.getElementById('si-print-style')) {
     const style = document.createElement('style');
     style.id = 'si-print-style';
@@ -52,7 +52,7 @@
         body * { visibility: hidden; }
         #si-card, #si-card * { visibility: visible; }
         #si-card { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-        .filter-bar, .greeting, .panel-head { display: none !important; }
+        .filter-bar, .greeting, .panel-head, #si-lost-panel { display: none !important; }
         #si-card > div > div:first-child {
           width: 85.6mm;
           height: 54mm;
@@ -76,6 +76,14 @@
       const d = res.data || res || {};
       const inst = d.institution || {};
 
+      // Prefer local logo, fall back to remote, fall back to emoji
+      const logoHtml = `
+        <img src="/images/logo.png"
+             alt="Logo"
+             style="width:36px;height:36px;object-fit:contain;border-radius:50%;background:#fff;padding:2px;"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:26px;line-height:1;'}))" />
+      `;
+
       const initials = ((d.firstName || '?')[0] + (d.lastName || '?')[0]).toUpperCase();
       const fullName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ').trim();
 
@@ -91,7 +99,7 @@
       box.innerHTML = `
         <div style="max-width:640px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
 
-          <!-- ═══════════ CARD (CR80 aspect: 600×378) ═══════════ -->
+          <!-- ═══════════ ID CARD (CR80 600×378) ═══════════ -->
           <div style="
             display:flex;
             background:#fff;
@@ -107,7 +115,7 @@
 
             <!-- VERTICAL STRIP -->
             <div style="
-              width:36px;
+              width:34px;
               background:linear-gradient(180deg,#065f46 0%,#047857 100%);
               display:flex;
               align-items:center;
@@ -119,43 +127,49 @@
                 white-space:nowrap;
                 color:#fff;
                 font-weight:800;
-                letter-spacing:.3em;
-                font-size:10px;
+                letter-spacing:.28em;
+                font-size:9.5px;
               ">STUDENT ID</div>
             </div>
 
             <!-- MAIN BODY -->
             <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
 
-              <!-- HEADER BAND -->
+              <!-- HEADER with logo on the LEFT -->
               <div style="
                 background:linear-gradient(90deg,#065f46,#047857);
                 color:#fff;
-                padding:.5rem .85rem;
+                padding:.5rem .8rem;
                 display:flex;
                 align-items:center;
-                justify-content:space-between;
+                gap:.65rem;
               ">
-                <div>
-                  <div style="font-weight:800;font-size:11.5px;letter-spacing:.03em;">
+                <!-- LOGO -->
+                <div style="flex-shrink:0;">${logoHtml}</div>
+
+                <!-- INSTITUTION NAME -->
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:800;font-size:11.5px;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                     ${esc((inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase())}
                   </div>
-                  <div style="font-size:9px;opacity:.85;letter-spacing:.05em;">
+                  <div style="font-size:8.5px;opacity:.85;letter-spacing:.05em;">
                     ${esc(inst.motto || 'Citadel of Technical Excellence')}
                   </div>
                 </div>
-                <div style="text-align:right;font-size:9px;opacity:.9;">
+
+                <!-- SESSION -->
+                <div style="text-align:right;font-size:9px;opacity:.9;flex-shrink:0;">
                   <div style="letter-spacing:.05em;">SESSION</div>
-                  <div style="font-weight:700;font-size:11px;">${esc(d.session || '—')}</div>
+                  <div style="font-weight:700;font-size:10.5px;">${esc(d.session || '—')}</div>
                 </div>
               </div>
 
-              <!-- PHOTO + INFO + QR -->
-              <div style="flex:1;display:flex;gap:.75rem;padding:.75rem;">
+              <!-- BODY: photo left, details middle, QR right -->
+              <div style="flex:1;display:flex;gap:.65rem;padding:.65rem;">
 
                 <!-- PHOTO -->
                 <div style="
-                  width:100px;height:125px;
+                  width:96px;height:120px;
                   background:#f1f5f9;
                   border-radius:8px;
                   border:2px solid #e2e8f0;
@@ -166,29 +180,27 @@
                   ${photo}
                 </div>
 
-                <!-- DETAILS -->
-                <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;min-width:0;">
+                <!-- DETAILS — natural flow, no forced spacing -->
+                <div style="flex:1;min-width:0;padding-top:.15rem;">
 
-                  <div>
-                    <div style="font-size:1.05rem;font-weight:800;color:#0f172a;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                      ${esc(fullName)}
-                    </div>
-                    <div style="font-size:10.5px;color:#065f46;font-weight:600;margin-top:.15rem;font-family:ui-monospace,monospace;">
-                      ${esc(d.matricNumber || '—')}
-                    </div>
+                  <div style="font-size:1rem;font-weight:800;color:#0f172a;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    ${esc(fullName)}
+                  </div>
+                  <div style="font-size:10px;color:#065f46;font-weight:600;margin-top:.15rem;font-family:ui-monospace,monospace;">
+                    ${esc(d.matricNumber || '—')}
                   </div>
 
-                  <div style="margin-top:.5rem;font-size:11px;color:#334155;line-height:1.55;">
+                  <div style="margin-top:.55rem;font-size:10.5px;color:#334155;line-height:1.5;">
                     <div style="display:flex;gap:.4rem;">
-                      <span style="color:#64748b;min-width:74px;">Programme</span>
+                      <span style="color:#64748b;min-width:68px;">Programme</span>
                       <strong style="color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.programmeName || '—')}</strong>
                     </div>
                     <div style="display:flex;gap:.4rem;">
-                      <span style="color:#64748b;min-width:74px;">Department</span>
+                      <span style="color:#64748b;min-width:68px;">Department</span>
                       <strong style="color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</strong>
                     </div>
                     <div style="display:flex;gap:.4rem;">
-                      <span style="color:#64748b;min-width:74px;">Level</span>
+                      <span style="color:#64748b;min-width:68px;">Level</span>
                       <strong style="color:#0f172a;">${esc(d.levelDisplay || d.level || '—')}</strong>
                     </div>
                   </div>
@@ -198,15 +210,15 @@
                 <!-- QR -->
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
                   <div style="
-                    width:88px;height:88px;
-                    padding:4px;
+                    width:80px;height:80px;
+                    padding:3px;
                     background:#fff;
                     border:1px solid #e2e8f0;
                     border-radius:6px;
                   ">
                     ${qrImg}
                   </div>
-                  <div style="font-size:7.5px;color:#64748b;margin-top:.25rem;text-align:center;letter-spacing:.03em;font-weight:600;">
+                  <div style="font-size:7px;color:#64748b;margin-top:.2rem;text-align:center;letter-spacing:.03em;font-weight:600;">
                     SCAN TO<br/>VERIFY
                   </div>
                 </div>
@@ -217,20 +229,20 @@
 
           <!-- BACK / INSTRUCTIONS -->
           <div style="
-            margin-top:1rem;
-            padding:1rem 1.25rem;
+            margin-top:.85rem;
+            padding:.85rem 1rem;
             background:#f0fdf4;
             border:1px solid #bbf7d0;
             border-radius:12px;
-            font-size:12px;
+            font-size:11.5px;
             color:#14532d;
-            line-height:1.7;
+            line-height:1.55;
           ">
-            <div style="font-weight:800;font-size:12px;margin-bottom:.4rem;color:#065f46;">
+            <div style="font-weight:800;font-size:11.5px;margin-bottom:.35rem;color:#065f46;">
               📮 IF THIS CARD IS FOUND
             </div>
             <div>Please return it to <strong>${esc(inst.name || 'Federal Polytechnic Ugep')}</strong> or hand it to any staff member.</div>
-            <div style="margin-top:.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.25rem .75rem;">
+            <div style="margin-top:.4rem;display:grid;grid-template-columns:1fr 1fr;gap:.2rem .75rem;">
               <div><span style="color:#64748b;">📞 Phone</span> ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
               <div><span style="color:#64748b;">📧 Email</span> ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
               <div style="grid-column:1 / -1;"><span style="color:#64748b;">📍 Address</span> ${esc(inst.address || 'Ugep, Cross River State, Nigeria')}</div>

@@ -3,22 +3,22 @@
 
   <!-- HERO -->
   <div style="
-    background:linear-gradient(135deg,#7c2d12 0%,#c2410c 55%,#ea580c 100%);
+    background:linear-gradient(135deg,#065f46 0%,#047857 60%,#059669 100%);
     border-radius:16px;
     padding:1.5rem 1.75rem;
     color:#fff;
     margin-bottom:1.25rem;
     position:relative;
     overflow:hidden;
-    box-shadow:0 12px 32px rgba(194,65,12,.25);
+    box-shadow:0 12px 32px rgba(6,95,70,.25);
   ">
-    <div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08);"></div>
-    <div style="position:absolute;bottom:-40px;left:30%;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+    <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);"></div>
+    <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
 
     <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
       <div>
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
-          Examinations Office
+          🎓 Examinations Office
         </div>
         <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
           Welcome, <span id="exo-name">Exam Officer</span>
@@ -35,50 +35,18 @@
   </div>
 
   <!-- STAT TILES -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#ffedd5,#fed7aa);color:#9a3412;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">📅</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="exo-total">—</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Scheduled</div>
-      </div>
-    </div>
-
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">⏰</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="exo-upcoming">—</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Upcoming</div>
-      </div>
-    </div>
-
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#d1fae5,#a7f3d0);color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">✅</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="exo-attended">—</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Present</div>
-      </div>
-    </div>
-
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
-      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">❌</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="exo-absent">—</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Absent</div>
-      </div>
-    </div>
-  </div>
+  <div id="exo-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
 
   <!-- QUICK ACTIONS -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:1.25rem;">
     <a href="#exam-officer-attendance" style="
       display:flex;align-items:center;gap:.7rem;
-      padding:.85rem 1rem;
+      padding:.9rem 1rem;
       background:#fff;border:1px solid #e5e7eb;border-radius:12px;
       text-decoration:none;color:#0f172a;
       transition:all .15s;
-    " onmouseover="this.style.borderColor='#c2410c';this.style.background='#fff7ed';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:40px;height:40px;border-radius:10px;background:#ffedd5;color:#9a3412;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">✅</div>
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>
       <div>
         <div style="font-size:.88rem;font-weight:800;">Mark Attendance</div>
         <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">Record who showed up</div>
@@ -87,12 +55,12 @@
 
     <a href="#exam-officer-eligibility" style="
       display:flex;align-items:center;gap:.7rem;
-      padding:.85rem 1rem;
+      padding:.9rem 1rem;
       background:#fff;border:1px solid #e5e7eb;border-radius:12px;
       text-decoration:none;color:#0f172a;
       transition:all .15s;
     " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">🎓</div>
+      <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🎓</div>
       <div>
         <div style="font-size:.88rem;font-weight:800;">Check Eligibility</div>
         <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">Verify student clearance</div>
@@ -101,12 +69,12 @@
 
     <a href="#admin-exams" style="
       display:flex;align-items:center;gap:.7rem;
-      padding:.85rem 1rem;
+      padding:.9rem 1rem;
       background:#fff;border:1px solid #e5e7eb;border-radius:12px;
       text-decoration:none;color:#0f172a;
       transition:all .15s;
-    " onmouseover="this.style.borderColor='#3b82f6';this.style.background='#eff6ff';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">📋</div>
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
       <div>
         <div style="font-size:.88rem;font-weight:800;">View Schedules</div>
         <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">All exam timetables</div>
@@ -114,18 +82,31 @@
     </a>
   </div>
 
-  <!-- UPCOMING EXAMS -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:1.25rem;">
-    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;font-size:.88rem;color:#0f172a;">⏰ Upcoming Exams</div>
-      <span style="font-size:.72rem;color:#64748b;">Next 30 days</span>
-    </div>
-    <div id="exo-upcoming-list" style="padding:.5rem 0;">
-      <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">
-        <div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:exoSpin .8s linear infinite;"></div>
-        <div style="margin-top:.5rem;">Loading…</div>
+  <!-- TWO COLUMN -->
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:1rem;align-items:flex-start;">
+
+    <!-- UPCOMING EXAMS -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">⏰ Upcoming Exams</div>
+        <span style="font-size:.72rem;color:#64748b;">Next 30 days</span>
+      </div>
+      <div id="exo-upcoming-list" style="padding:.5rem 0;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+          <div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exoSpin .8s linear infinite;"></div>
+          <div style="margin-top:.5rem;">Loading…</div>
+        </div>
       </div>
     </div>
+
+    <!-- ATTENDANCE OVERVIEW -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📊 Attendance Overview</div>
+      </div>
+      <div id="exo-attendance-chart" style="padding:1rem;"></div>
+    </div>
+
   </div>
 
 </div>
@@ -161,81 +142,145 @@
       const res = await core.portalFetch('/api/exam-officer/dashboard');
       const d = res.data || res || {};
 
-      $('exo-total').textContent    = d.totalSchedules ?? 0;
-      $('exo-upcoming').textContent = d.upcoming ?? 0;
-      $('exo-session').textContent  = d.currentSession?.name || '—';
+      // Big stats
+      const attendance = d.attendance || { present: 0, absent: 0, late: 0, excused: 0 };
 
-      // Attendance totals from reports endpoint
-      try {
-        const rep = await core.portalFetch('/api/exam-officer/reports');
-        const r = rep.data || {};
-        const counts = r.attendanceBySchedule || {};
-        let present = 0, absent = 0;
-        Object.values(counts).forEach((arr) => {
-          if (!Array.isArray(arr)) return;
-          arr.forEach((c) => {
-            if (c.status === 'present') present += Number(c.c || 0);
-            if (c.status === 'absent') absent += Number(c.c || 0);
-          });
-        });
-        $('exo-attended').textContent = present;
-        $('exo-absent').textContent = absent;
-      } catch {
-        $('exo-attended').textContent = '—';
-        $('exo-absent').textContent = '—';
+      const tiles = [
+        { label: 'Scheduled',   value: d.totalSchedules ?? 0,             bg: '#d1fae5', fg: '#065f46', icon: '📅' },
+        { label: 'Upcoming',    value: d.upcoming ?? 0,                    bg: '#dbeafe', fg: '#1e40af', icon: '⏰' },
+        { label: 'Present',     value: attendance.present ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+        { label: 'Absent',      value: attendance.absent ?? 0,             bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+      ];
+
+      $('exo-stats').innerHTML = tiles.map(t => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+          <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
+          <div style="min-width:0;">
+            <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
+          </div>
+        </div>`).join('');
+
+      // Session
+      if (d.currentSession?.name && $('exo-session')) {
+        $('exo-session').textContent = d.currentSession.name;
       }
 
-      // Load upcoming exam schedules
+      // Attendance breakdown chart
+      renderAttendanceChart(attendance);
+
+      // Upcoming exams
       const sched = await core.portalFetch('/api/exam-officer/schedules');
       const rows = Array.isArray(sched.data) ? sched.data : [];
       const now = new Date();
       const upcoming = rows
-        .filter((r) => r.exam && r.exam.examDate && new Date(r.exam.examDate) >= now)
-        .sort((a, b) => new Date(a.exam.examDate) - new Date(b.exam.examDate))
+        .filter((r) => {
+          const e = r.exam || r;
+          return e.examDate && new Date(e.examDate) >= now;
+        })
+        .sort((a, b) => {
+          const da = new Date((a.exam || a).examDate);
+          const db = new Date((b.exam || b).examDate);
+          return da - db;
+        })
         .slice(0, 5);
 
       renderUpcoming(upcoming);
     } catch (err) {
+      console.error('[exam-dashboard]', err);
       $('exo-upcoming-list').innerHTML = `<div style="padding:1.5rem;text-align:center;color:#991b1b;font-size:.82rem;">⚠️ ${esc(err.message)}</div>`;
     }
+  }
+
+  function renderAttendanceChart(attendance) {
+    const total = (attendance.present || 0) + (attendance.absent || 0) + (attendance.late || 0) + (attendance.excused || 0);
+
+    if (!total) {
+      $('exo-attendance-chart').innerHTML = `
+        <div style="text-align:center;padding:1.5rem 0;">
+          <div style="font-size:2rem;margin-bottom:.5rem;opacity:.6;">📊</div>
+          <div style="font-size:.85rem;color:#64748b;">No attendance recorded yet</div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem;">Mark attendance to see stats here</div>
+        </div>`;
+      return;
+    }
+
+    const rows = [
+      { label: 'Present',  value: attendance.present || 0,  color: '#10b981', icon: '✅' },
+      { label: 'Absent',   value: attendance.absent || 0,   color: '#ef4444', icon: '❌' },
+      { label: 'Late',     value: attendance.late || 0,     color: '#f59e0b', icon: '⏰' },
+      { label: 'Excused',  value: attendance.excused || 0,  color: '#6366f1', icon: '🛡️' },
+    ];
+
+    $('exo-attendance-chart').innerHTML = rows.map(r => {
+      const pct = total > 0 ? Math.round((r.value / total) * 100) : 0;
+      return `
+        <div style="margin-bottom:.7rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;">
+            <div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:#334155;font-weight:600;">
+              <span>${r.icon}</span><span>${r.label}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:.4rem;">
+              <span style="font-size:.85rem;font-weight:800;color:#0f172a;">${r.value}</span>
+              <span style="font-size:.68rem;color:#94a3b8;">${pct}%</span>
+            </div>
+          </div>
+          <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${r.color};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('') + `
+      <div style="
+        padding:.6rem .75rem;margin-top:.85rem;
+        background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;
+        font-size:.75rem;color:#14532d;text-align:center;font-weight:600;
+      ">${total} total marks across all schedules</div>`;
   }
 
   function renderUpcoming(rows) {
     const box = $('exo-upcoming-list');
     if (!rows.length) {
       box.innerHTML = `
-        <div style="padding:2rem;text-align:center;">
-          <div style="font-size:2rem;margin-bottom:.5rem;opacity:.6;">📭</div>
-          <div style="font-size:.85rem;color:#64748b;">No upcoming exams scheduled.</div>
+        <div style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📭</div>
+          <div style="font-size:.88rem;font-weight:700;color:#0f172a;">No upcoming exams</div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:.25rem;">Schedules will appear here when added</div>
         </div>`;
       return;
     }
 
     box.innerHTML = rows.map(r => {
-      const e = r.exam || {};
+      const e = r.exam || r;
       const course = r.course || {};
       const dueDate = e.examDate ? new Date(e.examDate) : null;
       const daysAway = dueDate ? Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
 
+      let countdownColor = '#065f46';
+      let countdownText = '';
+      if (daysAway === 0) { countdownColor = '#dc2626'; countdownText = 'Today'; }
+      else if (daysAway === 1) { countdownColor = '#dc2626'; countdownText = 'Tomorrow'; }
+      else if (daysAway <= 3) { countdownColor = '#d97706'; countdownText = `In ${daysAway} days`; }
+      else { countdownText = `In ${daysAway} days`; }
+
       return `
         <div class="exo-row">
-          <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#7c2d12,#c2410c);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-            <div style="font-size:1rem;font-weight:800;line-height:1;">${dueDate ? dueDate.getDate() : '—'}</div>
+          <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+            <div style="font-size:1.1rem;font-weight:800;line-height:1;">${dueDate ? dueDate.getDate() : '—'}</div>
             <div style="font-size:.6rem;text-transform:uppercase;opacity:.9;margin-top:1px;">${dueDate ? dueDate.toLocaleString('en-GB', { month: 'short' }) : ''}</div>
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:.88rem;color:#0f172a;">
-              ${esc(course.code || '')} ${course.title ? '— ' + esc(course.title) : ''}
+            <div style="font-weight:800;font-size:.88rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${esc(course.code || '')} ${course.title ? '· ' + esc(course.title) : ''}
             </div>
-            <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">
-              ⏰ ${esc(e.startTime || '—')} · 📍 ${esc(e.venue || 'TBA')} · ${esc(e.semester || '')}
+            <div style="font-size:.72rem;color:#64748b;margin-top:.2rem;">
+              ⏰ ${esc(e.startTime || '—')}–${esc(e.endTime || '—')} · 📍 ${esc(e.venue || 'TBA')} · ${esc(e.semester || '')}
             </div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:.72rem;font-weight:800;color:${daysAway != null && daysAway <= 3 ? '#dc2626' : '#065f46'};">
-              ${daysAway != null ? (daysAway === 0 ? 'Today' : daysAway === 1 ? 'Tomorrow' : `In ${daysAway} days`) : '—'}
+            <div style="font-size:.72rem;font-weight:800;color:${countdownColor};">
+              ${esc(countdownText)}
             </div>
-            <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">${fmtDate(e.examDate)}</div>
+            <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">${esc(fmtDate(e.examDate))}</div>
           </div>
         </div>`;
     }).join('');

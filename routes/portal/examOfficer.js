@@ -23,7 +23,8 @@ const only = requireRole('exam_officer', 'admin');
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {
   try {
-    const sessionId = req.query.sessionId || req.user.currentSessionId;
+    // Exam officer oversees all schedules, not just their own session
+    const sessionId = req.query.sessionId || null;
     const schedules = await examQueries.listWithCourse({ sessionId });
     const upcoming = await examQueries.listUpcoming({ sessionId, limit: 100 });
     const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });

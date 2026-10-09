@@ -115,7 +115,6 @@
     admission_officer: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-applications-list', 'admin-graduations', 'admin-documents',
     ],
     admin:      '*',
     superadmin: '*',
@@ -145,7 +144,7 @@
         { title: 'Personal',   items: sharedItems.filter((p) => personalKeys.includes(p.key)) },
         { title: 'References', items: sharedItems.filter((p) => referenceKeys.includes(p.key)) },
       ];
-    },
+    }, 
     default: (role, roleItems, sharedItems) => [
       { title: 'Main',   items: roleItems },
       { title: 'Shared', items: sharedItems },

@@ -1,248 +1,197 @@
-<!-- Shared → Exams -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📝</div>
+<!-- Portal → Shared → Exams -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h1>Exams</h1>
-      <div class="sub" id="ex-sub">Exam schedule</div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exams</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Institution-wide exam schedule</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <input type="search" id="ex-search" placeholder="🔍  Search course, venue…"
+             style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:220px;" />
+      <select id="ex-semester" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+        <option value="">All Semesters</option>
+        <option value="first">First</option>
+        <option value="second">Second</option>
+      </select>
+      <button id="ex-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <input type="search" id="ex-search" placeholder="Search course, venue, session…" />
-  <select id="ex-session"><option value="">All Sessions</option></select>
-  <select id="ex-semester">
-    <option value="">All Semesters</option>
-    <option value="First">First</option>
-    <option value="Second">Second</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="ex-refresh">Refresh</button>
-  <button class="btn btn-outline btn-sm" id="ex-export">Export CSV</button>
-</div>
+  <!-- STATS -->
+  <div id="ex-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem;"></div>
 
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Exams</span><span class="value" id="ex-total">—</span></div><div class="ic">📝</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Upcoming</span><span class="value" id="ex-upcoming">—</span></div><div class="ic">📅</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Past</span><span class="value" id="ex-past">—</span></div><div class="ic">✅</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">ND / HND</span><span class="value" id="ex-split">—</span></div><div class="ic">🎯</div></div>
-</div>
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Showing <span id="ex-shown">0</span> of <span id="ex-total">0</span> exams
+      </div>
+    </div>
 
-<section class="panel">
-  <div class="panel-head"><h3>Exam Schedule</h3><span class="badge" id="ex-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>Course</th><th>Title</th><th>Date</th><th>Time</th>
-            <th>Venue</th><th>Session</th><th>Level</th><th>Status</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
           </tr>
         </thead>
         <tbody id="ex-tbody">
-          <tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+          </td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+
+</div>
+
+<style>
+  @keyframes exSpin { to { transform: rotate(360deg); } }
+  #ex-tbody tr { transition: background .1s; }
+  #ex-tbody tr:hover { background: #f8fafc; }
+</style>
 
 <script>
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }) : '—';
 
-  let ALL = [], FILTERED = [];
-  let MY_COURSE_IDS = new Set();
+  let ALL = [];
+  let FILTERED = [];
 
-  // Update subtitle based on role
-  (function () {
-    const sub = $('ex-sub');
-    if (!sub) return;
-    const role = String(user.role || '').toLowerCase();
-    if (role === 'lecturer') sub.textContent = 'Exams for your courses';
-    else if (role === 'hod') sub.textContent = `Exams in ${user.departmentName || 'your department'}`;
-    else sub.textContent = 'Institution-wide exam schedule';
-  })();
+  async function load() {
+    const tbody = $('ex-tbody');
+    tbody.innerHTML = `
+      <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div>
+        <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+      </td></tr>`;
 
-  // ---------------------------------------------------------
-  // Extractors — API returns { exam, course, session } or flat
-  // ---------------------------------------------------------
-  function unwrap(r) {
-    const e = r.exam || r;
-    const c = r.course || {};
-    const s = r.session || {};
-    return {
-      id: e.id,
-      courseId: e.courseId,
-      courseCode: c.code || e.courseCode || '—',
-      courseTitle: c.title || e.courseTitle || '',
-      departmentId: c.departmentId,
-      examDate: e.examDate || e.date || null,
-      startTime: e.startTime || e.start_time || '',
-      endTime: e.endTime || e.end_time || '',
-      venue: e.venue || e.location || '—',
-      sessionName: e.sessionName || s.name || '—',
-      semester: (function () {
-        let s = e.semesterName || e.semester || '—';
-        s = String(s).trim();
-        if (/^1$|first/i.test(s)) return 'First';
-        if (/^2$|second/i.test(s)) return 'Second';
-        return s;
-      })(),
-      level: c.level || e.level || '—',
-    };
-  }
-
-  function getDate(e) {
-    if (!e.examDate) return '—';
-    try { return new Date(e.examDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
-    catch { return '—'; }
-  }
-  function getTime(e) {
-    if (!e.startTime) return '—';
-    return e.endTime ? `${e.startTime} – ${e.endTime}` : e.startTime;
-  }
-  function isUpcoming(e) {
-    return e.examDate ? new Date(e.examDate) >= new Date() : false;
-  }
-
-  function render() {
-    const countEl = $('ex-count'); const tbody = $('ex-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No exams scheduled.</td></tr>';
-      return;
+    try {
+      const res = await core.portalFetch('/api/exam-officer/schedules');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderStats();
+      applyFilter();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
+  }
 
-    tbody.innerHTML = FILTERED.map((e) => {
-      const level = String(e.level || '').toUpperCase();
-      const chipClass = 'chip-' + level.toLowerCase();
-      const upcoming = isUpcoming(e);
-      return `
-        <tr>
-          <td><strong>${esc(e.courseCode)}</strong></td>
-          <td>${esc(e.courseTitle)}</td>
-          <td>${esc(getDate(e))}</td>
-          <td>${esc(getTime(e))}</td>
-          <td>${esc(e.venue)}</td>
-          <td>${esc(e.sessionName)}</td>
-          <td><span class="chip ${chipClass}">${esc(level || '—')}</span></td>
-          <td><span class="badge-status ${upcoming ? 'badge-active' : 'badge-inactive'}">${upcoming ? 'Upcoming' : 'Past'}</span></td>
-        </tr>`;
-    }).join('');
+  function renderStats() {
+    const now = new Date();
+    let upcoming = 0, past = 0;
+    ALL.forEach((s) => {
+      const e = s.exam || s;
+      if (!e.examDate) return;
+      if (new Date(e.examDate) >= now) upcoming++; else past++;
+    });
+
+    const tiles = [
+      { label: 'Total Exams', value: ALL.length, bg: '#e0e7ff', fg: '#3730a3', icon: '📋' },
+      { label: 'Upcoming',    value: upcoming,   bg: '#d1fae5', fg: '#065f46', icon: '📅' },
+      { label: 'Past',        value: past,       bg: '#f1f5f9', fg: '#475569', icon: '✅' },
+      { label: 'Venues',      value: new Set(ALL.map((s) => (s.exam || s).venue).filter(Boolean)).size, bg: '#fef3c7', fg: '#92400e', icon: '📍' },
+    ];
+
+    $('ex-stats').innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">${t.icon}</div>
+        <div>
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
   }
 
   function applyFilter() {
     const q = ($('ex-search')?.value || '').trim().toLowerCase();
-    const ses = $('ex-session')?.value || '';
     const sem = $('ex-semester')?.value || '';
 
-    FILTERED = ALL.filter((e) => {
-      const hay = `${e.courseCode} ${e.courseTitle} ${e.venue} ${e.sessionName}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (ses && e.sessionName !== ses) return false;
-      if (sem && String(e.semester).toLowerCase() !== String(sem).toLowerCase()) return false;
+    FILTERED = ALL.filter((s) => {
+      const e = s.exam || s;
+      const c = s.course || {};
+      if (sem && e.semester !== sem) return false;
+      if (q) {
+        const hay = `${c.code || ''} ${c.title || ''} ${e.venue || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-    render();
+
+    renderTable(FILTERED);
+    $('ex-shown').textContent = FILTERED.length;
+    $('ex-total').textContent = ALL.length;
   }
 
-  function updateStats() {
-    const total = ALL.length;
-    const upcoming = ALL.filter(isUpcoming).length;
-    const past = total - upcoming;
-    const nd = ALL.filter((e) => String(e.level).toUpperCase() === 'ND').length;
-    const hnd = ALL.filter((e) => String(e.level).toUpperCase() === 'HND').length;
-
-    setText('ex-total', total);
-    setText('ex-upcoming', upcoming);
-    setText('ex-past', past);
-    setText('ex-split', `${nd} / ${hnd}`);
-  }
-
-  function populateSessions() {
-    const sel = $('ex-session');
-    if (!sel) return;
-    const sessions = [...new Set(ALL.map((e) => e.sessionName).filter((s) => s && s !== '—'))].sort();
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Sessions</option>' +
-      sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-    sel.value = cur;
-  }
-
-  async function load() {
+  function renderTable(rows) {
     const tbody = $('ex-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
-    try {
-      const role = String(user.role || '').toLowerCase();
-
-      // For lecturers: fetch their course IDs first
-      if (role === 'lecturer') {
-        try {
-          const allocRes = await core.portalFetch('/api/allocations/my');
-          const allocPayload = allocRes.data || allocRes || {};
-          const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
-          MY_COURSE_IDS = new Set(allocRaw.map((a) => {
-            const alloc = a.allocation || a;
-            return String(alloc.courseId);
-          }));
-          console.log('[exams] Lecturer course IDs:', [...MY_COURSE_IDS]);
-        } catch (e) { console.warn('[exams] allocations failed:', e.message); }
-      }
-
-      // Fetch all exams
-      const res = await core.portalFetch('/api/exams');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.exams || []);
-
-      let list = raw.map(unwrap);
-
-      // CLIENT-SIDE FILTER by role
-      if (role === 'lecturer' && MY_COURSE_IDS.size) {
-        // Only exams for this lecturer's courses
-        list = list.filter((e) => MY_COURSE_IDS.has(String(e.courseId)));
-      } else if (role === 'hod' && user.departmentId) {
-        // Only exams in this HOD's department
-        list = list.filter((e) => !e.departmentId || String(e.departmentId) === String(user.departmentId));
-      }
-      // admin, registrar, exam_officer see everything
-
-      ALL = list;
-      console.log('[exams] Filtered to', ALL.length, 'from', raw.length, 'total (role:', role, ')');
-      populateSessions();
-      updateStats();
-      applyFilter();
-    } catch (err) {
-      console.error('[exams]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No matching exams.</td></tr>`;
+      return;
     }
+
+    // Sort by date, most recent first
+    const sorted = [...rows].sort((a, b) => {
+      const ea = a.exam || a; const eb = b.exam || b;
+      return new Date(eb.examDate || 0) - new Date(ea.examDate || 0);
+    });
+
+    const now = new Date();
+    tbody.innerHTML = sorted.map((s) => {
+      const e = s.exam || s;
+      const c = s.course || {};
+      const isPast = e.examDate && new Date(e.examDate) < now;
+
+      return `
+        <tr>
+          <td style="padding:.65rem .75rem;">
+            <code style="font-size:.75rem;font-weight:700;color:#065f46;background:#ecfdf5;padding:2px 7px;border-radius:5px;">
+              ${esc(c.code || '—')}
+            </code>
+          </td>
+          <td style="padding:.65rem .75rem;color:#0f172a;font-weight:600;">${esc(c.title || '—')}</td>
+          <td style="padding:.65rem .75rem;color:#334155;font-size:.78rem;font-weight:600;">${esc(fmtDate(e.examDate))}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#334155;font-family:ui-monospace,monospace;font-size:.75rem;">
+            ${esc(e.startTime || '—')}${e.endTime ? ' – ' + esc(e.endTime) : ''}
+          </td>
+          <td style="padding:.65rem .75rem;color:#64748b;font-size:.78rem;">${esc(e.venue || 'TBA')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;text-transform:capitalize;">
+              ${esc(e.semester || '—')}
+            </span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            ${isPast
+              ? '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#f1f5f9;color:#475569;">✅ Past</span>'
+              : '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#d1fae5;color:#065f46;">📅 Upcoming</span>'}
+          </td>
+        </tr>`;
+    }).join('');
   }
 
-  function exportCsv() {
-    const headers = ['Course', 'Title', 'Date', 'Time', 'Venue', 'Session', 'Semester', 'Level'];
-    const rows = FILTERED.map((e) => [e.courseCode, e.courseTitle, getDate(e), getTime(e), e.venue, e.sessionName, e.semester, e.level]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `exams-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  $('ex-search')?.addEventListener('input', applyFilter);
-  $('ex-session')?.addEventListener('change', applyFilter);
+  let searchTimer;
+  $('ex-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilter, 200);
+  });
   $('ex-semester')?.addEventListener('change', applyFilter);
   $('ex-refresh')?.addEventListener('click', load);
-  $('ex-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

@@ -1,6 +1,6 @@
 ﻿// ============================================================
-// FPU — Admin courses API
-// Mounted at /api/admin/courses
+// FPU — Courses API
+// Mounted at /api/admin/courses AND /api/courses
 // ============================================================
 
 'use strict';
@@ -12,29 +12,51 @@ const courseQueries = require('../db/queries/courses');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
+// Read-only access — everyone who needs to see the course list
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer', 'exam_officer', 'librarian', 'bursar'];
+// Write access — only these roles can create/edit/delete
+const WRITERS = ['admin', 'registrar', 'academic_officer'];
 
+// ============================================================
+// GET /courses — list with filters
+// Query: departmentId, programmeId, level, search, limit, offset
+// ============================================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
-  // Auto-scope HODs to their own department
-  if (req.user && req.user.role === 'hod' && req.user.departmentId) {
-    req.query.departmentId = req.user.departmentId;
-  }
   try {
-    const { programmeId, departmentId, level, semester, search, limit = 200, offset = 0 } = req.query;
+    const filters = { ...req.query };
+
+    // Auto-scope HODs to their own department
+    if (req.user && req.user.role === 'hod' && req.user.departmentId) {
+      filters.departmentId = req.user.departmentId;
+    }
+
     const rows = await courseQueries.list({
-      programmeId, departmentId, level, semester, search,
-      limit: Number(limit), offset: Number(offset),
+      departmentId: filters.departmentId,
+      programmeId: filters.programmeId,
+      level: filters.level,
+      search: filters.search,
+      limit: Number(filters.limit) || 500,
+      offset: Number(filters.offset) || 0,
     });
-    const total = await courseQueries.count({ programmeId, departmentId, level, semester });
+    const total = await courseQueries.count({
+      departmentId: filters.departmentId,
+      programmeId: filters.programmeId,
+      level: filters.level,
+      search: filters.search,
+    });
+
     return res.json({ success: true, data: rows, total });
   } catch (err) {
     return next(err);
   }
 });
 
+// ============================================================
+// GET /courses/:id — single course
+// ============================================================
 router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
-    const row = await courseQueries.findByIdWithRelations(req.params.id);
+    const row = await courseQueries.findById(req.params.id);
     if (!row) return res.status(404).json({ success: false, error: 'Course not found.' });
     return res.json({ success: true, data: row });
   } catch (err) {
@@ -42,43 +64,66 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   }
 });
 
-router.post('/', requireRole(['admin', 'registrar', 'academic_officer']), async (req, res, next) => {
+// ============================================================
+// POST /courses — create (writers only)
+// ============================================================
+router.post('/', requireRole(WRITERS), async (req, res, next) => {
   try {
-    const { code, title, unit, level, semester, programmeId, departmentId, description, isElective } = req.body || {};
-    if (!code || !title || !programmeId || !departmentId) {
-      return res.status(400).json({ success: false, error: 'code, title, programmeId, departmentId are required.' });
+    const { code, title } = req.body || {};
+    if (!code || !title) {
+      return res.status(400).json({ success: false, error: 'code and title are required.' });
     }
-    const exists = await courseQueries.codeExists(code, level || 'ND', semester || 'first');
-    if (exists) return res.status(409).json({ success: false, error: 'A course with this code/level/semester already exists.' });
-
-    const row = await courseQueries.create({ code, title, unit, level, semester, programmeId, departmentId, description, isElective });
-    await logAudit({ req, action: 'course.create', entity: 'course', entityId: row.id, after: row });
+    const row = await courseQueries.create(req.body);
+    await logAudit({
+      req,
+      action: 'course.create',
+      entity: 'course',
+      entityId: row.id,
+      after: row,
+    });
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
 });
 
-router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer']), async (req, res, next) => {
+// ============================================================
+// PUT /courses/:id — update (writers only)
+// ============================================================
+router.put('/:id', requireRole(WRITERS), async (req, res, next) => {
   try {
     const existing = await courseQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Course not found.' });
-    const patch = { ...req.body };
-    delete patch.id;
-    const row = await courseQueries.update(existing.id, patch);
-    await logAudit({ req, action: 'course.update', entity: 'course', entityId: existing.id, before: existing, after: row });
+    const row = await courseQueries.update(existing.id, req.body);
+    await logAudit({
+      req,
+      action: 'course.update',
+      entity: 'course',
+      entityId: existing.id,
+      before: existing,
+      after: row,
+    });
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
 });
 
+// ============================================================
+// DELETE /courses/:id — remove (admin only)
+// ============================================================
 router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
   try {
     const existing = await courseQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Course not found.' });
     await courseQueries.remove(existing.id);
-    await logAudit({ req, action: 'course.delete', entity: 'course', entityId: existing.id, before: existing });
+    await logAudit({
+      req,
+      action: 'course.delete',
+      entity: 'course',
+      entityId: existing.id,
+      before: existing,
+    });
     return res.json({ success: true });
   } catch (err) {
     return next(err);

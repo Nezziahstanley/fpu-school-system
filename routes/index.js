@@ -12,18 +12,18 @@ const router = express.Router();
 // Health & public
 // ------------------------------------------------------------
 router.use('/',           require('./health'));
-router.use('/admin/auth', require('./adminAuth'));       // /api/admin/auth/login
-router.use('/admin',      require('./adminAuth'));       // /api/admin/login  (alias)
-router.use('/admin/seed', require('./adminSeed'));       // /api/admin/seed/* (guarded)
-router.use('/', require('./public'));                    // /api/apply, /api/contact, etc.
+router.use('/admin/auth', require('./adminAuth'));
+router.use('/admin',      require('./adminAuth'));
+router.use('/admin/seed', require('./adminSeed'));
+router.use('/', require('./public'));
 
 // ------------------------------------------------------------
-// Public — ID card lookup (barcode / QR scan target)
+// Public — ID card lookup
 // ------------------------------------------------------------
 router.use('/public/id-lookup', require('./idLookup'));
 
 // ------------------------------------------------------------
-// Admin — lookups (dropdown data)
+// Admin — lookups
 // ------------------------------------------------------------
 router.use('/admin/lookups',        require('./adminLookups'));
 
@@ -32,7 +32,7 @@ router.use('/admin/lookups',        require('./adminLookups'));
 // ------------------------------------------------------------
 router.use('/admin/applications',   require('./applications'));
 router.use('/admin/students',       require('./students'));
-router.use('/admin/users',          require('./adminUsers'));   // MUST be before users.js
+router.use('/admin/users',          require('./adminUsers'));
 router.use('/admin/login-history',  require('./loginHistory'));
 router.use('/admin/sessions',       require('./sessions'));
 router.use('/admin/programmes',     require('./programmes'));
@@ -54,7 +54,7 @@ router.use('/admin/transcript',     require('./transcript'));
 router.use('/admin/graduation',     require('./graduation'));
 
 // ------------------------------------------------------------
-// Admin — finance & clearances
+// Admin — finance
 // ------------------------------------------------------------
 router.use('/admin/fees',           require('./fees'));
 router.use('/admin/payments',       require('./payments'));
@@ -73,7 +73,7 @@ router.use('/admin/hods',           require('./hods'));
 router.use('/admin/library',        require('./library'));
 
 // ------------------------------------------------------------
-// Admin — documents & comms
+// Admin — comms
 // ------------------------------------------------------------
 router.use('/admin/documents',      require('./documents'));
 router.use('/admin/announcements',  require('./announcements'));
@@ -89,20 +89,24 @@ router.use('/admin/audit',          require('./audit'));
 router.use('/admin/reports',        require('./reports'));
 
 // ------------------------------------------------------------
-// Portal — shared (photo, messages, notifications, announcements,
-// complaints, security, avatar upload, etc.)
+// STAFF endpoints (non-admin path) — read-only for staff roles
+// These mirror a few admin routes so exam officers, lecturers,
+// HODs, etc. can read them without the /admin prefix.
+// Writes remain restricted to admin only via each router's
+// own requireRole guards.
 // ------------------------------------------------------------
-router.use('/portal',               require('./portal/shared'));
+router.use('/courses',              require('./courses'));
+router.use('/exams',                require('./exams'));
+router.use('/students',             require('./students'));
+router.use('/results',              require('./results'));
+router.use('/attendance',           require('./attendance'));
+router.use('/registrations',        require('./registrations'));
+router.use('/allocations',          require('./allocations'));
 
 // ------------------------------------------------------------
-// Portal — profile & photo
-// Mounted at /portal so internal routes resolve as:
-//   GET    /api/portal/profile
-//   PATCH  /api/portal/profile
-//   POST   /api/portal/profile/photo
-//   DELETE /api/portal/profile/photo
-//   POST   /api/portal/profile/change-password
+// Portal — shared
 // ------------------------------------------------------------
+router.use('/portal',               require('./portal/shared'));
 router.use('/portal',               require('./portal/profile'));
 
 // ------------------------------------------------------------

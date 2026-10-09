@@ -93,8 +93,9 @@
     border-color:#a7f3d0;
   }
 
-  /* ═══ Letter paper — A4 proportions ═══ */
+  /* ═══ Letter paper — A4 proportions with watermark ═══ */
   .ado-letter-paper {
+    position: relative;
     background:#fff;
     width:210mm;
     min-height:297mm;
@@ -109,6 +110,48 @@
     font-size:13.5px;
     line-height:1.7;
     box-sizing:border-box;
+    overflow: hidden;
+  }
+
+  /* ═══ WATERMARK — large transparent logo centered ═══ */
+  .ado-letter-paper::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 130mm;
+    height: 130mm;
+    transform: translate(-50%, -50%);
+    background-image: url('/images/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ═══ Small logo top-right corner (semi-transparent accent) ═══ */
+  .ado-letter-paper::after {
+    content: "";
+    position: absolute;
+    top: 12mm;
+    right: 12mm;
+    width: 20mm;
+    height: 20mm;
+    background-image: url('/images/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ensure all content sits above the watermark */
+  .ado-letter-paper > * {
+    position: relative;
+    z-index: 1;
   }
 
   .ado-letter-paper .ltr-head {
@@ -178,7 +221,7 @@
   }
 
   .ado-letter-paper .ltr-programme-box {
-    background:#f0fdf4;
+    background:rgba(240, 253, 244, 0.92);
     border-left:4px solid #065f46;
     padding:.85rem 1rem;
     margin:1.25rem 0;
@@ -233,7 +276,7 @@
     letter-spacing:.05em;
   }
 
-  /* ═══ PRINT ═══ */
+  /* ═══ PRINT — A4 with watermark preserved ═══ */
   @media print {
     @page { size: A4; margin: 0; }
     body * { visibility: hidden; }
@@ -248,6 +291,9 @@
       box-shadow: none;
       page-break-inside: avoid;
     }
+    /* Print CSS — watermarks often need a slightly higher opacity */
+    .ado-letter-paper::before { opacity: 0.08; }
+    .ado-letter-paper::after  { opacity: 0.18; }
     .filter-bar, .greeting, .page-head { display: none !important; }
   }
 </style>
@@ -343,15 +389,11 @@
   // ============================================================
   function selectApplicant(app) {
     SELECTED = app;
-
-    // Re-render list to show active state
     filterList();
 
-    // Show preview
     $('ado-ltr-empty').style.display = 'none';
     $('ado-ltr-preview').style.display = 'block';
 
-    // Enable buttons
     ['ado-ltr-print', 'ado-ltr-download'].forEach(id => {
       const btn = $(id);
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
@@ -379,7 +421,6 @@
     const year = new Date().getFullYear();
     const session = app.sessionName || `${year - 1}/${year}`;
 
-    // Officer name from logged-in user
     const me = core.getPortalUser ? core.getPortalUser() : {};
     const officerName = me.firstName
       ? `${me.firstName} ${me.lastName || ''}`.trim()
@@ -417,15 +458,12 @@
         <div>${esc(address)}</div>
       </div>
 
-      <!-- SALUTATION -->
       <p style="margin:0;">Dear <strong>${esc(fullName)}</strong>,</p>
 
-      <!-- SUBJECT -->
       <div class="ltr-subject">
         Offer of Provisional Admission — ${esc(app.level || 'ND')} Programme
       </div>
 
-      <!-- BODY -->
       <div class="ltr-body">
         <p>
           Following your application with reference number <strong>${esc(app.applicationNumber || '—')}</strong>,
@@ -488,7 +526,6 @@
         </p>
       </div>
 
-      <!-- SIGNATURE -->
       <div class="ltr-sign">
         <div>Yours faithfully,</div>
         <div class="line"></div>
@@ -497,7 +534,6 @@
         <div class="role">${esc(inst.name)}</div>
       </div>
 
-      <!-- FOOTER -->
       <div class="ltr-footer">
         This letter is not valid without the official stamp of ${esc(inst.name)} · ${esc(inst.website)}
       </div>
@@ -523,7 +559,7 @@
   });
 
   // ============================================================
-  // Handle ?applicant=X from hash (deep link)
+  // Deep link from Admitted page (?applicant=X)
   // ============================================================
   function checkDeepLink() {
     const hash = window.location.hash || '';
@@ -535,9 +571,6 @@
     }
   }
 
-  // ============================================================
-  // Kick off
-  // ============================================================
   loadApplicants().then(() => checkDeepLink());
 })();
 </script>

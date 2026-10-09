@@ -1,38 +1,543 @@
-<!-- Portal → Admissions Officer → Admission Letters -->
-<section class="page-head">
-  <div><h2>Admission Letters</h2><p class="muted small">Preview and print admission letters</p></div>
-</section>
+<!-- Portal → Admission Officer → Letters -->
+<div style="padding:0;">
 
-<div class="filters">
-  <div class="form-group" style="flex:1 1 220px;">
-    <label class="form-label">Application ID</label>
-    <input class="form-control" id="ado-ltr-id" type="number" />
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Admission Letters</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Generate, preview, and print official admission letters</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="ado-ltr-print" disabled style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+        opacity:.5;
+      ">🖨 Print Letter</button>
+      <button id="ado-ltr-download" disabled style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+        opacity:.5;
+      ">📄 Save as PDF</button>
+    </div>
   </div>
-  <button class="btn btn-primary" id="ado-ltr-load">Load Letter</button>
-  <button class="btn btn-outline" id="ado-ltr-print" disabled>Print</button>
+
+  <!-- TWO-COLUMN LAYOUT -->
+  <div style="display:grid;grid-template-columns:340px 1fr;gap:1rem;align-items:flex-start;">
+
+    <!-- ═══════ LEFT: APPLICANT PICKER ═══════ -->
+    <div style="
+      background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+      overflow:hidden;
+      position:sticky;top:1rem;
+      max-height:calc(100vh - 140px);
+      display:flex;flex-direction:column;
+    ">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.85rem;color:#0f172a;margin-bottom:.5rem;">Select Applicant</div>
+        <input type="search" id="ado-ltr-search" placeholder="Name, email, or app no…"
+               style="width:100%;padding:.5rem .7rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+
+      <div style="padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;background:#f8fafc;">
+        <div style="font-size:.7rem;color:#64748b;">
+          <span id="ado-ltr-count">0</span> applicant(s)
+        </div>
+      </div>
+
+      <div id="ado-ltr-list" style="flex:1;overflow-y:auto;padding:.4rem;">
+        <div style="padding:2rem 1rem;text-align:center;color:#94a3b8;font-size:.8rem;">
+          <div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
+          <div style="margin-top:.5rem;">Loading applicants…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ RIGHT: LETTER PREVIEW ═══════ -->
+    <div>
+      <div id="ado-ltr-empty" style="
+        background:#fff;border:2px dashed #e2e8f0;border-radius:14px;
+        padding:4rem 1rem;text-align:center;
+      ">
+        <div style="font-size:3.5rem;margin-bottom:.75rem;opacity:.5;">✉️</div>
+        <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.1rem;font-weight:800;">No applicant selected</h3>
+        <p style="margin:0 auto;max-width:400px;font-size:.85rem;color:#64748b;line-height:1.6;">
+          Choose an applicant from the list on the left to preview their admission letter. Only <strong>approved</strong> or <strong>registered</strong> applicants have letters.
+        </p>
+      </div>
+
+      <div id="ado-ltr-preview" style="display:none;">
+        <div class="ado-letter-paper" id="ado-ltr-paper"></div>
+      </div>
+    </div>
+
+  </div>
+
 </div>
 
-<div id="ado-ltr-out" class="panel" style="display:none;">
-  <div class="panel-body" id="ado-ltr-body"></div>
-</div>
+<style>
+  @keyframes adoSpin { to { transform: rotate(360deg); } }
+
+  .ado-applicant-item {
+    padding:.65rem .7rem;
+    border-radius:8px;
+    cursor:pointer;
+    margin-bottom:.25rem;
+    transition:background .15s, border-color .15s;
+    border:1px solid transparent;
+  }
+  .ado-applicant-item:hover { background:#f8fafc; }
+  .ado-applicant-item.active {
+    background:#ecfdf5;
+    border-color:#a7f3d0;
+  }
+
+  /* ═══ Letter paper — A4 proportions ═══ */
+  .ado-letter-paper {
+    background:#fff;
+    width:210mm;
+    min-height:297mm;
+    max-width:100%;
+    margin:0 auto;
+    padding:20mm 18mm;
+    border:1px solid #e5e7eb;
+    border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+    font-family:Georgia, "Times New Roman", serif;
+    color:#111827;
+    font-size:13.5px;
+    line-height:1.7;
+    box-sizing:border-box;
+  }
+
+  .ado-letter-paper .ltr-head {
+    display:flex;align-items:center;gap:1rem;
+    padding-bottom:1rem;
+    border-bottom:3px double #065f46;
+    margin-bottom:1.75rem;
+  }
+  .ado-letter-paper .ltr-logo {
+    width:70px;height:70px;object-fit:contain;flex-shrink:0;
+  }
+  .ado-letter-paper .ltr-inst {
+    flex:1;text-align:center;
+  }
+  .ado-letter-paper .ltr-inst-name {
+    font-family:Georgia, serif;
+    font-size:20px;
+    font-weight:800;
+    color:#065f46;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    line-height:1.15;
+  }
+  .ado-letter-paper .ltr-inst-motto {
+    font-size:11px;
+    font-style:italic;
+    color:#475569;
+    margin-top:.25rem;
+  }
+  .ado-letter-paper .ltr-inst-contact {
+    font-size:10.5px;
+    color:#64748b;
+    margin-top:.4rem;
+    font-family:Arial, sans-serif;
+  }
+
+  .ado-letter-paper .ltr-meta {
+    display:flex;justify-content:space-between;
+    font-size:12px;
+    margin-bottom:1.5rem;
+    font-family:Arial, sans-serif;
+  }
+  .ado-letter-paper .ltr-meta strong { color:#065f46; }
+
+  .ado-letter-paper .ltr-recipient {
+    margin-bottom:1.5rem;
+    font-size:13.5px;
+  }
+  .ado-letter-paper .ltr-recipient .name {
+    font-weight:800;text-transform:uppercase;
+    letter-spacing:.02em;
+  }
+
+  .ado-letter-paper .ltr-subject {
+    text-align:center;
+    font-weight:800;
+    text-decoration:underline;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    margin:1.5rem 0;
+    font-size:14px;
+  }
+
+  .ado-letter-paper .ltr-body p {
+    margin:.75rem 0;
+    text-align:justify;
+  }
+
+  .ado-letter-paper .ltr-programme-box {
+    background:#f0fdf4;
+    border-left:4px solid #065f46;
+    padding:.85rem 1rem;
+    margin:1.25rem 0;
+    border-radius:4px;
+  }
+  .ado-letter-paper .ltr-programme-box .row {
+    display:flex;justify-content:space-between;
+    padding:.25rem 0;
+    font-size:12.5px;
+    font-family:Arial, sans-serif;
+  }
+  .ado-letter-paper .ltr-programme-box .label { color:#475569; }
+  .ado-letter-paper .ltr-programme-box .value { font-weight:700; color:#065f46; }
+
+  .ado-letter-paper .ltr-list {
+    margin:.75rem 0 1rem 1.25rem;
+    padding:0;
+  }
+  .ado-letter-paper .ltr-list li {
+    margin:.35rem 0;
+    font-size:13px;
+  }
+
+  .ado-letter-paper .ltr-sign {
+    margin-top:3rem;
+    font-family:Arial, sans-serif;
+  }
+  .ado-letter-paper .ltr-sign .line {
+    width:220px;
+    border-top:1.5px solid #111827;
+    margin-top:2.5rem;
+    margin-bottom:.35rem;
+  }
+  .ado-letter-paper .ltr-sign .name {
+    font-weight:800;
+    font-size:13px;
+    color:#065f46;
+  }
+  .ado-letter-paper .ltr-sign .role {
+    font-size:11.5px;
+    color:#475569;
+  }
+
+  .ado-letter-paper .ltr-footer {
+    margin-top:2.5rem;
+    padding-top:.75rem;
+    border-top:1px dashed #cbd5e1;
+    font-size:10px;
+    color:#94a3b8;
+    text-align:center;
+    font-family:Arial, sans-serif;
+    letter-spacing:.05em;
+  }
+
+  /* ═══ PRINT ═══ */
+  @media print {
+    @page { size: A4; margin: 0; }
+    body * { visibility: hidden; }
+    #ado-ltr-preview, #ado-ltr-preview * { visibility: visible; }
+    #ado-ltr-preview { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+    .ado-letter-paper {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 16mm;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      page-break-inside: avoid;
+    }
+    .filter-bar, .greeting, .page-head { display: none !important; }
+  }
+</style>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '—';
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  };
 
-    document.getElementById('ado-ltr-load').addEventListener('click', async () => {
-      const id = document.getElementById('ado-ltr-id').value.trim();
-      if (!id) return;
-      try {
-        const res = await core.portalFetch(`/api/admission-officer/letters/${id}`);
-        document.getElementById('ado-ltr-body').innerHTML = res.html;
-        document.getElementById('ado-ltr-out').style.display = 'block';
-        document.getElementById('ado-ltr-print').disabled = false;
-      } catch (err) { core.showToast(err.message, 'error'); }
+  let ALL = [];
+  let SELECTED = null;
+
+  // ============================================================
+  // Load applicants
+  // ============================================================
+  async function loadApplicants() {
+    const listEl = $('ado-ltr-list');
+    try {
+      const res = await core.portalFetch('/api/admission-officer/admitted');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderList(ALL);
+      $('ado-ltr-count').textContent = ALL.length;
+    } catch (err) {
+      listEl.innerHTML = `<div style="padding:1rem;color:#991b1b;font-size:.8rem;">⚠️ ${esc(err.message)}</div>`;
+    }
+  }
+
+  // ============================================================
+  // Render applicant list
+  // ============================================================
+  function renderList(rows) {
+    const listEl = $('ado-ltr-list');
+    if (!rows.length) {
+      listEl.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:#94a3b8;font-size:.8rem;">No matching applicants.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = rows.map(a => {
+      const initials = ((a.firstName || '?')[0] + (a.lastName || '?')[0]).toUpperCase();
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+      const meta = a.status === 'registered'
+        ? { label: 'Registered', bg: '#e0e7ff', fg: '#3730a3' }
+        : { label: 'Approved',   bg: '#d1fae5', fg: '#065f46' };
+      const active = SELECTED && SELECTED.id === a.id;
+
+      return `
+        <div class="ado-applicant-item ${active ? 'active' : ''}" data-id="${a.id}">
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;flex-shrink:0;">${initials}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:.82rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(fullName)}</div>
+              <div style="font-size:.68rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.applicationNumber || '')} · ${esc(a.level || '')}</div>
+            </div>
+            <span style="font-size:.6rem;font-weight:800;padding:2px 6px;border-radius:99px;background:${meta.bg};color:${meta.fg};text-transform:uppercase;letter-spacing:.04em;">${meta.label}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    listEl.querySelectorAll('.ado-applicant-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = Number(el.dataset.id);
+        const app = ALL.find(a => a.id === id);
+        if (app) selectApplicant(app);
+      });
+    });
+  }
+
+  // ============================================================
+  // Filter list by search
+  // ============================================================
+  function filterList() {
+    const q = ($('ado-ltr-search')?.value || '').trim().toLowerCase();
+    if (!q) return renderList(ALL);
+
+    const filtered = ALL.filter(a => {
+      const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+    renderList(filtered);
+    $('ado-ltr-count').textContent = filtered.length;
+  }
+
+  // ============================================================
+  // Select applicant → render letter
+  // ============================================================
+  function selectApplicant(app) {
+    SELECTED = app;
+
+    // Re-render list to show active state
+    filterList();
+
+    // Show preview
+    $('ado-ltr-empty').style.display = 'none';
+    $('ado-ltr-preview').style.display = 'block';
+
+    // Enable buttons
+    ['ado-ltr-print', 'ado-ltr-download'].forEach(id => {
+      const btn = $(id);
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     });
 
-    document.getElementById('ado-ltr-print').addEventListener('click', () => {
-      window.print();
-    });
-  })();
+    renderLetter(app);
+  }
+
+  // ============================================================
+  // Render letter HTML
+  // ============================================================
+  function renderLetter(app) {
+    const inst = {
+      name: 'Federal Polytechnic Ugep',
+      motto: 'Citadel of Technical Excellence',
+      address: 'Ugep, Cross River State, Nigeria',
+      phone: '07069096879',
+      email: 'contact@fedpolyugep.edu.ng',
+      website: 'fedpolyugep.edu.ng',
+    };
+
+    const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+    const address = app.address || '—';
+    const today = fmtDate(new Date());
+    const year = new Date().getFullYear();
+    const session = app.sessionName || `${year - 1}/${year}`;
+
+    // Officer name from logged-in user
+    const me = core.getPortalUser ? core.getPortalUser() : {};
+    const officerName = me.firstName
+      ? `${me.firstName} ${me.lastName || ''}`.trim()
+      : 'Admission Officer';
+
+    $('ado-ltr-paper').innerHTML = `
+      <!-- HEADER -->
+      <div class="ltr-head">
+        <img class="ltr-logo" src="/images/logo.png" alt="Logo"
+             onerror="this.style.display='none';" />
+        <div class="ltr-inst">
+          <div class="ltr-inst-name">${esc(inst.name)}</div>
+          <div class="ltr-inst-motto">${esc(inst.motto)}</div>
+          <div class="ltr-inst-contact">
+            ${esc(inst.address)} · 📞 ${esc(inst.phone)} · ✉️ ${esc(inst.email)}
+          </div>
+        </div>
+      </div>
+
+      <!-- META -->
+      <div class="ltr-meta">
+        <div>
+          <strong>Ref No:</strong> ${esc(app.applicationNumber || '—')}
+        </div>
+        <div>
+          <strong>Date:</strong> ${esc(today)}
+        </div>
+      </div>
+
+      <!-- RECIPIENT -->
+      <div class="ltr-recipient">
+        <div class="name">${esc(fullName)}</div>
+        <div>${esc(app.email || '')}</div>
+        <div>${esc(app.phone || '')}</div>
+        <div>${esc(address)}</div>
+      </div>
+
+      <!-- SALUTATION -->
+      <p style="margin:0;">Dear <strong>${esc(fullName)}</strong>,</p>
+
+      <!-- SUBJECT -->
+      <div class="ltr-subject">
+        Offer of Provisional Admission — ${esc(app.level || 'ND')} Programme
+      </div>
+
+      <!-- BODY -->
+      <div class="ltr-body">
+        <p>
+          Following your application with reference number <strong>${esc(app.applicationNumber || '—')}</strong>,
+          I am pleased to inform you that you have been offered <strong>provisional admission</strong>
+          into <strong>${esc(inst.name)}</strong> for the <strong>${esc(session)}</strong> academic session.
+        </p>
+
+        <p>Your admission details are as follows:</p>
+
+        <div class="ltr-programme-box">
+          <div class="row">
+            <span class="label">Programme</span>
+            <span class="value">${esc(app.programmeName || app.type || '—')}</span>
+          </div>
+          <div class="row">
+            <span class="label">Department</span>
+            <span class="value">${esc(app.departmentName || '—')}</span>
+          </div>
+          <div class="row">
+            <span class="label">Level</span>
+            <span class="value">${esc(app.level || '—')}</span>
+          </div>
+          <div class="row">
+            <span class="label">Session</span>
+            <span class="value">${esc(session)}</span>
+          </div>
+          <div class="row">
+            <span class="label">Mode of Entry</span>
+            <span class="value">UTME / JAMB (${esc(app.jambScore || '—')})</span>
+          </div>
+        </div>
+
+        <p><strong>This offer is subject to the following conditions:</strong></p>
+        <ol class="ltr-list">
+          <li>Verification of your O'Level results and JAMB credentials.</li>
+          <li>Payment of the prescribed acceptance and registration fees.</li>
+          <li>Completion of all registration formalities within the stipulated time.</li>
+          <li>Production of original credentials at the point of physical screening.</li>
+        </ol>
+
+        <p>
+          Kindly report to the Admissions Office within <strong>two (2) weeks</strong> of the date of this letter,
+          and present the following documents:
+        </p>
+        <ul class="ltr-list">
+          <li>Original JAMB result slip (and admission letter printed from JAMB CAPS).</li>
+          <li>Original O'Level certificate(s) or statement of result.</li>
+          <li>Birth certificate or sworn declaration of age.</li>
+          <li>Local Government Area certificate of origin.</li>
+          <li>Four (4) recent passport photographs.</li>
+        </ul>
+
+        <p>
+          Failure to comply with these conditions within the stipulated period may result in the forfeiture of this offer.
+          This admission is provisional and subject to final verification by the Registrar.
+        </p>
+
+        <p style="margin-top:1.25rem;">
+          Please accept my warm congratulations on your admission.
+        </p>
+      </div>
+
+      <!-- SIGNATURE -->
+      <div class="ltr-sign">
+        <div>Yours faithfully,</div>
+        <div class="line"></div>
+        <div class="name">${esc(officerName)}</div>
+        <div class="role">Admission Officer</div>
+        <div class="role">${esc(inst.name)}</div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="ltr-footer">
+        This letter is not valid without the official stamp of ${esc(inst.name)} · ${esc(inst.website)}
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Print + PDF
+  // ============================================================
+  $('ado-ltr-print')?.addEventListener('click', () => window.print());
+  $('ado-ltr-download')?.addEventListener('click', () => {
+    core.showToast && core.showToast('Use "Save as PDF" in the print dialog.', 'info');
+    setTimeout(() => window.print(), 200);
+  });
+
+  // ============================================================
+  // Search
+  // ============================================================
+  let timer;
+  $('ado-ltr-search')?.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(filterList, 200);
+  });
+
+  // ============================================================
+  // Handle ?applicant=X from hash (deep link)
+  // ============================================================
+  function checkDeepLink() {
+    const hash = window.location.hash || '';
+    const match = hash.match(/applicant=(\d+)/);
+    if (match && ALL.length) {
+      const id = Number(match[1]);
+      const app = ALL.find(a => a.id === id);
+      if (app) setTimeout(() => selectApplicant(app), 300);
+    }
+  }
+
+  // ============================================================
+  // Kick off
+  // ============================================================
+  loadApplicants().then(() => checkDeepLink());
+})();
 </script>

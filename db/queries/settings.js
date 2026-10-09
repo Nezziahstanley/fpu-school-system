@@ -98,16 +98,25 @@ async function getPassMark() {
 }
 
 async function getInstitution() {
-  const rows = await db.select().from(settings).where(eq(settings.category, 'institution'));
-  const map = {};
-  for (const row of rows) map[row.key] = row.value;
+  let map = {};
+  try {
+    const rows = await db.select().from(settings).where(eq(settings.category, 'institution'));
+    for (const row of rows) map[row.key] = row.value;
+  } catch (err) {
+    console.error('[getInstitution] query failed:', err.message);
+    // Fall through to env-var + hardcoded defaults — card still renders
+  }
+
   return {
-    name: map.institution_name || 'Federal Polytechnic Ugep',
-    motto: map.institution_motto || 'Citadel of Technical Excellence',
-    state: map.institution_state || 'Cross River State',
-    country: map.institution_country || 'Nigeria',
-    short: 'FPU',
-    website: 'https://fedpolyugep.edu.ng',
+    name:    map.institution_name    || process.env.INSTITUTION_NAME    || 'Federal Polytechnic Ugep',
+    short:   map.institution_short   || process.env.INSTITUTION_SHORT   || 'FPU',
+    motto:   map.institution_motto   || process.env.INSTITUTION_MOTTO   || 'Citadel of Technical Excellence',
+    address: map.institution_address || process.env.INSTITUTION_ADDRESS || 'Ugep, Cross River State, Nigeria',
+    state:   map.institution_state   || process.env.INSTITUTION_STATE   || 'Cross River State',
+    country: map.institution_country || process.env.INSTITUTION_COUNTRY || 'Nigeria',
+    phone:   map.institution_phone   || process.env.INSTITUTION_PHONE   || '+234-704-114-5338',
+    email:   map.institution_email   || process.env.INSTITUTION_EMAIL   || 'stanleytechconnect@gmail.com',
+    website: map.institution_website || process.env.INSTITUTION_WEBSITE || 'https://fpu-school-systems.onrender.com',
   };
 }
 

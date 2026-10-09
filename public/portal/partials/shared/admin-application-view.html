@@ -1,54 +1,660 @@
-<!-- Portal → Shared → Application view -->
-<section class="page-head">
-  <div><h2>Application Detail</h2></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_SPA.navigatePortal('admin-applications-list')">← Back</button></div>
-</section>
+<!-- Portal → Shared → Applications review queue -->
+<div style="padding:0;">
 
-<div class="panel">
-  <div class="panel-head"><h3>Applicant</h3></div>
-  <div class="panel-body" id="shared-app-view">
-    <p class="muted">Enter an application ID to view details.</p>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem;">
-      <input class="form-control" id="shared-app-id" placeholder="Application ID" style="max-width:220px;" />
-      <button class="btn btn-primary btn-sm" id="shared-app-load">Load</button>
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Applications</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Review, filter, and act on submitted applications</p>
     </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="apps-export" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+      ">📥 Export CSV</button>
+      <button id="apps-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+      ">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div id="apps-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem;"></div>
+
+  <!-- FILTER BAR -->
+  <div style="
+    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+    padding:1rem;margin-bottom:1rem;
+    display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.6rem;align-items:end;
+  ">
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Search</label>
+      <input type="search" id="apps-search" placeholder="Name, email, or app number…"
+             style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Status</label>
+      <select id="apps-filter-status" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All</option>
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="registered">Registered</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
+      <select id="apps-filter-level" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All</option>
+        <option value="ND">ND</option>
+        <option value="HND">HND</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Department</label>
+      <select id="apps-filter-dept" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All</option>
+      </select>
+    </div>
+    <button id="apps-clear" style="
+      padding:.55rem .85rem;font-size:.8rem;font-weight:600;
+      background:#f1f5f9;color:#475569;border:none;border-radius:8px;
+      cursor:pointer;align-self:end;
+    ">Clear</button>
+  </div>
+
+  <!-- BULK BAR -->
+  <div id="apps-bulk-bar" style="
+    display:none;
+    background:linear-gradient(135deg,#065f46,#047857);
+    color:#fff;padding:.75rem 1rem;margin-bottom:1rem;
+    border-radius:10px;
+    align-items:center;justify-content:space-between;gap:.75rem;
+    box-shadow:0 4px 12px rgba(6,95,70,.20);
+  ">
+    <div style="font-size:.82rem;font-weight:700;">
+      <span id="apps-bulk-count">0</span> selected
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button id="apps-bulk-approve" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:#fff;color:#065f46;border:none;border-radius:6px;cursor:pointer;
+      ">✓ Approve Selected</button>
+      <button id="apps-bulk-reject" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;
+      ">✕ Reject Selected</button>
+      <button id="apps-bulk-clear" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;cursor:pointer;
+      ">Clear</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Showing <span id="apps-shown">0</span> of <span id="apps-total">0</span> applications
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;width:36px;">
+              <input type="checkbox" id="apps-select-all" style="cursor:pointer;" />
+            </th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Applicant</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">App No.</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">JAMB</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="apps-tbody">
+          <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:appsSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- DETAIL MODAL -->
+<div id="apps-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="apps-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Application Details</h3>
+      <button id="apps-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0;width:32px;height:32px;border-radius:8px;">✕</button>
+    </div>
+    <div id="apps-modal-body" style="padding:1.25rem;"></div>
   </div>
 </div>
 
+<style>
+  @keyframes appsSpin { to { transform: rotate(360deg); } }
+  #apps-tbody tr { transition: background .1s; }
+  #apps-tbody tr:hover { background: #f8fafc; }
+  .apps-status-badge {
+    display:inline-flex;align-items:center;gap:.3rem;
+    padding:3px 9px;border-radius:99px;
+    font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  }
+  .apps-avatar {
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:.75rem;flex-shrink:0;
+  }
+  .apps-btn-sm {
+    padding:.35rem .65rem;font-size:.72rem;font-weight:700;
+    border-radius:6px;border:none;cursor:pointer;font-family:inherit;
+    transition:all .15s;
+  }
+  #apps-modal-close:hover { background: #f1f5f9; }
+</style>
+
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
-    document.getElementById('shared-app-load').addEventListener('click', async () => {
-      const id = document.getElementById('shared-app-id').value.trim();
-      const out = document.getElementById('shared-app-view');
-      if (!id) return;
-      try {
-        const res = await core.portalFetch(`/api/admin/applications/${id}`);
-        const a = res.data;
-        out.innerHTML = `
-          <div class="grid grid-2" style="gap:1rem;">
-            <div><strong>No:</strong> ${core.escapeHtml(a.applicationNumber)}</div>
-            <div><strong>Status:</strong> ${core.escapeHtml(a.status)}</div>
-            <div><strong>Name:</strong> ${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</div>
-            <div><strong>Email:</strong> ${core.escapeHtml(a.email)}</div>
-            <div><strong>Phone:</strong> ${core.escapeHtml(a.phone)}</div>
-            <div><strong>Level:</strong> ${core.escapeHtml(a.level)}</div>
-          </div>
-          <div class="form-actions">
-            <button class="btn btn-primary btn-sm" id="sh-app-approve">Approve</button>
-            <button class="btn btn-ghost btn-sm" id="sh-app-reject">Reject</button>
-          </div>
-        `;
-        document.getElementById('sh-app-approve').addEventListener('click', async () => {
-          try { await core.portalFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' }); core.showToast('Approved.', 'success'); }
-          catch (err) { core.showToast(err.message, 'error'); }
-        });
-        document.getElementById('sh-app-reject').addEventListener('click', async () => {
-          const r = prompt('Reason:'); if (r === null) return;
-          try { await core.portalFetch(`/api/admin/applications/${id}/reject`, { method: 'POST', body: { reason: r } }); core.showToast('Rejected.', 'warning'); }
-          catch (err) { core.showToast(err.message, 'error'); }
-        });
-      } catch (err) { out.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
+
+  const STATUS_META = {
+    pending:      { label: 'Pending',      bg: '#fef3c7', fg: '#92400e', dot: '#f59e0b' },
+    under_review: { label: 'Under Review', bg: '#dbeafe', fg: '#1e40af', dot: '#3b82f6' },
+    approved:     { label: 'Approved',     bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
+    rejected:     { label: 'Rejected',     bg: '#fee2e2', fg: '#991b1b', dot: '#ef4444' },
+    registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
+  };
+  const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ============================================================
+  // MODAL
+  // ============================================================
+  function openModal() {
+    const m = $('apps-modal');
+    if (!m) return;
+    m.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    const m = $('apps-modal');
+    if (!m) return;
+    m.style.display = 'none';
+    document.body.style.overflow = '';
+    const body = $('apps-modal-body');
+    if (body) body.innerHTML = '';
+  }
+
+  // ============================================================
+  // LOAD
+  // ============================================================
+  async function load() {
+    const tbody = $('apps-tbody');
+    tbody.innerHTML = `
+      <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:appsSpin .8s linear infinite;"></div>
+        <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+      </td></tr>`;
+
+    try {
+      const res = await core.portalFetch('/api/admission-officer/applications?limit=500');
+      ALL = Array.isArray(res.data) ? res.data : [];
+
+      // Populate departments
+      const depts = new Map();
+      ALL.forEach(a => {
+        if (a.departmentId && a.departmentName) depts.set(a.departmentId, a.departmentName);
+      });
+      const sortedDepts = [...depts.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+      const deptSel = $('apps-filter-dept');
+      if (deptSel) {
+        deptSel.innerHTML = '<option value="">All</option>' +
+          sortedDepts.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join('');
+      }
+
+      renderStats();
+      applyFilters();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ============================================================
+  // STATS
+  // ============================================================
+  function renderStats() {
+    const counts = { total: ALL.length, pending: 0, approved: 0, rejected: 0, registered: 0 };
+    ALL.forEach(a => {
+      if (counts[a.status] !== undefined) counts[a.status]++;
     });
-  })();
+    const admitted = counts.approved + counts.registered;
+
+    const tiles = [
+      { label: 'Total', value: counts.total, bg: '#e0e7ff', fg: '#3730a3', icon: '📋' },
+      { label: 'Pending', value: counts.pending, bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
+      { label: 'Admitted', value: admitted, bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'Rejected', value: counts.rejected, bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+    ];
+
+    $('apps-stats').innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
+        <div style="min-width:0;">
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ============================================================
+  // FILTERS
+  // ============================================================
+  function applyFilters() {
+    const q = ($('apps-search')?.value || '').trim().toLowerCase();
+    const status = $('apps-filter-status')?.value || '';
+    const level = $('apps-filter-level')?.value || '';
+    const dept = $('apps-filter-dept')?.value || '';
+
+    FILTERED = ALL.filter(a => {
+      if (status && a.status !== status) return false;
+      if (level && a.level !== level) return false;
+      if (dept && String(a.departmentId) !== dept) return false;
+      if (q) {
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderTable(FILTERED);
+    updateCounts();
+  }
+
+  function updateCounts() {
+    $('apps-shown').textContent = FILTERED.length;
+    $('apps-total').textContent = ALL.length;
+    const selected = document.querySelectorAll('#apps-tbody .apps-row-check:checked').length;
+    $('apps-bulk-count').textContent = selected;
+    $('apps-bulk-bar').style.display = selected > 0 ? 'flex' : 'none';
+  }
+
+  // ============================================================
+  // TABLE RENDER
+  // ============================================================
+  function renderTable(rows) {
+    const tbody = $('apps-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="8" style="padding:3rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📭</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No matching applications</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(a => {
+      const meta = statusMeta(a.status);
+      const initials = ((a.firstName || '?')[0] + (a.lastName || '?')[0]).toUpperCase();
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+
+      let actions = '';
+      if (a.status === 'pending' || a.status === 'under_review') {
+        actions = `
+          <button class="apps-btn-sm" data-action="approve" data-id="${a.id}" style="background:#d1fae5;color:#065f46;">✓ Approve</button>
+          <button class="apps-btn-sm" data-action="reject" data-id="${a.id}" style="background:#fee2e2;color:#991b1b;margin-left:.35rem;">✕ Reject</button>`;
+      } else if (a.status === 'approved') {
+        actions = `<button class="apps-btn-sm" data-action="register" data-id="${a.id}" style="background:#065f46;color:#fff;">📝 Register</button>`;
+      }
+      actions += `<button class="apps-btn-sm" data-action="view" data-id="${a.id}" style="background:#f1f5f9;color:#475569;margin-left:.35rem;">👁 View</button>`;
+
+      return `
+        <tr data-id="${a.id}">
+          <td style="padding:.65rem .75rem;">
+            <input type="checkbox" class="apps-row-check" data-id="${a.id}" style="cursor:pointer;" />
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="display:flex;align-items:center;gap:.6rem;">
+              <div class="apps-avatar" style="background:linear-gradient(135deg,#065f46,#047857);">${initials}</div>
+              <div style="min-width:0;">
+                <div style="font-weight:700;color:#0f172a;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">${esc(fullName)}</div>
+                <div style="font-size:.72rem;color:#94a3b8;">${esc(a.email)}</div>
+              </div>
+            </div>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <code style="font-size:.75rem;color:#475569;">${esc(a.applicationNumber || '—')}</code>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-size:.8rem;color:#0f172a;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${esc(a.programmeName || '—')}</div>
+            <div style="font-size:.7rem;color:#94a3b8;">${esc(a.departmentName || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(a.level || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="font-size:.78rem;font-weight:700;color:#334155;">${esc(a.jambScore || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span class="apps-status-badge" style="background:${meta.bg};color:${meta.fg};">
+              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+              ${meta.label}
+            </span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            ${actions}
+          </td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.apps-row-check').forEach(cb => {
+      cb.addEventListener('change', updateCounts);
+    });
+
+    tbody.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
+    });
+  }
+
+  // ============================================================
+  // ACTION HANDLERS
+  // ============================================================
+  function handleAction(action, id) {
+    const app = ALL.find(a => String(a.id) === String(id));
+    if (!app) return;
+
+    if (action === 'view') return openDetailModal(app);
+    if (action === 'register') return openRegisterModal(app);
+
+    if (action === 'approve') {
+      if (!confirm(`Approve application from ${app.firstName} ${app.lastName}?`)) return;
+      return doAction(`/api/admission-officer/applications/${app.id}/approve`, {}, 'Approved');
+    }
+    if (action === 'reject') {
+      const reason = prompt('Reason for rejection (optional):');
+      if (reason === null) return;
+      return doAction(`/api/admission-officer/applications/${app.id}/reject`, { reason: reason || 'Did not meet requirements.' }, 'Rejected');
+    }
+  }
+
+  async function doAction(endpoint, body, label) {
+    try {
+      const opts = { method: 'POST' };
+      if (body && Object.keys(body).length) opts.body = body;
+      await core.portalFetch(endpoint, opts);
+      core.showToast && core.showToast(`${label} successfully.`, 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // ============================================================
+  // DETAIL MODAL
+  // ============================================================
+  function openDetailModal(app) {
+    const meta = statusMeta(app.status);
+    const initials = ((app.firstName || '?')[0] + (app.lastName || '?')[0]).toUpperCase();
+    const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+
+    const row = (label, value) => `
+      <div style="display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:.75rem;color:#64748b;font-weight:600;">${label}</span>
+        <span style="font-size:.82rem;color:#0f172a;font-weight:700;text-align:right;max-width:60%;">${esc(value || '—')}</span>
+      </div>`;
+
+    $('apps-modal-title').textContent = 'Application Details';
+    $('apps-modal-body').innerHTML = `
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;flex-shrink:0;">${initials}</div>
+        <div style="min-width:0;flex:1;">
+          <div style="font-weight:800;color:#0f172a;font-size:1.05rem;">${esc(fullName)}</div>
+          <div style="font-size:.78rem;color:#64748b;margin-top:.2rem;">${esc(app.email)}</div>
+          <div style="margin-top:.4rem;">
+            <span class="apps-status-badge" style="background:${meta.bg};color:${meta.fg};">
+              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+              ${meta.label}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Application</div>
+        ${row('Application No.', app.applicationNumber)}
+        ${row('Type', app.type)}
+        ${row('Level', app.level)}
+        ${row('JAMB Reg. No.', app.jambRegNo)}
+        ${row('JAMB Score', app.jambScore)}
+        ${row('Submitted', fmtDate(app.createdAt))}
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Academic</div>
+        ${row('Programme', app.programmeName)}
+        ${row('Department', app.departmentName)}
+        ${row('School', app.schoolName)}
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Personal</div>
+        ${row('Phone', app.phone)}
+        ${row('Gender', app.gender)}
+        ${row('Date of Birth', fmtDate(app.dateOfBirth))}
+        ${row('State of Origin', app.stateOfOrigin)}
+        ${row('LGA', app.lga)}
+      </div>
+
+      ${app.matricNumber ? `
+        <div style="margin-top:1rem;padding:.85rem 1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+          <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;">Matric Number</div>
+          <div style="font-family:ui-monospace,monospace;font-size:.95rem;font-weight:800;color:#065f46;margin-top:.3rem;">${esc(app.matricNumber)}</div>
+        </div>` : ''}
+
+      ${app.rejectionReason ? `
+        <div style="margin-top:1rem;padding:.85rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">
+          <div style="font-size:.68rem;font-weight:800;color:#991b1b;letter-spacing:.08em;text-transform:uppercase;">Rejection Reason</div>
+          <div style="font-size:.82rem;color:#7f1d1d;margin-top:.3rem;">${esc(app.rejectionReason)}</div>
+        </div>` : ''}
+
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.25rem;">
+        <button id="apps-modal-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
+      </div>
+    `;
+
+    openModal();
+    $('apps-modal-cancel').addEventListener('click', closeModal);
+  }
+
+  // ============================================================
+  // REGISTER MODAL
+  // ============================================================
+  function openRegisterModal(app) {
+    const initials = ((app.firstName || '?')[0] + (app.lastName || '?')[0]).toUpperCase();
+    const fullName = `${app.firstName || ''} ${app.lastName || ''}`.trim();
+
+    $('apps-modal-title').textContent = 'Register Applicant';
+    $('apps-modal-body').innerHTML = `
+      <div style="display:flex;align-items:center;gap:.75rem;padding:1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:1.25rem;">
+        <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0;">${initials}</div>
+        <div style="min-width:0;">
+          <div style="font-weight:800;color:#0f172a;font-size:.95rem;">${esc(fullName)}</div>
+          <div style="font-size:.75rem;color:#64748b;margin-top:.15rem;">${esc(app.email)} · ${esc(app.applicationNumber)}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;padding:.75rem .9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:.8rem;color:#1e40af;">
+        <strong>ℹ️ About to register this applicant</strong>
+        <div style="margin-top:.35rem;color:#1e3a8a;">A student account will be created, a matric number will be assigned, and the applicant will receive their admission letter.</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
+        <div style="padding:.7rem .85rem;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:.65rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Programme</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.85rem;margin-top:.2rem;">${esc(app.programmeName || '—')}</div>
+        </div>
+        <div style="padding:.7rem .85rem;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:.65rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Department</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.85rem;margin-top:.2rem;">${esc(app.departmentName || '—')}</div>
+        </div>
+        <div style="padding:.7rem .85rem;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:.65rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Level</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.85rem;margin-top:.2rem;">${esc(app.level || '—')}</div>
+        </div>
+        <div style="padding:.7rem .85rem;background:#f8fafc;border-radius:8px;">
+          <div style="font-size:.65rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">JAMB Score</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.85rem;margin-top:.2rem;">${esc(app.jambScore || '—')}</div>
+        </div>
+      </div>
+
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:.75rem .9rem;margin-bottom:1.25rem;font-size:.78rem;color:#78350f;">
+        <strong>⚠️ Default password:</strong> The student will be created with password <code style="background:#fff;padding:2px 6px;border-radius:4px;font-weight:700;">student1234</code> and <em>must change it</em> on first login.
+      </div>
+
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button id="apps-modal-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="apps-modal-confirm" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">✓ Confirm Registration</button>
+      </div>
+    `;
+
+    openModal();
+    $('apps-modal-cancel').addEventListener('click', closeModal);
+    $('apps-modal-confirm').addEventListener('click', async () => {
+      const btn = $('apps-modal-confirm');
+      btn.disabled = true;
+      btn.innerHTML = '⏳ Registering…';
+
+      try {
+        const res = await core.portalFetch(`/api/admission-officer/applications/${app.id}/register`, { method: 'POST' });
+        const matric = res.data?.matricNumber || '';
+        core.showToast && core.showToast(`Registered! Matric: ${matric}`, 'success');
+        closeModal();
+        load();
+      } catch (err) {
+        core.showToast && core.showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '✓ Confirm Registration';
+      }
+    });
+  }
+
+  // ============================================================
+  // BULK
+  // ============================================================
+  $('apps-select-all')?.addEventListener('change', (e) => {
+    document.querySelectorAll('#apps-tbody .apps-row-check').forEach(cb => cb.checked = e.target.checked);
+    updateCounts();
+  });
+
+  $('apps-bulk-clear')?.addEventListener('click', () => {
+    document.querySelectorAll('#apps-tbody .apps-row-check').forEach(cb => cb.checked = false);
+    if ($('apps-select-all')) $('apps-select-all').checked = false;
+    updateCounts();
+  });
+
+  $('apps-bulk-approve')?.addEventListener('click', async () => {
+    const ids = [...document.querySelectorAll('#apps-tbody .apps-row-check:checked')].map(cb => Number(cb.dataset.id));
+    if (!ids.length) return;
+    if (!confirm(`Approve ${ids.length} selected application${ids.length === 1 ? '' : 's'}?`)) return;
+
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try {
+        await core.portalFetch(`/api/admission-officer/applications/${id}/approve`, { method: 'POST' });
+        ok++;
+      } catch { fail++; }
+    }
+    core.showToast && core.showToast(`Approved ${ok}${fail ? ` · ${fail} failed` : ''}`, fail ? 'warning' : 'success');
+    document.querySelectorAll('#apps-tbody .apps-row-check').forEach(cb => cb.checked = false);
+    if ($('apps-select-all')) $('apps-select-all').checked = false;
+    load();
+  });
+
+  $('apps-bulk-reject')?.addEventListener('click', async () => {
+    const ids = [...document.querySelectorAll('#apps-tbody .apps-row-check:checked')].map(cb => Number(cb.dataset.id));
+    if (!ids.length) return;
+    const reason = prompt(`Reject ${ids.length} selected application(s)? Enter reason (optional):`);
+    if (reason === null) return;
+
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+      try {
+        await core.portalFetch(`/api/admission-officer/applications/${id}/reject`, {
+          method: 'POST',
+          body: { reason: reason || 'Did not meet requirements.' },
+        });
+        ok++;
+      } catch { fail++; }
+    }
+    core.showToast && core.showToast(`Rejected ${ok}${fail ? ` · ${fail} failed` : ''}`, fail ? 'warning' : 'success');
+    document.querySelectorAll('#apps-tbody .apps-row-check').forEach(cb => cb.checked = false);
+    if ($('apps-select-all')) $('apps-select-all').checked = false;
+    load();
+  });
+
+  // ============================================================
+  // CSV EXPORT
+  // ============================================================
+  $('apps-export')?.addEventListener('click', () => {
+    if (!FILTERED.length) return core.showToast && core.showToast('No rows to export.', 'warning');
+    const headers = ['App No','First Name','Last Name','Email','Phone','Programme','Department','Level','JAMB','Status','Submitted'];
+    const rows = FILTERED.map(a => [
+      a.applicationNumber, a.firstName, a.lastName, a.email, a.phone,
+      a.programmeName, a.departmentName, a.level, a.jambScore, a.status, fmtDate(a.createdAt),
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `applications-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    core.showToast && core.showToast(`Exported ${FILTERED.length} rows.`, 'success');
+  });
+
+  // ============================================================
+  // WIRING
+  // ============================================================
+  let searchTimer;
+  $('apps-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilters, 200);
+  });
+  $('apps-filter-status')?.addEventListener('change', applyFilters);
+  $('apps-filter-level')?.addEventListener('change', applyFilters);
+  $('apps-filter-dept')?.addEventListener('change', applyFilters);
+
+  $('apps-clear')?.addEventListener('click', () => {
+    $('apps-search').value = '';
+    $('apps-filter-status').value = '';
+    $('apps-filter-level').value = '';
+    $('apps-filter-dept').value = '';
+    applyFilters();
+  });
+
+  $('apps-refresh')?.addEventListener('click', load);
+  $('apps-modal-close')?.addEventListener('click', closeModal);
+  $('apps-modal')?.addEventListener('click', (e) => { if (e.target.id === 'apps-modal') closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  load();
+})();
 </script>

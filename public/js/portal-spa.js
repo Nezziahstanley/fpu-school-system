@@ -88,6 +88,7 @@
     rector: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
+      'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
     registrar: [

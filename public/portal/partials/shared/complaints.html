@@ -1,81 +1,501 @@
 <!-- Portal → Shared → Complaints -->
-<section class="page-head">
-  <div><h2>My Complaints</h2><p class="muted small">Report an issue and track its status</p></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="cmp-new">+ New Complaint</button></div>
+<section class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+  <div>
+    <h2 style="margin:0;font-size:1.35rem;font-weight:700;color:#0f172a;">My Complaints</h2>
+    <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Report an issue and track its status</p>
+  </div>
+  <button id="cmp-new" type="button" style="
+    display:inline-flex;align-items:center;gap:.4rem;
+    padding:.6rem 1rem;
+    background:#065f46;color:#fff;
+    border:none;border-radius:10px;
+    font-size:.85rem;font-weight:700;
+    cursor:pointer;
+    box-shadow:0 2px 6px rgba(6,95,70,.20);
+    transition:all .15s;
+  "
+  onmouseover="this.style.background='#047857';this.style.boxShadow='0 4px 12px rgba(6,95,70,.30)';"
+  onmouseout="this.style.background='#065f46';this.style.boxShadow='0 2px 6px rgba(6,95,70,.20)';">
+    <span style="font-size:1.1rem;line-height:1;">+</span> New Complaint
+  </button>
 </section>
 
-<div class="panel" id="cmp-new-panel" style="display:none;">
-  <div class="panel-head"><h3>New Complaint</h3></div>
-  <div class="panel-body">
-    <form id="cmp-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Subject <span class="req">*</span></label><input class="form-control" name="subject" required /></div>
-        <div class="form-group"><label class="form-label">Category</label>
-          <select class="form-select" name="category">
-            <option value="">—</option>
-            <option>academic</option>
-            <option>facility</option>
-            <option>finance</option>
-            <option>welfare</option>
-            <option>other</option>
-          </select>
-        </div>
+<!-- Stats row -->
+<div id="cmp-stats" style="
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:.75rem;margin-bottom:1.25rem;
+"></div>
+
+<!-- Filter tabs -->
+<div id="cmp-tabs" style="
+  display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;
+  padding:.35rem;background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;
+  width:fit-content;
+">
+  <button class="cmp-tab active" data-filter="all">All</button>
+  <button class="cmp-tab" data-filter="open">Open</button>
+  <button class="cmp-tab" data-filter="in_review">In Review</button>
+  <button class="cmp-tab" data-filter="resolved">Resolved</button>
+  <button class="cmp-tab" data-filter="closed">Closed</button>
+</div>
+
+<!-- List container -->
+<div id="cmp-list"></div>
+
+<!-- Modal -->
+<div id="cmp-modal" style="
+  display:none;
+  position:fixed;inset:0;z-index:1000;
+  background:rgba(15,23,42,.55);
+  backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+  padding:1rem;
+  overflow-y:auto;
+">
+  <div style="
+    background:#fff;
+    border-radius:18px;
+    max-width:580px;width:100%;
+    max-height:92vh;overflow-y:auto;
+    box-shadow:0 25px 60px rgba(0,0,0,.30);
+    margin:auto;
+    animation:cmpPopIn .25s cubic-bezier(.34,1.56,.64,1);
+  ">
+    <div style="
+      display:flex;justify-content:space-between;align-items:center;
+      padding:1.25rem 1.5rem;
+      border-bottom:1px solid #e5e7eb;
+    ">
+      <div>
+        <h3 style="margin:0;color:#0f172a;font-size:1.1rem;font-weight:700;">New Complaint</h3>
+        <p style="margin:.25rem 0 0;font-size:.78rem;color:#64748b;">We'll respond as soon as possible</p>
       </div>
-      <div class="form-group"><label class="form-label">Message <span class="req">*</span></label><textarea class="form-control" name="body" rows="4" required></textarea></div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Submit</button>
-        <button type="button" class="btn btn-ghost" id="cmp-cancel">Cancel</button>
+      <button id="cmp-close" type="button" style="
+        background:transparent;border:none;
+        width:34px;height:34px;border-radius:8px;
+        font-size:1.4rem;cursor:pointer;color:#64748b;
+        display:flex;align-items:center;justify-content:center;
+        transition:background .15s;
+      ">✕</button>
+    </div>
+
+    <form id="cmp-form" style="padding:1.5rem;">
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.4rem;">
+          Subject <span style="color:#ef4444;">*</span>
+        </label>
+        <input type="text" name="subject" required maxlength="200"
+               placeholder="Brief title of your issue"
+               style="
+                 width:100%;padding:.7rem .85rem;font-size:.88rem;
+                 border:1px solid #d1d5db;border-radius:10px;
+                 font-family:inherit;box-sizing:border-box;
+                 transition:border-color .15s, box-shadow .15s;
+               "
+               onfocus="this.style.borderColor='#065f46';this.style.boxShadow='0 0 0 3px rgba(6,95,70,.12)';"
+               onblur="this.style.borderColor='#d1d5db';this.style.boxShadow='none';" />
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.4rem;">
+          Category
+        </label>
+        <select name="category" style="
+          width:100%;padding:.7rem .85rem;font-size:.88rem;
+          border:1px solid #d1d5db;border-radius:10px;background:#fff;
+          font-family:inherit;box-sizing:border-box;cursor:pointer;
+        ">
+          <option value="">— Select a category —</option>
+          <option value="academic">Academic</option>
+          <option value="fees">Fees / Payments</option>
+          <option value="library">Library</option>
+          <option value="hostel">Hostel / Accommodation</option>
+          <option value="ict">ICT / Portal Issues</option>
+          <option value="staff">Staff Conduct</option>
+          <option value="welfare">Student Welfare</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1.25rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.4rem;">
+          Description <span style="color:#ef4444;">*</span>
+        </label>
+        <textarea name="body" required rows="6" maxlength="2000"
+                  placeholder="Describe your issue in detail. Include dates, names, or reference numbers where applicable."
+                  style="
+                    width:100%;padding:.7rem .85rem;font-size:.88rem;
+                    border:1px solid #d1d5db;border-radius:10px;
+                    font-family:inherit;resize:vertical;line-height:1.5;
+                    box-sizing:border-box;
+                    transition:border-color .15s, box-shadow .15s;
+                  "
+                  onfocus="this.style.borderColor='#065f46';this.style.boxShadow='0 0 0 3px rgba(6,95,70,.12)';"
+                  onblur="this.style.borderColor='#d1d5db';this.style.boxShadow='none';"></textarea>
+      </div>
+
+      <div style="display:flex;gap:.6rem;justify-content:flex-end;">
+        <button type="button" id="cmp-cancel" style="
+          padding:.65rem 1.15rem;font-size:.85rem;font-weight:600;
+          background:#f1f5f9;color:#475569;border:none;border-radius:10px;
+          cursor:pointer;transition:background .15s;
+        "
+        onmouseover="this.style.background='#e2e8f0';"
+        onmouseout="this.style.background='#f1f5f9';">Cancel</button>
+
+        <button type="submit" id="cmp-submit" style="
+          padding:.65rem 1.4rem;font-size:.85rem;font-weight:700;
+          background:#065f46;color:#fff;border:none;border-radius:10px;
+          cursor:pointer;
+          display:inline-flex;align-items:center;gap:.4rem;
+          transition:background .15s;
+          box-shadow:0 2px 6px rgba(6,95,70,.20);
+        "
+        onmouseover="this.style.background='#047857';"
+        onmouseout="this.style.background='#065f46';">
+          <span id="cmp-submit-text">Submit Complaint</span>
+        </button>
       </div>
     </form>
   </div>
 </div>
 
-<div id="cmp-list" class="grid" style="gap:.5rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
-</div>
+<style>
+  .cmp-tab {
+    padding:.5rem 1rem;font-size:.82rem;font-weight:600;
+    background:transparent;border:none;border-radius:8px;
+    color:#64748b;cursor:pointer;
+    transition:all .15s;font-family:inherit;
+  }
+  .cmp-tab:hover { background:#fff; color:#0f172a; }
+  .cmp-tab.active {
+    background:#fff;color:#065f46;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);
+    font-weight:700;
+  }
+
+  .cmp-card {
+    background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+    margin-bottom:.85rem;overflow:hidden;
+    transition:box-shadow .2s, transform .2s, border-color .2s;
+  }
+  .cmp-card:hover {
+    box-shadow:0 10px 24px rgba(6,95,70,.10);
+    transform:translateY(-2px);
+    border-color:#d1d5db;
+  }
+
+  .cmp-stat {
+    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+    padding:.85rem 1rem;
+    display:flex;align-items:center;gap:.75rem;
+    transition:box-shadow .15s;
+  }
+  .cmp-stat:hover { box-shadow:0 4px 12px rgba(6,95,70,.06); }
+  .cmp-stat-icon {
+    width:36px;height:36px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.1rem;flex-shrink:0;
+  }
+  .cmp-stat-info { display:flex;flex-direction:column;line-height:1.2; }
+  .cmp-stat-value { font-size:1.35rem;font-weight:800;color:#0f172a; }
+  .cmp-stat-label { font-size:.7rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase; }
+
+  @keyframes cmpPopIn {
+    from { opacity:0; transform:scale(.94) translateY(-8px); }
+    to   { opacity:1; transform:scale(1) translateY(0); }
+  }
+  @keyframes cmpSpin { to { transform:rotate(360deg); } }
+  .cmp-spin {
+    width:32px;height:32px;border:3px solid #e2e8f0;
+    border-top-color:#065f46;border-radius:50%;
+    animation:cmpSpin .8s linear infinite;margin:0 auto;
+  }
+  #cmp-close:hover { background:#f1f5f9; }
+  #cmp-modal { display:none; }
+  #cmp-modal.open { display:flex; }
+</style>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => core.formatDateTime ? core.formatDateTime(d) : (d ? new Date(d).toLocaleString() : '—');
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
-    async function load() {
-      const box = document.getElementById('cmp-list');
-      box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch('/api/portal/complaints');
-        const rows = res.data || [];
-        box.innerHTML = rows.length ? rows.map((c) => `
-          <div class="session-item">
-            <div class="meta"><strong>${core.escapeHtml(c.subject)}</strong>${core.escapeHtml((c.body || '').slice(0, 140))}</div>
-            <div class="small muted">
-              <span class="badge badge-${c.status === 'resolved' ? 'success' : c.status === 'closed' ? 'muted' : 'warning'}">${core.escapeHtml(c.status)}</span>
-              · ${core.timeAgo(c.createdAt)}
+  let ALL = [];
+  let CURRENT_FILTER = 'all';
+
+  const STATUS = {
+    open:      { label: 'Open',      bg: '#dbeafe', fg: '#1e40af', dot: '#3b82f6', icon: '🔵', bar: '#3b82f6' },
+    in_review: { label: 'In Review', bg: '#fef3c7', fg: '#92400e', dot: '#f59e0b', icon: '🟡', bar: '#f59e0b' },
+    resolved:  { label: 'Resolved',  bg: '#d1fae5', fg: '#065f46', dot: '#10b981', icon: '🟢', bar: '#10b981' },
+    closed:    { label: 'Closed',    bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8', icon: '⚫', bar: '#94a3b8' },
+  };
+  const statusMeta = (s) => STATUS[s] || STATUS.open;
+
+  const CATEGORY = {
+    academic: 'Academic',
+    fees: 'Fees / Payments',
+    library: 'Library',
+    hostel: 'Hostel / Accommodation',
+    ict: 'ICT / Portal Issues',
+    staff: 'Staff Conduct',
+    welfare: 'Student Welfare',
+    other: 'Other',
+  };
+
+  // ------------------------------------------------------------
+  // Render stats grid
+  // ------------------------------------------------------------
+  function renderStats() {
+    const counts = { open: 0, in_review: 0, resolved: 0, closed: 0 };
+    for (const c of ALL) if (counts[c.status] !== undefined) counts[c.status]++;
+
+    const stats = [
+      { key: 'open',      label: 'Open',      value: counts.open,      icon: '🔵', bg: '#dbeafe', fg: '#1e40af' },
+      { key: 'in_review', label: 'In Review', value: counts.in_review, icon: '🟡', bg: '#fef3c7', fg: '#92400e' },
+      { key: 'resolved',  label: 'Resolved',  value: counts.resolved,  icon: '🟢', bg: '#d1fae5', fg: '#065f46' },
+      { key: 'closed',    label: 'Closed',    value: counts.closed,    icon: '⚫', bg: '#f1f5f9', fg: '#475569' },
+    ];
+
+    $('cmp-stats').innerHTML = stats.map((s) => `
+      <div class="cmp-stat">
+        <div class="cmp-stat-icon" style="background:${s.bg};color:${s.fg};">${s.icon}</div>
+        <div class="cmp-stat-info">
+          <span class="cmp-stat-value">${s.value}</span>
+          <span class="cmp-stat-label">${s.label}</span>
+        </div>
+      </div>`).join('');
+  }
+
+  // ------------------------------------------------------------
+  // Render one complaint card
+  // ------------------------------------------------------------
+  function renderCard(c) {
+    const meta = statusMeta(c.status);
+    const cat = CATEGORY[c.category] || null;
+
+    const response = c.response ? `
+      <div style="
+        margin-top:.85rem;padding:.85rem 1rem;
+        background:#f0fdf4;border:1px solid #bbf7d0;
+        border-left:4px solid #10b981;border-radius:10px;
+      ">
+        <div style="
+          display:flex;align-items:center;gap:.4rem;
+          font-size:.7rem;font-weight:800;color:#065f46;
+          letter-spacing:.08em;text-transform:uppercase;
+          margin-bottom:.4rem;
+        ">
+          <span>✉️</span> Response from administration
+        </div>
+        <div style="font-size:.85rem;color:#14532d;line-height:1.6;white-space:pre-wrap;">${esc(c.response)}</div>
+        ${c.respondedAt ? `
+          <div style="font-size:.7rem;color:#64748b;margin-top:.5rem;padding-top:.4rem;border-top:1px dashed #bbf7d0;">
+            Replied ${esc(timeAgo(c.respondedAt))} · ${esc(fmtDate(c.respondedAt))}
+          </div>` : ''}
+      </div>` : '';
+
+    return `
+      <article class="cmp-card" style="border-left:5px solid ${meta.bar};">
+        <div style="padding:1.1rem 1.25rem;">
+          <!-- Header row -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.6rem;">
+            <div style="min-width:0;flex:1;">
+              <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.45rem;">
+                <span style="
+                  display:inline-flex;align-items:center;gap:.35rem;
+                  font-size:.68rem;font-weight:800;letter-spacing:.05em;
+                  background:${meta.bg};color:${meta.fg};
+                  padding:3px 10px;border-radius:99px;text-transform:uppercase;
+                ">
+                  <span style="width:6px;height:6px;border-radius:50%;background:${meta.dot};"></span>
+                  ${meta.label}
+                </span>
+                ${cat ? `
+                  <span style="
+                    font-size:.65rem;font-weight:700;
+                    background:#f8fafc;color:#475569;
+                    border:1px solid #e2e8f0;
+                    padding:3px 9px;border-radius:6px;
+                  ">${esc(cat)}</span>` : ''}
+              </div>
+              <h3 style="margin:0;font-size:1rem;color:#0f172a;font-weight:700;line-height:1.35;">
+                ${esc(c.subject || 'Untitled complaint')}
+              </h3>
             </div>
           </div>
-        `).join('') : '<p class="muted">No complaints filed.</p>';
-      } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+
+          <!-- Body -->
+          <p style="margin:.25rem 0 0;font-size:.85rem;color:#475569;line-height:1.6;white-space:pre-wrap;">${esc(c.body || '')}</p>
+
+          ${response}
+
+          <!-- Footer -->
+          <div style="
+            display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+            margin-top:.85rem;padding-top:.7rem;
+            border-top:1px dashed #e5e7eb;
+            font-size:.72rem;color:#94a3b8;
+          ">
+            <span style="display:inline-flex;align-items:center;gap:.3rem;">
+              🕐 Filed ${esc(timeAgo(c.createdAt))}
+            </span>
+            <span style="color:#cbd5e1;">•</span>
+            <span style="font-family:ui-monospace,monospace;">#${esc(c.id)}</span>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  // ------------------------------------------------------------
+  // Filter + render
+  // ------------------------------------------------------------
+  function applyFilter() {
+    const list = $('cmp-list');
+
+    // Update tab active state
+    document.querySelectorAll('.cmp-tab').forEach((b) => {
+      b.classList.toggle('active', b.dataset.filter === CURRENT_FILTER);
+    });
+
+    let rows = ALL;
+    if (CURRENT_FILTER !== 'all') rows = rows.filter((c) => c.status === CURRENT_FILTER);
+
+    if (!rows.length) {
+      const emptyKind = CURRENT_FILTER === 'all' ? 'no-records' : 'filtered';
+      list.innerHTML = `
+        <div style="
+          text-align:center;padding:3.5rem 1rem;
+          background:#fff;border:2px dashed #e2e8f0;border-radius:16px;
+        ">
+          <div style="font-size:3.2rem;margin-bottom:.85rem;opacity:.7;">${emptyKind === 'no-records' ? '💬' : '🔍'}</div>
+          <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.05rem;font-weight:700;">
+            ${emptyKind === 'no-records' ? 'No complaints yet' : `No ${statusMeta(CURRENT_FILTER).label.toLowerCase()} complaints`}
+          </h3>
+          <p style="margin:0 auto;max-width:400px;font-size:.85rem;color:#64748b;line-height:1.6;">
+            ${emptyKind === 'no-records'
+              ? 'Need to report an issue? Click "New Complaint" above to file one. Your complaint will be routed to the right department.'
+              : 'You have no complaints with this status right now.'}
+          </p>
+        </div>`;
+      return;
     }
 
-    document.getElementById('cmp-new').addEventListener('click', () => {
-      const p = document.getElementById('cmp-new-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    });
-    document.getElementById('cmp-cancel').addEventListener('click', () => {
-      document.getElementById('cmp-new-panel').style.display = 'none';
-    });
+    list.innerHTML = rows.map(renderCard).join('');
+  }
 
-    document.getElementById('cmp-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/portal/complaints', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Complaint submitted.', 'success');
-        e.target.reset();
-        document.getElementById('cmp-new-panel').style.display = 'none';
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+  // ------------------------------------------------------------
+  // Load from API
+  // ------------------------------------------------------------
+  async function load() {
+    const list = $('cmp-list');
+    list.innerHTML = `
+      <div style="text-align:center;padding:3rem 1rem;">
+        <div class="cmp-spin"></div>
+        <p style="margin-top:.85rem;font-size:.82rem;color:#64748b;">Loading complaints…</p>
+      </div>`;
 
-    load();
-  })();
+    try {
+      const res = await core.portalFetch('/api/portal/complaints');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderStats();
+      applyFilter();
+    } catch (err) {
+      list.innerHTML = `
+        <div style="
+          padding:1rem 1.25rem;
+          background:#fef2f2;border:1px solid #fecaca;border-radius:12px;
+          color:#991b1b;font-size:.85rem;
+          display:flex;align-items:center;gap:.6rem;
+        ">
+          <span style="font-size:1.2rem;">⚠️</span>
+          <span>Could not load complaints: ${esc(err.message)}</span>
+        </div>`;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Modal controls
+  // ------------------------------------------------------------
+  function openModal() {
+    $('cmp-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.querySelector('#cmp-form [name="subject"]')?.focus(), 120);
+  }
+  function closeModal() {
+    $('cmp-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    $('cmp-form')?.reset();
+  }
+
+  // ------------------------------------------------------------
+  // Submit
+  // ------------------------------------------------------------
+  async function onSubmit(e) {
+    e.preventDefault();
+    const form = $('cmp-form');
+    const data = Object.fromEntries(new FormData(form));
+
+    if (!data.subject?.trim() || !data.body?.trim()) {
+      core.showToast && core.showToast('Subject and description are required.', 'warning');
+      return;
+    }
+
+    const btn = $('cmp-submit');
+    const label = $('cmp-submit-text');
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    label.textContent = 'Submitting…';
+
+    try {
+      await core.portalFetch('/api/portal/complaints', {
+        method: 'POST',
+        body: {
+          subject: data.subject.trim(),
+          body: data.body.trim(),
+          category: data.category || null,
+        },
+      });
+      core.showToast && core.showToast('Complaint submitted. Admin will respond shortly.', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      label.textContent = 'Submit Complaint';
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Wire up
+  // ------------------------------------------------------------
+  $('cmp-new')?.addEventListener('click', openModal);
+  $('cmp-close')?.addEventListener('click', closeModal);
+  $('cmp-cancel')?.addEventListener('click', closeModal);
+  $('cmp-form')?.addEventListener('submit', onSubmit);
+
+  $('cmp-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'cmp-modal') closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && $('cmp-modal')?.classList.contains('open')) closeModal();
+  });
+
+  document.querySelectorAll('.cmp-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      CURRENT_FILTER = btn.dataset.filter;
+      applyFilter();
+    });
+  });
+
+  // Kick off
+  load();
+})();
 </script>

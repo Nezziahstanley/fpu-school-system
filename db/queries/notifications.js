@@ -1,25 +1,20 @@
 // ============================================================
-// FPU — Announcements, notifications, complaints, messages queries
-// Used by: routes/announcements, routes/notifications,
-//          routes/complaints, routes/portal/shared
+// FPU — Query helper: announcements, notifications, complaints, messages
 // ============================================================
 
 'use strict';
 
-const { db, schema, sql } = require('..');
-const { eq, and, desc, asc, isNull, inArray } = require('drizzle-orm');
+const { db, sql, schema } = require('../index');
+const { eq, and, or, desc, asc, inArray } = require('drizzle-orm');
 
 const {
-  announcements,
-  notifications,
-  complaints,
-  messages,
-  users,
+  announcements, notifications, complaints, messages, users,
 } = schema;
 
 // ============================================================
 // ANNOUNCEMENTS
 // ============================================================
+
 async function listAnnouncementsWithAuthor({ audience, isPublished } = {}) {
   const conds = [];
   if (audience) conds.push(eq(announcements.audience, audience));
@@ -85,14 +80,34 @@ async function removeAnnouncement(id) {
 // ============================================================
 // NOTIFICATIONS
 // ============================================================
-async function listNotifications(userId, { limit = 200, offset = 0 } = {}) {
+
+async function listNotifications(userId, { unreadOnly = false, limit = 200, offset = 0 } = {}) {
+  const conds = [eq(notifications.userId, Number(userId))];
+  if (unreadOnly) conds.push(eq(notifications.isRead, false));
+
   return db
     .select()
     .from(notifications)
-    .where(eq(notifications.userId, Number(userId)))
+    .where(and(...conds))
     .orderBy(desc(notifications.createdAt))
     .limit(Number(limit))
     .offset(Number(offset));
+}
+
+// ------------------------------------------------------------
+// countUnreadNotifications — used by shared.js /notifications
+// and by the dashboard summary card.
+// ------------------------------------------------------------
+async function countUnreadNotifications(userId) {
+  if (!userId) return 0;
+  const rows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(and(
+      eq(notifications.userId, Number(userId)),
+      eq(notifications.isRead, false)
+    ));
+  return rows.length;
 }
 
 async function createNotification({ userId, title, body, type, link }) {
@@ -149,6 +164,7 @@ async function removeNotification(id, userId) {
 // ============================================================
 // COMPLAINTS
 // ============================================================
+
 async function listComplaintsWithUser({ status, category, search } = {}) {
   const conds = [];
   if (status) conds.push(eq(complaints.status, status));
@@ -163,6 +179,23 @@ async function listComplaintsWithUser({ status, category, search } = {}) {
     .select({ complaint: complaints, user: users })
     .from(complaints)
     .leftJoin(users, eq(complaints.userId, users.id))
+    .where(where)
+    .orderBy(desc(complaints.createdAt));
+}
+
+// ------------------------------------------------------------
+// listComplaints — flat list for a single user (used by
+// shared.js /complaints for the current user).
+// ------------------------------------------------------------
+async function listComplaints({ userId, status } = {}) {
+  const conds = [];
+  if (userId) conds.push(eq(complaints.userId, Number(userId)));
+  if (status) conds.push(eq(complaints.status, status));
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select()
+    .from(complaints)
     .where(where)
     .orderBy(desc(complaints.createdAt));
 }
@@ -224,6 +257,7 @@ async function removeComplaint(id) {
 // ============================================================
 // MESSAGES
 // ============================================================
+
 async function listMessages({ userId, box = 'inbox', limit = 200 } = {}) {
   const column = box === 'sent' ? messages.senderId : messages.recipientId;
   return db
@@ -233,6 +267,21 @@ async function listMessages({ userId, box = 'inbox', limit = 200 } = {}) {
     .where(eq(column, Number(userId)))
     .orderBy(desc(messages.createdAt))
     .limit(Number(limit));
+}
+
+// ------------------------------------------------------------
+// countUnreadMessages — used by dashboard summary.
+// ------------------------------------------------------------
+async function countUnreadMessages(userId) {
+  if (!userId) return 0;
+  const rows = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(
+      eq(messages.recipientId, Number(userId)),
+      eq(messages.isRead, false)
+    ));
+  return rows.length;
 }
 
 async function createMessage({ senderId, recipientId, subject, body, parentId }) {
@@ -258,6 +307,9 @@ async function markMessageRead(id, userId) {
   return row || null;
 }
 
+// ============================================================
+// EXPORTS
+// ============================================================
 module.exports = {
   // announcements
   listAnnouncementsWithAuthor,
@@ -268,6 +320,7 @@ module.exports = {
 
   // notifications
   listNotifications,
+  countUnreadNotifications,   // ← NEW
   createNotification,
   bulkCreateNotifications,
   markNotificationRead,
@@ -276,6 +329,7 @@ module.exports = {
 
   // complaints
   listComplaintsWithUser,
+  listComplaints,             // ← NEW (used by shared.js)
   findComplaintById,
   createComplaint,
   respondToComplaint,
@@ -284,6 +338,7 @@ module.exports = {
 
   // messages
   listMessages,
+  countUnreadMessages,        // ← NEW
   createMessage,
   markMessageRead,
 };

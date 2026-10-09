@@ -1,20 +1,15 @@
-<!-- Portal → Shared → Exams -->
+<!-- Portal → Shared → Exams (department-first) -->
 <div style="padding:0;">
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exams</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Institution-wide exam schedule</p>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Browse exam schedules by department</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <input type="search" id="ex-search" placeholder="🔍  Search course, venue…"
              style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:220px;" />
-      <select id="ex-semester" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-        <option value="">All Semesters</option>
-        <option value="first">First</option>
-        <option value="second">Second</option>
-      </select>
       <button id="ex-refresh" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -22,37 +17,59 @@
     </div>
   </div>
 
-  <!-- STATS -->
-  <div id="ex-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem;"></div>
+  <!-- SUMMARY STRIP -->
+  <div id="ex-summary" style="
+    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+    padding:.75rem 1rem;margin-bottom:1rem;
+    display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;
+    font-size:.82rem;color:#475569;
+  ">
+    <div><strong style="color:#0f172a;" id="ex-total-depts">—</strong> departments</div>
+    <div><strong style="color:#0f172a;" id="ex-total-exams">—</strong> total exams</div>
+    <div><strong style="color:#059669;" id="ex-total-upcoming">—</strong> upcoming</div>
+    <div><strong style="color:#475569;" id="ex-total-past">—</strong> past</div>
+  </div>
 
-  <!-- TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:.82rem;font-weight:700;color:#334155;">
-        Showing <span id="ex-shown">0</span> of <span id="ex-total">0</span> exams
+  <!-- BACK BUTTON -->
+  <div id="ex-back-bar" style="display:none;margin-bottom:1rem;">
+    <button id="ex-back" style="
+      display:inline-flex;align-items:center;gap:.4rem;
+      padding:.5rem .9rem;font-size:.82rem;font-weight:700;
+      background:#fff;color:#065f46;border:1px solid #bbf7d0;
+      border-radius:8px;cursor:pointer;
+    ">← All Departments</button>
+    <span id="ex-current-dept" style="
+      margin-left:.75rem;font-size:.85rem;font-weight:800;color:#0f172a;
+    "></span>
+  </div>
+
+  <!-- DEPARTMENT GRID -->
+  <div id="ex-dept-grid" style="
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:.75rem;
+  "></div>
+
+  <!-- EXAMS OF PICKED DEPARTMENT -->
+  <div id="ex-exams-panel" style="display:none;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="ex-exams-tbody">
+            <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
-    </div>
-
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
-          </tr>
-        </thead>
-        <tbody id="ex-tbody">
-          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
-            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div>
-            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
-          </td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
 
@@ -60,8 +77,39 @@
 
 <style>
   @keyframes exSpin { to { transform: rotate(360deg); } }
-  #ex-tbody tr { transition: background .1s; }
-  #ex-tbody tr:hover { background: #f8fafc; }
+
+  .ex-dept-card {
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    padding:1rem 1.1rem;
+    cursor:pointer;
+    transition:all .15s;
+    display:flex;align-items:center;gap:.85rem;
+  }
+  .ex-dept-card:hover {
+    border-color:#065f46;
+    box-shadow:0 6px 18px rgba(6,95,70,.10);
+    transform:translateY(-2px);
+  }
+  .ex-dept-icon {
+    width:46px;height:46px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:.72rem;flex-shrink:0;
+    letter-spacing:.03em;
+  }
+  .ex-dept-body { min-width:0;flex:1; }
+  .ex-dept-name {
+    font-weight:800;color:#0f172a;font-size:.9rem;line-height:1.2;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .ex-dept-count {
+    font-size:.72rem;color:#64748b;margin-top:.25rem;font-weight:600;
+  }
+  .ex-dept-arrow { color:#94a3b8;font-size:1.2rem;flex-shrink:0; }
+
+  #ex-exams-tbody tr { transition: background .1s; }
+  #ex-exams-tbody tr:hover { background: #f8fafc; }
 </style>
 
 <script>
@@ -72,87 +120,188 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }) : '—';
 
-  let ALL = [];
-  let FILTERED = [];
+  let DEPARTMENTS = [];
+  let COURSES = [];
+  let SCHEDULES = [];      // raw list from /api/exam-officer/schedules
+  let SELECTED_DEPT = null;
 
+  const PALETTE = [
+    { bg: '#065f46' }, { bg: '#0891b2' }, { bg: '#7c3aed' }, { bg: '#dc2626' },
+    { bg: '#ea580c' }, { bg: '#0d9488' }, { bg: '#db2777' }, { bg: '#4f46e5' },
+    { bg: '#059669' }, { bg: '#d97706' }, { bg: '#0369a1' }, { bg: '#9333ea' },
+  ];
+  function pickColor(i) { return PALETTE[i % PALETTE.length].bg; }
+  function initials(name) {
+    return String(name || '')
+      .split(/\s+/).filter(Boolean).slice(0, 2)
+      .map((w) => w[0].toUpperCase())
+      .join('').slice(0, 3);
+  }
+
+  // ============================================================
+  // LOAD — departments + courses + schedules in parallel
+  // ============================================================
   async function load() {
-    const tbody = $('ex-tbody');
-    tbody.innerHTML = `
-      <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+    const grid = $('ex-dept-grid');
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
         <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div>
-        <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
-      </td></tr>`;
+        <div style="margin-top:.65rem;">Loading departments…</div>
+      </div>`;
 
     try {
-      const res = await core.portalFetch('/api/exam-officer/schedules');
-      ALL = Array.isArray(res.data) ? res.data : [];
-      renderStats();
-      applyFilter();
+      const [lookupRes, coursesRes, schedRes] = await Promise.all([
+        core.portalFetch('/api/exam-officer/lookups'),
+        core.portalFetch('/api/courses?limit=1000'),
+        core.portalFetch('/api/exam-officer/schedules'),
+      ]);
+
+      DEPARTMENTS = Array.isArray(lookupRes.departments) ? lookupRes.departments : [];
+      COURSES = Array.isArray(coursesRes.data) ? coursesRes.data : [];
+      SCHEDULES = Array.isArray(schedRes.data) ? schedRes.data : [];
+
+      // Build courseId → departmentId lookup
+      const courseDeptMap = {};
+      COURSES.forEach((c) => { if (c.id && c.departmentId) courseDeptMap[c.id] = c.departmentId; });
+
+      // Count exams per department
+      const counts = {};
+      SCHEDULES.forEach((s) => {
+        const e = s.exam || s;
+        const deptId = courseDeptMap[e.courseId];
+        if (deptId) counts[deptId] = (counts[deptId] || 0) + 1;
+      });
+
+      // Summary
+      const now = new Date();
+      let upcoming = 0, past = 0;
+      SCHEDULES.forEach((s) => {
+        const e = s.exam || s;
+        if (!e.examDate) return;
+        if (new Date(e.examDate) >= now) upcoming++; else past++;
+      });
+      $('ex-total-depts').textContent = DEPARTMENTS.length;
+      $('ex-total-exams').textContent = SCHEDULES.length;
+      $('ex-total-upcoming').textContent = upcoming;
+      $('ex-total-past').textContent = past;
+
+      renderDepartmentGrid(counts, courseDeptMap);
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">
+          ⚠️ ${esc(err.message)}
+        </div>`;
     }
   }
 
-  function renderStats() {
-    const now = new Date();
-    let upcoming = 0, past = 0;
-    ALL.forEach((s) => {
-      const e = s.exam || s;
-      if (!e.examDate) return;
-      if (new Date(e.examDate) >= now) upcoming++; else past++;
-    });
+  // ============================================================
+  // DEPARTMENT GRID
+  // ============================================================
+  function renderDepartmentGrid(counts, courseDeptMap) {
+    const grid = $('ex-dept-grid');
+    const query = ($('ex-search')?.value || '').trim().toLowerCase();
 
-    const tiles = [
-      { label: 'Total Exams', value: ALL.length, bg: '#e0e7ff', fg: '#3730a3', icon: '📋' },
-      { label: 'Upcoming',    value: upcoming,   bg: '#d1fae5', fg: '#065f46', icon: '📅' },
-      { label: 'Past',        value: past,       bg: '#f1f5f9', fg: '#475569', icon: '✅' },
-      { label: 'Venues',      value: new Set(ALL.map((s) => (s.exam || s).venue).filter(Boolean)).size, bg: '#fef3c7', fg: '#92400e', icon: '📍' },
-    ];
+    // Only show departments that have exams (default) — or all if searching
+    const withExams = DEPARTMENTS.filter((d) => (counts[d.id] || 0) > 0);
 
-    $('ex-stats').innerHTML = tiles.map(t => `
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">${t.icon}</div>
-        <div>
-          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
-          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
-        </div>
-      </div>`).join('');
-  }
+    let filtered = query ? DEPARTMENTS : withExams;
 
-  function applyFilter() {
-    const q = ($('ex-search')?.value || '').trim().toLowerCase();
-    const sem = $('ex-semester')?.value || '';
-
-    FILTERED = ALL.filter((s) => {
-      const e = s.exam || s;
-      const c = s.course || {};
-      if (sem && e.semester !== sem) return false;
-      if (q) {
+    if (query) {
+      // When searching, also match by course code/title inside that dept
+      const matchedDeptIds = new Set();
+      SCHEDULES.forEach((s) => {
+        const e = s.exam || s;
+        const c = s.course || {};
+        const deptId = courseDeptMap[e.courseId];
+        if (!deptId) return;
         const hay = `${c.code || ''} ${c.title || ''} ${e.venue || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+        if (hay.includes(query)) matchedDeptIds.add(deptId);
+      });
 
-    renderTable(FILTERED);
-    $('ex-shown').textContent = FILTERED.length;
-    $('ex-total').textContent = ALL.length;
-  }
+      filtered = DEPARTMENTS.filter((d) =>
+        `${d.code || ''} ${d.name || ''}`.toLowerCase().includes(query) ||
+        matchedDeptIds.has(d.id)
+      );
+    }
 
-  function renderTable(rows) {
-    const tbody = $('ex-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No matching exams.</td></tr>`;
+    const sorted = [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (!sorted.length) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">No departments match your search.</div>`;
       return;
     }
 
-    // Sort by date, most recent first
-    const sorted = [...rows].sort((a, b) => {
-      const ea = a.exam || a; const eb = b.exam || b;
-      return new Date(eb.examDate || 0) - new Date(ea.examDate || 0);
+    grid.innerHTML = sorted.map((d, i) => {
+      const count = counts[d.id] || 0;
+      return `
+        <div class="ex-dept-card" data-dept-id="${d.id}">
+          <div class="ex-dept-icon" style="background:${pickColor(i)};">${esc(initials(d.name || d.code))}</div>
+          <div class="ex-dept-body">
+            <div class="ex-dept-name" title="${esc(d.name)}">${esc(d.name || '—')}</div>
+            <div class="ex-dept-count">${esc(d.code || '')} · ${count} exam${count === 1 ? '' : 's'}</div>
+          </div>
+          <div class="ex-dept-arrow">›</div>
+        </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.ex-dept-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const deptId = Number(card.dataset.deptId);
+        const dept = DEPARTMENTS.find((d) => d.id === deptId);
+        if (dept) selectDepartment(dept);
+      });
+    });
+  }
+
+  // ============================================================
+  // SELECT DEPARTMENT → show its exams
+  // ============================================================
+  function selectDepartment(dept) {
+    SELECTED_DEPT = dept;
+
+    $('ex-dept-grid').style.display = 'none';
+    $('ex-exams-panel').style.display = 'block';
+    $('ex-back-bar').style.display = 'block';
+    $('ex-current-dept').textContent = `${dept.code || ''} · ${dept.name || ''}`;
+
+    // Build dept course set
+    const deptCourseIds = new Set(
+      COURSES.filter((c) => Number(c.departmentId) === Number(dept.id)).map((c) => c.id)
+    );
+
+    const deptSchedules = SCHEDULES.filter((s) => {
+      const e = s.exam || s;
+      return deptCourseIds.has(e.courseId);
     });
 
+    renderExamsTable(deptSchedules);
+  }
+
+  // ============================================================
+  // EXAMS TABLE
+  // ============================================================
+  function renderExamsTable(rows) {
+    const tbody = $('ex-exams-tbody');
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        No exams scheduled for this department yet.
+      </td></tr>`;
+      return;
+    }
+
+    // Sort upcoming first, then by date
     const now = new Date();
+    const sorted = [...rows].sort((a, b) => {
+      const ea = a.exam || a; const eb = b.exam || b;
+      const da = new Date(ea.examDate || 0);
+      const db = new Date(eb.examDate || 0);
+      const aUpcoming = da >= now;
+      const bUpcoming = db >= now;
+      if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+      return aUpcoming ? da - db : db - da;
+    });
+
     tbody.innerHTML = sorted.map((s) => {
       const e = s.exam || s;
       const c = s.course || {};
@@ -166,8 +315,10 @@
             </code>
           </td>
           <td style="padding:.65rem .75rem;color:#0f172a;font-weight:600;">${esc(c.title || '—')}</td>
-          <td style="padding:.65rem .75rem;color:#334155;font-size:.78rem;font-weight:600;">${esc(fmtDate(e.examDate))}</td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#334155;font-family:ui-monospace,monospace;font-size:.75rem;">
+          <td style="padding:.65rem .75rem;color:#334155;font-size:.78rem;font-weight:600;white-space:nowrap;">
+            ${esc(fmtDate(e.examDate))}
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#334155;font-family:ui-monospace,monospace;font-size:.75rem;white-space:nowrap;">
             ${esc(e.startTime || '—')}${e.endTime ? ' – ' + esc(e.endTime) : ''}
           </td>
           <td style="padding:.65rem .75rem;color:#64748b;font-size:.78rem;">${esc(e.venue || 'TBA')}</td>
@@ -176,7 +327,7 @@
               ${esc(e.semester || '—')}
             </span>
           </td>
-          <td style="padding:.65rem .75rem;text-align:center;">
+          <td style="padding:.65rem .75rem;text-align:center;white-space:nowrap;">
             ${isPast
               ? '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#f1f5f9;color:#475569;">✅ Past</span>'
               : '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#d1fae5;color:#065f46;">📅 Upcoming</span>'}
@@ -185,13 +336,67 @@
     }).join('');
   }
 
+  // ============================================================
+  // BACK
+  // ============================================================
+  function backToDepartments() {
+    SELECTED_DEPT = null;
+    $('ex-dept-grid').style.display = 'grid';
+    $('ex-exams-panel').style.display = 'none';
+    $('ex-back-bar').style.display = 'none';
+  }
+
+  // ============================================================
+  // SEARCH
+  // ============================================================
   let searchTimer;
   $('ex-search')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(applyFilter, 200);
+    searchTimer = setTimeout(() => {
+      const q = ($('ex-search').value || '').trim().toLowerCase();
+
+      if (SELECTED_DEPT) {
+        // Inside a department: filter its exams
+        const deptCourseIds = new Set(
+          COURSES.filter((c) => Number(c.departmentId) === Number(SELECTED_DEPT.id)).map((c) => c.id)
+        );
+        const rows = SCHEDULES
+          .filter((s) => deptCourseIds.has((s.exam || s).courseId))
+          .filter((s) => {
+            if (!q) return true;
+            const e = s.exam || s;
+            const c = s.course || {};
+            return `${c.code || ''} ${c.title || ''} ${e.venue || ''}`.toLowerCase().includes(q);
+          });
+        renderExamsTable(rows);
+      } else {
+        // On the grid: filter by dept name or by matching exams
+        const courseDeptMap = {};
+        COURSES.forEach((c) => { if (c.id && c.departmentId) courseDeptMap[c.id] = c.departmentId; });
+        const counts = {};
+        SCHEDULES.forEach((s) => {
+          const e = s.exam || s;
+          const deptId = courseDeptMap[e.courseId];
+          if (deptId) counts[deptId] = (counts[deptId] || 0) + 1;
+        });
+        renderDepartmentGrid(counts, courseDeptMap);
+      }
+    }, 200);
   });
-  $('ex-semester')?.addEventListener('change', applyFilter);
-  $('ex-refresh')?.addEventListener('click', load);
+
+  // ============================================================
+  // WIRING
+  // ============================================================
+  $('ex-back')?.addEventListener('click', backToDepartments);
+  $('ex-refresh')?.addEventListener('click', () => {
+    backToDepartments();
+    load();
+  });
+
+  // Spin keyframes
+  const st = document.createElement('style');
+  st.textContent = '@keyframes exSpin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(st);
 
   load();
 })();

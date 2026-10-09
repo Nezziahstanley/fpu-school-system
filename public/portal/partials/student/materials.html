@@ -1,17 +1,54 @@
 <!-- Portal → Student → Materials -->
-<section class="page-head">
+<section class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
   <div>
-    <h2>Course Materials</h2>
-    <p class="muted small">Lecture notes and resources from your lecturers</p>
+    <h2 style="margin:0;">Course Materials</h2>
+    <p class="muted small" style="margin:.25rem 0 0;">Lecture notes and resources from your lecturers</p>
   </div>
-  <div class="actions">
-    <input type="search" id="sm-search" placeholder="Search materials…" style="max-width:220px;" />
-    <button class="btn btn-outline btn-sm" onclick="window.__studMatLoad()">Refresh</button>
+  <div style="display:flex;gap:.5rem;align-items:center;">
+    <input type="search" id="sm-search" placeholder="🔍  Search materials…"
+           style="max-width:220px;padding:.45rem .7rem;font-size:.85rem;border:1px solid #e5e7eb;border-radius:8px;" />
+    <button class="btn btn-outline btn-sm" id="sm-refresh" style="display:flex;align-items:center;gap:.3rem;">
+      ↻ Refresh
+    </button>
   </div>
 </section>
 
-<div id="sm-summary" class="muted small" style="margin-bottom:.75rem;"></div>
-<div id="sm-grid" class="grid" style="gap:.75rem;"></div>
+<!-- Summary strip -->
+<div id="sm-summary-bar" style="
+  display:none;
+  padding:.65rem .9rem;
+  background:#f0fdf4;
+  border:1px solid #bbf7d0;
+  border-radius:10px;
+  font-size:.8rem;
+  color:#14532d;
+  margin-bottom:1rem;
+  align-items:center;
+  gap:.5rem;
+">
+  <span style="font-size:1.1rem;">📚</span>
+  <span id="sm-summary-text"></span>
+</div>
+
+<!-- Grid container -->
+<div id="sm-grid"></div>
+
+<!-- Empty state -->
+<div id="sm-empty" style="display:none;">
+  <div style="
+    text-align:center;
+    padding:3rem 1rem;
+    background:#fff;
+    border:1px dashed #d1d5db;
+    border-radius:14px;
+  ">
+    <div style="font-size:3rem;margin-bottom:.75rem;">📭</div>
+    <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.05rem;">No materials yet</h3>
+    <p class="muted small" style="margin:0 auto;max-width:380px;line-height:1.55;">
+      Materials will appear here once your lecturers upload them for the courses you've registered for.
+    </p>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -19,25 +56,27 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
   let ALL = [];
 
-  // Material type → icon + color
+  // ─── Material type → icon + color scheme ───
   const TYPE_META = {
-    note:       { icon: '📄', bg: '#dbeafe', color: '#1e40af', label: 'Note' },
-    slide:      { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slide' },
-    slides:     { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slides' },
-    pdf:        { icon: '📕', bg: '#fee2e2', color: '#991b1b', label: 'PDF' },
-    video:      { icon: '🎬', bg: '#ede9fe', color: '#5b21b6', label: 'Video' },
-    audio:      { icon: '🎵', bg: '#fce7f3', color: '#9d174d', label: 'Audio' },
-    link:       { icon: '🔗', bg: '#dcfce7', color: '#166534', label: 'Link' },
-    assignment: { icon: '📝', bg: '#fde68a', color: '#78350f', label: 'Assignment' },
+    note:       { icon: '📄', bg: '#dbeafe', color: '#1e40af', label: 'Note',        accent: '#3b82f6' },
+    slides:     { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slides',      accent: '#f59e0b' },
+    slide:      { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slide',       accent: '#f59e0b' },
+    pdf:        { icon: '📕', bg: '#fee2e2', color: '#991b1b', label: 'PDF',         accent: '#ef4444' },
+    video:      { icon: '🎬', bg: '#ede9fe', color: '#5b21b6', label: 'Video',       accent: '#8b5cf6' },
+    audio:      { icon: '🎵', bg: '#fce7f3', color: '#9d174d', label: 'Audio',       accent: '#ec4899' },
+    link:       { icon: '🔗', bg: '#dcfce7', color: '#166534', label: 'Link',        accent: '#22c55e' },
+    assignment: { icon: '📝', bg: '#fde68a', color: '#78350f', label: 'Assignment',  accent: '#eab308' },
+    book:       { icon: '📚', bg: '#e0e7ff', color: '#3730a3', label: 'Reading',     accent: '#6366f1' },
   };
-
   function typeMeta(t) {
     return TYPE_META[String(t || 'note').toLowerCase()] || TYPE_META.note;
   }
 
+  // ─── Group rows by course ───
   function groupByCourse(rows) {
     const groups = new Map();
     for (const m of rows) {
@@ -52,77 +91,156 @@
       }
       groups.get(key).items.push(m);
     }
-    return [...groups.values()];
+    return [...groups.values()].sort((a, b) => String(a.courseCode || '').localeCompare(String(b.courseCode || '')));
   }
 
-  function renderCourseGroup(group) {
+  // ─── Render one material card ───
+  function renderMaterial(m) {
+    const meta = typeMeta(m.materialType);
+    const href = m.fileUrl ? esc(m.fileUrl) : null;
+
+    return `
+      <div class="sm-card" style="
+        position:relative;
+        display:flex;
+        gap:.75rem;
+        align-items:flex-start;
+        padding:.9rem;
+        background:#fff;
+        border:1px solid #e5e7eb;
+        border-left:4px solid ${meta.accent};
+        border-radius:10px;
+        transition:box-shadow .15s, transform .15s;
+      "
+      onmouseover="this.style.boxShadow='0 6px 16px rgba(6,95,70,.08)';this.style.transform='translateY(-1px)';"
+      onmouseout="this.style.boxShadow='none';this.style.transform='none';">
+
+        <!-- Icon -->
+        <div style="
+          width:44px;height:44px;border-radius:10px;flex-shrink:0;
+          background:${meta.bg};color:${meta.color};
+          display:flex;align-items:center;justify-content:center;
+          font-size:1.3rem;
+        ">${meta.icon}</div>
+
+        <!-- Body -->
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+            <strong style="color:#0f172a;font-size:.9rem;line-height:1.3;">${esc(m.title || 'Untitled')}</strong>
+            <span style="
+              font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+              background:${meta.bg};color:${meta.color};
+              padding:2px 7px;border-radius:99px;
+              white-space:nowrap;
+            ">${meta.label}</span>
+          </div>
+
+          ${m.description ? `
+            <p style="margin:.4rem 0 0;font-size:.78rem;color:#64748b;line-height:1.5;">
+              ${esc(m.description)}
+            </p>` : ''}
+
+          <div style="display:flex;align-items:center;gap:.75rem;margin-top:.55rem;flex-wrap:wrap;">
+            <span style="font-size:.7rem;color:#94a3b8;display:flex;align-items:center;gap:.25rem;">
+              🕐 ${esc(timeAgo(m.createdAt))}
+            </span>
+            ${href ? `
+              <a href="${href}" target="_blank" rel="noopener"
+                 style="
+                   display:inline-flex;align-items:center;gap:.3rem;
+                   padding:.3rem .65rem;
+                   font-size:.72rem;font-weight:600;
+                   color:#065f46;
+                   background:#ecfdf5;
+                   border:1px solid #a7f3d0;
+                   border-radius:6px;
+                   text-decoration:none;
+                   transition:background .15s;
+                 "
+                 onmouseover="this.style.background='#d1fae5';"
+                 onmouseout="this.style.background='#ecfdf5';">
+                📥 Open
+              </a>
+            ` : `
+              <span style="font-size:.7rem;color:#94a3b8;font-style:italic;">No file attached</span>
+            `}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ─── Render one course group ───
+  function renderCourseGroup(group, index) {
     const code = group.courseCode || `Course ${group.courseId}`;
     const title = group.courseTitle || '';
 
-    const items = group.items.map((m) => {
-      const meta = typeMeta(m.materialType);
-      const href = m.fileUrl ? esc(m.fileUrl) : null;
-      return `
-        <div style="
-          display:flex;gap:.75rem;align-items:flex-start;
-          padding:.75rem;border:1px solid #e5e7eb;border-radius:10px;background:#fff;
-        ">
-          <div style="
-            width:40px;height:40px;border-radius:8px;flex-shrink:0;
-            background:${meta.bg};color:${meta.color};
-            display:flex;align-items:center;justify-content:center;
-            font-size:1.25rem;
-          ">${meta.icon}</div>
-
-          <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
-              <strong style="color:#0f172a;font-size:.9rem;">${esc(m.title || 'Untitled')}</strong>
-              <span style="
-                font-size:.65rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-                background:${meta.bg};color:${meta.color};
-                padding:2px 6px;border-radius:4px;
-              ">${meta.label}</span>
-            </div>
-
-            ${m.description ? `
-              <p class="small muted" style="margin:.35rem 0 0;line-height:1.45;">
-                ${esc(m.description)}
-              </p>` : ''}
-
-            <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem;">
-              <span class="small muted">${esc(core.timeAgo ? core.timeAgo(m.createdAt) : '')}</span>
-              ${href ? `
-                <a href="${href}" target="_blank" rel="noopener"
-                   class="btn btn-sm btn-outline" style="padding:.2rem .55rem;font-size:.75rem;">
-                  📥 Open
-                </a>` : '<span class="small muted">No file attached</span>'}
-            </div>
-          </div>
-        </div>`;
-    }).join('');
+    // Rotate subtle background tints per course for visual variety
+    const tints = ['#f8fafc', '#f9fafb', '#fafaf9', '#f8fafc'];
+    const tint = tints[index % tints.length];
 
     return `
-      <section class="panel" style="margin-bottom:.75rem;">
-        <div class="panel-head" style="border-bottom:1px solid #e5e7eb;">
-          <div style="display:flex;align-items:center;gap:.5rem;">
-            <h3 style="margin:0;font-size:.95rem;">📚 ${esc(code)}</h3>
-            ${title ? `<span class="muted small">${esc(title)}</span>` : ''}
+      <section style="
+        margin-bottom:1rem;
+        background:${tint};
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        overflow:hidden;
+      ">
+        <!-- Course header -->
+        <div style="
+          display:flex;align-items:center;justify-content:space-between;
+          gap:.75rem;
+          padding:.75rem 1rem;
+          background:linear-gradient(90deg,#065f46,#047857);
+          color:#fff;
+        ">
+          <div style="display:flex;align-items:center;gap:.6rem;min-width:0;flex:1;">
+            <span style="
+              font-size:.75rem;font-weight:800;
+              background:rgba(255,255,255,.18);
+              padding:.25rem .55rem;
+              border-radius:6px;
+              letter-spacing:.05em;
+              flex-shrink:0;
+            ">${esc(code)}</span>
+            ${title ? `
+              <span style="
+                font-size:.82rem;font-weight:600;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                opacity:.95;
+              ">${esc(title)}</span>
+            ` : ''}
           </div>
-          <span class="badge">${group.items.length}</span>
+          <span style="
+            font-size:.7rem;font-weight:700;
+            background:rgba(255,255,255,.22);
+            padding:.2rem .55rem;
+            border-radius:99px;
+            letter-spacing:.03em;
+            flex-shrink:0;
+          ">${group.items.length} ${group.items.length === 1 ? 'item' : 'items'}</span>
         </div>
-        <div class="panel-body" style="display:flex;flex-direction:column;gap:.55rem;">
-          ${items}
+
+        <!-- Materials inside this course -->
+        <div style="padding:.75rem;display:flex;flex-direction:column;gap:.6rem;">
+          ${group.items.map(renderMaterial).join('')}
         </div>
       </section>`;
   }
 
+  // ─── Summary ───
   function renderSummary() {
+    const bar = $('sm-summary-bar');
+    const text = $('sm-summary-text');
+    if (!ALL.length) { bar.style.display = 'none'; return; }
+
     const courseCount = new Set(ALL.map(m => m.courseId)).size;
-    $('sm-summary').textContent = ALL.length
-      ? `${ALL.length} material${ALL.length === 1 ? '' : 's'} across ${courseCount} course${courseCount === 1 ? '' : 's'}`
-      : '';
+    const typeCount = new Set(ALL.map(m => String(m.materialType || 'note').toLowerCase())).size;
+    text.textContent = `${ALL.length} material${ALL.length === 1 ? '' : 's'} across ${courseCount} course${courseCount === 1 ? '' : 's'} · ${typeCount} type${typeCount === 1 ? '' : 's'}`;
+    bar.style.display = 'flex';
   }
 
+  // ─── Filter + render ───
   function applyFilter() {
     const q = ($('sm-search')?.value || '').trim().toLowerCase();
     const filtered = !q ? ALL : ALL.filter((m) =>
@@ -132,42 +250,76 @@
       (m.courseTitle || '').toLowerCase().includes(q)
     );
 
-    const box = $('sm-grid');
-    if (!filtered.length) {
-      box.innerHTML = `
-        <div class="panel" style="text-align:center;padding:2.5rem 1rem;">
-          <div style="font-size:2.5rem;margin-bottom:.5rem;">📭</div>
-          <h3 style="margin:0 0 .35rem;color:#0f172a;">${q ? 'No matches' : 'No materials yet'}</h3>
-          <p class="muted small" style="margin:0;">
-            ${q
-              ? 'Try a different search term.'
-              : 'Materials will appear here once your lecturers upload them for your registered courses.'}
-          </p>
-        </div>`;
+    const grid = $('sm-grid');
+    const empty = $('sm-empty');
+
+    if (!ALL.length) {
+      grid.innerHTML = '';
+      empty.style.display = 'block';
       return;
     }
 
-    box.innerHTML = groupByCourse(filtered).map(renderCourseGroup).join('');
+    if (!filtered.length) {
+      grid.innerHTML = `
+        <div style="
+          text-align:center;padding:2.5rem 1rem;
+          background:#fff;border:1px dashed #d1d5db;border-radius:14px;
+        ">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">🔍</div>
+          <h3 style="margin:0 0 .35rem;color:#0f172a;font-size:1rem;">No matches</h3>
+          <p class="muted small" style="margin:0;">Try a different search term.</p>
+        </div>`;
+      empty.style.display = 'none';
+      return;
+    }
+
+    const groups = groupByCourse(filtered);
+    grid.innerHTML = groups.map(renderCourseGroup).join('');
+    empty.style.display = 'none';
   }
 
-  window.__studMatLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const box = $('sm-grid');
-    box.innerHTML = '<div class="loading" style="text-align:center;padding:2rem;"><span class="spinner"></span> Loading…</div>';
+  // ─── Load ───
+  async function load() {
+    const grid = $('sm-grid');
+    grid.innerHTML = `
+      <div style="text-align:center;padding:3rem 1rem;">
+        <div style="
+          width:36px;height:36px;border:3px solid #e2e8f0;
+          border-top-color:#065f46;border-radius:50%;
+          animation:spin .8s linear infinite;margin:0 auto;
+        "></div>
+        <p class="muted small" style="margin-top:.75rem;">Loading materials…</p>
+      </div>`;
+
     try {
       const res = await core.portalFetch('/api/student/materials');
       ALL = res.data || [];
       renderSummary();
       applyFilter();
     } catch (err) {
-      box.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+      grid.innerHTML = `
+        <div style="
+          padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
+          color:#991b1b;font-size:.85rem;
+        ">
+          ⚠️ ${esc(err.message)}
+        </div>`;
     }
-  };
+  }
 
-  // Wire search
+  // ─── Spin keyframes ───
+  if (!document.getElementById('sm-spin-style')) {
+    const s = document.createElement('style');
+    s.id = 'sm-spin-style';
+    s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(s);
+  }
+
+  // ─── Wire up ───
   $('sm-search')?.addEventListener('input', applyFilter);
+  $('sm-refresh')?.addEventListener('click', load);
 
-  // Initial load
-  window.__studMatLoad();
+  window.__studMatLoad = load;
+  load();
 })();
 </script>

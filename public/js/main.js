@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    FPU School Management System — Public site JavaScript
    ------------------------------------------------------------
    This file is intentionally small. Every public page has its
@@ -68,4 +68,76 @@
   });
 
   window.FPU = { toast, api, initScrollAnimations };
+})();
+
+/* ============================================================
+   Public header — mobile menu + search toggle
+   ============================================================ */
+(function () {
+  const toggle = document.getElementById('menuToggle');
+  const nav = document.getElementById('navLinks');
+  const searchToggle = document.getElementById('searchToggle');
+  const searchPanel = document.getElementById('searchPanel');
+  const searchInput = document.getElementById('siteSearchInput');
+
+  if (toggle && nav) {
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = nav.classList.toggle('active');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.textContent = open ? '\u2715' : '\u2630';
+      if (open && searchPanel) {
+        searchPanel.classList.remove('open');
+        searchToggle && searchToggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  if (searchToggle && searchPanel) {
+    searchToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = searchPanel.classList.toggle('open');
+      searchToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        if (nav) { nav.classList.remove('active'); toggle && (toggle.textContent = '\u2630'); }
+        setTimeout(() => searchInput && searchInput.focus(), 50);
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (nav && nav.classList.contains('active') && !nav.contains(e.target) && !(toggle && toggle.contains(e.target))) {
+      nav.classList.remove('active');
+      if (toggle) { toggle.textContent = '\u2630'; toggle.setAttribute('aria-expanded', 'false'); }
+    }
+    if (searchPanel && searchPanel.classList.contains('open') && !searchPanel.contains(e.target) && !(searchToggle && searchToggle.contains(e.target))) {
+      searchPanel.classList.remove('open');
+      searchToggle && searchToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (nav && nav.classList.contains('active')) {
+      nav.classList.remove('active');
+      if (toggle) { toggle.textContent = '\u2630'; toggle.setAttribute('aria-expanded', 'false'); }
+    }
+    if (searchPanel && searchPanel.classList.contains('open')) {
+      searchPanel.classList.remove('open');
+      searchToggle && searchToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  if (nav) {
+    nav.querySelectorAll('.has-dropdown > a').forEach((a) => {
+      a.addEventListener('click', (ev) => {
+        if (window.innerWidth > 980) return;
+        const parent = a.parentElement;
+        if (parent.querySelector('.dropdown-menu')) {
+          ev.preventDefault();
+          parent.classList.toggle('open');
+        }
+      });
+    });
+  }
 })();

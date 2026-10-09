@@ -465,6 +465,9 @@ router.get('/documents/:id/download', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/id-card
+// ------------------------------------------------------------
+// Returns everything the card needs, plus the public lookup
+// URL encoded in the barcode / QR code.
 // ============================================================
 router.get('/id-card', only, async (req, res, next) => {
   try {
@@ -524,7 +527,6 @@ router.get('/graduation', only, async (req, res, next) => {
       return res.json({ success: true, data: null });
     }
 
-    // Compute LIVE CGPA + classification from published results
     const results = await resultQueries.publishedForStudent(req.user.id, {});
     const summary = computeStudentCGPA(
       results.map((r) => ({
@@ -535,7 +537,6 @@ router.get('/graduation', only, async (req, res, next) => {
       }))
     );
 
-    // Join programme / department / session names for display
     const student = await userQueries.findByIdWithRelations(req.user.id);
 
     let sessionName = null;
@@ -548,11 +549,9 @@ router.get('/graduation', only, async (req, res, next) => {
       success: true,
       data: {
         ...row,
-        // Live-computed fields override stored values
         cgpa: summary.cgpa ?? row.cgpa,
         classification: classifyDegree(summary.cgpa) ?? row.classification,
         totalUnits: summary.totalUnits,
-        // Joined display names
         programmeName:  student?.programmeName  || null,
         departmentName: student?.departmentName || null,
         level:          student?.level          || row.level,

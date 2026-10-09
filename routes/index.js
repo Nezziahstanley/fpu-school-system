@@ -8,11 +8,6 @@
 const express = require('express');
 const router = express.Router();
 
-// TEMPORARY — remove after running once
-if (process.env.ENABLE_DEV_TAG === 'true') {
-  router.use('/_devtag', require('./_devtag'));
-}
-
 // ------------------------------------------------------------
 // Health & public
 // ------------------------------------------------------------
@@ -21,6 +16,11 @@ router.use('/admin/auth', require('./adminAuth'));       // /api/admin/auth/logi
 router.use('/admin',      require('./adminAuth'));       // /api/admin/login  (alias)
 router.use('/admin/seed', require('./adminSeed'));       // /api/admin/seed/* (guarded)
 router.use('/', require('./public'));                    // /api/apply, /api/contact, etc.
+
+// ------------------------------------------------------------
+// Public — ID card lookup (barcode scan target)
+// ------------------------------------------------------------
+router.use('/public/id-lookup', require('./idLookup'));
 
 // ------------------------------------------------------------
 // Admin — lookups (dropdown data)
@@ -42,46 +42,74 @@ router.use('/admin/departments',    require('./departments'));
 router.use('/admin/allocations',    require('./allocations'));
 router.use('/admin/registrations',  require('./registrations'));
 router.use('/admin/grade-scales',   require('./gradeScales'));
+
+// ------------------------------------------------------------
+// Admin — academic operations
+// ------------------------------------------------------------
 router.use('/admin/results',        require('./results'));
+router.use('/admin/attendance',     require('./attendance'));
+router.use('/admin/exams',          require('./exams'));
+router.use('/admin/timetable',      require('./timetable'));
 router.use('/admin/transcript',     require('./transcript'));
-router.use('/admin/staff',          require('./staff'));
-router.use('/admin/hods',           require('./hods'));
-router.use('/admin/lecturers',      require('./lecturers'));
+router.use('/admin/graduation',     require('./graduation'));
+
+// ------------------------------------------------------------
+// Admin — finance & clearances
+// ------------------------------------------------------------
 router.use('/admin/fees',           require('./fees'));
 router.use('/admin/payments',       require('./payments'));
 router.use('/admin/clearances',     require('./clearances'));
-router.use('/admin/timetable',      require('./timetable'));
-router.use('/admin/exams',          require('./exams'));
-router.use('/admin/notifications',  require('./notifications'));
-router.use('/admin/documents',      require('./documents'));
-router.use('/admin/attendance',     require('./attendance'));
-router.use('/admin/complaints',     require('./complaints'));
-router.use('/admin/graduation',     require('./graduation'));
+
+// ------------------------------------------------------------
+// Admin — HR / staff
+// ------------------------------------------------------------
+router.use('/admin/staff',          require('./staff'));
+router.use('/admin/lecturers',      require('./lecturers'));
+router.use('/admin/hods',           require('./hods'));
+
+// ------------------------------------------------------------
+// Admin — library
+// ------------------------------------------------------------
 router.use('/admin/library',        require('./library'));
-router.use('/admin/security',       require('./security'));
-router.use('/admin/settings',       require('./settings'));
-router.use('/admin/reports',        require('./reports'));
-router.use('/admin/audit',          require('./audit'));
+
+// ------------------------------------------------------------
+// Admin — documents & comms
+// ------------------------------------------------------------
+router.use('/admin/documents',      require('./documents'));
 router.use('/admin/announcements',  require('./announcements'));
+router.use('/admin/notifications',  require('./notifications'));
+router.use('/admin/complaints',     require('./complaints'));
 
 // ------------------------------------------------------------
-// Portal — per-role APIs
+// Admin — system
 // ------------------------------------------------------------
-router.use('/student',          require('./portal/student'));
-router.use('/lecturer',         require('./portal/lecturer'));
-router.use('/hod',              require('./portal/hod'));
-router.use('/bursar',           require('./portal/bursar'));
-router.use('/rector',           require('./portal/rector'));
-router.use('/registrar',        require('./portal/registrar'));
-router.use('/librarian',        require('./portal/librarian'));
-router.use('/exam-officer',     require('./portal/examOfficer'));
-router.use('/academic-officer', require('./portal/academicOfficer'));
-router.use('/admission-officer',require('./portal/admissionOfficer'));
+router.use('/admin/settings',       require('./settings'));
+router.use('/admin/security',       require('./security'));
+router.use('/admin/audit',          require('./audit'));
+router.use('/admin/reports',        require('./reports'));
 
 // ------------------------------------------------------------
-// Portal — shared (profile, photo upload, etc.)
+// Portal — student
 // ------------------------------------------------------------
-router.use('/portal',           require('./portal/shared'));
-router.use('/portal',           require('./portal/profile'));   // NEW: photo upload
+router.use('/student',              require('./portal/student'));
+
+// ------------------------------------------------------------
+// Portal — staff roles
+// ------------------------------------------------------------
+router.use('/lecturer',             require('./portal/lecturer'));
+router.use('/hod',                  require('./portal/hod'));
+router.use('/bursar',               require('./portal/bursar'));
+router.use('/registrar',            require('./portal/registrar'));
+router.use('/rector',               require('./portal/rector'));
+router.use('/exam-officer',         require('./portal/examOfficer'));
+router.use('/academic-officer',     require('./portal/academicOfficer'));
+router.use('/admission-officer',    require('./portal/admissionOfficer'));
+router.use('/librarian',            require('./portal/librarian'));
+
+// ------------------------------------------------------------
+// Portal — shared
+// ------------------------------------------------------------
+router.use('/',                     require('./portal/shared'));
+router.use('/profile',              require('./portal/profile'));
 
 module.exports = router;

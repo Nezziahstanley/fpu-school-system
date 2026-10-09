@@ -95,7 +95,14 @@ const { loginLimiter, adminLimiter, publicLimiter } = require('./middleware/rate
 app.use(['/api/admin/auth/login', '/api/login'], loginLimiter);
 app.use('/api/admin', adminLimiter);
 app.use(
-  ['/api/apply', '/api/apply-hnd', '/api/apply-status', '/api/contact', '/api/register-token'],
+  [
+    '/api/apply',
+    '/api/apply-hnd',
+    '/api/apply-status',
+    '/api/contact',
+    '/api/register-token',
+    '/api/public/id-lookup',
+  ],
   publicLimiter
 );
 

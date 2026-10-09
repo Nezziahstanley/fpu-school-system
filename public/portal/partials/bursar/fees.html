@@ -1,39 +1,471 @@
 <!-- Portal → Bursar → Fees -->
 <section class="page-head">
-  <div><h2>Fee Structures</h2><p class="muted small">Tuition and other fees</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burFeesLoad()">Refresh</button></div>
+  <div>
+    <h2>Fee Structures</h2>
+    <p class="muted small">Tuition and other fees per programme, level and session</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary btn-sm" id="bur-fees-new">+ New Fee Structure</button>
+    <button class="btn btn-outline btn-sm" id="bur-fees-refresh">↻ Refresh</button>
+  </div>
 </section>
 
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Programme</label>
+    <select class="form-select" id="bur-fees-f-programme">
+      <option value="">All programmes</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Level</label>
+    <select class="form-select" id="bur-fees-f-level">
+      <option value="">All levels</option>
+      <option value="ND">ND</option>
+      <option value="HND">HND</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="bur-fees-f-session">
+      <option value="">All sessions</option>
+    </select>
+  </div>
+</div>
+
 <div class="panel">
-  <div class="panel-head"><h3>All Fee Structures</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Fee Structures</h3>
+    <span class="muted small" id="bur-fees-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Programme</th><th>Level</th><th>Session</th><th>Tuition</th><th>Total</th></tr></thead>
-        <tbody id="bur-fees-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Programme</th>
+            <th>Level</th>
+            <th>Session</th>
+            <th style="text-align:right;">Tuition</th>
+            <th style="text-align:right;">Total</th>
+            <th style="width:120px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bur-fees-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- ============================== FORM MODAL (create + edit) ============================== -->
+<div id="bur-fees-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;" id="bur-fees-modal-title">New Fee Structure</h3>
+      <button type="button" id="bur-fees-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;line-height:1;">✕</button>
+    </div>
+    <form id="bur-fees-form" style="padding:1.25rem;">
+      <input type="hidden" name="id" />
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-weight:600;font-size:.8rem;color:#334155;margin-bottom:.35rem;">Programme *</label>
+          <select name="programmeId" required style="width:100%;padding:.55rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="">— Select —</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-weight:600;font-size:.8rem;color:#334155;margin-bottom:.35rem;">Level *</label>
+          <select name="level" required style="width:100%;padding:.55rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="">— Select —</option>
+            <option value="ND">ND</option>
+            <option value="HND">HND</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-weight:600;font-size:.8rem;color:#334155;margin-bottom:.35rem;">Session *</label>
+          <select name="sessionId" required style="width:100%;padding:.55rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="">— Select —</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="border-top:1px dashed #e5e7eb;padding-top:1rem;">
+        <h4 style="margin:0 0 .6rem;font-size:.85rem;color:#0f172a;">Fee components (₦)</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+          <label style="font-size:.8rem;color:#334155;">Tuition
+            <input type="number" name="tuition" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;">Acceptance
+            <input type="number" name="acceptance" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;">Medical
+            <input type="number" name="medical" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;">Library
+            <input type="number" name="library" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;">ICT
+            <input type="number" name="ict" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;">Sports
+            <input type="number" name="sports" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+          <label style="font-size:.8rem;color:#334155;grid-column:1/-1;">Other
+            <input type="number" name="other" min="0" step="0.01" value="0" style="width:100%;margin-top:.25rem;padding:.5rem .6rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;padding:.75rem 1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:.8rem;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;">Total</span>
+        <span id="bur-fees-total-preview" style="font-size:1.15rem;font-weight:800;color:#065f46;font-variant-numeric:tabular-nums;">₦0</span>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:.5rem;margin-top:1rem;font-size:.82rem;color:#334155;">
+        <input type="checkbox" name="isActive" checked />
+        Active (visible to students)
+      </label>
+
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.25rem;">
+        <button type="button" id="bur-fees-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="submit" id="bur-fees-submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================== DELETE MODAL ============================== -->
+<div id="bur-fees-del-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;">Delete Fee Structure?</h3>
+    </div>
+    <div style="padding:1.25rem;">
+      <p style="margin:0 0 .5rem;font-size:.85rem;color:#334155;" id="bur-fees-del-summary"></p>
+      <p style="margin:0;font-size:.8rem;color:#94a3b8;">This action cannot be undone. If any payment references this structure, deletion will fail — deactivate it instead.</p>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.25rem;">
+        <button type="button" id="bur-fees-del-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="button" id="bur-fees-del-confirm" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .bur-fees-bd { background: #f8fafc; }
+  .bur-fees-bd td { padding: .5rem .5rem; font-size: .82rem; color: #475569; border-bottom: 1px solid #e2e8f0; }
+  .bur-fees-bd-row { display: flex; justify-content: space-between; padding: .35rem 0; }
+  .bur-fees-bd-row strong { color: #0f172a; font-variant-numeric: tabular-nums; }
+  .bur-fees-inactive { opacity: .55; }
+</style>
+
 <script>
-  window.__burFeesLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('bur-fees-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
+
+  var LOOKUPS = { programmes: [], sessions: [], levels: ['ND', 'HND'] };
+  var EDITING_ID = null;
+  var DELETING_ID = null;
+
+  function programmeLabel(p) {
+    if (!p) return '—';
+    return (p.code ? p.code + ' — ' : '') + (p.name || ('Programme #' + p.id));
+  }
+
+  function populateLookupSelects() {
+    // Filter dropdowns
+    var fp = $('bur-fees-f-programme');
+    var fs = $('bur-fees-f-session');
+    var pp = $('bur-fees-form').querySelector('select[name="programmeId"]');
+    var ps = $('bur-fees-form').querySelector('select[name="sessionId"]');
+
+    fp.innerHTML = '<option value="">All programmes</option>' +
+      LOOKUPS.programmes.map(function (p) {
+        return '<option value="' + esc(p.id) + '">' + esc(programmeLabel(p)) + '</option>';
+      }).join('');
+
+    fs.innerHTML = '<option value="">All sessions</option>' +
+      LOOKUPS.sessions.map(function (s) {
+        return '<option value="' + esc(s.id) + '">' + esc(s.name) + (s.isCurrent ? ' (current)' : '') + '</option>';
+      }).join('');
+
+    pp.innerHTML = '<option value="">— Select —</option>' +
+      LOOKUPS.programmes.map(function (p) {
+        return '<option value="' + esc(p.id) + '">' + esc(programmeLabel(p)) + '</option>';
+      }).join('');
+
+    ps.innerHTML = '<option value="">— Select —</option>' +
+      LOOKUPS.sessions.map(function (s) {
+        return '<option value="' + esc(s.id) + '">' + esc(s.name) + (s.isCurrent ? ' (current)' : '') + '</option>';
+      }).join('');
+  }
+
+  // ---------- load ----------
+  async function loadLookups() {
     try {
-      const res = await core.portalFetch('/api/bursar/fees');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((f) => `
-        <tr>
-          <td>Programme ${f.programmeId}</td>
-          <td>${core.escapeHtml(f.level)}</td>
-          <td>Session ${f.sessionId}</td>
-          <td class="num">${core.formatMoney(f.tuition)}</td>
-          <td class="num"><strong>${core.formatMoney(f.total)}</strong></td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No fee structures.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
-  window.__burFeesLoad();
+      var res = await core.portalFetch('/api/bursar/lookups');
+      var d = (res && res.data) || {};
+      LOOKUPS.programmes = d.programmes || [];
+      LOOKUPS.sessions   = d.sessions   || [];
+      LOOKUPS.levels     = d.levels     || ['ND', 'HND'];
+      populateLookupSelects();
+    } catch (err) {
+      if (core.showToast) core.showToast('Lookups: ' + err.message, 'error');
+    }
+  }
+
+  async function loadFees() {
+    var tbody = $('bur-fees-tbody');
+    var countEl = $('bur-fees-count');
+    var pid = $('bur-fees-f-programme').value;
+    var lvl = $('bur-fees-f-level').value;
+    var sid = $('bur-fees-f-session').value;
+
+    var qs = new URLSearchParams();
+    if (pid) qs.set('programmeId', pid);
+    if (lvl) qs.set('level', lvl);
+    if (sid) qs.set('sessionId', sid);
+
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+    countEl.textContent = '';
+
+    try {
+      var res = await core.portalFetch('/api/bursar/fees?' + qs.toString());
+      var rows = Array.isArray(res.data) ? res.data : [];
+
+      countEl.textContent = rows.length
+        ? rows.length + ' structure' + (rows.length === 1 ? '' : 's')
+        : '';
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No fee structures match your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(function (r) {
+        var f = r.feeStructure || r;
+        var p = r.programme || {};
+        var s = r.session || {};
+        var inactive = f.isActive === false;
+        var rowId = 'bur-fees-row-' + f.id;
+        var bdId  = 'bur-fees-bd-'  + f.id;
+
+        var bd = ''
+          + '<tr class="bur-fees-bd" id="' + bdId + '" style="display:none;">'
+          +   '<td></td>'
+          +   '<td colspan="6" style="padding:.75rem 1rem;">'
+          +     '<div class="bur-fees-bd-row"><span>Tuition</span><strong>' + esc(money(f.tuition)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>Acceptance</span><strong>' + esc(money(f.acceptance)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>Medical</span><strong>' + esc(money(f.medical)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>Library</span><strong>' + esc(money(f.library)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>ICT</span><strong>' + esc(money(f.ict)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>Sports</span><strong>' + esc(money(f.sports)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row"><span>Other</span><strong>' + esc(money(f.other)) + '</strong></div>'
+          +     '<div class="bur-fees-bd-row" style="border-top:1px solid #cbd5e1;margin-top:.35rem;padding-top:.5rem;"><span>Total</span><strong>' + esc(money(f.total)) + '</strong></div>'
+          +   '</td>'
+          + '</tr>';
+
+        return '<tr id="' + rowId + '" class="' + (inactive ? 'bur-fees-inactive' : '') + '">'
+          + '<td>'
+          +   '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(bdId) + '" title="Show breakdown">▸</button>'
+          + '</td>'
+          + '<td>' + esc(programmeLabel(p)) + (inactive ? ' <span class="muted small">(inactive)</span>' : '') + '</td>'
+          + '<td>' + esc(f.level || '—') + '</td>'
+          + '<td>' + esc(s.name || ('Session #' + f.sessionId)) + '</td>'
+          + '<td class="num" style="text-align:right;">' + esc(money(f.tuition)) + '</td>'
+          + '<td class="num" style="text-align:right;font-weight:700;">' + esc(money(f.total)) + '</td>'
+          + '<td>'
+          +   '<button type="button" class="btn btn-sm btn-outline" data-edit="' + esc(f.id) + '">Edit</button> '
+          +   '<button type="button" class="btn btn-sm btn-ghost" data-del="' + esc(f.id) + '" style="color:#dc2626;">Delete</button>'
+          + '</td>'
+          + '</tr>'
+          + bd;
+      }).join('');
+
+      // Wire expand / edit / delete
+      tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var el = document.getElementById(b.dataset.expand);
+          if (!el) return;
+          var showing = el.style.display !== 'none';
+          el.style.display = showing ? 'none' : 'table-row';
+          b.textContent = showing ? '▸' : '▾';
+        });
+      });
+
+      tbody.querySelectorAll('button[data-edit]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          openForm(rows.find(function (r) { return String((r.feeStructure || r).id) === b.dataset.edit; }));
+        });
+      });
+
+      tbody.querySelectorAll('button[data-del]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          openDelete(rows.find(function (r) { return String((r.feeStructure || r).id) === b.dataset.del; }));
+        });
+      });
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // ---------- form modal ----------
+  function computeTotal() {
+    var form = $('bur-fees-form');
+    var keys = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
+    var t = keys.reduce(function (sum, k) {
+      return sum + Number(form.querySelector('[name="' + k + '"]').value || 0);
+    }, 0);
+    $('bur-fees-total-preview').textContent = money(t);
+    return t;
+  }
+
+  function openForm(row) {
+    var form = $('bur-fees-form');
+    form.reset();
+    EDITING_ID = null;
+
+    if (row) {
+      var f = row.feeStructure || row;
+      EDITING_ID = f.id;
+      $('bur-fees-modal-title').textContent = 'Edit Fee Structure';
+      form.querySelector('[name="id"]').value = f.id;
+      form.querySelector('[name="programmeId"]').value = f.programmeId;
+      form.querySelector('[name="level"]').value = f.level;
+      form.querySelector('[name="sessionId"]').value = f.sessionId;
+      ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'].forEach(function (k) {
+        form.querySelector('[name="' + k + '"]').value = Number(f[k] || 0);
+      });
+      form.querySelector('[name="isActive"]').checked = f.isActive !== false;
+    } else {
+      $('bur-fees-modal-title').textContent = 'New Fee Structure';
+      form.querySelector('[name="id"]').value = '';
+      form.querySelector('[name="isActive"]').checked = true;
+      ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'].forEach(function (k) {
+        form.querySelector('[name="' + k + '"]').value = 0;
+      });
+      // Default the session to the current one
+      var current = LOOKUPS.sessions.find(function (s) { return s.isCurrent; });
+      if (current) form.querySelector('[name="sessionId"]').value = current.id;
+    }
+
+    computeTotal();
+    $('bur-fees-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeForm() {
+    EDITING_ID = null;
+    $('bur-fees-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function submitForm(e) {
+    e.preventDefault();
+    var form = $('bur-fees-form');
+    var fd = new FormData(form);
+    var body = {};
+    fd.forEach(function (v, k) { body[k] = v; });
+    body.isActive = form.querySelector('[name="isActive"]').checked;
+
+    var submitBtn = $('bur-fees-submit');
+    submitBtn.disabled = true;
+    var prev = submitBtn.textContent;
+    submitBtn.textContent = 'Saving…';
+
+    try {
+      if (EDITING_ID) {
+        await core.portalFetch('/api/bursar/fees/' + EDITING_ID, { method: 'PUT', body: body });
+        if (core.showToast) core.showToast('Fee structure updated.', 'success');
+      } else {
+        await core.portalFetch('/api/bursar/fees', { method: 'POST', body: body });
+        if (core.showToast) core.showToast('Fee structure created.', 'success');
+      }
+      closeForm();
+      loadFees();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = prev;
+    }
+  }
+
+  // ---------- delete modal ----------
+  function openDelete(row) {
+    if (!row) return;
+    var f = row.feeStructure || row;
+    var p = row.programme || {};
+    var s = row.session || {};
+    DELETING_ID = f.id;
+    $('bur-fees-del-summary').textContent =
+      programmeLabel(p) + ' · ' + f.level + ' · ' + (s.name || ('Session #' + f.sessionId));
+    $('bur-fees-del-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDelete() {
+    DELETING_ID = null;
+    $('bur-fees-del-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function confirmDelete() {
+    if (!DELETING_ID) return;
+    var btn = $('bur-fees-del-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    try {
+      await core.portalFetch('/api/bursar/fees/' + DELETING_ID, { method: 'DELETE' });
+      if (core.showToast) core.showToast('Fee structure deleted.', 'warning');
+      closeDelete();
+      loadFees();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Delete';
+    }
+  }
+
+  // ---------- wire chrome ----------
+  $('bur-fees-new').addEventListener('click', function () { openForm(null); });
+  $('bur-fees-refresh').addEventListener('click', loadFees);
+  $('bur-fees-f-programme').addEventListener('change', loadFees);
+  $('bur-fees-f-level').addEventListener('change', loadFees);
+  $('bur-fees-f-session').addEventListener('change', loadFees);
+
+  $('bur-fees-modal-close').addEventListener('click', closeForm);
+  $('bur-fees-cancel').addEventListener('click', closeForm);
+  $('bur-fees-form').addEventListener('submit', submitForm);
+  $('bur-fees-form').addEventListener('input', computeTotal);
+  $('bur-fees-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'bur-fees-modal') closeForm();
+  });
+
+  $('bur-fees-del-cancel').addEventListener('click', closeDelete);
+  $('bur-fees-del-confirm').addEventListener('click', confirmDelete);
+  $('bur-fees-del-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'bur-fees-del-modal') closeDelete();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('bur-fees-modal').style.display === 'flex') closeForm();
+    else if ($('bur-fees-del-modal').style.display === 'flex') closeDelete();
+  });
+
+  // ---------- boot ----------
+  (async function boot() {
+    await loadLookups();
+    await loadFees();
+  })();
+})();
 </script>

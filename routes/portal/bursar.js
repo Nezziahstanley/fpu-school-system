@@ -18,8 +18,10 @@ const { eq, desc } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 
-const { payments } = schema;
+const { payments, programmes, academicSessions } = schema;
 const only = requireRole('bursar', 'admin');
+
+const VALID_LEVELS = ['ND', 'HND'];
 
 // ============================================================
 // GET /api/bursar/dashboard
@@ -39,7 +41,6 @@ router.get('/dashboard', only, async (_req, res, next) => {
 
     const pendingClearances = await clearQueries.countByStatus({});
 
-    // ---- today's payments ----
     const [todayRow] = await db
       .select({
         count: sql`count(*)::int`,
@@ -48,12 +49,10 @@ router.get('/dashboard', only, async (_req, res, next) => {
       .from(payments)
       .where(sql`${payments.createdAt} >= current_date`);
 
-    // ---- recent payments (last 5, joined to student) ----
     let recentPayments = [];
     try {
       const rows = await paymentQueries.listWithStudent({ limit: 5 });
       recentPayments = (rows || []).map((r) => {
-        // listWithStudent returns { payment, student } or a flat row; normalize.
         const p = r.payment || r;
         const s = r.student || r.studentInfo || {};
         return {
@@ -79,20 +78,43 @@ router.get('/dashboard', only, async (_req, res, next) => {
     return res.json({
       success: true,
       data: {
-        // stat cards
         todayPayments:  Number(todayRow?.count || 0),
         todayAmount:    Number(todayRow?.total || 0),
         pendingCount:   Number(statusMap.pending || 0),
         totalVerified:  Number(totalVerified?.total || 0),
         totalPending:   Number(totalPending?.total || 0),
         clearancesAwaiting: Number(clearMap.pending || 0),
-
-        // status breakdown
         byStatus: statusMap,
         pendingClearances: clearMap,
-
-        // recent payments table
         recentPayments,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/bursar/lookups — programmes + sessions for filters/forms
+// ============================================================
+router.get('/lookups', only, async (_req, res, next) => {
+  try {
+    const progs = await db
+      .select({ id: programmes.id, code: programmes.code, name: programmes.name, level: programmes.level })
+      .from(programmes)
+      .orderBy(programmes.name);
+
+    const sessions = await db
+      .select({ id: academicSessions.id, name: academicSessions.name, isCurrent: academicSessions.isCurrent })
+      .from(academicSessions)
+      .orderBy(desc(academicSessions.isCurrent), desc(academicSessions.startDate));
+
+    return res.json({
+      success: true,
+      data: {
+        programmes: progs,
+        sessions,
+        levels: VALID_LEVELS,
       },
     });
   } catch (err) {
@@ -105,8 +127,8 @@ router.get('/dashboard', only, async (_req, res, next) => {
 // ============================================================
 router.get('/payments', only, async (req, res, next) => {
   try {
-    const { sessionId, status } = req.query;
-    const rows = await paymentQueries.listWithStudent({ sessionId, status });
+    const { sessionId, status, search } = req.query;
+    const rows = await paymentQueries.listWithStudent({ sessionId, status, search });
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -150,9 +172,93 @@ router.get('/fees', only, async (req, res, next) => {
       programmeId: req.query.programmeId,
       level: req.query.level,
       sessionId: req.query.sessionId,
+      isActive: req.query.isActive,
     });
     return res.json({ success: true, data: rows });
   } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/bursar/fees
+// ============================================================
+router.post('/fees', only, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (!b.programmeId || !b.level || !b.sessionId) {
+      return res.status(400).json({ success: false, error: 'programmeId, level, and sessionId are required.' });
+    }
+    if (!VALID_LEVELS.includes(b.level)) {
+      return res.status(400).json({ success: false, error: 'level must be ND or HND.' });
+    }
+
+    const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
+    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+
+    const row = await paymentQueries.createFeeStructure({
+      programmeId: b.programmeId,
+      level: b.level,
+      sessionId: b.sessionId,
+      tuition: b.tuition, acceptance: b.acceptance, medical: b.medical,
+      library: b.library, ict: b.ict, sports: b.sports, other: b.other,
+      total,
+      isActive: b.isActive !== false,
+    });
+
+    await logAudit({ req, action: 'bursar.fee_create', entity: 'fee_structure', entityId: row.id });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    if (err && /unique|duplicate/i.test(err.message || '')) {
+      return res.status(409).json({
+        success: false,
+        error: 'A fee structure already exists for this programme + level + session.',
+      });
+    }
+    return next(err);
+  }
+});
+
+// ============================================================
+// PUT /api/bursar/fees/:id
+// ============================================================
+router.put('/fees/:id', only, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
+    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+
+    const row = await paymentQueries.updateFeeStructure(req.params.id, {
+      tuition: b.tuition, acceptance: b.acceptance, medical: b.medical,
+      library: b.library, ict: b.ict, sports: b.sports, other: b.other,
+      total,
+      isActive: b.isActive,
+    });
+    if (!row) return res.status(404).json({ success: false, error: 'Fee structure not found.' });
+
+    await logAudit({ req, action: 'bursar.fee_update', entity: 'fee_structure', entityId: row.id });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// DELETE /api/bursar/fees/:id
+// ============================================================
+router.delete('/fees/:id', only, async (req, res, next) => {
+  try {
+    const row = await paymentQueries.removeFeeStructure(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Fee structure not found.' });
+    await logAudit({ req, action: 'bursar.fee_delete', entity: 'fee_structure', entityId: row.id, before: row });
+    return res.json({ success: true });
+  } catch (err) {
+    if (err && /foreign key|violates/i.test(err.message || '')) {
+      return res.status(409).json({
+        success: false,
+        error: 'Cannot delete — this fee structure is referenced by existing payments. Deactivate it instead.',
+      });
+    }
     return next(err);
   }
 });

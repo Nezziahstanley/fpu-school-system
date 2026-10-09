@@ -7,7 +7,7 @@
 const { db, sql, schema } = require('../index');
 const { eq, and, or, ilike, desc, asc, inArray, gte, lte } = require('drizzle-orm');
 
-const { payments, feeStructures, users, academicSessions } = schema;
+const { payments, feeStructures, users, academicSessions, programmes } = schema;
 
 // ============================================================
 // FEE STRUCTURES
@@ -65,6 +65,11 @@ async function findFeeStructureWithFallback({ programmeId, level, sessionId } = 
   return fallback || null;
 }
 
+// ------------------------------------------------------------
+// listFeeStructures — join programme + session so the UI can
+// show human-readable names instead of raw IDs.
+// Returns: [{ feeStructure, programme, session }]
+// ------------------------------------------------------------
 async function listFeeStructures({ programmeId, level, sessionId, isActive } = {}) {
   const conds = [];
   if (programmeId) conds.push(eq(feeStructures.programmeId, Number(programmeId)));
@@ -74,8 +79,14 @@ async function listFeeStructures({ programmeId, level, sessionId, isActive } = {
   const where = conds.length ? and(...conds) : undefined;
 
   return db
-    .select()
+    .select({
+      feeStructure: feeStructures,
+      programme: programmes,
+      session: academicSessions,
+    })
     .from(feeStructures)
+    .leftJoin(programmes, eq(feeStructures.programmeId, programmes.id))
+    .leftJoin(academicSessions, eq(feeStructures.sessionId, academicSessions.id))
     .where(where)
     .orderBy(desc(feeStructures.createdAt));
 }
@@ -200,7 +211,6 @@ async function count({ studentId, sessionId, status } = {}) {
 // countByStatus — count payments grouped by status.
 // Used by /api/bursar/dashboard for the "Pending Verifications"
 // card and the status breakdown panel.
-// Returns: [{ status: 'verified', c: 12 }, ...]
 // ------------------------------------------------------------
 async function countByStatus({ sessionId } = {}) {
   const conds = [];
@@ -351,7 +361,7 @@ module.exports = {
   listWithStudent,
   listByDepartment,
   count,
-  countByStatus,               // ← ADDED — used by /api/bursar/dashboard
+  countByStatus,
   totalVerifiedForStudent,
   totalPaidForStudent,
   create,

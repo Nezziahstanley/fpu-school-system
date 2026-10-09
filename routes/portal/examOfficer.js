@@ -25,11 +25,26 @@ router.get('/dashboard', only, async (req, res, next) => {
   try {
     const sessionId = req.query.sessionId || req.user.currentSessionId;
     const schedules = await examQueries.listWithCourse({ sessionId });
+    const upcoming = await examQueries.listUpcoming({ sessionId, limit: 100 });
+    const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });
+    const coveredSchedules = await examQueries.countCoveredSchedules({ sessionId });
+
+    let present = 0, absent = 0, late = 0, excused = 0;
+    for (const t of attendanceTotals) {
+      const c = Number(t.c || 0);
+      if (t.status === 'present') present += c;
+      else if (t.status === 'absent') absent += c;
+      else if (t.status === 'late') late += c;
+      else if (t.status === 'excused') excused += c;
+    }
+
     return res.json({
       success: true,
       data: {
         totalSchedules: schedules.length,
-        upcoming: schedules.filter((s) => new Date(s.exam.examDate) >= new Date()).length,
+        upcoming: upcoming.length,
+        coveredSchedules,
+        attendance: { present, absent, late, excused, total: present + absent + late + excused },
         currentSession: await sessionQueries.getCurrentAcademic(),
       },
     });
@@ -47,12 +62,26 @@ router.get('/schedules', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/exam-officer/schedules/:id
+// ============================================================
+router.get('/schedules/:id', only, async (req, res, next) => {
+  try {
+    const row = await examQueries.findById(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Exam schedule not found.' });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // GET /api/exam-officer/attendance
+//   Query: examScheduleId
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
   try {
     const { examScheduleId } = req.query;
-    if (!examScheduleId) return res.status(400).json({ success: false, error: 'examScheduleId is required.' });
+    if (!examScheduleId) {
+      return res.status(400).json({ success: false, error: 'examScheduleId is required.' });
+    }
     const rows = await examQueries.listAttendanceWithStudent({ examScheduleId });
     const counts = await examQueries.countAttendance({ examScheduleId });
     return res.json({ success: true, data: rows, counts });
@@ -61,6 +90,7 @@ router.get('/attendance', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/exam-officer/attendance
+//   Body: { examScheduleId, studentId, status, remarks }
 // ============================================================
 router.post('/attendance', only, async (req, res, next) => {
   try {
@@ -69,40 +99,75 @@ router.post('/attendance', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'examScheduleId, studentId, status are required.' });
     }
     const row = await examQueries.upsertAttendance({
-      examScheduleId, studentId, status,
-      invigilatorId: req.user.id, remarks,
+      examScheduleId,
+      studentId,
+      status,
+      invigilatorId: req.user.id,
+      remarks,
     });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
+// POST /api/exam-officer/attendance/bulk
+//   Body: { examScheduleId, records: [{ studentId, status }] }
+// ============================================================
+router.post('/attendance/bulk', only, async (req, res, next) => {
+  try {
+    const { examScheduleId, records } = req.body || {};
+    if (!examScheduleId || !Array.isArray(records) || !records.length) {
+      return res.status(400).json({ success: false, error: 'examScheduleId and records[] are required.' });
+    }
+    const rows = records.map((r) => ({
+      examScheduleId: Number(examScheduleId),
+      studentId: Number(r.studentId),
+      status: r.status || 'present',
+      invigilatorId: req.user.id,
+      remarks: r.remarks || null,
+    }));
+    const saved = await examQueries.bulkUpsertAttendance(rows);
+    return res.json({ success: true, data: saved, saved: saved.length });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // GET /api/exam-officer/eligibility
-// Query: sessionId, courseId — computes which students are eligible
+//   Query: courseId (required), sessionId, semester
 // ============================================================
 router.get('/eligibility', only, async (req, res, next) => {
   try {
     const { sessionId, courseId, semester } = req.query;
     if (!courseId) return res.status(400).json({ success: false, error: 'courseId is required.' });
 
-    const regs = await regQueries.listWithStudent({ courseId, sessionId, semester, status: 'approved' });
-    const results = [];
+    const effectiveSession = sessionId || req.user.currentSessionId;
 
+    const regs = await regQueries.listWithStudent({
+      courseId,
+      sessionId: effectiveSession,
+      semester,
+      status: 'approved',
+    });
+
+    const results = [];
     for (const r of regs) {
       const studentId = r.registration.studentId;
-      const totalPaid = await paymentQueries.totalVerifiedForStudent(studentId, sessionId || req.user.currentSessionId);
+      const totalPaid = await paymentQueries.totalVerifiedForStudent(studentId, effectiveSession);
       const feeStructure = r.student?.programmeId
-        ? await paymentQueries.findFeeStructure({
+        ? await paymentQueries.findFeeStructureWithFallback({
             programmeId: r.student.programmeId,
             level: r.student.level || 'ND',
-            sessionId: sessionId || req.user.currentSessionId,
+            sessionId: effectiveSession,
           })
         : null;
 
       const totalDue = Number(feeStructure?.total || 0);
-      const cleared = totalDue === 0 || totalPaid >= totalDue;
+      const cleared = totalDue === 0 || Number(totalPaid) >= totalDue;
 
-      const clear = await clearQueries.findOne({ studentId, sessionId: sessionId || req.user.currentSessionId });
+      const clear = await clearQueries.findOne({
+        studentId,
+        sessionId: effectiveSession,
+      });
       const clearanceOk = !clear || clear.status === 'cleared';
 
       results.push({
@@ -115,7 +180,13 @@ router.get('/eligibility', only, async (req, res, next) => {
         eligible: cleared && clearanceOk,
       });
     }
-    return res.json({ success: true, data: results });
+
+    const eligible = results.filter((r) => r.eligible).length;
+    return res.json({
+      success: true,
+      data: results,
+      summary: { total: results.length, eligible, ineligible: results.length - eligible },
+    });
   } catch (err) { return next(err); }
 });
 
@@ -126,12 +197,18 @@ router.get('/reports', only, async (req, res, next) => {
   try {
     const sessionId = req.query.sessionId || req.user.currentSessionId;
     const schedules = await examQueries.listWithCourse({ sessionId });
-    const byStatus = {};
-    for (const s of schedules) {
-      const counts = await examQueries.countAttendance({ examScheduleId: s.exam.id });
-      byStatus[s.exam.id] = counts;
-    }
-    return res.json({ success: true, data: { schedules, attendanceBySchedule: byStatus } });
+    const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });
+    const coveredSchedules = await examQueries.countCoveredSchedules({ sessionId });
+
+    return res.json({
+      success: true,
+      data: {
+        schedules,
+        attendanceTotals,
+        coveredSchedules,
+        attendanceBySchedule: {},   // deprecated (kept for compatibility)
+      },
+    });
   } catch (err) { return next(err); }
 });
 

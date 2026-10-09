@@ -1,53 +1,191 @@
-<!-- Portal → Student → Security -->
+<!-- Portal → Shared → Security -->
 <section class="page-head">
-  <div><h2>My Security</h2><p class="muted small">Password and active sessions</p></div>
+  <div><h2>Security</h2><p class="muted small">Manage your password and active sessions</p></div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>Change Password</h3></div>
+<!-- Change Password -->
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel-head"><h3>🔒 Change Password</h3></div>
   <div class="panel-body">
-    <form id="stud-sec-pwd">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Current Password</label><input class="form-control" type="password" name="currentPassword" required /></div>
-        <div class="form-group"><label class="form-label">New Password</label><input class="form-control" type="password" name="newPassword" required /></div>
+    <form id="sec-pwd-form">
+      <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input class="form-control" type="password" name="currentPassword" required autocomplete="current-password" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input class="form-control" type="password" name="newPassword" required minlength="8" autocomplete="new-password" />
+        </div>
       </div>
-      <div class="form-actions"><button type="submit" class="btn btn-primary">Update</button></div>
+      <div class="form-actions" style="margin-top:.75rem;">
+        <button type="submit" class="btn btn-primary btn-sm">Update Password</button>
+      </div>
+      <p class="muted small" style="margin:.5rem 0 0;">Minimum 8 characters. Use a mix of letters, numbers, and symbols.</p>
     </form>
   </div>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Active Sessions</h3></div>
+<!-- Active Sessions -->
+<div class="panel" style="margin-bottom:1rem;">
+  <div class="panel-head">
+    <h3>🖥️ Active Sessions</h3>
+    <div class="tools">
+      <button class="btn btn-ghost btn-sm" id="sec-revoke-all">Sign out everywhere else</button>
+    </div>
+  </div>
   <div class="panel-body">
-    <div id="stud-sec-sessions" class="grid" style="gap:.5rem;">
+    <div id="sec-sessions" class="grid" style="gap:.5rem;">
       <div class="loading"><span class="spinner"></span> Loading…</div>
     </div>
   </div>
 </div>
 
-<script>
-  (async function () {
-    const core = window.FPU_PORTAL;
+<!-- Recent Logins -->
+<div class="panel">
+  <div class="panel-head"><h3>📋 Recent Logins</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead><tr><th>Time</th><th>IP Address</th><th>Result</th></tr></thead>
+        <tbody id="sec-logins">
+          <tr><td colspan="3" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
-    document.getElementById('stud-sec-pwd').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/portal/change-password', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Password updated.', 'success');
-        e.target.reset();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => core.formatDateTime ? core.formatDateTime(d) : (d ? new Date(d).toLocaleString() : '—');
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
+
+  // ------------------------------------------------------------
+  // Change Password
+  // ------------------------------------------------------------
+  $('sec-pwd-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const body = Object.fromEntries(fd);
+
+    if ((body.newPassword || '').length < 8) {
+      core.showToast && core.showToast('New password must be at least 8 characters.', 'warning');
+      return;
+    }
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+
+    try {
+      await core.portalFetch('/api/portal/change-password', {
+        method: 'POST',
+        body: {
+          currentPassword: body.currentPassword,
+          newPassword: body.newPassword,
+          confirmPassword: body.newPassword,   // required by profile.js
+        },
+      });
+      core.showToast && core.showToast('Password updated successfully.', 'success');
+      e.target.reset();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  });
+
+  // ------------------------------------------------------------
+  // Sign out everywhere else
+  // ------------------------------------------------------------
+  $('sec-revoke-all')?.addEventListener('click', async () => {
+    if (!confirm('Sign out all other sessions? Your current session will remain active.')) return;
+    try {
+      await core.portalFetch('/api/portal/security/revoke-all', { method: 'POST' });
+      core.showToast && core.showToast('Other sessions signed out.', 'success');
+      loadSecurity();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  // ------------------------------------------------------------
+  // Load Security (sessions + logins)
+  // ------------------------------------------------------------
+  async function loadSecurity() {
+    const sessionsBox = $('sec-sessions');
+    const loginsBox = $('sec-logins');
 
     try {
       const res = await core.portalFetch('/api/portal/security');
-      const sessions = (res.sessions || []).concat(res.adminSessions || []);
-      document.getElementById('stud-sec-sessions').innerHTML = sessions.length ? sessions.map((s) => `
-        <div class="session-item">
-          <div class="meta"><strong>${core.escapeHtml((s.userAgent || 'Unknown device').slice(0, 60))}</strong>${core.escapeHtml(s.ipAddress || '')}</div>
-          <div class="small muted">${core.formatDateTime(s.createdAt)}</div>
-        </div>
-      `).join('') : '<p class="muted">No active sessions.</p>';
-    } catch (err) { core.showToast(err.message, 'error'); }
-  })();
+      const sessions = [].concat(res.sessions || [], res.adminSessions || []);
+      const logins = res.logins || [];
+
+      // Sessions
+      if (sessions.length) {
+        sessionsBox.innerHTML = sessions.map((s) => {
+          const ua = String(s.userAgent || 'Unknown device');
+          const device = /mobile|android|iphone|ipad/i.test(ua) ? '📱' : '💻';
+          const isCurrent = s.token && core.getToken && s.token === core.getToken();
+          return `
+            <div style="
+              display:flex;align-items:flex-start;gap:.75rem;
+              padding:.7rem .85rem;
+              background:${isCurrent ? '#f0fdf4' : '#f8fafc'};
+              border:1px solid ${isCurrent ? '#bbf7d0' : '#e5e7eb'};
+              border-radius:10px;
+            ">
+              <div style="
+                width:36px;height:36px;border-radius:8px;
+                background:${isCurrent ? '#d1fae5' : '#e2e8f0'};
+                display:flex;align-items:center;justify-content:center;
+                font-size:1rem;flex-shrink:0;
+              ">${device}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.82rem;font-weight:700;color:#0f172a;line-height:1.3;">
+                  ${esc(ua.slice(0, 70))}${ua.length > 70 ? '…' : ''}
+                  ${isCurrent ? '<span style="font-size:.65rem;font-weight:800;background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:99px;margin-left:.4rem;">THIS DEVICE</span>' : ''}
+                </div>
+                <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">
+                  📍 ${esc(s.ipAddress || 'Unknown IP')} · 🕐 ${esc(timeAgo(s.createdAt))}
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      } else {
+        sessionsBox.innerHTML = '<p class="muted small" style="margin:0;padding:.75rem;">No active sessions.</p>';
+      }
+
+      // Logins
+      if (logins.length) {
+        loginsBox.innerHTML = logins.map((l) => `
+          <tr>
+            <td>${esc(fmtDate(l.createdAt))}</td>
+            <td><code style="font-size:.75rem;">${esc(l.ipAddress || '—')}</code></td>
+            <td>${l.success
+              ? '<span class="badge badge-success" style="font-size:.7rem;">✓ Success</span>'
+              : '<span class="badge badge-danger" style="font-size:.7rem;">✕ Failed</span>'}</td>
+          </tr>
+        `).join('');
+      } else {
+        loginsBox.innerHTML = '<tr><td colspan="3" class="empty">No login history.</td></tr>';
+      }
+    } catch (err) {
+      sessionsBox.innerHTML = `
+        <div style="padding:.75rem;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#991b1b;font-size:.82rem;">
+          ⚠️ Could not load sessions: ${esc(err.message)}
+        </div>`;
+      loginsBox.innerHTML = '<tr><td colspan="3" class="empty">Could not load login history.</td></tr>';
+    }
+  }
+
+  loadSecurity();
+})();
 </script>

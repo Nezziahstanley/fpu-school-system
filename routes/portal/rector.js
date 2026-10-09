@@ -137,6 +137,37 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/rector/applications-by-department
+// ------------------------------------------------------------
+// Applications grouped by department, with status breakdown.
+// ============================================================
+router.get('/applications-by-department', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        departmentId: applications.departmentId,
+        departmentCode: departments.code,
+        departmentName: departments.name,
+        total: sql`count(*)::int`,
+        pending: sql`count(*) filter (where ${applications.status} = 'pending')::int`,
+        underReview: sql`count(*) filter (where ${applications.status} = 'under_review')::int`,
+        approved: sql`count(*) filter (where ${applications.status} = 'approved')::int`,
+        registered: sql`count(*) filter (where ${applications.status} = 'registered')::int`,
+        rejected: sql`count(*) filter (where ${applications.status} = 'rejected')::int`,
+      })
+      .from(applications)
+      .leftJoin(departments, eq(applications.departmentId, departments.id))
+      .groupBy(applications.departmentId, departments.code, departments.name)
+      .orderBy(desc(sql`count(*)`));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[rector/applications-by-department]', err);
+    return next(err);
+  }
+});
+
+// ============================================================
 // GET /api/rector/graduation-pipeline
 // ============================================================
 router.get('/graduation-pipeline', only, async (req, res, next) => {
@@ -161,8 +192,6 @@ router.get('/graduation-pipeline', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/rector/staff-composition
-// ------------------------------------------------------------
-// Staff grouped by role
 // ============================================================
 router.get('/staff-composition', only, async (req, res, next) => {
   try {

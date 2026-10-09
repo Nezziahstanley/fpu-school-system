@@ -1,103 +1,293 @@
 <!-- Portal → Rector → Dashboard -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar" id="rec-dash-avatar">R</div>
-    <div>
-      <h1>Welcome, <span id="rec-dash-name">Rector</span></h1>
-      <div class="sub">Institution Overview</div>
+<div style="padding:0;">
+
+  <!-- HERO -->
+  <div style="
+    background:linear-gradient(135deg,#065f46 0%,#047857 60%,#059669 100%);
+    border-radius:16px;
+    padding:1.5rem 1.75rem;
+    color:#fff;
+    margin-bottom:1.25rem;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(6,95,70,.25);
+  ">
+    <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);"></div>
+    <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
+          🎓 Office of the Rector
+        </div>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
+          Welcome, <span id="rector-name">Rector</span>
+        </h1>
+        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">
+          Institution-wide oversight and executive reporting
+        </p>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;">Session</div>
+        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;" id="rector-session">—</div>
+      </div>
     </div>
   </div>
-  <div class="meta">
-    <strong>Executive</strong>
-    <span>Office</span>
+
+  <!-- STAT TILES -->
+  <div id="rector-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+
+  <!-- QUICK ACTIONS -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.25rem;">
+    <a href="#admin-reports" style="
+      display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📊</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Reports</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Analytics & data</div>
+      </div>
+    </a>
+
+    <a href="#admin-students" style="
+      display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👥</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Students</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">All registered students</div>
+      </div>
+    </a>
+
+    <a href="#admin-applications-list" style="
+      display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Applications</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Admission pipeline</div>
+      </div>
+    </a>
+
+    <a href="#admin-audit" style="
+      display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🛡️</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Audit Log</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">System activity</div>
+      </div>
+    </a>
   </div>
-</section>
 
-<div class="tile-grid">
-  <div class="tile"><div class="tile-label">Total Students</div><div class="tile-value" id="rec-t-students">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Total Staff</div><div class="tile-value" id="rec-t-staff">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending Applications</div><div class="tile-value" id="rec-t-apps">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Revenue (₦)</div><div class="tile-value" id="rec-t-revenue">—</div></div>
-</div>
+  <!-- TWO COLUMN: Enrollment + Trend -->
+  <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
 
-<div class="quick-actions">
-  <a class="btn btn-primary btn-sm" href="#rector-overview">📊 Reports</a>
-  <a class="btn btn-outline btn-sm" href="#admin-students">🎓 Students</a>
-  <a class="btn btn-outline btn-sm" href="#admin-applications-list">📥 Applications</a>
-  <a class="btn btn-outline btn-sm" href="#admin-settings">⚙️ Settings</a>
-</div>
+    <!-- ENROLLMENT BY DEPARTMENT -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🏛️ Enrollment by Department</div>
+        <span style="font-size:.72rem;color:#64748b;" id="rector-enroll-total">— students</span>
+      </div>
+      <div id="rector-enrollment" style="padding:1rem 1rem .5rem;max-height:440px;overflow-y:auto;">
+        <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Enrollment by Department</h3></div>
-  <div class="panel-body">
-    <div id="rec-enrollment" class="muted small">Loading…</div>
+    <!-- ADMISSION TREND -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📈 Admission Trend</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Applications over the last 6 months</div>
+      </div>
+      <div id="rector-trend" style="padding:1rem;">
+        <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
   </div>
+
+  <!-- RECENT ACTIVITY -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🕐 Pending Work Across Institution</div>
+    </div>
+    <div id="rector-pending" style="padding:.5rem 0;">
+      <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+    </div>
+  </div>
+
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Admission Trend</h3></div>
-  <div class="panel-body">
-    <div id="rec-admission-trend" class="muted small">Loading…</div>
-  </div>
-</div>
+<style>
+  @keyframes rectorSpin { to { transform: rotate(360deg); } }
+  .rector-row {
+    display:flex;align-items:center;gap:.85rem;
+    padding:.6rem 1rem;border-bottom:1px solid #f8fafc;
+    transition:background .15s;
+  }
+  .rector-row:last-child { border-bottom:none; }
+  .rector-row:hover { background:#f8fafc; }
+</style>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
-    try {
-      document.getElementById('rec-dash-name').textContent = user.firstName || 'Rector';
-      if (photo) photo.renderMyAvatar(document.getElementById('rec-dash-avatar'), user);
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 
-      // Overview stats
-      try {
-        const o = await core.portalFetch('/api/reports/overview');
-        const d = o.data || o || {};
-        document.getElementById('rec-t-students').textContent = d.students ?? '—';
-        document.getElementById('rec-t-staff').textContent    = d.staff ?? d.lecturers ?? '—';
-        document.getElementById('rec-t-apps').textContent     = d.pendingApplications ?? '—';
-        document.getElementById('rec-t-revenue').textContent  = (d.totalRevenue || 0).toLocaleString();
-      } catch {}
-
-      // Enrollment by department
-      try {
-        const e = await core.portalFetch('/api/reports/enrollment-by-department');
-        const list = e.data || e || [];
-        document.getElementById('rec-enrollment').innerHTML = list.length
-          ? list.slice(0,8).map(x => {
-              const pct = x.percentage || 0;
-              return `<div style="padding:.5rem 0;">
-                        <div style="display:flex;justify-content:space-between;">
-                          <strong>${x.department || x.name || ''}</strong>
-                          <span>${x.count || x.total || 0}</span>
-                        </div>
-                        <div style="height:6px;background:#e5e7eb;border-radius:3px;margin-top:4px;overflow:hidden;">
-                          <div style="height:100%;width:${pct}%;background:var(--fpu-primary);"></div>
-                        </div>
-                      </div>`;
-            }).join('')
-          : '<em>No enrollment data.</em>';
-      } catch {
-        document.getElementById('rec-enrollment').innerHTML = '<em>Enrollment report unavailable.</em>';
-      }
-
-      // Admission trend
-      try {
-        const a = await core.portalFetch('/api/reports/admission-trend');
-        const list = a.data || a || [];
-        document.getElementById('rec-admission-trend').innerHTML = list.length
-          ? list.slice(-6).map(x =>
-              `<div style="padding:.4rem 0;display:flex;justify-content:space-between;">
-                 <strong>${x.period || x.year || ''}</strong>
-                 <span>${x.count || x.admitted || 0} admitted</span>
-               </div>`).join('')
-          : '<em>No admission trend data.</em>';
-      } catch {
-        document.getElementById('rec-admission-trend').innerHTML = '<em>Admission trend unavailable.</em>';
-      }
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+  async function load() {
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    if ($('rector-name')) {
+      $('rector-name').textContent = user.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'Rector';
     }
-  })();
+
+    try {
+      const res = await core.portalFetch('/api/rector/dashboard');
+      const d = res.data || res || {};
+
+      // ---- Stat tiles ----
+      const tiles = [
+        { label: 'Total Students',  value: d.students ?? 0,           bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff',     value: d.staff ?? 0,              bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Pending Apps',    value: d.pendingApplications ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '📋' },
+        { label: 'Revenue',         value: fmtMoney(d.revenue ?? 0),  bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
+      ];
+
+      $('rector-stats').innerHTML = tiles.map(t => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+          <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
+          <div style="min-width:0;">
+            <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
+          </div>
+        </div>`).join('');
+
+      if (d.currentSession?.name && $('rector-session')) {
+        $('rector-session').textContent = d.currentSession.name;
+      }
+
+      renderEnrollment(d.enrollmentByDepartment || []);
+      renderTrend(d.admissionTrend || []);
+      renderPending(d);
+    } catch (err) {
+      console.error('[rector/dashboard]', err);
+      core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
+    }
+  }
+
+  // ============================================================
+  // Enrollment bars
+  // ============================================================
+  function renderEnrollment(rows) {
+    const box = $('rector-enrollment');
+
+    if (!rows || !rows.length) {
+      box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No enrollment data.</div>';
+      $('rector-enroll-total').textContent = '0 students';
+      return;
+    }
+
+    const total = rows.reduce((n, r) => n + Number(r.students || 0), 0);
+    const max = Math.max(...rows.map(r => Number(r.students || 0)), 1);
+    $('rector-enroll-total').textContent = `${total} students`;
+
+    box.innerHTML = rows.map((r) => {
+      const value = Number(r.students || 0);
+      const pct = Math.round((value / max) * 100);
+      return `
+        <div style="margin-bottom:.55rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.2rem;">
+            <span style="font-size:.76rem;color:#334155;font-weight:600;">
+              <code style="background:#f1f5f9;color:#475569;padding:1px 5px;border-radius:3px;font-size:.68rem;">${esc(r.code)}</code>
+              ${esc(r.name)}
+            </span>
+            <span style="font-size:.76rem;font-weight:800;color:#065f46;">${value}</span>
+          </div>
+          <div style="height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#065f46,#10b981);border-radius:99px;"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ============================================================
+  // Admission trend bars
+  // ============================================================
+  function renderTrend(rows) {
+    const box = $('rector-trend');
+
+    if (!rows || !rows.length) {
+      box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No trend data.</div>';
+      return;
+    }
+
+    // Reverse to show oldest → newest left-to-right
+    const sorted = [...rows].reverse();
+    const max = Math.max(...sorted.map(r => Number(r.applications || 0)), 1);
+
+    box.innerHTML = `
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:.5rem;height:180px;padding-bottom:.5rem;border-bottom:1px solid #e5e7eb;">
+        ${sorted.map((r) => {
+          const value = Number(r.applications || 0);
+          const heightPct = Math.max(8, Math.round((value / max) * 100));
+          return `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+              <div style="font-size:.72rem;font-weight:800;color:#065f46;margin-bottom:.35rem;">${value}</div>
+              <div style="width:100%;max-width:44px;height:${heightPct}%;background:linear-gradient(180deg,#10b981,#065f46);border-radius:6px 6px 0 0;transition:height .3s;"></div>
+            </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.5rem;">
+        ${sorted.map((r) => `
+          <div style="flex:1;text-align:center;font-size:.68rem;color:#64748b;font-weight:600;">${esc(r.month)}</div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // ============================================================
+  // Pending work summary
+  // ============================================================
+  function renderPending(d) {
+    const rows = [
+      { label: 'Pending Applications', value: d.pendingApplications || 0, icon: '📋', bg: '#fef3c7', fg: '#92400e', link: '#admin-applications-list' },
+      { label: 'Pending Results (Lecturer/HOD)', value: d.pendingResults || 0, icon: '📝', bg: '#dbeafe', fg: '#1e40af', link: '#admin-results' },
+      { label: 'Pending Payments (Verification)', value: d.pendingPayments || 0, icon: '💰', bg: '#d1fae5', fg: '#065f46', link: '#admin-payments' },
+      { label: 'Open Complaints', value: d.openComplaints || 0, icon: '💬', bg: '#fee2e2', fg: '#991b1b', link: '#admin-complaints' },
+    ];
+
+    $('rector-pending').innerHTML = rows.map((r) => `
+      <a href="${r.link}" class="rector-row" style="text-decoration:none;color:inherit;">
+        <div style="width:38px;height:38px;border-radius:10px;background:${r.bg};color:${r.fg};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${r.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.85rem;font-weight:700;color:#0f172a;">${esc(r.label)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <span style="
+            display:inline-block;padding:3px 10px;border-radius:99px;
+            font-size:.72rem;font-weight:800;
+            background:${r.value > 0 ? r.bg : '#f1f5f9'};
+            color:${r.value > 0 ? r.fg : '#475569'};
+          ">${r.value}</span>
+        </div>
+        <div style="color:#94a3b8;font-size:1.1rem;">›</div>
+      </a>
+    `).join('');
+  }
+
+  load();
+})();
 </script>

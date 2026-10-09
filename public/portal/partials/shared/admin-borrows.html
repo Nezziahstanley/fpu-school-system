@@ -1,57 +1,301 @@
-<!-- Portal → Shared → My borrows -->
+<!-- Portal → Shared → Borrows (staff: all borrows; student: my borrows) -->
 <section class="page-head">
-  <div><h2>My Borrows</h2></div>
+  <div>
+    <h2 id="bor-title">Borrows</h2>
+    <p class="muted small" id="bor-subtitle">Library circulation — issue and return books</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bor-refresh">↻ Refresh</button>
+  </div>
 </section>
 
+<!-- STATS -->
+<div class="tile-grid" id="bor-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+  <div class="tile"><div class="tile-label">Total</div><div class="tile-value" id="bor-c-total">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Active</div><div class="tile-value" id="bor-c-active">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Overdue</div><div class="tile-value" id="bor-c-overdue">—</div></div>
+  <div class="tile tile-purple"><div class="tile-label">Returned</div><div class="tile-value" id="bor-c-returned">—</div></div>
+</div>
+
+<!-- FILTERS -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="bor-status">
+      <option value="">All</option>
+      <option value="borrowed">Borrowed</option>
+      <option value="overdue">Overdue</option>
+      <option value="returned">Returned</option>
+      <option value="lost">Lost</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2;">
+    <label class="form-label">Search</label>
+    <input type="search" class="form-input" id="bor-search"
+           placeholder="Book title or student name" autocomplete="off" />
+  </div>
+</div>
+
+<!-- TABLE -->
 <div class="panel">
-  <div class="panel-head"><h3>Borrowed Books</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Borrow Records</h3>
+    <span class="muted small" id="bor-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Status</th></tr></thead>
-        <tbody id="shared-borrows-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Book</th>
+            <th id="bor-th-student">Student</th>
+            <th>Borrowed</th>
+            <th>Due</th>
+            <th>Status</th>
+            <th style="width:160px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bor-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Fines</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Reason</th><th>Amount</th><th>Paid?</th></tr></thead>
-        <tbody id="shared-fines-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<style>
+  .bor-detail { background: #f8fafc; }
+  .bor-detail td { padding: .75rem 1rem; font-size: .82rem; color: #475569; }
+  .bor-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
+  .bor-detail-row:last-child { border-bottom: none; }
+  .bor-detail-row strong { color: #0f172a; }
+  .bor-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .bor-chip.borrowed { background: #dbeafe; color: #1e40af; }
+  .bor-chip.overdue  { background: #fee2e2; color: #991b1b; }
+  .bor-chip.returned { background: #d1fae5; color: #065f46; }
+  .bor-chip.lost     { background: #f1f5f9; color: #475569; }
+  .bor-row-overdue td { background: #fef2f2; }
+</style>
 
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    try {
-      const res = await core.portalFetch('/api/student/borrows');
-      const borrows = res.borrows || [];
-      document.getElementById('shared-borrows-tbody').innerHTML = borrows.length ? borrows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.book?.title || '')}</td>
-          <td>${core.formatDate(r.borrow.borrowedAt)}</td>
-          <td>${core.formatDate(r.borrow.dueAt)}</td>
-          <td>${core.escapeHtml(r.borrow.status)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="4" class="empty">No borrows.</td></tr>';
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
 
-      const fines = res.fines || [];
-      document.getElementById('shared-fines-tbody').innerHTML = fines.length ? fines.map((f) => `
-        <tr>
-          <td>${core.escapeHtml(f.reason || '')}</td>
-          <td>${core.formatMoney(f.amount)}</td>
-          <td>${f.isPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Unpaid</span>'}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="empty">No fines.</td></tr>';
-    } catch (err) {
-      core.showToast(err.message, 'error');
+  // ---- Role detection ----
+  var me = (core.getPortalUser && core.getPortalUser()) || {};
+  var ROLE = String(me.role || '').toLowerCase();
+  var IS_STAFF = ['librarian', 'admin', 'superadmin', 'registrar', 'rector', 'academic_officer'].indexOf(ROLE) >= 0;
+  var IS_STUDENT = ROLE === 'student';
+
+  // ---- URL strategy ----
+  // Staff → role-scoped librarian router (all borrows)
+  // Student → student self-service router (my borrows)
+  var LIST_URL      = IS_STUDENT ? '/api/student/borrows'     : '/api/librarian/borrows';
+  var RETURN_URL    = function (id) { return '/api/librarian/borrows/' + id + '/return'; };
+
+  var ALL = [];
+
+  // ---- Header text per role ----
+  if (!IS_STUDENT) {
+    $('bor-title').textContent = 'Borrows';
+    $('bor-subtitle').textContent = 'Library circulation — issue and return books';
+  } else {
+    $('bor-title').textContent = 'My Borrows';
+    $('bor-subtitle').textContent = 'Books you have borrowed from the library';
+    // Students don't see the "Student" column
+    var th = $('bor-th-student');
+    if (th) th.style.display = 'none';
+  }
+
+  // ---- Extractors ----
+  function bookTitle(r) {
+    var b = r.book || {};
+    var br = r.borrow || r;
+    return b.title || br.bookTitle || ('Book #' + (br.bookId || ''));
+  }
+  function studentName(r) {
+    var u = r.user || r.student || {};
+    var full = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    return full || u.email || ('User #' + ((r.borrow || r).userId || ''));
+  }
+  function statusChip(s) {
+    var v = String(s || '').toLowerCase();
+    var cls = ['borrowed', 'overdue', 'returned', 'lost'].indexOf(v) >= 0 ? v : 'borrowed';
+    return '<span class="bor-chip ' + cls + '">' + esc(v || '—') + '</span>';
+  }
+  function isOverdue(br) {
+    if (!br || br.status === 'returned' || br.status === 'lost') return false;
+    return br.dueAt && new Date(br.dueAt) < new Date();
+  }
+
+  // ---- Stats ----
+  function renderStats() {
+    var total = ALL.length;
+    var active = 0, overdue = 0, returned = 0;
+    ALL.forEach(function (r) {
+      var br = r.borrow || r;
+      if (br.status === 'returned') returned++;
+      else if (br.status === 'lost') { /* skip */ }
+      else {
+        active++;
+        if (isOverdue(br)) overdue++;
+      }
+    });
+    $('bor-c-total').textContent    = total.toLocaleString();
+    $('bor-c-active').textContent   = active.toLocaleString();
+    $('bor-c-overdue').textContent  = overdue.toLocaleString();
+    $('bor-c-returned').textContent = returned.toLocaleString();
+  }
+
+  // ---- Render ----
+  function render() {
+    var tbody = $('bor-tbody');
+    var countEl = $('bor-count');
+    countEl.textContent = ALL.length ? ALL.length + ' record' + (ALL.length === 1 ? '' : 's') : '';
+
+    if (!ALL.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records match your filters.</td></tr>';
+      return;
     }
-  })();
+
+    tbody.innerHTML = ALL.map(function (r) {
+      var br = r.borrow || r;
+      var id = br.id;
+      var overdue = isOverdue(br);
+      var hasDetail = br.returnedAt || br.receivedBy || br.remarks;
+      var detailId = 'bor-detail-' + id;
+      var expandBtn = hasDetail
+        ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '">▸</button>'
+        : '';
+
+      var detailRow = '';
+      if (hasDetail) {
+        detailRow = '<tr class="bor-detail" id="' + esc(detailId) + '" style="display:none;">'
+          + '<td></td>'
+          + '<td colspan="6">'
+          +   (br.returnedAt
+                  ? '<div class="bor-detail-row"><span>Returned</span><strong>' + esc(dateFmt(br.returnedAt)) + '</strong></div>'
+                  : '')
+          +   (br.receivedBy
+                  ? '<div class="bor-detail-row"><span>Received by</span><strong>User #' + esc(br.receivedBy) + '</strong></div>'
+                  : '')
+          +   (br.remarks
+                  ? '<div class="bor-detail-row"><span>Remarks</span><strong>' + esc(br.remarks) + '</strong></div>'
+                  : '')
+          +   (br.issuedBy
+                  ? '<div class="bor-detail-row"><span>Issued by</span><strong>User #' + esc(br.issuedBy) + '</strong></div>'
+                  : '')
+          + '</td>'
+          + '</tr>';
+      }
+
+      // Actions: only staff can mark returned; only on active rows
+      var actions = '—';
+      if (!IS_STUDENT && (br.status === 'borrowed' || br.status === 'overdue')) {
+        actions = '<button class="btn btn-sm btn-primary" data-act="return" data-id="' + esc(id) + '">Mark Returned</button>';
+      } else {
+        actions = '<span class="muted small">—</span>';
+      }
+
+      return '<tr class="' + (overdue ? 'bor-row-overdue' : '') + '">'
+        + '<td>' + expandBtn + '</td>'
+        + '<td>' + esc(bookTitle(r)) + '</td>'
+        + '<td' + (IS_STUDENT ? ' style="display:none;"' : '') + '>' + esc(studentName(r)) + '</td>'
+        + '<td style="color:#94a3b8;font-size:.8rem;">' + (br.borrowedAt ? esc(timeAgo(br.borrowedAt) || dateFmt(br.borrowedAt)) : '—') + '</td>'
+        + '<td style="color:' + (overdue ? '#991b1b;font-weight:700;' : '#94a3b8;') + 'font-size:.8rem;">'
+        +   (br.dueAt ? esc(dateFmt(br.dueAt)) : '—')
+        + '</td>'
+        + '<td>' + statusChip(br.status) + '</td>'
+        + '<td>' + actions + '</td>'
+        + '</tr>'
+        + detailRow;
+    }).join('');
+
+    // Wire expand
+    tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var el = document.getElementById(b.dataset.expand);
+        if (!el) return;
+        var showing = el.style.display !== 'none';
+        el.style.display = showing ? 'none' : 'table-row';
+        b.textContent = showing ? '▸' : '▾';
+      });
+    });
+
+    // Wire return
+    tbody.querySelectorAll('button[data-act="return"]').forEach(function (b) {
+      b.addEventListener('click', function () { markReturned(b.dataset.id, b); });
+    });
+  }
+
+  // ---- Load ----
+  async function load() {
+    var tbody = $('bor-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+
+    var status = $('bor-status').value;
+    var search = $('bor-search').value.trim().toLowerCase();
+
+    var qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+
+    try {
+      var res = await core.portalFetch(LIST_URL + (qs.toString() ? '?' + qs : ''));
+      // Handle both response shapes:
+      //   librarian: { data: [ {borrow, book, user}, ... ] }
+      //   student:   { borrows: [ ... ], fines: [ ... ], reservations: [ ... ] }
+      var rows = res.data || res.borrows || [];
+      if (!Array.isArray(rows)) rows = [];
+
+      if (search) {
+        rows = rows.filter(function (r) {
+          var hay = (bookTitle(r) + ' ' + studentName(r)).toLowerCase();
+          return hay.indexOf(search) >= 0;
+        });
+      }
+
+      ALL = rows;
+      renderStats();
+      render();
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // ---- Mark returned ----
+  async function markReturned(id, btn) {
+    if (!confirm('Mark this book as returned?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
+    try {
+      await core.portalFetch(RETURN_URL(id), { method: 'POST' });
+      if (core.showToast) core.showToast('Book marked as returned.', 'success');
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark Returned'; }
+    }
+  }
+
+  // ---- Wire chrome ----
+  $('bor-refresh').addEventListener('click', load);
+  $('bor-status').addEventListener('change', load);
+
+  var t = null;
+  $('bor-search').addEventListener('input', function () {
+    clearTimeout(t);
+    t = setTimeout(load, 300);
+  });
+
+  load();
+})();
 </script>

@@ -287,14 +287,31 @@ router.post('/complaints', requireUser, async (req, res, next) => {
   }
 });
 
+
 // ============================================================
 // SECURITY (sessions + login history)
 // ============================================================
+router.get('/security', requireUser, async (req, res, next) => {
+  try {
+    const sessions = await sessionQueries.listUserSessions(req.user.id);
+
+    let logins = [];
+    try {
+      const audit = require('../../db/queries/audit');
+      logins = await audit.listLogins({ userId: req.user.id, limit: 30 });
+    } catch { /* audit helper missing — return empty */ }
+
+    return res.json({ success: true, sessions, logins });
+  } catch (err) {
+    console.error('[portal/security] error:', err);
+    return next(err);
+  }
+});
+
 router.post('/security/revoke-all', requireUser, async (req, res, next) => {
   try {
-    const currentToken = req.authToken || null;
     const count = await sessionQueries.revokeAllUserSessions(req.user.id, {
-      exceptToken: currentToken,
+      exceptToken: req.authToken || null,
     });
     return res.json({ success: true, count });
   } catch (err) {
@@ -305,15 +322,6 @@ router.post('/security/revoke-all', requireUser, async (req, res, next) => {
 router.post('/security/revoke/:token', requireUser, async (req, res, next) => {
   try {
     await sessionQueries.revokeUserSession(req.params.token);
-    return res.json({ success: true });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-router.post('/security/revoke-all', requireUser, async (req, res, next) => {
-  try {
-    await sessionQueries.revokeAllUserSessions(req.user.id);
     return res.json({ success: true });
   } catch (err) {
     return next(err);

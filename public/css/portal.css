@@ -1023,3 +1023,172 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
 .greeting [class*="session"] {
   color: #ffffff !important;
 }
+
+/* ============================================================
+   PORTAL MOBILE LAYOUT
+   Sidebar becomes an off-canvas drawer below 980px.
+   ============================================================ */
+
+/* --- Top bar: show hamburger toggle on mobile --- */
+@media (max-width: 980px) {
+  /* Sidebar collapses to off-canvas */
+  .portal-app .sidebar,
+  body.portal-app .sidebar,
+  aside.sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    max-width: 84vw !important;
+    transform: translateX(-100%) !important;
+    transition: transform .25s ease-out !important;
+    z-index: 1000 !important;
+    box-shadow: 4px 0 24px rgba(15,23,42,.25) !important;
+    overflow-y: auto !important;
+  }
+
+  /* When the SPA adds .open OR .active OR .sidebar-open, slide it in */
+  .portal-app .sidebar.open,
+  .portal-app .sidebar.active,
+  .portal-app .sidebar.sidebar-open,
+  body.portal-app .sidebar.open,
+  body.portal-app .sidebar.active,
+  body.portal-app .sidebar.sidebar-open,
+  body.sidebar-open .sidebar {
+    transform: translateX(0) !important;
+  }
+
+  /* Backdrop overlay when sidebar is open */
+  body.sidebar-open::before,
+  .portal-app.sidebar-open::before,
+  body.sidebar-open .sidebar-backdrop,
+  .sidebar-backdrop.visible {
+    content: '' !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15,23,42,.5) !important;
+    z-index: 999 !important;
+  }
+
+  /* Main content shifts back to full width */
+  .portal-app .main,
+  .portal-app .content,
+  .portal-app main,
+  body.portal-app .main,
+  body.portal-app .content,
+  body.portal-app main,
+  .portal-app .page-view,
+  .portal-app .main-content {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Topbar: reset any left padding that was accounting for the sidebar */
+  .portal-app .topbar,
+  body.portal-app .topbar {
+    left: 0 !important;
+    width: 100% !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+  }
+
+  /* Show the hamburger toggle in the topbar */
+  .sidebar-toggle,
+  .portal-app .topbar .sidebar-toggle,
+  .portal-app .topbar button[aria-label*="menu" i],
+  .portal-app .topbar button[aria-label*="sidebar" i] {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Greeting stacks vertically */
+  .greeting {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .75rem !important;
+  }
+  .greeting .meta {
+    text-align: left !important;
+    width: 100% !important;
+    padding-top: .75rem !important;
+    border-top: 1px solid rgba(255,255,255,.18) !important;
+  }
+
+  /* Tile grid becomes 2-across on mobile */
+  .tile-grid,
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
+  }
+  .tile-value { font-size: 1.25rem !important; }
+  .tile-label { font-size: .68rem !important; }
+
+  /* Panel-head stacks on mobile */
+  .panel-head {
+    flex-wrap: wrap !important;
+    gap: .5rem !important;
+  }
+
+  /* Tables scroll horizontally */
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+  .table-admin { min-width: 600px; }
+
+  /* Quick action buttons wrap */
+  .quick-actions { flex-wrap: wrap !important; }
+  .quick-actions .btn { flex: 1 1 calc(50% - .25rem); min-width: 130px; }
+
+  /* Forms stack */
+  .form-row { grid-template-columns: 1fr !important; }
+}
+
+/* --- Small phones --- */
+@media (max-width: 640px) {
+  .portal-app .sidebar,
+  body.portal-app .sidebar {
+    width: 260px !important;
+    max-width: 86vw !important;
+  }
+
+  .greeting h1,
+  .greeting .who h1 {
+    font-size: 1.15rem !important;
+  }
+  .greeting .who .sub {
+    font-size: .78rem !important;
+  }
+
+  .tile-grid,
+  .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-actions .btn {
+    flex: 1 1 100% !important;
+  }
+
+  .page-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .5rem !important;
+  }
+  .page-head .actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: .35rem !important;
+  }
+}
+
+/* --- Very small phones --- */
+@media (max-width: 400px) {
+  .portal-app .sidebar,
+  body.portal-app .sidebar {
+    width: 240px !important;
+    max-width: 90vw !important;
+  }
+  .tile-value { font-size: 1.1rem !important; }
+}

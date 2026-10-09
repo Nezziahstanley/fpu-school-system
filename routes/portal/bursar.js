@@ -271,6 +271,8 @@ router.get('/clearances', only, async (req, res, next) => {
     const rows = await clearQueries.listWithStudent({
       sessionId: req.query.sessionId,
       status: req.query.status,
+      type: req.query.type,
+      search: req.query.search,
     });
     return res.json({ success: true, data: rows });
   } catch (err) {
@@ -279,18 +281,22 @@ router.get('/clearances', only, async (req, res, next) => {
 });
 
 // ============================================================
-// POST /api/bursar/clearances/:id/clear
+// POST /api/bursar/clearances/:id/reject
 // ============================================================
-router.post('/clearances/:id/clear', only, async (req, res, next) => {
+router.post('/clearances/:id/reject', only, async (req, res, next) => {
   try {
-    const row = await clearQueries.markCleared(req.params.id, req.user.id, req.body?.remarks);
+    const row = await clearQueries.markRejected(req.params.id, req.user.id, req.body?.remarks);
     if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
-    await logAudit({ req, action: 'bursar.clearance_clear', entity: 'clearance', entityId: row.id });
+    await logAudit({ req, action: 'bursar.clearance_reject', entity: 'clearance', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
 });
+
+router.post('/clearances/:id/clear', only, async (req, res, next) => {
+  try {
+    const row = await clearQueries.markCleared(req.params.id, req.user.id, req.body?.remarks);
 
 // ============================================================
 // GET /api/bursar/reports

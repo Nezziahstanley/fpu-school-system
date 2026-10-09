@@ -1,61 +1,359 @@
 <!-- Portal → Bursar → Clearances -->
 <section class="page-head">
-  <div><h2>Clearances</h2><p class="muted small">Mark students as cleared</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burClrLoad()">Refresh</button></div>
+  <div>
+    <h2>Clearances</h2>
+    <p class="muted small">Mark students as cleared, or reject with remarks</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-clr-refresh">↻ Refresh</button>
+  </div>
 </section>
 
 <div class="filters">
   <div class="form-group">
     <label class="form-label">Status</label>
-    <select class="form-select" id="bur-clr-status" onchange="window.__burClrLoad()">
-      <option value="">All</option><option value="pending">Pending</option><option value="cleared">Cleared</option><option value="rejected">Rejected</option>
+    <select class="form-select" id="bur-clr-status">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="cleared">Cleared</option>
+      <option value="rejected">Rejected</option>
     </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="bur-clr-session">
+      <option value="">All sessions</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2;">
+    <label class="form-label">Search</label>
+    <input
+      type="search"
+      class="form-input"
+      id="bur-clr-search"
+      placeholder="Student name, matric number, or email"
+      autocomplete="off"
+    />
   </div>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Clearance Queue</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Clearance Queue</h3>
+    <span class="muted small" id="bur-clr-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Student</th><th>Type</th><th>Status</th><th>Requested</th><th>Actions</th></tr></thead>
-        <tbody id="bur-clr-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Type</th>
+            <th>Session</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th style="width:180px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bur-clr-tbody">
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- ============ ACTION MODAL (clear OR reject) ============ -->
+<div id="bur-clr-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;" id="bur-clr-modal-title">Clear Clearance</h3>
+      <button type="button" id="bur-clr-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;line-height:1;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <p class="muted small" style="margin:0 0 .75rem;" id="bur-clr-modal-subject"></p>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;" id="bur-clr-remarks-label">Remarks (optional)</label>
+      <textarea
+        id="bur-clr-remarks"
+        rows="4"
+        maxlength="500"
+        placeholder="Optional notes visible to the student…"
+        style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;resize:vertical;box-sizing:border-box;"
+      ></textarea>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+        <button type="button" id="bur-clr-modal-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="button" id="bur-clr-modal-confirm" class="btn btn-sm" style="background:#065f46;color:#fff;border:none;">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .bur-clr-detail { background: #f8fafc; }
+  .bur-clr-detail td { padding: .75rem 1rem; font-size: .82rem; color: #475569; }
+  .bur-clr-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
+  .bur-clr-detail-row:last-child { border-bottom: none; }
+  .bur-clr-detail-row strong { color: #0f172a; }
+  .bur-clr-type {
+    display: inline-block; padding: 3px 9px; border-radius: 6px;
+    font-size: .68rem; font-weight: 700; text-transform: capitalize;
+    background: #eff6ff; color: #1e40af;
+  }
+</style>
+
 <script>
-  window.__burClrLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('bur-clr-tbody');
-    const status = document.getElementById('bur-clr-status').value;
-    const qs = new URLSearchParams();
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : String(d || ''); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+  var MODE = null;      // 'clear' | 'reject'
+  var TARGET_ID = null;
+  var SESSIONS = [];
+
+  // ---------- helpers ----------
+  function studentLabel(r) {
+    var s = r.student || {};
+    var full = [s.firstName, s.lastName].filter(Boolean).join(' ');
+    return full || s.fullName || s.email || '—';
+  }
+
+  function matricOf(r) {
+    var s = r.student || {};
+    return s.matricNumber || s.matric_number || '—';
+  }
+
+  function statusBadge(status) {
+    var s = String(status || '').toLowerCase();
+    var cls = s === 'cleared' ? 'success' : s === 'rejected' ? 'danger' : 'warning';
+    return '<span class="badge badge-' + cls + '">' + esc(s || '—') + '</span>';
+  }
+
+  function typeChip(t) {
+    var s = String(t || '').toLowerCase() || 'semester';
+    return '<span class="bur-clr-type">' + esc(s) + '</span>';
+  }
+
+  // ---------- lookups (sessions) ----------
+  async function loadSessions() {
+    try {
+      var res = await core.portalFetch('/api/bursar/lookups');
+      var d = (res && res.data) || {};
+      SESSIONS = d.sessions || [];
+      var sel = $('bur-clr-session');
+      sel.innerHTML = '<option value="">All sessions</option>' +
+        SESSIONS.map(function (s) {
+          return '<option value="' + esc(s.id) + '">' + esc(s.name) + (s.isCurrent ? ' (current)' : '') + '</option>';
+        }).join('');
+    } catch (e) {
+      // non-fatal — user can still use the page without session filter
+    }
+  }
+
+  // ---------- load list ----------
+  async function load() {
+    var tbody = $('bur-clr-tbody');
+    var countEl = $('bur-clr-count');
+    var status = $('bur-clr-status').value;
+    var sessionId = $('bur-clr-session').value;
+    var search = $('bur-clr-search').value.trim();
+
+    var qs = new URLSearchParams();
     if (status) qs.set('status', status);
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch(`/api/bursar/clearances?${qs}`);
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${r.student ? core.escapeHtml(r.student.firstName + ' ' + r.student.lastName) : '—'}</td>
-          <td>${core.escapeHtml(r.clearance.type)}</td>
-          <td><span class="badge badge-${r.clearance.status === 'cleared' ? 'success' : r.clearance.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.clearance.status)}</span></td>
-          <td>${core.formatDate(r.clearance.createdAt)}</td>
-          <td>${r.clearance.status === 'pending' ? `<button class="btn btn-sm btn-primary" onclick="window.__burClrClear(${r.clearance.id})">Clear</button>` : ''}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No clearances.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+    if (sessionId) qs.set('sessionId', sessionId);
+    if (search) qs.set('search', search);
 
-  window.__burClrClear = async function (id) {
-    const core = window.FPU_PORTAL;
-    try {
-      await core.portalFetch(`/api/bursar/clearances/${id}/clear`, { method: 'POST' });
-      core.showToast('Cleared.', 'success');
-      window.__burClrLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
+    countEl.textContent = '';
 
-  window.__burClrLoad();
+    try {
+      var res = await core.portalFetch('/api/bursar/clearances?' + qs.toString());
+      var rows = Array.isArray(res.data) ? res.data : [];
+
+      countEl.textContent = rows.length
+        ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
+        : '';
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No clearances match your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(function (r) {
+        var c = r.clearance || {};
+        var s = r.session || {};
+        var isPending = c.status === 'pending';
+        var hasDetails = c.status !== 'pending' || c.remarks || c.clearedBy;
+        var detailId = 'bur-clr-detail-' + c.id;
+        var expandBtn = hasDetails
+          ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '" title="Show details">▸</button>'
+          : '';
+
+        var detailRow = '';
+        if (hasDetails) {
+          detailRow = ''
+            + '<tr class="bur-clr-detail" id="' + esc(detailId) + '" style="display:none;">'
+            +   '<td></td>'
+            +   '<td colspan="7">'
+            +     (c.remarks
+                    ? '<div class="bur-clr-detail-row"><span>Remarks</span><strong>' + esc(c.remarks) + '</strong></div>'
+                    : '<div class="bur-clr-detail-row"><span>Remarks</span><em class="muted">None</em></div>')
+            +     (c.clearedAt
+                    ? '<div class="bur-clr-detail-row"><span>Actioned</span><strong>' + esc(timeAgo(c.clearedAt) || dateFmt(c.clearedAt)) + '</strong></div>'
+                    : '')
+            +     (c.clearedBy
+                    ? '<div class="bur-clr-detail-row"><span>Actioned by</span><strong>User #' + esc(c.clearedBy) + '</strong></div>'
+                    : '')
+            +   '</td>'
+            + '</tr>';
+        }
+
+        var actions = '';
+        if (isPending) {
+          actions = ''
+            + '<button type="button" class="btn btn-sm btn-primary" data-act="clear" data-id="' + esc(c.id) + '">Clear</button> '
+            + '<button type="button" class="btn btn-sm btn-ghost" data-act="reject" data-id="' + esc(c.id) + '" style="color:#dc2626;">Reject</button>';
+        } else {
+          actions = '<span class="muted small">—</span>';
+        }
+
+        return '<tr>'
+          + '<td>' + expandBtn + '</td>'
+          + '<td>' + esc(studentLabel(r)) + '</td>'
+          + '<td style="font-family:ui-monospace,monospace;font-size:.78rem;color:#475569;">' + esc(matricOf(r)) + '</td>'
+          + '<td>' + typeChip(c.type) + '</td>'
+          + '<td>' + esc(s.name || ('Session #' + c.sessionId)) + '</td>'
+          + '<td>' + statusBadge(c.status) + '</td>'
+          + '<td style="color:#94a3b8;font-size:.8rem;">' + esc(dateFmt(c.createdAt)) + '</td>'
+          + '<td>' + actions + '</td>'
+          + '</tr>'
+          + detailRow;
+      }).join('');
+
+      // wire expand
+      tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var el = document.getElementById(b.dataset.expand);
+          if (!el) return;
+          var showing = el.style.display !== 'none';
+          el.style.display = showing ? 'none' : 'table-row';
+          b.textContent = showing ? '▸' : '▾';
+        });
+      });
+
+      // wire actions
+      tbody.querySelectorAll('button[data-act]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var act = b.dataset.act;
+          var id = b.dataset.id;
+          var row = rows.find(function (x) { return String((x.clearance || {}).id) === id; });
+          if (act === 'clear') openModal('clear', id, row);
+          else if (act === 'reject') openModal('reject', id, row);
+        });
+      });
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // ---------- action modal ----------
+  function openModal(mode, id, row) {
+    MODE = mode;
+    TARGET_ID = id;
+
+    var c = (row && row.clearance) || {};
+    var subject = (studentLabel(row) || '—');
+    if (row && row.session && row.session.name) subject += ' · ' + row.session.name;
+
+    var isClear = mode === 'clear';
+    $('bur-clr-modal-title').textContent = isClear ? 'Mark as Cleared' : 'Reject Clearance';
+    $('bur-clr-remarks-label').textContent = isClear ? 'Remarks (optional)' : 'Reason for rejection *';
+    $('bur-clr-modal-subject').textContent = subject;
+
+    var ta = $('bur-clr-remarks');
+    ta.value = '';
+    ta.placeholder = isClear
+      ? 'Optional notes visible to the student…'
+      : 'Explain why this clearance is being rejected (visible to the student)…';
+
+    var confirmBtn = $('bur-clr-modal-confirm');
+    confirmBtn.textContent = isClear ? 'Mark Cleared' : 'Reject';
+    confirmBtn.style.background = isClear ? '#065f46' : '#dc2626';
+
+    $('bur-clr-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { ta.focus(); }, 50);
+  }
+
+  function closeModal() {
+    MODE = null;
+    TARGET_ID = null;
+    $('bur-clr-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function confirmModal() {
+    var remarks = $('bur-clr-remarks').value.trim();
+    if (MODE === 'reject' && !remarks) {
+      if (core.showToast) core.showToast('Reason is required when rejecting.', 'warning');
+      $('bur-clr-remarks').focus();
+      return;
+    }
+
+    var endpoint = MODE === 'clear'
+      ? '/api/bursar/clearances/' + TARGET_ID + '/clear'
+      : '/api/bursar/clearances/' + TARGET_ID + '/reject';
+
+    var btn = $('bur-clr-modal-confirm');
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = MODE === 'clear' ? 'Clearing…' : 'Rejecting…';
+
+    try {
+      await core.portalFetch(endpoint, {
+        method: 'POST',
+        body: { remarks: remarks },
+      });
+      if (core.showToast) core.showToast(MODE === 'clear' ? 'Clearance marked as cleared.' : 'Clearance rejected.', MODE === 'clear' ? 'success' : 'warning');
+      closeModal();
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  // ---------- wire chrome ----------
+  $('bur-clr-refresh').addEventListener('click', load);
+  $('bur-clr-status').addEventListener('change', load);
+  $('bur-clr-session').addEventListener('change', load);
+
+  var searchTimer = null;
+  $('bur-clr-search').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(load, 300);
+  });
+
+  $('bur-clr-modal-close').addEventListener('click', closeModal);
+  $('bur-clr-modal-cancel').addEventListener('click', closeModal);
+  $('bur-clr-modal-confirm').addEventListener('click', confirmModal);
+  $('bur-clr-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'bur-clr-modal') closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('bur-clr-modal').style.display === 'flex') closeModal();
+  });
+
+  // ---------- boot ----------
+  (async function boot() {
+    await loadSessions();
+    await load();
+  })();
+})();
 </script>

@@ -7,15 +7,24 @@
 'use strict';
 
 const { db, schema, sql } = require('..');
-const { eq, and, desc } = require('drizzle-orm');
+const { eq, and, or, ilike, desc } = require('drizzle-orm');
 
 const { clearances, users, academicSessions } = schema;
 
-async function listWithStudent({ sessionId, status, type } = {}) {
+async function listWithStudent({ sessionId, status, type, search } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(clearances.sessionId, Number(sessionId)));
   if (status) conds.push(eq(clearances.status, status));
   if (type) conds.push(eq(clearances.type, type));
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(or(
+      ilike(users.firstName, term),
+      ilike(users.lastName, term),
+      ilike(users.matricNumber, term),
+      ilike(users.email, term)
+    ));
+  }
   const where = conds.length ? and(...conds) : undefined;
 
   return db

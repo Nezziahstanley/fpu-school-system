@@ -13,7 +13,7 @@ const userQueries = require('../db/queries/users');
 const { requireRole } = require('../middleware/auth');
 const { computeStudentCGPA, classifyDegree } = require('../utils/gpa');
 
-const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
+const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod', 'bursar'];
 
 // GET /api/admin/transcript/:studentId
 router.get('/:studentId', requireRole(STAFF), async (req, res, next) => {

@@ -197,6 +197,29 @@ async function count({ studentId, sessionId, status } = {}) {
 }
 
 // ------------------------------------------------------------
+// countByStatus — count payments grouped by status.
+// Used by /api/bursar/dashboard for the "Pending Verifications"
+// card and the status breakdown panel.
+// Returns: [{ status: 'verified', c: 12 }, ...]
+// ------------------------------------------------------------
+async function countByStatus({ sessionId } = {}) {
+  const conds = [];
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  const where = conds.length ? and(...conds) : undefined;
+
+  const rows = await db
+    .select({
+      status: payments.status,
+      c: sql`count(*)::int`,
+    })
+    .from(payments)
+    .where(where)
+    .groupBy(payments.status);
+
+  return rows;
+}
+
+// ------------------------------------------------------------
 // totalVerifiedForStudent — sum of all VERIFIED payments for
 // a student (optionally scoped to a session).
 // ------------------------------------------------------------
@@ -328,6 +351,7 @@ module.exports = {
   listWithStudent,
   listByDepartment,
   count,
+  countByStatus,               // ← ADDED — used by /api/bursar/dashboard
   totalVerifiedForStudent,
   totalPaidForStudent,
   create,

@@ -200,8 +200,9 @@
       { key: 'bursar-reports',    label: 'Reports',    icon: ICON.chart },
     ],
     rector: [
-      { key: 'rector-dashboard', label: 'Dashboard', icon: ICON.dash },
-      { key: 'rector-reports',   label: 'Reports',   icon: ICON.chart },
+      { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },
+      { key: 'rector-reports',      label: 'Reports',      icon: ICON.chart },
+      { key: 'portal-complaints',   label: 'Complaints',   icon: ICON.chat },
     ],
     registrar: [
       { key: 'registrar-dashboard',      label: 'Dashboard',      icon: ICON.dash },

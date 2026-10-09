@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    FPU School Management System — Portal stylesheet
    Extends admin.css for the 11 role-based portals.
    Adds: greeting hero, portal nav grouping, dashboard cards,
@@ -766,3 +766,142 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
 .chip-reference    { background: #fef3c7; color: #92400e; }
 .chip-certificate  { background: #fce7f3; color: #9d174d; }
 .chip-other        { background: #e5e7eb; color: #374151; }
+
+/* ============================================================
+   GREETING BAR — high-contrast, readable, unified across roles
+   ============================================================ */
+
+.greeting {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 1.25rem !important;
+  flex-wrap: wrap !important;
+  padding: 1.25rem 1.5rem !important;
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  margin-bottom: 1.25rem !important;
+  box-shadow: 0 4px 14px rgba(6, 78, 59, 0.18) !important;
+}
+
+.greeting .who {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  min-width: 0 !important;
+}
+
+.greeting .avatar {
+  width: 58px !important;
+  height: 58px !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 800 !important;
+  font-size: 1.35rem !important;
+  font-family: Poppins, sans-serif !important;
+  letter-spacing: .02em !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18) !important;
+  overflow: hidden !important;
+}
+
+.greeting .avatar img,
+.greeting .avatar .avatar-photo {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  display: block !important;
+}
+
+.greeting .who > div {
+  min-width: 0 !important;
+}
+
+.greeting .who h1,
+.greeting h1 {
+  margin: 0 !important;
+  color: #ffffff !important;
+  font-size: 1.35rem !important;
+  font-weight: 800 !important;
+  line-height: 1.25 !important;
+  letter-spacing: -.01em !important;
+  font-family: Poppins, sans-serif !important;
+  word-break: break-word !important;
+}
+
+.greeting .who h1 span,
+.greeting h1 span {
+  color: #ffffff !important;
+}
+
+.greeting .who .sub,
+.greeting .sub {
+  margin: .35rem 0 0 !important;
+  color: #d1fae5 !important;
+  font-size: .85rem !important;
+  font-weight: 500 !important;
+  letter-spacing: .02em !important;
+  opacity: 1 !important;
+}
+
+.greeting .meta {
+  text-align: right !important;
+  color: #ffffff !important;
+  flex-shrink: 0 !important;
+}
+
+.greeting .meta strong {
+  display: block !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: .95rem !important;
+  letter-spacing: .02em !important;
+}
+
+.greeting .meta span {
+  display: block !important;
+  color: #d1fae5 !important;
+  font-size: .78rem !important;
+  margin-top: .15rem !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+}
+
+/* Mobile: stack the meta under the who block */
+@media (max-width: 640px) {
+  .greeting {
+    padding: 1rem 1.1rem !important;
+    gap: .85rem !important;
+  }
+  .greeting .avatar {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 1.15rem !important;
+  }
+  .greeting .who h1,
+  .greeting h1 {
+    font-size: 1.1rem !important;
+  }
+  .greeting .who .sub,
+  .greeting .sub {
+    font-size: .78rem !important;
+  }
+  .greeting .meta {
+    text-align: left !important;
+    width: 100% !important;
+    padding-top: .5rem !important;
+    border-top: 1px solid rgba(255,255,255,.18) !important;
+  }
+  .greeting .meta strong {
+    font-size: .85rem !important;
+  }
+  .greeting .meta span {
+    font-size: .7rem !important;
+  }
+}

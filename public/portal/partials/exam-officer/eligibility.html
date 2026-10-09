@@ -7,32 +7,39 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Eligibility</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Verify which students are cleared to sit for each exam</p>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="eo-el-export" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#fff;color:#065f46;border:1px solid #bbf7d0;
-        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
-      ">📥 Export CSV</button>
-    </div>
+    <button id="eo-el-export" style="
+      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+      background:#fff;color:#065f46;border:1px solid #bbf7d0;
+      border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+    ">📥 Export CSV</button>
   </div>
 
   <!-- FILTER BAR -->
   <div style="
     background:#fff;border:1px solid #e5e7eb;border-radius:12px;
     padding:1rem;margin-bottom:1rem;
-    display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.6rem;align-items:end;
+    display:grid;grid-template-columns:1fr 1.5fr 1fr 1fr auto;gap:.6rem;align-items:end;
   ">
     <div>
-      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
-      <select id="eo-el-course" style="
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">1. Department</label>
+      <select id="eo-el-dept" style="
         width:100%;padding:.55rem .75rem;font-size:.85rem;
         border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;
       ">
-        <option value="">Loading courses…</option>
+        <option value="">— Select —</option>
       </select>
     </div>
     <div>
-      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Semester</label>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">2. Course</label>
+      <select id="eo-el-course" disabled style="
+        width:100%;padding:.55rem .75rem;font-size:.85rem;
+        border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;opacity:.6;
+      ">
+        <option value="">Select department first</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">3. Semester</label>
       <select id="eo-el-sem" style="
         width:100%;padding:.55rem .75rem;font-size:.85rem;
         border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;
@@ -58,8 +65,17 @@
     ">Check</button>
   </div>
 
+  <!-- CONTEXT CARD -->
+  <div id="eo-el-context" style="display:none;margin-bottom:1rem;"></div>
+
   <!-- SUMMARY -->
   <div id="eo-el-summary" style="display:none;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:1rem;"></div>
+
+  <!-- SEARCH ROW -->
+  <div id="eo-el-search-row" style="display:none;margin-bottom:.75rem;gap:.5rem;align-items:center;">
+    <input type="search" id="eo-el-search" placeholder="Search by name or matric…"
+           style="flex:1;max-width:320px;padding:.4rem .7rem;font-size:.78rem;border:1px solid #d1d5db;border-radius:6px;" />
+  </div>
 
   <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -83,7 +99,7 @@
         </thead>
         <tbody id="eo-el-tbody">
           <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
-            Select a course and click Check.
+            Pick a department and course, then click Check.
           </td></tr>
         </tbody>
       </table>
@@ -94,6 +110,7 @@
 
 <style>
   .eo-el-row:hover { background: #f8fafc; }
+  @keyframes eoSpin { to { transform: rotate(360deg); } }
 </style>
 
 <script>
@@ -104,31 +121,65 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
-  let COURSES = [];
-  let RESULTS = [];   // original data from API
+  // State
+  let DEPARTMENTS = [];
+  let ALL_COURSES = [];
+  let CURRENT_DEPT = null;
+  let CURRENT_COURSE = null;
+  let RESULTS = [];
   let FILTERED = [];
 
   // ============================================================
-  // LOAD COURSES
+  // BOOT — load lookups (departments + courses)
   // ============================================================
-  async function loadCourses() {
-    const sel = $('eo-el-course');
+  async function boot() {
+    const deptSel = $('eo-el-dept');
     try {
-      const res = await core.portalFetch('/api/admin/courses?limit=500');
-      COURSES = Array.isArray(res.data) ? res.data : [];
+      const res = await core.portalFetch('/api/exam-officer/lookups');
+      DEPARTMENTS = Array.isArray(res.departments) ? res.departments : [];
+      ALL_COURSES = Array.isArray(res.courses) ? res.courses : [];
 
-      if (!COURSES.length) {
-        sel.innerHTML = '<option value="">No courses found</option>';
+      if (!DEPARTMENTS.length) {
+        deptSel.innerHTML = '<option value="">No departments found</option>';
         return;
       }
 
-      sel.innerHTML = '<option value="">— Select a course —</option>' + COURSES.map((c) => {
-        const label = `${c.code || '?'} · ${c.title || ''}`;
-        return `<option value="${c.id}">${esc(label)}</option>`;
-      }).join('');
+      const sorted = [...DEPARTMENTS].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      deptSel.innerHTML = '<option value="">— Select department —</option>' +
+        sorted.map((d) => `<option value="${d.id}">${esc(d.code || '')} · ${esc(d.name || '')}</option>`).join('');
     } catch (err) {
-      sel.innerHTML = `<option value="">⚠️ ${esc(err.message)}</option>`;
+      deptSel.innerHTML = `<option value="">⚠️ ${esc(err.message)}</option>`;
+      core.showToast && core.showToast('Failed to load lookups: ' + err.message, 'error');
     }
+  }
+
+  // ============================================================
+  // COURSE DROPDOWN (filtered by department)
+  // ============================================================
+  function populateCourses(deptId) {
+    const sel = $('eo-el-course');
+    CURRENT_DEPT = DEPARTMENTS.find((d) => String(d.id) === String(deptId)) || null;
+
+    if (!deptId) {
+      sel.disabled = true;
+      sel.style.opacity = '.6';
+      sel.innerHTML = '<option value="">Select department first</option>';
+      return;
+    }
+
+    const courses = ALL_COURSES.filter((c) => Number(c.departmentId) === Number(deptId));
+    if (!courses.length) {
+      sel.disabled = true;
+      sel.style.opacity = '.6';
+      sel.innerHTML = '<option value="">No courses in this department</option>';
+      return;
+    }
+
+    const sorted = [...courses].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+    sel.disabled = false;
+    sel.style.opacity = '1';
+    sel.innerHTML = '<option value="">— Select course —</option>' +
+      sorted.map((c) => `<option value="${c.id}">${esc(c.code || '?')} · ${esc(c.title || '')}</option>`).join('');
   }
 
   // ============================================================
@@ -144,23 +195,77 @@
       return;
     }
 
-    tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">
-      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:eoSpin .8s linear infinite;"></div>
-      <div style="margin-top:.65rem;font-size:.82rem;">Checking eligibility…</div>
-    </td></tr>`;
+    CURRENT_COURSE = ALL_COURSES.find((c) => String(c.id) === String(courseId)) || null;
+
+    // Show context card + hide the previous data
+    renderContext();
+    $('eo-el-summary').style.display = 'none';
+    $('eo-el-search-row').style.display = 'flex';
+
+    tbody.innerHTML = `
+      <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:eoSpin .8s linear infinite;"></div>
+        <div style="margin-top:.65rem;">Checking eligibility…</div>
+      </td></tr>`;
 
     try {
       const qs = new URLSearchParams({ courseId, semester });
       const res = await core.portalFetch(`/api/exam-officer/eligibility?${qs}`);
 
       RESULTS = Array.isArray(res.data) ? res.data : [];
-      const summary = res.summary || { total: RESULTS.length, eligible: 0, ineligible: 0 };
+      const summary = res.summary || {
+        total: RESULTS.length,
+        eligible: RESULTS.filter((r) => r.eligible).length,
+        ineligible: RESULTS.filter((r) => !r.eligible).length,
+      };
 
       renderSummary(summary);
+      $('eo-el-search').value = '';
       applyFilter();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
+  }
+
+  // ============================================================
+  // CONTEXT CARD
+  // ============================================================
+  function renderContext() {
+    const el = $('eo-el-context');
+    if (!CURRENT_COURSE || !CURRENT_DEPT) {
+      el.style.display = 'none';
+      return;
+    }
+
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div style="
+        background:linear-gradient(135deg,#fff7ed,#ffedd5);
+        border:1px solid #fed7aa;
+        border-radius:12px;
+        padding:1rem 1.25rem;
+        display:flex;gap:1rem;align-items:center;flex-wrap:wrap;
+      ">
+        <div style="
+          width:52px;height:52px;border-radius:12px;
+          background:linear-gradient(135deg,#c2410c,#ea580c);
+          color:#fff;display:flex;align-items:center;justify-content:center;
+          font-size:1.4rem;flex-shrink:0;
+        ">🎓</div>
+        <div style="flex:1;min-width:220px;">
+          <div style="font-size:.68rem;font-weight:800;color:#9a3412;letter-spacing:.08em;text-transform:uppercase;">
+            ${esc(CURRENT_DEPT.name || 'Department')} · ${esc(CURRENT_DEPT.code || '')}
+          </div>
+          <div style="font-size:1.05rem;font-weight:800;color:#0f172a;margin-top:.2rem;">
+            ${esc(CURRENT_COURSE.code || '')} · ${esc(CURRENT_COURSE.title || '')}
+          </div>
+          <div style="font-size:.78rem;color:#78350f;margin-top:.25rem;">
+            ${CURRENT_COURSE.level ? esc(CURRENT_COURSE.level) + ' · ' : ''}
+            ${CURRENT_COURSE.unit ? CURRENT_COURSE.unit + ' units · ' : ''}
+            ${CURRENT_COURSE.semesterName ? esc(CURRENT_COURSE.semesterName) + ' semester' : ''}
+          </div>
+        </div>
+      </div>`;
   }
 
   // ============================================================
@@ -171,9 +276,9 @@
     el.style.display = 'grid';
 
     const tiles = [
-      { label: 'Total Students',  value: s.total,       bg: '#e0e7ff', fg: '#3730a3', icon: '👥' },
-      { label: 'Eligible',        value: s.eligible,    bg: '#d1fae5', fg: '#065f46', icon: '✅' },
-      { label: 'Ineligible',      value: s.ineligible,  bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+      { label: 'Total Students',  value: s.total,      bg: '#e0e7ff', fg: '#3730a3', icon: '👥' },
+      { label: 'Eligible',        value: s.eligible,   bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'Ineligible',      value: s.ineligible, bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
     ];
 
     el.innerHTML = tiles.map(t => `
@@ -190,11 +295,21 @@
   // FILTER + RENDER
   // ============================================================
   function applyFilter() {
-    const filter = $('eo-el-filter').value;
-    FILTERED = RESULTS;
+    const filter = $('eo-el-filter')?.value || '';
+    const q = ($('eo-el-search')?.value || '').trim().toLowerCase();
 
-    if (filter === 'eligible') FILTERED = RESULTS.filter(r => r.eligible);
-    else if (filter === 'ineligible') FILTERED = RESULTS.filter(r => !r.eligible);
+    FILTERED = RESULTS.slice();
+    if (filter === 'eligible') FILTERED = FILTERED.filter((r) => r.eligible);
+    else if (filter === 'ineligible') FILTERED = FILTERED.filter((r) => !r.eligible);
+
+    if (q) {
+      FILTERED = FILTERED.filter((r) => {
+        const s = r.student || {};
+        const name = `${s.firstName || ''} ${s.lastName || ''}`.toLowerCase();
+        const matric = String(s.matricNumber || '').toLowerCase();
+        return name.includes(q) || matric.includes(q);
+      });
+    }
 
     renderTable(FILTERED);
     $('eo-el-shown').textContent = FILTERED.length;
@@ -206,7 +321,7 @@
 
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;font-size:.82rem;">
-        No students match this filter.
+        ${RESULTS.length ? 'No students match this filter.' : 'No approved registrations for this course.'}
       </td></tr>`;
       return;
     }
@@ -216,7 +331,6 @@
       const initials = ((s.firstName || '?')[0] + (s.lastName || '?')[0]).toUpperCase();
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
 
-      // Fee progress
       const paid = Number(r.totalPaid || 0);
       const due = Number(r.totalDue || 0);
       const pct = due > 0 ? Math.min(100, Math.round((paid / due) * 100)) : (paid > 0 ? 100 : 0);
@@ -235,8 +349,10 @@
           <td style="padding:.65rem .75rem;text-align:center;">
             <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
           </td>
-          <td style="padding:.65rem .75rem;text-align:right;min-width:140px;">
-            <div style="font-size:.78rem;font-weight:700;color:${pct >= 100 ? '#065f46' : '#991b1b'};">${fmtMoney(paid)} <span style="color:#94a3b8;font-weight:400;">/ ${fmtMoney(due)}</span></div>
+          <td style="padding:.65rem .75rem;text-align:right;min-width:150px;">
+            <div style="font-size:.78rem;font-weight:700;color:${pct >= 100 ? '#065f46' : '#991b1b'};">
+              ${fmtMoney(paid)} <span style="color:#94a3b8;font-weight:400;">/ ${fmtMoney(due)}</span>
+            </div>
             <div style="height:4px;background:#f1f5f9;border-radius:99px;overflow:hidden;margin-top:.25rem;">
               <div style="height:100%;width:${pct}%;background:${pct >= 100 ? '#10b981' : '#ef4444'};transition:width .3s;"></div>
             </div>
@@ -293,13 +409,21 @@
   // ============================================================
   // WIRING
   // ============================================================
+  $('eo-el-dept')?.addEventListener('change', () => {
+    populateCourses($('eo-el-dept').value);
+    $('eo-el-context').style.display = 'none';
+    $('eo-el-summary').style.display = 'none';
+    $('eo-el-search-row').style.display = 'none';
+    $('eo-el-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">Pick a course and click Check.</td></tr>';
+  });
+
   $('eo-el-load')?.addEventListener('click', checkEligibility);
   $('eo-el-filter')?.addEventListener('change', applyFilter);
+  $('eo-el-search')?.addEventListener('input', applyFilter);
 
-  const st = document.createElement('style');
-  st.textContent = '@keyframes eoSpin { to { transform: rotate(360deg); } }';
-  document.head.appendChild(st);
-
-  loadCourses();
+  // ============================================================
+  // KICK OFF
+  // ============================================================
+  boot();
 })();
 </script>

@@ -90,12 +90,19 @@
   let FILTERED = [];
 
   // ---------------------------------------------------------
-  // API base — choose per role so bursar + admin both work
+  // API base — role-aware so bursar + admin + registrar + others
+  // all reach a router that allows their role.
+  //   - admin / superadmin / registrar / rector / academic_officer
+  //     / lecturer / hod → /api/admin/documents  (allow-listed in
+  //     routes/documents.js via requireRole(STAFF)).
+  //   - bursar           → /api/bursar/documents (role-scoped).
   // ---------------------------------------------------------
   function apiBase() {
     const me = (core.getPortalUser && core.getPortalUser()) || {};
     const role = String(me.role || '').toLowerCase();
-    return ['admin', 'superadmin'].includes(role) ? '/api/admin/documents' : '/api/bursar/documents';
+    const ADMIN_STAFF = ['admin', 'superadmin', 'registrar', 'rector', 'academic_officer', 'lecturer', 'hod'];
+    if (ADMIN_STAFF.includes(role)) return '/api/admin/documents';
+    return '/api/bursar/documents';
   }
 
   // ---------------------------------------------------------
@@ -103,8 +110,8 @@
   // ---------------------------------------------------------
   function unwrap(r) {
     const doc = r.document || r;
-    // Backend joins students into `user` (not `student`) in both
-    // /api/admin/documents and /api/bursar/documents.
+    // Both /api/admin/documents and /api/bursar/documents join
+    // the requester into `user` (not `student`).
     const stu = r.user || r.student || {};
     return {
       id: doc.id,
@@ -217,7 +224,7 @@
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
       ALL = raw.map(unwrap);
-      console.log('[documents] Loaded', ALL.length);
+      console.log('[documents] Loaded', ALL.length, 'from', apiBase());
       updateStats();
       applyFilter();
     } catch (err) {

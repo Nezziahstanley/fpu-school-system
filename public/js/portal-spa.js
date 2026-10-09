@@ -301,13 +301,18 @@
     const roleItem = roleList.find((p) => p.key === cleanKey);
     if (roleItem) {
       // Strip the role prefix from the key (e.g. "admission-officer-dashboard" → "dashboard")
-      const file = cleanKey
-        .replace(/^exam-officer-/, '')
-        .replace(/^academic-officer-/, '')
-        .replace(/^admission-officer-/, '')
-        .replace(/^superadmin-/, '')
-        .replace(new RegExp(`^${role}-`), '')
-        .replace(new RegExp(`^${folder}-`), '');
+    const file = cleanKey
+      .replace(/^exam-officer-/, '')
+      .replace(/^academic-officer-/, '')
+      .replace(/^admission-officer-/, '')
+      .replace(/^superadmin-/, '')
+      .replace(/^bursar-/, '')
+      .replace(/^rector-/, '')
+      .replace(/^registrar-/, '')
+      .replace(/^librarian-/, '')
+      .replace(/^hod-/, '')
+      .replace(/^lecturer-/, '')
+      .replace(/^student-/, '');
       // BUT: if the key itself starts with the folder name, use the full key
       // (e.g. for admission-officer-applications where folder = admission-officer,
       // we want the file to be "admission-officer-applications.html" in the admission-officer folder)

@@ -1,76 +1,230 @@
-<!-- Portal → Student → Complaints -->
-<section class="page-head">
-  <div><h2>My Complaints</h2><p class="muted small">Report an issue</p></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="stud-cmp-new">+ New</button></div>
-</section>
+<!-- Portal → Shared → Complaints -->
+<div style="padding:0;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.3rem;font-weight:700;color:#0f172a;">My Complaints</h2>
+      <p style="margin:.25rem 0 0;font-size:.82rem;color:#64748b;">Report an issue and track its status</p>
+    </div>
+    <button id="cmp-new" type="button" style="padding:.55rem .9rem;background:#065f46;color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;">+ New Complaint</button>
+  </div>
 
-<div class="panel" id="stud-cmp-new-panel" style="display:none;">
-  <div class="panel-head"><h3>New Complaint</h3></div>
-  <div class="panel-body">
-    <form id="stud-cmp-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Subject <span class="req">*</span></label><input class="form-control" name="subject" required /></div>
-        <div class="form-group"><label class="form-label">Category</label>
-          <select class="form-select" name="category">
-            <option value="">—</option>
-            <option>academic</option><option>facility</option><option>finance</option><option>welfare</option><option>other</option>
-          </select>
-        </div>
+  <div id="cmp-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1rem;"></div>
+
+  <div id="cmp-tabs" style="display:flex;gap:.25rem;margin-bottom:1rem;padding:.25rem;background:#f1f5f9;border-radius:10px;">
+    <button class="cmp-tab" data-filter="all"       style="flex:1;padding:.45rem .5rem;font-size:.78rem;font-weight:600;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;">All</button>
+    <button class="cmp-tab" data-filter="open"      style="flex:1;padding:.45rem .5rem;font-size:.78rem;font-weight:600;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;">Open</button>
+    <button class="cmp-tab" data-filter="in_review" style="flex:1;padding:.45rem .5rem;font-size:.78rem;font-weight:600;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;">Review</button>
+    <button class="cmp-tab" data-filter="resolved"  style="flex:1;padding:.45rem .5rem;font-size:.78rem;font-weight:600;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;">Resolved</button>
+    <button class="cmp-tab" data-filter="closed"    style="flex:1;padding:.45rem .5rem;font-size:.78rem;font-weight:600;border:none;background:transparent;border-radius:8px;cursor:pointer;color:#64748b;">Closed</button>
+  </div>
+
+  <div id="cmp-list"></div>
+</div>
+
+<!-- MODAL -->
+<div id="cmp-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;">New Complaint</h3>
+      <button id="cmp-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0;width:30px;height:30px;border-radius:6px;">✕</button>
+    </div>
+    <form id="cmp-form" style="padding:1.25rem;">
+      <div style="margin-bottom:.9rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Subject *</label>
+        <input type="text" name="subject" required maxlength="200" placeholder="Brief title of your issue" style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
       </div>
-      <div class="form-group"><label class="form-label">Message <span class="req">*</span></label><textarea class="form-control" name="body" rows="4" required></textarea></div>
-      <div class="form-actions">
-        <button class="btn btn-primary" type="submit">Submit</button>
-        <button class="btn btn-ghost" type="button" id="stud-cmp-cancel">Cancel</button>
+      <div style="margin-bottom:.9rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Category</label>
+        <select name="category" style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+          <option value="">— Select —</option>
+          <option value="academic">Academic</option>
+          <option value="fees">Fees / Payments</option>
+          <option value="library">Library</option>
+          <option value="hostel">Hostel</option>
+          <option value="ict">ICT / Portal</option>
+          <option value="staff">Staff Conduct</option>
+          <option value="welfare">Student Welfare</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div style="margin-bottom:1.1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Description *</label>
+        <textarea name="body" required rows="5" maxlength="2000" placeholder="Describe your issue in detail…" style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
+      </div>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="cmp-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button type="submit" id="cmp-submit" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Submit Complaint</button>
       </div>
     </form>
   </div>
 </div>
 
-<div id="stud-cmp-list" class="grid" style="gap:.5rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
-</div>
-
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
 
-    async function load() {
-      const box = document.getElementById('stud-cmp-list');
-      box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch('/api/portal/complaints');
-        const rows = res.data || [];
-        box.innerHTML = rows.length ? rows.map((c) => `
-          <div class="session-item">
-            <div class="meta"><strong>${core.escapeHtml(c.subject)}</strong>${core.escapeHtml((c.body || '').slice(0, 140))}</div>
-            <div class="small muted">
-              <span class="badge badge-${c.status === 'resolved' ? 'success' : c.status === 'closed' ? 'muted' : 'warning'}">${core.escapeHtml(c.status)}</span>
-              · ${core.timeAgo(c.createdAt)}
-            </div>
-          </div>
-        `).join('') : '<p class="muted">No complaints filed.</p>';
-      } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  var ALL = [];
+  var FILTER = 'all';
+
+  var META = {
+    open:      { label: 'Open',      bg: '#dbeafe', fg: '#1e40af', bar: '#3b82f6', icon: '🔵' },
+    in_review: { label: 'In Review', bg: '#fef3c7', fg: '#92400e', bar: '#f59e0b', icon: '🟡' },
+    resolved:  { label: 'Resolved',  bg: '#d1fae5', fg: '#065f46', bar: '#10b981', icon: '🟢' },
+    closed:    { label: 'Closed',    bg: '#f1f5f9', fg: '#475569', bar: '#94a3b8', icon: '⚫' },
+  };
+  var CAT = {
+    academic: 'Academic', fees: 'Fees / Payments', library: 'Library',
+    hostel: 'Hostel', ict: 'ICT / Portal', staff: 'Staff Conduct',
+    welfare: 'Student Welfare', other: 'Other',
+  };
+
+  function renderStats() {
+    var counts = { open: 0, in_review: 0, resolved: 0, closed: 0 };
+    ALL.forEach(function (c) { if (counts[c.status] != null) counts[c.status]++; });
+
+    var html = '';
+    ['open', 'in_review', 'resolved', 'closed'].forEach(function (k) {
+      var m = META[k];
+      html += '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:.7rem .85rem;display:flex;align-items:center;gap:.6rem;">'
+        + '<div style="width:32px;height:32px;border-radius:8px;background:' + m.bg + ';color:' + m.fg + ';display:flex;align-items:center;justify-content:center;font-size:1rem;">' + m.icon + '</div>'
+        + '<div><div style="font-size:1.15rem;font-weight:800;color:#0f172a;line-height:1;">' + counts[k] + '</div>'
+        + '<div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-top:.15rem;">' + m.label + '</div></div>'
+        + '</div>';
+    });
+    $('cmp-stats').innerHTML = html;
+  }
+
+  function renderCard(c) {
+    var m = META[c.status] || META.open;
+    var cat = CAT[c.category] || '';
+
+    var response = c.response
+      ? '<div style="margin-top:.75rem;padding:.75rem .9rem;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #10b981;border-radius:8px;">'
+        + '<div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">✉️ Response from administration</div>'
+        + '<div style="font-size:.83rem;color:#14532d;line-height:1.55;white-space:pre-wrap;">' + esc(c.response) + '</div>'
+        + '</div>'
+      : '';
+
+    return '<div class="cmp-card" style="background:#fff;border:1px solid #e5e7eb;border-left:5px solid ' + m.bar + ';border-radius:12px;margin-bottom:.7rem;padding:1rem 1.1rem;">'
+      + '<div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:.5rem;">'
+      +   '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;letter-spacing:.05em;background:' + m.bg + ';color:' + m.fg + ';padding:3px 10px;border-radius:99px;text-transform:uppercase;">' + m.label + '</span>'
+      +   (cat ? '<span style="font-size:.65rem;font-weight:700;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;padding:3px 9px;border-radius:6px;">' + esc(cat) + '</span>' : '')
+      + '</div>'
+      + '<h3 style="margin:0 0 .35rem;font-size:.95rem;color:#0f172a;font-weight:700;line-height:1.3;">' + esc(c.subject || 'Untitled') + '</h3>'
+      + '<p style="margin:0;font-size:.83rem;color:#475569;line-height:1.55;white-space:pre-wrap;">' + esc(c.body || '') + '</p>'
+      + response
+      + '<div style="display:flex;gap:.6rem;margin-top:.7rem;padding-top:.6rem;border-top:1px dashed #e5e7eb;font-size:.7rem;color:#94a3b8;">'
+      +   '<span>🕐 ' + esc(timeAgo(c.createdAt)) + '</span>'
+      +   '<span style="font-family:ui-monospace,monospace;">#' + esc(c.id) + '</span>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function render() {
+    document.querySelectorAll('.cmp-tab').forEach(function (b) {
+      var on = b.dataset.filter === FILTER;
+      b.style.background = on ? '#fff' : 'transparent';
+      b.style.color = on ? '#065f46' : '#64748b';
+      b.style.fontWeight = on ? '700' : '600';
+      b.style.boxShadow = on ? '0 1px 3px rgba(0,0,0,.08)' : 'none';
+    });
+
+    var rows = FILTER === 'all' ? ALL : ALL.filter(function (c) { return c.status === FILTER; });
+    var list = $('cmp-list');
+
+    if (!rows.length) {
+      var isFiltered = FILTER !== 'all';
+      list.innerHTML = '<div style="text-align:center;padding:3rem 1rem;background:#fff;border:2px dashed #e2e8f0;border-radius:14px;">'
+        + '<div style="font-size:2.8rem;margin-bottom:.6rem;opacity:.65;">' + (isFiltered ? '🔍' : '💬') + '</div>'
+        + '<h3 style="margin:0 0 .4rem;color:#0f172a;font-size:1rem;font-weight:700;">' + (isFiltered ? 'No ' + META[FILTER].label.toLowerCase() + ' complaints' : 'No complaints yet') + '</h3>'
+        + '<p style="margin:0 auto;max-width:380px;font-size:.83rem;color:#64748b;line-height:1.55;">' + (isFiltered ? 'You have no complaints with this status.' : 'Click "New Complaint" above to file one.') + '</p>'
+        + '</div>';
+      return;
     }
 
-    document.getElementById('stud-cmp-new').addEventListener('click', () => {
-      const p = document.getElementById('stud-cmp-new-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    });
-    document.getElementById('stud-cmp-cancel').addEventListener('click', () => {
-      document.getElementById('stud-cmp-new-panel').style.display = 'none';
-    });
-    document.getElementById('stud-cmp-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/portal/complaints', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Submitted.', 'success');
-        e.target.reset();
-        document.getElementById('stud-cmp-new-panel').style.display = 'none';
-        load();
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+    list.innerHTML = rows.map(renderCard).join('');
+  }
 
-    load();
-  })();
+  async function load() {
+    $('cmp-list').innerHTML = '<div style="text-align:center;padding:2.5rem;"><div style="display:inline-block;width:30px;height:30px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:cmpSpin .8s linear infinite;"></div></div>';
+
+    try {
+      var res = await core.portalFetch('/api/portal/complaints');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderStats();
+      render();
+    } catch (err) {
+      $('cmp-list').innerHTML = '<div style="padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">⚠️ ' + esc(err.message) + '</div>';
+    }
+  }
+
+  function openModal() {
+    $('cmp-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    $('cmp-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    $('cmp-form').reset();
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    var fd = new FormData(e.target);
+    var data = Object.fromEntries(fd);
+
+    if (!data.subject || !data.body) {
+      if (core.showToast) core.showToast('Subject and description are required.', 'warning');
+      return;
+    }
+
+    var btn = $('cmp-submit');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      await core.portalFetch('/api/portal/complaints', {
+        method: 'POST',
+        body: { subject: data.subject, body: data.body, category: data.category || null },
+      });
+      if (core.showToast) core.showToast('Complaint submitted.', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Complaint';
+    }
+  }
+
+  // Spin keyframe
+  var st = document.createElement('style');
+  st.textContent = '@keyframes cmpSpin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(st);
+
+  // Wire up
+  $('cmp-new').addEventListener('click', openModal);
+  $('cmp-close').addEventListener('click', closeModal);
+  $('cmp-cancel').addEventListener('click', closeModal);
+  $('cmp-form').addEventListener('submit', submit);
+  $('cmp-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'cmp-modal') closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+  });
+  document.querySelectorAll('.cmp-tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      FILTER = b.dataset.filter;
+      render();
+    });
+  });
+
+  load();
+})();
 </script>

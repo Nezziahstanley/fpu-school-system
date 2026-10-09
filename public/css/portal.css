@@ -1468,3 +1468,80 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     padding-right: .5rem !important;
   }
 }
+
+/* ============================================================
+   PORTAL WIDTH RESET — defeat any max-width / grid column cap
+   ============================================================ */
+
+@media (max-width: 980px) {
+  /* Every container inside main gets full width */
+  main.main,
+  main.main > *,
+  main.main > * > *,
+  main.main > * > * > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Any element with an inline max-width reset */
+  main.main [style*="max-width"] {
+    max-width: 100% !important;
+  }
+
+  /* Common grid containers → single column */
+  main.main .grid,
+  main.main .row,
+  main.main .cols,
+  main.main [class*="grid-"],
+  main.main [class*="cols-"] {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    gap: .75rem !important;
+  }
+
+  /* Panels and cards always full width */
+  .panel,
+  .card,
+  .tile,
+  .panel-body,
+  .panel-head {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tile grid keeps its own 2-col layout but stays full width */
+  .tile-grid,
+  .stat-grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Any chart / breakdown / quick-actions grid */
+  .chart-grid,
+  .quick-actions,
+  .breakdown-grid {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  /* The greeting bar */
+  .greeting {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* Kill any fixed pixel widths on mobile */
+@media (max-width: 640px) {
+  main.main *[style*="width:"][style*="px"] {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+}

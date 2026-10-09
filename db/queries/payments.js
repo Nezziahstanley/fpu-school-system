@@ -46,13 +46,11 @@ async function findFeeStructure({ programmeId, level, sessionId } = {}) {
 async function findFeeStructureWithFallback({ programmeId, level, sessionId } = {}) {
   if (!programmeId || !level) return null;
 
-  // Exact match
   if (sessionId) {
     const exact = await findFeeStructure({ programmeId, level, sessionId });
     if (exact) return exact;
   }
 
-  // Fallback: any session for this programme + level
   const [fallback] = await db
     .select()
     .from(feeStructures)
@@ -209,8 +207,7 @@ async function count({ studentId, sessionId, status } = {}) {
 
 // ------------------------------------------------------------
 // countByStatus — count payments grouped by status.
-// Used by /api/bursar/dashboard for the "Pending Verifications"
-// card and the status breakdown panel.
+// Used by /api/bursar/dashboard.
 // ------------------------------------------------------------
 async function countByStatus({ sessionId } = {}) {
   const conds = [];
@@ -227,6 +224,51 @@ async function countByStatus({ sessionId } = {}) {
     .groupBy(payments.status);
 
   return rows;
+}
+
+// ------------------------------------------------------------
+// sumByStatus — same as countByStatus but with amount totals,
+// optional date range (from/to) and session filter.
+// ------------------------------------------------------------
+async function sumByStatus({ sessionId, from, to } = {}) {
+  const conds = [];
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  if (from)      conds.push(sql`${payments.createdAt} >= ${from}`);
+  if (to)        conds.push(sql`${payments.createdAt} < (${to}::date + interval '1 day')`);
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select({
+      status: payments.status,
+      count:  sql`count(*)::int`,
+      total:  sql`coalesce(sum(${payments.amount}),0)::numeric`,
+    })
+    .from(payments)
+    .where(where)
+    .groupBy(payments.status);
+}
+
+// ------------------------------------------------------------
+// sumByBank — amount grouped by bank_name, optional date range
+// and session. Null bank shows as "—" in the UI.
+// ------------------------------------------------------------
+async function sumByBank({ sessionId, from, to } = {}) {
+  const conds = [];
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  if (from)      conds.push(sql`${payments.createdAt} >= ${from}`);
+  if (to)        conds.push(sql`${payments.createdAt} < (${to}::date + interval '1 day')`);
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select({
+      bank:   payments.bankName,
+      count:  sql`count(*)::int`,
+      total:  sql`coalesce(sum(${payments.amount}),0)::numeric`,
+    })
+    .from(payments)
+    .where(where)
+    .groupBy(payments.bankName)
+    .orderBy(sql`coalesce(sum(${payments.amount}),0) desc`);
 }
 
 // ------------------------------------------------------------
@@ -362,6 +404,8 @@ module.exports = {
   listByDepartment,
   count,
   countByStatus,
+  sumByStatus,               // ← NEW (reports by status)
+  sumByBank,                 // ← NEW (reports by bank)
   totalVerifiedForStudent,
   totalPaidForStudent,
   create,

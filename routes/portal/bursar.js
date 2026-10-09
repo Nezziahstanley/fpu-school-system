@@ -73,7 +73,7 @@ router.get('/dashboard', only, async (_req, res, next) => {
     }
 
     const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
-    const clearMap  = pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
+    const clearMap  = pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.count }), {});
 
     return res.json({
       success: true,
@@ -281,20 +281,6 @@ router.get('/clearances', only, async (req, res, next) => {
 });
 
 // ============================================================
-// POST /api/bursar/clearances/:id/reject
-// ============================================================
-router.post('/clearances/:id/reject', only, async (req, res, next) => {
-  try {
-    const row = await clearQueries.markRejected(req.params.id, req.user.id, req.body?.remarks);
-    if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
-    await logAudit({ req, action: 'bursar.clearance_reject', entity: 'clearance', entityId: row.id });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// ============================================================
 // POST /api/bursar/clearances/:id/clear
 // ============================================================
 router.post('/clearances/:id/clear', only, async (req, res, next) => {
@@ -323,15 +309,27 @@ router.post('/clearances/:id/reject', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/bursar/reports
+// GET /api/bursar/reports — grouped by status (with filters)
+// Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD&sessionId=N
 // ============================================================
-router.get('/reports', only, async (_req, res, next) => {
+router.get('/reports', only, async (req, res, next) => {
   try {
-    const byStatus = await db
-      .select({ status: payments.status, count: sql`count(*)::int`, total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
-      .from(payments)
-      .groupBy(payments.status);
+    const { from, to, sessionId } = req.query;
+    const byStatus = await paymentQueries.sumByStatus({ from, to, sessionId });
     return res.json({ success: true, data: byStatus });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/bursar/reports/by-bank — grouped by bank
+// ============================================================
+router.get('/reports/by-bank', only, async (req, res, next) => {
+  try {
+    const { from, to, sessionId } = req.query;
+    const byBank = await paymentQueries.sumByBank({ from, to, sessionId });
+    return res.json({ success: true, data: byBank });
   } catch (err) {
     return next(err);
   }

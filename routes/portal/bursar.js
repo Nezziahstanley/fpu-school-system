@@ -132,7 +132,7 @@ router.post('/payments/:id/verify', only, async (req, res, next) => {
 // ============================================================
 router.post('/payments/:id/reject', only, async (req, res, next) => {
   try {
-    const row = await paymentQueries.reject(req.params.id, req.user.id, req.body?.reason);
+    const row = await paymentQueries.reject(req.params.id, req.body?.reason, req.user.id);
     if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });

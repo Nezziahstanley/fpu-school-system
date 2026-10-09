@@ -1,55 +1,245 @@
 <!-- Portal → Librarian → Reservations -->
 <section class="page-head">
-  <div><h2>Book Reservations</h2><p class="muted small">Students waiting for books</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__libResLoad()">Refresh</button></div>
+  <div>
+    <h2>Book Reservations</h2>
+    <p class="muted small">Students waiting for books — mark ready when available</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="lib-res-refresh">↻ Refresh</button>
+  </div>
 </section>
 
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Status</label>
+    <select class="form-select" id="lib-res-status">
+      <option value="">All</option>
+      <option value="pending">Pending</option>
+      <option value="ready">Ready for pickup</option>
+      <option value="fulfilled">Fulfilled</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="expired">Expired</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2;">
+    <label class="form-label">Search</label>
+    <input type="search" class="form-input" id="lib-res-search"
+           placeholder="Book title or student name" autocomplete="off" />
+  </div>
+</div>
+
 <div class="panel">
-  <div class="panel-head"><h3>Reservations</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Reservations</h3>
+    <span class="muted small" id="lib-res-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Book</th><th>User</th><th>Status</th><th>Reserved</th><th>Actions</th></tr></thead>
-        <tbody id="lib-res-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Book</th>
+            <th>Student</th>
+            <th>Status</th>
+            <th>Reserved</th>
+            <th style="width:220px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="lib-res-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<style>
+  .lib-res-detail { background: #f8fafc; }
+  .lib-res-detail td { padding: .75rem 1rem; font-size: .82rem; color: #475569; }
+  .lib-res-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
+  .lib-res-detail-row:last-child { border-bottom: none; }
+  .lib-res-detail-row strong { color: #0f172a; }
+  .lib-res-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .lib-res-chip.pending   { background: #fef3c7; color: #92400e; }
+  .lib-res-chip.ready     { background: #dbeafe; color: #1e40af; }
+  .lib-res-chip.fulfilled { background: #d1fae5; color: #065f46; }
+  .lib-res-chip.cancelled { background: #f1f5f9; color: #475569; }
+  .lib-res-chip.expired   { background: #fee2e2; color: #991b1b; }
+</style>
+
 <script>
-  window.__libResLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('lib-res-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+  var ALL = [];
+
+  function statusChip(s) {
+    var v = String(s || '').toLowerCase();
+    var cls = ['pending','ready','fulfilled','cancelled','expired'].indexOf(v) >= 0 ? v : 'cancelled';
+    return '<span class="lib-res-chip ' + cls + '">' + esc(v || '—') + '</span>';
+  }
+
+  function studentName(r) {
+    var u = r.user || r.student || {};
+    var full = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    return full || u.email || ('User #' + ((r.reservation || r).userId || ''));
+  }
+
+  function bookTitle(r) {
+    var b = r.book || {};
+    var rv = r.reservation || r;
+    return b.title || rv.bookTitle || ('Book #' + (rv.bookId || ''));
+  }
+
+  function actionsFor(rv, id) {
+    if (rv.status === 'pending') {
+      return '<button class="btn btn-sm btn-primary" data-act="ready" data-id="' + esc(id) + '">Mark Ready</button> '
+           + '<button class="btn btn-sm btn-ghost" data-act="cancel" data-id="' + esc(id) + '" style="color:#dc2626;">Cancel</button>';
+    }
+    if (rv.status === 'ready') {
+      return '<button class="btn btn-sm btn-primary" data-act="fulfill" data-id="' + esc(id) + '">Fulfill</button> '
+           + '<button class="btn btn-sm btn-ghost" data-act="cancel" data-id="' + esc(id) + '" style="color:#dc2626;">Cancel</button>';
+    }
+    return '<span class="muted small">—</span>';
+  }
+
+  function render() {
+    var tbody = $('lib-res-tbody');
+    var countEl = $('lib-res-count');
+    countEl.textContent = ALL.length ? ALL.length + ' record' + (ALL.length === 1 ? '' : 's') : '';
+
+    if (!ALL.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No reservations match your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ALL.map(function (r) {
+      var rv = r.reservation || r;
+      var id = rv.id;
+      var hasDetail = rv.readyAt || rv.fulfilledAt || rv.expiresAt;
+      var detailId = 'lib-res-detail-' + id;
+      var expandBtn = hasDetail
+        ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '">▸</button>'
+        : '';
+
+      var detailRow = '';
+      if (hasDetail) {
+        detailRow = '<tr class="lib-res-detail" id="' + esc(detailId) + '" style="display:none;">'
+          + '<td></td>'
+          + '<td colspan="5">'
+          +   (rv.readyAt
+                  ? '<div class="lib-res-detail-row"><span>Marked ready</span><strong>' + esc(timeAgo(rv.readyAt) || dateFmt(rv.readyAt)) + '</strong></div>'
+                  : '')
+          +   (rv.fulfilledAt
+                  ? '<div class="lib-res-detail-row"><span>Fulfilled</span><strong>' + esc(timeAgo(rv.fulfilledAt) || dateFmt(rv.fulfilledAt)) + '</strong></div>'
+                  : '')
+          +   (rv.expiresAt
+                  ? '<div class="lib-res-detail-row"><span>Expires</span><strong>' + esc(dateFmt(rv.expiresAt)) + '</strong></div>'
+                  : '')
+          + '</td>'
+          + '</tr>';
+      }
+
+      return '<tr>'
+        + '<td>' + expandBtn + '</td>'
+        + '<td>' + esc(bookTitle(r)) + '</td>'
+        + '<td>' + esc(studentName(r)) + '</td>'
+        + '<td>' + statusChip(rv.status) + '</td>'
+        + '<td style="color:#94a3b8;font-size:.8rem;">'
+        +   (rv.reservedAt ? esc(timeAgo(rv.reservedAt) || dateFmt(rv.reservedAt)) : '—')
+        + '</td>'
+        + '<td>' + actionsFor(rv, id) + '</td>'
+        + '</tr>'
+        + detailRow;
+    }).join('');
+
+    // Wire expand
+    tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var el = document.getElementById(b.dataset.expand);
+        if (!el) return;
+        var showing = el.style.display !== 'none';
+        el.style.display = showing ? 'none' : 'table-row';
+        b.textContent = showing ? '▸' : '▾';
+      });
+    });
+
+    // Wire actions
+    tbody.querySelectorAll('button[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var act = b.dataset.act;
+        var id = b.dataset.id;
+        if (act === 'ready')   doAction(id, 'ready', 'Marked ready for pickup');
+        if (act === 'fulfill') doAction(id, 'fulfill', 'Reservation fulfilled');
+        if (act === 'cancel')  doCancel(id);
+      });
+    });
+  }
+
+  async function load() {
+    var tbody = $('lib-res-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+
+    var qs = new URLSearchParams();
+    var status = $('lib-res-status').value;
+    var search = $('lib-res-search').value.trim().toLowerCase();
+    if (status) qs.set('status', status);
+
     try {
-      const res = await core.portalFetch('/api/librarian/reservations');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.book?.title || '')}</td>
-          <td>${r.user ? core.escapeHtml(r.user.firstName + ' ' + r.user.lastName) : '—'}</td>
-          <td><span class="badge badge-${r.reservation.status === 'ready' ? 'info' : r.reservation.status === 'fulfilled' ? 'success' : 'warning'}">${core.escapeHtml(r.reservation.status)}</span></td>
-          <td>${core.formatDate(r.reservation.reservedAt)}</td>
-          <td>
-            <button class="btn btn-sm btn-outline" onclick="window.__libResReady(${r.reservation.id})">Mark Ready</button>
-            <button class="btn btn-sm btn-primary" onclick="window.__libResFulfill(${r.reservation.id})">Fulfill</button>
-          </td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No reservations.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+      var res = await core.portalFetch('/api/librarian/reservations' + (qs.toString() ? '?' + qs : ''));
+      var rows = Array.isArray(res.data) ? res.data : [];
 
-  window.__libResReady = async function (id) {
-    const core = window.FPU_PORTAL;
-    try { await core.portalFetch(`/api/admin/library/reservations/${id}/ready`, { method: 'POST' }); core.showToast('Marked ready.', 'success'); window.__libResLoad(); }
-    catch (err) { core.showToast(err.message, 'error'); }
-  };
+      // Client-side search filter (endpoint doesn't support search yet)
+      if (search) {
+        rows = rows.filter(function (r) {
+          var rv = r.reservation || r;
+          var hay = (bookTitle(r) + ' ' + studentName(r)).toLowerCase();
+          return hay.indexOf(search) >= 0;
+        });
+      }
 
-  window.__libResFulfill = async function (id) {
-    const core = window.FPU_PORTAL;
-    try { await core.portalFetch(`/api/admin/library/reservations/${id}/fulfill`, { method: 'POST' }); core.showToast('Fulfilled.', 'success'); window.__libResLoad(); }
-    catch (err) { core.showToast(err.message, 'error'); }
-  };
+      ALL = rows;
+      render();
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
 
-  window.__libResLoad();
+  async function doAction(id, action, okMsg) {
+    try {
+      await core.portalFetch('/api/librarian/reservations/' + id + '/' + action, { method: 'POST' });
+      if (core.showToast) core.showToast(okMsg, 'success');
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+    }
+  }
+
+  async function doCancel(id) {
+    if (!confirm('Cancel this reservation?')) return;
+    await doAction(id, 'cancel', 'Reservation cancelled');
+  }
+
+  // Wire chrome
+  $('lib-res-refresh').addEventListener('click', load);
+  $('lib-res-status').addEventListener('change', load);
+
+  var searchTimer = null;
+  $('lib-res-search').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(load, 300);
+  });
+
+  load();
+})();
 </script>

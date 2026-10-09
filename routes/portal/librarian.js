@@ -16,7 +16,7 @@ const { eq, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 
-const { books, borrowRecords, libraryFines } = schema;
+const { books, borrowRecords, libraryFines, bookReservations } = schema;
 const only = requireRole('librarian', 'admin');
 
 // ============================================================
@@ -24,7 +24,6 @@ const only = requireRole('librarian', 'admin');
 // ============================================================
 router.get('/dashboard', only, async (_req, res, next) => {
   try {
-    // ---- Stat tiles ----
     const [totalBooks] = await db.select({ c: sql`count(*)::int` }).from(books);
 
     const [activeBorrows] = await db
@@ -37,13 +36,11 @@ router.get('/dashboard', only, async (_req, res, next) => {
       .from(borrowRecords)
       .where(eq(borrowRecords.status, 'overdue'));
 
-    // Outstanding fines = SUM of unpaid amounts (not count)
     const [outstandingFines] = await db
       .select({ total: sql`coalesce(sum(${libraryFines.amount}),0)::numeric` })
       .from(libraryFines)
       .where(eq(libraryFines.isPaid, false));
 
-    // ---- Recent borrows (last 5) ----
     let recentBorrows = [];
     try {
       const rows = await libQueries.listBorrowsWithRelations({});
@@ -66,7 +63,6 @@ router.get('/dashboard', only, async (_req, res, next) => {
       });
     } catch (e) { recentBorrows = []; }
 
-    // ---- Reservations awaiting action (pending) ----
     let reservations = [];
     try {
       const rows = await libQueries.listReservationsWithRelations({ status: 'pending' });
@@ -122,7 +118,10 @@ router.get('/books', only, async (req, res, next) => {
 // ============================================================
 router.get('/borrows', only, async (req, res, next) => {
   try {
-    const rows = await libQueries.listBorrowsWithRelations({ userId: req.query.userId, status: req.query.status });
+    const rows = await libQueries.listBorrowsWithRelations({
+      userId: req.query.userId,
+      status: req.query.status,
+    });
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
 });
@@ -134,6 +133,74 @@ router.get('/reservations', only, async (req, res, next) => {
   try {
     const rows = await libQueries.listReservationsWithRelations({ status: req.query.status });
     return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/librarian/reservations/:id/ready
+// pending → ready  (book is now on the shelf waiting for pickup)
+// ============================================================
+router.post('/reservations/:id/ready', only, async (req, res, next) => {
+  try {
+    const row = await libQueries.updateReservationStatus(
+      req.params.id,
+      'ready',
+      { readyAt: new Date() }
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
+    await logAudit({
+      req,
+      action: 'librarian.reservation_ready',
+      entity: 'book_reservation',
+      entityId: row.id,
+    });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/librarian/reservations/:id/fulfill
+// ready → fulfilled  (student collected the book; typically
+// also creates a borrow record — that's a follow-up action)
+// ============================================================
+router.post('/reservations/:id/fulfill', only, async (req, res, next) => {
+  try {
+    const row = await libQueries.updateReservationStatus(
+      req.params.id,
+      'fulfilled',
+      { fulfilledAt: new Date() }
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
+    await logAudit({
+      req,
+      action: 'librarian.reservation_fulfill',
+      entity: 'book_reservation',
+      entityId: row.id,
+    });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/librarian/reservations/:id/cancel
+// pending | ready → cancelled  (student changed mind or book
+// no longer available)
+// ============================================================
+router.post('/reservations/:id/cancel', only, async (req, res, next) => {
+  try {
+    const row = await libQueries.updateReservationStatus(
+      req.params.id,
+      'cancelled',
+      {}
+    );
+    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
+    await logAudit({
+      req,
+      action: 'librarian.reservation_cancel',
+      entity: 'book_reservation',
+      entityId: row.id,
+    });
+    return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 

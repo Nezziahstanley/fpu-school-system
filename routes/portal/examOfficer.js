@@ -73,6 +73,60 @@ router.get('/schedules/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/exam-officer/lookups
+// ------------------------------------------------------------
+// Returns departments + courses for the cascading picker
+// on the attendance page. Does not require admin role.
+// ============================================================
+router.get('/lookups', only, async (req, res, next) => {
+  try {
+    const { db, schema } = require('../../db');
+    const { departments, courses } = schema;
+    const { asc } = require('drizzle-orm');
+
+    const [depts, crs] = await Promise.all([
+      db.select().from(departments).orderBy(asc(departments.name)),
+      db.select().from(courses).orderBy(asc(courses.code)),
+    ]);
+
+    return res.json({
+      success: true,
+      departments: depts,
+      courses: crs,
+    });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/exam-officer/registrations
+// ------------------------------------------------------------
+// Approved registrations for a course, with student info.
+// Used by the attendance page to know who should sit an exam.
+// ============================================================
+router.get('/registrations', only, async (req, res, next) => {
+  try {
+    const { courseId, sessionId, semester, status = 'approved' } = req.query;
+    if (!courseId) {
+      return res.status(400).json({ success: false, error: 'courseId is required.' });
+    }
+
+    const rows = await regQueries.listWithStudent({
+      courseId,
+      sessionId,
+      semester,
+      status,
+    });
+
+    const data = rows.map((r) => ({
+      student: r.student,
+      registration: r.registration,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // GET /api/exam-officer/attendance
 //   Query: examScheduleId
 // ============================================================
@@ -206,7 +260,7 @@ router.get('/reports', only, async (req, res, next) => {
         schedules,
         attendanceTotals,
         coveredSchedules,
-        attendanceBySchedule: {},   // deprecated (kept for compatibility)
+        attendanceBySchedule: {},
       },
     });
   } catch (err) { return next(err); }

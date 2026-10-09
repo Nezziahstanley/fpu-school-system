@@ -44,7 +44,7 @@
     ">Load</button>
   </div>
 
-  <!-- CONTEXT CARD — shows what was picked -->
+  <!-- CONTEXT CARD -->
   <div id="eo-att-context" style="display:none;margin-bottom:1rem;"></div>
 
   <!-- SUMMARY BAR -->
@@ -156,29 +156,27 @@
 
   // State
   let DEPARTMENTS = [];
-  let COURSES_BY_DEPT = {};   // deptId → [courses]
-  let ALL_SCHEDULES = [];     // all exam schedules
-  let ALL_COURSES = [];       // for lookups
+  let COURSES_BY_DEPT = {};
+  let ALL_SCHEDULES = [];
+  let ALL_COURSES = [];
   let CURRENT_SCHEDULE = null;
   let CURRENT_COURSE = null;
-  let ROWS = [];              // [{ student, status, originalStatus, changed }]
+  let ROWS = [];
 
   // ============================================================
-  // BOOT — load departments + courses + schedules in parallel
+  // BOOT
   // ============================================================
   async function boot() {
     try {
-      const [deptRes, courseRes, schedRes] = await Promise.all([
-        core.portalFetch('/api/admin/departments?limit=200'),
-        core.portalFetch('/api/admin/courses?limit=500'),
+      const [lookupRes, schedRes] = await Promise.all([
+        core.portalFetch('/api/exam-officer/lookups'),
         core.portalFetch('/api/exam-officer/schedules'),
       ]);
 
-      DEPARTMENTS = Array.isArray(deptRes.data) ? deptRes.data : [];
-      ALL_COURSES = Array.isArray(courseRes.data) ? courseRes.data : [];
+      DEPARTMENTS = Array.isArray(lookupRes.departments) ? lookupRes.departments : [];
+      ALL_COURSES = Array.isArray(lookupRes.courses) ? lookupRes.courses : [];
       ALL_SCHEDULES = Array.isArray(schedRes.data) ? schedRes.data : [];
 
-      // Group courses by department
       COURSES_BY_DEPT = {};
       ALL_COURSES.forEach((c) => {
         const deptId = c.departmentId;
@@ -187,7 +185,6 @@
         COURSES_BY_DEPT[deptId].push(c);
       });
 
-      // Populate department dropdown
       populateDepartments();
     } catch (err) {
       core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
@@ -211,7 +208,7 @@
   }
 
   // ============================================================
-  // COURSE DROPDOWN (filtered by department)
+  // COURSE DROPDOWN
   // ============================================================
   function populateCourses(deptId) {
     const sel = $('eo-att-course');
@@ -236,7 +233,6 @@
       return;
     }
 
-    // Only include courses that have an exam schedule
     const courseIdsWithExams = new Set(ALL_SCHEDULES.map((s) => (s.exam || s).courseId));
 
     const sorted = [...courses].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
@@ -251,7 +247,7 @@
   }
 
   // ============================================================
-  // SCHEDULE DROPDOWN (filtered by course)
+  // SCHEDULE DROPDOWN
   // ============================================================
   function populateSchedules(courseId) {
     const sel = $('eo-att-schedule');
@@ -308,24 +304,20 @@
       </td></tr>`;
 
     try {
-      // Get current attendance + registered students for this course in parallel
       const [attRes, regsRes] = await Promise.all([
         core.portalFetch(`/api/exam-officer/attendance?examScheduleId=${scheduleId}`),
-        core.portalFetch(`/api/admin/registrations?courseId=${(schedule.exam || schedule).courseId}&status=approved&limit=500`).catch(() => ({ data: [] })),
+        core.portalFetch(`/api/exam-officer/registrations?courseId=${(schedule.exam || schedule).courseId}&status=approved&limit=500`).catch(() => ({ data: [] })),
       ]);
 
       const attendanceRecords = Array.isArray(attRes.data) ? attRes.data : [];
       const registrations = Array.isArray(regsRes.data) ? regsRes.data : [];
 
-      // Build a map: studentId → attendance record
       const attMap = new Map();
       attendanceRecords.forEach((r) => {
         const sid = Number((r.student || {}).id);
         if (sid) attMap.set(sid, r.record || null);
       });
 
-      // Build student rows: primary source = approved registrations
-      // If registrations is empty, fall back to attendance records we got
       const studentSource = registrations.length
         ? registrations.map((reg) => ({
             student: reg.student || {},
@@ -336,7 +328,6 @@
             registration: null,
           }));
 
-      // Deduplicate by student id
       const seen = new Set();
       ROWS = [];
       for (const s of studentSource) {
@@ -353,8 +344,6 @@
         });
       }
 
-      // Also add any student who has an attendance record but no registration
-      // (edge case — usually won't happen)
       attendanceRecords.forEach((r) => {
         const sid = Number((r.student || {}).id);
         if (sid && !seen.has(sid)) {
@@ -369,7 +358,6 @@
         }
       });
 
-      // Sort by name
       ROWS.sort((a, b) => {
         const an = `${a.student.lastName || ''} ${a.student.firstName || ''}`.toLowerCase();
         const bn = `${b.student.lastName || ''} ${b.student.firstName || ''}`.toLowerCase();
@@ -438,7 +426,7 @@
   }
 
   // ============================================================
-  // SUMMARY (computed from ROWS — always reflects current state)
+  // SUMMARY
   // ============================================================
   function renderSummaryFromRows() {
     const el = $('eo-att-summary');
@@ -641,7 +629,6 @@
   $('eo-att-search')?.addEventListener('input', renderRows);
 
   $('eo-att-refresh')?.addEventListener('click', () => {
-    // Reset
     $('eo-att-dept').value = '';
     populateCourses('');
     $('eo-att-context').style.display = 'none';
@@ -651,7 +638,6 @@
     boot();
   });
 
-  // Kick off
   boot();
 })();
 </script>

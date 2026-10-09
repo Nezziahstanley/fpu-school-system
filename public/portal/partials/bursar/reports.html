@@ -1,37 +1,380 @@
 <!-- Portal → Bursar → Reports -->
 <section class="page-head">
-  <div><h2>Reports</h2><p class="muted small">Payment analytics</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burRepLoad()">Refresh</button></div>
+  <div>
+    <h2>Reports</h2>
+    <p class="muted small">Payment analytics — by status and by bank</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-rep-csv">⬇ CSV</button>
+    <button class="btn btn-outline btn-sm" id="bur-rep-print">🖨 Print</button>
+    <button class="btn btn-outline btn-sm" id="bur-rep-refresh">↻ Refresh</button>
+  </div>
 </section>
 
+<!-- ============ FILTERS ============ -->
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">From</label>
+    <input type="date" class="form-input" id="bur-rep-from" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">To</label>
+    <input type="date" class="form-input" id="bur-rep-to" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">Session</label>
+    <select class="form-select" id="bur-rep-session">
+      <option value="">All sessions</option>
+    </select>
+  </div>
+  <div class="form-group" style="align-self:flex-end;">
+    <button class="btn btn-outline btn-sm" id="bur-rep-clear">Clear filters</button>
+  </div>
+</div>
+
+<!-- ============ STAT CARDS ============ -->
+<div id="bur-rep-cards" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;">
+    <div style="font-size:.68rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Verified</div>
+    <div style="font-size:1.35rem;font-weight:800;color:#065f46;margin-top:.35rem;font-variant-numeric:tabular-nums;" id="bur-rep-c-verified">₦0</div>
+    <div class="muted small" id="bur-rep-n-verified" style="margin-top:.2rem;">0 payments</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;">
+    <div style="font-size:.68rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Pending</div>
+    <div style="font-size:1.35rem;font-weight:800;color:#b45309;margin-top:.35rem;font-variant-numeric:tabular-nums;" id="bur-rep-c-pending">₦0</div>
+    <div class="muted small" id="bur-rep-n-pending" style="margin-top:.2rem;">0 payments</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;">
+    <div style="font-size:.68rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Rejected</div>
+    <div style="font-size:1.35rem;font-weight:800;color:#991b1b;margin-top:.35rem;font-variant-numeric:tabular-nums;" id="bur-rep-c-rejected">₦0</div>
+    <div class="muted small" id="bur-rep-n-rejected" style="margin-top:.2rem;">0 payments</div>
+  </div>
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;">
+    <div style="font-size:.68rem;font-weight:800;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">Grand Total</div>
+    <div style="font-size:1.35rem;font-weight:800;color:#0f172a;margin-top:.35rem;font-variant-numeric:tabular-nums;" id="bur-rep-c-grand">₦0</div>
+    <div class="muted small" id="bur-rep-n-grand" style="margin-top:.2rem;">0 payments</div>
+  </div>
+</div>
+
+<!-- ============ BAR CHART ============ -->
+<div class="panel">
+  <div class="panel-head"><h3>Distribution by Status</h3></div>
+  <div class="panel-body">
+    <div id="bur-rep-chart" style="padding:.5rem 0;"></div>
+  </div>
+</div>
+
+<!-- ============ BY STATUS TABLE ============ -->
 <div class="panel">
   <div class="panel-head"><h3>Payments by Status</h3></div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Status</th><th>Count</th><th>Total</th></tr></thead>
-        <tbody id="bur-rep-tbody"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th style="text-align:right;">Count</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">% of Total</th>
+          </tr>
+        </thead>
+        <tbody id="bur-rep-status-tbody">
+          <tr><td colspan="4" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- ============ BY BANK TABLE ============ -->
+<div class="panel">
+  <div class="panel-head"><h3>Payments by Bank</h3></div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Bank</th>
+            <th style="text-align:right;">Count</th>
+            <th style="text-align:right;">Amount</th>
+            <th style="text-align:right;">% of Total</th>
+          </tr>
+        </thead>
+        <tbody id="bur-rep-bank-tbody">
+          <tr><td colspan="4" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .bur-rep-bar-wrap { margin-bottom: .75rem; }
+  .bur-rep-bar-head {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: .8rem; color: #334155; margin-bottom: .35rem;
+  }
+  .bur-rep-bar-head strong { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bur-rep-bar-track {
+    height: 10px; background: #f1f5f9; border-radius: 99px; overflow: hidden;
+  }
+  .bur-rep-bar-fill {
+    height: 100%; border-radius: 99px;
+    transition: width .35s ease-out;
+  }
+  .bur-rep-status-chip {
+    display: inline-block; padding: 3px 10px; border-radius: 99px;
+    font-size: .68rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .bur-rep-status-chip.verified { background: #d1fae5; color: #065f46; }
+  .bur-rep-status-chip.pending  { background: #fef3c7; color: #92400e; }
+  .bur-rep-status-chip.rejected { background: #fee2e2; color: #991b1b; }
+  .bur-rep-status-chip.other    { background: #f1f5f9; color: #475569; }
+  .bur-rep-pct { color: #94a3b8; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  @media print {
+    .sidebar, .topbar, .page-head .actions, .filters, .sidebar-toggle { display: none !important; }
+    .page-view { padding: 0 !important; }
+    .panel { page-break-inside: avoid; }
+  }
+</style>
+
 <script>
-  window.__burRepLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('bur-rep-tbody');
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch('/api/bursar/reports');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.status)}</td>
-          <td class="num">${r.count}</td>
-          <td class="num">${core.formatMoney(r.total)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="empty">No data.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
+  var num = function (n) { return Number(n || 0).toLocaleString(); };
+
+  var META = {
+    verified: { label: 'Verified', color: '#10b981', chip: 'verified' },
+    pending:  { label: 'Pending',  color: '#f59e0b', chip: 'pending'  },
+    rejected: { label: 'Rejected', color: '#ef4444', chip: 'rejected' },
+    refunded: { label: 'Refunded', color: '#3b82f6', chip: 'other'    },
   };
-  window.__burRepLoad();
+
+  var LOOKUPS = { sessions: [] };
+  var LAST_STATUS_ROWS = [];
+  var LAST_BANK_ROWS   = [];
+
+  function statusMeta(s) {
+    return META[String(s || '').toLowerCase()] || { label: String(s || '—'), color: '#94a3b8', chip: 'other' };
+  }
+
+  // ---------- lookups ----------
+  async function loadSessions() {
+    try {
+      var res = await core.portalFetch('/api/bursar/lookups');
+      var d = (res && res.data) || {};
+      LOOKUPS.sessions = d.sessions || [];
+      var sel = $('bur-rep-session');
+      sel.innerHTML = '<option value="">All sessions</option>' +
+        LOOKUPS.sessions.map(function (s) {
+          return '<option value="' + esc(s.id) + '">' + esc(s.name) + (s.isCurrent ? ' (current)' : '') + '</option>';
+        }).join('');
+    } catch (e) { /* non-fatal */ }
+  }
+
+  function qs() {
+    var p = new URLSearchParams();
+    var f = $('bur-rep-from').value;
+    var t = $('bur-rep-to').value;
+    var s = $('bur-rep-session').value;
+    if (f) p.set('from', f);
+    if (t) p.set('to', t);
+    if (s) p.set('sessionId', s);
+    return p.toString();
+  }
+
+  // ---------- rendering ----------
+  function renderCards(rows) {
+    var byStatus = {};
+    var grand = 0, grandN = 0;
+    rows.forEach(function (r) {
+      var amt = Number(r.total || 0);
+      var cnt = Number(r.count || 0);
+      byStatus[r.status] = { total: amt, count: cnt };
+      grand  += amt;
+      grandN += cnt;
+    });
+
+    ['verified', 'pending', 'rejected'].forEach(function (s) {
+      var d = byStatus[s] || { total: 0, count: 0 };
+      $('bur-rep-c-' + s).textContent = money(d.total);
+      $('bur-rep-n-' + s).textContent = num(d.count) + ' payment' + (d.count === 1 ? '' : 's');
+    });
+    $('bur-rep-c-grand').textContent = money(grand);
+    $('bur-rep-n-grand').textContent = num(grandN) + ' payment' + (grandN === 1 ? '' : 's');
+  }
+
+  function renderChart(rows) {
+    var chart = $('bur-rep-chart');
+    if (!rows.length) {
+      chart.innerHTML = '<div class="muted small">No data for the selected filters.</div>';
+      return;
+    }
+
+    var maxTotal = 0;
+    var totalAll = 0;
+    rows.forEach(function (r) {
+      var t = Number(r.total || 0);
+      if (t > maxTotal) maxTotal = t;
+      totalAll += t;
+    });
+    if (maxTotal === 0) {
+      chart.innerHTML = '<div class="muted small">No amounts recorded.</div>';
+      return;
+    }
+
+    var ordered = ['verified', 'pending', 'rejected', 'refunded'].map(function (s) {
+      return rows.find(function (r) { return r.status === s; });
+    }).filter(Boolean);
+
+    chart.innerHTML = ordered.map(function (r) {
+      var t = Number(r.total || 0);
+      var pct = maxTotal > 0 ? (t / maxTotal * 100) : 0;
+      var share = totalAll > 0 ? (t / totalAll * 100) : 0;
+      var meta = statusMeta(r.status);
+      return ''
+        + '<div class="bur-rep-bar-wrap">'
+        +   '<div class="bur-rep-bar-head">'
+        +     '<span><strong>' + esc(meta.label) + '</strong> <span class="muted small">· ' + num(r.count) + ' payments</span></span>'
+        +     '<strong>' + esc(money(t)) + ' <span class="bur-rep-pct">(' + share.toFixed(1) + '%)</span></strong>'
+        +   '</div>'
+        +   '<div class="bur-rep-bar-track">'
+        +     '<div class="bur-rep-bar-fill" style="width:' + pct.toFixed(2) + '%;background:' + meta.color + ';"></div>'
+        +   '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderStatusTable(rows) {
+    var tbody = $('bur-rep-status-tbody');
+    var totalAll = rows.reduce(function (s, r) { return s + Number(r.total || 0); }, 0);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No data for the selected filters.</td></tr>';
+      return;
+    }
+
+    var ordered = ['verified', 'pending', 'rejected', 'refunded'].map(function (s) {
+      return rows.find(function (r) { return r.status === s; });
+    }).filter(Boolean);
+
+    tbody.innerHTML = ordered.map(function (r) {
+      var meta = statusMeta(r.status);
+      var t = Number(r.total || 0);
+      var pct = totalAll > 0 ? (t / totalAll * 100) : 0;
+      return ''
+        + '<tr>'
+        +   '<td><span class="bur-rep-status-chip ' + meta.chip + '">' + esc(meta.label) + '</span></td>'
+        +   '<td style="text-align:right;font-variant-numeric:tabular-nums;">' + num(r.count) + '</td>'
+        +   '<td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">' + esc(money(t)) + '</td>'
+        +   '<td style="text-align:right;" class="bur-rep-pct">' + pct.toFixed(1) + '%</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  function renderBankTable(rows) {
+    var tbody = $('bur-rep-bank-tbody');
+    var totalAll = rows.reduce(function (s, r) { return s + Number(r.total || 0); }, 0);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No data for the selected filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(function (r) {
+      var t = Number(r.total || 0);
+      var pct = totalAll > 0 ? (t / totalAll * 100) : 0;
+      var bank = r.bank || '—';
+      return ''
+        + '<tr>'
+        +   '<td>' + esc(bank) + '</td>'
+        +   '<td style="text-align:right;font-variant-numeric:tabular-nums;">' + num(r.count) + '</td>'
+        +   '<td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;">' + esc(money(t)) + '</td>'
+        +   '<td style="text-align:right;" class="bur-rep-pct">' + pct.toFixed(1) + '%</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  // ---------- load ----------
+  async function load() {
+    var q = qs();
+    var qPrefix = q ? '?' + q : '';
+    $('bur-rep-status-tbody').innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+    $('bur-rep-bank-tbody').innerHTML   = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+    $('bur-rep-chart').innerHTML = '<div class="muted small">Loading…</div>';
+
+    try {
+      var results = await Promise.all([
+        core.portalFetch('/api/bursar/reports' + qPrefix),
+        core.portalFetch('/api/bursar/reports/by-bank' + qPrefix),
+      ]);
+      var statusRows = (results[0] && results[0].data) || [];
+      var bankRows   = (results[1] && results[1].data) || [];
+
+      LAST_STATUS_ROWS = statusRows;
+      LAST_BANK_ROWS   = bankRows;
+
+      renderCards(statusRows);
+      renderChart(statusRows);
+      renderStatusTable(statusRows);
+      renderBankTable(bankRows);
+    } catch (err) {
+      var msg = esc(err.message || 'Failed to load reports.');
+      $('bur-rep-status-tbody').innerHTML = '<tr><td colspan="4" class="empty">' + msg + '</td></tr>';
+      $('bur-rep-bank-tbody').innerHTML   = '<tr><td colspan="4" class="empty">' + msg + '</td></tr>';
+      $('bur-rep-chart').innerHTML = '<div class="muted small">' + msg + '</div>';
+      if (core.showToast) core.showToast(err.message, 'error');
+    }
+  }
+
+  // ---------- CSV export ----------
+  function csv() {
+    var lines = [];
+    lines.push('Report,Status,Count,Amount');
+    LAST_STATUS_ROWS.forEach(function (r) {
+      lines.push(['By Status', r.status, r.count, Number(r.total || 0)].join(','));
+    });
+    lines.push('');
+    lines.push('Report,Bank,Count,Amount');
+    LAST_BANK_ROWS.forEach(function (r) {
+      lines.push(['By Bank', '"' + (r.bank || '') + '"', r.count, Number(r.total || 0)].join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url;
+    a.download = 'bursar-report-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- wire chrome ----------
+  $('bur-rep-refresh').addEventListener('click', load);
+  $('bur-rep-print').addEventListener('click', function () { window.print(); });
+  $('bur-rep-csv').addEventListener('click', csv);
+  $('bur-rep-clear').addEventListener('click', function () {
+    $('bur-rep-from').value = '';
+    $('bur-rep-to').value = '';
+    $('bur-rep-session').value = '';
+    load();
+  });
+
+  $('bur-rep-from').addEventListener('change', load);
+  $('bur-rep-to').addEventListener('change', load);
+  $('bur-rep-session').addEventListener('change', load);
+
+  // ---------- boot ----------
+  (async function boot() {
+    await loadSessions();
+    await load();
+  })();
+})();
 </script>

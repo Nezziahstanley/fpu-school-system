@@ -53,10 +53,18 @@
       const d = res.data || res || {};
       const inst = d.institution || {};
 
+      // Short host for the URL hint under the barcode
+      const shortUrl = d.lookupUrl
+        ? d.lookupUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
+        : '—';
+
       box.innerHTML = `
         <div style="max-width:600px;margin:0 auto;">
-          <!-- FRONT -->
+
+          <!-- CARD FRONT -->
           <div style="background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:1.5rem;color:#fff;box-shadow:0 12px 32px rgba(6,95,70,.25);">
+
+            <!-- HEADER -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.75rem;">
               <div>
                 <strong style="font-size:15px;">${esc(inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase()}</strong>
@@ -68,6 +76,7 @@
               </div>
             </div>
 
+            <!-- PHOTO + IDENTITY -->
             <div style="display:flex;gap:1rem;align-items:center;">
               <div style="width:100px;height:120px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
                 ${d.photoUrl
@@ -85,9 +94,20 @@
               </div>
             </div>
 
+            <!-- BARCODE BOX -->
             <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);text-align:center;">
-              <svg id="si-barcode" style="background:#fff;padding:.5rem;border-radius:4px;max-width:100%;"></svg>
+              <div style="display:inline-block;background:#fff;padding:.75rem 1rem 1rem;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);">
+                <div style="font-size:10px;color:#065f46;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.4rem;">
+                  📷 Scan to verify
+                </div>
+                <svg id="si-barcode" style="display:block;max-width:100%;"></svg>
+                <div style="font-size:9.5px;color:#64748b;margin-top:.35rem;line-height:1.4;">
+                  Scan with any barcode reader<br/>
+                  or visit <strong>${esc(shortUrl)}</strong>
+                </div>
+              </div>
             </div>
+
           </div>
 
           <!-- LOST-FOUND INSTRUCTIONS -->
@@ -99,11 +119,12 @@
               <div>📧 ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
               <div>📞 ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
               <div style="margin-top:.5rem;">🌐 ${esc(inst.website || 'https://fedpolyugep.edu.ng')}</div>
-              <div style="margin-top:.5rem;padding:.5rem;background:#fff;border-radius:6px;font-size:11.5px;">
+              <div style="margin-top:.5rem;padding:.5rem;background:#fff;border-radius:6px;font-size:11.5px;word-break:break-all;">
                 <strong>Verify at:</strong> ${esc(d.lookupUrl || '—')}
               </div>
             </div>
           </div>
+
         </div>
       `;
 
@@ -117,6 +138,8 @@
             displayValue: true,
             fontSize: 14,
             margin: 4,
+            background: '#ffffff',
+            lineColor: '#000000',
           });
         } catch (e) {
           console.warn('[id-card] barcode error:', e);

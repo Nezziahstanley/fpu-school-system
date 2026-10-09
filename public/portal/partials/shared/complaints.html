@@ -1,9 +1,9 @@
-<!-- Portal → Shared → Complaints -->
+<!-- Portal → Shared → Complaints (role-aware: student/lecturer = mine; staff = all + reply) -->
 <div style="padding:0;">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
     <div>
-      <h2 style="margin:0;font-size:1.3rem;font-weight:700;color:#0f172a;">My Complaints</h2>
-      <p style="margin:.25rem 0 0;font-size:.82rem;color:#64748b;">Report an issue and track its status</p>
+      <h2 id="cmp-title" style="margin:0;font-size:1.3rem;font-weight:700;color:#0f172a;">My Complaints</h2>
+      <p id="cmp-subtitle" style="margin:.25rem 0 0;font-size:.82rem;color:#64748b;">Report an issue and track its status</p>
     </div>
     <button id="cmp-new" type="button" style="padding:.55rem .9rem;background:#065f46;color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:700;cursor:pointer;">+ New Complaint</button>
   </div>
@@ -21,7 +21,7 @@
   <div id="cmp-list"></div>
 </div>
 
-<!-- MODAL -->
+<!-- NEW COMPLAINT MODAL (only usable by non-staff) -->
 <div id="cmp-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:14px;max-width:540px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;">
@@ -67,6 +67,18 @@
   var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
   var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
 
+  // ----------------------------------------------------------
+  // ROLE DETECTION
+  // staff = can see ALL complaints and reply
+  // non-staff = sees own complaints, can create new
+  // ----------------------------------------------------------
+  var me = (core.getPortalUser && core.getPortalUser()) || {};
+  var ROLE = String(me.role || '').toLowerCase();
+  var IS_STAFF = ['rector', 'admin', 'superadmin', 'registrar', 'hod'].includes(ROLE);
+
+  var LIST_URL    = IS_STAFF ? '/api/admin/complaints'         : '/api/portal/complaints';
+  var RESPOND_URL = function (id) { return '/api/admin/complaints/' + id + '/respond'; };
+
   var ALL = [];
   var FILTER = 'all';
 
@@ -81,6 +93,16 @@
     hostel: 'Hostel', ict: 'ICT / Portal', staff: 'Staff Conduct',
     welfare: 'Student Welfare', other: 'Other',
   };
+
+  // ----------------------------------------------------------
+  // Header — swap text based on role
+  // ----------------------------------------------------------
+  if (IS_STAFF) {
+    $('cmp-title').textContent = 'All Complaints';
+    $('cmp-subtitle').textContent = 'Review complaints and send replies';
+    var newBtn = $('cmp-new');
+    if (newBtn) newBtn.style.display = 'none';
+  }
 
   function renderStats() {
     var counts = { open: 0, in_review: 0, resolved: 0, closed: 0 };
@@ -102,21 +124,48 @@
     var m = META[c.status] || META.open;
     var cat = CAT[c.category] || '';
 
-    var response = c.response
-      ? '<div style="margin-top:.75rem;padding:.75rem .9rem;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #10b981;border-radius:8px;">'
+    // For staff, the response block becomes an editable reply box
+    var responseBlock = '';
+    if (IS_STAFF) {
+      responseBlock =
+        '<div style="margin-top:.85rem;padding-top:.75rem;border-top:1px dashed #cbd5e1;">'
+        +  '<div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">✉️ Reply to complainant</div>'
+        +  '<textarea class="cmp-reply-input" rows="3" placeholder="Type your reply…" style="width:100%;padding:.55rem .7rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;resize:vertical;box-sizing:border-box;">' + esc(c.response || '') + '</textarea>'
+        +  '<div style="display:flex;gap:.5rem;margin-top:.5rem;align-items:center;flex-wrap:wrap;">'
+        +    '<select class="cmp-status-select" style="padding:.45rem .6rem;font-size:.78rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">'
+        +      ['open','in_review','resolved','closed'].map(function (k) {
+                 return '<option value="' + k + '"' + (c.status === k ? ' selected' : '') + '>' + META[k].label + '</option>';
+               }).join('')
+        +    '</select>'
+        +    '<button type="button" class="cmp-send" data-cid="' + esc(c.id) + '" style="padding:.5rem 1rem;font-size:.78rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Send Reply</button>'
+        +  '</div>'
+        + '</div>';
+    } else if (c.response) {
+      responseBlock =
+        '<div style="margin-top:.75rem;padding:.75rem .9rem;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #10b981;border-radius:8px;">'
         + '<div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">✉️ Response from administration</div>'
         + '<div style="font-size:.83rem;color:#14532d;line-height:1.55;white-space:pre-wrap;">' + esc(c.response) + '</div>'
-        + '</div>'
-      : '';
+        + '</div>';
+    }
 
-    return '<div class="cmp-card" style="background:#fff;border:1px solid #e5e7eb;border-left:5px solid ' + m.bar + ';border-radius:12px;margin-bottom:.7rem;padding:1rem 1.1rem;">'
+    // Complainant line (staff only) — the admin list query joins users
+    var complainant = '';
+    if (IS_STAFF) {
+      var u = c.user || {};
+      var name = u.fullName || u.full_name || u.name || u.email || ('User #' + (c.userId || ''));
+      var email = u.email ? ' · ' + esc(u.email) : '';
+      complainant = '<div style="font-size:.75rem;color:#475569;margin:.25rem 0 .5rem;font-weight:600;">👤 ' + esc(name) + email + '</div>';
+    }
+
+    return '<div class="cmp-card" data-cid="' + esc(c.id) + '" style="background:#fff;border:1px solid #e5e7eb;border-left:5px solid ' + m.bar + ';border-radius:12px;margin-bottom:.7rem;padding:1rem 1.1rem;">'
       + '<div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:.5rem;">'
       +   '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;letter-spacing:.05em;background:' + m.bg + ';color:' + m.fg + ';padding:3px 10px;border-radius:99px;text-transform:uppercase;">' + m.label + '</span>'
       +   (cat ? '<span style="font-size:.65rem;font-weight:700;background:#f8fafc;color:#475569;border:1px solid #e2e8f0;padding:3px 9px;border-radius:6px;">' + esc(cat) + '</span>' : '')
       + '</div>'
+      + complainant
       + '<h3 style="margin:0 0 .35rem;font-size:.95rem;color:#0f172a;font-weight:700;line-height:1.3;">' + esc(c.subject || 'Untitled') + '</h3>'
       + '<p style="margin:0;font-size:.83rem;color:#475569;line-height:1.55;white-space:pre-wrap;">' + esc(c.body || '') + '</p>'
-      + response
+      + responseBlock
       + '<div style="display:flex;gap:.6rem;margin-top:.7rem;padding-top:.6rem;border-top:1px dashed #e5e7eb;font-size:.7rem;color:#94a3b8;">'
       +   '<span>🕐 ' + esc(timeAgo(c.createdAt)) + '</span>'
       +   '<span style="font-family:ui-monospace,monospace;">#' + esc(c.id) + '</span>'
@@ -138,22 +187,36 @@
 
     if (!rows.length) {
       var isFiltered = FILTER !== 'all';
+      var emptyTitle = isFiltered
+        ? 'No ' + META[FILTER].label.toLowerCase() + ' complaints'
+        : (IS_STAFF ? 'No complaints filed yet' : 'No complaints yet');
+      var emptyBody = isFiltered
+        ? 'No complaints with this status.'
+        : (IS_STAFF ? 'Complaints filed by students and staff will appear here.' : 'Click "New Complaint" above to file one.');
+
       list.innerHTML = '<div style="text-align:center;padding:3rem 1rem;background:#fff;border:2px dashed #e2e8f0;border-radius:14px;">'
         + '<div style="font-size:2.8rem;margin-bottom:.6rem;opacity:.65;">' + (isFiltered ? '🔍' : '💬') + '</div>'
-        + '<h3 style="margin:0 0 .4rem;color:#0f172a;font-size:1rem;font-weight:700;">' + (isFiltered ? 'No ' + META[FILTER].label.toLowerCase() + ' complaints' : 'No complaints yet') + '</h3>'
-        + '<p style="margin:0 auto;max-width:380px;font-size:.83rem;color:#64748b;line-height:1.55;">' + (isFiltered ? 'You have no complaints with this status.' : 'Click "New Complaint" above to file one.') + '</p>'
+        + '<h3 style="margin:0 0 .4rem;color:#0f172a;font-size:1rem;font-weight:700;">' + emptyTitle + '</h3>'
+        + '<p style="margin:0 auto;max-width:380px;font-size:.83rem;color:#64748b;line-height:1.55;">' + emptyBody + '</p>'
         + '</div>';
       return;
     }
 
     list.innerHTML = rows.map(renderCard).join('');
+
+    // Staff-only: wire up reply buttons
+    if (IS_STAFF) {
+      list.querySelectorAll('.cmp-send').forEach(function (btn) {
+        btn.addEventListener('click', function () { sendReply(btn.dataset.cid); });
+      });
+    }
   }
 
   async function load() {
     $('cmp-list').innerHTML = '<div style="text-align:center;padding:2.5rem;"><div style="display:inline-block;width:30px;height:30px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:cmpSpin .8s linear infinite;"></div></div>';
 
     try {
-      var res = await core.portalFetch('/api/portal/complaints');
+      var res = await core.portalFetch(LIST_URL);
       ALL = Array.isArray(res.data) ? res.data : [];
       renderStats();
       render();
@@ -162,6 +225,44 @@
     }
   }
 
+  // ----------------------------------------------------------
+  // STAFF: send reply + change status in one call
+  // ----------------------------------------------------------
+  async function sendReply(id) {
+    var card = document.querySelector('.cmp-card[data-cid="' + id + '"]');
+    if (!card) return;
+    var ta  = card.querySelector('.cmp-reply-input');
+    var sel = card.querySelector('.cmp-status-select');
+    var btn = card.querySelector('.cmp-send');
+    var text = (ta && ta.value || '').trim();
+    var stat = sel ? sel.value : 'resolved';
+
+    if (!text) {
+      if (core.showToast) core.showToast('Reply cannot be empty.', 'warning');
+      return;
+    }
+
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Sending…';
+
+    try {
+      await core.portalFetch(RESPOND_URL(id), {
+        method: 'POST',
+        body: { response: text, status: stat },
+      });
+      if (core.showToast) core.showToast('Reply sent.', 'success');
+      load(); // refresh list + stats
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // NON-STAFF: new complaint modal
+  // ----------------------------------------------------------
   function openModal() {
     $('cmp-modal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -207,16 +308,16 @@
   st.textContent = '@keyframes cmpSpin { to { transform: rotate(360deg); } }';
   document.head.appendChild(st);
 
-  // Wire up
-  $('cmp-new').addEventListener('click', openModal);
-  $('cmp-close').addEventListener('click', closeModal);
-  $('cmp-cancel').addEventListener('click', closeModal);
-  $('cmp-form').addEventListener('submit', submit);
-  $('cmp-modal').addEventListener('click', function (e) {
+  // Wire up — guarded so staff don't crash on missing modal elements
+  if ($('cmp-new'))    $('cmp-new').addEventListener('click', openModal);
+  if ($('cmp-close'))  $('cmp-close').addEventListener('click', closeModal);
+  if ($('cmp-cancel')) $('cmp-cancel').addEventListener('click', closeModal);
+  if ($('cmp-form'))   $('cmp-form').addEventListener('submit', submit);
+  if ($('cmp-modal'))  $('cmp-modal').addEventListener('click', function (e) {
     if (e.target.id === 'cmp-modal') closeModal();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape' && $('cmp-modal')) closeModal();
   });
   document.querySelectorAll('.cmp-tab').forEach(function (b) {
     b.addEventListener('click', function () {

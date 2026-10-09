@@ -16,7 +16,7 @@ const clearQueries = require('../../db/queries/clearances');
 const sessionQueries = require('../../db/queries/sessions');
 const { requireRole } = require('../../middleware/auth');
 
-const only = requireRole('exam_officer', 'admin');
+const only = requireRole('exam_officer', 'academic_officer', 'registrar', 'admin', 'rector', 'librarian');
 
 // ============================================================
 // GET /api/exam-officer/dashboard

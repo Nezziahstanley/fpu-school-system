@@ -90,13 +90,11 @@ router.use('/admin/reports',        require('./reports'));
 
 // ------------------------------------------------------------
 // STAFF endpoints (non-admin path) — read-only for staff roles
-// These mirror a few admin routes so exam officers, lecturers,
-// HODs, etc. can read them without the /admin prefix.
-// Writes remain restricted to admin only via each router's
-// own requireRole guards.
 // ------------------------------------------------------------
 router.use('/courses',              require('./courses'));
 router.use('/exams',                require('./exams'));
+router.use('/programmes',           require('./programmes'));
+router.use('/departments',          require('./departments'));
 router.use('/students',             require('./students'));
 router.use('/results',              require('./results'));
 router.use('/attendance',           require('./attendance'));

@@ -46,20 +46,16 @@ router.get('/dashboard', only, async (req, res, next) => {
     const [courseCount]     = await db.select({ c: sql`count(*)::int` }).from(courses);
     const [resultsCount]    = await db.select({ c: sql`count(*)::int` }).from(results).where(eq(results.status, 'published'));
 
-    // Revenue (verified payments)
     const [revenue] = await db
       .select({ total: sql`COALESCE(SUM(${payments.amount}), 0)::numeric` })
       .from(payments)
       .where(eq(payments.status, 'verified'));
 
-    // Outstanding fees — sum across all students of (fee total - verified payments)
-    // Approximated by summing unpaid amounts
     const [outstanding] = await db
       .select({ total: sql`COALESCE(SUM(${payments.amount}), 0)::numeric` })
       .from(payments)
       .where(eq(payments.status, 'pending'));
 
-    // Monthly applications (last 6 months)
     const trend = await db
       .select({
         month: sql`to_char(date_trunc('month', ${applications.createdAt}), 'Mon YYYY')`,
@@ -73,7 +69,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       .orderBy(desc(sql`date_trunc('month', ${applications.createdAt})`))
       .limit(6);
 
-    // Enrollment by department
     const enrollment = await db
       .select({
         code: departments.code,
@@ -85,18 +80,12 @@ router.get('/dashboard', only, async (req, res, next) => {
       .groupBy(departments.code, departments.name)
       .orderBy(desc(sql`count(${users.id})`));
 
-    // Enrollment by level (ND1, ND2, HND1, HND2)
     const levelEnrollment = await db
-      .select({
-        level: users.level,
-        levelNum: users.level,  // may need custom logic
-        count: sql`count(*)::int`,
-      })
+      .select({ level: users.level, count: sql`count(*)::int` })
       .from(users)
       .where(eq(users.role, 'student'))
       .groupBy(users.level);
 
-    // Revenue trend (last 6 months)
     const revenueTrend = await db
       .select({
         month: sql`to_char(date_trunc('month', ${payments.createdAt}), 'Mon YYYY')`,
@@ -111,7 +100,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       .orderBy(desc(sql`date_trunc('month', ${payments.createdAt})`))
       .limit(6);
 
-    // Library overdue count
     const [overdueBooks] = await db
       .select({ c: sql`count(*)::int` })
       .from(borrowRecords)
@@ -149,15 +137,56 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/rector/recent-activity
+// GET /api/rector/graduation-pipeline
+// ============================================================
+router.get('/graduation-pipeline', only, async (req, res, next) => {
+  try {
+    const [queued]    = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'pending'));
+    const [approved]  = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'approved'));
+    const [graduated] = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'graduated'));
+    const [rejected]  = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'rejected'));
+
+    return res.json({
+      success: true,
+      data: {
+        queued: queued.c,
+        approved: approved.c,
+        graduated: graduated.c,
+        rejected: rejected.c,
+        total: queued.c + approved.c + graduated.c + rejected.c,
+      },
+    });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/rector/staff-composition
 // ------------------------------------------------------------
-// Last 10 events across the institution
+// Staff grouped by role
+// ============================================================
+router.get('/staff-composition', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        role: users.role,
+        c: sql`count(*)::int`,
+      })
+      .from(users)
+      .where(inArray(users.role, STAFF_ROLES))
+      .groupBy(users.role)
+      .orderBy(desc(sql`count(*)`));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/rector/recent-activity
 // ============================================================
 router.get('/recent-activity', only, async (req, res, next) => {
   try {
     const limit = Number(req.query.limit) || 10;
 
-    // Recent applications
     const recentApps = await db
       .select({
         type: sql`'application'`,
@@ -170,7 +199,6 @@ router.get('/recent-activity', only, async (req, res, next) => {
       .orderBy(desc(applications.createdAt))
       .limit(3);
 
-    // Recent verified payments
     const recentPays = await db
       .select({
         type: sql`'payment'`,
@@ -185,7 +213,6 @@ router.get('/recent-activity', only, async (req, res, next) => {
       .orderBy(desc(payments.verifiedAt))
       .limit(3);
 
-    // Recent registered students
     const recentReg = await db
       .select({
         type: sql`'student'`,
@@ -199,7 +226,6 @@ router.get('/recent-activity', only, async (req, res, next) => {
       .orderBy(desc(users.createdAt))
       .limit(3);
 
-    // Recent complaints
     const recentComplaints = await db
       .select({
         type: sql`'complaint'`,
@@ -212,7 +238,6 @@ router.get('/recent-activity', only, async (req, res, next) => {
       .orderBy(desc(complaints.createdAt))
       .limit(3);
 
-    // Merge all, sort by time, take top N
     const all = [...recentApps, ...recentPays, ...recentReg, ...recentComplaints]
       .filter((x) => x.at)
       .sort((a, b) => new Date(b.at) - new Date(a.at))
@@ -268,26 +293,21 @@ router.get('/admission-trend', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/rector/reports/summary
-// ------------------------------------------------------------
-// Full report: enrollment, revenue, results, graduation stats
 // ============================================================
 router.get('/reports/summary', only, async (req, res, next) => {
   try {
-    // Enrollment by level
     const byLevel = await db
       .select({ level: users.level, c: sql`count(*)::int` })
       .from(users)
       .where(eq(users.role, 'student'))
       .groupBy(users.level);
 
-    // Gender distribution
     const byGender = await db
       .select({ gender: users.gender, c: sql`count(*)::int` })
       .from(users)
       .where(eq(users.role, 'student'))
       .groupBy(users.gender);
 
-    // Students by state of origin (top 10)
     const byState = await db
       .select({ state: users.stateOfOrigin, c: sql`count(*)::int` })
       .from(users)
@@ -296,21 +316,10 @@ router.get('/reports/summary', only, async (req, res, next) => {
       .orderBy(desc(sql`count(*)`))
       .limit(10);
 
-    // Graduation queue
-    const [gradQueue] = await db
-      .select({ c: sql`count(*)::int` })
-      .from(graduations)
-      .where(eq(graduations.status, 'pending'));
-    const [gradApproved] = await db
-      .select({ c: sql`count(*)::int` })
-      .from(graduations)
-      .where(eq(graduations.status, 'approved'));
-    const [gradGraduated] = await db
-      .select({ c: sql`count(*)::int` })
-      .from(graduations)
-      .where(eq(graduations.status, 'graduated'));
+    const [gradQueue] = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'pending'));
+    const [gradApproved] = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'approved'));
+    const [gradGraduated] = await db.select({ c: sql`count(*)::int` }).from(graduations).where(eq(graduations.status, 'graduated'));
 
-    // Total revenue by status
     const revenueByStatus = await db
       .select({
         status: payments.status,
@@ -320,13 +329,11 @@ router.get('/reports/summary', only, async (req, res, next) => {
       .from(payments)
       .groupBy(payments.status);
 
-    // Applications by status
     const appsByStatus = await db
       .select({ status: applications.status, c: sql`count(*)::int` })
       .from(applications)
       .groupBy(applications.status);
 
-    // Results by status
     const resultsByStatus = await db
       .select({ status: results.status, c: sql`count(*)::int` })
       .from(results)

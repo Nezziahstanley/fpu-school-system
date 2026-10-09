@@ -283,8 +283,14 @@
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
-    const adminOnly = ['admin-settings', 'admin-users', 'admin-audit'];
+    // Pages restricted to admin-only roles. Rector also has read access to the audit log.
+    const adminOnly = ['admin-settings', 'admin-users'];
     if (adminOnly.includes(cleanKey) && role !== 'admin' && role !== 'superadmin') {
+      return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
+    }
+
+    // Audit log is admin + rector
+    if (cleanKey === 'admin-audit' && !['admin', 'superadmin', 'rector'].includes(role)) {
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 

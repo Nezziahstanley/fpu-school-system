@@ -100,6 +100,8 @@ router.use('/results',              require('./results'));
 router.use('/attendance',           require('./attendance'));
 router.use('/registrations',        require('./registrations'));
 router.use('/allocations',          require('./allocations'));
+router.use('/transcript',           require('./transcript'));
+router.use('/audit',                require('./audit'));
 
 // ------------------------------------------------------------
 // Portal — shared

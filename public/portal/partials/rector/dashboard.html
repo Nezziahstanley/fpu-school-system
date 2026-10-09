@@ -34,8 +34,10 @@
     </div>
   </div>
 
-  <!-- STAT TILES (8) -->
+  <!-- STAT TILES (row 1 — main KPIs) -->
   <div id="rector-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:.75rem;"></div>
+
+  <!-- STAT TILES (row 2 — secondary) -->
   <div id="rector-stats-2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
 
   <!-- QUICK ACTIONS -->
@@ -89,7 +91,7 @@
     </a>
   </div>
 
-  <!-- ROW 1: Enrollment + Trend -->
+  <!-- ROW 1: Enrollment by Department + Admission Trend -->
   <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
@@ -135,7 +137,30 @@
     </div>
   </div>
 
-  <!-- ROW 3: Pending Work + Recent Activity -->
+  <!-- ROW 3: Graduation Pipeline + Staff Composition -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🎓 Graduation Pipeline</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Students progressing to convocation</div>
+      </div>
+      <div id="rector-grad-pipeline" style="padding:1rem;">
+        <div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">👔 Staff Composition</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Workforce breakdown by role</div>
+      </div>
+      <div id="rector-staff-comp" style="padding:1rem;">
+        <div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Pending Work + Recent Activity -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
 
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
@@ -189,6 +214,9 @@
   };
   const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
+  // ============================================================
+  // MAIN LOADER
+  // ============================================================
   async function load() {
     const user = core.getPortalUser ? core.getPortalUser() : {};
     if ($('rector-name')) {
@@ -201,20 +229,20 @@
       const res = await core.portalFetch('/api/rector/dashboard');
       const d = res.data || res || {};
 
-      // Stat tiles — row 1 (main KPIs)
+      // Row 1 tiles
       const tiles1 = [
-        { label: 'Total Students',  value: d.students ?? 0,              bg: '#d1fae5', fg: '#065f46', icon: '👥' },
-        { label: 'Total Staff',     value: d.staff ?? 0,                 bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
-        { label: 'Revenue',         value: fmtMoneyShort(d.revenue ?? 0), bg: '#ede9fe', fg: '#5b21b6', icon: '💰', full: fmtMoney(d.revenue ?? 0) },
-        { label: 'Pending Apps',    value: d.pendingApplications ?? 0,   bg: '#fef3c7', fg: '#92400e', icon: '📋' },
+        { label: 'Total Students', value: d.students ?? 0,               bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff',    value: d.staff ?? 0,                  bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Revenue',        value: fmtMoneyShort(d.revenue ?? 0), bg: '#ede9fe', fg: '#5b21b6', icon: '💰', full: fmtMoney(d.revenue ?? 0) },
+        { label: 'Pending Apps',   value: d.pendingApplications ?? 0,    bg: '#fef3c7', fg: '#92400e', icon: '📋' },
       ];
 
-      // Stat tiles — row 2 (secondary)
+      // Row 2 tiles
       const tiles2 = [
-        { label: 'Programmes',   value: d.programmes ?? 0,          bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
-        { label: 'Courses',      value: d.courses ?? 0,             bg: '#d1fae5', fg: '#065f46', icon: '📖' },
-        { label: 'Outstanding',  value: fmtMoneyShort(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
-        { label: 'Overdue Books',value: d.overdueBooks ?? 0,        bg: '#fee2e2', fg: '#991b1b', icon: '📚' },
+        { label: 'Programmes',    value: d.programmes ?? 0,                    bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
+        { label: 'Courses',       value: d.courses ?? 0,                       bg: '#d1fae5', fg: '#065f46', icon: '📖' },
+        { label: 'Outstanding',   value: fmtMoneyShort(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
+        { label: 'Overdue Books', value: d.overdueBooks ?? 0,                  bg: '#fee2e2', fg: '#991b1b', icon: '📚' },
       ];
 
       const renderTile = (t) => `
@@ -233,20 +261,118 @@
         $('rector-session').textContent = d.currentSession.name;
       }
 
+      // Render all panels
       renderEnrollment(d.enrollmentByDepartment || []);
       renderTrend(d.admissionTrend || []);
       renderRevenueTrend(d.revenueTrend || []);
       renderLevels(d.enrollmentByLevel || []);
       renderPending(d);
 
-      // Load recent activity separately
-      loadActivity();
+      // Load extra panels in parallel
+      Promise.all([
+        loadActivity(),
+        loadGradPipeline(),
+        loadStaffComposition(),
+      ]);
     } catch (err) {
       console.error('[rector/dashboard]', err);
       core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
     }
   }
 
+  // ============================================================
+  // GRADUATION PIPELINE
+  // ============================================================
+  async function loadGradPipeline() {
+    const box = $('rector-grad-pipeline');
+    try {
+      const res = await core.portalFetch('/api/rector/graduation-pipeline');
+      const d = res.data || {};
+
+      const rows = [
+        { label: 'Queued',    value: d.queued || 0,    bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
+        { label: 'Approved',  value: d.approved || 0,  bg: '#dbeafe', fg: '#1e40af', icon: '✅' },
+        { label: 'Graduated', value: d.graduated || 0, bg: '#d1fae5', fg: '#065f46', icon: '🎓' },
+        { label: 'Rejected',  value: d.rejected || 0,  bg: '#fee2e2', fg: '#991b1b', icon: '✕' },
+      ];
+
+      box.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.65rem;">
+          ${rows.map((r) => `
+            <div style="background:${r.bg};border-radius:8px;padding:.65rem .75rem;">
+              <div style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;font-weight:700;color:${r.fg};">
+                <span>${r.icon}</span><span>${r.label}</span>
+              </div>
+              <div style="font-size:1.3rem;font-weight:800;color:${r.fg};line-height:1;margin-top:.25rem;">${r.value}</div>
+            </div>`).join('')}
+        </div>
+        <div style="padding:.5rem .75rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:.75rem;color:#14532d;text-align:center;font-weight:600;">
+          ${d.total || 0} total graduation records
+        </div>`;
+    } catch (err) {
+      box.innerHTML = `<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem;">Not available.</div>`;
+    }
+  }
+
+  // ============================================================
+  // STAFF COMPOSITION
+  // ============================================================
+  async function loadStaffComposition() {
+    const box = $('rector-staff-comp');
+    try {
+      const res = await core.portalFetch('/api/rector/staff-composition');
+      const rows = res.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem;">No staff data.</div>';
+        return;
+      }
+
+      const total = rows.reduce((n, r) => n + Number(r.c || 0), 0);
+      const max = Math.max(...rows.map((r) => Number(r.c || 0)), 1);
+      const ROLE_META = {
+        lecturer:          { bg: '#d1fae5', fg: '#065f46', icon: '📚' },
+        hod:               { bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        bursar:            { bg: '#fef3c7', fg: '#92400e', icon: '💰' },
+        rector:            { bg: '#ede9fe', fg: '#5b21b6', icon: '🎓' },
+        registrar:         { bg: '#fce7f3', fg: '#9d174d', icon: '📋' },
+        librarian:         { bg: '#fef3c7', fg: '#78350f', icon: '📚' },
+        exam_officer:      { bg: '#e0e7ff', fg: '#3730a3', icon: '📝' },
+        academic_officer:  { bg: '#dbeafe', fg: '#1e40af', icon: '🎯' },
+        admission_officer: { bg: '#ecfdf5', fg: '#065f46', icon: '📋' },
+        admin:             { bg: '#fee2e2', fg: '#991b1b', icon: '🛡️' },
+      };
+      const pretty = (s) => String(s || 'other').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+      box.innerHTML = rows.map((r) => {
+        const value = Number(r.c || 0);
+        const pct = Math.round((value / max) * 100);
+        const meta = ROLE_META[r.role] || { bg: '#f1f5f9', fg: '#475569', icon: '👤' };
+        return `
+          <div style="margin-bottom:.6rem;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.25rem;align-items:center;">
+              <span style="font-size:.78rem;color:#334155;font-weight:600;display:flex;align-items:center;gap:.35rem;">
+                <span style="font-size:.9rem;">${meta.icon}</span>
+                ${esc(pretty(r.role))}
+              </span>
+              <span style="font-size:.78rem;font-weight:800;color:#0f172a;">${value}</span>
+            </div>
+            <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${meta.fg};border-radius:99px;"></div>
+            </div>
+          </div>`;
+      }).join('') + `
+        <div style="padding:.5rem .75rem;margin-top:.5rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:.75rem;color:#1e40af;text-align:center;font-weight:600;">
+          ${total} staff members total
+        </div>`;
+    } catch (err) {
+      box.innerHTML = `<div style="text-align:center;padding:1.5rem;color:#94a3b8;font-size:.82rem;">Not available.</div>`;
+    }
+  }
+
+  // ============================================================
+  // RECENT ACTIVITY
+  // ============================================================
   async function loadActivity() {
     try {
       const res = await core.portalFetch('/api/rector/recent-activity?limit=10');
@@ -284,6 +410,9 @@
     }).join('');
   }
 
+  // ============================================================
+  // ENROLLMENT BY DEPARTMENT
+  // ============================================================
   function renderEnrollment(rows) {
     const box = $('rector-enrollment');
     if (!rows || !rows.length) {
@@ -314,6 +443,9 @@
     }).join('');
   }
 
+  // ============================================================
+  // ADMISSION TREND
+  // ============================================================
   function renderTrend(rows) {
     const box = $('rector-trend');
     if (!rows || !rows.length) {
@@ -339,6 +471,9 @@
       </div>`;
   }
 
+  // ============================================================
+  // REVENUE TREND
+  // ============================================================
   function renderRevenueTrend(rows) {
     const box = $('rector-revenue');
     if (!rows || !rows.length) {
@@ -364,6 +499,9 @@
       </div>`;
   }
 
+  // ============================================================
+  // ENROLLMENT BY LEVEL
+  // ============================================================
   function renderLevels(rows) {
     const box = $('rector-levels');
     if (!rows || !rows.length) {
@@ -392,6 +530,9 @@
       </div>`;
   }
 
+  // ============================================================
+  // PENDING WORK
+  // ============================================================
   function renderPending(d) {
     const rows = [
       { label: 'Pending Applications',  value: d.pendingApplications || 0, hint: 'Awaiting admission officer review', icon: '📋', bg: '#fef3c7', fg: '#92400e' },

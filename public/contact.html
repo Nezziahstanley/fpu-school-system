@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -12,19 +12,30 @@
 </head>
 <body>
 
+    <!-- ============ NAVBAR ============ -->
   <header class="navbar">
     <div class="container navbar-inner">
-      <a href="/" class="logo"><img src="/images/logo.png" alt="FPU" class="site-logo" /></a>
+      <a href="/" class="brand">
+        <img src="/images/logo.png" alt="Federal Polytechnic Ugep" class="site-logo" />
+        <span class="brand-text">
+          <span class="brand-name">FEDERAL POLYTECHNIC UGEP</span>
+          <span class="brand-motto">Knowledge · Skills · Service</span>
+        </span>
+      </a>
+
       <nav class="nav-links" id="navLinks">
-        <li><a href="/">Home</a></li>
-        <li class="has-dropdown"><a href="/about.html">About</a>
+        <li><a href="/" class="active">Home</a></li>
+        <li class="has-dropdown">
+          <a href="/about.html">About</a>
           <ul class="dropdown-menu">
             <li><a href="/about.html">About FPU</a></li>
             <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/about.html#campus">Our Campuses</a></li>
             <li><a href="/administration.html">Administration</a></li>
           </ul>
         </li>
-        <li class="has-dropdown"><a href="/programmes.html">Programmes</a>
+        <li class="has-dropdown">
+          <a href="/programmes.html">Programmes</a>
           <ul class="dropdown-menu">
             <li><a href="/nd.html">ND Programmes</a></li>
             <li><a href="/hnd.html">HND Programmes</a></li>
@@ -32,13 +43,32 @@
         </li>
         <li><a href="/apply-status.html">Check Status</a></li>
         <li><a href="/announcements.html">News</a></li>
-        <li><a href="/contact.html" class="active">Contact</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+        <li class="mobile-auth">
+          <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+          <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        </li>
       </nav>
+
       <div class="nav-auth">
+        <button class="search-toggle" id="searchToggle" aria-label="Search" aria-expanded="false" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="M20 20l-3.5-3.5"/>
+          </svg>
+        </button>
         <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
         <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
-        <button class="menu-toggle" id="menuToggle">☰</button>
       </div>
+
+      <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" type="button">☰</button>
+    </div>
+
+    <div class="search-panel" id="searchPanel">
+      <form id="siteSearchForm" action="/programmes.html" method="get">
+        <input type="search" name="q" id="siteSearchInput" placeholder="Search programmes, news, or pages…" autocomplete="off" />
+        <button type="submit">Search</button>
+      </form>
     </div>
   </header>
 
@@ -155,11 +185,7 @@
   <script src="/js/main.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    document.getElementById('menuToggle')?.addEventListener('click', () => {
-      document.getElementById('navLinks')?.classList.toggle('active');
-    });
-
-    async function handleContact(event) {
+async function handleContact(event) {
       event.preventDefault();
       const form = event.target;
       const alertBox = document.getElementById('form-alert');

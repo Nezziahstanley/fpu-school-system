@@ -39,13 +39,60 @@ router.get('/dashboard', only, async (_req, res, next) => {
 
     const pendingClearances = await clearQueries.countByStatus({});
 
+    // ---- today's payments ----
+    const [todayRow] = await db
+      .select({
+        count: sql`count(*)::int`,
+        total: sql`coalesce(sum(${payments.amount}),0)::numeric`,
+      })
+      .from(payments)
+      .where(sql`${payments.createdAt} >= current_date`);
+
+    // ---- recent payments (last 5, joined to student) ----
+    let recentPayments = [];
+    try {
+      const rows = await paymentQueries.listWithStudent({ limit: 5 });
+      recentPayments = (rows || []).map((r) => {
+        // listWithStudent returns { payment, student } or a flat row; normalize.
+        const p = r.payment || r;
+        const s = r.student || r.studentInfo || {};
+        return {
+          id: p.id,
+          amount: Number(p.amount || 0),
+          status: p.status || '',
+          reference: p.reference || p.referenceNo || '',
+          createdAt: p.createdAt,
+          method: p.method || p.paymentMethod || '',
+          studentName:
+            [s.firstName, s.lastName].filter(Boolean).join(' ') ||
+            s.fullName || s.email ||
+            p.studentName || 'Student',
+        };
+      });
+    } catch (e) {
+      recentPayments = [];
+    }
+
+    const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
+    const clearMap  = pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
+
     return res.json({
       success: true,
       data: {
-        byStatus: byStatus.reduce((a, r) => ({ ...a, [r.status]: r.c }) , {}),
-        totalVerified: Number(totalVerified?.total || 0),
-        totalPending: Number(totalPending?.total || 0),
-        pendingClearances: pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.c }), {}),
+        // stat cards
+        todayPayments:  Number(todayRow?.count || 0),
+        todayAmount:    Number(todayRow?.total || 0),
+        pendingCount:   Number(statusMap.pending || 0),
+        totalVerified:  Number(totalVerified?.total || 0),
+        totalPending:   Number(totalPending?.total || 0),
+        clearancesAwaiting: Number(clearMap.pending || 0),
+
+        // status breakdown
+        byStatus: statusMap,
+        pendingClearances: clearMap,
+
+        // recent payments table
+        recentPayments,
       },
     });
   } catch (err) {

@@ -14,10 +14,23 @@
 </section>
 
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Today's Payments</div><div class="tile-value" id="bur-t-today">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Pending Verifications</div><div class="tile-value" id="bur-t-pending">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Total Collected (₦)</div><div class="tile-value" id="bur-t-total">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Clearances Awaiting</div><div class="tile-value" id="bur-t-clear">—</div></div>
+  <div class="tile">
+    <div class="tile-label">Today's Payments</div>
+    <div class="tile-value" id="bur-t-today">—</div>
+    <div class="muted small" id="bur-t-today-amt">&nbsp;</div>
+  </div>
+  <div class="tile tile-blue">
+    <div class="tile-label">Pending Verifications</div>
+    <div class="tile-value" id="bur-t-pending">—</div>
+  </div>
+  <div class="tile tile-accent">
+    <div class="tile-label">Total Collected (₦)</div>
+    <div class="tile-value" id="bur-t-total">—</div>
+  </div>
+  <div class="tile tile-purple">
+    <div class="tile-label">Clearances Awaiting</div>
+    <div class="tile-value" id="bur-t-clear">—</div>
+  </div>
 </div>
 
 <div class="quick-actions">
@@ -28,7 +41,10 @@
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Recent Payments</h3></div>
+  <div class="panel-head">
+    <h3>Recent Payments</h3>
+    <a class="btn btn-outline btn-sm" href="#bursar-payments">View all →</a>
+  </div>
   <div class="panel-body">
     <div id="bur-recent-list" class="muted small">Loading…</div>
   </div>
@@ -41,56 +57,118 @@
   </div>
 </div>
 
+<style>
+  .bur-tbl { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .bur-tbl th {
+    text-align: left; padding: .55rem .5rem; font-size: .68rem;
+    font-weight: 800; color: #64748b; text-transform: uppercase;
+    letter-spacing: .05em; border-bottom: 2px solid #e5e7eb;
+  }
+  .bur-tbl td { padding: .65rem .5rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
+  .bur-tbl tr:last-child td { border-bottom: none; }
+  .bur-amt { font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; }
+  .bur-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .bur-chip.verified  { background: #d1fae5; color: #065f46; }
+  .bur-chip.pending   { background: #fef3c7; color: #92400e; }
+  .bur-chip.rejected  { background: #fee2e2; color: #991b1b; }
+  .bur-chip.other     { background: #f1f5f9; color: #475569; }
+  .bur-row { display: flex; justify-content: space-between; padding: .55rem 0; border-bottom: 1px dashed #e5e7eb; font-size: .85rem; }
+  .bur-row:last-child { border-bottom: none; }
+  .bur-row span { color: #64748b; }
+  .bur-row strong { color: #0f172a; font-variant-numeric: tabular-nums; }
+  .bur-empty { padding: 1.5rem 1rem; text-align: center; color: #94a3b8; font-size: .85rem; }
+  .bur-err {
+    padding: .85rem 1rem; background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 10px; color: #991b1b; font-size: .82rem;
+  }
+</style>
+
 <script>
   (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
+    'use strict';
+    var core = window.FPU_PORTAL || {};
+    var photo = window.FPU_PHOTO;
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+    var money = function (n) {
+      return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString();
+    };
+    var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+    var user = (core.getPortalUser && core.getPortalUser()) || {};
+
+    // Greeting + avatar
     try {
-      document.getElementById('bur-dash-name').textContent = user.firstName || 'Bursar';
-      if (photo) photo.renderMyAvatar(document.getElementById('bur-dash-avatar'), user);
-
-      // Payment stats
-      try {
-        const s = await core.portalFetch('/api/payments/stats');
-        const d = s.data || s || {};
-        document.getElementById('bur-t-today').textContent  = d.today ?? 0;
-        document.getElementById('bur-t-pending').textContent = d.pending ?? 0;
-        document.getElementById('bur-t-total').textContent   = (d.totalAmount || 0).toLocaleString();
-        document.getElementById('bur-stats-block').innerHTML = `
-          <div class="fees-breakdown">
-            <div class="fees-row"><span>Verified today</span><strong>${d.todayVerified || 0}</strong></div>
-            <div class="fees-row"><span>Pending verification</span><strong>${d.pending || 0}</strong></div>
-            <div class="fees-row"><span>Rejected</span><strong>${d.rejected || 0}</strong></div>
-            <div class="fees-row"><span>Total collected</span><strong>₦${(d.totalAmount||0).toLocaleString()}</strong></div>
-          </div>`;
-      } catch {
-        document.getElementById('bur-stats-block').innerHTML = '<em>Stats unavailable.</em>';
+      var firstName = user.firstName || user.first_name || 'Bursar';
+      $('bur-dash-name').textContent = firstName;
+      if (photo && photo.renderMyAvatar) {
+        photo.renderMyAvatar($('bur-dash-avatar'), user);
       }
+    } catch (e) { /* non-fatal */ }
 
-      // Clearances waiting
-      try {
-        const c = await core.portalFetch('/api/clearances/stats');
-        const d = c.data || c || {};
-        document.getElementById('bur-t-clear').textContent = d.pending ?? 0;
-      } catch { document.getElementById('bur-t-clear').textContent = '—'; }
+    function chip(status) {
+      var s = String(status || '').toLowerCase();
+      var cls = ['verified', 'pending', 'rejected'].indexOf(s) >= 0 ? s : 'other';
+      return '<span class="bur-chip ' + cls + '">' + esc(s || '—') + '</span>';
+    }
 
-      // Recent payments
-      try {
-        const p = await core.portalFetch('/api/payments?limit=5');
-        const list = p.data || p || [];
-        document.getElementById('bur-recent-list').innerHTML = list.length
-          ? list.slice(0,5).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.studentName || 'Student'}</strong> — ₦${(x.amount||0).toLocaleString()}
-                 <span class="muted small">· ${x.status || ''} · ${x.reference || ''}</span>
-               </div>`).join('')
-          : '<em>No recent payments.</em>';
-      } catch {
-        document.getElementById('bur-recent-list').innerHTML = '<em>Could not load payments.</em>';
+    try {
+      var res = await core.portalFetch('/api/bursar/dashboard');
+      var d = (res && res.data) || {};
+
+      // ---- Stat tiles ----
+      $('bur-t-today').textContent  = d.todayPayments != null ? d.todayPayments : 0;
+      $('bur-t-today-amt').textContent = d.todayAmount ? money(d.todayAmount) + ' today' : '\u00A0';
+      $('bur-t-pending').textContent = d.pendingCount != null ? d.pendingCount : 0;
+      $('bur-t-total').textContent   = Number(d.totalVerified || 0).toLocaleString();
+      $('bur-t-clear').textContent   = d.clearancesAwaiting != null ? d.clearancesAwaiting : 0;
+
+      // ---- Payment stats block ----
+      var statsHtml = ''
+        + '<div class="bur-row"><span>Verified amount</span><strong>' + esc(money(d.totalVerified || 0)) + '</strong></div>'
+        + '<div class="bur-row"><span>Pending amount</span><strong>' + esc(money(d.totalPending || 0)) + '</strong></div>'
+        + '<div class="bur-row"><span>Pending count</span><strong>' + esc(d.pendingCount || 0) + '</strong></div>'
+        + '<div class="bur-row"><span>Verified count</span><strong>' + esc((d.byStatus && d.byStatus.verified) || 0) + '</strong></div>'
+        + '<div class="bur-row"><span>Rejected count</span><strong>' + esc((d.byStatus && d.byStatus.rejected) || 0) + '</strong></div>'
+        + '<div class="bur-row"><span>Clearances awaiting</span><strong>' + esc(d.clearancesAwaiting || 0) + '</strong></div>';
+      $('bur-stats-block').innerHTML = statsHtml;
+
+      // ---- Recent payments table ----
+      var rows = Array.isArray(d.recentPayments) ? d.recentPayments : [];
+      if (!rows.length) {
+        $('bur-recent-list').innerHTML = '<div class="bur-empty">No recent payments recorded.</div>';
+      } else {
+        var tbl = ''
+          + '<table class="bur-tbl">'
+          + '<thead><tr>'
+          +   '<th>Student</th>'
+          +   '<th>Reference</th>'
+          +   '<th style="text-align:right;">Amount</th>'
+          +   '<th>Status</th>'
+          +   '<th>Date</th>'
+          + '</tr></thead>'
+          + '<tbody>';
+        rows.forEach(function (p) {
+          tbl += '<tr>'
+            + '<td>' + esc(p.studentName || 'Student') + '</td>'
+            + '<td style="font-family:ui-monospace,monospace;font-size:.75rem;color:#64748b;">' + esc(p.reference || '—') + '</td>'
+            + '<td class="bur-amt" style="text-align:right;">' + esc(money(p.amount || 0)) + '</td>'
+            + '<td>' + chip(p.status) + '</td>'
+            + '<td style="color:#94a3b8;font-size:.78rem;">' + esc(timeAgo(p.createdAt) || '') + '</td>'
+            + '</tr>';
+        });
+        tbl += '</tbody></table>';
+        $('bur-recent-list').innerHTML = tbl;
       }
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      var msg = (err && err.message) || 'Failed to load dashboard.';
+      $('bur-stats-block').innerHTML = '<div class="bur-err">⚠️ ' + esc(msg) + '</div>';
+      $('bur-recent-list').innerHTML = '<div class="bur-err">⚠️ ' + esc(msg) + '</div>';
+      if (core.showToast) core.showToast(msg, 'error');
     }
   })();
 </script>

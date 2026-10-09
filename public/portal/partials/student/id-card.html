@@ -42,64 +42,98 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  // FPU colors
+  const FPU = {
+    primary:  '#065f46',   // dark green
+    accent:   '#10b981',   // emerald
+    dark:     '#064e3b',   // deep green (for strip)
+    light:    '#d1fae5',   // pale green
+    text:     '#0f172a',
+    muted:    '#64748b',
+    white:    '#ffffff',
+  };
+
   // -------- Inject card + print CSS once --------
   if (!document.getElementById('si-print-style')) {
     const style = document.createElement('style');
     style.id = 'si-print-style';
     style.textContent = `
-      .si-card {
+      .si-front, .si-back {
         position: relative;
         width: 340px;
         height: 540px;
         max-width: 100%;
-        margin: 0 auto;
+        margin: 0 auto 1.25rem;
         background: #ffffff;
         border-radius: 14px;
         overflow: hidden;
-        box-shadow: 0 20px 50px rgba(6,95,70,.25);
+        box-shadow: 0 20px 50px rgba(6,95,70,.22);
         border: 1px solid #e5e7eb;
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      /* Background flowing waves (top-right and bottom-left) */
-      .si-card .si-wave-top {
+      .si-back { display: none; }
+
+      /* FRONT LAYOUT
+         - top-left: green triangle strip
+         - top-right: logo
+         - middle-left: photo
+         - name / role below photo
+         - icon detail rows
+         - bottom-right: QR
+         - bottom-left: green diagonal corner
+      */
+      .si-front-bg {
         position: absolute;
-        top: -40px; right: -70px;
-        width: 260px; height: 260px;
-        border-radius: 50%;
-        background: radial-gradient(circle at 30% 30%, rgba(6,95,70,.10), rgba(16,185,129,.02) 70%);
-        pointer-events: none;
+        inset: 0;
+        overflow: hidden;
       }
-      .si-card .si-wave-mid {
+      /* Top-left green triangle */
+      .si-front-bg::before {
+        content: "";
         position: absolute;
-        top: 140px; right: -120px;
-        width: 300px; height: 120px;
-        background: linear-gradient(160deg, rgba(6,95,70,.06), transparent);
-        transform: rotate(-18deg);
-        pointer-events: none;
+        top: 0; left: 0;
+        width: 62%; height: 58%;
+        background: linear-gradient(135deg, ${FPU.primary} 0%, ${FPU.accent} 100%);
+        clip-path: polygon(0 0, 100% 0, 0 100%);
+        opacity: .10;
       }
-      .si-card .si-wave-bottom {
+      /* Bottom-left green corner wave */
+      .si-front-bg::after {
+        content: "";
         position: absolute;
-        bottom: -60px; left: -80px;
-        width: 300px; height: 300px;
-        border-radius: 50%;
-        background: radial-gradient(circle at 60% 40%, rgba(6,95,70,.14), rgba(16,185,129,.03) 70%);
-        pointer-events: none;
+        bottom: 0; left: 0;
+        width: 60%; height: 38%;
+        background: linear-gradient(135deg, ${FPU.primary} 0%, ${FPU.accent} 100%);
+        clip-path: polygon(0 0, 0 100%, 100% 100%);
+        opacity: .12;
       }
-      .si-card .si-curve {
+      /* Colored left band — vertical */
+      .si-front-band {
         position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 90px;
-        background: linear-gradient(135deg, #065f46, #047857);
-        border-top-left-radius: 60% 40px;
-        border-top-right-radius: 40% 20px;
-        pointer-events: none;
+        top: 0; left: 0; bottom: 0;
+        width: 6px;
+        background: linear-gradient(180deg, ${FPU.primary}, ${FPU.accent});
+        z-index: 2;
       }
-      .si-card .si-content {
+
+      .si-front-content {
         position: relative;
-        z-index: 1;
+        z-index: 3;
+        height: 100%;
         display: flex;
         flex-direction: column;
+        padding: .85rem .95rem;
+      }
+
+      .si-back-content {
+        position: relative;
+        z-index: 3;
         height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem;
+        text-align: center;
       }
 
       @media print {
@@ -108,15 +142,8 @@
         #si-card, #si-card * { visibility: visible; }
         #si-card { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
         .filter-bar, .greeting, .panel-head, #si-lost-panel { display: none !important; }
-        .si-card {
-          width: 54mm;
-          height: 85.6mm;
-          box-shadow: none;
-          border: none;
-          border-radius: 3mm;
-          margin: 0 auto;
-          page-break-inside: avoid;
-        }
+        .si-front { display: block; width: 54mm; height: 85.6mm; margin: 0 auto; box-shadow: none; border: none; border-radius: 3mm; page-break-after: always; }
+        .si-back  { display: block; width: 54mm; height: 85.6mm; margin: 0 auto; box-shadow: none; border: none; border-radius: 3mm; page-break-before: always; }
       }
     `;
     document.head.appendChild(style);
@@ -140,169 +167,209 @@
 
       const photo = d.photoUrl
         ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;"
-             onerror="this.parentNode.innerHTML='<span style=\\'font-size:2.2rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
-        : `<span style="font-size:2.2rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
+             onerror="this.parentNode.innerHTML='<span style=\\'font-size:2rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
+        : `<span style="font-size:2rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
 
       const qrImg = d.qrDataUrl
         ? `<img src="${d.qrDataUrl}" alt="QR code" style="width:100%;height:100%;display:block;" />`
-        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:7px;color:#94a3b8;">QR<br/>n/a</div>`;
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:6px;color:#94a3b8;">QR<br/>n/a</div>`;
 
-      const logoTop = `
+      const logoBig = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:26px;height:26px;object-fit:contain;"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:18px;'}))" />`;
-
-      const logoFooter = `
+             style="width:38px;height:38px;object-fit:contain;"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:22px;color:${FPU.primary};'}))" />`;
+      const logoSmall = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:18px;height:18px;object-fit:contain;filter:brightness(0) invert(1);"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:12px;color:#fff;'}))" />`;
+             style="width:20px;height:20px;object-fit:contain;"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:13px;color:${FPU.primary};'}))" />`;
 
+      // Simple SVG icons for detail rows
+      const ICON = {
+        id: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${FPU.primary}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="12" r="2"/><path d="M13 10h5M13 14h5"/></svg>`,
+        dept: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${FPU.primary}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>`,
+        level: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${FPU.primary}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+      };
+
+      const qrValue = d.qrDataUrl || '';
       box.innerHTML = `
         <div style="max-width:360px;margin:0 auto;">
 
-          <div class="si-card">
+          <!-- ══════════════════ FRONT ══════════════════ -->
+          <div class="si-front">
+            <div class="si-front-bg"></div>
+            <div class="si-front-band"></div>
 
-            <!-- Background decorations -->
-            <div class="si-wave-top"></div>
-            <div class="si-wave-mid"></div>
-            <div class="si-wave-bottom"></div>
-            <div class="si-curve"></div>
+            <div class="si-front-content">
 
-            <div class="si-content">
-
-              <!-- ═══ HEADER ═══ -->
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:.7rem .9rem .45rem;gap:.5rem;">
-                <div style="display:flex;align-items:center;gap:.55rem;min-width:0;">
-                  ${logoTop}
-                  <div style="min-width:0;">
-                    <div style="font-weight:800;font-size:11.5px;color:#065f46;letter-spacing:.04em;line-height:1.1;">
+              <!-- HEADER: brand left, logo right -->
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;">
+                <div>
+                  <div style="font-weight:800;font-size:12px;color:${FPU.primary};letter-spacing:.02em;line-height:1;">
+                    ${esc(shortName)}
+                  </div>
+                  <div style="font-size:6.5px;color:${FPU.muted};letter-spacing:.14em;text-transform:uppercase;margin-top:.2rem;">
+                    Polytechnic
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:.4rem;">
+                  ${logoBig}
+                  <div style="text-align:right;">
+                    <div style="font-size:7px;color:${FPU.muted};letter-spacing:.14em;text-transform:uppercase;font-weight:600;">
                       ${esc(shortName)}
                     </div>
-                    <div style="font-size:7.5px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">
-                      ${esc(fullInstName)}
+                    <div style="font-size:6px;color:${FPU.muted};letter-spacing:.08em;text-transform:uppercase;margin-top:1px;">
+                      Student ID
                     </div>
                   </div>
                 </div>
-                <div style="font-size:7px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;text-align:right;">
-                  <div>Student ID</div>
-                  <div style="font-weight:700;color:#065f46;font-size:8px;margin-top:.1rem;">${esc(d.session || '—')}</div>
-                </div>
               </div>
 
-              <!-- ═══ DIVIDER ═══ -->
-              <div style="height:2px;background:linear-gradient(90deg,#065f46,#10b981,#065f46);margin:0 .9rem;border-radius:2px;"></div>
-
-              <!-- ═══ PHOTO + QR ROW ═══ -->
-              <div style="display:flex;justify-content:space-between;padding:.85rem .9rem .55rem;gap:.75rem;">
-
-                <!-- PHOTO -->
+              <!-- PHOTO -->
+              <div style="margin-bottom:.7rem;">
                 <div style="
-                  width:118px;height:142px;
+                  width:130px;height:158px;
                   background:#f1f5f9;
-                  border-radius:10px;
-                  border:3px solid #065f46;
+                  border-radius:14px;
+                  border:3px solid ${FPU.primary};
                   overflow:hidden;
                   display:flex;align-items:center;justify-content:center;
-                  box-shadow:0 6px 16px rgba(6,95,70,.18);
-                  flex-shrink:0;
+                  box-shadow:0 6px 16px rgba(6,95,70,.20);
                 ">
                   ${photo}
                 </div>
-
-                <!-- QR -->
-                <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;flex-shrink:0;">
-                  <div style="
-                    width:74px;height:74px;
-                    padding:4px;
-                    background:#fff;
-                    border:1px solid #e2e8f0;
-                    border-radius:8px;
-                    box-shadow:0 2px 6px rgba(0,0,0,.05);
-                  ">
-                    ${qrImg}
-                  </div>
-                  <div style="font-size:6.5px;color:#64748b;margin-top:.25rem;text-align:center;letter-spacing:.05em;font-weight:700;line-height:1.2;">
-                    SCAN TO<br/>VERIFY
-                  </div>
-                </div>
-
               </div>
 
-              <!-- ═══ NAME + PROGRAMME ═══ -->
-              <div style="padding:0 .9rem .35rem;">
-                <div style="font-size:1.02rem;font-weight:800;color:#0f172a;line-height:1.1;text-transform:uppercase;letter-spacing:.01em;">
+              <!-- NAME + ROLE -->
+              <div style="margin-bottom:.7rem;">
+                <div style="font-size:1.02rem;font-weight:800;color:${FPU.primary};line-height:1.08;text-transform:uppercase;letter-spacing:.01em;">
                   ${esc(fullName)}
                 </div>
-                <div style="font-size:8.5px;color:#065f46;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-top:.15rem;">
+                <div style="font-size:8.5px;color:${FPU.muted};font-weight:600;letter-spacing:.16em;text-transform:uppercase;margin-top:.25rem;">
                   ${esc(d.programmeName || 'Student')}
                 </div>
               </div>
 
-              <!-- ═══ DETAIL ROWS ═══ -->
-              <div style="padding:.35rem .9rem .65rem;flex:1;">
-                <div style="
-                  display:grid;
-                  grid-template-columns:52px 1fr;
-                  gap:.35rem .55rem;
-                  font-size:9px;
-                  align-items:center;
-                ">
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Matric</div>
-                  <div style="color:#0f172a;font-weight:700;font-family:ui-monospace,monospace;font-size:8.5px;">${esc(d.matricNumber || '—')}</div>
+              <!-- DETAIL ROWS with icons -->
+              <div style="display:flex;flex-direction:column;gap:.5rem;flex:1;">
+                <div style="display:flex;align-items:center;gap:.55rem;">
+                  <div style="width:22px;height:22px;border-radius:50%;background:${FPU.light};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    ${ICON.id}
+                  </div>
+                  <div style="min-width:0;">
+                    <div style="font-size:6.5px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;font-weight:600;line-height:1;">Matric</div>
+                    <div style="font-size:9.5px;color:${FPU.text};font-weight:700;font-family:ui-monospace,monospace;margin-top:.1rem;">${esc(d.matricNumber || '—')}</div>
+                  </div>
+                </div>
 
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Dept</div>
-                  <div style="color:#0f172a;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</div>
+                <div style="display:flex;align-items:center;gap:.55rem;">
+                  <div style="width:22px;height:22px;border-radius:50%;background:${FPU.light};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    ${ICON.dept}
+                  </div>
+                  <div style="min-width:0;">
+                    <div style="font-size:6.5px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;font-weight:600;line-height:1;">Department</div>
+                    <div style="font-size:9.5px;color:${FPU.text};font-weight:700;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</div>
+                  </div>
+                </div>
 
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Level</div>
-                  <div style="color:#0f172a;font-weight:700;">${esc(d.levelDisplay || d.level || '—')}</div>
+                <div style="display:flex;align-items:center;gap:.55rem;">
+                  <div style="width:22px;height:22px;border-radius:50%;background:${FPU.light};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    ${ICON.level}
+                  </div>
+                  <div style="min-width:0;">
+                    <div style="font-size:6.5px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;font-weight:600;line-height:1;">Level</div>
+                    <div style="font-size:9.5px;color:${FPU.text};font-weight:700;margin-top:.1rem;">${esc(d.levelDisplay || d.level || '—')}</div>
+                  </div>
                 </div>
               </div>
 
-              <!-- ═══ FOOTER (sits on the green curve) ═══ -->
-              <div style="
-                position:relative;
-                z-index:2;
-                padding:.65rem .9rem .75rem;
-                display:flex;
-                align-items:flex-end;
-                justify-content:space-between;
-                color:#fff;
-                font-size:7.5px;
-                letter-spacing:.08em;
-                text-transform:uppercase;
-              ">
-                <div style="display:flex;align-items:center;gap:.35rem;">
-                  ${logoFooter}
-                  <span style="font-weight:800;">${esc(shortName)}</span>
+              <!-- BOTTOM ROW: QR right, session left -->
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:.5rem;">
+                <div style="font-size:6.5px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;">
+                  <div>Session</div>
+                  <div style="font-weight:800;color:${FPU.primary};font-size:9px;margin-top:2px;">${esc(d.session || '—')}</div>
                 </div>
-                <div style="text-align:right;line-height:1.25;">
-                  <div style="font-weight:700;">${esc(address)}</div>
+                <div style="display:flex;flex-direction:column;align-items:center;">
+                  <div style="
+                    width:68px;height:68px;
+                    padding:4px;
+                    background:#fff;
+                    border:1px solid #e2e8f0;
+                    border-radius:8px;
+                    box-shadow:0 2px 6px rgba(0,0,0,.06);
+                  ">
+                    ${qrImg}
+                  </div>
+                  <div style="font-size:6px;color:${FPU.muted};margin-top:.25rem;text-align:center;letter-spacing:.08em;font-weight:700;line-height:1.2;">
+                    SCAN TO<br/>VERIFY
+                  </div>
                 </div>
               </div>
 
             </div>
           </div>
 
-          <!-- ═══ BACK / INSTRUCTIONS (not on card) ═══ -->
-          <div style="
-            margin-top:1rem;
-            padding:.9rem 1.1rem;
-            background:#f0fdf4;
-            border:1px solid #bbf7d0;
-            border-radius:12px;
-            font-size:11px;
-            color:#14532d;
-            line-height:1.5;
-          ">
-            <div style="font-weight:800;font-size:11px;margin-bottom:.3rem;color:#065f46;">
-              📮 IF THIS CARD IS FOUND
-            </div>
-            <div>Return it to <strong>${esc(fullInstName)}</strong> or hand it to any staff member.</div>
-            <div style="margin-top:.35rem;display:grid;grid-template-columns:1fr;gap:.15rem;">
-              <div><span style="color:#64748b;">📍</span> ${esc(address)}</div>
-              <div><span style="color:#64748b;">📞</span> ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
-              <div><span style="color:#64748b;">📧</span> ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
-              <div style="word-break:break-all;"><span style="color:#64748b;">🌐</span> ${esc(d.lookupUrl || '—')}</div>
+          <!-- ══════════════════ BACK ══════════════════ -->
+          <div class="si-back">
+            <div class="si-front-bg"></div>
+
+            <div class="si-back-content">
+
+              <!-- LOGO + NAME centered -->
+              <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:.75rem;">
+                ${logoBig}
+                <div style="font-weight:800;font-size:13px;color:${FPU.primary};letter-spacing:.04em;margin-top:.35rem;line-height:1;">
+                  ${esc(shortName)}
+                </div>
+                <div style="font-size:7px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;margin-top:.15rem;">
+                  Polytechnic
+                </div>
+                <div style="font-size:7.5px;color:${FPU.primary};letter-spacing:.2em;text-transform:uppercase;margin-top:.35rem;font-weight:700;">
+                  Knowledge · Integrity · Service
+                </div>
+              </div>
+
+              <!-- QR large -->
+              <div style="
+                width:110px;height:110px;
+                padding:6px;
+                background:#fff;
+                border:2px solid ${FPU.primary};
+                border-radius:10px;
+                margin:.4rem 0 .5rem;
+                box-shadow:0 4px 10px rgba(6,95,70,.12);
+              ">
+                ${qrImg}
+              </div>
+
+              <div style="font-size:7px;color:${FPU.muted};letter-spacing:.16em;text-transform:uppercase;font-weight:600;">
+                Scan to verify
+              </div>
+
+              <!-- Return-to box -->
+              <div style="
+                margin-top:auto;
+                width:100%;
+                padding:.7rem .75rem;
+                background:#f0fdf4;
+                border-top:1px solid ${FPU.light};
+                border-radius:8px;
+                text-align:left;
+                font-size:8px;
+                line-height:1.5;
+                color:${FPU.text};
+              ">
+                <div style="font-size:7px;color:${FPU.primary};letter-spacing:.16em;text-transform:uppercase;font-weight:800;margin-bottom:.25rem;">
+                  If found, please return to
+                </div>
+                <div style="font-weight:800;color:${FPU.primary};font-size:9px;">${esc(fullInstName)}</div>
+                <div style="color:${FPU.muted};">${esc(address)}</div>
+                <div style="color:${FPU.muted};">${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
+                <div style="color:${FPU.muted};word-break:break-all;">${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
+                <div style="margin-top:.35rem;padding-top:.35rem;border-top:1px dashed #bbf7d0;color:${FPU.primary};font-weight:600;font-size:7.5px;word-break:break-all;">
+                  ${esc(d.lookupUrl || '—')}
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -321,7 +388,11 @@
   }
 
   $('si-refresh')?.addEventListener('click', load);
-  $('si-print')?.addEventListener('click', () => window.print());
+  $('si-print')?.addEventListener('click', () => {
+    // Ensure both sides print — force display:block for print then reload
+    document.querySelectorAll('.si-back').forEach((el) => el.style.display = 'block');
+    setTimeout(() => window.print(), 50);
+  });
   load();
 })();
 </script>

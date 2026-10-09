@@ -18,7 +18,7 @@ router.use('/admin/seed', require('./adminSeed'));       // /api/admin/seed/* (g
 router.use('/', require('./public'));                    // /api/apply, /api/contact, etc.
 
 // ------------------------------------------------------------
-// Public — ID card lookup (barcode scan target)
+// Public — ID card lookup (barcode / QR scan target)
 // ------------------------------------------------------------
 router.use('/public/id-lookup', require('./idLookup'));
 
@@ -89,13 +89,21 @@ router.use('/admin/audit',          require('./audit'));
 router.use('/admin/reports',        require('./reports'));
 
 // ------------------------------------------------------------
-// Portal — student
+// Portal — shared (photo, messages, notifications, announcements,
+// complaints, security, avatar upload, etc.)
+// Mounted at /portal so client calls to
+//   /api/portal/photo
+//   /api/portal/messages
+//   /api/portal/notifications
+// resolve correctly.
 // ------------------------------------------------------------
-router.use('/student',              require('./portal/student'));
+router.use('/portal',               require('./portal/shared'));
+router.use('/portal/profile',       require('./portal/profile'));
 
 // ------------------------------------------------------------
-// Portal — staff roles
+// Portal — role-specific
 // ------------------------------------------------------------
+router.use('/student',              require('./portal/student'));
 router.use('/lecturer',             require('./portal/lecturer'));
 router.use('/hod',                  require('./portal/hod'));
 router.use('/bursar',               require('./portal/bursar'));
@@ -105,11 +113,5 @@ router.use('/exam-officer',         require('./portal/examOfficer'));
 router.use('/academic-officer',     require('./portal/academicOfficer'));
 router.use('/admission-officer',    require('./portal/admissionOfficer'));
 router.use('/librarian',            require('./portal/librarian'));
-
-// ------------------------------------------------------------
-// Portal — shared
-// ------------------------------------------------------------
-router.use('/',                     require('./portal/shared'));
-router.use('/profile',              require('./portal/profile'));
 
 module.exports = router;

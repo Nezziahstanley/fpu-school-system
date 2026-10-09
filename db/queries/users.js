@@ -15,7 +15,7 @@ const { users, departments, programmes, schools } = schema;
 // SAFE SELECT MAPS
 // ============================================================
 // Two versions so every query only references tables it actually joins.
-//   SAFE_COLS_BASE → users + programmes + departments (no schools)
+//   SAFE_COLS      → users + programmes + departments
 //   SAFE_COLS_FULL → users + programmes + departments + schools
 // ============================================================
 
@@ -55,7 +55,8 @@ const SAFE_COLS = {
   departmentCode: departments.code,
 };
 
-// Used by: findById, findByEmail  (join: programmes + departments + schools)
+// Used by: findById, findByEmail, findByIdWithRelations
+// (join: programmes + departments + schools)
 const SAFE_COLS_FULL = {
   ...SAFE_COLS,
   schoolName: schools.name,
@@ -88,7 +89,7 @@ function unwrapJoin(row) {
 // ============================================================
 
 // ------------------------------------------------------------
-// findById — full user, includes school join
+// findById — full user with department/programme/school names
 // ------------------------------------------------------------
 async function findById(id) {
   if (!id) return null;
@@ -102,16 +103,48 @@ async function findById(id) {
     .limit(1);
 
   if (!rows.length) return null;
-
-  // SAFE_COLS_FULL already flattens names, so no unwrap needed
   return rows[0];
 }
 
 // ------------------------------------------------------------
-// findByEmail — for login; includes passwordHash
+// findByIdWithRelations — same as findById, plus nested
+// department/programme/school objects for convenience. Used
+// by portal pages that display the student's academic identity
+// (dashboard, id-card, graduation, profile).
 // ------------------------------------------------------------
-// NOTE: passwordHash is NOT in SAFE_COLS_FULL, so we select
-// everything with .select() and then join manually.
+async function findByIdWithRelations(id) {
+  if (!id) return null;
+
+  const rows = await db
+    .select(SAFE_COLS_FULL)
+    .from(users)
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(schools, eq(users.schoolId, schools.id))
+    .where(eq(users.id, Number(id)))
+    .limit(1);
+
+  if (!rows.length) return null;
+  const row = rows[0];
+
+  // Add nested objects alongside the flat names, so the
+  // frontend can use either shape.
+  return {
+    ...row,
+    department: row.departmentName
+      ? { id: row.departmentId, name: row.departmentName, code: row.departmentCode }
+      : null,
+    programme: row.programmeName
+      ? { id: row.programmeId, name: row.programmeName, code: row.programmeCode }
+      : null,
+    school: row.schoolName
+      ? { id: row.schoolId, name: row.schoolName }
+      : null,
+  };
+}
+
+// ------------------------------------------------------------
+// findByEmail — for login; includes passwordHash
 // ------------------------------------------------------------
 async function findByEmail(email) {
   if (!email) return null;
@@ -242,7 +275,7 @@ async function count({ role, departmentId, schoolId, programmeId, level, isActiv
 // ============================================================
 
 // ------------------------------------------------------------
-// create
+// create — insert a new user
 // ------------------------------------------------------------
 async function create(payload) {
   const [row] = await db
@@ -307,7 +340,35 @@ async function update(id, patch) {
 }
 
 // ------------------------------------------------------------
-// toggleActive
+// updatePassword — set a new password hash + clear mustChangePassword
+// ------------------------------------------------------------
+async function updatePassword(id, passwordHash) {
+  const [row] = await db
+    .update(users)
+    .set({
+      passwordHash,
+      mustChangePassword: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// setActive — explicitly set the isActive flag
+// ------------------------------------------------------------
+async function setActive(id, isActive) {
+  const [row] = await db
+    .update(users)
+    .set({ isActive: !!isActive, updatedAt: new Date() })
+    .where(eq(users.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// toggleActive — flip the isActive flag
 // ------------------------------------------------------------
 async function toggleActive(id) {
   const [row] = await db
@@ -330,7 +391,7 @@ async function remove(id) {
 }
 
 // ------------------------------------------------------------
-// touchLogin
+// touchLogin — update lastLoginAt
 // ------------------------------------------------------------
 async function touchLogin(id) {
   try {
@@ -346,6 +407,7 @@ async function touchLogin(id) {
 // ============================================================
 module.exports = {
   findById,
+  findByIdWithRelations,
   findByEmail,
   emailExists,
   list,
@@ -354,6 +416,8 @@ module.exports = {
   count,
   create,
   update,
+  updatePassword,
+  setActive,
   toggleActive,
   remove,
   touchLogin,

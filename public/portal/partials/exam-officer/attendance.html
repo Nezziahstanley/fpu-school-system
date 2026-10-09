@@ -1,50 +1,417 @@
 <!-- Portal → Exam Officer → Exam Attendance -->
-<section class="page-head">
-  <div><h2>Exam Attendance</h2><p class="muted small">Record which students showed up for each exam</p></div>
-</section>
+<div style="padding:0;">
 
-<div class="filters">
-  <div class="form-group" style="flex:1 1 220px;">
-    <label class="form-label">Exam Schedule ID</label>
-    <input class="form-control" id="eo-att-sch" type="number" />
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Attendance</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Mark students present or absent for each scheduled exam</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="eo-att-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#9a3412;border:1px solid #fed7aa;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+      ">↻ Refresh</button>
+    </div>
   </div>
-  <button class="btn btn-primary" id="eo-att-load">Load Attendance</button>
-</div>
 
-<div id="eo-att-counts" class="gpa-summary"></div>
+  <!-- SCHEDULE PICKER -->
+  <div style="
+    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+    padding:1rem;margin-bottom:1rem;
+    display:grid;grid-template-columns:2fr 1fr auto;gap:.6rem;align-items:end;
+  ">
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Exam Schedule</label>
+      <select id="eo-att-schedule" style="
+        width:100%;padding:.55rem .75rem;font-size:.85rem;
+        border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;
+      ">
+        <option value="">Loading schedules…</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Filter</label>
+      <select id="eo-att-filter" style="
+        width:100%;padding:.55rem .75rem;font-size:.85rem;
+        border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;
+      ">
+        <option value="">All students</option>
+        <option value="unmarked">Unmarked only</option>
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+      </select>
+    </div>
+    <button id="eo-att-load" style="
+      padding:.55rem 1rem;font-size:.82rem;font-weight:700;
+      background:#c2410c;color:#fff;border:none;border-radius:8px;cursor:pointer;
+    ">Load</button>
+  </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Students</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Matric</th><th>Name</th><th>Status</th></tr></thead>
-        <tbody id="eo-att-tbody"><tr><td colspan="3" class="empty">Enter a schedule ID above.</td></tr></tbody>
+  <!-- SUMMARY BAR -->
+  <div id="eo-att-summary" style="display:none;margin-bottom:1rem;"></div>
+
+  <!-- BULK BAR -->
+  <div id="eo-att-bulk" style="
+    display:none;
+    background:linear-gradient(135deg,#c2410c,#ea580c);
+    color:#fff;padding:.7rem 1rem;margin-bottom:1rem;
+    border-radius:10px;
+    align-items:center;justify-content:space-between;gap:.75rem;
+    box-shadow:0 4px 12px rgba(194,65,12,.20);
+  ">
+    <div style="font-size:.82rem;font-weight:700;">
+      <span id="eo-att-count">0</span> changed
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button id="eo-att-mark-all-present" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:#fff;color:#065f46;border:none;border-radius:6px;cursor:pointer;
+      ">✓ Mark all Present</button>
+      <button id="eo-att-mark-all-absent" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;
+      ">✕ Mark all Absent</button>
+      <button id="eo-att-save" style="
+        padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+        background:#fbbf24;color:#78350f;border:none;border-radius:6px;cursor:pointer;
+      ">💾 Save Changes</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">#</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;width:320px;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="eo-att-tbody">
+          <tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+            Select a schedule and click Load.
+          </td></tr>
+        </tbody>
       </table>
     </div>
   </div>
+
 </div>
 
+<style>
+  .eo-att-row:hover { background: #f8fafc; }
+  .eo-status-group {
+    display: inline-flex;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .eo-status-btn {
+    padding: .35rem .65rem;
+    font-size: .72rem;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    border-right: 1px solid #e5e7eb;
+    transition: all .12s;
+    color: #64748b;
+  }
+  .eo-status-btn:last-child { border-right: none; }
+  .eo-status-btn:hover { background: #f1f5f9; }
+  .eo-status-btn.active[data-status="present"] { background: #10b981; color: #fff; }
+  .eo-status-btn.active[data-status="absent"]  { background: #ef4444; color: #fff; }
+  .eo-status-btn.active[data-status="late"]    { background: #f59e0b; color: #fff; }
+  .eo-status-btn.active[data-status="excused"] { background: #6366f1; color: #fff; }
+</style>
+
 <script>
-  document.getElementById('eo-att-load').addEventListener('click', async () => {
-    const core = window.FPU_PORTAL;
-    const id = document.getElementById('eo-att-sch').value.trim();
-    const tbody = document.getElementById('eo-att-tbody');
-    const counts = document.getElementById('eo-att-counts');
-    if (!id) return;
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  let SCHEDULES = [];
+  let ROWS = [];                 // [{ student, record, status, changed }]
+  let CURRENT_SCHEDULE_ID = null;
+
+  // ============================================================
+  // LOAD SCHEDULES
+  // ============================================================
+  async function loadSchedules() {
+    const sel = $('eo-att-schedule');
+    try {
+      const res = await core.portalFetch('/api/exam-officer/schedules');
+      SCHEDULES = Array.isArray(res.data) ? res.data : [];
+
+      if (!SCHEDULES.length) {
+        sel.innerHTML = '<option value="">No exam schedules found</option>';
+        return;
+      }
+
+      sel.innerHTML = '<option value="">— Select an exam —</option>' + SCHEDULES.map((s) => {
+        const e = s.exam || s;
+        const c = s.course || {};
+        const date = e.examDate ? fmtDate(e.examDate) : '—';
+        const label = `${c.code || 'Exam'} · ${date} · ${e.startTime || ''} ${e.venue ? '· ' + e.venue : ''}`;
+        return `<option value="${e.id}">${esc(label)}</option>`;
+      }).join('');
+    } catch (err) {
+      sel.innerHTML = `<option value="">⚠️ ${esc(err.message)}</option>`;
+    }
+  }
+
+  // ============================================================
+  // LOAD ATTENDANCE FOR A SCHEDULE
+  // ============================================================
+  async function loadAttendance() {
+    const id = $('eo-att-schedule').value;
+    if (!id) {
+      core.showToast && core.showToast('Please select an exam schedule.', 'warning');
+      return;
+    }
+
+    CURRENT_SCHEDULE_ID = id;
+    const tbody = $('eo-att-tbody');
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:eoSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+    </td></tr>`;
+
     try {
       const res = await core.portalFetch(`/api/exam-officer/attendance?examScheduleId=${id}`);
-      const rows = res.data || [];
-      const c = res.counts || [];
-      counts.innerHTML = c.length ? c.map((x) => `<div class="item"><div class="label">${core.escapeHtml(x.status)}</div><div class="value">${x.c}</div></div>`).join('') : '';
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.student?.matricNumber || '')}</td>
-          <td>${core.escapeHtml((r.student?.firstName || '') + ' ' + (r.student?.lastName || ''))}</td>
-          <td><span class="badge badge-${r.record.status === 'present' ? 'success' : 'danger'}">${core.escapeHtml(r.record.status)}</span></td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="empty">No attendance records yet.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="3" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+      const records = Array.isArray(res.data) ? res.data : [];
+      const counts = Array.isArray(res.counts) ? res.counts : [];
+
+      // Build rows from existing attendance records
+      ROWS = records.map((r) => ({
+        student: r.student || {},
+        record: r.record || {},
+        status: (r.record && r.record.status) || 'unmarked',
+        originalStatus: (r.record && r.record.status) || 'unmarked',
+        changed: false,
+      }));
+
+      // If no students, we might need to show students from the schedule's course
+      // but for simplicity we only show students who have an attendance record
+      // (i.e. those the officer has touched or the system has pre-populated)
+
+      renderSummary(counts);
+      renderRows();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  // ============================================================
+  // SUMMARY
+  // ============================================================
+  function renderSummary(counts) {
+    const summary = $('eo-att-summary');
+    const get = (s) => Number((counts.find((c) => c.status === s) || {}).c || 0);
+    const present = get('present');
+    const absent  = get('absent');
+    const late    = get('late');
+    const excused = get('excused');
+    const total = present + absent + late + excused;
+
+    if (!total) {
+      summary.style.display = 'none';
+      return;
+    }
+
+    summary.style.display = 'grid';
+    summary.style.gridTemplateColumns = 'repeat(4,1fr)';
+    summary.style.gap = '.6rem';
+
+    const tiles = [
+      { label: 'Present', value: present, bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'Absent',  value: absent,  bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+      { label: 'Late',    value: late,    bg: '#fef3c7', fg: '#92400e', icon: '⏰' },
+      { label: 'Excused', value: excused, bg: '#e0e7ff', fg: '#3730a3', icon: '🛡️' },
+    ];
+
+    summary.innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;">${t.icon}</div>
+        <div>
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ============================================================
+  // RENDER ROWS
+  // ============================================================
+  function renderRows() {
+    const tbody = $('eo-att-tbody');
+    const filter = $('eo-att-filter').value;
+
+    let rows = ROWS;
+    if (filter === 'unmarked') rows = rows.filter(r => r.status === 'unmarked');
+    else if (filter && filter !== 'all') rows = rows.filter(r => r.status === filter);
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:2.5rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        ${ROWS.length ? 'No students match this filter.' : 'No attendance records yet for this exam. Officers typically mark attendance on the day of the exam.'}
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r, idx) => {
+      const s = r.student || {};
+      const initials = ((s.firstName || '?')[0] + (s.lastName || '?')[0]).toUpperCase();
+      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
+
+      return `
+        <tr class="eo-att-row">
+          <td style="padding:.65rem .75rem;color:#94a3b8;font-size:.75rem;">${idx + 1}</td>
+          <td style="padding:.65rem .75rem;">
+            <div style="display:flex;align-items:center;gap:.6rem;">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;flex-shrink:0;">${initials}</div>
+              <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>
+            </div>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <code style="font-size:.75rem;color:#64748b;">${esc(s.matricNumber || '—')}</code>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <div class="eo-status-group">
+              <button class="eo-status-btn ${r.status === 'present' ? 'active' : ''}" data-status="present" data-id="${s.id}">Present</button>
+              <button class="eo-status-btn ${r.status === 'absent' ? 'active' : ''}" data-status="absent" data-id="${s.id}">Absent</button>
+              <button class="eo-status-btn ${r.status === 'late' ? 'active' : ''}" data-status="late" data-id="${s.id}">Late</button>
+              <button class="eo-status-btn ${r.status === 'excused' ? 'active' : ''}" data-status="excused" data-id="${s.id}">Excused</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    // Wire status buttons
+    tbody.querySelectorAll('.eo-status-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const studentId = Number(btn.dataset.id);
+        const newStatus = btn.dataset.status;
+        setStatus(studentId, newStatus);
+      });
+    });
+
+    updateBulkBar();
+  }
+
+  function setStatus(studentId, newStatus) {
+    const row = ROWS.find(r => Number(r.student?.id) === studentId);
+    if (!row) return;
+    row.status = newStatus;
+    row.changed = row.status !== row.originalStatus;
+
+    // Re-render only this row's status group to avoid losing focus
+    const btns = document.querySelectorAll(`.eo-status-btn[data-id="${studentId}"]`);
+    btns.forEach((b) => {
+      b.classList.toggle('active', b.dataset.status === newStatus);
+    });
+
+    updateBulkBar();
+  }
+
+  function updateBulkBar() {
+    const changed = ROWS.filter(r => r.changed).length;
+    $('eo-att-count').textContent = changed;
+    $('eo-att-bulk').style.display = changed > 0 ? 'flex' : 'none';
+  }
+
+  // ============================================================
+  // BULK ACTIONS
+  // ============================================================
+  $('eo-att-mark-all-present')?.addEventListener('click', () => {
+    ROWS.forEach(r => {
+      r.status = 'present';
+      r.changed = r.status !== r.originalStatus;
+    });
+    renderRows();
   });
+
+  $('eo-att-mark-all-absent')?.addEventListener('click', () => {
+    ROWS.forEach(r => {
+      r.status = 'absent';
+      r.changed = r.status !== r.originalStatus;
+    });
+    renderRows();
+  });
+
+  $('eo-att-save')?.addEventListener('click', async () => {
+    if (!CURRENT_SCHEDULE_ID) return;
+    const records = ROWS
+      .filter(r => r.changed && r.student?.id)
+      .map(r => ({
+        studentId: r.student.id,
+        status: r.status,
+        remarks: null,
+      }));
+
+    if (!records.length) {
+      core.showToast && core.showToast('Nothing to save.', 'info');
+      return;
+    }
+
+    const btn = $('eo-att-save');
+    btn.disabled = true;
+    btn.textContent = '⏳ Saving…';
+
+    try {
+      const res = await core.portalFetch('/api/exam-officer/attendance/bulk', {
+        method: 'POST',
+        body: { examScheduleId: Number(CURRENT_SCHEDULE_ID), records },
+      });
+      core.showToast && core.showToast(`Saved ${res.saved || records.length} attendance record(s).`, 'success');
+
+      // Mark all as unchanged now
+      ROWS.forEach(r => { r.originalStatus = r.status; r.changed = false; });
+      updateBulkBar();
+
+      // Reload to refresh counts
+      loadAttendance();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Save Changes';
+    }
+  });
+
+  // ============================================================
+  // FILTER CHANGE
+  // ============================================================
+  $('eo-att-filter')?.addEventListener('change', renderRows);
+
+  // ============================================================
+  // WIRING
+  // ============================================================
+  $('eo-att-load')?.addEventListener('click', loadAttendance);
+  $('eo-att-schedule')?.addEventListener('change', () => {
+    // Auto-load when a schedule is picked
+    if ($('eo-att-schedule').value) loadAttendance();
+  });
+  $('eo-att-refresh')?.addEventListener('click', () => {
+    loadSchedules();
+    if (CURRENT_SCHEDULE_ID) loadAttendance();
+  });
+
+  // Spin keyframes
+  const st = document.createElement('style');
+  st.textContent = '@keyframes eoSpin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(st);
+
+  // Kick off
+  loadSchedules();
+})();
 </script>

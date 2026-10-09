@@ -96,19 +96,17 @@
 
             <!-- BARCODE BOX -->
             <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);text-align:center;">
-              <div style="display:inline-block;background:#fff;padding:.75rem 1rem 1rem;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);">
-                <div style="font-size:10px;color:#065f46;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.4rem;">
+              <div style="display:inline-block;background:#fff;padding:.6rem .75rem .7rem;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);max-width:260px;">
+                <div style="font-size:9px;color:#065f46;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.35rem;">
                   📷 Scan to verify
                 </div>
-                <svg id="si-barcode" style="display:block;max-width:100%;"></svg>
-                <div style="font-size:9.5px;color:#64748b;margin-top:.35rem;line-height:1.4;">
-                  Scan with any barcode reader<br/>
-                  or visit <strong>${esc(shortUrl)}</strong>
+                <svg id="si-barcode" style="display:block;width:100%;height:auto;"></svg>
+                <div style="font-size:8.5px;color:#64748b;margin-top:.3rem;line-height:1.35;">
+                  Any barcode reader or visit<br/>
+                  <strong style="word-break:break-all;">${esc(shortUrl)}</strong>
                 </div>
               </div>
             </div>
-
-          </div>
 
           <!-- LOST-FOUND INSTRUCTIONS -->
           <div style="margin-top:1rem;padding:1rem;background:#f9fafb;border-radius:12px;border-left:4px solid #065f46;">
@@ -131,16 +129,16 @@
       // Generate barcode
       if (typeof JsBarcode !== 'undefined' && d.barcodeData) {
         try {
-          JsBarcode('#si-barcode', d.barcodeData, {
-            format: 'CODE128',
-            width: 2,
-            height: 60,
-            displayValue: true,
-            fontSize: 14,
-            margin: 4,
-            background: '#ffffff',
-            lineColor: '#000000',
-          });
+            JsBarcode('#si-barcode', d.barcodeData, {
+              format: 'CODE128',
+              width: 1.4,        // thinner bars
+              height: 45,        // shorter
+              displayValue: true,
+              fontSize: 11,      // smaller text below bars
+              margin: 2,
+              background: '#ffffff',
+              lineColor: '#000000',
+            });
         } catch (e) {
           console.warn('[id-card] barcode error:', e);
         }

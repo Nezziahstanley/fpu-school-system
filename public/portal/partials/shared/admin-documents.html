@@ -90,16 +90,27 @@
   let FILTERED = [];
 
   // ---------------------------------------------------------
-  // Extractors — API returns { document: {...}, student: {...} } or flat
+  // API base — choose per role so bursar + admin both work
+  // ---------------------------------------------------------
+  function apiBase() {
+    const me = (core.getPortalUser && core.getPortalUser()) || {};
+    const role = String(me.role || '').toLowerCase();
+    return ['admin', 'superadmin'].includes(role) ? '/api/admin/documents' : '/api/bursar/documents';
+  }
+
+  // ---------------------------------------------------------
+  // Extractors — API returns { document: {...}, user: {...} } or flat
   // ---------------------------------------------------------
   function unwrap(r) {
     const doc = r.document || r;
-    const stu = r.student || {};
+    // Backend joins students into `user` (not `student`) in both
+    // /api/admin/documents and /api/bursar/documents.
+    const stu = r.user || r.student || {};
     return {
       id: doc.id,
       type: (doc.type || doc.documentType || 'other').toLowerCase(),
       title: doc.title || doc.subject || '',
-      notes: doc.notes || doc.body || doc.description || '',
+      notes: doc.notes || doc.remarks || doc.description || '',
       status: (doc.status || 'pending').toLowerCase(),
       requestedAt: doc.requestedAt || doc.createdAt,
       studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || '—',
@@ -202,7 +213,7 @@
   async function load() {
     $('dc-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/documents');
+      const res = await core.portalFetch(apiBase());
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
       ALL = raw.map(unwrap);
@@ -221,23 +232,29 @@
   async function approveDoc(id) {
     if (!confirm('Approve this document request?')) return;
     try {
-      await core.portalFetch(`/api/documents/${id}/approve`, { method: 'POST' });
+      await core.portalFetch(`${apiBase()}/${id}/approve`, { method: 'POST' });
       core.showToast && core.showToast('Approved', 'success');
       load();
     } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
   }
+
   async function rejectDoc(id) {
     const reason = prompt('Rejection reason (optional):') || '';
     try {
-      await core.portalFetch(`/api/documents/${id}/reject`, { method: 'POST', body: { reason } });
+      // Backend expects `remarks`, not `reason`
+      await core.portalFetch(`${apiBase()}/${id}/reject`, {
+        method: 'POST',
+        body: { remarks: reason },
+      });
       core.showToast && core.showToast('Rejected', 'success');
       load();
     } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
   }
+
   async function issueDoc(id) {
     if (!confirm('Mark this document as issued?')) return;
     try {
-      await core.portalFetch(`/api/documents/${id}/issue`, { method: 'POST' });
+      await core.portalFetch(`${apiBase()}/${id}/issue`, { method: 'POST' });
       core.showToast && core.showToast('Issued', 'success');
       load();
     } catch (err) { core.showToast && core.showToast(err.message, 'error'); }

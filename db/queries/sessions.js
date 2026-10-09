@@ -1,25 +1,31 @@
 // ============================================================
-// FPU — Academic session + auth session queries
-// Used by: routes/sessions, routes/adminAuth, utils/audit
+// FPU — Query helper: sessions (academic, user, admin)
 // ============================================================
 
 'use strict';
 
-const { db, schema, sql } = require('..');
-const { eq, and, isNull, gte, lt, desc, asc } = require('drizzle-orm');
+const { db, sql, schema } = require('../index');
+const { eq, and, or, desc, asc, isNull, gt, lt } = require('drizzle-orm');
 
-const { academicSessions, adminSessions, userSessions } = schema;
+const {
+  academicSessions, userSessions, adminSessions, users,
+} = schema;
 
-// ------------------------------------------------------------
+// ============================================================
 // ACADEMIC SESSIONS
-// ------------------------------------------------------------
+// ============================================================
+
 async function listAcademic() {
-  return db.select().from(academicSessions).orderBy(desc(academicSessions.name));
+  return db.select().from(academicSessions).orderBy(desc(academicSessions.startDate));
 }
 
 async function findAcademicById(id) {
   if (!id) return null;
-  const [row] = await db.select().from(academicSessions).where(eq(academicSessions.id, Number(id))).limit(1);
+  const [row] = await db
+    .select()
+    .from(academicSessions)
+    .where(eq(academicSessions.id, Number(id)))
+    .limit(1);
   return row || null;
 }
 
@@ -28,7 +34,7 @@ async function findAcademicByName(name) {
   const [row] = await db
     .select()
     .from(academicSessions)
-    .where(eq(academicSessions.name, String(name).trim()))
+    .where(eq(academicSessions.name, String(name)))
     .limit(1);
   return row || null;
 }
@@ -42,32 +48,37 @@ async function getCurrentAcademic() {
   return row || null;
 }
 
-async function createAcademic({ name, startDate, endDate, isCurrent }) {
+async function createAcademic(data) {
   const [row] = await db
     .insert(academicSessions)
     .values({
-      name: String(name).trim(),
-      startDate: startDate || null,
-      endDate: endDate || null,
-      isCurrent: !!isCurrent,
+      name: data.name,
+      startDate: data.startDate || null,
+      endDate: data.endDate || null,
+      isCurrent: !!data.isCurrent,
     })
     .returning();
   return row;
 }
 
 async function updateAcademic(id, patch) {
+  const allowed = ['name', 'startDate', 'endDate', 'isCurrent'];
   const clean = {};
-  if (patch.name !== undefined) clean.name = String(patch.name).trim();
-  if (patch.startDate !== undefined) clean.startDate = patch.startDate || null;
-  if (patch.endDate !== undefined) clean.endDate = patch.endDate || null;
-  if (patch.isCurrent !== undefined) clean.isCurrent = !!patch.isCurrent;
-  const [row] = await db.update(academicSessions).set(clean).where(eq(academicSessions.id, Number(id))).returning();
+  for (const k of allowed) {
+    if (patch[k] !== undefined) clean[k] = patch[k];
+  }
+  const [row] = await db
+    .update(academicSessions)
+    .set(clean)
+    .where(eq(academicSessions.id, Number(id)))
+    .returning();
   return row || null;
 }
 
 async function setCurrentAcademic(id) {
-  // Only one row may be current at a time.
-  await db.update(academicSessions).set({ isCurrent: false }).where(eq(academicSessions.isCurrent, true));
+  // Unset all
+  await db.update(academicSessions).set({ isCurrent: false });
+  // Set the new one
   const [row] = await db
     .update(academicSessions)
     .set({ isCurrent: true })
@@ -77,13 +88,17 @@ async function setCurrentAcademic(id) {
 }
 
 async function removeAcademic(id) {
-  const [row] = await db.delete(academicSessions).where(eq(academicSessions.id, Number(id))).returning();
+  const [row] = await db
+    .delete(academicSessions)
+    .where(eq(academicSessions.id, Number(id)))
+    .returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
+// ============================================================
 // ADMIN SESSIONS
-// ------------------------------------------------------------
+// ============================================================
+
 async function createAdminSession({ userId, token, userAgent, ipAddress, expiresAt }) {
   const [row] = await db
     .insert(adminSessions)
@@ -92,7 +107,7 @@ async function createAdminSession({ userId, token, userAgent, ipAddress, expires
       token,
       userAgent: userAgent || null,
       ipAddress: ipAddress || null,
-      expiresAt,
+      expiresAt: expiresAt instanceof Date ? expiresAt : new Date(expiresAt),
     })
     .returning();
   return row;
@@ -103,28 +118,32 @@ async function findAdminSession(token) {
   const [row] = await db
     .select()
     .from(adminSessions)
-    .where(and(eq(adminSessions.token, token), isNull(adminSessions.revokedAt)))
+    .where(and(
+      eq(adminSessions.token, token),
+      isNull(adminSessions.revokedAt),
+      gt(adminSessions.expiresAt, new Date())
+    ))
     .limit(1);
-  if (!row) return null;
-  if (row.expiresAt < new Date()) return null;
-  return row;
+  return row || null;
 }
 
 async function revokeAdminSession(token) {
-  if (!token) return false;
   const [row] = await db
     .update(adminSessions)
     .set({ revokedAt: new Date() })
     .where(eq(adminSessions.token, token))
-    .returning({ id: adminSessions.id });
-  return !!row;
+    .returning();
+  return row || null;
 }
 
 async function revokeAllAdminSessions(userId) {
   const rows = await db
     .update(adminSessions)
     .set({ revokedAt: new Date() })
-    .where(and(eq(adminSessions.userId, Number(userId)), isNull(adminSessions.revokedAt)))
+    .where(and(
+      eq(adminSessions.userId, Number(userId)),
+      isNull(adminSessions.revokedAt)
+    ))
     .returning({ id: adminSessions.id });
   return rows.length;
 }
@@ -137,9 +156,10 @@ async function purgeExpiredAdminSessions() {
   return rows.length;
 }
 
-// ------------------------------------------------------------
+// ============================================================
 // USER SESSIONS
-// ------------------------------------------------------------
+// ============================================================
+
 async function createUserSession({ userId, token, userAgent, ipAddress, expiresAt }) {
   const [row] = await db
     .insert(userSessions)
@@ -148,7 +168,7 @@ async function createUserSession({ userId, token, userAgent, ipAddress, expiresA
       token,
       userAgent: userAgent || null,
       ipAddress: ipAddress || null,
-      expiresAt,
+      expiresAt: expiresAt instanceof Date ? expiresAt : new Date(expiresAt),
     })
     .returning();
   return row;
@@ -159,28 +179,58 @@ async function findUserSession(token) {
   const [row] = await db
     .select()
     .from(userSessions)
-    .where(and(eq(userSessions.token, token), isNull(userSessions.revokedAt)))
+    .where(and(
+      eq(userSessions.token, token),
+      isNull(userSessions.revokedAt),
+      gt(userSessions.expiresAt, new Date())
+    ))
     .limit(1);
-  if (!row) return null;
-  if (row.expiresAt < new Date()) return null;
-  return row;
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// listUserSessions — active (non-revoked, non-expired) sessions
+// for a given user. Used by the Security page and dashboard.
+// ------------------------------------------------------------
+async function listUserSessions(userId) {
+  if (!userId) return [];
+  return db
+    .select()
+    .from(userSessions)
+    .where(and(
+      eq(userSessions.userId, Number(userId)),
+      isNull(userSessions.revokedAt),
+      gt(userSessions.expiresAt, new Date())
+    ))
+    .orderBy(desc(userSessions.createdAt));
 }
 
 async function revokeUserSession(token) {
-  if (!token) return false;
   const [row] = await db
     .update(userSessions)
     .set({ revokedAt: new Date() })
     .where(eq(userSessions.token, token))
-    .returning({ id: userSessions.id });
-  return !!row;
+    .returning();
+  return row || null;
 }
 
-async function revokeAllUserSessions(userId) {
+// ------------------------------------------------------------
+// revokeAllUserSessions — optionally excluding the current token,
+// so "Sign out everywhere else" keeps the current device live.
+// ------------------------------------------------------------
+async function revokeAllUserSessions(userId, { exceptToken } = {}) {
+  const conds = [
+    eq(userSessions.userId, Number(userId)),
+    isNull(userSessions.revokedAt),
+  ];
+  if (exceptToken) {
+    conds.push(sql`${userSessions.token} <> ${exceptToken}`);
+  }
+
   const rows = await db
     .update(userSessions)
     .set({ revokedAt: new Date() })
-    .where(and(eq(userSessions.userId, Number(userId)), isNull(userSessions.revokedAt)))
+    .where(and(...conds))
     .returning({ id: userSessions.id });
   return rows.length;
 }
@@ -193,15 +243,11 @@ async function purgeExpiredUserSessions() {
   return rows.length;
 }
 
-// ------------------------------------------------------------
-// COMPAT — routes/adminAuth.js calls revokeUserSession(token)
-//            and revokeAdminSession(token) on logout.
-//           routes/security.js calls revokeAllUserSessions and
-//            revokeAllAdminSessions on force-logout.
-// ------------------------------------------------------------
-
+// ============================================================
+// EXPORTS
+// ============================================================
 module.exports = {
-  // academic
+  // academic sessions
   listAcademic,
   findAcademicById,
   findAcademicByName,
@@ -221,6 +267,7 @@ module.exports = {
   // user sessions
   createUserSession,
   findUserSession,
+  listUserSessions,           // ← NEW
   revokeUserSession,
   revokeAllUserSessions,
   purgeExpiredUserSessions,

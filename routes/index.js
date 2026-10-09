@@ -91,14 +91,19 @@ router.use('/admin/reports',        require('./reports'));
 // ------------------------------------------------------------
 // Portal — shared (photo, messages, notifications, announcements,
 // complaints, security, avatar upload, etc.)
-// Mounted at /portal so client calls to
-//   /api/portal/photo
-//   /api/portal/messages
-//   /api/portal/notifications
-// resolve correctly.
 // ------------------------------------------------------------
 router.use('/portal',               require('./portal/shared'));
-router.use('/portal/profile',       require('./portal/profile'));
+
+// ------------------------------------------------------------
+// Portal — profile & photo
+// Mounted at /portal so internal routes resolve as:
+//   GET    /api/portal/profile
+//   PATCH  /api/portal/profile
+//   POST   /api/portal/profile/photo
+//   DELETE /api/portal/profile/photo
+//   POST   /api/portal/profile/change-password
+// ------------------------------------------------------------
+router.use('/portal',               require('./portal/profile'));
 
 // ------------------------------------------------------------
 // Portal — role-specific

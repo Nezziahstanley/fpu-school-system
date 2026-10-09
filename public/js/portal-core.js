@@ -54,7 +54,7 @@
       window.location.href = `/login.html?redirect=${here}`;
       return null;
     }
-    return getPortalUser();
+    return getStoredUser();
   }
 
   // ----------------------------------------------------------
@@ -70,20 +70,31 @@
     const init = { ...opts, headers };
     if (opts.body && typeof opts.body !== 'string') init.body = JSON.stringify(opts.body);
 
-    // ---- Auto-prefix staff API paths with /admin ----
-    // Staff roles use /api/admin/* endpoints (mounted in routes/index.js).
-    // Only student and public paths stay unprefixed.
-    const STAFF_ROLES = ['lecturer','hod','bursar','rector','registrar','librarian','exam_officer','academic_officer','admission_officer','admin','superadmin'];
-    const STAFF_PREFIX_MODULES = ['results','students','staff','courses','programmes','departments','sessions','library','payments','clearances','applications','registrations','announcements','notifications','exams','settings','reports','transcript','lecturers','hods','allocations','timetable','documents','attendance','complaints','graduation','security','audit','fees','adminUsers','adminLookups'];
+    // ---- Auto-prefix admin paths for admin/superadmin ONLY ----
+    // Admin and superadmin use /api/admin/* endpoints (mounted in routes/index.js).
+    // Every other staff role uses the non-prefixed /api/<module> endpoints, which
+    // the backend exposes with STAFF role access via requireRole(STAFF).
+    //
+    // This used to be applied for all STAFF_ROLES, which caused 403s for
+    // exam_officer and other staff when hitting /api/courses, /api/exams, etc.
+    const ADMIN_ROLES = ['admin', 'superadmin'];
+    const ADMIN_PREFIX_MODULES = [
+      'results', 'students', 'staff', 'courses', 'programmes', 'departments',
+      'sessions', 'library', 'payments', 'clearances', 'applications',
+      'registrations', 'announcements', 'notifications', 'exams', 'settings',
+      'reports', 'transcript', 'lecturers', 'hods', 'allocations', 'timetable',
+      'documents', 'attendance', 'complaints', 'graduation', 'security',
+      'audit', 'fees', 'adminUsers', 'adminLookups',
+    ];
 
     let finalPath = path;
     try {
       const me = getStoredUser();
       const role = me && me.role ? String(me.role).toLowerCase() : '';
-      if (STAFF_ROLES.includes(role) && typeof path === 'string' && path.startsWith('/api/')) {
-        const rest = path.slice(5);            // e.g. "results/pending-hod"
-        const seg = rest.split('?')[0].split('/')[0];   // strip query string first
-        if (STAFF_PREFIX_MODULES.includes(seg)) {
+      if (ADMIN_ROLES.includes(role) && typeof path === 'string' && path.startsWith('/api/')) {
+        const rest = path.slice(5);            // e.g. "courses?limit=300"
+        const seg = rest.split('?')[0].split('/')[0];
+        if (ADMIN_PREFIX_MODULES.includes(seg)) {
           finalPath = '/api/admin/' + rest;
         }
       }

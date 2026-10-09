@@ -12,7 +12,7 @@ const courseQueries = require('../db/queries/courses');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
+const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer', 'exam_officer', 'librarian', 'bursar'];
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   // Auto-scope HODs to their own department

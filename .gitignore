@@ -124,3 +124,5 @@ dump.txt
 
 .env.neon
 .env.local-backup
+
+HANDOFF_PROMPT.txt

@@ -47,7 +47,7 @@
   </div>
 </section>
 
-<!-- Transcript view (hidden until student selected) -->
+<!-- Transcript view -->
 <section class="panel" id="tr-result-panel" style="display:none;">
   <div class="panel-head">
     <h3 id="tr-result-title">Transcript</h3>
@@ -65,6 +65,7 @@
   const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const money = (n) => core.formatMoney ? core.formatMoney(n) : String(n == null ? '' : n);
 
   let ALL = [];
   let FILTERED = [];
@@ -74,11 +75,25 @@
   }
 
   // ---------------------------------------------------------
-  // Extractors
+  // Extractors — defensive against {name} vs {programmeName}
   // ---------------------------------------------------------
-  function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
-  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
-  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
+  function getLevel(s) {
+    return String(s.level || '').toUpperCase().trim() || '—';
+  }
+
+  function getProgramme(s) {
+    if (!s) return '—';
+    // student list returns programme as string, programmeName, or nested
+    if (typeof s.programme === 'string') return s.programme;
+    if (s.programme && typeof s.programme === 'object') return s.programme.name || s.programme.code || '—';
+    return s.programmeName || s.programme_name || '—';
+  }
+
+  function getCGPA(s) {
+    if (s.cgpa != null) return Number(s.cgpa).toFixed(2);
+    if (s.cgpaValue != null) return Number(s.cgpaValue).toFixed(2);
+    return '—';
+  }
 
   // ---------------------------------------------------------
   // Render student list
@@ -87,8 +102,7 @@
     $('tr-count').textContent = FILTERED.length;
 
     if (!FILTERED.length) {
-      $('tr-tbody').innerHTML =
-        '<tr><td colspan="6" class="empty">No students found.</td></tr>';
+      $('tr-tbody').innerHTML = '<tr><td colspan="6" class="empty">No students found.</td></tr>';
       return;
     }
 
@@ -106,7 +120,6 @@
         </tr>`;
     }).join('');
 
-    // Row click → load transcript
     $('tr-tbody').querySelectorAll('tr[data-id]').forEach((row) => {
       row.addEventListener('click', () => loadTranscript(row.dataset.id));
     });
@@ -134,8 +147,6 @@
   // ---------------------------------------------------------
   async function loadStudents() {
     try {
-      // For HOD, departmentId is auto-injected by middleware.
-      // For Registrar and other staff, this returns all students.
       const res = await core.portalFetch('/api/students');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
@@ -143,9 +154,57 @@
       applyFilter();
     } catch (err) {
       console.error('[transcript]', err);
-      $('tr-tbody').innerHTML =
-        `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      $('tr-tbody').innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
+  }
+
+  // ---------------------------------------------------------
+  // Group flat rows into session blocks
+  // Backend returns: rows = [{ course: {...}, result: {...} }]
+  // Backend also returns: summary.perSession = [{ sessionId,
+  //   semester, totalUnits, totalPoints, gpa }]
+  // ---------------------------------------------------------
+  function buildSessions(rows, perSession) {
+    const map = new Map();
+    (rows || []).forEach((r) => {
+      const res = r.result || {};
+      const crs = r.course || {};
+      const key = (res.sessionId || 'x') + '|' + (res.semester || '');
+
+      if (!map.has(key)) {
+        // Look up the pre-computed per-session stats
+        const stat = (perSession || []).find(
+          (p) => p.sessionId === res.sessionId && p.semester === res.semester
+        ) || {};
+        map.set(key, {
+          sessionId: res.sessionId,
+          semester: res.semester || '',
+          semesterLabel: String(res.semester || '').replace(/^./, (c) => c.toUpperCase()),
+          sessionName: 'Session #' + (res.sessionId || '?'),
+          gpa: stat.gpa != null ? Number(stat.gpa) : null,
+          totalUnits: stat.totalUnits || 0,
+          courses: [],
+        });
+      }
+
+      const block = map.get(key);
+      const units = Number(crs.unit) || 0;
+      const points = Number(res.points) || 0;
+      block.courses.push({
+        courseCode: crs.code || '',
+        courseTitle: crs.title || '',
+        units: units,
+        score: res.score != null ? Number(res.score) : null,
+        grade: res.grade || '—',
+        gradePoint: points,
+      });
+      // If backend didn't pre-compute perSession, roll up client-side
+      if (!block.totalUnits) {
+        block.totalUnits += units;
+      }
+    });
+
+    return Array.from(map.values());
   }
 
   // ---------------------------------------------------------
@@ -166,8 +225,6 @@
     $('tr-result-body').innerHTML =
       '<div class="loading"><span class="spinner"></span> Loading transcript…</div>';
     $('tr-print').disabled = false;
-
-    // Scroll into view
     $('tr-result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
@@ -175,8 +232,9 @@
       const payload = res.data || res || {};
 
       const studentInfo = payload.student || student;
-      const sessions = payload.sessions || [];
+      const rows = payload.rows || [];
       const summary = payload.summary || {};
+      const perSession = summary.perSession || [];
 
       // ---------- Header ----------
       const header = `
@@ -195,36 +253,38 @@
           </div>
           <div>
             <div class="muted small">Programme</div>
-            <strong>${esc(getProgramme(studentInfo))}</strong>
+            <strong>${esc(getProgramme(studentInfo) || getProgramme(student) || '—')}</strong>
           </div>
         </div>`;
 
-      // ---------- Sessions ----------
-      if (!sessions.length) {
+      // ---------- Empty state ----------
+      if (!rows.length) {
         $('tr-result-body').innerHTML = header +
           '<p class="muted" style="text-align:center;padding:2rem;">No results recorded for this student yet.</p>';
         return;
       }
 
+      // ---------- Sessions ----------
+      const sessions = buildSessions(rows, perSession);
+
       const sessionBlocks = sessions.map((sess) => {
-        const courses = sess.courses || sess.results || [];
-        const rows = courses.map((c) => `
+        const courseRows = sess.courses.map((c) => `
           <tr>
-            <td><strong>${esc(c.courseCode || '')}</strong></td>
-            <td>${esc(c.courseTitle || '')}</td>
-            <td>${c.units || 0}</td>
-            <td>${c.score != null ? c.score : '—'}</td>
-            <td><span class="chip">${esc(c.grade || '—')}</span></td>
-            <td>${c.gradePoint != null ? Number(c.gradePoint).toFixed(1) : '—'}</td>
+            <td><strong>${esc(c.courseCode)}</strong></td>
+            <td>${esc(c.courseTitle)}</td>
+            <td>${c.units}</td>
+            <td>${c.score != null ? c.score.toFixed(2) : '—'}</td>
+            <td><span class="chip">${esc(c.grade)}</span></td>
+            <td>${c.gradePoint != null ? c.gradePoint.toFixed(1) : '—'}</td>
           </tr>`).join('');
 
         return `
           <div style="margin-bottom:1.5rem;">
             <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-bottom:2px solid #e5e7eb;">
-              <strong>${esc(sess.sessionName || 'Session')} · ${esc(sess.semester || '')} Semester</strong>
+              <strong>${esc(sess.sessionName)} · ${esc(sess.semesterLabel)} Semester</strong>
               <span class="muted small">
-                GPA: <strong>${sess.gpa != null ? Number(sess.gpa).toFixed(2) : '—'}</strong> ·
-                Units: <strong>${sess.totalUnits || 0}</strong>
+                GPA: <strong>${sess.gpa != null ? sess.gpa.toFixed(2) : '—'}</strong> ·
+                Units: <strong>${sess.totalUnits}</strong>
               </span>
             </div>
             <div class="table-wrap" style="margin-top:.5rem;">
@@ -234,7 +294,7 @@
                     <th>Code</th><th>Title</th><th>Units</th><th>Score</th><th>Grade</th><th>GP</th>
                   </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>${courseRows}</tbody>
               </table>
             </div>
           </div>`;
@@ -244,8 +304,14 @@
       const summaryHtml = `
         <div class="fees-breakdown" style="margin-top:1.5rem;border-top:2px solid #e5e7eb;padding-top:1rem;">
           <div class="fees-row"><span>Total Units Earned</span><strong>${summary.totalUnits || 0}</strong></div>
-          <div class="fees-row"><span>Total Grade Points</span><strong>${summary.totalGradePoints || 0}</strong></div>
-          <div class="fees-row"><span><strong>CGPA</strong></span><strong style="color:var(--fpu-primary);font-size:1.1rem;">${summary.cgpa != null ? Number(summary.cgpa).toFixed(2) : '—'}</strong></div>
+          <div class="fees-row"><span>Total Grade Points</span><strong>${summary.totalPoints || 0}</strong></div>
+          <div class="fees-row"><span>Classification</span><strong>${esc(summary.classification || '—')}</strong></div>
+          <div class="fees-row">
+            <span><strong>CGPA</strong></span>
+            <strong style="color:var(--fpu-primary);font-size:1.1rem;">
+              ${summary.cgpa != null ? Number(summary.cgpa).toFixed(2) : '—'}
+            </strong>
+          </div>
         </div>`;
 
       $('tr-result-body').innerHTML = header + sessionBlocks + summaryHtml;
@@ -284,28 +350,22 @@
     setTimeout(() => printWindow.print(), 300);
   });
 
-  // Close
   $('tr-close').addEventListener('click', () => {
     $('tr-result-panel').style.display = 'none';
     $('tr-print').disabled = true;
   });
 
-  // Wire up
   $('tr-search').addEventListener('input', applyFilter);
   $('tr-level').addEventListener('change', applyFilter);
 
   // ---------------------------------------------------------
-  // Init — load students, then auto-load if requested
+  // Init
   // ---------------------------------------------------------
   async function init() {
     await loadStudents();
-
-    // Auto-load transcript if coming from student profile
     const targetId = sessionStorage.getItem('transcript_student_id');
     if (targetId) {
       sessionStorage.removeItem('transcript_student_id');
-      console.log('[transcript] auto-loading student', targetId);
-      // Wait a tick for render to finish
       setTimeout(() => loadTranscript(targetId), 300);
     }
   }

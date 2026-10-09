@@ -4,8 +4,8 @@
 
 'use strict';
 
-const { db, sql, schema } = require('../index');
-const { eq, and, or, ilike, desc, asc, inArray, lt } = require('drizzle-orm');
+const { db, schema, sql } = require('..');
+const { eq, and, or, ilike, inArray, desc, asc } = require('drizzle-orm');
 
 const { books, borrowRecords, bookReservations, libraryFines, users } = schema;
 
@@ -21,52 +21,80 @@ async function findBookById(id) {
 
 async function listBooks({ search, category, availableOnly, limit = 200, offset = 0 } = {}) {
   const conds = [];
-  if (search) {
-    const term = `%${String(search).trim()}%`;
-    conds.push(or(ilike(books.title, term), ilike(books.author, term), ilike(books.isbn, term)));
-  }
   if (category) conds.push(eq(books.category, category));
   if (availableOnly) conds.push(sql`${books.copiesAvailable} > 0`);
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(or(
+      ilike(books.title, term),
+      ilike(books.author, term),
+      ilike(books.isbn, term),
+      ilike(books.publisher, term)
+    ));
+  }
   const where = conds.length ? and(...conds) : undefined;
-  return db.select().from(books).where(where).orderBy(asc(books.title)).limit(limit).offset(offset);
+
+  return db
+    .select()
+    .from(books)
+    .where(where)
+    .orderBy(asc(books.title))
+    .limit(Number(limit))
+    .offset(Number(offset));
 }
 
 async function countBooks(filters = {}) {
+  const { search, category, availableOnly } = filters;
   const conds = [];
-  if (filters.search) {
-    const term = `%${String(filters.search).trim()}%`;
-    conds.push(or(ilike(books.title, term), ilike(books.author, term), ilike(books.isbn, term)));
+  if (category) conds.push(eq(books.category, category));
+  if (availableOnly) conds.push(sql`${books.copiesAvailable} > 0`);
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(or(
+      ilike(books.title, term),
+      ilike(books.author, term),
+      ilike(books.isbn, term)
+    ));
   }
-  if (filters.category) conds.push(eq(books.category, filters.category));
   const where = conds.length ? and(...conds) : undefined;
-  const rows = await db.select({ c: sql`count(*)::int` }).from(books).where(where);
-  return rows[0]?.c || 0;
+  const rows = await db.select({ id: books.id }).from(books).where(where);
+  return rows.length;
 }
 
 async function createBook(data) {
-  const copiesTotal = Number(data.copiesTotal) || 1;
-  const copiesAvailable = data.copiesAvailable !== undefined ? Number(data.copiesAvailable) : copiesTotal;
-  const [row] = await db.insert(books).values({
-    title: data.title,
-    author: data.author || null,
-    isbn: data.isbn || null,
-    category: data.category || null,
-    publisher: data.publisher || null,
-    year: data.year ? Number(data.year) : null,
-    copiesTotal,
-    copiesAvailable,
-    shelf: data.shelf || null,
-  }).returning();
+  const [row] = await db
+    .insert(books)
+    .values({
+      title: data.title,
+      author: data.author || null,
+      isbn: data.isbn || null,
+      category: data.category || null,
+      publisher: data.publisher || null,
+      year: data.year ? Number(data.year) : null,
+      copiesTotal: Number(data.copiesTotal || 1),
+      copiesAvailable: Number(data.copiesAvailable != null ? data.copiesAvailable : (data.copiesTotal || 1)),
+      shelf: data.shelf || null,
+      departmentId: data.departmentId ? Number(data.departmentId) : null,
+      isGeneral: data.isGeneral !== false,
+    })
+    .returning();
   return row;
 }
 
 async function updateBook(id, data) {
-  const patch = { ...data };
-  delete patch.id;
-  if (patch.year) patch.year = Number(patch.year);
-  if (patch.copiesTotal) patch.copiesTotal = Number(patch.copiesTotal);
-  if (patch.copiesAvailable) patch.copiesAvailable = Number(patch.copiesAvailable);
-  const [row] = await db.update(books).set(patch).where(eq(books.id, Number(id))).returning();
+  const allowed = ['title', 'author', 'isbn', 'category', 'publisher', 'year', 'copiesTotal', 'shelf', 'departmentId', 'isGeneral'];
+  const clean = {};
+  for (const k of allowed) {
+    if (data[k] !== undefined) {
+      if (k === 'year') clean[k] = data[k] ? Number(data[k]) : null;
+      else if (k === 'copiesTotal') clean[k] = Math.max(1, Number(data[k]));
+      else if (k === 'departmentId') clean[k] = data[k] ? Number(data[k]) : null;
+      else if (k === 'isGeneral') clean[k] = !!data[k];
+      else clean[k] = data[k] || null;
+    }
+  }
+  if (!Object.keys(clean).length) return findBookById(id);
+  const [row] = await db.update(books).set(clean).where(eq(books.id, Number(id))).returning();
   return row || null;
 }
 
@@ -75,11 +103,38 @@ async function removeBook(id) {
   return row || null;
 }
 
+// ------------------------------------------------------------
+// adjustCopies — used by the borrow lifecycle.
+// Only nudges copiesAvailable; copiesTotal stays the same.
+//   createBorrow → -1
+//   returnBorrow → +1
+// ------------------------------------------------------------
 async function adjustCopies(id, delta) {
   const book = await findBookById(id);
   if (!book) return null;
   const next = Math.max(0, Math.min(book.copiesTotal, book.copiesAvailable + Number(delta)));
   const [row] = await db.update(books).set({ copiesAvailable: next }).where(eq(books.id, Number(id))).returning();
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// changeInventory — catalogue-level physical inventory change.
+// Moves BOTH copiesTotal and copiesAvailable together.
+//   +1 → acquired a new physical copy
+//   -1 → removed a damaged/lost copy
+// ------------------------------------------------------------
+async function changeInventory(id, delta) {
+  const book = await findBookById(id);
+  if (!book) return null;
+  const d = Number(delta) || 0;
+  if (!d) return book;
+  const newTotal     = Math.max(0, Number(book.copiesTotal)     + d);
+  const newAvailable = Math.max(0, Math.min(newTotal, Number(book.copiesAvailable) + d));
+  const [row] = await db
+    .update(books)
+    .set({ copiesTotal: newTotal, copiesAvailable: newAvailable })
+    .where(eq(books.id, Number(id)))
+    .returning();
   return row || null;
 }
 
@@ -98,17 +153,28 @@ async function listBorrows({ userId, bookId, status, limit = 200, offset = 0 } =
   if (userId) conds.push(eq(borrowRecords.userId, Number(userId)));
   if (bookId) conds.push(eq(borrowRecords.bookId, Number(bookId)));
   if (status) {
-    Array.isArray(status) ? conds.push(inArray(borrowRecords.status, status)) : conds.push(eq(borrowRecords.status, status));
+    Array.isArray(status)
+      ? conds.push(inArray(borrowRecords.status, status))
+      : conds.push(eq(borrowRecords.status, status));
   }
   const where = conds.length ? and(...conds) : undefined;
-  return db.select().from(borrowRecords).where(where).orderBy(desc(borrowRecords.borrowedAt)).limit(limit).offset(offset);
+
+  return db
+    .select()
+    .from(borrowRecords)
+    .where(where)
+    .orderBy(desc(borrowRecords.borrowedAt))
+    .limit(Number(limit))
+    .offset(Number(offset));
 }
 
 async function listBorrowsWithRelations({ userId, status } = {}) {
   const conds = [];
   if (userId) conds.push(eq(borrowRecords.userId, Number(userId)));
   if (status) {
-    Array.isArray(status) ? conds.push(inArray(borrowRecords.status, status)) : conds.push(eq(borrowRecords.status, status));
+    Array.isArray(status)
+      ? conds.push(inArray(borrowRecords.status, status))
+      : conds.push(eq(borrowRecords.status, status));
   }
   const where = conds.length ? and(...conds) : undefined;
 
@@ -126,14 +192,17 @@ async function listBorrowsWithRelations({ userId, status } = {}) {
 }
 
 async function createBorrow(data) {
-  const [row] = await db.insert(borrowRecords).values({
-    bookId: Number(data.bookId),
-    userId: Number(data.userId),
-    dueAt: data.dueAt,
-    issuedBy: data.issuedBy ? Number(data.issuedBy) : null,
-    status: data.status || 'borrowed',
-    remarks: data.remarks || null,
-  }).returning();
+  const [row] = await db
+    .insert(borrowRecords)
+    .values({
+      bookId: Number(data.bookId),
+      userId: Number(data.userId),
+      dueAt: data.dueAt,
+      status: 'borrowed',
+      issuedBy: data.issuedBy ? Number(data.issuedBy) : null,
+      remarks: data.remarks || null,
+    })
+    .returning();
   await adjustCopies(data.bookId, -1);
   return row;
 }
@@ -141,7 +210,7 @@ async function createBorrow(data) {
 async function returnBorrow(id, receivedBy) {
   const [row] = await db
     .update(borrowRecords)
-    .set({ returnedAt: new Date(), status: 'returned', receivedBy: Number(receivedBy) })
+    .set({ status: 'returned', returnedAt: new Date(), receivedBy: Number(receivedBy) })
     .where(eq(borrowRecords.id, Number(id)))
     .returning();
   if (row) await adjustCopies(row.bookId, +1);
@@ -158,12 +227,16 @@ async function markBorrowLost(id) {
 }
 
 async function sweepOverdue() {
+  const now = new Date();
   const rows = await db
     .update(borrowRecords)
     .set({ status: 'overdue' })
-    .where(and(eq(borrowRecords.status, 'borrowed'), lt(borrowRecords.dueAt, new Date())))
-    .returning({ id: borrowRecords.id });
-  return rows.length;
+    .where(and(
+      eq(borrowRecords.status, 'borrowed'),
+      sql`${borrowRecords.dueAt} < ${now}`
+    ))
+    .returning();
+  return rows;
 }
 
 // ============================================================
@@ -182,11 +255,19 @@ async function listReservations({ userId, bookId, status } = {}) {
   if (bookId) conds.push(eq(bookReservations.bookId, Number(bookId)));
   if (status) conds.push(eq(bookReservations.status, status));
   const where = conds.length ? and(...conds) : undefined;
-  return db.select().from(bookReservations).where(where).orderBy(desc(bookReservations.reservedAt));
+
+  return db
+    .select()
+    .from(bookReservations)
+    .where(where)
+    .orderBy(desc(bookReservations.reservedAt));
 }
 
 async function listReservationsWithRelations({ status } = {}) {
-  const where = status ? eq(bookReservations.status, status) : undefined;
+  const conds = [];
+  if (status) conds.push(eq(bookReservations.status, status));
+  const where = conds.length ? and(...conds) : undefined;
+
   return db
     .select({
       reservation: bookReservations,
@@ -201,11 +282,14 @@ async function listReservationsWithRelations({ status } = {}) {
 }
 
 async function createReservation(data) {
-  const [row] = await db.insert(bookReservations).values({
-    bookId: Number(data.bookId),
-    userId: Number(data.userId),
-    status: 'pending',
-  }).returning();
+  const [row] = await db
+    .insert(bookReservations)
+    .values({
+      bookId: Number(data.bookId),
+      userId: Number(data.userId),
+      status: data.status || 'pending',
+    })
+    .returning();
   return row;
 }
 
@@ -224,11 +308,15 @@ async function listFines({ userId, isPaid } = {}) {
   if (userId) conds.push(eq(libraryFines.userId, Number(userId)));
   if (isPaid !== undefined) conds.push(eq(libraryFines.isPaid, !!isPaid));
   const where = conds.length ? and(...conds) : undefined;
+
   return db.select().from(libraryFines).where(where).orderBy(desc(libraryFines.createdAt));
 }
 
 async function listFinesWithUser({ isPaid } = {}) {
-  const where = isPaid !== undefined ? eq(libraryFines.isPaid, !!isPaid) : undefined;
+  const conds = [];
+  if (isPaid !== undefined) conds.push(eq(libraryFines.isPaid, !!isPaid));
+  const where = conds.length ? and(...conds) : undefined;
+
   return db
     .select({
       fine: libraryFines,
@@ -241,12 +329,16 @@ async function listFinesWithUser({ isPaid } = {}) {
 }
 
 async function createFine(data) {
-  const [row] = await db.insert(libraryFines).values({
-    userId: Number(data.userId),
-    borrowId: data.borrowId ? Number(data.borrowId) : null,
-    amount: String(data.amount || 0),
-    reason: data.reason || null,
-  }).returning();
+  const [row] = await db
+    .insert(libraryFines)
+    .values({
+      userId: Number(data.userId),
+      borrowId: data.borrowId ? Number(data.borrowId) : null,
+      amount: String(data.amount || 0),
+      reason: data.reason || null,
+      isPaid: false,
+    })
+    .returning();
   return row;
 }
 
@@ -264,6 +356,9 @@ async function removeFine(id) {
   return row || null;
 }
 
+// ============================================================
+// EXPORTS
+// ============================================================
 module.exports = {
   // books
   findBookById,
@@ -273,6 +368,7 @@ module.exports = {
   updateBook,
   removeBook,
   adjustCopies,
+  changeInventory,
 
   // borrows
   findBorrowById,

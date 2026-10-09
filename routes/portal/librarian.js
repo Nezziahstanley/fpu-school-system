@@ -16,7 +16,7 @@ const { eq, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 
-const { books, borrowRecords, libraryFines, bookReservations } = schema;
+const { books, borrowRecords, libraryFines } = schema;
 const only = requireRole('librarian', 'admin');
 
 // ============================================================
@@ -102,9 +102,6 @@ router.get('/dashboard', only, async (_req, res, next) => {
 // ============================================================
 // GET /api/librarian/books
 // ============================================================
-// ============================================================
-// GET /api/librarian/books
-// ============================================================
 router.get('/books', only, async (req, res, next) => {
   try {
     const rows = await libQueries.listBooks({
@@ -134,10 +131,10 @@ router.post('/books', only, async (req, res, next) => {
       publisher: b.publisher || null,
       year: b.year ? Number(b.year) : null,
       copiesTotal,
-      copiesAvailable: copiesTotal,       // new books start fully available
+      copiesAvailable: copiesTotal,
       shelf: b.shelf || null,
       departmentId: b.departmentId ? Number(b.departmentId) : null,
-      isGeneral: b.isGeneral !== false,   // default true
+      isGeneral: b.isGeneral !== false,
     });
     await logAudit({ req, action: 'librarian.book_create', entity: 'book', entityId: row.id });
     return res.status(201).json({ success: true, data: row });
@@ -187,12 +184,14 @@ router.delete('/books/:id', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/librarian/books/:id/adjust  — { delta: ±N }
+// Adjusts physical inventory (both copiesTotal and copiesAvailable).
+// The borrow lifecycle uses adjustCopies; this uses changeInventory.
 // ============================================================
 router.post('/books/:id/adjust', only, async (req, res, next) => {
   try {
     const delta = Number(req.body?.delta || 0);
     if (!delta) return res.status(400).json({ success: false, error: 'delta must be a non-zero number.' });
-    const row = await libQueries.adjustCopies(req.params.id, delta);
+    const row = await libQueries.changeInventory(req.params.id, delta);
     if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
     await logAudit({ req, action: 'librarian.book_adjust', entity: 'book', entityId: row.id });
     return res.json({ success: true, data: row });

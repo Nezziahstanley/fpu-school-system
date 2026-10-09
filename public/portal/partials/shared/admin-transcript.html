@@ -231,7 +231,9 @@
       const res = await core.portalFetch('/api/transcript/' + studentId);
       const payload = res.data || res || {};
 
-      const studentInfo = payload.student || student;
+      // The transcript endpoint omits programme info; the list row
+      // has it, so merge them (studentInfo wins on conflicts).
+      const studentInfo = Object.assign({}, student, payload.student || {});
       const rows = payload.rows || [];
       const summary = payload.summary || {};
       const perSession = summary.perSession || [];

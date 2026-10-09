@@ -17,19 +17,19 @@
 
     <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
       <div>
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;color:#fff;">
           🎓 Office of the Rector
         </div>
-        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
-          Welcome, <span id="rector-name">Rector</span>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;color:#fff;">
+          Welcome, <span id="rector-name" style="color:#fff;">Rector</span>
         </h1>
-        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">
+        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;color:#fff;">
           Institution-wide oversight and executive reporting
         </p>
       </div>
       <div style="text-align:right;flex-shrink:0;">
-        <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;">Session</div>
-        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;" id="rector-session">—</div>
+        <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;color:#fff;">Session</div>
+        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;color:#fff;" id="rector-session">—</div>
       </div>
     </div>
   </div>
@@ -51,15 +51,15 @@
       </div>
     </a>
 
-    <a href="#admin-students" style="
+    <a href="#admin-transcript" style="
       display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
       background:#fff;border:1px solid #e5e7eb;border-radius:12px;
       text-decoration:none;color:#0f172a;transition:all .15s;
     " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
       <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👥</div>
       <div>
-        <div style="font-size:.86rem;font-weight:800;">Students</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">All registered students</div>
+        <div style="font-size:.86rem;font-weight:800;">Transcripts</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Student academic records</div>
       </div>
     </a>
 
@@ -91,7 +91,7 @@
   <!-- TWO COLUMN: Enrollment + Trend -->
   <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
 
-    <!-- ENROLLMENT BY DEPARTMENT -->
+    <!-- ENROLLMENT -->
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🏛️ Enrollment by Department</div>
@@ -102,7 +102,7 @@
       </div>
     </div>
 
-    <!-- ADMISSION TREND -->
+    <!-- TREND -->
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📈 Admission Trend</div>
@@ -115,10 +115,11 @@
 
   </div>
 
-  <!-- RECENT ACTIVITY -->
+  <!-- PENDING WORK -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
-    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🕐 Pending Work Across Institution</div>
+      <span style="font-size:.7rem;color:#94a3b8;">Live counts — see detail pages for actions</span>
     </div>
     <div id="rector-pending" style="padding:.5rem 0;">
       <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
@@ -131,7 +132,7 @@
   @keyframes rectorSpin { to { transform: rotate(360deg); } }
   .rector-row {
     display:flex;align-items:center;gap:.85rem;
-    padding:.6rem 1rem;border-bottom:1px solid #f8fafc;
+    padding:.75rem 1rem;border-bottom:1px solid #f8fafc;
     transition:background .15s;
   }
   .rector-row:last-child { border-bottom:none; }
@@ -160,10 +161,10 @@
 
       // ---- Stat tiles ----
       const tiles = [
-        { label: 'Total Students',  value: d.students ?? 0,           bg: '#d1fae5', fg: '#065f46', icon: '👥' },
-        { label: 'Total Staff',     value: d.staff ?? 0,              bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Total Students',  value: d.students ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff',     value: d.staff ?? 0,               bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
         { label: 'Pending Apps',    value: d.pendingApplications ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '📋' },
-        { label: 'Revenue',         value: fmtMoney(d.revenue ?? 0),  bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
+        { label: 'Revenue',         value: fmtMoney(d.revenue ?? 0),   bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
       ];
 
       $('rector-stats').innerHTML = tiles.map(t => `
@@ -188,9 +189,6 @@
     }
   }
 
-  // ============================================================
-  // Enrollment bars
-  // ============================================================
   function renderEnrollment(rows) {
     const box = $('rector-enrollment');
 
@@ -223,9 +221,6 @@
     }).join('');
   }
 
-  // ============================================================
-  // Admission trend bars
-  // ============================================================
   function renderTrend(rows) {
     const box = $('rector-trend');
 
@@ -234,7 +229,6 @@
       return;
     }
 
-    // Reverse to show oldest → newest left-to-right
     const sorted = [...rows].reverse();
     const max = Math.max(...sorted.map(r => Number(r.applications || 0)), 1);
 
@@ -246,7 +240,7 @@
           return `
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
               <div style="font-size:.72rem;font-weight:800;color:#065f46;margin-bottom:.35rem;">${value}</div>
-              <div style="width:100%;max-width:44px;height:${heightPct}%;background:linear-gradient(180deg,#10b981,#065f46);border-radius:6px 6px 0 0;transition:height .3s;"></div>
+              <div style="width:100%;max-width:44px;height:${heightPct}%;background:linear-gradient(180deg,#10b981,#065f46);border-radius:6px 6px 0 0;"></div>
             </div>`;
         }).join('')}
       </div>
@@ -258,33 +252,32 @@
     `;
   }
 
-  // ============================================================
-  // Pending work summary
-  // ============================================================
   function renderPending(d) {
+    // Rows are non-clickable for now — the linked pages don't exist yet.
+    // Show the counts and a hint to view details elsewhere.
     const rows = [
-      { label: 'Pending Applications', value: d.pendingApplications || 0, icon: '📋', bg: '#fef3c7', fg: '#92400e', link: '#admin-applications-list' },
-      { label: 'Pending Results (Lecturer/HOD)', value: d.pendingResults || 0, icon: '📝', bg: '#dbeafe', fg: '#1e40af', link: '#admin-results' },
-      { label: 'Pending Payments (Verification)', value: d.pendingPayments || 0, icon: '💰', bg: '#d1fae5', fg: '#065f46', link: '#admin-payments' },
-      { label: 'Open Complaints', value: d.openComplaints || 0, icon: '💬', bg: '#fee2e2', fg: '#991b1b', link: '#admin-complaints' },
+      { label: 'Pending Applications', value: d.pendingApplications || 0, hint: 'Awaiting admission officer review', icon: '📋', bg: '#fef3c7', fg: '#92400e' },
+      { label: 'Pending Results', value: d.pendingResults || 0, hint: 'Submitted by lecturers, awaiting HOD/admin', icon: '📝', bg: '#dbeafe', fg: '#1e40af' },
+      { label: 'Pending Payments', value: d.pendingPayments || 0, hint: 'Awaiting bursar verification', icon: '💰', bg: '#d1fae5', fg: '#065f46' },
+      { label: 'Open Complaints', value: d.openComplaints || 0, hint: 'Awaiting response', icon: '💬', bg: '#fee2e2', fg: '#991b1b' },
     ];
 
     $('rector-pending').innerHTML = rows.map((r) => `
-      <a href="${r.link}" class="rector-row" style="text-decoration:none;color:inherit;">
+      <div class="rector-row">
         <div style="width:38px;height:38px;border-radius:10px;background:${r.bg};color:${r.fg};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">${r.icon}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:.85rem;font-weight:700;color:#0f172a;">${esc(r.label)}</div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:.1rem;">${esc(r.hint)}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
           <span style="
-            display:inline-block;padding:3px 10px;border-radius:99px;
-            font-size:.72rem;font-weight:800;
+            display:inline-block;padding:4px 12px;border-radius:99px;
+            font-size:.85rem;font-weight:800;
             background:${r.value > 0 ? r.bg : '#f1f5f9'};
             color:${r.value > 0 ? r.fg : '#475569'};
           ">${r.value}</span>
         </div>
-        <div style="color:#94a3b8;font-size:1.1rem;">›</div>
-      </a>
+      </div>
     `).join('');
   }
 

@@ -42,16 +42,15 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // Inject print + card-design CSS once
+  // -------- Inject card + print CSS once --------
   if (!document.getElementById('si-print-style')) {
     const style = document.createElement('style');
     style.id = 'si-print-style';
     style.textContent = `
-      /* Diagonal stripes decoration for the card */
       .si-card {
         position: relative;
-        width: 320px;
-        height: 500px;
+        width: 340px;
+        height: 540px;
         max-width: 100%;
         margin: 0 auto;
         background: #ffffff;
@@ -59,55 +58,49 @@
         overflow: hidden;
         box-shadow: 0 20px 50px rgba(6,95,70,.25);
         border: 1px solid #e5e7eb;
-        display: flex;
-        flex-direction: column;
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      /* Curved stripe decorations */
-      .si-card::before {
-        content: "";
+      /* Background flowing waves (top-right and bottom-left) */
+      .si-card .si-wave-top {
         position: absolute;
-        top: -80px;
-        right: -100px;
-        width: 320px;
-        height: 320px;
+        top: -40px; right: -70px;
+        width: 260px; height: 260px;
         border-radius: 50%;
-        background: linear-gradient(135deg, rgba(6,95,70,.08), rgba(16,185,129,.03));
+        background: radial-gradient(circle at 30% 30%, rgba(6,95,70,.10), rgba(16,185,129,.02) 70%);
         pointer-events: none;
       }
-      .si-card::after {
-        content: "";
+      .si-card .si-wave-mid {
         position: absolute;
-        bottom: -100px;
-        left: -100px;
-        width: 300px;
-        height: 300px;
+        top: 140px; right: -120px;
+        width: 300px; height: 120px;
+        background: linear-gradient(160deg, rgba(6,95,70,.06), transparent);
+        transform: rotate(-18deg);
+        pointer-events: none;
+      }
+      .si-card .si-wave-bottom {
+        position: absolute;
+        bottom: -60px; left: -80px;
+        width: 300px; height: 300px;
         border-radius: 50%;
-        background: linear-gradient(135deg, rgba(6,95,70,.10), rgba(16,185,129,.02));
+        background: radial-gradient(circle at 60% 40%, rgba(6,95,70,.14), rgba(16,185,129,.03) 70%);
         pointer-events: none;
       }
-      /* Diagonal thin stripes running across */
-      .si-stripes {
+      .si-card .si-curve {
         position: absolute;
-        inset: 0;
+        bottom: 0; left: 0; right: 0;
+        height: 90px;
+        background: linear-gradient(135deg, #065f46, #047857);
+        border-top-left-radius: 60% 40px;
+        border-top-right-radius: 40% 20px;
         pointer-events: none;
-        overflow: hidden;
-        opacity: .35;
       }
-      .si-stripes::before,
-      .si-stripes::after {
-        content: "";
-        position: absolute;
-        top: -20%;
-        bottom: -20%;
-        width: 3px;
-        background: linear-gradient(180deg, transparent, rgba(6,95,70,.35), transparent);
-        transform: rotate(20deg);
+      .si-card .si-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
       }
-      .si-stripes::before { left: 25%; }
-      .si-stripes::after  { left: 30%; }
-
-      .si-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
 
       @media print {
         @page { size: auto; margin: 10mm; }
@@ -141,124 +134,156 @@
 
       const initials = ((d.firstName || '?')[0] + (d.lastName || '?')[0]).toUpperCase();
       const fullName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ').trim();
+      const shortName = (inst.short || 'FPU').toUpperCase();
+      const fullInstName = inst.name || 'Federal Polytechnic Ugep';
+      const address = inst.address || 'Ugep, Cross River State, Nigeria';
 
       const photo = d.photoUrl
         ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;"
-             onerror="this.parentNode.innerHTML='<span style=\\'font-size:2.4rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
-        : `<span style="font-size:2.4rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
+             onerror="this.parentNode.innerHTML='<span style=\\'font-size:2.2rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
+        : `<span style="font-size:2.2rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
 
       const qrImg = d.qrDataUrl
         ? `<img src="${d.qrDataUrl}" alt="QR code" style="width:100%;height:100%;display:block;" />`
         : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:7px;color:#94a3b8;">QR<br/>n/a</div>`;
 
-      const logoSmall = `
+      const logoTop = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:22px;height:22px;object-fit:contain;"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:14px;'}))" />`;
+             style="width:26px;height:26px;object-fit:contain;"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:18px;'}))" />`;
 
       const logoFooter = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:16px;height:16px;object-fit:contain;filter:brightness(0) invert(1);"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:11px;'}))" />`;
+             style="width:18px;height:18px;object-fit:contain;filter:brightness(0) invert(1);"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:12px;color:#fff;'}))" />`;
 
       box.innerHTML = `
-        <div style="max-width:340px;margin:0 auto;">
+        <div style="max-width:360px;margin:0 auto;">
 
           <div class="si-card">
-            <div class="si-stripes"></div>
+
+            <!-- Background decorations -->
+            <div class="si-wave-top"></div>
+            <div class="si-wave-mid"></div>
+            <div class="si-wave-bottom"></div>
+            <div class="si-curve"></div>
 
             <div class="si-content">
 
-              <!-- ═══ HEADER: logo + FPU | QR ═══ -->
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem .9rem .4rem;gap:.5rem;">
-                <div style="display:flex;align-items:center;gap:.5rem;min-width:0;">
-                  ${logoSmall}
+              <!-- ═══ HEADER ═══ -->
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:.7rem .9rem .45rem;gap:.5rem;">
+                <div style="display:flex;align-items:center;gap:.55rem;min-width:0;">
+                  ${logoTop}
                   <div style="min-width:0;">
-                    <div style="font-weight:800;font-size:11px;color:#065f46;letter-spacing:.03em;line-height:1.1;">
-                      ${esc((inst.short || 'FPU').toUpperCase())}
+                    <div style="font-weight:800;font-size:11.5px;color:#065f46;letter-spacing:.04em;line-height:1.1;">
+                      ${esc(shortName)}
                     </div>
-                    <div style="font-size:7.5px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;">
-                      Student ID
+                    <div style="font-size:7.5px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">
+                      ${esc(fullInstName)}
                     </div>
                   </div>
                 </div>
-                <div style="width:52px;height:52px;padding:2px;background:#fff;border:1px solid #e2e8f0;border-radius:5px;flex-shrink:0;">
-                  ${qrImg}
+                <div style="font-size:7px;color:#64748b;letter-spacing:.06em;text-transform:uppercase;text-align:right;">
+                  <div>Student ID</div>
+                  <div style="font-weight:700;color:#065f46;font-size:8px;margin-top:.1rem;">${esc(d.session || '—')}</div>
                 </div>
               </div>
 
               <!-- ═══ DIVIDER ═══ -->
-              <div style="height:2px;background:linear-gradient(90deg,#065f46,#10b981,#065f46);margin:0 .9rem;"></div>
+              <div style="height:2px;background:linear-gradient(90deg,#065f46,#10b981,#065f46);margin:0 .9rem;border-radius:2px;"></div>
 
-              <!-- ═══ PHOTO ═══ -->
-              <div style="padding:.85rem .9rem .55rem;text-align:center;">
+              <!-- ═══ PHOTO + QR ROW ═══ -->
+              <div style="display:flex;justify-content:space-between;padding:.85rem .9rem .55rem;gap:.75rem;">
+
+                <!-- PHOTO -->
                 <div style="
                   width:118px;height:142px;
                   background:#f1f5f9;
                   border-radius:10px;
                   border:3px solid #065f46;
                   overflow:hidden;
-                  display:inline-flex;align-items:center;justify-content:center;
+                  display:flex;align-items:center;justify-content:center;
                   box-shadow:0 6px 16px rgba(6,95,70,.18);
+                  flex-shrink:0;
                 ">
                   ${photo}
                 </div>
+
+                <!-- QR -->
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;flex-shrink:0;">
+                  <div style="
+                    width:74px;height:74px;
+                    padding:4px;
+                    background:#fff;
+                    border:1px solid #e2e8f0;
+                    border-radius:8px;
+                    box-shadow:0 2px 6px rgba(0,0,0,.05);
+                  ">
+                    ${qrImg}
+                  </div>
+                  <div style="font-size:6.5px;color:#64748b;margin-top:.25rem;text-align:center;letter-spacing:.05em;font-weight:700;line-height:1.2;">
+                    SCAN TO<br/>VERIFY
+                  </div>
+                </div>
+
               </div>
 
               <!-- ═══ NAME + PROGRAMME ═══ -->
-              <div style="text-align:center;padding:0 .9rem .55rem;">
+              <div style="padding:0 .9rem .35rem;">
                 <div style="font-size:1.02rem;font-weight:800;color:#0f172a;line-height:1.1;text-transform:uppercase;letter-spacing:.01em;">
                   ${esc(fullName)}
                 </div>
-                <div style="font-size:9.5px;color:#065f46;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:.2rem;">
+                <div style="font-size:8.5px;color:#065f46;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-top:.15rem;">
                   ${esc(d.programmeName || 'Student')}
                 </div>
               </div>
 
-              <!-- ═══ DETAILS GRID ═══ -->
-              <div style="padding:0 1.1rem;flex:1;">
+              <!-- ═══ DETAIL ROWS ═══ -->
+              <div style="padding:.35rem .9rem .65rem;flex:1;">
                 <div style="
                   display:grid;
-                  grid-template-columns:56px 1fr;
-                  gap:.32rem .55rem;
-                  font-size:9.5px;
+                  grid-template-columns:52px 1fr;
+                  gap:.35rem .55rem;
+                  font-size:9px;
                   align-items:center;
                 ">
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8.5px;font-weight:600;">Matric</div>
-                  <div style="color:#0f172a;font-weight:700;font-family:ui-monospace,monospace;font-size:9px;">${esc(d.matricNumber || '—')}</div>
+                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Matric</div>
+                  <div style="color:#0f172a;font-weight:700;font-family:ui-monospace,monospace;font-size:8.5px;">${esc(d.matricNumber || '—')}</div>
 
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8.5px;font-weight:600;">Dept</div>
+                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Dept</div>
                   <div style="color:#0f172a;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</div>
 
-                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8.5px;font-weight:600;">Level</div>
+                  <div style="color:#64748b;letter-spacing:.06em;text-transform:uppercase;font-size:8px;font-weight:600;">Level</div>
                   <div style="color:#0f172a;font-weight:700;">${esc(d.levelDisplay || d.level || '—')}</div>
                 </div>
               </div>
 
-              <!-- ═══ FOOTER BAND ═══ -->
+              <!-- ═══ FOOTER (sits on the green curve) ═══ -->
               <div style="
-                background:linear-gradient(90deg,#065f46,#047857);
-                color:#fff;
-                padding:.45rem .9rem;
+                position:relative;
+                z-index:2;
+                padding:.65rem .9rem .75rem;
                 display:flex;
-                align-items:center;
+                align-items:flex-end;
                 justify-content:space-between;
+                color:#fff;
                 font-size:7.5px;
-                letter-spacing:.09em;
+                letter-spacing:.08em;
                 text-transform:uppercase;
               ">
                 <div style="display:flex;align-items:center;gap:.35rem;">
                   ${logoFooter}
-                  <span style="font-weight:800;">${esc(inst.short || 'FPU')}</span>
+                  <span style="font-weight:800;">${esc(shortName)}</span>
                 </div>
-                <div style="font-weight:700;">STUDENT</div>
-                <div>${esc(d.session || '—')}</div>
+                <div style="text-align:right;line-height:1.25;">
+                  <div style="font-weight:700;">${esc(address)}</div>
+                </div>
               </div>
 
             </div>
           </div>
 
-          <!-- BACK / INSTRUCTIONS (not part of the card) -->
+          <!-- ═══ BACK / INSTRUCTIONS (not on card) ═══ -->
           <div style="
             margin-top:1rem;
             padding:.9rem 1.1rem;
@@ -272,11 +297,11 @@
             <div style="font-weight:800;font-size:11px;margin-bottom:.3rem;color:#065f46;">
               📮 IF THIS CARD IS FOUND
             </div>
-            <div>Return it to <strong>${esc(inst.name || 'Federal Polytechnic Ugep')}</strong> or hand it to any staff member.</div>
+            <div>Return it to <strong>${esc(fullInstName)}</strong> or hand it to any staff member.</div>
             <div style="margin-top:.35rem;display:grid;grid-template-columns:1fr;gap:.15rem;">
+              <div><span style="color:#64748b;">📍</span> ${esc(address)}</div>
               <div><span style="color:#64748b;">📞</span> ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
               <div><span style="color:#64748b;">📧</span> ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
-              <div><span style="color:#64748b;">📍</span> ${esc(inst.address || 'Ugep, Cross River State, Nigeria')}</div>
               <div style="word-break:break-all;"><span style="color:#64748b;">🌐</span> ${esc(d.lookupUrl || '—')}</div>
             </div>
           </div>

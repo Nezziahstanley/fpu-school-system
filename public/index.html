@@ -40,12 +40,17 @@
         <li><a href="/apply-status.html">Check Status</a></li>
         <li><a href="/announcements.html">News</a></li>
         <li><a href="/contact.html">Contact</a></li>
+        <!-- Mobile-only auth buttons — appear at the bottom of the open mobile menu -->
+        <li class="mobile-auth">
+          <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+          <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        </li>
       </nav>
       <div class="nav-auth">
         <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
         <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
-        <button class="menu-toggle" id="menuToggle">☰</button>
       </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">☰</button>
     </div>
   </header>
 
@@ -661,9 +666,48 @@
   <script src="/js/main.js"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    document.getElementById('menuToggle')?.addEventListener('click', () => {
-      document.getElementById('navLinks')?.classList.toggle('active');
-    });
+    (function () {
+      const toggle = document.getElementById('menuToggle');
+      const nav = document.getElementById('navLinks');
+      if (!toggle || !nav) return;
+
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = nav.classList.toggle('active');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.textContent = open ? '✕' : '☰';
+      });
+
+      // Tap outside to close
+      document.addEventListener('click', (e) => {
+        if (!nav.classList.contains('active')) return;
+        if (nav.contains(e.target) || toggle.contains(e.target)) return;
+        nav.classList.remove('active');
+        toggle.textContent = '☰';
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+
+      // Esc closes
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && nav.classList.contains('active')) {
+          nav.classList.remove('active');
+          toggle.textContent = '☰';
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Tap a submenu parent → expand submenu (mobile only)
+      nav.querySelectorAll('.has-dropdown > a').forEach((a) => {
+        a.addEventListener('click', (ev) => {
+          if (window.innerWidth > 980) return; // desktop uses :hover
+          const parent = a.parentElement;
+          if (parent.querySelector('.dropdown-menu')) {
+            ev.preventDefault();
+            parent.classList.toggle('open');
+          }
+        });
+      });
+    })();
 
     (function () {
       const slider = document.getElementById('heroSlider');

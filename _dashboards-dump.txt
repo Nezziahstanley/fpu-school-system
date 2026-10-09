@@ -1,0 +1,1080 @@
+﻿
+========== EXAM OFFICER ==========
+<!-- Portal → Exam Officer → Dashboard -->
+<div style="padding:0;">
+
+  <!-- HERO -->
+  <div style="
+    background:linear-gradient(135deg,#065f46 0%,#047857 60%,#059669 100%);
+    border-radius:16px;
+    padding:1.5rem 1.75rem;
+    color:#fff;
+    margin-bottom:1.25rem;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(6,95,70,.25);
+  ">
+    <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);"></div>
+    <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
+          🎓 Examinations Office
+        </div>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
+          Welcome, <span id="exo-name">Exam Officer</span>
+        </h1>
+        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">
+          Schedule oversight, attendance tracking, and eligibility verification
+        </p>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;">Session</div>
+        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;" id="exo-session">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT TILES -->
+  <div id="exo-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+
+  <!-- QUICK ACTIONS -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:1.25rem;">
+    <a href="#exam-officer-attendance" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;
+      transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>
+      <div>
+        <div style="font-size:.88rem;font-weight:800;">Mark Attendance</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">Record who showed up</div>
+      </div>
+    </a>
+
+    <a href="#exam-officer-eligibility" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;
+      transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🎓</div>
+      <div>
+        <div style="font-size:.88rem;font-weight:800;">Check Eligibility</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">Verify student clearance</div>
+      </div>
+    </a>
+
+    <a href="#admin-exams" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;
+      transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
+      <div>
+        <div style="font-size:.88rem;font-weight:800;">View Schedules</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;">All exam timetables</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- TWO COLUMN -->
+  <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:1rem;align-items:flex-start;">
+
+    <!-- UPCOMING EXAMS -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">⏰ Upcoming Exams</div>
+        <span style="font-size:.72rem;color:#64748b;">Next 30 days</span>
+      </div>
+      <div id="exo-upcoming-list" style="padding:.5rem 0;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+          <div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exoSpin .8s linear infinite;"></div>
+          <div style="margin-top:.5rem;">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE OVERVIEW -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📊 Attendance Overview</div>
+      </div>
+      <div id="exo-attendance-chart" style="padding:1rem;"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<style>
+  @keyframes exoSpin { to { transform: rotate(360deg); } }
+  .exo-row {
+    display:flex;align-items:center;gap:.85rem;
+    padding:.7rem 1rem;border-bottom:1px solid #f8fafc;
+    transition:background .15s;
+  }
+  .exo-row:last-child { border-bottom:none; }
+  .exo-row:hover { background:#f8fafc; }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  async function load() {
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    if ($('exo-name')) {
+      $('exo-name').textContent = user.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'Exam Officer';
+    }
+
+    try {
+      const res = await core.portalFetch('/api/exam-officer/dashboard');
+      const d = res.data || res || {};
+
+      // Big stats
+      const attendance = d.attendance || { present: 0, absent: 0, late: 0, excused: 0 };
+
+      const tiles = [
+        { label: 'Scheduled',   value: d.totalSchedules ?? 0,             bg: '#d1fae5', fg: '#065f46', icon: '📅' },
+        { label: 'Upcoming',    value: d.upcoming ?? 0,                    bg: '#dbeafe', fg: '#1e40af', icon: '⏰' },
+        { label: 'Present',     value: attendance.present ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+        { label: 'Absent',      value: attendance.absent ?? 0,             bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+      ];
+
+      $('exo-stats').innerHTML = tiles.map(t => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+          <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
+          <div style="min-width:0;">
+            <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
+          </div>
+        </div>`).join('');
+
+      // Session
+      if (d.currentSession?.name && $('exo-session')) {
+        $('exo-session').textContent = d.currentSession.name;
+      }
+
+      // Attendance breakdown chart
+      renderAttendanceChart(attendance);
+
+      // Upcoming exams
+      const sched = await core.portalFetch('/api/exam-officer/schedules');
+      const rows = Array.isArray(sched.data) ? sched.data : [];
+      const now = new Date();
+      const upcoming = rows
+        .filter((r) => {
+          const e = r.exam || r;
+          return e.examDate && new Date(e.examDate) >= now;
+        })
+        .sort((a, b) => {
+          const da = new Date((a.exam || a).examDate);
+          const db = new Date((b.exam || b).examDate);
+          return da - db;
+        })
+        .slice(0, 5);
+
+      renderUpcoming(upcoming);
+    } catch (err) {
+      console.error('[exam-dashboard]', err);
+      $('exo-upcoming-list').innerHTML = `<div style="padding:1.5rem;text-align:center;color:#991b1b;font-size:.82rem;">⚠️ ${esc(err.message)}</div>`;
+    }
+  }
+
+  function renderAttendanceChart(attendance) {
+    const total = (attendance.present || 0) + (attendance.absent || 0) + (attendance.late || 0) + (attendance.excused || 0);
+
+    if (!total) {
+      $('exo-attendance-chart').innerHTML = `
+        <div style="text-align:center;padding:1.5rem 0;">
+          <div style="font-size:2rem;margin-bottom:.5rem;opacity:.6;">📊</div>
+          <div style="font-size:.85rem;color:#64748b;">No attendance recorded yet</div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:.25rem;">Mark attendance to see stats here</div>
+        </div>`;
+      return;
+    }
+
+    const rows = [
+      { label: 'Present',  value: attendance.present || 0,  color: '#10b981', icon: '✅' },
+      { label: 'Absent',   value: attendance.absent || 0,   color: '#ef4444', icon: '❌' },
+      { label: 'Late',     value: attendance.late || 0,     color: '#f59e0b', icon: '⏰' },
+      { label: 'Excused',  value: attendance.excused || 0,  color: '#6366f1', icon: '🛡️' },
+    ];
+
+    $('exo-attendance-chart').innerHTML = rows.map(r => {
+      const pct = total > 0 ? Math.round((r.value / total) * 100) : 0;
+      return `
+        <div style="margin-bottom:.7rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;">
+            <div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:#334155;font-weight:600;">
+              <span>${r.icon}</span><span>${r.label}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:.4rem;">
+              <span style="font-size:.85rem;font-weight:800;color:#0f172a;">${r.value}</span>
+              <span style="font-size:.68rem;color:#94a3b8;">${pct}%</span>
+            </div>
+          </div>
+          <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${r.color};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('') + `
+      <div style="
+        padding:.6rem .75rem;margin-top:.85rem;
+        background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;
+        font-size:.75rem;color:#14532d;text-align:center;font-weight:600;
+      ">${total} total marks across all schedules</div>`;
+  }
+
+  function renderUpcoming(rows) {
+    const box = $('exo-upcoming-list');
+    if (!rows.length) {
+      box.innerHTML = `
+        <div style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📭</div>
+          <div style="font-size:.88rem;font-weight:700;color:#0f172a;">No upcoming exams</div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:.25rem;">Schedules will appear here when added</div>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = rows.map(r => {
+      const e = r.exam || r;
+      const course = r.course || {};
+      const dueDate = e.examDate ? new Date(e.examDate) : null;
+      const daysAway = dueDate ? Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24)) : null;
+
+      let countdownColor = '#065f46';
+      let countdownText = '';
+      if (daysAway === 0) { countdownColor = '#dc2626'; countdownText = 'Today'; }
+      else if (daysAway === 1) { countdownColor = '#dc2626'; countdownText = 'Tomorrow'; }
+      else if (daysAway <= 3) { countdownColor = '#d97706'; countdownText = `In ${daysAway} days`; }
+      else { countdownText = `In ${daysAway} days`; }
+
+      return `
+        <div class="exo-row">
+          <div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+            <div style="font-size:1.1rem;font-weight:800;line-height:1;">${dueDate ? dueDate.getDate() : '—'}</div>
+            <div style="font-size:.6rem;text-transform:uppercase;opacity:.9;margin-top:1px;">${dueDate ? dueDate.toLocaleString('en-GB', { month: 'short' }) : ''}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:800;font-size:.88rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${esc(course.code || '')} ${course.title ? '· ' + esc(course.title) : ''}
+            </div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:.2rem;">
+              ⏰ ${esc(e.startTime || '—')}–${esc(e.endTime || '—')} · 📍 ${esc(e.venue || 'TBA')} · ${esc(e.semester || '')}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:.72rem;font-weight:800;color:${countdownColor};">
+              ${esc(countdownText)}
+            </div>
+            <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">${esc(fmtDate(e.examDate))}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  load();
+})();
+</script>
+
+
+========== ADMISSION OFFICER ==========
+<!-- Portal → Admission Officer → Dashboard -->
+<div style="padding:0;">
+
+  <!-- HERO -->
+  <div style="
+    background:linear-gradient(135deg,#065f46 0%,#047857 60%,#059669 100%);
+    border-radius:16px;
+    padding:1.5rem 1.75rem;
+    color:#fff;
+    margin-bottom:1.25rem;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(6,95,70,.20);
+  ">
+    <div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+    <div style="position:absolute;bottom:-40px;right:120px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05);"></div>
+
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.85;text-transform:uppercase;margin-bottom:.35rem;">
+          Admissions Office
+        </div>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
+          Welcome, <span id="ao-dash-name">Admission Officer</span>
+        </h1>
+        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.85;">
+          Review applications, admit qualified candidates, and generate letters
+        </p>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:.65rem;opacity:.75;letter-spacing:.14em;text-transform:uppercase;">Session</div>
+        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;" id="ao-dash-session">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT TILES -->
+  <div style="
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:.75rem;
+    margin-bottom:1.25rem;
+  ">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">📋</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-total">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Total</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">⏳</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-pending">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Pending</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#d1fae5,#a7f3d0);color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">✅</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-admitted">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Admitted</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#fee2e2,#fecaca);color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">❌</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-rejected">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Rejected</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TWO COLUMN: status breakdown + recent -->
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:1rem;margin-bottom:1.25rem;">
+
+    <!-- STATUS BREAKDOWN -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.85rem;color:#0f172a;">📊 By Status</div>
+      </div>
+      <div style="padding:.85rem 1rem;display:flex;flex-direction:column;gap:.55rem;" id="ao-status-list">
+        <div style="font-size:.8rem;color:#94a3b8;text-align:center;padding:1rem 0;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS + STATS -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.85rem;color:#0f172a;">⚡ Quick Actions</div>
+      </div>
+      <div style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+        <a href="#admission-officer-applications" style="
+          display:flex;align-items:center;gap:.5rem;
+          padding:.7rem .85rem;
+          background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;
+          text-decoration:none;color:#14532d;font-weight:700;font-size:.8rem;
+          transition:all .15s;
+        " onmouseover="this.style.background='#d1fae5';" onmouseout="this.style.background='#f0fdf4';">
+          <span style="font-size:1.15rem;">📋</span> Review Applications
+        </a>
+
+        <a href="#admission-officer-admitted" style="
+          display:flex;align-items:center;gap:.5rem;
+          padding:.7rem .85rem;
+          background:#fef3c7;border:1px solid #fde68a;border-radius:10px;
+          text-decoration:none;color:#78350f;font-weight:700;font-size:.8rem;
+          transition:all .15s;
+        " onmouseover="this.style.background='#fde68a';" onmouseout="this.style.background='#fef3c7';">
+          <span style="font-size:1.15rem;">✅</span> View Admitted
+        </a>
+
+        <a href="#admission-officer-letters" style="
+          display:flex;align-items:center;gap:.5rem;
+          padding:.7rem .85rem;
+          background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+          text-decoration:none;color:#1e40af;font-weight:700;font-size:.8rem;
+          transition:all .15s;
+        " onmouseover="this.style.background='#dbeafe';" onmouseout="this.style.background='#eff6ff';">
+          <span style="font-size:1.15rem;">✉️</span> Generate Letters
+        </a>
+
+        <button id="ao-refresh" style="
+          display:flex;align-items:center;gap:.5rem;
+          padding:.7rem .85rem;
+          background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;
+          color:#475569;font-weight:700;font-size:.8rem;cursor:pointer;
+          transition:all .15s;font-family:inherit;
+        " onmouseover="this.style.background='#e2e8f0';" onmouseout="this.style.background='#f1f5f9';">
+          <span style="font-size:1.15rem;">🔄</span> Refresh Stats
+        </button>
+      </div>
+
+      <div style="padding:0 1rem 1rem;">
+        <div style="
+          padding:.75rem .9rem;
+          background:linear-gradient(135deg,#065f46,#047857);
+          border-radius:10px;
+          color:#fff;
+        ">
+          <div style="font-size:.65rem;letter-spacing:.14em;opacity:.85;text-transform:uppercase;font-weight:700;">Admission Rate</div>
+          <div style="font-size:1.6rem;font-weight:800;line-height:1;margin-top:.35rem;" id="ao-rate">—</div>
+          <div style="font-size:.7rem;opacity:.8;margin-top:.35rem;" id="ao-rate-label">of all applications</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT APPLICATIONS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.85rem;color:#0f172a;">🔔 Recent Applications</div>
+      <a href="#admission-officer-admitted" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View All →</a>
+    </div>
+    <div style="padding:.5rem 0;" id="ao-recent-list">
+      <div style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  @keyframes aoSpin { to { transform: rotate(360deg); } }
+  .ao-spin {
+    display:inline-block;width:28px;height:28px;
+    border:3px solid #e2e8f0;border-top-color:#065f46;
+    border-radius:50%;animation:aoSpin .8s linear infinite;
+  }
+  .ao-row {
+    display:flex;align-items:center;gap:.85rem;
+    padding:.75rem 1rem;border-bottom:1px solid #f8fafc;
+    transition:background .15s;
+  }
+  .ao-row:last-child { border-bottom:none; }
+  .ao-row:hover { background:#f8fafc; }
+  .ao-badge {
+    display:inline-flex;align-items:center;gap:.3rem;
+    font-size:.65rem;font-weight:800;letter-spacing:.05em;
+    padding:3px 9px;border-radius:99px;text-transform:uppercase;
+  }
+  .ao-action-btn {
+    padding:.35rem .7rem;font-size:.72rem;font-weight:700;
+    border-radius:6px;cursor:pointer;border:none;font-family:inherit;
+    transition:all .15s;
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
+
+  const STATUS_META = {
+    pending:      { label: 'Pending',      bg: '#fef3c7', fg: '#92400e', dot: '#f59e0b' },
+    under_review: { label: 'Under Review', bg: '#dbeafe', fg: '#1e40af', dot: '#3b82f6' },
+    approved:     { label: 'Approved',     bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
+    rejected:     { label: 'Rejected',     bg: '#fee2e2', fg: '#991b1b', dot: '#ef4444' },
+    registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
+  };
+  const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
+
+  // ------------------------------------------------------------
+  // Load dashboard stats + recent applications
+  // ------------------------------------------------------------
+  async function load() {
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    if ($('ao-dash-name')) {
+      $('ao-dash-name').textContent = user.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'Admission Officer';
+    }
+
+    try {
+      // 1. Dashboard stats
+      const dash = await core.portalFetch('/api/admission-officer/dashboard');
+      const d = dash.data || dash || {};
+      const byStatus = d.byStatus || {};
+      const total = d.total || 0;
+
+      $('ao-total').textContent    = total || 0;
+      $('ao-pending').textContent  = byStatus.pending || 0;
+      $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0);
+      $('ao-rejected').textContent = byStatus.rejected || 0;
+
+      if (d.currentSession?.name && $('ao-dash-session')) {
+        $('ao-dash-session').textContent = d.currentSession.name;
+      }
+
+      // Rate: approved + registered / total
+      const admitted = (byStatus.approved || 0) + (byStatus.registered || 0);
+      const rate = total > 0 ? Math.round((admitted / total) * 100) : 0;
+      if ($('ao-rate'))       $('ao-rate').textContent = `${rate}%`;
+      if ($('ao-rate-label')) $('ao-rate-label').textContent = `${admitted} of ${total} applications`;
+
+      // Status breakdown list
+      renderStatusList(byStatus, total);
+
+    } catch (err) {
+      console.warn('[ao-dashboard] stats failed:', err.message);
+      $('ao-status-list').innerHTML = `<div style="font-size:.8rem;color:#dc2626;text-align:center;padding:1rem 0;">⚠️ ${esc(err.message)}</div>`;
+    }
+
+    // 2. Recent applications
+    try {
+      const recent = await core.portalFetch('/api/admission-officer/applications?limit=6');
+      const rows = recent.data || [];
+      renderRecent(rows);
+    } catch (err) {
+      $('ao-recent-list').innerHTML = `<div style="padding:1.5rem;text-align:center;color:#dc2626;font-size:.82rem;">⚠️ Could not load applications.</div>`;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Render the status breakdown list
+  // ------------------------------------------------------------
+  function renderStatusList(byStatus, total) {
+    const order = ['pending', 'under_review', 'approved', 'registered', 'rejected'];
+    const html = order.map((key) => {
+      const count = byStatus[key] || 0;
+      const meta = statusMeta(key);
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+
+      return `
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${meta.dot};"></span>
+              <span style="font-size:.78rem;font-weight:600;color:#334155;">${meta.label}</span>
+            </div>
+            <div style="display:flex;align-items:baseline;gap:.35rem;">
+              <span style="font-size:.85rem;font-weight:800;color:#0f172a;">${count}</span>
+              <span style="font-size:.65rem;color:#94a3b8;">${pct}%</span>
+            </div>
+          </div>
+          <div style="height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${meta.dot};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('');
+
+    $('ao-status-list').innerHTML = html || '<div style="font-size:.8rem;color:#94a3b8;text-align:center;padding:1rem 0;">No data yet.</div>';
+  }
+
+  // ------------------------------------------------------------
+  // Render recent applications list
+  // ------------------------------------------------------------
+  function renderRecent(rows) {
+    const box = $('ao-recent-list');
+    if (!rows.length) {
+      box.innerHTML = `
+        <div style="padding:2rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;opacity:.6;">📭</div>
+          <div style="font-size:.85rem;color:#64748b;">No applications yet.</div>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = rows.map((a) => {
+      const meta = statusMeta(a.status);
+      const initials = ((a.firstName || '?')[0] + (a.lastName || '?')[0]).toUpperCase();
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+
+      // Actions based on status
+      let actions = '';
+      if (a.status === 'pending' || a.status === 'under_review') {
+        actions = `
+          <button class="ao-action-btn" data-action="approve" data-id="${a.id}"
+                  style="background:#d1fae5;color:#065f46;">✓ Approve</button>
+          <button class="ao-action-btn" data-action="reject" data-id="${a.id}"
+                  style="background:#fee2e2;color:#991b1b;">✕ Reject</button>`;
+      } else if (a.status === 'approved') {
+        actions = `
+          <button class="ao-action-btn" data-action="register" data-id="${a.id}"
+                  style="background:#065f46;color:#fff;">📝 Register</button>
+          <a href="#admission-officer-letters" class="ao-action-btn"
+             style="background:#f1f5f9;color:#475569;text-decoration:none;display:inline-flex;align-items:center;">✉️ Letter</a>`;
+      } else if (a.status === 'registered') {
+        actions = `
+          <span style="font-size:.72rem;color:#64748b;font-style:italic;">✓ Registered as ${esc(a.matricNumber || 'student')}</span>`;
+      } else {
+        actions = `<span style="font-size:.72rem;color:#94a3b8;">${esc(a.rejectionReason || 'Rejected')}</span>`;
+      }
+
+      return `
+        <div class="ao-row">
+          <div style="
+            width:42px;height:42px;border-radius:50%;
+            background:linear-gradient(135deg,#065f46,#047857);
+            color:#fff;display:flex;align-items:center;justify-content:center;
+            font-weight:800;font-size:.85rem;flex-shrink:0;
+          ">${initials}</div>
+
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.15rem;">
+              <span style="font-weight:700;font-size:.85rem;color:#0f172a;">${esc(fullName)}</span>
+              <span class="ao-badge" style="background:${meta.bg};color:${meta.fg};">
+                <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+                ${meta.label}
+              </span>
+            </div>
+            <div style="font-size:.72rem;color:#64748b;">
+              ${esc(a.applicationNumber || '')} · ${esc(a.type || 'ND')} · ${esc(a.departmentName || a.departmentCode || 'No dept')}
+              <span style="color:#cbd5e1;">·</span> ${esc(timeAgo(a.createdAt))}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.35rem;align-items:center;flex-shrink:0;">
+            ${actions}
+          </div>
+        </div>`;
+    }).join('');
+
+    // Wire up action buttons
+    box.querySelectorAll('[data-action]').forEach((btn) => {
+      btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
+    });
+  }
+
+  // ------------------------------------------------------------
+  // Handle approve / reject / register
+  // ------------------------------------------------------------
+  async function handleAction(action, id) {
+    let endpoint;
+    let payload = null;
+    let confirmMsg;
+
+    switch (action) {
+      case 'approve':
+        endpoint = `/api/admission-officer/applications/${id}/approve`;
+        confirmMsg = 'Approve this application?';
+        break;
+      case 'reject':
+        const reason = prompt('Reason for rejection (optional):');
+        if (reason === null) return; // user cancelled
+        endpoint = `/api/admission-officer/applications/${id}/reject`;
+        payload = { reason: reason || 'Application did not meet requirements.' };
+        confirmMsg = null;
+        break;
+      case 'register':
+        endpoint = `/api/admission-officer/applications/${id}/register`;
+        confirmMsg = 'Create the student account and assign a matric number?';
+        break;
+      default:
+        return;
+    }
+
+    if (confirmMsg && !confirm(confirmMsg)) return;
+
+    try {
+      const opts = { method: 'POST' };
+      if (payload) opts.body = payload;
+      const res = await core.portalFetch(endpoint, opts);
+
+      if (action === 'register') {
+        const matric = res.data?.matricNumber || '';
+        core.showToast && core.showToast(`Student registered! Matric: ${matric}`, 'success');
+      } else {
+        core.showToast && core.showToast(`Application ${action}d successfully.`, 'success');
+      }
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Wire refresh button
+  // ------------------------------------------------------------
+  $('ao-refresh')?.addEventListener('click', () => {
+    load();
+    core.showToast && core.showToast('Refreshing stats…', 'info');
+  });
+
+  // Kick off
+  load();
+})();
+</script>
+
+
+========== ACADEMIC OFFICER ==========
+<!-- Portal → Academic Officer → Dashboard -->
+<div style="padding:0;">
+
+  <!-- HERO -->
+  <div style="
+    background:linear-gradient(135deg,#065f46 0%,#047857 60%,#059669 100%);
+    border-radius:16px;
+    padding:1.5rem 1.75rem;
+    color:#fff;
+    margin-bottom:1.25rem;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 12px 32px rgba(6,95,70,.25);
+  ">
+    <div style="position:absolute;top:-60px;right:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08);"></div>
+    <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
+
+    <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
+          📚 Academic Office
+        </div>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
+          Welcome, <span id="aco-name">Academic Officer</span>
+        </h1>
+        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">
+          Curriculum oversight, programme management, and academic records
+        </p>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;">Session</div>
+        <div style="font-size:1rem;font-weight:800;margin-top:.15rem;" id="aco-session">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT TILES -->
+  <div id="aco-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+
+  <!-- QUICK ACTIONS -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.25rem;">
+    <a href="#admin-programmes" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📚</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Programmes</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Manage programmes</div>
+      </div>
+    </a>
+
+    <a href="#admin-courses" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📖</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Courses</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Course catalogue</div>
+      </div>
+    </a>
+
+    <a href="#admin-sessions" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📅</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Sessions</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Academic sessions</div>
+      </div>
+    </a>
+
+    <a href="#admin-exams" style="
+      display:flex;align-items:center;gap:.7rem;
+      padding:.9rem 1rem;
+      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+      text-decoration:none;color:#0f172a;transition:all .15s;
+    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
+      <div style="width:42px;height:42px;border-radius:10px;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📝</div>
+      <div>
+        <div style="font-size:.86rem;font-weight:800;">Exams</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Exam schedules</div>
+      </div>
+    </a>
+  </div>
+
+  <!-- TWO COLUMN -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:flex-start;margin-bottom:1.25rem;">
+
+    <!-- PROGRAMMES BY LEVEL -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🎓 Programmes by Level</div>
+      </div>
+      <div id="aco-by-level" style="padding:1rem;">
+        <div style="text-align:center;padding:1.5rem 0;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
+    <!-- COURSES BY SEMESTER -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📖 Courses by Semester</div>
+      </div>
+      <div id="aco-by-semester" style="padding:1rem;">
+        <div style="text-align:center;padding:1.5rem 0;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOP DEPARTMENTS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🏛️ Top Departments by Courses</div>
+      <a href="#admin-courses" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View All →</a>
+    </div>
+    <div id="aco-top-depts" style="padding:.5rem 0;">
+      <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+    </div>
+  </div>
+
+  <!-- RECENT RESULTS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📝 Recent Results Published</div>
+      <a href="#admin-results" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View All →</a>
+    </div>
+    <div id="aco-recent-results" style="padding:.5rem 0;">
+      <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        <div style="display:inline-block;width:24px;height:24px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:acoSpin .8s linear infinite;"></div>
+        <div style="margin-top:.5rem;">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  @keyframes acoSpin { to { transform: rotate(360deg); } }
+  .aco-row {
+    display:flex;align-items:center;gap:.85rem;
+    padding:.7rem 1rem;border-bottom:1px solid #f8fafc;
+    transition:background .15s;
+  }
+  .aco-row:last-child { border-bottom:none; }
+  .aco-row:hover { background:#f8fafc; }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  async function load() {
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    if ($('aco-name')) {
+      $('aco-name').textContent = user.firstName
+        ? `${user.firstName} ${user.lastName || ''}`.trim()
+        : 'Academic Officer';
+    }
+
+    try {
+      const res = await core.portalFetch('/api/academic-officer/dashboard');
+      const d = res.data || res || {};
+
+      // Stat tiles
+      const tiles = [
+        { label: 'Programmes',  value: d.programmes ?? 0,      bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
+        { label: 'Courses',     value: d.courses ?? 0,         bg: '#d1fae5', fg: '#065f46', icon: '📖' },
+        { label: 'Departments', value: d.departments ?? 0,     bg: '#fef3c7', fg: '#92400e', icon: '🏛️' },
+        { label: 'Results',     value: d.resultsPublished ?? 0,bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+      ];
+
+      $('aco-stats').innerHTML = tiles.map(t => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+          <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
+          <div style="min-width:0;">
+            <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
+          </div>
+        </div>`).join('');
+
+      if (d.currentSession?.name && $('aco-session')) {
+        $('aco-session').textContent = d.currentSession.name;
+      }
+
+      renderByLevel(d.byLevel || {});
+      renderBySemester(d.bySemester || {});
+      renderTopDepartments(d.topDepartments || []);
+      renderRecentResults(d.recentResults || []);
+    } catch (err) {
+      console.error('[aco-dashboard]', err);
+      core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
+    }
+  }
+
+  function renderByLevel(byLevel) {
+    const rows = [
+      { key: 'ND',  label: 'National Diploma',  color: '#10b981', icon: '🎓' },
+      { key: 'HND', label: 'Higher National Diploma', color: '#3b82f6', icon: '🎓' },
+      { key: 'CERT', label: 'Certificate',       color: '#f59e0b', icon: '🎓' },
+    ];
+
+    const total = Object.values(byLevel).reduce((a, b) => a + Number(b || 0), 0);
+    if (!total) {
+      $('aco-by-level').innerHTML = '<div style="text-align:center;padding:1.5rem 0;color:#94a3b8;font-size:.82rem;">No data yet</div>';
+      return;
+    }
+
+    $('aco-by-level').innerHTML = rows.map(r => {
+      const value = Number(byLevel[r.key] || 0);
+      const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+      return `
+        <div style="margin-bottom:.75rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.3rem;font-size:.78rem;">
+            <span style="color:#334155;font-weight:600;">${r.label}</span>
+            <span style="font-weight:800;color:#0f172a;">${value} <span style="color:#94a3b8;font-weight:400;font-size:.7rem;">(${pct}%)</span></span>
+          </div>
+          <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${r.color};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('') + `
+      <div style="padding:.6rem .75rem;margin-top:.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:.75rem;color:#14532d;text-align:center;font-weight:600;">
+        ${total} programmes total
+      </div>`;
+  }
+
+  function renderBySemester(bySemester) {
+    const entries = Object.entries(bySemester);
+    const total = entries.reduce((a, [, c]) => a + Number(c || 0), 0);
+
+    if (!total) {
+      $('aco-by-semester').innerHTML = '<div style="text-align:center;padding:1.5rem 0;color:#94a3b8;font-size:.82rem;">No data yet</div>';
+      return;
+    }
+
+    const colors = { 'First': '#10b981', 'Second': '#3b82f6', 'Unspecified': '#94a3b8' };
+
+    $('aco-by-semester').innerHTML = entries.map(([key, value]) => {
+      const pct = total > 0 ? Math.round((Number(value) / total) * 100) : 0;
+      const color = colors[key] || '#6366f1';
+      return `
+        <div style="margin-bottom:.75rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.3rem;font-size:.78rem;">
+            <span style="color:#334155;font-weight:600;">${esc(key)} Semester</span>
+            <span style="font-weight:800;color:#0f172a;">${value} <span style="color:#94a3b8;font-weight:400;font-size:.7rem;">(${pct}%)</span></span>
+          </div>
+          <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;transition:width .4s;"></div>
+          </div>
+        </div>`;
+    }).join('') + `
+      <div style="padding:.6rem .75rem;margin-top:.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:.75rem;color:#14532d;text-align:center;font-weight:600;">
+        ${total} courses total
+      </div>`;
+  }
+
+  function renderTopDepartments(rows) {
+    if (!rows.length) {
+      $('aco-top-depts').innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">No data yet</div>';
+      return;
+    }
+
+    const max = Math.max(...rows.map(r => Number(r.c || 0)), 1);
+
+    $('aco-top-depts').innerHTML = rows.map((r) => {
+      const count = Number(r.c || 0);
+      const pct = Math.round((count / max) * 100);
+      const initials = ((r.departmentCode || '?')[0] || '?').toUpperCase();
+      return `
+        <div class="aco-row">
+          <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;flex-shrink:0;">
+            ${esc(r.departmentCode || initials)}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:.25rem;">
+              <span style="font-size:.82rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.departmentName || '—')}</span>
+              <span style="font-size:.75rem;font-weight:800;color:#065f46;">${count}</span>
+            </div>
+            <div style="height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#065f46,#10b981);border-radius:99px;"></div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderRecentResults(rows) {
+    const box = $('aco-recent-results');
+    if (!rows.length) {
+      box.innerHTML = `
+        <div style="padding:2.5rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;opacity:.6;">📝</div>
+          <div style="font-size:.88rem;font-weight:700;color:#0f172a;">No published results yet</div>
+          <div style="font-size:.75rem;color:#94a3b8;margin-top:.25rem;">Published results will appear here</div>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = rows.slice(0, 8).map(r => {
+      const initials = (r.studentName || '?')
+        .split(/\s+/).filter(Boolean).slice(0, 2)
+        .map(w => w[0].toUpperCase()).join('');
+      const gradeColor = (g) => {
+        if (!g) return '#94a3b8';
+        if (g === 'A') return '#10b981';
+        if (g === 'B') return '#3b82f6';
+        if (g === 'C') return '#f59e0b';
+        if (g === 'D') return '#f97316';
+        return '#ef4444';
+      };
+      return `
+        <div class="aco-row">
+          <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;flex-shrink:0;">
+            ${esc(initials)}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.82rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${esc(r.studentName || '—')}
+            </div>
+            <div style="font-size:.7rem;color:#64748b;margin-top:.15rem;">
+              <code style="font-family:ui-monospace,monospace;background:#f1f5f9;padding:1px 5px;border-radius:3px;">
+                ${esc(r.courseCode || '—')}
+              </code>
+              ${esc(r.courseTitle || '')}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="
+              display:inline-block;padding:3px 10px;border-radius:99px;
+              font-size:.72rem;font-weight:800;color:#fff;
+              background:${gradeColor(r.grade)};
+            ">${esc(r.grade || '—')}</div>
+            <div style="font-size:.68rem;color:#94a3b8;margin-top:.25rem;">
+              ${esc(timeAgo(r.publishedAt) || fmtDate(r.publishedAt))}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  load();
+})();
+</script>

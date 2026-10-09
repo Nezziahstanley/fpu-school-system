@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>News &amp; Announcements — Federal Polytechnic Ugep</title>
+  <meta name="description" content="Latest news, announcements and updates from Federal Polytechnic Ugep, Cross River State." />
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* Announcement page styles */
+    .ann-filters {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 auto 32px;
+    }
+    .ann-filter-btn {
+      background: #fff;
+      border: 2px solid var(--fpu-border);
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-family: "Poppins", sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fpu-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ann-filter-btn:hover {
+      border-color: var(--fpu-primary);
+      color: var(--fpu-primary);
+    }
+    .ann-filter-btn.active {
+      background: var(--fpu-primary);
+      border-color: var(--fpu-primary);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(6, 95, 70, 0.25);
+    }
+
+    .ann-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 22px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .ann-card {
+      background: #fff;
+      border: 1px solid var(--fpu-border);
+      border-radius: 14px;
+      padding: 24px 26px;
+      transition: transform 0.22s, box-shadow 0.22s, border-color 0.22s;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .ann-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--fpu-accent);
+      transition: width 0.25s;
+    }
+    .ann-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+      border-color: rgba(6, 95, 70, 0.25);
+    }
+    .ann-card:hover::before { width: 6px; }
+
+    .ann-card.high::before { background: #dc2626; }
+    .ann-card.low::before { background: var(--fpu-muted); }
+
+    .ann-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .ann-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "Poppins", sans-serif;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+    .ann-badge.high { background: #fee2e2; color: #991b1b; }
+    .ann-badge.normal { background: #dbeafe; color: #1e40af; }
+    .ann-badge.low { background: #f3f4f6; color: #4b5563; }
+
+    .ann-date {
+      font-size: 12px;
+      color: var(--fpu-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .ann-card h3 {
+      font-family: "Poppins", sans-serif;
+      font-size: 1.1rem;
+      color: var(--fpu-primary);
+      margin: 0 0 10px;
+      line-height: 1.4;
+    }
+
+    .ann-card .body {
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: var(--fpu-ink);
+      margin: 0 0 14px;
+      flex: 1;
+    }
+
+    .ann-card .body.clamped {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .ann-expand {
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: var(--fpu-accent-dark);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: "Poppins", sans-serif;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+    .ann-expand:hover { color: var(--fpu-primary); }
+
+    .ann-foot {
+      padding-top: 14px;
+      border-top: 1px solid var(--fpu-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--fpu-muted);
+      font-family: "Poppins", sans-serif;
+    }
+
+    .ann-skeleton {
+      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+      height: 16px;
+      margin-bottom: 10px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .ann-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--fpu-muted);
+    }
+    .ann-empty .icon { font-size: 3.5rem; opacity: 0.35; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="logo">
+        <img src="/images/logo.png" alt="Federal Polytechnic Ugep" class="site-logo" />
+      </a>
+      <nav class="nav-links" id="navLinks">
+        <li><a href="/">Home</a></li>
+        <li class="has-dropdown">
+          <a href="/about.html">About</a>
+          <ul class="dropdown-menu">
+            <li><a href="/about.html">About FPU</a></li>
+            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/administration.html">Administration</a></li>
+          </ul>
+        </li>
+        <li class="has-dropdown">
+          <a href="/programmes.html">Programmes</a>
+          <ul class="dropdown-menu">
+            <li><a href="/nd.html">ND Programmes</a></li>
+            <li><a href="/hnd.html">HND Programmes</a></li>
+          </ul>
+        </li>
+        <li><a href="/apply-status.html">Check Status</a></li>
+        <li><a href="/announcements.html" class="active">News</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </nav>
+      <div class="nav-auth">
+        <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+        <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        <button class="menu-toggle" id="menuToggle">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ PAGE HEADER ============ -->
+  <section class="page-header">
+    <div class="container">
+      <p style="color: #fef3c7; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-size: 12px; margin: 0 0 8px;">Updates</p>
+      <h1 style="font-family: Poppins, sans-serif;">News &amp; Announcements</h1>
+      <p>Stay informed about admissions, results, events, and everything happening at FPU</p>
+    </div>
+  </section>
+
+  <!-- ============ ANNOUNCEMENTS ============ -->
+  <section style="padding: 60px 0 80px;">
+    <div class="container">
+
+      <!-- Filter tabs -->
+      <div class="ann-filters" id="annFilters">
+        <button class="ann-filter-btn active" data-filter="all">All</button>
+        <button class="ann-filter-btn" data-filter="high">🔴 Urgent</button>
+        <button class="ann-filter-btn" data-filter="normal">📢 Regular</button>
+        <button class="ann-filter-btn" data-filter="low">📝 General</button>
+      </div>
+
+      <!-- List -->
+      <div class="ann-list" id="annList"></div>
+    </div>
+  </section>
+
+  <!-- ============ SUBSCRIBE STRIP ============ -->
+  <section style="padding: 50px 0; background: var(--fpu-bone, #f8faf8); border-top: 1px solid var(--fpu-border);">
+    <div class="container" style="max-width: 720px;">
+      <div style="background: linear-gradient(135deg, var(--fpu-primary) 0%, var(--fpu-primary-dark) 100%); color: #fff; padding: 36px 32px; border-radius: 16px; text-align: center;">
+        <div style="font-size: 2rem; margin-bottom: 8px;">📬</div>
+        <h2 style="font-family: Poppins, sans-serif; font-size: 1.35rem; margin: 0 0 8px;">Never Miss an Update</h2>
+        <p style="color: #d1fae5; font-size: 14.5px; line-height: 1.7; margin: 0 0 20px; max-width: 520px; margin-left: auto; margin-right: auto;">
+          Follow our official social channels for the fastest updates on admissions, deadlines, and campus events.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <a href="#" class="btn btn-accent">📘 Facebook</a>
+          <a href="#" class="btn btn-outline-white">🐦 X (Twitter)</a>
+          <a href="#" class="btn btn-outline-white">📷 Instagram</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section style="padding: 60px 0;">
+    <div class="container text-center">
+      <h2 style="font-family: Poppins, sans-serif; color: var(--fpu-primary); font-size: 1.6rem; margin-bottom: 12px;">
+        Ready to join FPU?
+      </h2>
+      <p style="color: var(--fpu-muted); max-width: 520px; margin: 0 auto 24px;">
+        Applications for 2026/2027 are open. Start yours today.
+      </p>
+      <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+        <a href="/apply.html" class="btn btn-primary btn-lg">Apply for ND</a>
+        <a href="/apply-hnd.html" class="btn btn-accent btn-lg">Apply for HND</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; padding: 50px 0;">
+        <div>
+          <img src="/images/logo.png" alt="FPU" style="height: 56px; margin-bottom: 14px;" />
+          <p style="font-size: 14px; color: #c8dcc8; line-height: 1.7; margin: 0;">
+            Federal Polytechnic Ugep — Technology for Development and Excellence.
+          </p>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Quick Links</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2;">
+            <li><a href="/programmes.html" style="color: #c8dcc8;">Programmes</a></li>
+            <li><a href="/apply.html" style="color: #c8dcc8;">Apply Now</a></li>
+            <li><a href="/apply-status.html" style="color: #c8dcc8;">Check Status</a></li>
+            <li><a href="/faq.html" style="color: #c8dcc8;">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Contact</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2; font-size: 14px; color: #c8dcc8;">
+            <li>📍 Km 95 Calabar–Ikom Highway, Ugep</li>
+            <li>📞 +234 808 389 9662</li>
+            <li>✉️ <a href="mailto:contact@fedpolyugep.edu.ng" style="color: #c8dcc8;">contact@fedpolyugep.edu.ng</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 style="color: #fff; font-family: Poppins, sans-serif; margin-bottom: 14px; font-size: 15px;">Follow</h4>
+          <ul style="list-style: none; padding: 0; margin: 0; line-height: 2.2; font-size: 14px;">
+            <li><a href="#" style="color: #c8dcc8;">📘 Facebook</a></li>
+            <li><a href="#" style="color: #c8dcc8;">🐦 X</a></li>
+            <li><a href="#" style="color: #c8dcc8;">📷 Instagram</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© <span id="year"></span> Federal Polytechnic Ugep.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('active');
+    });
+
+    // ----------------------------------------------------------------
+    // Escape HTML
+    // ----------------------------------------------------------------
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ----------------------------------------------------------------
+    // State
+    // ----------------------------------------------------------------
+    const state = {
+      all: [],
+      filter: 'all',
+      expanded: new Set(),
+    };
+
+    const listEl = document.getElementById('annList');
+
+    // ----------------------------------------------------------------
+    // Skeleton loader
+    // ----------------------------------------------------------------
+    function showSkeleton() {
+      listEl.innerHTML = Array.from({ length: 4 }).map(() => `
+        <div class="ann-card">
+          <div class="ann-skeleton" style="width: 30%; height: 22px;"></div>
+          <div class="ann-skeleton" style="width: 80%; height: 20px; margin-top: 12px;"></div>
+          <div class="ann-skeleton" style="width: 100%;"></div>
+          <div class="ann-skeleton" style="width: 100%;"></div>
+          <div class="ann-skeleton" style="width: 60%;"></div>
+        </div>
+      `).join('');
+    }
+
+    // ----------------------------------------------------------------
+    // Render list
+    // ----------------------------------------------------------------
+    function render() {
+      const items = state.all.filter((a) => {
+        if (state.filter === 'all') return true;
+        return (a.priority || 'normal') === state.filter;
+      });
+
+      if (!items.length) {
+        listEl.innerHTML = `
+          <div class="ann-empty">
+            <div class="icon">📭</div>
+            <h3 style="font-family: Poppins, sans-serif; color: var(--fpu-primary); margin: 0 0 8px;">
+              No announcements ${state.filter !== 'all' ? `in this category` : 'yet'}
+            </h3>
+            <p style="margin: 0;">Check back soon or view all announcements.</p>
+          </div>`;
+        return;
+      }
+
+      listEl.innerHTML = items.map((a) => {
+        const priority = a.priority || 'normal';
+        const isExpanded = state.expanded.has(a.id);
+        const bodyText = a.body || '';
+        const isLong = bodyText.length > 280;
+        const displayBody = isExpanded || !isLong ? bodyText : bodyText.slice(0, 280) + '…';
+
+        const date = a.publishedAt
+          ? new Date(a.publishedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '';
+        const author = a.authorName || 'FPU Admin';
+        const badgeLabel = priority === 'high' ? '🔴 Urgent' : priority === 'low' ? '📝 General' : '📢 Regular';
+
+        return `
+          <article class="ann-card ${esc(priority)}" data-animate="fade-up">
+            <div class="ann-meta">
+              <span class="ann-badge ${esc(priority)}">${esc(badgeLabel)}</span>
+              <span class="ann-date">📅 ${esc(date)}</span>
+            </div>
+
+            <h3>${esc(a.title)}</h3>
+
+            <p class="body">${esc(displayBody)}</p>
+
+            ${isLong ? `
+              <button class="ann-expand" data-toggle="${a.id}">
+                ${isExpanded ? '− Show less' : '+ Read more'}
+              </button>
+            ` : ''}
+
+            <div class="ann-foot">
+              <span>👤 ${esc(author)}</span>
+              <span>#${esc(a.id)}</span>
+            </div>
+          </article>`;
+      }).join('');
+
+      // Re-bind "read more" buttons
+      listEl.querySelectorAll('[data-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.toggle);
+          if (state.expanded.has(id)) state.expanded.delete(id);
+          else state.expanded.add(id);
+          render();
+        });
+      });
+
+      // Trigger scroll animations if available
+      if (typeof initScrollAnimations === 'function') {
+        setTimeout(initScrollAnimations, 30);
+      } else {
+        listEl.querySelectorAll('[data-animate]').forEach((el) => el.classList.add('animated'));
+      }
+    }
+
+    // ----------------------------------------------------------------
+    // Filter tabs
+    // ----------------------------------------------------------------
+    document.querySelectorAll('.ann-filter-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ann-filter-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    // ----------------------------------------------------------------
+    // Fetch announcements from API
+    // ----------------------------------------------------------------
+    (async function load() {
+      showSkeleton();
+      try {
+        const res = await fetch('/api/announcements');
+        const json = await res.json();
+        state.all = Array.isArray(json.data) ? json.data : [];
+        render();
+      } catch (err) {
+        console.error('announcements error:', err);
+        listEl.innerHTML = `
+          <div class="ann-empty">
+            <div class="icon">⚠️</div>
+            <h3 style="font-family: Poppins, sans-serif; color: #b91c1c; margin: 0 0 8px;">
+              Could not load announcements
+            </h3>
+            <p style="margin: 0 0 16px;">Please check your internet connection and try again.</p>
+            <button onclick="location.reload()" class="btn btn-primary">Retry</button>
+          </div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

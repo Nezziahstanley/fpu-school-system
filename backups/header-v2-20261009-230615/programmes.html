@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Programmes — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .prog-filter-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 auto 40px;
+      background: #ffffff;
+      border: 1px solid var(--fpu-border);
+      border-radius: 999px;
+      padding: 8px;
+      max-width: fit-content;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    }
+    .prog-filter-tabs button {
+      background: transparent;
+      border: none;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-family: "Poppins", sans-serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--fpu-muted);
+      cursor: pointer;
+      transition: all 0.22s ease;
+    }
+    .prog-filter-tabs button:hover { color: var(--fpu-primary); }
+    .prog-filter-tabs button.active {
+      background: var(--fpu-primary);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(6, 95, 70, 0.3);
+    }
+    .prog-search {
+      max-width: 480px;
+      margin: 0 auto 32px;
+      position: relative;
+    }
+    .prog-search input {
+      width: 100%;
+      padding: 14px 48px 14px 20px;
+      border: 2px solid var(--fpu-border);
+      border-radius: 999px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+      background: #fff;
+      transition: all 0.2s;
+    }
+    .prog-search input:focus {
+      border-color: var(--fpu-primary);
+      box-shadow: 0 0 0 4px rgba(6, 95, 70, 0.12);
+    }
+    .prog-search::after {
+      content: "🔍";
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .prog-count {
+      text-align: center;
+      font-size: 13px;
+      color: var(--fpu-muted);
+      margin: 12px 0 0;
+    }
+    .course-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--fpu-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="container navbar-inner">
+      <a href="/" class="logo"><img src="/images/logo.png" alt="FPU" class="site-logo" /></a>
+      <nav class="nav-links" id="navLinks">
+        <li><a href="/">Home</a></li>
+        <li class="has-dropdown"><a href="/about.html">About</a>
+          <ul class="dropdown-menu">
+            <li><a href="/about.html">About FPU</a></li>
+            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
+            <li><a href="/administration.html">Administration</a></li>
+          </ul>
+        </li>
+        <li class="has-dropdown"><a href="/programmes.html" class="active">Programmes</a>
+          <ul class="dropdown-menu">
+            <li><a href="/nd.html">ND Programmes</a></li>
+            <li><a href="/hnd.html">HND Programmes</a></li>
+          </ul>
+        </li>
+        <li><a href="/apply-status.html">Check Status</a></li>
+        <li><a href="/announcements.html">News</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+      </nav>
+      <div class="nav-auth">
+        <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
+        <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        <button class="menu-toggle" id="menuToggle">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="page-header">
+    <div class="container">
+      <p style="color:#fef3c7;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:12px;margin:0 0 8px;">Academics</p>
+      <h1 style="font-family:Poppins,sans-serif;">Our Programmes</h1>
+      <p>National Diploma, Higher National Diploma, and Certificate programmes</p>
+    </div>
+  </section>
+
+  <section style="padding: 60px 0 80px;">
+    <div class="container">
+
+      <div class="prog-filter-tabs" role="tablist">
+        <button class="active" data-filter="all">All</button>
+        <button data-filter="ND">ND</button>
+        <button data-filter="HND">HND</button>
+        <button data-filter="CERT">Certificate</button>
+      </div>
+
+      <div class="prog-search">
+        <input type="text" id="progSearch" placeholder="Search by programme name…" autocomplete="off" />
+      </div>
+
+      <div id="progGrid" class="programme-preview-grid"></div>
+      <p class="prog-count" id="progCount"></p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom"><p>© <span id="year"></span> Federal Polytechnic Ugep.</p></div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('active');
+    });
+
+    // ---- Programmes data with course images ----
+    const PROGRAMMES = [
+      // ND
+      { level: 'ND', name: 'Computer Science',
+        desc: 'The study of computers and how they process, store, and communicate information. Learn software design, algorithms, and problem-solving.',
+        img: 'https://images.pexels.com/photos/574071/pexels-photo-574071.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Computer Engineering',
+        desc: 'Design and develop computer hardware and software systems. Combines electrical engineering and computer science principles.',
+        img: 'https://images.pexels.com/photos/2582937/pexels-photo-2582937.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Electrical/Electronic Engineering',
+        desc: 'Design, develop, and maintain electrical systems. Focus on power generation, electronics, and renewable energy.',
+        img: 'https://images.pexels.com/photos/2898199/pexels-photo-2898199.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Civil Engineering',
+        desc: 'Design, construct, and maintain infrastructure such as roads, bridges, and buildings.',
+        img: 'https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Mechanical Engineering',
+        desc: 'Design, analyze, and manufacture mechanical systems and machines for modern industry.',
+        img: 'https://images.pexels.com/photos/3862365/pexels-photo-3862365.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Accountancy',
+        desc: 'Recording, classifying, and summarizing financial transactions. Analyze financial information for decision-making.',
+        img: 'https://images.pexels.com/photos/6863183/pexels-photo-6863183.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Business Administration',
+        desc: 'Manage and organize business activities effectively. Focus on leadership, finance, marketing, and operations.',
+        img: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Public Administration',
+        desc: 'Managing government policies, programs, and public services with a focus on leadership and governance.',
+        img: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Statistics',
+        desc: 'Collection, analysis, and interpretation of data. Essential skills for research, business intelligence, and planning.',
+        img: 'https://images.pexels.com/photos/590022/pexels-photo-590022.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Hospitality Management',
+        desc: 'Hotel operations, tourism, food &amp; beverage management, and customer service.',
+        img: 'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Architecture Technology',
+        desc: 'Building design, construction drawings, and modern architectural practice.',
+        img: 'https://images.pexels.com/photos/1157255/pexels-photo-1157255.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Science Laboratory Technology',
+        desc: 'Hands-on training in chemistry, biology, and physics lab techniques.',
+        img: 'https://images.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'ND', name: 'Library & Information Science',
+        desc: 'Managing information resources, cataloguing, and digital library systems.',
+        img: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      // HND
+      { level: 'HND', name: 'Software & Web Development',
+        desc: 'Advanced full-stack software engineering, mobile apps, databases, and modern deployment.',
+        img: 'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'HND', name: 'Networking & Cloud Computing',
+        desc: 'Design, configure, and secure enterprise networks and cloud infrastructure (AWS, Azure, GCP).',
+        img: 'https://images.pexels.com/photos/1148820/pexels-photo-1148820.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      // Certificate
+      { level: 'CERT', name: 'Artificial Intelligence',
+        desc: 'Introduction to AI, machine learning, and modern data-driven tools.',
+        img: 'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Cyber Security',
+        desc: 'Network defence, ethical hacking fundamentals, and digital safety.',
+        img: 'https://images.pexels.com/photos/60504/security-protection-anti-virus-software-60504.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Computer Maintenance & Repairs',
+        desc: 'Hardware repair, diagnostics, and preventive maintenance.',
+        img: 'https://images.pexels.com/photos/2582937/pexels-photo-2582937.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Web Design & Development',
+        desc: 'HTML, CSS, JavaScript, and modern responsive web design.',
+        img: 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Graphics Design',
+        desc: 'Adobe tools, layout design, and brand identity fundamentals.',
+        img: 'https://images.pexels.com/photos/196644/pexels-photo-196644.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Electrical Installations',
+        desc: 'Wiring, panel installation, and safe electrical practice.',
+        img: 'https://images.pexels.com/photos/2898199/pexels-photo-2898199.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Plumbing',
+        desc: 'Pipe fitting, drainage systems, and modern plumbing techniques.',
+        img: 'https://images.pexels.com/photos/209235/pexels-photo-209235.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Metal Work (Welding & Fabrication)',
+        desc: 'Arc welding, fabrication, and metalwork safety.',
+        img: 'https://images.pexels.com/photos/2760243/pexels-photo-2760243.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Fashion Design',
+        desc: 'Pattern drafting, garment construction, and fashion business basics.',
+        img: 'https://images.pexels.com/photos/3738088/pexels-photo-3738088.jpeg?auto=compress&cs=tinysrgb&w=800' },
+      { level: 'CERT', name: 'Catering Services',
+        desc: 'Food preparation, hygiene, and small-scale catering operations.',
+        img: 'https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg?auto=compress&cs=tinysrgb&w=800' },
+    ];
+
+    const state = { filter: 'all', search: '' };
+    const grid = document.getElementById('progGrid');
+    const countEl = document.getElementById('progCount');
+    const searchEl = document.getElementById('progSearch');
+
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function render() {
+      const filtered = PROGRAMMES.filter((p) => {
+        const matchLevel = state.filter === 'all' || p.level === state.filter;
+        const term = state.search.toLowerCase().trim();
+        const matchSearch = !term || p.name.toLowerCase().includes(term) || p.desc.toLowerCase().includes(term);
+        return matchLevel && matchSearch;
+      });
+
+      if (!filtered.length) {
+        grid.innerHTML = `<div class="course-empty"><div style="font-size:3rem;opacity:.35;margin-bottom:12px;">🔍</div><h3>No programmes found</h3><p>Try a different search term or filter.</p></div>`;
+        countEl.textContent = '';
+        return;
+      }
+
+      grid.innerHTML = filtered.map((p) => {
+        const tagStyle = p.level === 'HND' ? 'background:#fef3c7;color:#b45309;' :
+                        p.level === 'CERT' ? 'background:#dcfce7;color:#15803d;' :
+                        'background:var(--fpu-primary-light);color:var(--fpu-primary);';
+        const applyUrl = p.level === 'HND' ? '/apply-hnd.html' : '/apply.html';
+        return `
+          <article class="course-card" data-animate="fade-up">
+            <div class="course-img" style="background-image: url('${p.img}');"></div>
+            <div class="course-body">
+              <span class="course-tag" style="${tagStyle}">${escapeHtml(p.level === 'CERT' ? 'Certificate' : p.level)}</span>
+              <h3>${escapeHtml(p.name)}</h3>
+              <p>${p.desc}</p>
+              <a href="${applyUrl}" class="btn btn-outline btn-sm" style="margin-top: 14px;">Apply →</a>
+            </div>
+          </article>`;
+      }).join('');
+
+      countEl.textContent = `Showing ${filtered.length} of ${PROGRAMMES.length} programmes`;
+
+      if (typeof initScrollAnimations === 'function') setTimeout(initScrollAnimations, 30);
+      else grid.querySelectorAll('[data-animate]').forEach((el) => el.classList.add('animated'));
+    }
+
+    document.querySelectorAll('.prog-filter-tabs button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.prog-filter-tabs button').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    let searchTimer;
+    searchEl?.addEventListener('input', (e) => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.search = e.target.value; render(); }, 180);
+    });
+
+    render();
+  </script>
+</body>
+</html>

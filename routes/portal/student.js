@@ -430,8 +430,8 @@ router.get('/fees', only, async (req, res, next) => {
   try {
     const sessionId = Number(req.query.sessionId) || req.user.currentSessionId;
     let feeStructure = null;
-    if (sessionId && req.user.programmeId) {
-      feeStructure = await paymentQueries.findFeeStructure({
+    if (req.user.programmeId) {
+      feeStructure = await paymentQueries.findFeeStructureWithFallback({
         programmeId: req.user.programmeId,
         level: req.user.level || 'ND',
         sessionId,

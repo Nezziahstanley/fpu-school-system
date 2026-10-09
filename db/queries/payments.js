@@ -1,28 +1,17 @@
 // ============================================================
-// FPU — Fee structures + payments queries
-// Used by: routes/fees, routes/fees-copy, routes/payments
+// FPU — Query helper: payments + fee_structures
 // ============================================================
 
 'use strict';
 
-const { db, schema, sql } = require('..');
-const { eq, and, desc, asc } = require('drizzle-orm');
+const { db, sql, schema } = require('../index');
+const { eq, and, or, ilike, desc, asc, inArray, gte, lte } = require('drizzle-orm');
 
-const { feeStructures, payments, users } = schema;
+const { payments, feeStructures, users, academicSessions } = schema;
 
 // ============================================================
 // FEE STRUCTURES
 // ============================================================
-async function listFeeStructures({ programmeId, level, sessionId, isActive } = {}) {
-  const conds = [];
-  if (programmeId) conds.push(eq(feeStructures.programmeId, Number(programmeId)));
-  if (level) conds.push(eq(feeStructures.level, level));
-  if (sessionId) conds.push(eq(feeStructures.sessionId, Number(sessionId)));
-  if (isActive !== undefined && isActive !== null && isActive !== '')
-    conds.push(eq(feeStructures.isActive, String(isActive).toLowerCase() === 'true'));
-  const where = conds.length ? and(...conds) : undefined;
-  return db.select().from(feeStructures).where(where).orderBy(asc(feeStructures.id));
-}
 
 async function findFeeStructureById(id) {
   if (!id) return null;
@@ -30,92 +19,284 @@ async function findFeeStructureById(id) {
   return row || null;
 }
 
-async function findFeeStructure({ programmeId, level, sessionId }) {
-  if (!programmeId || !level || !sessionId) return null;
+// ------------------------------------------------------------
+// findFeeStructure — for a specific programme/level/session
+// ------------------------------------------------------------
+async function findFeeStructure({ programmeId, level, sessionId } = {}) {
+  const conds = [];
+  if (programmeId) conds.push(eq(feeStructures.programmeId, Number(programmeId)));
+  if (level) conds.push(eq(feeStructures.level, level));
+  if (sessionId) conds.push(eq(feeStructures.sessionId, Number(sessionId)));
+  const where = conds.length ? and(...conds) : undefined;
+
   const [row] = await db
     .select()
     .from(feeStructures)
-    .where(and(
-      eq(feeStructures.programmeId, Number(programmeId)),
-      eq(feeStructures.level, level),
-      eq(feeStructures.sessionId, Number(sessionId)),
-    ))
+    .where(where)
+    .orderBy(desc(feeStructures.createdAt))
     .limit(1);
   return row || null;
 }
 
-async function createFeeStructure(payload) {
-  const tuition = Number(payload.tuition) || 0;
-  const acceptance = Number(payload.acceptance) || 0;
-  const medical = Number(payload.medical) || 0;
-  const library = Number(payload.library) || 0;
-  const ict = Number(payload.ict) || 0;
-  const sports = Number(payload.sports) || 0;
-  const other = Number(payload.other) || 0;
-  const total = tuition + acceptance + medical + library + ict + sports + other;
+// ------------------------------------------------------------
+// findFeeStructureWithFallback — tries the exact session
+// first, then falls back to any session for the same
+// programme + level. Fixes "no fees for current session".
+// ------------------------------------------------------------
+async function findFeeStructureWithFallback({ programmeId, level, sessionId } = {}) {
+  if (!programmeId || !level) return null;
 
+  // Exact match
+  if (sessionId) {
+    const exact = await findFeeStructure({ programmeId, level, sessionId });
+    if (exact) return exact;
+  }
+
+  // Fallback: any session for this programme + level
+  const [fallback] = await db
+    .select()
+    .from(feeStructures)
+    .where(and(
+      eq(feeStructures.programmeId, Number(programmeId)),
+      eq(feeStructures.level, level)
+    ))
+    .orderBy(desc(feeStructures.sessionId))
+    .limit(1);
+  return fallback || null;
+}
+
+async function listFeeStructures({ programmeId, level, sessionId, isActive } = {}) {
+  const conds = [];
+  if (programmeId) conds.push(eq(feeStructures.programmeId, Number(programmeId)));
+  if (level) conds.push(eq(feeStructures.level, level));
+  if (sessionId) conds.push(eq(feeStructures.sessionId, Number(sessionId)));
+  if (isActive !== undefined) conds.push(eq(feeStructures.isActive, !!isActive));
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select()
+    .from(feeStructures)
+    .where(where)
+    .orderBy(desc(feeStructures.createdAt));
+}
+
+async function createFeeStructure(data) {
   const [row] = await db
     .insert(feeStructures)
     .values({
-      programmeId: Number(payload.programmeId),
-      level: payload.level,
-      sessionId: Number(payload.sessionId),
-      tuition: String(tuition),
-      acceptance: String(acceptance),
-      medical: String(medical),
-      library: String(library),
-      ict: String(ict),
-      sports: String(sports),
-      other: String(other),
-      total: String(total),
-      isActive: payload.isActive !== false,
+      programmeId: Number(data.programmeId),
+      level: data.level,
+      sessionId: Number(data.sessionId),
+      tuition: String(data.tuition || 0),
+      acceptance: String(data.acceptance || 0),
+      medical: String(data.medical || 0),
+      library: String(data.library || 0),
+      ict: String(data.ict || 0),
+      sports: String(data.sports || 0),
+      other: String(data.other || 0),
+      total: String(data.total || 0),
+      isActive: data.isActive !== false,
     })
     .returning();
   return row;
 }
 
-async function updateFeeStructure(id, patch) {
-  const existing = await findFeeStructureById(id);
-  if (!existing) return null;
-
-  const next = {
-    tuition: patch.tuition !== undefined ? Number(patch.tuition) : Number(existing.tuition),
-    acceptance: patch.acceptance !== undefined ? Number(patch.acceptance) : Number(existing.acceptance),
-    medical: patch.medical !== undefined ? Number(patch.medical) : Number(existing.medical),
-    library: patch.library !== undefined ? Number(patch.library) : Number(existing.library),
-    ict: patch.ict !== undefined ? Number(patch.ict) : Number(existing.ict),
-    sports: patch.sports !== undefined ? Number(patch.sports) : Number(existing.sports),
-    other: patch.other !== undefined ? Number(patch.other) : Number(existing.other),
-  };
-  const total = Object.values(next).reduce((a, b) => a + b, 0);
-
-  const clean = {
-    tuition: String(next.tuition),
-    acceptance: String(next.acceptance),
-    medical: String(next.medical),
-    library: String(next.library),
-    ict: String(next.ict),
-    sports: String(next.sports),
-    other: String(next.other),
-    total: String(total),
-  };
-  if (patch.level !== undefined) clean.level = patch.level;
-  if (patch.isActive !== undefined) clean.isActive = !!patch.isActive;
-
+async function updateFeeStructure(id, data) {
+  const allowed = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other', 'total', 'isActive'];
+  const clean = {};
+  for (const k of allowed) {
+    if (data[k] !== undefined) clean[k] = k === 'isActive' ? !!data[k] : String(data[k]);
+  }
+  if (!Object.keys(clean).length) return findFeeStructureById(id);
   const [row] = await db.update(feeStructures).set(clean).where(eq(feeStructures.id, Number(id))).returning();
   return row || null;
 }
 
 async function removeFeeStructure(id) {
-  const [row] = await db.delete(feeStructures).where(eq(feeStructures.id, Number(id))).returning({ id: feeStructures.id });
-  return !!row;
+  const [row] = await db.delete(feeStructures).where(eq(feeStructures.id, Number(id))).returning();
+  return row || null;
 }
 
 // ============================================================
 // PAYMENTS
 // ============================================================
-async function listWithStudent({ sessionId, status } = {}) {
+
+async function findById(id) {
+  if (!id) return null;
+  const [row] = await db.select().from(payments).where(eq(payments.id, Number(id))).limit(1);
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// list — payments for a student (optionally by session),
+// with optional search/status filters for the admin UI.
+// ------------------------------------------------------------
+async function list({ studentId, sessionId, status, search, limit = 200, offset = 0 } = {}) {
   const conds = [];
+  if (studentId) conds.push(eq(payments.studentId, Number(studentId)));
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  if (status) conds.push(eq(payments.status, status));
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(or(
+      ilike(payments.reference, term),
+      ilike(payments.bankName, term),
+      ilike(payments.depositorName, term)
+    ));
+  }
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select()
+    .from(payments)
+    .where(where)
+    .orderBy(desc(payments.createdAt))
+    .limit(Number(limit))
+    .offset(Number(offset));
+}
+
+// ------------------------------------------------------------
+// listWithStudent — admin view: join student info
+// ------------------------------------------------------------
+async function listWithStudent({ studentId, sessionId, status, search, limit = 200, offset = 0 } = {}) {
+  const conds = [];
+  if (studentId) conds.push(eq(payments.studentId, Number(studentId)));
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  if (status) conds.push(eq(payments.status, status));
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(or(
+      ilike(payments.reference, term),
+      ilike(payments.bankName, term),
+      ilike(payments.depositorName, term),
+      ilike(users.firstName, term),
+      ilike(users.lastName, term),
+      ilike(users.matricNumber, term)
+    ));
+  }
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select({ payment: payments, student: users })
+    .from(payments)
+    .leftJoin(users, eq(payments.studentId, users.id))
+    .where(where)
+    .orderBy(desc(payments.createdAt))
+    .limit(Number(limit))
+    .offset(Number(offset));
+}
+
+async function count({ studentId, sessionId, status } = {}) {
+  const conds = [];
+  if (studentId) conds.push(eq(payments.studentId, Number(studentId)));
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+  if (status) conds.push(eq(payments.status, status));
+  const where = conds.length ? and(...conds) : undefined;
+  const rows = await db.select({ id: payments.id }).from(payments).where(where);
+  return rows.length;
+}
+
+// ------------------------------------------------------------
+// totalVerifiedForStudent — sum of all VERIFIED payments for
+// a student (optionally scoped to a session).
+// ------------------------------------------------------------
+async function totalVerifiedForStudent(studentId, sessionId) {
+  if (!studentId) return 0;
+
+  const conds = [
+    eq(payments.studentId, Number(studentId)),
+    eq(payments.status, 'verified'),
+  ];
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+
+  const rows = await db
+    .select({ amount: payments.amount })
+    .from(payments)
+    .where(and(...conds));
+
+  const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  return total;
+}
+
+// ------------------------------------------------------------
+// totalPaidForStudent — same as above but for ALL non-rejected
+// payments (pending + verified).
+// ------------------------------------------------------------
+async function totalPaidForStudent(studentId, sessionId) {
+  if (!studentId) return 0;
+
+  const conds = [eq(payments.studentId, Number(studentId))];
+  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+
+  const rows = await db
+    .select({ amount: payments.amount, status: payments.status })
+    .from(payments)
+    .where(and(...conds));
+
+  const total = rows
+    .filter((r) => r.status !== 'rejected')
+    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  return total;
+}
+
+async function create(data) {
+  const [row] = await db
+    .insert(payments)
+    .values({
+      studentId: Number(data.studentId),
+      sessionId: Number(data.sessionId),
+      feeStructureId: data.feeStructureId ? Number(data.feeStructureId) : null,
+      amount: String(data.amount || 0),
+      reference: data.reference,
+      bankName: data.bankName || null,
+      depositorName: data.depositorName || null,
+      depositDate: data.depositDate || null,
+      receiptUrl: data.receiptUrl || null,
+      status: data.status || 'pending',
+    })
+    .returning();
+  return row;
+}
+
+async function update(id, patch) {
+  const allowed = ['amount', 'reference', 'bankName', 'depositorName', 'depositDate', 'receiptUrl'];
+  const clean = {};
+  for (const k of allowed) {
+    if (patch[k] !== undefined) clean[k] = patch[k];
+  }
+  const [row] = await db.update(payments).set(clean).where(eq(payments.id, Number(id))).returning();
+  return row || null;
+}
+
+async function verify(id, verifiedBy) {
+  const [row] = await db
+    .update(payments)
+    .set({ status: 'verified', verifiedBy: Number(verifiedBy), verifiedAt: new Date() })
+    .where(eq(payments.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+async function reject(id, reason, rejectedBy) {
+  const [row] = await db
+    .update(payments)
+    .set({ status: 'rejected', rejectionReason: reason, verifiedBy: Number(rejectedBy), verifiedAt: new Date() })
+    .where(eq(payments.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+async function remove(id) {
+  const [row] = await db.delete(payments).where(eq(payments.id, Number(id))).returning();
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// listByDepartment — admin reporting
+// ------------------------------------------------------------
+async function listByDepartment({ departmentId, sessionId, status } = {}) {
+  const conds = [];
+  if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
   if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
   if (status) conds.push(eq(payments.status, status));
   const where = conds.length ? and(...conds) : undefined;
@@ -128,107 +309,30 @@ async function listWithStudent({ sessionId, status } = {}) {
     .orderBy(desc(payments.createdAt));
 }
 
-async function countByStatus({ sessionId } = {}) {
-  const conds = [];
-  if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
-  const where = conds.length ? and(...conds) : undefined;
-  return db
-    .select({
-      status: payments.status,
-      count: sql`count(*)::int`,
-      total: sql`coalesce(sum(${payments.amount}), 0)::numeric`,
-    })
-    .from(payments)
-    .where(where)
-    .groupBy(payments.status);
-}
-
-async function findById(id) {
-  if (!id) return null;
-  const [row] = await db.select().from(payments).where(eq(payments.id, Number(id))).limit(1);
-  return row || null;
-}
-
-async function create(payload) {
-  const [row] = await db
-    .insert(payments)
-    .values({
-      studentId: Number(payload.studentId),
-      sessionId: Number(payload.sessionId),
-      feeStructureId: payload.feeStructureId ? Number(payload.feeStructureId) : null,
-      amount: String(payload.amount),
-      reference: payload.reference,
-      bankName: payload.bankName || null,
-      depositorName: payload.depositorName || null,
-      depositDate: payload.depositDate || null,
-      status: payload.status || 'pending',
-    })
-    .returning();
-  return row;
-}
-
-async function update(id, patch) {
-  const allowed = ['amount', 'reference', 'bankName', 'depositorName', 'depositDate', 'feeStructureId'];
-  const clean = {};
-  for (const k of allowed) {
-    if (patch[k] !== undefined) clean[k] = patch[k];
-  }
-  if (clean.amount !== undefined) clean.amount = String(clean.amount);
-  if (clean.feeStructureId !== undefined) clean.feeStructureId = clean.feeStructureId ? Number(clean.feeStructureId) : null;
-
-  const [row] = await db.update(payments).set(clean).where(eq(payments.id, Number(id))).returning();
-  return row || null;
-}
-
-async function verify(id, userId) {
-  const [row] = await db
-    .update(payments)
-    .set({ status: 'verified', verifiedBy: Number(userId), verifiedAt: new Date(), rejectionReason: null })
-    .where(eq(payments.id, Number(id)))
-    .returning();
-  return row || null;
-}
-
-async function reject(id, userId, reason) {
-  const [row] = await db
-    .update(payments)
-    .set({ status: 'rejected', verifiedBy: Number(userId), verifiedAt: new Date(), rejectionReason: reason || null })
-    .where(eq(payments.id, Number(id)))
-    .returning();
-  return row || null;
-}
-
-async function refund(id, userId) {
-  const [row] = await db
-    .update(payments)
-    .set({ status: 'refunded', verifiedBy: Number(userId), verifiedAt: new Date() })
-    .where(eq(payments.id, Number(id)))
-    .returning();
-  return row || null;
-}
-
-async function remove(id) {
-  const [row] = await db.delete(payments).where(eq(payments.id, Number(id))).returning();
-  return row || null;
-}
-
+// ============================================================
+// EXPORTS
+// ============================================================
 module.exports = {
   // fee structures
-  listFeeStructures,
   findFeeStructureById,
   findFeeStructure,
+  findFeeStructureWithFallback,
+  listFeeStructures,
   createFeeStructure,
   updateFeeStructure,
   removeFeeStructure,
 
   // payments
-  listWithStudent,
-  countByStatus,
   findById,
+  list,
+  listWithStudent,
+  listByDepartment,
+  count,
+  totalVerifiedForStudent,
+  totalPaidForStudent,
   create,
   update,
   verify,
   reject,
-  refund,
   remove,
 };

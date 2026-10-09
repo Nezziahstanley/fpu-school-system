@@ -145,13 +145,8 @@
       </div>`;
 
     try {
-      const [lookupRes, coursesRes] = await Promise.all([
-        core.portalFetch('/api/exam-officer/lookups'),
-        core.portalFetch('/api/courses?limit=1000'),
-      ]);
-
-      DEPARTMENTS = Array.isArray(lookupRes.departments) ? lookupRes.departments : [];
-      COURSES = Array.isArray(coursesRes.data) ? coursesRes.data : [];
+      const schedRes = await core.portalFetch('/api/exam-officer/schedules');
+      SCHEDULES = Array.isArray(schedRes.data) ? schedRes.data : [];
 
       // Count courses per department
       const counts = {};

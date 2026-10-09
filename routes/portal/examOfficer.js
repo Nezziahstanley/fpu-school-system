@@ -16,14 +16,50 @@ const clearQueries = require('../../db/queries/clearances');
 const sessionQueries = require('../../db/queries/sessions');
 const { requireRole } = require('../../middleware/auth');
 
-const only = requireRole('exam_officer', 'academic_officer', 'registrar', 'admin', 'rector', 'librarian');
+// Academic roles that share the exam officer portal endpoints
+const only = requireRole(
+  'exam_officer',
+  'academic_officer',
+  'registrar',
+  'rector',
+  'librarian',
+  'admin'
+);
+
+// ============================================================
+// GET /api/exam-officer/lookups
+// ------------------------------------------------------------
+// Cascading pickers need: departments, courses, programmes,
+// schools. All in one call, available to all academic roles.
+// ============================================================
+router.get('/lookups', only, async (req, res, next) => {
+  try {
+    const { db, schema } = require('../../db');
+    const { departments, courses, programmes, schools } = schema;
+    const { asc } = require('drizzle-orm');
+
+    const [depts, crs, progs, schs] = await Promise.all([
+      db.select().from(departments).orderBy(asc(departments.name)),
+      db.select().from(courses).orderBy(asc(courses.code)),
+      db.select().from(programmes).orderBy(asc(programmes.code)),
+      db.select().from(schools).orderBy(asc(schools.name)),
+    ]);
+
+    return res.json({
+      success: true,
+      departments: depts,
+      courses: crs,
+      programmes: progs,
+      schools: schs,
+    });
+  } catch (err) { return next(err); }
+});
 
 // ============================================================
 // GET /api/exam-officer/dashboard
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {
   try {
-    // Exam officer oversees all schedules, not just their own session
     const sessionId = req.query.sessionId || null;
     const schedules = await examQueries.listWithCourse({ sessionId });
     const upcoming = await examQueries.listUpcoming({ sessionId, limit: 100 });
@@ -74,33 +110,7 @@ router.get('/schedules/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/exam-officer/lookups
-// ------------------------------------------------------------
-// Departments + courses for the cascading pickers.
-// ============================================================
-router.get('/lookups', only, async (req, res, next) => {
-  try {
-    const { db, schema } = require('../../db');
-    const { departments, courses } = schema;
-    const { asc } = require('drizzle-orm');
-
-    const [depts, crs] = await Promise.all([
-      db.select().from(departments).orderBy(asc(departments.name)),
-      db.select().from(courses).orderBy(asc(courses.code)),
-    ]);
-
-    return res.json({
-      success: true,
-      departments: depts,
-      courses: crs,
-    });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
 // GET /api/exam-officer/registrations
-// ------------------------------------------------------------
-// Approved registrations for a course, with student info.
 // ============================================================
 router.get('/registrations', only, async (req, res, next) => {
   try {
@@ -127,7 +137,6 @@ router.get('/registrations', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/exam-officer/attendance
-//   Query: examScheduleId
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
   try {
@@ -143,7 +152,6 @@ router.get('/attendance', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/exam-officer/attendance
-//   Body: { examScheduleId, studentId, status, remarks }
 // ============================================================
 router.post('/attendance', only, async (req, res, next) => {
   try {
@@ -164,7 +172,6 @@ router.post('/attendance', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/exam-officer/attendance/bulk
-//   Body: { examScheduleId, records: [{ studentId, status }] }
 // ============================================================
 router.post('/attendance/bulk', only, async (req, res, next) => {
   try {
@@ -186,17 +193,12 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/exam-officer/eligibility
-//   Query: courseId (required), sessionId, semester
-// ------------------------------------------------------------
-// Handles NULL current_session_id gracefully by falling back
-// to the current academic session.
 // ============================================================
 router.get('/eligibility', only, async (req, res, next) => {
   try {
     const { sessionId, courseId, semester } = req.query;
     if (!courseId) return res.status(400).json({ success: false, error: 'courseId is required.' });
 
-    // Resolve the effective session — query → user → current academic
     let effectiveSession = Number(sessionId || req.user.currentSessionId) || null;
     if (!effectiveSession) {
       const current = await sessionQueries.getCurrentAcademic();
@@ -262,7 +264,7 @@ router.get('/eligibility', only, async (req, res, next) => {
 // ============================================================
 router.get('/reports', only, async (req, res, next) => {
   try {
-    const sessionId = req.query.sessionId || req.user.currentSessionId;
+    const sessionId = req.query.sessionId || null;
     const schedules = await examQueries.listWithCourse({ sessionId });
     const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });
     const coveredSchedules = await examQueries.countCoveredSchedules({ sessionId });

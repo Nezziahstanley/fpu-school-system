@@ -66,11 +66,10 @@
               <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Duration</th>
-              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Students</th>
             </tr>
           </thead>
           <tbody id="pr-progs-tbody">
-            <tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -139,23 +138,27 @@
       .join('').slice(0, 3);
   }
 
+  // ============================================================
+  // LOAD — everything from the single lookups endpoint
+  // ============================================================
   async function load() {
     const grid = $('pr-dept-grid');
     grid.innerHTML = `
       <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
         <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:prSpin .8s linear infinite;"></div>
-        <div style="margin-top:.65rem;">Loading departments…</div>
+        <div style="margin-top:.65rem;">Loading programmes…</div>
       </div>`;
 
     try {
-      const [lookupRes, progsRes] = await Promise.all([
-        core.portalFetch('/api/exam-officer/lookups'),
-        core.portalFetch('/api/programmes?limit=500'),
-      ]);
+      const res = await core.portalFetch('/api/exam-officer/lookups');
 
-      DEPARTMENTS = Array.isArray(lookupRes.departments) ? lookupRes.departments : [];
-      PROGRAMMES = Array.isArray(progsRes.data) ? progsRes.data : [];
+      DEPARTMENTS = Array.isArray(res.departments) ? res.departments : [];
+      // Programmes live in `programmes` on the lookups response
+      PROGRAMMES = Array.isArray(res.programmes)
+        ? res.programmes
+        : Array.isArray(res.data) ? res.data : [];
 
+      // Count programmes per department + level totals
       const counts = {};
       let nd = 0, hnd = 0;
       PROGRAMMES.forEach((p) => {
@@ -179,11 +182,15 @@
     }
   }
 
+  // ============================================================
+  // DEPARTMENT GRID
+  // ============================================================
   function renderDepartmentGrid(counts) {
     const grid = $('pr-dept-grid');
     const query = ($('pr-search')?.value || '').trim().toLowerCase();
     const levelFilter = $('pr-level')?.value || '';
 
+    // Only show departments that have programmes
     const withProgrammes = DEPARTMENTS.filter((d) => (counts[d.id] || 0) > 0);
     let filtered = withProgrammes;
 
@@ -237,12 +244,10 @@
 
   function selectDepartment(dept) {
     SELECTED_DEPT = dept;
-
     $('pr-dept-grid').style.display = 'none';
     $('pr-progs-panel').style.display = 'block';
     $('pr-back-bar').style.display = 'block';
     $('pr-current-dept').textContent = `${dept.code || ''} · ${dept.name || ''}`;
-
     renderProgrammes();
   }
 
@@ -262,7 +267,7 @@
     rows.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No programmes match.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No programmes match.</td></tr>`;
       return;
     }
 
@@ -282,9 +287,6 @@
         </td>
         <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.78rem;">
           ${p.durationYears ? esc(p.durationYears) + ' year' + (p.durationYears > 1 ? 's' : '') : '—'}
-        </td>
-        <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-weight:700;">
-          ${p.studentCount ?? 0}
         </td>
       </tr>`).join('');
   }
@@ -308,7 +310,6 @@
       }
     }, 200);
   });
-
   $('pr-level')?.addEventListener('change', () => {
     if (SELECTED_DEPT) renderProgrammes();
     else {

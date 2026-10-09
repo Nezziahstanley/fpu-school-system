@@ -35,7 +35,9 @@
   </div>
 </section>
 
+<!-- QR library (more reliable than jsbarcode for QR) -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
 <script>
 (function () {
   'use strict';
@@ -43,6 +45,32 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  // ------------------------------------------------------------
+  // Print-only CSS injected once
+  // ------------------------------------------------------------
+  if (!document.getElementById('si-print-style')) {
+    const style = document.createElement('style');
+    style.id = 'si-print-style';
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden; }
+        #si-card, #si-card * { visibility: visible; }
+        #si-card { position: absolute; left: 0; top: 0; width: 100%; }
+        .filter-bar, .greeting, .panel-head { display: none !important; }
+      }`;
+    document.head.appendChild(style);
+  }
+
+  // ------------------------------------------------------------
+  // Escape for use inside a QR data string (mostly URL-safe)
+  // ------------------------------------------------------------
+  function safeQRValue(value) {
+    return String(value || '').trim();
+  }
+
+  // ------------------------------------------------------------
+  // Main loader
+  // ------------------------------------------------------------
   async function load() {
     const box = $('si-card');
     if (!box) return;
@@ -53,72 +81,162 @@
       const d = res.data || res || {};
       const inst = d.institution || {};
 
-      const shortUrl = d.lookupUrl
-        ? d.lookupUrl.replace(/^https?:\/\//, '')
-        : '—';
+      const initials = ((d.firstName || '?')[0] + (d.lastName || '?')[0]).toUpperCase();
+      const fullName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ').trim();
+      const photo = d.photoUrl
+        ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<span style=\\'font-size:3rem;color:#94a3b8;\\'>${initials}</span>'" />`
+        : `<span style="font-size:3rem;color:#94a3b8;">${initials}</span>`;
 
+      // ---------------- Card markup ----------------
       box.innerHTML = `
-        <div style="max-width:600px;margin:0 auto;">
+        <div style="max-width:720px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
 
-          <!-- CARD FRONT -->
-          <div style="background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:1.5rem;color:#fff;box-shadow:0 12px 32px rgba(6,95,70,.25);">
+          <!-- ══════════════ CARD FRONT ══════════════ -->
+          <div style="
+            display:flex;
+            background:#fff;
+            border-radius:14px;
+            overflow:hidden;
+            box-shadow:0 15px 40px rgba(6,95,70,.20);
+            border:1px solid #e5e7eb;
+            min-height:280px;
+          ">
 
-            <!-- HEADER -->
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:.75rem;">
-              <div>
-                <strong style="font-size:15px;">${esc(inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase()}</strong>
-                <div style="font-size:11px;opacity:.8;">${esc(inst.motto || 'Citadel of Technical Excellence')}</div>
-              </div>
-              <div style="font-size:11px;opacity:.8;text-align:right;">
-                <div>Student ID</div>
-                <div>${esc(d.session || '—')}</div>
-              </div>
+            <!-- ── LEFT COLOR STRIP ── -->
+            <div style="
+              width:44px;
+              background:linear-gradient(180deg,#065f46 0%,#047857 100%);
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              position:relative;
+              flex-shrink:0;
+            ">
+              <div style="
+                transform:rotate(-90deg);
+                white-space:nowrap;
+                color:#fff;
+                font-weight:800;
+                letter-spacing:.35em;
+                font-size:12px;
+              ">STUDENT ID</div>
             </div>
 
-            <!-- PHOTO + IDENTITY -->
-            <div style="display:flex;gap:1rem;align-items:center;">
-              <div style="width:100px;height:120px;background:rgba(255,255,255,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
-                ${d.photoUrl
-                  ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" onerror="this.replaceWith(document.createTextNode('👤'))" />`
-                  : '<span style="font-size:2.5rem;">👤</span>'}
-              </div>
-              <div style="flex:1;">
-                <div style="font-size:1.1rem;font-weight:700;">${esc((d.firstName||'') + ' ' + (d.middleName||'') + ' ' + (d.lastName||'')).trim()}</div>
-                <div style="font-size:12px;opacity:.85;margin-top:.25rem;">${esc(d.matricNumber || '—')}</div>
-                <div style="font-size:12px;opacity:.85;margin-top:.5rem;">
-                  <div><strong>Programme:</strong> ${esc(d.programmeName || d.programme?.name || '—')}</div>
-                  <div><strong>Department:</strong> ${esc(d.departmentName || d.department?.name || '—')}</div>
-                  <div><strong>Level:</strong> ${esc(d.level || '—')}</div>
+            <!-- ── MAIN BODY ── -->
+            <div style="flex:1;display:flex;flex-direction:column;">
+
+              <!-- Header band -->
+              <div style="
+                background:linear-gradient(90deg,#065f46,#047857);
+                color:#fff;
+                padding:.6rem 1rem;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+              ">
+                <div>
+                  <div style="font-weight:800;font-size:13px;letter-spacing:.03em;">
+                    ${esc((inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase())}
+                  </div>
+                  <div style="font-size:10px;opacity:.85;letter-spacing:.05em;">
+                    ${esc(inst.motto || 'Citadel of Technical Excellence')}
+                  </div>
                 </div>
+                <div style="text-align:right;font-size:10px;opacity:.9;">
+                  <div style="letter-spacing:.05em;">SESSION</div>
+                  <div style="font-weight:700;font-size:12px;">${esc(d.session || '—')}</div>
+                </div>
+              </div>
+
+              <!-- Content: photo + details + QR -->
+              <div style="flex:1;display:flex;gap:1rem;padding:1rem;">
+
+                <!-- PHOTO -->
+                <div style="
+                  width:110px;height:135px;
+                  background:#f1f5f9;
+                  border-radius:10px;
+                  border:2px solid #e2e8f0;
+                  overflow:hidden;
+                  display:flex;align-items:center;justify-content:center;
+                  flex-shrink:0;
+                ">
+                  ${photo}
+                </div>
+
+                <!-- DETAILS -->
+                <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+
+                  <div>
+                    <div style="font-size:1.15rem;font-weight:800;color:#0f172a;line-height:1.2;">
+                      ${esc(fullName)}
+                    </div>
+                    <div style="font-size:11.5px;color:#065f46;font-weight:600;margin-top:.15rem;font-family:ui-monospace,monospace;">
+                      ${esc(d.matricNumber || '—')}
+                    </div>
+                  </div>
+
+                  <div style="margin-top:.75rem;font-size:12px;color:#334155;line-height:1.6;">
+                    <div style="display:flex;gap:.5rem;">
+                      <span style="color:#64748b;min-width:80px;">Programme</span>
+                      <strong style="color:#0f172a;">${esc(d.programmeName || d.programme?.name || '—')}</strong>
+                    </div>
+                    <div style="display:flex;gap:.5rem;">
+                      <span style="color:#64748b;min-width:80px;">Department</span>
+                      <strong style="color:#0f172a;">${esc(d.departmentName || d.department?.name || '—')}</strong>
+                    </div>
+                    <div style="display:flex;gap:.5rem;">
+                      <span style="color:#64748b;min-width:80px;">Level</span>
+                      <strong style="color:#0f172a;">${esc(d.level || '—')}</strong>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- QR CODE (bottom-right) -->
+                <div style="
+                  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+                  flex-shrink:0;
+                ">
+                  <div style="
+                    padding:6px;
+                    background:#fff;
+                    border:1px solid #e2e8f0;
+                    border-radius:6px;
+                    box-shadow:0 1px 3px rgba(0,0,0,.04);
+                  ">
+                    <canvas id="si-qr" width="90" height="90" style="display:block;"></canvas>
+                  </div>
+                  <div style="font-size:8px;color:#64748b;margin-top:.3rem;text-align:center;letter-spacing:.03em;">
+                    SCAN TO<br/>VERIFY
+                  </div>
+                </div>
+
               </div>
             </div>
-
-            <!-- QR CODE BOX -->
-            <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.2);text-align:center;">
-              <div style="display:inline-block;background:#fff;padding:.75rem;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);">
-                <div style="font-size:9px;color:#065f46;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.4rem;">
-                  📷 Scan to verify
-                </div>
-                <canvas id="si-qr" width="180" height="180" style="display:block;"></canvas>
-                <div style="font-size:9px;color:#64748b;margin-top:.4rem;line-height:1.35;max-width:180px;">
-                  Opens the lost-card lookup page
-                </div>
-              </div>
-            </div>
-
           </div>
 
-          <!-- LOST-FOUND INSTRUCTIONS -->
-          <div style="margin-top:1rem;padding:1rem;background:#f9fafb;border-radius:12px;border-left:4px solid #065f46;">
-            <strong style="font-size:13px;">📞 If found, please contact:</strong>
-            <div style="font-size:12.5px;margin-top:.5rem;line-height:1.7;">
-              <div><strong>${esc(inst.name || 'Federal Polytechnic Ugep')}</strong></div>
-              <div>${esc(inst.address || 'Ugep, Cross River State, Nigeria')}</div>
-              <div>📧 ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
-              <div>📞 ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
-              <div style="margin-top:.5rem;">🌐 ${esc(inst.website || 'https://fedpolyugep.edu.ng')}</div>
-              <div style="margin-top:.5rem;padding:.5rem;background:#fff;border-radius:6px;font-size:11.5px;word-break:break-all;">
-                <strong>Verify at:</strong> ${esc(d.lookupUrl || '—')}
+          <!-- ══════════════ CARD BACK (instructions) ══════════════ -->
+          <div style="
+            margin-top:1rem;
+            padding:1rem 1.25rem;
+            background:#f0fdf4;
+            border:1px solid #bbf7d0;
+            border-radius:12px;
+            font-size:12px;
+            color:#14532d;
+            line-height:1.7;
+          ">
+            <div style="font-weight:800;font-size:12px;margin-bottom:.4rem;color:#065f46;">
+              📮 IF THIS CARD IS FOUND
+            </div>
+            <div>Please return it to <strong>${esc(inst.name || 'Federal Polytechnic Ugep')}</strong> or hand it to any staff member.</div>
+            <div style="margin-top:.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.25rem .75rem;">
+              <div><span style="color:#64748b;">📞 Phone</span> ${esc(inst.phone || '+234-XXX-XXX-XXXX')}</div>
+              <div><span style="color:#64748b;">📧 Email</span> ${esc(inst.email || 'info@fedpolyugep.edu.ng')}</div>
+              <div style="grid-column:1 / -1;"><span style="color:#64748b;">📍 Address</span> ${esc(inst.address || 'Ugep, Cross River State, Nigeria')}</div>
+              <div style="grid-column:1 / -1;word-break:break-all;">
+                <span style="color:#64748b;">🌐 Verify at</span> ${esc(d.lookupUrl || '—')}
               </div>
             </div>
           </div>
@@ -126,28 +244,46 @@
         </div>
       `;
 
-      // Generate QR code
-      if (typeof QRCode !== 'undefined') {
-        const qrValue = d.lookupUrl || `${location.origin}/id-lookup.html?matric=${encodeURIComponent(d.barcodeData || d.matricNumber || '')}`;
-        const canvas = document.getElementById('si-qr');
-        if (canvas) {
-          QRCode.toCanvas(canvas, qrValue, {
-            width: 180,
-            margin: 1,
-            color: { dark: '#000000', light: '#ffffff' },
+      // ---------------- Generate QR code ----------------
+      const qrValue = d.lookupUrl
+        || `${location.origin}/id-lookup.html?matric=${encodeURIComponent(d.barcodeData || d.matricNumber || '')}`;
+
+      const canvas = document.getElementById('si-qr');
+      if (canvas && typeof QRCode !== 'undefined') {
+        QRCode.toCanvas(
+          canvas,
+          qrValue,
+          {
+            width: 90,
+            margin: 0,
             errorCorrectionLevel: 'M',
-          }, (err) => {
-            if (err) console.warn('[id-card] QR error:', err);
-          });
-        }
+            color: { dark: '#0f172a', light: '#ffffff' },
+          },
+          (err) => {
+            if (err) {
+              console.error('[id-card] QR generation failed:', err);
+              // Fallback: draw a plain text notice in the canvas
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#fee2e2';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.fillStyle = '#991b1b';
+              ctx.font = '10px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('QR unavailable', canvas.width / 2, canvas.height / 2);
+            }
+          }
+        );
+      } else {
+        console.warn('[id-card] QRCode library not loaded. Canvas id =', canvas ? 'found' : 'missing');
       }
 
-      // Update lost panel
+      // ---------------- Lost panel ----------------
       if (d.lookupUrl) {
         $('si-lost-panel').style.display = 'block';
         $('si-lookup-url').value = d.lookupUrl;
         $('si-open-lookup').href = d.lookupUrl;
       }
+
     } catch (err) {
       console.warn('[student-id-card]', err.message);
       box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load ID card. Please try again.</p>';

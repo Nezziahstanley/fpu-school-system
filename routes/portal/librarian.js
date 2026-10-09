@@ -102,6 +102,9 @@ router.get('/dashboard', only, async (_req, res, next) => {
 // ============================================================
 // GET /api/librarian/books
 // ============================================================
+// ============================================================
+// GET /api/librarian/books
+// ============================================================
 router.get('/books', only, async (req, res, next) => {
   try {
     const rows = await libQueries.listBooks({
@@ -110,6 +113,89 @@ router.get('/books', only, async (req, res, next) => {
       availableOnly: req.query.availableOnly === 'true',
     });
     return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/librarian/books  — create
+// ============================================================
+router.post('/books', only, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (!b.title) {
+      return res.status(400).json({ success: false, error: 'title is required.' });
+    }
+    const copiesTotal = Math.max(1, Number(b.copiesTotal || 1));
+    const row = await libQueries.createBook({
+      title: String(b.title).trim(),
+      author: b.author || null,
+      isbn: b.isbn || null,
+      category: b.category || null,
+      publisher: b.publisher || null,
+      year: b.year ? Number(b.year) : null,
+      copiesTotal,
+      copiesAvailable: copiesTotal,       // new books start fully available
+      shelf: b.shelf || null,
+      departmentId: b.departmentId ? Number(b.departmentId) : null,
+      isGeneral: b.isGeneral !== false,   // default true
+    });
+    await logAudit({ req, action: 'librarian.book_create', entity: 'book', entityId: row.id });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// PUT /api/librarian/books/:id  — update metadata
+// ============================================================
+router.put('/books/:id', only, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const patch = {};
+    ['title', 'author', 'isbn', 'category', 'publisher', 'shelf'].forEach((k) => {
+      if (b[k] !== undefined) patch[k] = b[k] || null;
+    });
+    if (b.year !== undefined) patch.year = b.year ? Number(b.year) : null;
+    if (b.copiesTotal !== undefined) patch.copiesTotal = Math.max(1, Number(b.copiesTotal));
+    if (b.isGeneral !== undefined) patch.isGeneral = !!b.isGeneral;
+
+    const row = await libQueries.updateBook(req.params.id, patch);
+    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
+    await logAudit({ req, action: 'librarian.book_update', entity: 'book', entityId: row.id });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/librarian/books/:id
+// ============================================================
+router.delete('/books/:id', only, async (req, res, next) => {
+  try {
+    const row = await libQueries.removeBook(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
+    await logAudit({ req, action: 'librarian.book_delete', entity: 'book', entityId: row.id, before: row });
+    return res.json({ success: true });
+  } catch (err) {
+    if (err && /foreign key|violates/i.test(err.message || '')) {
+      return res.status(409).json({
+        success: false,
+        error: 'Cannot delete — this book has borrow history. Keep it and set copies to 0 instead.',
+      });
+    }
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/librarian/books/:id/adjust  — { delta: ±N }
+// ============================================================
+router.post('/books/:id/adjust', only, async (req, res, next) => {
+  try {
+    const delta = Number(req.body?.delta || 0);
+    if (!delta) return res.status(400).json({ success: false, error: 'delta must be a non-zero number.' });
+    const row = await libQueries.adjustCopies(req.params.id, delta);
+    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
+    await logAudit({ req, action: 'librarian.book_adjust', entity: 'book', entityId: row.id });
+    return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 

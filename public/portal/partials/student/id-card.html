@@ -44,36 +44,17 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   const FPU = {
-    primary: '#0a5c2f',       // deep FPU green (matches card border)
-    accent:  '#f5b800',        // FPU yellow/gold
-    accent2: '#10b981',
+    primary: '#0a5c2f',
+    primaryLight: '#0d7439',
+    accent:  '#f5b800',
+    accentLight: '#fcd34d',
     dark:    '#063d1e',
-    light:   '#d1fae5',
-    pale:    '#ecfdf5',
-    text:    '#0f172a',
+    gold:    '#c8981f',
     muted:   '#64748b',
-    white:   '#ffffff',
   };
 
-  // ─── Validity: 2 years from today ───
   function validTillLabel() {
     return String(new Date().getFullYear() + 2);
-  }
-
-  // ─── Signature generator (script-style rendering of the name) ───
-  function signatureSvg(fullName) {
-    const initials = fullName.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    return `
-      <svg viewBox="0 0 200 40" style="width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <style>
-            .sig { font-family: 'Brush Script MT', 'Segoe Script', cursive; fill: #1e3a8a; font-style: italic; }
-          </style>
-        </defs>
-        <path d="M5,32 Q20,5 40,20 T70,22 T100,18 T130,25 T160,20 T195,26"
-              fill="none" stroke="#1e3a8a" stroke-width="1.5" stroke-linecap="round"/>
-        <text x="100" y="30" text-anchor="middle" font-size="14" class="sig">${initials}</text>
-      </svg>`;
   }
 
   if (!document.getElementById('si-print-style')) {
@@ -87,129 +68,242 @@
         max-width: 100%;
         margin: 0 auto;
         background: #ffffff;
-        border-radius: 16px;
+        border-radius: 18px;
         overflow: hidden;
-        box-shadow: 0 20px 50px rgba(10,92,47,.30);
+        box-shadow: 0 24px 60px rgba(10,92,47,.35), 0 4px 12px rgba(0,0,0,.08);
         border: 1px solid #e5e7eb;
         font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       .si-front-wrap, .si-back-wrap { display: flex; justify-content: center; }
       .si-hidden { display: none; }
 
-      /* ══════ FRONT DECOR ══════ */
-      /* Vertical yellow "STUDENT ID CARD" tab on left */
-      .si-card .si-left-tab {
-        position: absolute;
-        left: 0; top: 90px;
-        width: 34px; height: 260px;
-        background: linear-gradient(180deg, ${FPU.accent} 0%, #e5a800 100%);
-        display: flex; align-items: center; justify-content: center;
-        border-top-right-radius: 8px;
-        border-bottom-right-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,.08);
-      }
-      .si-card .si-left-tab-text {
-        transform: rotate(-90deg);
-        white-space: nowrap;
-        color: #fff;
-        font-weight: 800;
-        letter-spacing: .28em;
-        font-size: 10px;
-        text-shadow: 0 1px 1px rgba(0,0,0,.15);
-      }
+      /* ═════════════ FRONT DECOR ═════════════ */
 
-      /* Green top band */
+      /* Gold corner flourishes */
+      .si-card .si-corner-tl,
+      .si-card .si-corner-tr,
+      .si-card .si-corner-bl,
+      .si-card .si-corner-br {
+        position: absolute;
+        width: 60px; height: 60px;
+        pointer-events: none;
+        z-index: 1;
+      }
+      .si-card .si-corner-tl::before,
+      .si-card .si-corner-tl::after {
+        content: ""; position: absolute;
+        background: linear-gradient(135deg, ${FPU.accent}, ${FPU.gold});
+      }
+      .si-card .si-corner-tl::before { top: 8px; left: 8px; width: 24px; height: 3px; }
+      .si-card .si-corner-tl::after  { top: 8px; left: 8px; width: 3px; height: 24px; }
+
+      .si-card .si-corner-tr::before,
+      .si-card .si-corner-tr::after {
+        content: ""; position: absolute;
+        background: linear-gradient(135deg, ${FPU.accent}, ${FPU.gold});
+      }
+      .si-card .si-corner-tr::before { top: 8px; right: 8px; width: 24px; height: 3px; }
+      .si-card .si-corner-tr::after  { top: 8px; right: 8px; width: 3px; height: 24px; }
+
+      /* Green top band with pattern */
       .si-card .si-top-band {
         position: absolute;
         top: 0; left: 0; right: 0;
-        height: 68px;
-        background: linear-gradient(135deg, ${FPU.primary} 0%, #0b7a3f 50%, ${FPU.primary} 100%);
+        height: 80px;
+        background: linear-gradient(135deg, ${FPU.dark} 0%, ${FPU.primary} 40%, ${FPU.primaryLight} 100%);
         display: flex; align-items: center;
-        padding: 0 1rem;
-        gap: .6rem;
+        padding: 0 1rem 0 .9rem;
+        gap: .65rem;
         z-index: 3;
+        overflow: hidden;
       }
-      /* Yellow accent line under the top band */
+      /* Dot pattern on top band */
+      .si-card .si-top-band::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(245,184,0,.18) 1px, transparent 1px);
+        background-size: 14px 14px;
+        opacity: .7;
+        pointer-events: none;
+      }
+      /* Gold wave bottom edge */
       .si-card .si-top-band::after {
         content: "";
         position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, ${FPU.accent}, #fbbf24, ${FPU.accent});
+        bottom: -2px; left: 0; right: 0;
+        height: 14px;
+        background: ${FPU.accent};
+        clip-path: polygon(0 60%, 15% 20%, 30% 55%, 45% 15%, 60% 50%, 75% 20%, 90% 60%, 100% 30%, 100% 100%, 0 100%);
       }
 
-      /* Diagonal yellow stripes at bottom (like the physical card) */
-      .si-card .si-stripes {
+      /* Vertical "STUDENT ID CARD" strip on left */
+      .si-card .si-left-strip {
         position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 60px;
-        overflow: hidden;
-        pointer-events: none;
+        left: 0; top: 100px;
+        width: 38px; height: 280px;
+        background: linear-gradient(180deg, ${FPU.accent} 0%, ${FPU.gold} 50%, ${FPU.accent} 100%);
+        display: flex; align-items: center; justify-content: center;
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
+        box-shadow: 2px 4px 10px rgba(0,0,0,.12);
+        z-index: 2;
       }
-      .si-card .si-stripes::before,
-      .si-card .si-stripes::after {
+      .si-card .si-left-strip::before {
         content: "";
         position: absolute;
-        bottom: -20px;
-        width: 200px; height: 60px;
-        background: ${FPU.accent};
-        transform: rotate(-15deg);
-        opacity: .35;
+        inset: 4px;
+        border: 1px dashed rgba(255,255,255,.5);
+        border-radius: 6px;
+        pointer-events: none;
       }
-      .si-card .si-stripes::before { left: -40px; }
-      .si-card .si-stripes::after { right: -40px; transform: rotate(-15deg) scaleX(-1); }
+      .si-card .si-left-strip-text {
+        transform: rotate(-90deg);
+        white-space: nowrap;
+        color: #fff;
+        font-weight: 900;
+        letter-spacing: .32em;
+        font-size: 10.5px;
+        text-shadow: 0 1px 2px rgba(0,0,0,.25);
+      }
 
-      /* Green side band on the right edge (bottom half) */
-      .si-card .si-right-band {
+      /* Diagonal stripe cluster bottom-left */
+      .si-card .si-stripes-bl {
         position: absolute;
-        right: 0; bottom: 0;
-        width: 34px; height: 200px;
-        background: linear-gradient(180deg, ${FPU.primary} 0%, ${FPU.dark} 100%);
-        clip-path: polygon(100% 0, 100% 100%, 0 100%, 40% 0);
+        bottom: 0; left: 0;
+        width: 140px; height: 90px;
+        overflow: hidden;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .si-card .si-stripes-bl span {
+        position: absolute;
+        bottom: -30px;
+        width: 6px;
+        height: 130px;
+        background: linear-gradient(180deg, transparent, ${FPU.accent}, ${FPU.gold}, transparent);
+        transform: rotate(35deg);
+        border-radius: 3px;
+      }
+      .si-card .si-stripes-bl span:nth-child(1) { left: 10px; opacity: .9; }
+      .si-card .si-stripes-bl span:nth-child(2) { left: 30px; opacity: .7; height: 150px; bottom: -40px; }
+      .si-card .si-stripes-bl span:nth-child(3) { left: 50px; opacity: .5; height: 110px; }
+      .si-card .si-stripes-bl span:nth-child(4) { left: 72px; opacity: .35; height: 90px; bottom: -20px; }
+
+      /* Diagonal stripe cluster bottom-right */
+      .si-card .si-stripes-br {
+        position: absolute;
+        bottom: 0; right: 0;
+        width: 140px; height: 90px;
+        overflow: hidden;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .si-card .si-stripes-br span {
+        position: absolute;
+        bottom: -30px;
+        width: 6px;
+        height: 130px;
+        background: linear-gradient(180deg, transparent, ${FPU.accent}, ${FPU.gold}, transparent);
+        transform: rotate(-35deg);
+        border-radius: 3px;
+      }
+      .si-card .si-stripes-br span:nth-child(1) { right: 10px; opacity: .9; }
+      .si-card .si-stripes-br span:nth-child(2) { right: 30px; opacity: .7; height: 150px; bottom: -40px; }
+      .si-card .si-stripes-br span:nth-child(3) { right: 50px; opacity: .5; height: 110px; }
+      .si-card .si-stripes-br span:nth-child(4) { right: 72px; opacity: .35; height: 90px; bottom: -20px; }
+
+      /* Green side accent right */
+      .si-card .si-right-accent {
+        position: absolute;
+        right: 0; top: 40%;
+        width: 12px; height: 200px;
+        background: linear-gradient(180deg, ${FPU.primary}, ${FPU.dark});
+        border-top-left-radius: 8px;
+        border-bottom-left-radius: 8px;
+        box-shadow: -2px 0 6px rgba(0,0,0,.08);
+        z-index: 1;
+      }
+      /* Gold ring on it */
+      .si-card .si-right-accent::after {
+        content: "";
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 6px; height: 6px;
+        background: ${FPU.accent};
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(245,184,0,.35);
       }
 
       .si-content {
-        position: relative; z-index: 2; height: 100%;
-        display: flex; flex-direction: column; padding: 0;
+        position: relative; z-index: 4; height: 100%;
+        display: flex; flex-direction: column;
+        padding-top: 90px;
       }
 
-      /* ══════ BACK DECOR ══════ */
-      .si-card.back .si-back-bg {
+      /* ═════════════ BACK DECOR ═════════════ */
+      .si-card.back { background: linear-gradient(160deg, #f8faf8 0%, #ecfdf5 100%); }
+      .si-card.back .si-back-bg-pattern {
         position: absolute; inset: 0;
-        background:
-          radial-gradient(circle at 20% 15%, rgba(245,184,0,.10), transparent 40%),
-          radial-gradient(circle at 80% 85%, rgba(10,92,47,.08), transparent 40%);
+        background-image:
+          radial-gradient(circle at 15% 20%, rgba(245,184,0,.10) 0, transparent 40%),
+          radial-gradient(circle at 85% 80%, rgba(10,92,47,.08) 0, transparent 40%);
+        pointer-events: none;
       }
       .si-card.back .si-back-frame {
         position: absolute;
-        inset: 18px;
+        inset: 16px;
         border: 2px solid ${FPU.primary};
-        border-radius: 12px;
+        border-radius: 14px;
         overflow: hidden;
+        background: rgba(255,255,255,.65);
+        backdrop-filter: blur(2px);
       }
       .si-card.back .si-back-frame::before {
         content: "";
         position: absolute;
         top: 0; left: 0; right: 0;
-        height: 6px;
-        background: linear-gradient(90deg, ${FPU.accent}, #fbbf24, ${FPU.accent});
+        height: 8px;
+        background: linear-gradient(90deg, ${FPU.accent} 0%, ${FPU.accentLight} 25%, ${FPU.accent} 50%, ${FPU.accentLight} 75%, ${FPU.accent} 100%);
       }
-      /* Yellow wave bottom of back frame */
-      .si-card.back .si-back-wave {
+      .si-card.back .si-back-frame::after {
+        content: "";
         position: absolute;
         bottom: -1px; left: -1px; right: -1px;
-        height: 40px;
-        background: ${FPU.accent};
-        clip-path: polygon(0 60%, 20% 40%, 50% 55%, 80% 30%, 100% 45%, 100% 100%, 0 100%);
+        height: 12px;
+        background: linear-gradient(90deg, ${FPU.primary}, ${FPU.primaryLight});
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
       }
-      /* Green corner triangle */
+      /* Green triangle top-right of frame */
       .si-card.back .si-back-tri {
         position: absolute;
-        top: -1px; right: -1px;
+        top: 8px; right: 0;
         width: 0; height: 0;
         border-style: solid;
-        border-width: 0 60px 60px 0;
+        border-width: 0 70px 70px 0;
         border-color: transparent ${FPU.primary} transparent transparent;
+        z-index: 1;
+      }
+      /* Gold small triangle overlapping */
+      .si-card.back .si-back-tri-gold {
+        position: absolute;
+        top: 8px; right: 0;
+        width: 0; height: 0;
+        border-style: solid;
+        border-width: 0 40px 40px 0;
+        border-color: transparent ${FPU.accent} transparent transparent;
+        z-index: 2;
+      }
+
+      .si-back-content {
+        position: relative; z-index: 3;
+        padding: 1.4rem 1.6rem 1rem;
+        display: flex; flex-direction: column;
+        align-items: center;
+        text-align: center;
+        height: 100%;
       }
 
       @media print {
@@ -242,7 +336,6 @@
 
       const initials = ((d.firstName || '?')[0] + (d.lastName || '?')[0]).toUpperCase();
       const fullName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ').trim();
-
       const shortName    = (inst.short || 'FPU').toUpperCase();
       const fullInstName = 'FEDERAL POLYTECHNIC, UGEP';
       const address      = inst.address || 'Ugep, Cross River State, Nigeria';
@@ -264,12 +357,12 @@
 
       const logoTop = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.15));"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:24px;color:#fff;'}))" />`;
+             style="width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.25));z-index:2;"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:26px;color:#fff;z-index:2;'}))" />`;
       const logoBack = `
         <img src="/images/logo.png" alt="Logo"
-             style="width:52px;height:52px;object-fit:contain;"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:34px;color:${FPU.primary};'}))" />`;
+             style="width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🎓',style:'font-size:36px;color:${FPU.primary};'}))" />`;
 
       box.innerHTML = `
         <div style="max-width:360px;margin:0 auto;">
@@ -278,97 +371,122 @@
           <div class="si-front-wrap">
             <div class="si-card">
 
-              <!-- TOP GREEN BAND -->
+              <!-- TOP GREEN BAND WITH DOT PATTERN + GOLD WAVE -->
               <div class="si-top-band">
                 ${logoTop}
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:800;font-size:12px;color:#fff;letter-spacing:.05em;line-height:1.1;">
+                <div style="flex:1;min-width:0;z-index:2;">
+                  <div style="font-weight:900;font-size:12.5px;color:#fff;letter-spacing:.05em;line-height:1.15;text-shadow:0 1px 2px rgba(0,0,0,.2);">
                     FEDERAL POLYTECHNIC, UGEP
                   </div>
-                  <div style="font-size:8px;color:rgba(255,255,255,.85);letter-spacing:.10em;margin-top:.15rem;">
+                  <div style="font-size:8px;color:${FPU.accentLight};letter-spacing:.14em;margin-top:.2rem;font-weight:700;">
                     ${esc(state.toUpperCase())} · NIGERIA
                   </div>
                 </div>
               </div>
 
-              <!-- YELLOW VERTICAL STUDENT ID TAB -->
-              <div class="si-left-tab">
-                <div class="si-left-tab-text">STUDENT ID CARD</div>
+              <!-- GOLD CORNER FLOURISHES -->
+              <div class="si-corner-tl"></div>
+              <div class="si-corner-tr"></div>
+
+              <!-- YELLOW VERTICAL STUDENT ID CARD STRIP -->
+              <div class="si-left-strip">
+                <div class="si-left-strip-text">STUDENT ID CARD</div>
               </div>
 
-              <!-- BOTTOM DIAGONAL STRIPES -->
-              <div class="si-stripes"></div>
-              <div class="si-right-band"></div>
+              <!-- GREEN SIDE ACCENT WITH GOLD DOT -->
+              <div class="si-right-accent"></div>
+
+              <!-- DIAGONAL STRIPE CLUSTERS -->
+              <div class="si-stripes-bl">
+                <span></span><span></span><span></span><span></span>
+              </div>
+              <div class="si-stripes-br">
+                <span></span><span></span><span></span><span></span>
+              </div>
 
               <!-- CONTENT -->
-              <div class="si-content" style="padding-top:78px;">
+              <div class="si-content">
 
-                <!-- PHOTO -->
+                <!-- PHOTO with double ring -->
                 <div style="display:flex;justify-content:center;margin-bottom:.7rem;">
                   <div style="
-                    width:132px;height:160px;
+                    position:relative;
+                    width:138px;height:168px;
                     background:#f1f5f9;
-                    border-radius:10px;
-                    border:3px solid ${FPU.primary};
-                    outline:2px solid ${FPU.accent};
-                    outline-offset:-7px;
-                    overflow:hidden;
-                    display:flex;align-items:center;justify-content:center;
-                    box-shadow:0 6px 14px rgba(10,92,47,.20);
+                    border-radius:12px;
+                    padding:3px;
+                    background:linear-gradient(135deg, ${FPU.accent}, ${FPU.gold});
+                    box-shadow:0 8px 20px rgba(10,92,47,.22);
                   ">
-                    ${photo}
+                    <div style="
+                      width:100%;height:100%;
+                      background:#f1f5f9;
+                      border-radius:9px;
+                      overflow:hidden;
+                      display:flex;align-items:center;justify-content:center;
+                      border:2px solid ${FPU.primary};
+                    ">
+                      ${photo}
+                    </div>
                   </div>
                 </div>
 
                 <!-- NAME -->
                 <div style="text-align:center;padding:0 1rem;">
-                  <div style="font-size:1rem;font-weight:800;color:${FPU.primary};line-height:1.15;text-transform:uppercase;letter-spacing:.03em;">
+                  <div style="font-size:1.02rem;font-weight:900;color:${FPU.primary};line-height:1.15;text-transform:uppercase;letter-spacing:.04em;">
                     ${esc(fullName)}
                   </div>
+                  <div style="width:60px;height:3px;background:linear-gradient(90deg,${FPU.accent},${FPU.gold});margin:.5rem auto 0;border-radius:2px;"></div>
                 </div>
 
                 <!-- DETAIL ROWS -->
-                <div style="margin-top:.85rem;padding:0 1.25rem;flex:1;">
+                <div style="margin-top:.85rem;padding:0 1.35rem;flex:1;">
                   <div style="
                     display:grid;grid-template-columns:80px 1fr;
-                    gap:.4rem .55rem;font-size:.72rem;align-items:center;
+                    gap:.45rem .6rem;font-size:.72rem;align-items:center;
                   ">
-                    <div style="color:${FPU.muted};font-size:.62rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;">Matric No.</div>
+                    <div style="color:${FPU.muted};font-size:.6rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">Matric No.</div>
                     <div style="color:${FPU.primary};font-weight:800;font-family:ui-monospace,monospace;font-size:.75rem;">${esc(d.matricNumber || '—')}</div>
 
-                    <div style="color:${FPU.muted};font-size:.62rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;">Department</div>
-                    <div style="color:${FPU.text};font-weight:700;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</div>
+                    <div style="color:${FPU.muted};font-size:.6rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">Department</div>
+                    <div style="color:#0f172a;font-weight:700;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</div>
 
-                    <div style="color:${FPU.muted};font-size:.62rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;">Programme</div>
-                    <div style="color:${FPU.text};font-weight:700;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.programmeName || '—')}</div>
+                    <div style="color:${FPU.muted};font-size:.6rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">Programme</div>
+                    <div style="color:#0f172a;font-weight:700;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.programmeName || '—')}</div>
 
-                    <div style="color:${FPU.muted};font-size:.62rem;font-weight:700;letter-spacing:.10em;text-transform:uppercase;">Level</div>
-                    <div style="color:${FPU.text};font-weight:700;font-size:.72rem;">${esc(d.levelDisplay || d.level || '—')}</div>
+                    <div style="color:${FPU.muted};font-size:.6rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;">Level</div>
+                    <div style="color:#0f172a;font-weight:700;font-size:.72rem;">${esc(d.levelDisplay || d.level || '—')}</div>
                   </div>
                 </div>
 
-                <!-- SIGNATURE + QR ROW -->
+                <!-- FOOTER: valid till + QR -->
                 <div style="
                   display:flex;align-items:flex-end;justify-content:space-between;
-                  padding:.5rem 1.25rem .75rem;gap:.75rem;
+                  padding:.5rem 1.35rem .9rem;gap:.75rem;
+                  position:relative;z-index:5;
                 ">
-                  <div style="flex:1;min-width:0;">
-                    <div style="border-top:1px solid #94a3b8;width:100%;height:34px;position:relative;">
-                      <div style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;">
-                        ${signatureSvg(fullName)}
-                      </div>
-                    </div>
-                    <div style="font-size:.55rem;color:${FPU.muted};letter-spacing:.08em;text-transform:uppercase;text-align:center;margin-top:2px;">
-                      Authorized Signature
-                    </div>
+                  <div style="
+                    display:inline-flex;align-items:center;gap:.4rem;
+                    background:linear-gradient(135deg,${FPU.primary},${FPU.primaryLight});
+                    color:#fff;padding:.4rem .7rem;border-radius:8px;
+                    box-shadow:0 4px 10px rgba(10,92,47,.25);
+                  ">
+                    <span style="font-size:.55rem;letter-spacing:.10em;opacity:.85;font-weight:700;">VALID</span>
+                    <span style="font-size:.85rem;font-weight:900;letter-spacing:.03em;">${esc(validTill)}</span>
                   </div>
 
                   <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
-                    <div style="width:56px;height:56px;padding:3px;background:#fff;border:1px solid #d1d5db;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.06);">
+                    <div style="
+                      width:60px;height:60px;padding:4px;
+                      background:#fff;
+                      border:2px solid ${FPU.primary};
+                      border-radius:8px;
+                      box-shadow:0 4px 10px rgba(0,0,0,.10);
+                    ">
                       ${qrImg}
                     </div>
-                    <div style="font-size:.5rem;color:${FPU.muted};margin-top:.2rem;text-align:center;letter-spacing:.05em;font-weight:700;">
-                      SCAN TO<br/>VERIFY
+                    <div style="font-size:.5rem;color:${FPU.primary};margin-top:.25rem;text-align:center;letter-spacing:.08em;font-weight:800;">
+                      SCAN TO VERIFY
                     </div>
                   </div>
                 </div>
@@ -380,76 +498,112 @@
           <!-- ══════════════════ BACK ══════════════════ -->
           <div class="si-back-wrap si-hidden">
             <div class="si-card back">
-              <div class="si-back-bg"></div>
+              <div class="si-back-bg-pattern"></div>
+
               <div class="si-back-frame">
                 <div class="si-back-tri"></div>
-                <div class="si-back-wave"></div>
+                <div class="si-back-tri-gold"></div>
               </div>
 
-              <div class="si-content" style="padding:1.5rem 1.5rem 1rem;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div class="si-back-content">
 
                 <!-- LOGO + QR ROW -->
-                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:.85rem;">
-                  ${logoBack}
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:1rem;">
+                  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:.35rem;">
+                    ${logoBack}
+                    <div style="font-size:.6rem;color:${FPU.primary};letter-spacing:.14em;font-weight:800;text-transform:uppercase;">
+                      Est. 2024
+                    </div>
+                  </div>
                   <div style="display:flex;flex-direction:column;align-items:center;">
-                    <div style="width:56px;height:56px;padding:3px;background:#fff;border:2px solid ${FPU.primary};border-radius:6px;">
+                    <div style="
+                      width:60px;height:60px;padding:4px;
+                      background:#fff;
+                      border:2px solid ${FPU.primary};
+                      border-radius:8px;
+                      box-shadow:0 4px 10px rgba(10,92,47,.15);
+                    ">
                       ${qrImg}
                     </div>
-                    <div style="font-size:.5rem;color:${FPU.muted};margin-top:.2rem;letter-spacing:.05em;font-weight:700;">
+                    <div style="font-size:.5rem;color:${FPU.primary};margin-top:.25rem;letter-spacing:.08em;font-weight:800;">
                       SCAN ME
                     </div>
                   </div>
                 </div>
 
-                <!-- INSTITUTION NAME -->
-                <div style="font-weight:800;font-size:11px;color:${FPU.primary};letter-spacing:.05em;text-transform:uppercase;line-height:1.2;margin-bottom:.9rem;">
+                <!-- INSTITUTION HEADING -->
+                <div style="
+                  font-weight:900;font-size:11.5px;color:${FPU.primary};
+                  letter-spacing:.06em;text-transform:uppercase;
+                  line-height:1.2;margin-bottom:.35rem;
+                  font-family:Georgia,serif;
+                ">
                   FEDERAL POLYTECHNIC, UGEP
+                </div>
+                <div style="
+                  display:flex;align-items:center;gap:.4rem;margin-bottom:1rem;
+                ">
+                  <div style="height:1px;background:${FPU.accent};flex:1;"></div>
+                  <div style="font-size:.55rem;color:${FPU.gold};letter-spacing:.15em;font-weight:800;">★ ★ ★</div>
+                  <div style="height:1px;background:${FPU.accent};flex:1;"></div>
                 </div>
 
                 <!-- MAIN STATEMENT -->
                 <p style="
                   margin:0 0 1rem;
                   font-size:.72rem;
-                  color:#334155;
-                  line-height:1.55;
-                  max-width:260px;
+                  color:#1f2937;
+                  line-height:1.6;
+                  max-width:250px;
+                  font-family:Georgia,serif;
                 ">
-                  The person whose Photograph appears overleaf is a Student of the above Mentioned
-                  <strong style="color:${FPU.primary};">FEDERAL POLYTECHNIC, UGEP</strong>
+                  The person whose photograph appears overleaf is a student of the above-mentioned
+                  <strong style="color:${FPU.primary};">FEDERAL POLYTECHNIC, UGEP</strong>.
                 </p>
 
-                <!-- RETURN INSTRUCTIONS -->
-                <div style="font-size:.68rem;color:#334155;line-height:1.7;margin-bottom:.85rem;">
-                  <div style="margin-bottom:.35rem;">If found, please return to the nearest police station</div>
-                  <div style="font-weight:800;color:${FPU.primary};font-size:.72rem;letter-spacing:.1em;margin:.3rem 0;">OR</div>
-                  <div>Contact <strong style="color:${FPU.primary};">${esc(phone)}</strong></div>
-                  <div>Email: <strong style="color:${FPU.primary};">${esc(email)}</strong></div>
+                <!-- RETURN INSTRUCTIONS BOX -->
+                <div style="
+                  width:100%;
+                  background:linear-gradient(135deg, rgba(245,184,0,.12), rgba(200,152,31,.06));
+                  border:1px dashed ${FPU.accent};
+                  border-radius:10px;
+                  padding:.75rem .85rem;
+                  margin-bottom:.75rem;
+                ">
+                  <div style="font-size:.6rem;color:${FPU.primary};letter-spacing:.14em;font-weight:800;text-transform:uppercase;margin-bottom:.4rem;">
+                    📮 If found, please return
+                  </div>
+                  <div style="font-size:.68rem;color:#1f2937;line-height:1.6;">
+                    <div>Return to the nearest police station</div>
+                    <div style="font-weight:800;color:${FPU.primary};letter-spacing:.10em;margin:.35rem 0;font-size:.62rem;">OR CONTACT</div>
+                    <div>📞 <strong style="color:${FPU.primary};">${esc(phone)}</strong></div>
+                    <div style="word-break:break-all;">✉️ <strong style="color:${FPU.primary};">${esc(email)}</strong></div>
+                  </div>
                 </div>
 
-                <!-- SPACER -->
                 <div style="flex:1;"></div>
 
-                <!-- SIGNATURE -->
-                <div style="width:140px;margin-top:.5rem;">
-                  <div style="border-bottom:1px solid #475569;height:26px;position:relative;">
-                    <div style="position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;">
-                      ${signatureSvg(fullInstName)}
-                    </div>
-                  </div>
-                  <div style="font-size:.55rem;color:${FPU.muted};letter-spacing:.08em;text-transform:uppercase;margin-top:2px;">
-                    Authorized Signature
-                  </div>
+                <!-- FOOTER STRIP -->
+                <div style="
+                  width:100%;
+                  display:flex;justify-content:space-between;align-items:center;
+                  font-size:.55rem;color:${FPU.muted};
+                  letter-spacing:.10em;text-transform:uppercase;
+                  font-weight:700;
+                ">
+                  <span>${esc(website)}</span>
+                  <span style="color:${FPU.primary};">• ${esc(state)} •</span>
                 </div>
 
               </div>
             </div>
           </div>
 
-          <!-- ═══ INSTRUCTIONS CARD (outside the physical card) ═══ -->
+          <!-- ═══ INSTRUCTIONS CARD (outside physical card) ═══ -->
           <div style="
             margin-top:1rem;
             padding:.9rem 1.1rem;
-            background:#f0fdf4;
+            background:linear-gradient(135deg,#f0fdf4,#ecfdf5);
             border:1px solid #bbf7d0;
             border-radius:12px;
             font-size:11px;
@@ -478,7 +632,6 @@
         $('si-open-lookup').href = d.lookupUrl;
       }
 
-      // Flip toggle
       let showingBack = false;
       const flipBtn = $('si-flip');
       if (flipBtn) {

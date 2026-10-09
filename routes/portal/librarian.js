@@ -138,7 +138,6 @@ router.get('/reservations', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/librarian/reservations/:id/ready
-// pending → ready  (book is now on the shelf waiting for pickup)
 // ============================================================
 router.post('/reservations/:id/ready', only, async (req, res, next) => {
   try {
@@ -148,20 +147,13 @@ router.post('/reservations/:id/ready', only, async (req, res, next) => {
       { readyAt: new Date() }
     );
     if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    await logAudit({
-      req,
-      action: 'librarian.reservation_ready',
-      entity: 'book_reservation',
-      entityId: row.id,
-    });
+    await logAudit({ req, action: 'librarian.reservation_ready', entity: 'book_reservation', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
 // POST /api/librarian/reservations/:id/fulfill
-// ready → fulfilled  (student collected the book; typically
-// also creates a borrow record — that's a follow-up action)
 // ============================================================
 router.post('/reservations/:id/fulfill', only, async (req, res, next) => {
   try {
@@ -171,35 +163,19 @@ router.post('/reservations/:id/fulfill', only, async (req, res, next) => {
       { fulfilledAt: new Date() }
     );
     if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    await logAudit({
-      req,
-      action: 'librarian.reservation_fulfill',
-      entity: 'book_reservation',
-      entityId: row.id,
-    });
+    await logAudit({ req, action: 'librarian.reservation_fulfill', entity: 'book_reservation', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
 // POST /api/librarian/reservations/:id/cancel
-// pending | ready → cancelled  (student changed mind or book
-// no longer available)
 // ============================================================
 router.post('/reservations/:id/cancel', only, async (req, res, next) => {
   try {
-    const row = await libQueries.updateReservationStatus(
-      req.params.id,
-      'cancelled',
-      {}
-    );
+    const row = await libQueries.updateReservationStatus(req.params.id, 'cancelled', {});
     if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    await logAudit({
-      req,
-      action: 'librarian.reservation_cancel',
-      entity: 'book_reservation',
-      entityId: row.id,
-    });
+    await logAudit({ req, action: 'librarian.reservation_cancel', entity: 'book_reservation', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
@@ -213,6 +189,23 @@ router.get('/fines', only, async (req, res, next) => {
       isPaid: req.query.isPaid === undefined ? undefined : req.query.isPaid === 'true',
     });
     return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/librarian/fines/:id/pay
+// ============================================================
+router.post('/fines/:id/pay', only, async (req, res, next) => {
+  try {
+    const row = await libQueries.payFine(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Fine not found.' });
+    await logAudit({
+      req,
+      action: 'librarian.fine_paid',
+      entity: 'library_fine',
+      entityId: row.id,
+    });
+    return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 

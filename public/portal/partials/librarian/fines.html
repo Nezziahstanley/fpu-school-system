@@ -1,46 +1,242 @@
 <!-- Portal → Librarian → Fines -->
 <section class="page-head">
-  <div><h2>Library Fines</h2><p class="muted small">Manage student fines</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__libFinesLoad()">Refresh</button></div>
+  <div>
+    <h2>Library Fines</h2>
+    <p class="muted small">Manage student fines</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="lib-fines-refresh">↻ Refresh</button>
+  </div>
 </section>
 
+<!-- Stats row -->
+<div class="stat-grid" id="lib-fines-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;">
+  <div class="tile"><div class="tile-label">Total Fines</div><div class="tile-value" id="lib-fines-c-total">—</div></div>
+  <div class="tile tile-blue"><div class="tile-label">Paid Amount (₦)</div><div class="tile-value" id="lib-fines-c-paid">—</div></div>
+  <div class="tile tile-accent"><div class="tile-label">Outstanding (₦)</div><div class="tile-value" id="lib-fines-c-unpaid">—</div></div>
+</div>
+
+<div class="filters">
+  <div class="form-group">
+    <label class="form-label">Paid?</label>
+    <select class="form-select" id="lib-fines-filter">
+      <option value="">All</option>
+      <option value="false">Unpaid</option>
+      <option value="true">Paid</option>
+    </select>
+  </div>
+  <div class="form-group" style="flex:2;">
+    <label class="form-label">Search</label>
+    <input type="search" class="form-input" id="lib-fines-search"
+           placeholder="Student name or reason" autocomplete="off" />
+  </div>
+</div>
+
 <div class="panel">
-  <div class="panel-head"><h3>Fines</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Fines</h3>
+    <span class="muted small" id="lib-fines-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>User</th><th>Amount</th><th>Reason</th><th>Paid?</th><th>Actions</th></tr></thead>
-        <tbody id="lib-fines-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th style="width:32px;"></th>
+            <th>Student</th>
+            <th>Amount</th>
+            <th>Reason</th>
+            <th>Created</th>
+            <th>Status</th>
+            <th style="width:140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="lib-fines-tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<style>
+  .lib-fines-detail { background: #f8fafc; }
+  .lib-fines-detail td { padding: .75rem 1rem; font-size: .82rem; color: #475569; }
+  .lib-fines-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
+  .lib-fines-detail-row:last-child { border-bottom: none; }
+  .lib-fines-detail-row strong { color: #0f172a; }
+  .lib-fines-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .lib-fines-chip.paid   { background: #d1fae5; color: #065f46; }
+  .lib-fines-chip.unpaid { background: #fef3c7; color: #92400e; }
+</style>
+
 <script>
-  window.__libFinesLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('lib-fines-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+  var ALL = [];
+
+  function studentName(r) {
+    var u = r.user || r.student || {};
+    var full = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    return full || u.email || ('User #' + ((r.fine || r).userId || ''));
+  }
+
+  function chip(isPaid) {
+    return isPaid
+      ? '<span class="lib-fines-chip paid">PAID</span>'
+      : '<span class="lib-fines-chip unpaid">UNPAID</span>';
+  }
+
+  function renderStats() {
+    var totalCount = ALL.length;
+    var paidSum = 0;
+    var unpaidSum = 0;
+    ALL.forEach(function (r) {
+      var f = r.fine || r;
+      var amt = Number(f.amount || 0);
+      if (f.isPaid) paidSum += amt;
+      else unpaidSum += amt;
+    });
+    $('lib-fines-c-total').textContent  = Number(totalCount).toLocaleString();
+    $('lib-fines-c-paid').textContent   = Number(paidSum).toLocaleString();
+    $('lib-fines-c-unpaid').textContent = Number(unpaidSum).toLocaleString();
+  }
+
+  function render() {
+    var tbody = $('lib-fines-tbody');
+    var countEl = $('lib-fines-count');
+    countEl.textContent = ALL.length ? ALL.length + ' fine' + (ALL.length === 1 ? '' : 's') : '';
+
+    if (!ALL.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No fines match your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ALL.map(function (r) {
+      var f = r.fine || r;
+      var id = f.id;
+      var hasDetail = f.paidAt || f.borrowId;
+      var detailId = 'lib-fines-detail-' + id;
+      var expandBtn = hasDetail
+        ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '">▸</button>'
+        : '';
+
+      var detailRow = '';
+      if (hasDetail) {
+        detailRow = '<tr class="lib-fines-detail" id="' + esc(detailId) + '" style="display:none;">'
+          + '<td></td>'
+          + '<td colspan="6">'
+          +   (f.paidAt
+                  ? '<div class="lib-fines-detail-row"><span>Paid on</span><strong>' + esc(dateFmt(f.paidAt)) + '</strong></div>'
+                  : '')
+          +   (f.borrowId
+                  ? '<div class="lib-fines-detail-row"><span>Borrow ID</span><strong>#' + esc(f.borrowId) + '</strong></div>'
+                  : '')
+          +   (f.createdAt
+                  ? '<div class="lib-fines-detail-row"><span>Created</span><strong>' + esc(dateFmt(f.createdAt)) + '</strong></div>'
+                  : '')
+          + '</td>'
+          + '</tr>';
+      }
+
+      var actionCell = f.isPaid
+        ? '<span class="muted small">—</span>'
+        : '<button class="btn btn-sm btn-primary" data-act="pay" data-id="' + esc(id) + '">Mark Paid</button>';
+
+      return '<tr>'
+        + '<td>' + expandBtn + '</td>'
+        + '<td>' + esc(studentName(r)) + '</td>'
+        + '<td style="font-weight:700;font-variant-numeric:tabular-nums;">' + esc(money(f.amount)) + '</td>'
+        + '<td>' + esc(f.reason || '—') + '</td>'
+        + '<td style="color:#94a3b8;font-size:.8rem;">'
+        +   (f.createdAt ? esc(timeAgo(f.createdAt) || dateFmt(f.createdAt)) : '—')
+        + '</td>'
+        + '<td>' + chip(f.isPaid) + '</td>'
+        + '<td>' + actionCell + '</td>'
+        + '</tr>'
+        + detailRow;
+    }).join('');
+
+    // Wire expand
+    tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var el = document.getElementById(b.dataset.expand);
+        if (!el) return;
+        var showing = el.style.display !== 'none';
+        el.style.display = showing ? 'none' : 'table-row';
+        b.textContent = showing ? '▸' : '▾';
+      });
+    });
+
+    // Wire pay
+    tbody.querySelectorAll('button[data-act="pay"]').forEach(function (b) {
+      b.addEventListener('click', function () { pay(b.dataset.id, b); });
+    });
+  }
+
+  async function load() {
+    var tbody = $('lib-fines-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+
+    var qs = new URLSearchParams();
+    var filter = $('lib-fines-filter').value;
+    var search = $('lib-fines-search').value.trim().toLowerCase();
+    if (filter) qs.set('isPaid', filter);
+
     try {
-      const res = await core.portalFetch('/api/librarian/fines');
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${r.user ? core.escapeHtml(r.user.firstName + ' ' + r.user.lastName) : '—'}</td>
-          <td class="num">${core.formatMoney(r.fine.amount)}</td>
-          <td>${core.escapeHtml(r.fine.reason || '')}</td>
-          <td>${r.fine.isPaid ? '<span class="badge badge-success">Paid</span>' : '<span class="badge badge-warning">Unpaid</span>'}</td>
-          <td>${!r.fine.isPaid ? `<button class="btn btn-sm btn-primary" onclick="window.__libFinePay(${r.fine.id})">Mark Paid</button>` : ''}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No fines.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="5" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+      var res = await core.portalFetch('/api/librarian/fines' + (qs.toString() ? '?' + qs : ''));
+      var rows = Array.isArray(res.data) ? res.data : [];
 
-  window.__libFinePay = async function (id) {
-    const core = window.FPU_PORTAL;
-    try { await core.portalFetch(`/api/admin/library/fines/${id}/pay`, { method: 'POST' }); core.showToast('Marked paid.', 'success'); window.__libFinesLoad(); }
-    catch (err) { core.showToast(err.message, 'error'); }
-  };
+      if (search) {
+        rows = rows.filter(function (r) {
+          var f = r.fine || r;
+          var hay = (studentName(r) + ' ' + (f.reason || '')).toLowerCase();
+          return hay.indexOf(search) >= 0;
+        });
+      }
 
-  window.__libFinesLoad();
+      ALL = rows;
+      renderStats();
+      render();
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  async function pay(id, btn) {
+    if (!confirm('Mark this fine as paid?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = 'Marking…'; }
+    try {
+      await core.portalFetch('/api/librarian/fines/' + id + '/pay', { method: 'POST' });
+      if (core.showToast) core.showToast('Fine marked paid.', 'success');
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark Paid'; }
+    }
+  }
+
+  // Chrome
+  $('lib-fines-refresh').addEventListener('click', load);
+  $('lib-fines-filter').addEventListener('change', load);
+
+  var t = null;
+  $('lib-fines-search').addEventListener('input', function () {
+    clearTimeout(t);
+    t = setTimeout(load, 300);
+  });
+
+  load();
+})();
 </script>

@@ -42,16 +42,26 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // Print-only CSS injected once
+  // Print-only CSS (CR80 size: 85.6mm × 54mm)
   if (!document.getElementById('si-print-style')) {
     const style = document.createElement('style');
     style.id = 'si-print-style';
     style.textContent = `
       @media print {
+        @page { size: auto; margin: 10mm; }
         body * { visibility: hidden; }
         #si-card, #si-card * { visibility: visible; }
-        #si-card { position: absolute; left: 0; top: 0; width: 100%; }
+        #si-card { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
         .filter-bar, .greeting, .panel-head { display: none !important; }
+        #si-card > div > div:first-child {
+          width: 85.6mm;
+          height: 54mm;
+          box-shadow: none;
+          border: none;
+          border-radius: 3mm;
+          margin: 0 auto;
+          page-break-inside: avoid;
+        }
       }`;
     document.head.appendChild(style);
   }
@@ -71,31 +81,33 @@
 
       const photo = d.photoUrl
         ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;"
-             onerror="this.parentNode.innerHTML='<span style=\\'font-size:3rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
-        : `<span style="font-size:3rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
+             onerror="this.parentNode.innerHTML='<span style=\\'font-size:2.5rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
+        : `<span style="font-size:2.5rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
 
-      // Server already rendered the QR as a data URL — just drop it in
       const qrImg = d.qrDataUrl
         ? `<img src="${d.qrDataUrl}" alt="QR code" style="width:100%;height:100%;display:block;" />`
-        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:9px;color:#94a3b8;text-align:center;padding:4px;">QR<br/>unavailable</div>`;
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:8px;color:#94a3b8;text-align:center;padding:4px;">QR<br/>unavailable</div>`;
 
       box.innerHTML = `
-        <div style="max-width:720px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
+        <div style="max-width:640px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
 
-          <!-- ═══════════ CARD ═══════════ -->
+          <!-- ═══════════ CARD (CR80 aspect: 600×378) ═══════════ -->
           <div style="
             display:flex;
             background:#fff;
-            border-radius:14px;
+            border-radius:12px;
             overflow:hidden;
             box-shadow:0 15px 40px rgba(6,95,70,.20);
             border:1px solid #e5e7eb;
-            min-height:280px;
+            width:600px;
+            height:378px;
+            max-width:100%;
+            margin:0 auto;
           ">
 
             <!-- VERTICAL STRIP -->
             <div style="
-              width:44px;
+              width:36px;
               background:linear-gradient(180deg,#065f46 0%,#047857 100%);
               display:flex;
               align-items:center;
@@ -107,45 +119,45 @@
                 white-space:nowrap;
                 color:#fff;
                 font-weight:800;
-                letter-spacing:.35em;
-                font-size:12px;
+                letter-spacing:.3em;
+                font-size:10px;
               ">STUDENT ID</div>
             </div>
 
             <!-- MAIN BODY -->
-            <div style="flex:1;display:flex;flex-direction:column;">
+            <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
 
-              <!-- Header band -->
+              <!-- HEADER BAND -->
               <div style="
                 background:linear-gradient(90deg,#065f46,#047857);
                 color:#fff;
-                padding:.6rem 1rem;
+                padding:.5rem .85rem;
                 display:flex;
                 align-items:center;
                 justify-content:space-between;
               ">
                 <div>
-                  <div style="font-weight:800;font-size:13px;letter-spacing:.03em;">
+                  <div style="font-weight:800;font-size:11.5px;letter-spacing:.03em;">
                     ${esc((inst.name || 'FEDERAL POLYTECHNIC UGEP').toUpperCase())}
                   </div>
-                  <div style="font-size:10px;opacity:.85;letter-spacing:.05em;">
+                  <div style="font-size:9px;opacity:.85;letter-spacing:.05em;">
                     ${esc(inst.motto || 'Citadel of Technical Excellence')}
                   </div>
                 </div>
-                <div style="text-align:right;font-size:10px;opacity:.9;">
+                <div style="text-align:right;font-size:9px;opacity:.9;">
                   <div style="letter-spacing:.05em;">SESSION</div>
-                  <div style="font-weight:700;font-size:12px;">${esc(d.session || '—')}</div>
+                  <div style="font-weight:700;font-size:11px;">${esc(d.session || '—')}</div>
                 </div>
               </div>
 
-              <!-- Photo + Info + QR -->
-              <div style="flex:1;display:flex;gap:1rem;padding:1rem;">
+              <!-- PHOTO + INFO + QR -->
+              <div style="flex:1;display:flex;gap:.75rem;padding:.75rem;">
 
                 <!-- PHOTO -->
                 <div style="
-                  width:110px;height:135px;
+                  width:100px;height:125px;
                   background:#f1f5f9;
-                  border-radius:10px;
+                  border-radius:8px;
                   border:2px solid #e2e8f0;
                   overflow:hidden;
                   display:flex;align-items:center;justify-content:center;
@@ -155,29 +167,29 @@
                 </div>
 
                 <!-- DETAILS -->
-                <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+                <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;min-width:0;">
 
                   <div>
-                    <div style="font-size:1.15rem;font-weight:800;color:#0f172a;line-height:1.2;">
+                    <div style="font-size:1.05rem;font-weight:800;color:#0f172a;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                       ${esc(fullName)}
                     </div>
-                    <div style="font-size:11.5px;color:#065f46;font-weight:600;margin-top:.15rem;font-family:ui-monospace,monospace;">
+                    <div style="font-size:10.5px;color:#065f46;font-weight:600;margin-top:.15rem;font-family:ui-monospace,monospace;">
                       ${esc(d.matricNumber || '—')}
                     </div>
                   </div>
 
-                  <div style="margin-top:.75rem;font-size:12px;color:#334155;line-height:1.6;">
-                    <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:82px;">Programme</span>
-                      <strong style="color:#0f172a;">${esc(d.programmeName || d.programme?.name || '—')}</strong>
+                  <div style="margin-top:.5rem;font-size:11px;color:#334155;line-height:1.55;">
+                    <div style="display:flex;gap:.4rem;">
+                      <span style="color:#64748b;min-width:74px;">Programme</span>
+                      <strong style="color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.programmeName || '—')}</strong>
                     </div>
-                    <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:82px;">Department</span>
-                      <strong style="color:#0f172a;">${esc(d.departmentName || d.department?.name || '—')}</strong>
+                    <div style="display:flex;gap:.4rem;">
+                      <span style="color:#64748b;min-width:74px;">Department</span>
+                      <strong style="color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.departmentName || '—')}</strong>
                     </div>
-                    <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:82px;">Level</span>
-                      <strong style="color:#0f172a;">${esc(d.level || '—')}</strong>
+                    <div style="display:flex;gap:.4rem;">
+                      <span style="color:#64748b;min-width:74px;">Level</span>
+                      <strong style="color:#0f172a;">${esc(d.levelDisplay || d.level || '—')}</strong>
                     </div>
                   </div>
 
@@ -186,16 +198,15 @@
                 <!-- QR -->
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
                   <div style="
-                    width:100px;height:100px;
+                    width:88px;height:88px;
                     padding:4px;
                     background:#fff;
                     border:1px solid #e2e8f0;
                     border-radius:6px;
-                    box-shadow:0 1px 3px rgba(0,0,0,.04);
                   ">
                     ${qrImg}
                   </div>
-                  <div style="font-size:8px;color:#64748b;margin-top:.3rem;text-align:center;letter-spacing:.03em;font-weight:600;">
+                  <div style="font-size:7.5px;color:#64748b;margin-top:.25rem;text-align:center;letter-spacing:.03em;font-weight:600;">
                     SCAN TO<br/>VERIFY
                   </div>
                 </div>
@@ -232,13 +243,11 @@
         </div>
       `;
 
-      // Update lost panel
       if (d.lookupUrl) {
         $('si-lost-panel').style.display = 'block';
         $('si-lookup-url').value = d.lookupUrl;
         $('si-open-lookup').href = d.lookupUrl;
       }
-
     } catch (err) {
       console.warn('[student-id-card]', err.message);
       box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load ID card. Please try again.</p>';

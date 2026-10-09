@@ -21,17 +21,8 @@ const {
 // ENUMS
 // ============================================================
 const userRoleEnum = pgEnum('user_role', [
-  'student',
-  'lecturer',
-  'hod',
-  'bursar',
-  'registrar',
-  'rector',
-  'librarian',
-  'exam_officer',
-  'academic_officer',
-  'admission_officer',
-  'admin',
+  'student', 'lecturer', 'hod', 'bursar', 'registrar', 'rector',
+  'librarian', 'exam_officer', 'academic_officer', 'admission_officer', 'admin',
 ]);
 
 const levelEnum = pgEnum('level', ['ND', 'HND', 'CERT']);
@@ -90,7 +81,6 @@ const notifTypeEnum = pgEnum('notification_type', [
   'info', 'warning', 'success', 'complaint', 'fee',
 ]);
 
-// registration_status — separate enum used by course_registrations
 const registrationStatusEnum = pgEnum('registration_status', [
   'pending', 'approved', 'rejected',
 ]);
@@ -116,6 +106,9 @@ const users = pgTable('users', {
   address: text('address'),
 
   photoUrl: text('photo_url'),
+  // Permanent photo used on the ID card — set once on first upload,
+  // never overwritten even if the student later changes their profile photo.
+  idCardPhotoUrl: text('id_card_photo_url'),
 
   matricNumber: varchar('matric_number', { length: 40 }).unique(),
   level: levelEnum('level'),
@@ -498,11 +491,6 @@ const examSchedules = pgTable('exam_schedules', {
 
 // ============================================================
 // 19. EXAM ATTENDANCE
-// ------------------------------------------------------------
-// NOTE: uses the shared `attendance_status` enum (present,
-// absent, late, excused). The UI only ever inserts present or
-// absent, but the wider enum keeps schema/schema alignments
-// simple and avoids a second enum.
 // ============================================================
 const examAttendance = pgTable('exam_attendance', {
   id: serial('id').primaryKey(),
@@ -532,8 +520,7 @@ const attendance = pgTable('attendance', {
   remarks: text('remarks'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
-  uniqueAtt: uniqueIndex('uniq_attendance')
-    .on(t.courseId, t.studentId, t.date),
+  uniqueAtt: uniqueIndex('uniq_attendance').on(t.courseId, t.studentId, t.date),
   courseIdx: index('idx_attendance_course').on(t.courseId),
   studentIdx: index('idx_attendance_student').on(t.studentId),
 }));
@@ -705,8 +692,7 @@ const graduations = pgTable('graduations', {
   remarks: text('remarks'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
-  uniqueGrad: uniqueIndex('uniq_graduation')
-    .on(t.studentId, t.sessionId),
+  uniqueGrad: uniqueIndex('uniq_graduation').on(t.studentId, t.sessionId),
   statusIdx: index('idx_graduations_status').on(t.status),
 }));
 
@@ -888,8 +874,6 @@ const photoUploads = pgTable('photo_uploads', {
 
 // ============================================================
 // 40. SETTINGS
-// ------------------------------------------------------------
-// NOTE: `key` is the primary key (no surrogate id).
 // ============================================================
 const settings = pgTable('settings', {
   key: varchar('key', { length: 80 }).primaryKey(),

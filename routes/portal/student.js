@@ -1,10 +1,6 @@
 // ============================================================
 // FPU — Student portal API
 // Mounted at /api/student
-// ------------------------------------------------------------
-// Every endpoint requires role=student. All ID resolution uses
-// req.user.id — never trust client-supplied studentId.
-// Route order: specific → generic.
 // ============================================================
 
 'use strict';
@@ -38,6 +34,37 @@ const {
 } = schema;
 
 const only = requireRole('student');
+
+// ============================================================
+// Helpers
+// ============================================================
+
+// ------------------------------------------------------------
+// computeYearOfStudy — derive year (1–4) from matric + session.
+//   Matric format: FPU/SST/CSC/ND/26/001  → "/26/" = entry year
+//   Session name:  "2025/2026"            → first 4 digits = current academic year
+// If year can't be derived, defaults to 1.
+// ------------------------------------------------------------
+function computeYearOfStudy(matricNumber, sessionName) {
+  try {
+    const matricYear = String(matricNumber || '').match(/\/(\d{2})\//)?.[1];
+    const sessionStart = String(sessionName || '').match(/(\d{4})/)?.[1];
+    if (!matricYear || !sessionStart) return 1;
+    const entryYear = 2000 + parseInt(matricYear, 10);
+    const currentYear = parseInt(sessionStart, 10);
+    return Math.max(1, Math.min(4, currentYear - entryYear + 1));
+  } catch {
+    return 1;
+  }
+}
+
+// ------------------------------------------------------------
+// buildLevelDisplay — ND1, ND2, HND1, HND2, etc.
+// ------------------------------------------------------------
+function buildLevelDisplay(level, yearOfStudy) {
+  if (!level) return '—';
+  return `${level}${yearOfStudy || 1}`;
+}
 
 // ============================================================
 // GET /api/student/registered-courses
@@ -129,15 +156,10 @@ router.get('/timetable', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/library/catalogue
-// ------------------------------------------------------------
-// Strict scoping:
-//   1. Books with department_id = student's departmentId
-//   2. Books with is_general = true (visible to all students)
 // ============================================================
 router.get('/library/catalogue', only, async (req, res, next) => {
   try {
     const deptId = req.user.departmentId ? Number(req.user.departmentId) : null;
-
     const scopes = [eq(books.isGeneral, true)];
     if (deptId) scopes.push(eq(books.departmentId, deptId));
 
@@ -151,7 +173,6 @@ router.get('/library/catalogue', only, async (req, res, next) => {
       ...b,
       _scope: b.isGeneral ? 'general' : 'department',
     }));
-
     return res.json({ success: true, data });
   } catch (err) {
     console.error('[library/catalogue]', err);
@@ -161,19 +182,13 @@ router.get('/library/catalogue', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/student/library/borrow
-// ------------------------------------------------------------
-// Body: { bookId }
-// Enforces same scope as catalogue + blocks duplicates.
 // ============================================================
 router.post('/library/borrow', only, async (req, res, next) => {
   try {
     const bookId = Number(req.body && req.body.bookId);
-    if (!bookId) {
-      return res.status(400).json({ success: false, error: 'bookId is required.' });
-    }
+    if (!bookId) return res.status(400).json({ success: false, error: 'bookId is required.' });
 
     const deptId = req.user.departmentId ? Number(req.user.departmentId) : null;
-
     const [book] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
     if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
 
@@ -182,12 +197,8 @@ router.post('/library/borrow', only, async (req, res, next) => {
       (deptId && book.departmentId && Number(book.departmentId) === deptId);
 
     if (!inScope) {
-      return res.status(403).json({
-        success: false,
-        error: 'This book is not available for your department.',
-      });
+      return res.status(403).json({ success: false, error: 'This book is not available for your department.' });
     }
-
     if (Number(book.copiesAvailable) <= 0) {
       return res.status(409).json({ success: false, error: 'No copies available.' });
     }
@@ -195,20 +206,14 @@ router.post('/library/borrow', only, async (req, res, next) => {
     const existing = await db
       .select({ id: borrowRecords.id })
       .from(borrowRecords)
-      .where(
-        and(
-          eq(borrowRecords.userId, req.user.id),
-          eq(borrowRecords.bookId, bookId),
-          eq(borrowRecords.status, 'borrowed')
-        )
-      )
+      .where(and(
+        eq(borrowRecords.userId, req.user.id),
+        eq(borrowRecords.bookId, bookId),
+        eq(borrowRecords.status, 'borrowed')
+      ))
       .limit(1);
-
     if (existing.length) {
-      return res.status(409).json({
-        success: false,
-        error: 'You already have this book borrowed.',
-      });
+      return res.status(409).json({ success: false, error: 'You already have this book borrowed.' });
     }
 
     const LOAN_DAYS = Number(process.env.LIBRARY_LOAN_DAYS || 14);
@@ -217,23 +222,14 @@ router.post('/library/borrow', only, async (req, res, next) => {
     const row = await db.transaction(async (tx) => {
       const [borrow] = await tx
         .insert(borrowRecords)
-        .values({
-          bookId,
-          userId: req.user.id,
-          dueAt,
-          status: 'borrowed',
-          issuedBy: null,
-        })
+        .values({ bookId, userId: req.user.id, dueAt, status: 'borrowed', issuedBy: null })
         .returning();
-
       await tx
         .update(books)
         .set({ copiesAvailable: sql`${books.copiesAvailable} - 1` })
         .where(eq(books.id, bookId));
-
       return borrow;
     });
-
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
     console.error('[library/borrow]', err);
@@ -247,15 +243,10 @@ router.post('/library/borrow', only, async (req, res, next) => {
 router.get('/exams', only, async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
-    const regs = await regQueries.list({
-      studentId: req.user.id,
-      sessionId,
-      semester,
-    });
+    const regs = await regQueries.list({ studentId: req.user.id, sessionId, semester });
     const courseIds = regs
       .filter((r) => ['pending', 'approved'].includes(r.status))
       .map((r) => r.courseId);
-
     if (!courseIds.length) return res.json({ success: true, data: [] });
 
     const allExams = await examQueries.listWithCourse({ sessionId, semester });
@@ -263,7 +254,6 @@ router.get('/exams', only, async (req, res, next) => {
       const exam = e.exam || e;
       return courseIds.includes(exam.courseId);
     });
-
     return res.json({ success: true, data: filtered });
   } catch (err) {
     return next(err);
@@ -371,12 +361,7 @@ router.post('/assignments/:id/submit', only, async (req, res, next) => {
     } else {
       [row] = await db
         .insert(assignmentSubmissions)
-        .values({
-          assignmentId,
-          studentId: req.user.id,
-          submissionText: submissionText || null,
-          submissionUrl: submissionUrl || null,
-        })
+        .values({ assignmentId, studentId: req.user.id, submissionText: submissionText || null, submissionUrl: submissionUrl || null })
         .returning();
     }
     return res.json({ success: true, data: row });
@@ -466,8 +451,13 @@ router.get('/documents/:id/download', only, async (req, res, next) => {
 // ============================================================
 // GET /api/student/id-card
 // ------------------------------------------------------------
-// Returns everything the card needs, PLUS a pre-rendered QR
-// code (as a data URL) encoding the public lookup URL.
+// Returns:
+//   - student details (name, matric, programme, dept)
+//   - levelDisplay = ND1 / ND2 / HND1 / HND2 (derived)
+//   - photoUrl = permanent ID-card photo (idCardPhotoUrl) or
+//     falls back to profile photo
+//   - qrDataUrl = pre-rendered QR (data URL) encoding the
+//     public lookup URL
 // ============================================================
 router.get('/id-card', only, async (req, res, next) => {
   try {
@@ -480,7 +470,14 @@ router.get('/id-card', only, async (req, res, next) => {
     const baseUrl = process.env.PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
     const lookupUrl = `${baseUrl}/id-lookup.html?matric=${encodeURIComponent(barcodeData)}`;
 
-    // Server-side QR generation — more reliable than client CDN
+    // Derive level display (ND1 / ND2 / HND1 / HND2)
+    const yearOfStudy = computeYearOfStudy(student.matricNumber, session?.name);
+    const levelDisplay = buildLevelDisplay(student.level, yearOfStudy);
+
+    // Prefer permanent ID-card photo over profile photo
+    const idPhoto = student.idCardPhotoUrl || student.photoUrl || null;
+
+    // Server-side QR — more reliable than client CDN
     let qrDataUrl = null;
     try {
       const QRCode = require('qrcode');
@@ -492,7 +489,6 @@ router.get('/id-card', only, async (req, res, next) => {
       });
     } catch (qrErr) {
       console.error('[id-card] QR generation failed:', qrErr.message);
-      // Continue without QR — frontend will show fallback
     }
 
     return res.json({
@@ -504,18 +500,20 @@ router.get('/id-card', only, async (req, res, next) => {
         lastName: student.lastName,
         middleName: student.middleName,
         level: student.level,
+        levelDisplay,             // ← ND1 / ND2 / HND1 / HND2
+        yearOfStudy,              // ← 1, 2, 3, 4
         department: student.department,
         departmentName: student.departmentName,
         programme: student.programme,
         programmeName: student.programmeName,
         school: student.school,
         schoolName: student.schoolName,
-        photoUrl: student.photoUrl,
+        photoUrl: idPhoto,        // ← permanent ID photo (or current profile photo)
         session: session?.name || null,
         institution: await settingsQueries.getInstitution(),
         barcodeData,
         lookupUrl,
-        qrDataUrl,   // ← NEW: ready-to-render data URL
+        qrDataUrl,
       },
     });
   } catch (err) {
@@ -525,10 +523,6 @@ router.get('/id-card', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/graduation
-// ------------------------------------------------------------
-// Returns the student's graduation record (if any), enriched
-// with LIVE CGPA + classification computed from published
-// results, plus joined programme / department / session names.
 // ============================================================
 router.get('/graduation', only, async (req, res, next) => {
   try {
@@ -539,9 +533,7 @@ router.get('/graduation', only, async (req, res, next) => {
       .orderBy(desc(graduations.createdAt))
       .limit(1);
 
-    if (!row) {
-      return res.json({ success: true, data: null });
-    }
+    if (!row) return res.json({ success: true, data: null });
 
     const results = await resultQueries.publishedForStudent(req.user.id, {});
     const summary = computeStudentCGPA(
@@ -552,7 +544,6 @@ router.get('/graduation', only, async (req, res, next) => {
         semester: r.result?.semester,
       }))
     );
-
     const student = await userQueries.findByIdWithRelations(req.user.id);
 
     let sessionName = null;
@@ -691,7 +682,6 @@ router.get('/available-courses', only, async (req, res, next) => {
       .where(eq(courseRegistrations.studentId, req.user.id));
 
     const registeredIds = new Set(registeredRows.map((r) => Number(r.courseId)));
-
     const allCourses = await db
       .select()
       .from(courses)

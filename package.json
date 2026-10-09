@@ -41,7 +41,8 @@
         "helmet": "^8.3.0",
         "multer": "^2.4.0",
         "nodemailer": "^10.0.15",
-        "pg": "^8.23.1"
+        "pg": "^8.23.1",
+        "qrcode": "^1.5.4"
     },
     "devDependencies": {
         "drizzle-kit": "^0.31.11"

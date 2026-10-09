@@ -35,9 +35,6 @@
   </div>
 </section>
 
-<!-- QR library (more reliable than jsbarcode for QR) -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
 <script>
 (function () {
   'use strict';
@@ -45,9 +42,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // ------------------------------------------------------------
   // Print-only CSS injected once
-  // ------------------------------------------------------------
   if (!document.getElementById('si-print-style')) {
     const style = document.createElement('style');
     style.id = 'si-print-style';
@@ -61,16 +56,6 @@
     document.head.appendChild(style);
   }
 
-  // ------------------------------------------------------------
-  // Escape for use inside a QR data string (mostly URL-safe)
-  // ------------------------------------------------------------
-  function safeQRValue(value) {
-    return String(value || '').trim();
-  }
-
-  // ------------------------------------------------------------
-  // Main loader
-  // ------------------------------------------------------------
   async function load() {
     const box = $('si-card');
     if (!box) return;
@@ -83,15 +68,21 @@
 
       const initials = ((d.firstName || '?')[0] + (d.lastName || '?')[0]).toUpperCase();
       const fullName = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ').trim();
-      const photo = d.photoUrl
-        ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentNode.innerHTML='<span style=\\'font-size:3rem;color:#94a3b8;\\'>${initials}</span>'" />`
-        : `<span style="font-size:3rem;color:#94a3b8;">${initials}</span>`;
 
-      // ---------------- Card markup ----------------
+      const photo = d.photoUrl
+        ? `<img src="${esc(d.photoUrl)}?v=${Date.now()}" alt="" style="width:100%;height:100%;object-fit:cover;"
+             onerror="this.parentNode.innerHTML='<span style=\\'font-size:3rem;color:#94a3b8;font-weight:700;\\'>${initials}</span>'" />`
+        : `<span style="font-size:3rem;color:#94a3b8;font-weight:700;">${initials}</span>`;
+
+      // Server already rendered the QR as a data URL — just drop it in
+      const qrImg = d.qrDataUrl
+        ? `<img src="${d.qrDataUrl}" alt="QR code" style="width:100%;height:100%;display:block;" />`
+        : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:9px;color:#94a3b8;text-align:center;padding:4px;">QR<br/>unavailable</div>`;
+
       box.innerHTML = `
         <div style="max-width:720px;margin:0 auto;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
 
-          <!-- ══════════════ CARD FRONT ══════════════ -->
+          <!-- ═══════════ CARD ═══════════ -->
           <div style="
             display:flex;
             background:#fff;
@@ -102,14 +93,13 @@
             min-height:280px;
           ">
 
-            <!-- ── LEFT COLOR STRIP ── -->
+            <!-- VERTICAL STRIP -->
             <div style="
               width:44px;
               background:linear-gradient(180deg,#065f46 0%,#047857 100%);
               display:flex;
               align-items:center;
               justify-content:center;
-              position:relative;
               flex-shrink:0;
             ">
               <div style="
@@ -122,7 +112,7 @@
               ">STUDENT ID</div>
             </div>
 
-            <!-- ── MAIN BODY ── -->
+            <!-- MAIN BODY -->
             <div style="flex:1;display:flex;flex-direction:column;">
 
               <!-- Header band -->
@@ -148,7 +138,7 @@
                 </div>
               </div>
 
-              <!-- Content: photo + details + QR -->
+              <!-- Photo + Info + QR -->
               <div style="flex:1;display:flex;gap:1rem;padding:1rem;">
 
                 <!-- PHOTO -->
@@ -178,36 +168,34 @@
 
                   <div style="margin-top:.75rem;font-size:12px;color:#334155;line-height:1.6;">
                     <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:80px;">Programme</span>
+                      <span style="color:#64748b;min-width:82px;">Programme</span>
                       <strong style="color:#0f172a;">${esc(d.programmeName || d.programme?.name || '—')}</strong>
                     </div>
                     <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:80px;">Department</span>
+                      <span style="color:#64748b;min-width:82px;">Department</span>
                       <strong style="color:#0f172a;">${esc(d.departmentName || d.department?.name || '—')}</strong>
                     </div>
                     <div style="display:flex;gap:.5rem;">
-                      <span style="color:#64748b;min-width:80px;">Level</span>
+                      <span style="color:#64748b;min-width:82px;">Level</span>
                       <strong style="color:#0f172a;">${esc(d.level || '—')}</strong>
                     </div>
                   </div>
 
                 </div>
 
-                <!-- QR CODE (bottom-right) -->
-                <div style="
-                  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
-                  flex-shrink:0;
-                ">
+                <!-- QR -->
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
                   <div style="
-                    padding:6px;
+                    width:100px;height:100px;
+                    padding:4px;
                     background:#fff;
                     border:1px solid #e2e8f0;
                     border-radius:6px;
                     box-shadow:0 1px 3px rgba(0,0,0,.04);
                   ">
-                    <canvas id="si-qr" width="90" height="90" style="display:block;"></canvas>
+                    ${qrImg}
                   </div>
-                  <div style="font-size:8px;color:#64748b;margin-top:.3rem;text-align:center;letter-spacing:.03em;">
+                  <div style="font-size:8px;color:#64748b;margin-top:.3rem;text-align:center;letter-spacing:.03em;font-weight:600;">
                     SCAN TO<br/>VERIFY
                   </div>
                 </div>
@@ -216,7 +204,7 @@
             </div>
           </div>
 
-          <!-- ══════════════ CARD BACK (instructions) ══════════════ -->
+          <!-- BACK / INSTRUCTIONS -->
           <div style="
             margin-top:1rem;
             padding:1rem 1.25rem;
@@ -244,40 +232,7 @@
         </div>
       `;
 
-      // ---------------- Generate QR code ----------------
-      const qrValue = d.lookupUrl
-        || `${location.origin}/id-lookup.html?matric=${encodeURIComponent(d.barcodeData || d.matricNumber || '')}`;
-
-      const canvas = document.getElementById('si-qr');
-      if (canvas && typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(
-          canvas,
-          qrValue,
-          {
-            width: 90,
-            margin: 0,
-            errorCorrectionLevel: 'M',
-            color: { dark: '#0f172a', light: '#ffffff' },
-          },
-          (err) => {
-            if (err) {
-              console.error('[id-card] QR generation failed:', err);
-              // Fallback: draw a plain text notice in the canvas
-              const ctx = canvas.getContext('2d');
-              ctx.fillStyle = '#fee2e2';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.fillStyle = '#991b1b';
-              ctx.font = '10px sans-serif';
-              ctx.textAlign = 'center';
-              ctx.fillText('QR unavailable', canvas.width / 2, canvas.height / 2);
-            }
-          }
-        );
-      } else {
-        console.warn('[id-card] QRCode library not loaded. Canvas id =', canvas ? 'found' : 'missing');
-      }
-
-      // ---------------- Lost panel ----------------
+      // Update lost panel
       if (d.lookupUrl) {
         $('si-lost-panel').style.display = 'block';
         $('si-lookup-url').value = d.lookupUrl;

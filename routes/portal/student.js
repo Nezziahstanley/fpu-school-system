@@ -466,8 +466,8 @@ router.get('/documents/:id/download', only, async (req, res, next) => {
 // ============================================================
 // GET /api/student/id-card
 // ------------------------------------------------------------
-// Returns everything the card needs, plus the public lookup
-// URL encoded in the barcode / QR code.
+// Returns everything the card needs, PLUS a pre-rendered QR
+// code (as a data URL) encoding the public lookup URL.
 // ============================================================
 router.get('/id-card', only, async (req, res, next) => {
   try {
@@ -479,6 +479,21 @@ router.get('/id-card', only, async (req, res, next) => {
     const barcodeData = student.matricNumber || `STU-${student.id}`;
     const baseUrl = process.env.PUBLIC_URL || 'https://fpu-school-systems.onrender.com';
     const lookupUrl = `${baseUrl}/id-lookup.html?matric=${encodeURIComponent(barcodeData)}`;
+
+    // Server-side QR generation — more reliable than client CDN
+    let qrDataUrl = null;
+    try {
+      const QRCode = require('qrcode');
+      qrDataUrl = await QRCode.toDataURL(lookupUrl, {
+        width: 180,
+        margin: 0,
+        errorCorrectionLevel: 'M',
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+    } catch (qrErr) {
+      console.error('[id-card] QR generation failed:', qrErr.message);
+      // Continue without QR — frontend will show fallback
+    }
 
     return res.json({
       success: true,
@@ -500,6 +515,7 @@ router.get('/id-card', only, async (req, res, next) => {
         institution: await settingsQueries.getInstitution(),
         barcodeData,
         lookupUrl,
+        qrDataUrl,   // ← NEW: ready-to-render data URL
       },
     });
   } catch (err) {

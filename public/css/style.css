@@ -2891,3 +2891,68 @@ header.navbar .menu-toggle {
   header.navbar .search-toggle { width: 36px !important; height: 36px !important; }
   header.navbar .menu-toggle { width: 38px !important; height: 38px !important; font-size: 1.2rem !important; }
 }
+
+/* ============================================================
+   HERO IMAGE CLARITY — sharper backgrounds, lighter overlay
+   ============================================================ */
+
+/* Background image setup for every slide + facility + course card */
+.hero-slide-bg,
+.facility-img,
+.course-img {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  /* Force GPU compositing — fixes the "blurry during transition" bug */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Sharper rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Default overlay: subtle top-to-bottom dark gradient — not a green wash */
+.hero-slide-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0,0,0,.35) 0%,
+    rgba(0,0,0,.55) 55%,
+    rgba(0,0,0,.72) 100%
+  );
+  pointer-events: none;
+}
+
+/* Kill any existing green tint pseudo-element or filter on the slide bg */
+.hero-slide-bg {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+/* The .hero-slide itself is where the green used to sit — neutralize */
+.hero-slide {
+  background-color: transparent !important;
+}
+
+/* If the overlay was applied via the slider container, kill that too */
+.hero-slider::before,
+.hero-slider::after {
+  background: none !important;
+}
+
+/* Text stays perfectly legible via text-shadow instead of overlay */
+.hero-slide-content h1,
+.hero-slide-content p,
+.hero-slide-content .badge-motto {
+  text-shadow: 0 2px 12px rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.4);
+}
+
+/* Facility + course card images stay clean, no tint */
+.facility-img,
+.course-img {
+  filter: none;
+  opacity: 1;
+}

@@ -72,9 +72,7 @@
       'portal-announcements', 'portal-complaints', 'portal-security',
     ],
     lecturer: [
-      // Personal
       'portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements',
-      // Staff-relevant reference (read-only exam list)
       'admin-exams',
     ],
     hod: [
@@ -144,7 +142,7 @@
         { title: 'Personal',   items: sharedItems.filter((p) => personalKeys.includes(p.key)) },
         { title: 'References', items: sharedItems.filter((p) => referenceKeys.includes(p.key)) },
       ];
-    }, 
+    },
     default: (role, roleItems, sharedItems) => [
       { title: 'Main',   items: roleItems },
       { title: 'Shared', items: sharedItems },
@@ -221,9 +219,10 @@
     ],
     academic_officer: [{ key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash }],
     admission_officer: [
-      { key: 'admission-officer-dashboard', label: 'Dashboard', icon: ICON.dash },
-      { key: 'admission-officer-admitted',  label: 'Admitted',  icon: ICON.check },
-      { key: 'admission-officer-letters',   label: 'Letters',   icon: ICON.file },
+      { key: 'admission-officer-dashboard',    label: 'Dashboard',    icon: ICON.dash },
+      { key: 'admission-officer-applications', label: 'Applications', icon: ICON.clipboard },
+      { key: 'admission-officer-admitted',     label: 'Admitted',     icon: ICON.check },
+      { key: 'admission-officer-letters',      label: 'Letters',      icon: ICON.file },
     ],
     admin:      [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
     superadmin: [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
@@ -286,17 +285,12 @@
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
-    if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
-      const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
-      return {
-        url: `/portal/partials/shared/${file}.html`,
-        title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
-      };
-    }
-
+    // Role-specific pages (student-*, lecturer-*, admission-officer-*, etc.)
+    // These live under /portal/partials/<folder>/<slug>.html
     const roleList = PORTAL_SIDEBAR[role] || [];
     const roleItem = roleList.find((p) => p.key === cleanKey);
     if (roleItem) {
+      // Strip the role prefix from the key (e.g. "admission-officer-dashboard" → "dashboard")
       const file = cleanKey
         .replace(/^exam-officer-/, '')
         .replace(/^academic-officer-/, '')
@@ -304,7 +298,27 @@
         .replace(/^superadmin-/, '')
         .replace(new RegExp(`^${role}-`), '')
         .replace(new RegExp(`^${folder}-`), '');
-      return { url: `/portal/partials/${folder}/${file}.html`, title: roleItem.label };
+      // BUT: if the key itself starts with the folder name, use the full key
+      // (e.g. for admission-officer-applications where folder = admission-officer,
+      // we want the file to be "admission-officer-applications.html" in the admission-officer folder)
+      const candidates = [
+        `${cleanKey}.html`,
+        `${file}.html`,
+      ];
+      return {
+        url: `/portal/partials/${folder}/${candidates[0]}`,
+        fallbackUrl: `/portal/partials/${folder}/${candidates[1]}`,
+        title: roleItem.label,
+      };
+    }
+
+    // Shared pages
+    if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
+      const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
+      return {
+        url: `/portal/partials/shared/${file}.html`,
+        title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
+      };
     }
 
     return { url: `/portal/partials/${folder}/${cleanKey}.html`, title: cleanKey };
@@ -381,7 +395,12 @@
     window.location.hash = `#${pageKey}`;
 
     try {
-      const res = await fetch(cfg.url, { cache: 'no-cache' });
+      // Try primary URL
+      let res = await fetch(cfg.url, { cache: 'no-cache' });
+      // Fallback to alternate URL if primary 404s
+      if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
+        res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
+      }
       if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
       const html = await res.text();
       view.innerHTML = html;

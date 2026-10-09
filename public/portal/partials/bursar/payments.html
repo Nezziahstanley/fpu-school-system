@@ -1,13 +1,18 @@
 <!-- Portal → Bursar → Payments -->
 <section class="page-head">
-  <div><h2>Payments</h2><p class="muted small">Verify or reject student payments</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__burPayLoad()">Refresh</button></div>
+  <div>
+    <h2>Payments</h2>
+    <p class="muted small">Verify or reject student payments</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-pay-refresh">↻ Refresh</button>
+  </div>
 </section>
 
 <div class="filters">
   <div class="form-group">
     <label class="form-label">Status</label>
-    <select class="form-select" id="bur-pay-status" onchange="window.__burPayLoad()">
+    <select class="form-select" id="bur-pay-status">
       <option value="">All</option>
       <option value="pending">Pending</option>
       <option value="verified">Verified</option>
@@ -15,68 +20,229 @@
       <option value="refunded">Refunded</option>
     </select>
   </div>
+  <div class="form-group" style="flex:2;">
+    <label class="form-label">Search</label>
+    <input
+      type="search"
+      class="form-input"
+      id="bur-pay-search"
+      placeholder="Reference, student name, or depositor"
+      autocomplete="off"
+    />
+  </div>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Payments</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Payments</h3>
+    <span class="muted small" id="bur-pay-count"></span>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
-        <thead><tr><th>Reference</th><th>Student</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
-        <tbody id="bur-pay-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Student</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="bur-pay-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
 
+<!-- REJECT MODAL -->
+<div id="bur-pay-reject-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;">Reject Payment</h3>
+      <button type="button" id="bur-pay-reject-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;line-height:1;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <p class="muted small" style="margin:0 0 .75rem;" id="bur-pay-reject-ref"></p>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Reason *</label>
+      <textarea
+        id="bur-pay-reject-reason"
+        rows="4"
+        maxlength="500"
+        placeholder="Explain why this payment is being rejected (visible to the student)…"
+        style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;resize:vertical;box-sizing:border-box;"
+      ></textarea>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+        <button type="button" id="bur-pay-reject-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="button" id="bur-pay-reject-confirm" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;">Reject Payment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  window.__burPayLoad = async function () {
-    const core = window.FPU_PORTAL;
-    const tbody = document.getElementById('bur-pay-tbody');
-    const status = document.getElementById('bur-pay-status').value;
-    const qs = new URLSearchParams();
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : String(d || ''); };
+
+  // -------- state --------
+  var REJECT_ID = null;
+
+  // -------- helpers --------
+  function statusBadge(status) {
+    var s = String(status || '').toLowerCase();
+    var cls = s === 'verified' ? 'success' : s === 'rejected' ? 'danger' : s === 'refunded' ? 'info' : 'warning';
+    return '<span class="badge badge-' + cls + '">' + esc(s || '—') + '</span>';
+  }
+
+  function studentName(r) {
+    var s = r.student || {};
+    var full = [s.firstName, s.lastName].filter(Boolean).join(' ');
+    return full || s.fullName || s.email || '—';
+  }
+
+  // -------- load --------
+  async function load() {
+    var tbody = $('bur-pay-tbody');
+    var countEl = $('bur-pay-count');
+    var status = $('bur-pay-status').value;
+    var search = $('bur-pay-search').value.trim();
+
+    var qs = new URLSearchParams();
     if (status) qs.set('status', status);
+    if (search) qs.set('search', search);
+
     tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch(`/api/bursar/payments?${qs}`);
-      const rows = res.data || [];
-      tbody.innerHTML = rows.length ? rows.map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.payment.reference)}</td>
-          <td>${r.student ? core.escapeHtml(r.student.firstName + ' ' + r.student.lastName) : '—'}</td>
-          <td class="num">${core.formatMoney(r.payment.amount)}</td>
-          <td><span class="badge badge-${r.payment.status === 'verified' ? 'success' : r.payment.status === 'rejected' ? 'danger' : 'warning'}">${core.escapeHtml(r.payment.status)}</span></td>
-          <td>${core.formatDate(r.payment.createdAt)}</td>
-          <td>
-            ${r.payment.status === 'pending' ? `
-              <button class="btn btn-sm btn-primary" onclick="window.__burPayVerify(${r.payment.id})">Verify</button>
-              <button class="btn btn-sm btn-ghost" onclick="window.__burPayReject(${r.payment.id})">Reject</button>
-            ` : ''}
-          </td>
-        </tr>
-      `).join('') : '<tr><td colspan="6" class="empty">No payments.</td></tr>';
-    } catch (err) { tbody.innerHTML = `<tr><td colspan="6" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  };
+    countEl.textContent = '';
 
-  window.__burPayVerify = async function (id) {
-    const core = window.FPU_PORTAL;
     try {
-      await core.portalFetch(`/api/bursar/payments/${id}/verify`, { method: 'POST' });
-      core.showToast('Payment verified.', 'success');
-      window.__burPayLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+      var res = await core.portalFetch('/api/bursar/payments?' + qs.toString());
+      var rows = Array.isArray(res.data) ? res.data : [];
 
-  window.__burPayReject = async function (id) {
-    const core = window.FPU_PORTAL;
-    const reason = prompt('Reason for rejection:');
-    if (reason === null) return;
+      countEl.textContent = rows.length
+        ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
+        : '';
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No payments match your filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(function (r) {
+        var p = r.payment || {};
+        var isPending = p.status === 'pending';
+        return '<tr data-pid="' + esc(p.id) + '">'
+          + '<td style="font-family:ui-monospace,monospace;font-size:.75rem;">' + esc(p.reference || '—') + '</td>'
+          + '<td>' + esc(studentName(r)) + '</td>'
+          + '<td class="num" style="font-variant-numeric:tabular-nums;font-weight:600;">' + esc(money(p.amount || 0)) + '</td>'
+          + '<td>' + statusBadge(p.status) + '</td>'
+          + '<td style="color:#94a3b8;font-size:.8rem;">' + esc(dateFmt(p.createdAt)) + '</td>'
+          + '<td>'
+          +   (isPending
+                ? '<button class="btn btn-sm btn-primary" data-act="verify" data-id="' + esc(p.id) + '">Verify</button> '
+                + '<button class="btn btn-sm btn-ghost" data-act="reject" data-id="' + esc(p.id) + '" data-ref="' + esc(p.reference || '') + '">Reject</button>'
+                : '')
+          + '</td>'
+          + '</tr>';
+      }).join('');
+
+      // wire action buttons
+      tbody.querySelectorAll('button[data-act]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var act = btn.dataset.act;
+          var id = btn.dataset.id;
+          if (act === 'verify') verifyPayment(id, btn);
+          else if (act === 'reject') openRejectModal(id, btn.dataset.ref);
+        });
+      });
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">' + esc(err.message) + '</td></tr>';
+    }
+  }
+
+  // -------- verify --------
+  async function verifyPayment(id, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
     try {
-      await core.portalFetch(`/api/bursar/payments/${id}/reject`, { method: 'POST', body: { reason } });
-      core.showToast('Payment rejected.', 'warning');
-      window.__burPayLoad();
-    } catch (err) { core.showToast(err.message, 'error'); }
-  };
+      await core.portalFetch('/api/bursar/payments/' + id + '/verify', { method: 'POST' });
+      if (core.showToast) core.showToast('Payment verified.', 'success');
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Verify'; }
+    }
+  }
 
-  window.__burPayLoad();
+  // -------- reject modal --------
+  function openRejectModal(id, reference) {
+    REJECT_ID = id;
+    $('bur-pay-reject-ref').textContent = reference ? 'Reference: ' + reference : '';
+    $('bur-pay-reject-reason').value = '';
+    $('bur-pay-reject-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(function () { $('bur-pay-reject-reason').focus(); }, 50);
+  }
+
+  function closeRejectModal() {
+    REJECT_ID = null;
+    $('bur-pay-reject-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function confirmReject() {
+    var reason = $('bur-pay-reject-reason').value.trim();
+    if (!reason) {
+      if (core.showToast) core.showToast('Reason is required.', 'warning');
+      $('bur-pay-reject-reason').focus();
+      return;
+    }
+    var btn = $('bur-pay-reject-confirm');
+    var id = REJECT_ID;
+    btn.disabled = true;
+    btn.textContent = 'Rejecting…';
+    try {
+      await core.portalFetch('/api/bursar/payments/' + id + '/reject', {
+        method: 'POST',
+        body: { reason: reason },
+      });
+      if (core.showToast) core.showToast('Payment rejected.', 'warning');
+      closeRejectModal();
+      load();
+    } catch (err) {
+      if (core.showToast) core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Reject Payment';
+    }
+  }
+
+  // -------- wire chrome --------
+  $('bur-pay-refresh').addEventListener('click', load);
+  $('bur-pay-status').addEventListener('change', load);
+
+  var searchTimer = null;
+  $('bur-pay-search').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(load, 300); // debounce
+  });
+
+  $('bur-pay-reject-close').addEventListener('click', closeRejectModal);
+  $('bur-pay-reject-cancel').addEventListener('click', closeRejectModal);
+  $('bur-pay-reject-confirm').addEventListener('click', confirmReject);
+  $('bur-pay-reject-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'bur-pay-reject-modal') closeRejectModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('bur-pay-reject-modal').style.display === 'flex') closeRejectModal();
+  });
+
+  load();
+})();
 </script>

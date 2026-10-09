@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ID Card Lookup — Federal Polytechnic Ugep</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f1f5f9; margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 640px; margin: 3rem auto; padding: 0 1rem; }
+    .card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08); overflow: hidden;
+    }
+    .head {
+      background: linear-gradient(135deg,#065f46,#047857);
+      color: #fff; padding: 1.5rem; text-align: center;
+    }
+    .head h1 { margin: 0 0 .25rem; font-size: 1.25rem; }
+    .head p { margin: 0; opacity: .85; font-size: .85rem; }
+    .body { padding: 2rem; }
+    .top { display: flex; gap: 1.25rem; align-items: center; margin-bottom: 1.5rem; }
+    .photo {
+      width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+      background: #e2e8f0; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: #64748b; flex-shrink: 0;
+    }
+    .photo img { width: 100%; height: 100%; object-fit: cover; }
+    .info h2 { margin: 0 0 .25rem; font-size: 1.15rem; color: #0f172a; }
+    .info .matric { color: #475569; font-family: ui-monospace, monospace; font-size: .9rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1rem; margin-top: 1.5rem; }
+    .detail { border-top: 1px solid #e2e8f0; padding-top: .5rem; }
+    .detail .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; color: #64748b; }
+    .detail .value { font-weight: 600; color: #0f172a; margin-top: .15rem; font-size: .9rem; }
+    .contact {
+      margin-top: 2rem; padding: 1.25rem; background: #fef9c3;
+      border-radius: 8px; border-left: 4px solid #ca8a04;
+    }
+    .contact h3 { margin: 0 0 .5rem; font-size: .95rem; color: #78350f; }
+    .contact p { margin: 0 0 .75rem; font-size: .85rem; color: #78350f; }
+    .contact dl { margin: 0; font-size: .85rem; }
+    .contact dt { color: #64748b; margin-top: .35rem; }
+    .contact dd { margin: 0 0 .25rem; color: #0f172a; font-weight: 500; }
+    .err { text-align: center; padding: 3rem 1rem; }
+    .err .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .err h2 { color: #0f172a; margin: 0 0 .5rem; }
+    .err p { color: #64748b; margin: 0; }
+    .spin {
+      width: 32px; height: 32px; border: 3px solid #e2e8f0;
+      border-top-color: #047857; border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 3rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .foot { text-align: center; font-size: .75rem; color: #64748b; margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="head">
+        <h1>🎓 Federal Polytechnic Ugep</h1>
+        <p>Student ID Card Lookup</p>
+      </div>
+      <div class="body" id="body">
+        <div class="spin"></div>
+      </div>
+    </div>
+    <p class="foot">© <span id="year"></span> Federal Polytechnic Ugep — <em>Citadel of Technical Excellence</em></p>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    document.getElementById('year').textContent = new Date().getFullYear();
+    const params = new URLSearchParams(window.location.search);
+    const matric = params.get('matric');
+    const body = document.getElementById('body');
+
+    if (!matric) {
+      body.innerHTML = `
+        <div class="err">
+          <div class="icon">🔍</div>
+          <h2>No ID Provided</h2>
+          <p>Scan the barcode on the ID card to view details.</p>
+        </div>`;
+      return;
+    }
+
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/public/id-lookup?matric=${encodeURIComponent(matric)}`);
+        const json = await res.json();
+
+        if (!json.success) {
+          body.innerHTML = `
+            <div class="err">
+              <div class="icon">❌</div>
+              <h2>Card Not Recognised</h2>
+              <p>${esc(json.error || 'This ID card could not be verified.')}</p>
+            </div>`;
+          return;
+        }
+
+        const s = json.data;
+        const inst = json.institution;
+        const initial = (s.firstName || '?')[0].toUpperCase();
+        const photo = s.photoUrl
+          ? `<img src="${esc(s.photoUrl)}" alt="Photo" onerror="this.parentNode.textContent='${initial}'">`
+          : initial;
+        const fullName = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ');
+
+        body.innerHTML = `
+          <div class="top">
+            <div class="photo">${photo}</div>
+            <div class="info">
+              <h2>${esc(fullName)}</h2>
+              <div class="matric">${esc(s.matricNumber)}</div>
+            </div>
+          </div>
+
+          <div class="grid">
+            <div class="detail"><div class="label">Department</div><div class="value">${esc(s.departmentName || '—')}</div></div>
+            <div class="detail"><div class="label">Programme</div><div class="value">${esc(s.programmeName || '—')}</div></div>
+            <div class="detail"><div class="label">School</div><div class="value">${esc(s.schoolName || '—')}</div></div>
+            <div class="detail"><div class="label">Level</div><div class="value">${esc(s.level || '—')}</div></div>
+            <div class="detail"><div class="label">Status</div><div class="value">${esc(s.status)}</div></div>
+            <div class="detail"><div class="label">Institution</div><div class="value">${esc(inst.short || inst.name)}</div></div>
+          </div>
+
+          <div class="contact">
+            <h3>📮 If You Found This Card</h3>
+            <p>${esc(json.contact.message)}</p>
+            <dl>
+              <dt>Institution</dt><dd>${esc(inst.name)}</dd>
+              <dt>Address</dt><dd>${esc(inst.address)}</dd>
+              <dt>Phone</dt><dd>${esc(inst.phone)}</dd>
+              <dt>Email</dt><dd>${esc(inst.email)}</dd>
+            </dl>
+          </div>`;
+      } catch (err) {
+        body.innerHTML = `
+          <div class="err">
+            <div class="icon">⚠️</div>
+            <h2>Could Not Load</h2>
+            <p>${esc(err.message)}. Please try again later.</p>
+          </div>`;
+      }
+    }
+
+    load();
+  })();
+  </script>
+</body>
+</html>

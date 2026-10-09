@@ -75,8 +75,7 @@ router.get('/schedules/:id', only, async (req, res, next) => {
 // ============================================================
 // GET /api/exam-officer/lookups
 // ------------------------------------------------------------
-// Returns departments + courses for the cascading picker
-// on the attendance page. Does not require admin role.
+// Departments + courses for the cascading pickers.
 // ============================================================
 router.get('/lookups', only, async (req, res, next) => {
   try {
@@ -101,7 +100,6 @@ router.get('/lookups', only, async (req, res, next) => {
 // GET /api/exam-officer/registrations
 // ------------------------------------------------------------
 // Approved registrations for a course, with student info.
-// Used by the attendance page to know who should sit an exam.
 // ============================================================
 router.get('/registrations', only, async (req, res, next) => {
   try {
@@ -112,8 +110,8 @@ router.get('/registrations', only, async (req, res, next) => {
 
     const rows = await regQueries.listWithStudent({
       courseId,
-      sessionId,
-      semester,
+      ...(sessionId ? { sessionId } : {}),
+      ...(semester ? { semester } : {}),
       status,
     });
 
@@ -188,25 +186,37 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 // GET /api/exam-officer/eligibility
 //   Query: courseId (required), sessionId, semester
+// ------------------------------------------------------------
+// Handles NULL current_session_id gracefully by falling back
+// to the current academic session.
 // ============================================================
 router.get('/eligibility', only, async (req, res, next) => {
   try {
     const { sessionId, courseId, semester } = req.query;
     if (!courseId) return res.status(400).json({ success: false, error: 'courseId is required.' });
 
-    const effectiveSession = sessionId || req.user.currentSessionId;
+    // Resolve the effective session — query → user → current academic
+    let effectiveSession = Number(sessionId || req.user.currentSessionId) || null;
+    if (!effectiveSession) {
+      const current = await sessionQueries.getCurrentAcademic();
+      effectiveSession = current ? current.id : null;
+    }
 
     const regs = await regQueries.listWithStudent({
       courseId,
-      sessionId: effectiveSession,
-      semester,
+      ...(effectiveSession ? { sessionId: effectiveSession } : {}),
+      ...(semester ? { semester } : {}),
       status: 'approved',
     });
 
     const results = [];
     for (const r of regs) {
       const studentId = r.registration.studentId;
-      const totalPaid = await paymentQueries.totalVerifiedForStudent(studentId, effectiveSession);
+
+      const totalPaid = effectiveSession
+        ? await paymentQueries.totalVerifiedForStudent(studentId, effectiveSession)
+        : 0;
+
       const feeStructure = r.student?.programmeId
         ? await paymentQueries.findFeeStructureWithFallback({
             programmeId: r.student.programmeId,
@@ -218,10 +228,9 @@ router.get('/eligibility', only, async (req, res, next) => {
       const totalDue = Number(feeStructure?.total || 0);
       const cleared = totalDue === 0 || Number(totalPaid) >= totalDue;
 
-      const clear = await clearQueries.findOne({
-        studentId,
-        sessionId: effectiveSession,
-      });
+      const clear = effectiveSession
+        ? await clearQueries.findOne({ studentId, sessionId: effectiveSession })
+        : null;
       const clearanceOk = !clear || clear.status === 'cleared';
 
       results.push({
@@ -241,7 +250,10 @@ router.get('/eligibility', only, async (req, res, next) => {
       data: results,
       summary: { total: results.length, eligible, ineligible: results.length - eligible },
     });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[exam-officer/eligibility]', err);
+    return next(err);
+  }
 });
 
 // ============================================================

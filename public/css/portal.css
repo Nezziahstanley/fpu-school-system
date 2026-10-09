@@ -982,3 +982,44 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   color: #ffffff !important;
   border: 1px solid rgba(255,255,255,.28) !important;
 }
+
+/* ============================================================
+   FORCE WHITE — every variant of the greeting header
+   Applies to all descendants at every nesting level.
+   ============================================================ */
+.greeting,
+.greeting *,
+.greeting * *,
+.greeting h1,
+.greeting h2,
+.greeting h3,
+.greeting h1 *,
+.greeting h2 *,
+.greeting h3 *,
+.greeting p,
+.greeting span,
+.greeting div,
+.greeting strong,
+.greeting em,
+.greeting label {
+  color: #ffffff !important;
+}
+
+/* Mint green for muted/secondary text in the greeting */
+.greeting .sub,
+.greeting .sub *,
+.greeting .eyebrow,
+.greeting .eyebrow *,
+.greeting .meta span,
+.greeting .meta .sub,
+.greeting small,
+.greeting .small {
+  color: #d1fae5 !important;
+}
+
+/* Also handle the session pill on the right */
+.greeting .session,
+.greeting .session *,
+.greeting [class*="session"] {
+  color: #ffffff !important;
+}

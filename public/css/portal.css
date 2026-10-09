@@ -905,3 +905,80 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     font-size: .7rem !important;
   }
 }
+
+/* ============================================================
+   GREETING BAR OVERRIDE — force white/mint on EVERY descendant
+   Handles the Academic / Admission / Exam Officer variant
+   that wraps the title in additional elements.
+   ============================================================ */
+
+/* Every piece of text inside .greeting becomes white by default */
+.greeting,
+.greeting * {
+  color: #ffffff !important;
+}
+
+/* The small eyebrow line (e.g. "🎓 ACADEMIC OFFICE") — mint green */
+.greeting .eyebrow,
+.greeting .who .eyebrow,
+.greeting .who > div > .eyebrow,
+.greeting > div > .eyebrow {
+  color: #d1fae5 !important;
+  font-weight: 700 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+  font-size: .72rem !important;
+}
+
+/* Subtitle line under the title */
+.greeting .sub,
+.greeting .who .sub {
+  color: #d1fae5 !important;
+}
+
+/* The name — always bright white, bold, larger */
+.greeting h1,
+.greeting .who h1,
+.greeting h1 span,
+.greeting .who h1 span {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+/* Right-side "SESSION 2026/2027" block */
+.greeting .meta strong,
+.greeting .meta span,
+.greeting .session,
+.greeting .session-label {
+  color: #ffffff !important;
+}
+
+.greeting .meta span,
+.greeting .session-label {
+  color: #d1fae5 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  font-size: .72rem !important;
+}
+
+/* If any element uses a semantic color class, override here */
+.greeting .muted,
+.greeting .muted.small,
+.greeting .text-muted {
+  color: #d1fae5 !important;
+}
+
+/* Any leftover inline color or the theme's "primary" text */
+.greeting [style*="color"],
+.greeting .who [style*="color"] {
+  /* inline style wins; this is a defensive hint only */
+  color: #ffffff !important;
+}
+
+/* Badges/pills inside the greeting */
+.greeting .badge,
+.greeting .chip {
+  background: rgba(255,255,255,.14) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,.28) !important;
+}

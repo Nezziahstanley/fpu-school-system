@@ -68,6 +68,29 @@
   var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
 
   // ----------------------------------------------------------
+  // Normalize the { complaint, user } row shape from
+  // /api/admin/complaints (listComplaintsWithUser) into a flat
+  // object the render code below expects.
+  // ----------------------------------------------------------
+  function normalize(row) {
+    if (!row) return row;
+    if (row.complaint) {
+      var out = Object.assign({}, row.complaint);
+      out.user = row.user || {};
+      return out;
+    }
+    return row;
+  }
+
+  function displayName(u) {
+    if (!u) return '';
+    var fn = u.firstName || '';
+    var ln = u.lastName  || '';
+    var full = (fn + ' ' + ln).trim();
+    return full || u.email || ('User #' + (u.id || ''));
+  }
+
+  // ----------------------------------------------------------
   // ROLE DETECTION
   // staff = can see ALL complaints and reply
   // non-staff = sees own complaints, can create new
@@ -152,7 +175,7 @@
     var complainant = '';
     if (IS_STAFF) {
       var u = c.user || {};
-      var name = u.fullName || u.full_name || u.name || u.email || ('User #' + (c.userId || ''));
+      var name = displayName(u);
       var email = u.email ? ' · ' + esc(u.email) : '';
       complainant = '<div style="font-size:.75rem;color:#475569;margin:.25rem 0 .5rem;font-weight:600;">👤 ' + esc(name) + email + '</div>';
     }
@@ -217,7 +240,8 @@
 
     try {
       var res = await core.portalFetch(LIST_URL);
-      ALL = Array.isArray(res.data) ? res.data : [];
+      var raw = Array.isArray(res.data) ? res.data : [];
+      ALL = raw.map(normalize);
       renderStats();
       render();
     } catch (err) {

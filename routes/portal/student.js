@@ -133,7 +133,6 @@ router.get('/timetable', only, async (req, res, next) => {
 // Strict scoping:
 //   1. Books with department_id = student's departmentId
 //   2. Books with is_general = true (visible to all students)
-//   Nothing else. No category heuristic.
 // ============================================================
 router.get('/library/catalogue', only, async (req, res, next) => {
   try {
@@ -148,7 +147,6 @@ router.get('/library/catalogue', only, async (req, res, next) => {
       .where(or(...scopes))
       .orderBy(books.title);
 
-    // Annotate for the frontend badge
     const data = rows.map((b) => ({
       ...b,
       _scope: b.isGeneral ? 'general' : 'department',
@@ -179,7 +177,6 @@ router.post('/library/borrow', only, async (req, res, next) => {
     const [book] = await db.select().from(books).where(eq(books.id, bookId)).limit(1);
     if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
 
-    // Scope check — must be same department OR general
     const inScope =
       book.isGeneral === true ||
       (deptId && book.departmentId && Number(book.departmentId) === deptId);
@@ -195,7 +192,6 @@ router.post('/library/borrow', only, async (req, res, next) => {
       return res.status(409).json({ success: false, error: 'No copies available.' });
     }
 
-    // Block duplicate active borrow
     const existing = await db
       .select({ id: borrowRecords.id })
       .from(borrowRecords)
@@ -513,8 +509,7 @@ router.get('/id-card', only, async (req, res, next) => {
 // ------------------------------------------------------------
 // Returns the student's graduation record (if any), enriched
 // with LIVE CGPA + classification computed from published
-// results — so a pending application always shows up-to-date
-// academic standing.
+// results, plus joined programme / department / session names.
 // ============================================================
 router.get('/graduation', only, async (req, res, next) => {
   try {
@@ -540,7 +535,7 @@ router.get('/graduation', only, async (req, res, next) => {
       }))
     );
 
-    // Get session name + programme name for display
+    // Join programme / department / session names for display
     const student = await userQueries.findByIdWithRelations(req.user.id);
 
     let sessionName = null;
@@ -553,14 +548,14 @@ router.get('/graduation', only, async (req, res, next) => {
       success: true,
       data: {
         ...row,
-        // Live-computed fields override any stored values
+        // Live-computed fields override stored values
         cgpa: summary.cgpa ?? row.cgpa,
         classification: classifyDegree(summary.cgpa) ?? row.classification,
         totalUnits: summary.totalUnits,
-        // Joined names for display
-        programmeName: student?.programmeName || null,
+        // Joined display names
+        programmeName:  student?.programmeName  || null,
         departmentName: student?.departmentName || null,
-        level: student?.level || row.level,
+        level:          student?.level          || row.level,
         sessionName,
       },
     });

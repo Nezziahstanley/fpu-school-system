@@ -24,14 +24,83 @@ const only = requireRole('librarian', 'admin');
 // ============================================================
 router.get('/dashboard', only, async (_req, res, next) => {
   try {
+    // ---- Stat tiles ----
     const [totalBooks] = await db.select({ c: sql`count(*)::int` }).from(books);
-    const [activeBorrows] = await db.select({ c: sql`count(*)::int` }).from(borrowRecords).where(inArray(borrowRecords.status, ['borrowed','overdue']));
-    const [unpaidFines] = await db.select({ c: sql`count(*)::int` }).from(libraryFines).where(eq(libraryFines.isPaid, false));
+
+    const [activeBorrows] = await db
+      .select({ c: sql`count(*)::int` })
+      .from(borrowRecords)
+      .where(inArray(borrowRecords.status, ['borrowed', 'overdue']));
+
+    const [overdue] = await db
+      .select({ c: sql`count(*)::int` })
+      .from(borrowRecords)
+      .where(eq(borrowRecords.status, 'overdue'));
+
+    // Outstanding fines = SUM of unpaid amounts (not count)
+    const [outstandingFines] = await db
+      .select({ total: sql`coalesce(sum(${libraryFines.amount}),0)::numeric` })
+      .from(libraryFines)
+      .where(eq(libraryFines.isPaid, false));
+
+    // ---- Recent borrows (last 5) ----
+    let recentBorrows = [];
+    try {
+      const rows = await libQueries.listBorrowsWithRelations({});
+      recentBorrows = (rows || []).slice(0, 5).map((r) => {
+        const b = r.borrow || r.borrowRecord || r;
+        const student = r.user || r.student || {};
+        const book = r.book || {};
+        return {
+          id: b.id,
+          bookTitle: book.title || b.bookTitle || ('Book #' + b.bookId),
+          studentName:
+            [student.firstName, student.lastName].filter(Boolean).join(' ') ||
+            student.email ||
+            ('User #' + b.userId),
+          dueAt: b.dueAt,
+          borrowedAt: b.borrowedAt,
+          returnedAt: b.returnedAt,
+          status: b.status,
+        };
+      });
+    } catch (e) { recentBorrows = []; }
+
+    // ---- Reservations awaiting action (pending) ----
+    let reservations = [];
+    try {
+      const rows = await libQueries.listReservationsWithRelations({ status: 'pending' });
+      reservations = (rows || []).slice(0, 5).map((r) => {
+        const rv = r.reservation || r;
+        const student = r.user || r.student || {};
+        const book = r.book || {};
+        return {
+          id: rv.id,
+          bookTitle: book.title || rv.bookTitle || ('Book #' + rv.bookId),
+          studentName:
+            [student.firstName, student.lastName].filter(Boolean).join(' ') ||
+            student.email ||
+            ('User #' + rv.userId),
+          status: rv.status,
+          reservedAt: rv.reservedAt,
+        };
+      });
+    } catch (e) { reservations = []; }
+
     return res.json({
       success: true,
-      data: { totalBooks: totalBooks.c, activeBorrows: activeBorrows.c, unpaidFines: unpaidFines.c },
+      data: {
+        totalBooks: Number(totalBooks?.c || 0),
+        activeBorrows: Number(activeBorrows?.c || 0),
+        overdue: Number(overdue?.c || 0),
+        outstandingFines: Number(outstandingFines?.total || 0),
+        recentBorrows,
+        reservations,
+      },
     });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    return next(err);
+  }
 });
 
 // ============================================================

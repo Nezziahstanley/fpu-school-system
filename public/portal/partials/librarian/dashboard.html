@@ -14,10 +14,22 @@
 </section>
 
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Total Books</div><div class="tile-value" id="lib-t-books">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Active Borrows</div><div class="tile-value" id="lib-t-borrows">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Overdue</div><div class="tile-value" id="lib-t-overdue">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Outstanding Fines (₦)</div><div class="tile-value" id="lib-t-fines">—</div></div>
+  <div class="tile">
+    <div class="tile-label">Total Books</div>
+    <div class="tile-value" id="lib-t-books">—</div>
+  </div>
+  <div class="tile tile-blue">
+    <div class="tile-label">Active Borrows</div>
+    <div class="tile-value" id="lib-t-borrows">—</div>
+  </div>
+  <div class="tile tile-accent">
+    <div class="tile-label">Overdue</div>
+    <div class="tile-value" id="lib-t-overdue">—</div>
+  </div>
+  <div class="tile tile-purple">
+    <div class="tile-label">Outstanding Fines (₦)</div>
+    <div class="tile-value" id="lib-t-fines">—</div>
+  </div>
 </div>
 
 <div class="quick-actions">
@@ -28,84 +40,131 @@
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Recent Borrows</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Recent Borrows</h3>
+    <a class="btn btn-outline btn-sm" href="#admin-borrows">View all →</a>
+  </div>
   <div class="panel-body">
     <div id="lib-recent-borrows" class="muted small">Loading…</div>
   </div>
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h3>Reservations Awaiting Action</h3></div>
+  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+    <h3 style="margin:0;">Reservations Awaiting Action</h3>
+    <a class="btn btn-outline btn-sm" href="#librarian-reservations">View all →</a>
+  </div>
   <div class="panel-body">
     <div id="lib-reservations" class="muted small">Loading…</div>
   </div>
 </div>
 
+<style>
+  .lib-tbl { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .lib-tbl th {
+    text-align: left; padding: .55rem .5rem; font-size: .68rem;
+    font-weight: 800; color: #64748b; text-transform: uppercase;
+    letter-spacing: .05em; border-bottom: 2px solid #e5e7eb;
+  }
+  .lib-tbl td { padding: .65rem .5rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
+  .lib-tbl tr:last-child td { border-bottom: none; }
+  .lib-chip {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-size: .65rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .lib-chip.borrowed { background: #dbeafe; color: #1e40af; }
+  .lib-chip.overdue  { background: #fee2e2; color: #991b1b; }
+  .lib-chip.returned { background: #d1fae5; color: #065f46; }
+  .lib-chip.pending  { background: #fef3c7; color: #92400e; }
+  .lib-chip.other    { background: #f1f5f9; color: #475569; }
+  .lib-empty { padding: 1.5rem 1rem; text-align: center; color: #94a3b8; font-size: .85rem; }
+  .lib-err {
+    padding: .85rem 1rem; background: #fef2f2; border: 1px solid #fecaca;
+    border-radius: 10px; color: #991b1b; font-size: .82rem;
+  }
+</style>
+
 <script>
   (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    const user = core.getPortalUser() || {};
+    'use strict';
+    var core = window.FPU_PORTAL || {};
+    var photo = window.FPU_PHOTO;
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+    var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
+    var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
+    var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+    var user = (core.getPortalUser && core.getPortalUser()) || {};
+
+    // Greeting + avatar
     try {
-      document.getElementById('lib-dash-name').textContent = user.firstName || 'Librarian';
-      if (photo) photo.renderMyAvatar(document.getElementById('lib-dash-avatar'), user);
+      var firstName = user.firstName || user.first_name || 'Librarian';
+      $('lib-dash-name').textContent = firstName;
+      if (photo && photo.renderMyAvatar) photo.renderMyAvatar($('lib-dash-avatar'), user);
+    } catch (e) { /* non-fatal */ }
 
-      // Books count
-      try {
-        const b = await core.portalFetch('/api/library/books?limit=1');
-        const total = (b.pagination && b.pagination.total) || (b.data || b).length || 0;
-        document.getElementById('lib-t-books').textContent = total;
-      } catch { document.getElementById('lib-t-books').textContent = '—'; }
+    function chip(status) {
+      var s = String(status || '').toLowerCase();
+      var cls = ['borrowed', 'overdue', 'returned', 'pending'].indexOf(s) >= 0 ? s : 'other';
+      return '<span class="lib-chip ' + cls + '">' + esc(s || '—') + '</span>';
+    }
 
-      // Active borrows + overdue
-      try {
-        const r = await core.portalFetch('/api/library/borrows?limit=5');
-        const list = r.data || r || [];
-        const active = list.filter(x => !x.returnedAt);
-        const overdue = active.filter(x => x.dueAt && new Date(x.dueAt) < new Date());
+    try {
+      var res = await core.portalFetch('/api/librarian/dashboard');
+      var d = (res && res.data) || {};
 
-        document.getElementById('lib-t-borrows').textContent = active.length;
-        document.getElementById('lib-t-overdue').textContent = overdue.length;
+      // ---- Stat tiles ----
+      $('lib-t-books').textContent   = d.totalBooks   != null ? Number(d.totalBooks).toLocaleString()   : '0';
+      $('lib-t-borrows').textContent = d.activeBorrows != null ? Number(d.activeBorrows).toLocaleString() : '0';
+      $('lib-t-overdue').textContent = d.overdue       != null ? Number(d.overdue).toLocaleString()       : '0';
+      $('lib-t-fines').textContent   = d.outstandingFines != null ? Number(d.outstandingFines).toLocaleString() : '0';
 
-        document.getElementById('lib-recent-borrows').innerHTML = list.length
-          ? list.slice(0,5).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.bookTitle || x.bookId || 'Book'}</strong>
-                 <span class="muted small">· ${x.studentName || x.userName || ''} · ${
-                   x.returnedAt ? 'Returned' : (x.dueAt ? 'Due ' + new Date(x.dueAt).toLocaleDateString() : 'Borrowed')
-                 }</span>
-               </div>`).join('')
-          : '<em>No borrows yet.</em>';
-      } catch {
-        document.getElementById('lib-recent-borrows').innerHTML = '<em>Could not load borrows.</em>';
+      // ---- Recent Borrows ----
+      var borrows = Array.isArray(d.recentBorrows) ? d.recentBorrows : [];
+      if (!borrows.length) {
+        $('lib-recent-borrows').innerHTML = '<div class="lib-empty">No recent borrows yet.</div>';
+      } else {
+        var bTbl = '<table class="lib-tbl"><thead><tr>'
+          + '<th>Book</th><th>Student</th><th>Due</th><th>Status</th>'
+          + '</tr></thead><tbody>';
+        borrows.forEach(function (b) {
+          bTbl += '<tr>'
+            + '<td>' + esc(b.bookTitle || '—') + '</td>'
+            + '<td>' + esc(b.studentName || '—') + '</td>'
+            + '<td style="color:#94a3b8;font-size:.78rem;">' + (b.dueAt ? esc(dateFmt(b.dueAt)) : '—') + '</td>'
+            + '<td>' + chip(b.status) + '</td>'
+            + '</tr>';
+        });
+        bTbl += '</tbody></table>';
+        $('lib-recent-borrows').innerHTML = bTbl;
       }
 
-      // Reservations
-      try {
-        const rv = await core.portalFetch('/api/library/reservations');
-        const list = rv.data || rv || [];
-        document.getElementById('lib-reservations').innerHTML = list.length
-          ? list.slice(0,5).map(x =>
-              `<div style="padding:.5rem 0;border-bottom:1px solid #eee;">
-                 <strong>${x.bookTitle || 'Reservation'}</strong>
-                 <span class="muted small">· ${x.studentName || ''} · ${x.status || ''}</span>
-               </div>`).join('')
-          : '<em>No reservations.</em>';
-      } catch {
-        document.getElementById('lib-reservations').innerHTML = '<em>Could not load reservations.</em>';
+      // ---- Reservations ----
+      var rvs = Array.isArray(d.reservations) ? d.reservations : [];
+      if (!rvs.length) {
+        $('lib-reservations').innerHTML = '<div class="lib-empty">No reservations awaiting action.</div>';
+      } else {
+        var rTbl = '<table class="lib-tbl"><thead><tr>'
+          + '<th>Book</th><th>Student</th><th>Reserved</th><th>Status</th>'
+          + '</tr></thead><tbody>';
+        rvs.forEach(function (r) {
+          rTbl += '<tr>'
+            + '<td>' + esc(r.bookTitle || '—') + '</td>'
+            + '<td>' + esc(r.studentName || '—') + '</td>'
+            + '<td style="color:#94a3b8;font-size:.78rem;">' + esc(timeAgo(r.reservedAt) || dateFmt(r.reservedAt) || '—') + '</td>'
+            + '<td>' + chip(r.status) + '</td>'
+            + '</tr>';
+        });
+        rTbl += '</tbody></table>';
+        $('lib-reservations').innerHTML = rTbl;
       }
-
-      // Fines total
-      try {
-        const f = await core.portalFetch('/api/library/fines');
-        const list = f.data || f || [];
-        const total = list
-          .filter(x => !x.paidAt)
-          .reduce((s, x) => s + Number(x.amount || 0), 0);
-        document.getElementById('lib-t-fines').textContent = total.toLocaleString();
-      } catch { document.getElementById('lib-t-fines').textContent = '—'; }
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      var msg = esc((err && err.message) || 'Failed to load dashboard.');
+      $('lib-recent-borrows').innerHTML = '<div class="lib-err">⚠️ ' + msg + '</div>';
+      $('lib-reservations').innerHTML   = '<div class="lib-err">⚠️ ' + msg + '</div>';
+      if (core.showToast) core.showToast(msg, 'error');
     }
   })();
 </script>

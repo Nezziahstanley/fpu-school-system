@@ -836,8 +836,62 @@
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
   </script>
+<!-- NAV FALLBACK START -->
+<script>
+(function () {
+  function init() {
+    var btn = document.getElementById('menuToggle');
+    var nav = document.getElementById('navLinks');
+    var st  = document.getElementById('searchToggle');
+    var sp  = document.getElementById('searchPanel');
+    if (!btn || !nav) { console.warn('[nav] elements missing'); return; }
+    if (btn.dataset.navBound === '1') { console.log('[nav] already bound'); return; }
+    btn.dataset.navBound = '1';
+
+    console.log('[nav] fallback binding');
+
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var open = nav.classList.toggle('active');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = open ? '\u2715' : '\u2630';
+      if (open && sp) sp.classList.remove('open');
+    });
+    if (st && sp) {
+      st.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var open = sp.classList.toggle('open');
+        st.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { nav.classList.remove('active'); btn.textContent = '\u2630'; }
+      });
+    }
+    document.addEventListener('click', function (e) {
+      if (!nav.classList.contains('active')) return;
+      if (nav.contains(e.target) || btn.contains(e.target)) return;
+      nav.classList.remove('active');
+      btn.textContent = '\u2630';
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && nav.classList.contains('active')) {
+        nav.classList.remove('active');
+        btn.textContent = '\u2630';
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+<!-- NAV FALLBACK END -->
 </body>
 </html>
+
+
 
 
 

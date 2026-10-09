@@ -90,5 +90,122 @@
   <script>
     document.getElementById('sb-year').textContent = new Date().getFullYear();
   </script>
+<!-- PORTAL MOBILE FALLBACK START -->
+<style id="portal-mobile-fallback">
+@media (max-width: 980px) {
+  html, body.portal-app { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
+
+  body.portal-app #sidebar {
+    position: fixed !important; top:0 !important; bottom:0 !important; left:0 !important;
+    width: 280px !important; max-width: 84vw !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;
+    transition: transform .25s ease-out !important;
+    z-index: 1100 !important; overflow-y: auto !important;
+  }
+  body.portal-app.sidebar-open #sidebar,
+  body.portal-app #sidebar.open {
+    transform: translateX(0) !important;
+    visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;
+  }
+  body.portal-app.sidebar-open::after {
+    content:'' !important; position:fixed !important; inset:0 !important;
+    background: rgba(15,23,42,.5) !important; z-index: 1090 !important;
+  }
+
+  body.portal-app .layout,
+  body.portal-app .app-layout,
+  body.portal-app .app-shell,
+  body.portal-app .portal-layout,
+  body.portal-app .portal-shell,
+  body.portal-app > * {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  main.main {
+    width: 100% !important; max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+  main.main > *, main.main > * > * {
+    width: 100% !important; max-width: 100% !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .topbar, .portal-topbar, .app-topbar, header.topbar {
+    width: 100% !important; max-width: 100% !important;
+    left: 0 !important; right: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .panel, .card, .tile, .greeting, .filters, .filter-bar {
+    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+  }
+
+  .greeting { flex-direction: column !important; align-items: flex-start !important; gap: .75rem !important; }
+  .greeting .meta { text-align: left !important; width: 100% !important; padding-top: .75rem !important; border-top: 1px solid rgba(255,255,255,.18) !important; }
+
+  .tile-grid, .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
+  }
+
+  .grid, .row, .cols, .chart-grid, [class*="grid-"], [class*="cols-"] {
+    display: block !important; grid-template-columns: 1fr !important; gap: .75rem !important;
+  }
+
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+
+  main.main [style*="max-width"] { max-width: 100% !important; }
+}
+@media (max-width: 640px) {
+  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
+  .tile-grid, .stat-grid { grid-template-columns: 1fr !important; }
+  main.main { padding-left: .5rem !important; padding-right: .5rem !important; }
+}
+@media (max-width: 400px) {
+  body.portal-app #sidebar { width: 240px !important; max-width: 90vw !important; }
+}
+</style>
+<script>
+/* Portal mobile — sidebar toggle fallback */
+(function () {
+  function bind() {
+    var toggle = document.getElementById('sidebar-toggle');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) return;
+    if (toggle.dataset.bound === '1') return;
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      var open = document.body.classList.toggle('sidebar-open');
+      sb.classList.toggle('open', open);
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      document.body.classList.remove('sidebar-open');
+      sb.classList.remove('open');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+        document.body.classList.remove('sidebar-open');
+        sb.classList.remove('open');
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+</script>
+<!-- PORTAL MOBILE FALLBACK END -->
 </body>
 </html>

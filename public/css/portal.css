@@ -1024,10 +1024,6 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   color: #ffffff !important;
 }
 
-/* ============================================================
-   PORTAL MOBILE LAYOUT
-   Sidebar becomes an off-canvas drawer below 980px.
-   ============================================================ */
 
 /* --- Top bar: show hamburger toggle on mobile --- */
 @media (max-width: 980px) {
@@ -1283,32 +1279,32 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   }
 }
 
+
+
+
+/* Kill any fixed pixel widths on mobile */
+@media (max-width: 640px) {
+  main.main *[style*="width:"][style*="px"] {
+    width: auto !important;
+    max-width: 100% !important;
+  }
+}
+
 /* ============================================================
-   PORTAL MOBILE SIDEBAR — hard-lock, round 2
-   Uses visibility + transform + width:0 to defeat any
-   competing desktop rule.
+   PORTAL MOBILE LAYOUT — full reset
+   Mirrors the public site approach:
+   - Off-canvas sidebar (visibility + transform + opacity lock)
+   - Single-column content, no reserved grid track
+   - Every container forced to 100% width on phones
    ============================================================ */
 
 @media (max-width: 980px) {
-  /* Hamburger always tappable in topbar */
-  #sidebar-toggle,
-  .topbar .toggle,
-  .topbar button.toggle {
-    display: inline-flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 40px !important;
-    height: 40px !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 8px !important;
-    z-index: 1200 !important;
-  }
 
-  /* Closed state — sidebar completely gone */
+  /* --- Off-canvas sidebar --- */
   #sidebar,
   aside#sidebar,
-  .portal-app #sidebar {
+  .portal-app #sidebar,
+  body.portal-app #sidebar {
     position: fixed !important;
     top: 0 !important;
     bottom: 0 !important;
@@ -1325,18 +1321,17 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     box-shadow: 4px 0 24px rgba(15,23,42,.25) !important;
   }
 
-  /* Open state — sidebar fully visible */
   body.sidebar-open #sidebar,
   #sidebar.open,
   #sidebar.sidebar-open,
-  aside#sidebar.open {
+  aside#sidebar.open,
+  body.portal-app.sidebar-open #sidebar {
     transform: translateX(0) !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
   }
 
-  /* Dim backdrop */
   body.sidebar-open::after {
     content: '' !important;
     position: fixed !important;
@@ -1345,64 +1340,15 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     z-index: 1090 !important;
   }
 
-  /* Main content full width */
-  .main,
-  main.main,
-  .portal-app .main,
-  .content,
-  .main-content,
-  .page-view {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Topbar full width */
-  .topbar,
-  .portal-app .topbar {
-    left: 0 !important;
-    width: 100% !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-  }
-
-  /* Tile grid stacks on mobile */
-  .tile-grid,
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .6rem !important;
-  }
-}
-
-@media (max-width: 640px) {
-  #sidebar,
-  aside#sidebar,
-  .portal-app #sidebar {
-    width: 260px !important;
-    max-width: 86vw !important;
-  }
-  .tile-grid,
-  .stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-/* ============================================================
-   PORTAL LAYOUT FIX — single column on mobile
-   Defeats grid/flex layouts that reserve a sidebar column.
-   ============================================================ */
-
-@media (max-width: 980px) {
-  /* Whatever the layout wrapper is, force a single column */
+  /* --- Kill the desktop grid: single column --- */
   body.portal-app,
   .portal-app,
   .portal-app > *,
-  .app-shell,
-  .app-layout,
-  .layout,
-  .portal-layout,
-  .portal-shell {
+  .portal-app .layout,
+  .portal-app .app-layout,
+  .portal-app .app-shell,
+  .portal-app .portal-layout,
+  .portal-app .portal-shell {
     display: block !important;
     grid-template-columns: 1fr !important;
     grid-template-areas: none !important;
@@ -1411,7 +1357,8 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     max-width: 100% !important;
   }
 
-  /* Main content takes the full width */
+  /* --- Main content full width --- */
+  main,
   main.main,
   .main,
   .main-content,
@@ -1420,16 +1367,29 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   .portal-main,
   .app-main {
     display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
+    margin: 0 !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+    box-sizing: border-box !important;
     flex: 1 1 auto !important;
+  }
+
+  /* --- Every descendant of main: full width --- */
+  main.main > *,
+  main.main > * > *,
+  main.main > * > * > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     box-sizing: border-box !important;
   }
 
-  /* Topbar spans full width, positioned correctly */
+  /* --- Topbar full width --- */
   .topbar,
   .portal-topbar,
   .app-topbar,
@@ -1444,104 +1404,134 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     box-sizing: border-box !important;
   }
 
-  /* Any inline left offset from desktop should reset */
-  [style*="margin-left"],
-  [style*="padding-left"] {
-    /* nothing here — inline styles must be overridden by class rules */
-  }
-
-  /* The page container inside main */
-  .page-view,
-  .page-container,
-  .portal-page {
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-    box-sizing: border-box !important;
-  }
-}
-
-@media (max-width: 640px) {
-  .page-view,
-  .page-container,
-  .portal-page {
-    padding-left: .5rem !important;
-    padding-right: .5rem !important;
-  }
-}
-
-/* ============================================================
-   PORTAL WIDTH RESET — defeat any max-width / grid column cap
-   ============================================================ */
-
-@media (max-width: 980px) {
-  /* Every container inside main gets full width */
-  main.main,
-  main.main > *,
-  main.main > * > *,
-  main.main > * > * > * {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-
-  /* Any element with an inline max-width reset */
-  main.main [style*="max-width"] {
-    max-width: 100% !important;
-  }
-
-  /* Common grid containers → single column */
-  main.main .grid,
-  main.main .row,
-  main.main .cols,
-  main.main [class*="grid-"],
-  main.main [class*="cols-"] {
-    display: block !important;
-    grid-template-columns: 1fr !important;
-    gap: .75rem !important;
-  }
-
-  /* Panels and cards always full width */
+  /* --- Panels, cards, tiles: full width --- */
   .panel,
   .card,
   .tile,
   .panel-body,
-  .panel-head {
+  .panel-head,
+  .greeting,
+  .filters,
+  .filter-bar {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
-  /* Tile grid keeps its own 2-col layout but stays full width */
+  /* --- Greeting stacks vertically --- */
+  .greeting {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .75rem !important;
+  }
+  .greeting .meta {
+    text-align: left !important;
+    width: 100% !important;
+    padding-top: .75rem !important;
+    border-top: 1px solid rgba(255,255,255,.18) !important;
+  }
+
+  /* --- Grid layouts stack --- */
+  .grid,
+  .row,
+  .cols,
+  .chart-grid,
+  .breakdown-grid,
+  [class*="grid-"],
+  [class*="cols-"] {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    gap: .75rem !important;
+    width: 100% !important;
+  }
+
+  /* Tile grid: 2 up on tablet-sized mobile */
   .tile-grid,
   .stat-grid {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-  }
-
-  /* Any chart / breakdown / quick-actions grid */
-  .chart-grid,
-  .quick-actions,
-  .breakdown-grid {
-    grid-template-columns: 1fr !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
     width: 100% !important;
   }
+  .tile-value { font-size: 1.25rem !important; }
+  .tile-label { font-size: .68rem !important; }
 
-  /* The greeting bar */
-  .greeting {
-    width: 100% !important;
+  /* --- Tables scroll horizontally --- */
+  .table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .table-admin { min-width: 600px; }
+
+  /* --- Quick actions wrap --- */
+  .quick-actions { flex-wrap: wrap !important; }
+  .quick-actions .btn { flex: 1 1 calc(50% - .25rem); min-width: 130px; }
+
+  /* --- Forms stack --- */
+  .form-row { grid-template-columns: 1fr !important; }
+  .form-group { width: 100% !important; }
+
+  /* --- Any inline max-width / fixed width reset --- */
+  main.main [style*="max-width"] {
     max-width: 100% !important;
-    box-sizing: border-box !important;
   }
 }
 
-/* Kill any fixed pixel widths on mobile */
+/* --- Small phones: tighten further --- */
 @media (max-width: 640px) {
-  main.main *[style*="width:"][style*="px"] {
-    width: auto !important;
-    max-width: 100% !important;
+  #sidebar,
+  aside#sidebar,
+  .portal-app #sidebar,
+  body.portal-app #sidebar {
+    width: 260px !important;
+    max-width: 86vw !important;
   }
+
+  main.main,
+  .main,
+  .content,
+  .page-view {
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
+  }
+
+  .tile-grid,
+  .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quick-actions .btn {
+    flex: 1 1 100% !important;
+  }
+
+  .greeting h1,
+  .greeting .who h1 {
+    font-size: 1.15rem !important;
+  }
+  .greeting .who .sub {
+    font-size: .78rem !important;
+  }
+
+  .page-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .5rem !important;
+  }
+  .page-head .actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: .35rem !important;
+  }
+}
+
+/* --- Tiny phones --- */
+@media (max-width: 400px) {
+  #sidebar,
+  aside#sidebar,
+  body.portal-app #sidebar {
+    width: 240px !important;
+    max-width: 90vw !important;
+  }
+  .tile-value { font-size: 1.1rem !important; }
 }

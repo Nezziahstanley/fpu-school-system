@@ -276,25 +276,50 @@ router.get('/attendance', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/student/materials
+// ------------------------------------------------------------
+// Returns materials for courses the student is registered for,
+// joined with course code + title so the UI can group by course.
 // ============================================================
 router.get('/materials', only, async (req, res, next) => {
   try {
-    const regs = await regQueries.list({ studentId: req.user.id, sessionId: req.query.sessionId, semester: req.query.semester });
+    const { courses, courseRegistrations } = schema;
+
+    // Which courses is this student registered for?
+    const regs = await regQueries.list({
+      studentId: req.user.id,
+      sessionId: req.query.sessionId,
+      semester: req.query.semester,
+    });
     const courseIds = regs
       .filter((r) => ['pending', 'approved'].includes(r.status))
       .map((r) => r.courseId);
+
     if (!courseIds.length) return res.json({ success: true, data: [] });
+
     const rows = await db
-      .select()
+      .select({
+        id: courseMaterials.id,
+        courseId: courseMaterials.courseId,
+        lecturerId: courseMaterials.lecturerId,
+        title: courseMaterials.title,
+        description: courseMaterials.description,
+        fileUrl: courseMaterials.fileUrl,
+        materialType: courseMaterials.materialType,
+        createdAt: courseMaterials.createdAt,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+      })
       .from(courseMaterials)
+      .leftJoin(courses, eq(courses.id, courseMaterials.courseId))
       .where(inArray(courseMaterials.courseId, courseIds))
-      .orderBy(desc(courseMaterials.createdAt));
+      .orderBy(courses.code, desc(courseMaterials.createdAt));
+
     return res.json({ success: true, data: rows });
   } catch (err) {
+    console.error('[student/materials]', err);
     return next(err);
   }
 });
-
 // ============================================================
 // GET /api/student/assignments
 // ============================================================

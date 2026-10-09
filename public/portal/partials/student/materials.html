@@ -1,32 +1,173 @@
 <!-- Portal → Student → Materials -->
 <section class="page-head">
-  <div><h2>Course Materials</h2><p class="muted small">Lecture notes from your lecturers</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="window.__studMatLoad()">Refresh</button></div>
+  <div>
+    <h2>Course Materials</h2>
+    <p class="muted small">Lecture notes and resources from your lecturers</p>
+  </div>
+  <div class="actions">
+    <input type="search" id="sm-search" placeholder="Search materials…" style="max-width:220px;" />
+    <button class="btn btn-outline btn-sm" onclick="window.__studMatLoad()">Refresh</button>
+  </div>
 </section>
 
-<div id="stud-mat-grid" class="grid" style="gap:.75rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
-</div>
+<div id="sm-summary" class="muted small" style="margin-bottom:.75rem;"></div>
+<div id="sm-grid" class="grid" style="gap:.75rem;"></div>
 
 <script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+
+  // Material type → icon + color
+  const TYPE_META = {
+    note:       { icon: '📄', bg: '#dbeafe', color: '#1e40af', label: 'Note' },
+    slide:      { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slide' },
+    slides:     { icon: '📊', bg: '#fef3c7', color: '#92400e', label: 'Slides' },
+    pdf:        { icon: '📕', bg: '#fee2e2', color: '#991b1b', label: 'PDF' },
+    video:      { icon: '🎬', bg: '#ede9fe', color: '#5b21b6', label: 'Video' },
+    audio:      { icon: '🎵', bg: '#fce7f3', color: '#9d174d', label: 'Audio' },
+    link:       { icon: '🔗', bg: '#dcfce7', color: '#166534', label: 'Link' },
+    assignment: { icon: '📝', bg: '#fde68a', color: '#78350f', label: 'Assignment' },
+  };
+
+  function typeMeta(t) {
+    return TYPE_META[String(t || 'note').toLowerCase()] || TYPE_META.note;
+  }
+
+  function groupByCourse(rows) {
+    const groups = new Map();
+    for (const m of rows) {
+      const key = m.courseId ?? 'unknown';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          courseId: key,
+          courseCode: m.courseCode || m.course?.code || null,
+          courseTitle: m.courseTitle || m.course?.title || null,
+          items: [],
+        });
+      }
+      groups.get(key).items.push(m);
+    }
+    return [...groups.values()];
+  }
+
+  function renderCourseGroup(group) {
+    const code = group.courseCode || `Course ${group.courseId}`;
+    const title = group.courseTitle || '';
+
+    const items = group.items.map((m) => {
+      const meta = typeMeta(m.materialType);
+      const href = m.fileUrl ? esc(m.fileUrl) : null;
+      return `
+        <div style="
+          display:flex;gap:.75rem;align-items:flex-start;
+          padding:.75rem;border:1px solid #e5e7eb;border-radius:10px;background:#fff;
+        ">
+          <div style="
+            width:40px;height:40px;border-radius:8px;flex-shrink:0;
+            background:${meta.bg};color:${meta.color};
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.25rem;
+          ">${meta.icon}</div>
+
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
+              <strong style="color:#0f172a;font-size:.9rem;">${esc(m.title || 'Untitled')}</strong>
+              <span style="
+                font-size:.65rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+                background:${meta.bg};color:${meta.color};
+                padding:2px 6px;border-radius:4px;
+              ">${meta.label}</span>
+            </div>
+
+            ${m.description ? `
+              <p class="small muted" style="margin:.35rem 0 0;line-height:1.45;">
+                ${esc(m.description)}
+              </p>` : ''}
+
+            <div style="display:flex;align-items:center;gap:.75rem;margin-top:.5rem;">
+              <span class="small muted">${esc(core.timeAgo ? core.timeAgo(m.createdAt) : '')}</span>
+              ${href ? `
+                <a href="${href}" target="_blank" rel="noopener"
+                   class="btn btn-sm btn-outline" style="padding:.2rem .55rem;font-size:.75rem;">
+                  📥 Open
+                </a>` : '<span class="small muted">No file attached</span>'}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <section class="panel" style="margin-bottom:.75rem;">
+        <div class="panel-head" style="border-bottom:1px solid #e5e7eb;">
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <h3 style="margin:0;font-size:.95rem;">📚 ${esc(code)}</h3>
+            ${title ? `<span class="muted small">${esc(title)}</span>` : ''}
+          </div>
+          <span class="badge">${group.items.length}</span>
+        </div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:.55rem;">
+          ${items}
+        </div>
+      </section>`;
+  }
+
+  function renderSummary() {
+    const courseCount = new Set(ALL.map(m => m.courseId)).size;
+    $('sm-summary').textContent = ALL.length
+      ? `${ALL.length} material${ALL.length === 1 ? '' : 's'} across ${courseCount} course${courseCount === 1 ? '' : 's'}`
+      : '';
+  }
+
+  function applyFilter() {
+    const q = ($('sm-search')?.value || '').trim().toLowerCase();
+    const filtered = !q ? ALL : ALL.filter((m) =>
+      (m.title || '').toLowerCase().includes(q) ||
+      (m.description || '').toLowerCase().includes(q) ||
+      (m.courseCode || '').toLowerCase().includes(q) ||
+      (m.courseTitle || '').toLowerCase().includes(q)
+    );
+
+    const box = $('sm-grid');
+    if (!filtered.length) {
+      box.innerHTML = `
+        <div class="panel" style="text-align:center;padding:2.5rem 1rem;">
+          <div style="font-size:2.5rem;margin-bottom:.5rem;">📭</div>
+          <h3 style="margin:0 0 .35rem;color:#0f172a;">${q ? 'No matches' : 'No materials yet'}</h3>
+          <p class="muted small" style="margin:0;">
+            ${q
+              ? 'Try a different search term.'
+              : 'Materials will appear here once your lecturers upload them for your registered courses.'}
+          </p>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = groupByCourse(filtered).map(renderCourseGroup).join('');
+  }
+
   window.__studMatLoad = async function () {
     const core = window.FPU_PORTAL;
-    const box = document.getElementById('stud-mat-grid');
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    const box = $('sm-grid');
+    box.innerHTML = '<div class="loading" style="text-align:center;padding:2rem;"><span class="spinner"></span> Loading…</div>';
     try {
       const res = await core.portalFetch('/api/student/materials');
-      const rows = res.data || [];
-      box.innerHTML = rows.length ? rows.map((m) => `
-        <div class="panel">
-          <div class="panel-body">
-            <strong>${core.escapeHtml(m.title)}</strong>
-            <p class="small muted">${core.escapeHtml(m.description || '')}</p>
-            <div class="small">${m.fileUrl ? `<a href="${core.escapeHtml(m.fileUrl)}" target="_blank" class="btn btn-sm btn-outline">Download</a>` : 'No file attached'}</div>
-            <div class="small muted" style="margin-top:.35rem;">${core.timeAgo(m.createdAt)}</div>
-          </div>
-        </div>
-      `).join('') : '<p class="muted">No materials uploaded yet.</p>';
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+      ALL = res.data || [];
+      renderSummary();
+      applyFilter();
+    } catch (err) {
+      box.innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+    }
   };
+
+  // Wire search
+  $('sm-search')?.addEventListener('input', applyFilter);
+
+  // Initial load
   window.__studMatLoad();
+})();
 </script>

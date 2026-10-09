@@ -1,0 +1,233 @@
+<!-- Portal → Rector → Executive Reports -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Executive Reports</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Institution-wide analytics and breakdowns</p>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button id="rep-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
+      <button id="rep-print" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;
+        border-radius:8px;cursor:pointer;
+      ">🖨 Print</button>
+    </div>
+  </div>
+
+  <!-- SUMMARY KPIs -->
+  <div id="rep-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+
+  <!-- 2-col: Enrollment + Gender -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🎓 Enrollment by Level</div>
+      </div>
+      <div id="rep-levels" style="padding:1rem;"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">👥 Gender Distribution</div>
+      </div>
+      <div id="rep-gender" style="padding:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- Applications + Results by status -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📋 Applications by Status</div>
+      </div>
+      <div id="rep-apps" style="padding:1rem;"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📝 Results by Status</div>
+      </div>
+      <div id="rep-results" style="padding:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- Revenue by Status -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">💰 Revenue by Payment Status</div>
+    </div>
+    <div id="rep-revenue" style="padding:1rem;"></div>
+  </div>
+
+  <!-- Top states -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📍 Top 10 States of Origin</div>
+    </div>
+    <div id="rep-states" style="padding:1rem;"></div>
+  </div>
+
+  <!-- Graduation -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🎓 Graduation Pipeline</div>
+    </div>
+    <div id="rep-grad" style="padding:1rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;"></div>
+  </div>
+
+</div>
+
+<style>
+  .rep-bar-row { margin-bottom:.6rem; }
+  .rep-bar-label { display:flex;justify-content:space-between;margin-bottom:.25rem;font-size:.78rem; }
+  .rep-bar-track { height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden; }
+  .rep-bar-fill { height:100%;border-radius:99px;transition:width .4s; }
+  @media print {
+    @page { size: A4; margin: 15mm; }
+    .filter-bar, .greeting, .page-head, .panel-head, button { display: none !important; }
+    body { background: #fff; }
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+
+  async function load() {
+    try {
+      const [dash, summary] = await Promise.all([
+        core.portalFetch('/api/rector/dashboard'),
+        core.portalFetch('/api/rector/reports/summary'),
+      ]);
+
+      const d = dash.data || {};
+      const s = summary.data || {};
+
+      // KPIs
+      const kpis = [
+        { label: 'Total Students',   value: d.students ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff',      value: d.staff ?? 0,               bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Total Revenue',    value: fmtMoney(d.revenue ?? 0),   bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
+        { label: 'Pending Payment',  value: fmtMoney(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
+      ];
+
+      $('rep-kpis').innerHTML = kpis.map((t) => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+          <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
+          </div>
+        </div>`).join('');
+
+      renderBars($('rep-levels'), (s.byLevel || []).map((r) => ({
+        label: r.level || '—', value: r.c, color: '#10b981',
+      })));
+
+      renderBars($('rep-gender'), (s.byGender || []).map((r) => ({
+        label: r.gender || 'Unknown', value: r.c, color: r.gender === 'Male' ? '#3b82f6' : r.gender === 'Female' ? '#ec4899' : '#94a3b8',
+      })));
+
+      renderBars($('rep-apps'), (s.appsByStatus || []).map((r) => ({
+        label: r.status || '—', value: r.c,
+        color: r.status === 'approved' ? '#10b981' : r.status === 'rejected' ? '#ef4444' : r.status === 'registered' ? '#6366f1' : '#f59e0b',
+      })));
+
+      renderBars($('rep-results'), (s.resultsByStatus || []).map((r) => ({
+        label: r.status || '—', value: r.c,
+        color: r.status === 'published' ? '#10b981' : r.status === 'approved' ? '#3b82f6' : '#f59e0b',
+      })));
+
+      // Revenue table
+      const revRows = s.revenueByStatus || [];
+      $('rep-revenue').innerHTML = revRows.length
+        ? `<table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+            <thead><tr style="background:#f8fafc;">
+              <th style="padding:.5rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+              <th style="padding:.5rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Count</th>
+              <th style="padding:.5rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Total</th>
+            </tr></thead>
+            <tbody>
+              ${revRows.map((r) => `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                  <td style="padding:.6rem .75rem;font-weight:700;color:#0f172a;text-transform:capitalize;">${esc(r.status)}</td>
+                  <td style="padding:.6rem .75rem;text-align:right;color:#475569;">${r.count}</td>
+                  <td style="padding:.6rem .75rem;text-align:right;font-weight:800;color:${r.status === 'verified' ? '#065f46' : '#94a3b8'};">${fmtMoney(r.total)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`
+        : '<div style="text-align:center;padding:1rem;color:#94a3b8;font-size:.82rem;">No payments yet.</div>';
+
+      // States
+      const states = s.byState || [];
+      const maxState = Math.max(...states.map((r) => r.c), 1);
+      $('rep-states').innerHTML = states.length
+        ? states.map((r) => {
+            const pct = Math.round((r.c / maxState) * 100);
+            return `
+              <div class="rep-bar-row">
+                <div class="rep-bar-label">
+                  <span style="color:#334155;font-weight:600;">${esc(r.state)}</span>
+                  <span style="font-weight:800;color:#065f46;">${r.c}</span>
+                </div>
+                <div class="rep-bar-track">
+                  <div class="rep-bar-fill" style="width:${pct}%;background:#10b981;"></div>
+                </div>
+              </div>`;
+          }).join('')
+        : '<div style="text-align:center;padding:1rem;color:#94a3b8;font-size:.82rem;">No state data.</div>';
+
+      // Graduation
+      const g = s.graduation || {};
+      const gradTiles = [
+        { label: 'Queued', value: g.queue || 0, bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
+        { label: 'Approved', value: g.approved || 0, bg: '#dbeafe', fg: '#1e40af', icon: '✅' },
+        { label: 'Graduated', value: g.graduated || 0, bg: '#d1fae5', fg: '#065f46', icon: '🎓' },
+      ];
+      $('rep-grad').innerHTML = gradTiles.map((t) => `
+        <div style="background:${t.bg};border-radius:12px;padding:1rem;">
+          <div style="font-size:1.4rem;margin-bottom:.35rem;">${t.icon}</div>
+          <div style="font-size:1.5rem;font-weight:800;color:${t.fg};line-height:1;">${t.value}</div>
+          <div style="font-size:.7rem;font-weight:700;color:${t.fg};letter-spacing:.06em;text-transform:uppercase;margin-top:.35rem;">${t.label}</div>
+        </div>`).join('');
+    } catch (err) {
+      console.error('[rector/reports]', err);
+      core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
+    }
+  }
+
+  function renderBars(box, rows) {
+    if (!rows.length) {
+      box.innerHTML = '<div style="text-align:center;padding:1rem;color:#94a3b8;font-size:.82rem;">No data.</div>';
+      return;
+    }
+    const max = Math.max(...rows.map((r) => r.value), 1);
+    box.innerHTML = rows.map((r) => {
+      const pct = Math.round((r.value / max) * 100);
+      return `
+        <div class="rep-bar-row">
+          <div class="rep-bar-label">
+            <span style="color:#334155;font-weight:600;text-transform:capitalize;">${esc(r.label)}</span>
+            <span style="font-weight:800;color:#0f172a;">${r.value}</span>
+          </div>
+          <div class="rep-bar-track">
+            <div class="rep-bar-fill" style="width:${pct}%;background:${r.color};"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  $('rep-refresh')?.addEventListener('click', load);
+  $('rep-print')?.addEventListener('click', () => window.print());
+
+  load();
+})();
+</script>

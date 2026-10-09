@@ -34,12 +34,13 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
-  <div id="rector-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+  <!-- STAT TILES (8) -->
+  <div id="rector-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:.75rem;"></div>
+  <div id="rector-stats-2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
 
   <!-- QUICK ACTIONS -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1.25rem;">
-    <a href="#admin-reports" style="
+    <a href="#rector-reports" style="
       display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;
       background:#fff;border:1px solid #e5e7eb;border-radius:12px;
       text-decoration:none;color:#0f172a;transition:all .15s;
@@ -47,7 +48,7 @@
       <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📊</div>
       <div>
         <div style="font-size:.86rem;font-weight:800;">Reports</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Analytics & data</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Full analytics</div>
       </div>
     </a>
 
@@ -59,7 +60,7 @@
       <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👥</div>
       <div>
         <div style="font-size:.86rem;font-weight:800;">Transcripts</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Student academic records</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Student records</div>
       </div>
     </a>
 
@@ -88,42 +89,75 @@
     </a>
   </div>
 
-  <!-- TWO COLUMN: Enrollment + Trend -->
+  <!-- ROW 1: Enrollment + Trend -->
   <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
-
-    <!-- ENROLLMENT -->
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🏛️ Enrollment by Department</div>
         <span style="font-size:.72rem;color:#64748b;" id="rector-enroll-total">— students</span>
       </div>
-      <div id="rector-enrollment" style="padding:1rem 1rem .5rem;max-height:440px;overflow-y:auto;">
+      <div id="rector-enrollment" style="padding:1rem 1rem .5rem;max-height:380px;overflow-y:auto;">
         <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
       </div>
     </div>
 
-    <!-- TREND -->
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📈 Admission Trend</div>
-        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Applications over the last 6 months</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Last 6 months</div>
       </div>
       <div id="rector-trend" style="padding:1rem;">
         <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
       </div>
     </div>
-
   </div>
 
-  <!-- PENDING WORK -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
-    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🕐 Pending Work Across Institution</div>
-      <span style="font-size:.7rem;color:#94a3b8;">Live counts — see detail pages for actions</span>
+  <!-- ROW 2: Revenue Trend + Enrollment by Level -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">💰 Revenue Trend</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Verified payments · last 6 months</div>
+      </div>
+      <div id="rector-revenue" style="padding:1rem;">
+        <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
     </div>
-    <div id="rector-pending" style="padding:.5rem 0;">
-      <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🎓 Enrollment by Level</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">ND / HND distribution</div>
+      </div>
+      <div id="rector-levels" style="padding:1rem;">
+        <div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
     </div>
+  </div>
+
+  <!-- ROW 3: Pending Work + Recent Activity -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">🕐 Pending Work</div>
+        <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">What needs attention across the institution</div>
+      </div>
+      <div id="rector-pending" style="padding:.5rem 0;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📣 Recent Activity</div>
+        <span style="font-size:.7rem;color:#94a3b8;">Last 10 events</span>
+      </div>
+      <div id="rector-activity" style="padding:.5rem 0;max-height:380px;overflow-y:auto;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -146,6 +180,14 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+  const fmtMoneyShort = (n) => {
+    const v = Number(n || 0);
+    if (v >= 1_000_000_000) return '₦' + (v / 1_000_000_000).toFixed(1) + 'B';
+    if (v >= 1_000_000) return '₦' + (v / 1_000_000).toFixed(1) + 'M';
+    if (v >= 1_000) return '₦' + (v / 1_000).toFixed(0) + 'K';
+    return '₦' + v;
+  };
+  const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
   async function load() {
     const user = core.getPortalUser ? core.getPortalUser() : {};
@@ -159,22 +201,33 @@
       const res = await core.portalFetch('/api/rector/dashboard');
       const d = res.data || res || {};
 
-      // ---- Stat tiles ----
-      const tiles = [
-        { label: 'Total Students',  value: d.students ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '👥' },
-        { label: 'Total Staff',     value: d.staff ?? 0,               bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
-        { label: 'Pending Apps',    value: d.pendingApplications ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '📋' },
-        { label: 'Revenue',         value: fmtMoney(d.revenue ?? 0),   bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
+      // Stat tiles — row 1 (main KPIs)
+      const tiles1 = [
+        { label: 'Total Students',  value: d.students ?? 0,              bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff',     value: d.staff ?? 0,                 bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Revenue',         value: fmtMoneyShort(d.revenue ?? 0), bg: '#ede9fe', fg: '#5b21b6', icon: '💰', full: fmtMoney(d.revenue ?? 0) },
+        { label: 'Pending Apps',    value: d.pendingApplications ?? 0,   bg: '#fef3c7', fg: '#92400e', icon: '📋' },
       ];
 
-      $('rector-stats').innerHTML = tiles.map(t => `
-        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      // Stat tiles — row 2 (secondary)
+      const tiles2 = [
+        { label: 'Programmes',   value: d.programmes ?? 0,          bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
+        { label: 'Courses',      value: d.courses ?? 0,             bg: '#d1fae5', fg: '#065f46', icon: '📖' },
+        { label: 'Outstanding',  value: fmtMoneyShort(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
+        { label: 'Overdue Books',value: d.overdueBooks ?? 0,        bg: '#fee2e2', fg: '#991b1b', icon: '📚' },
+      ];
+
+      const renderTile = (t) => `
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);" ${t.full ? `title="${t.full}"` : ''}>
           <div style="width:44px;height:44px;border-radius:12px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">${t.icon}</div>
           <div style="min-width:0;">
             <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
             <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">${t.label}</div>
           </div>
-        </div>`).join('');
+        </div>`;
+
+      $('rector-stats').innerHTML = tiles1.map(renderTile).join('');
+      $('rector-stats-2').innerHTML = tiles2.map(renderTile).join('');
 
       if (d.currentSession?.name && $('rector-session')) {
         $('rector-session').textContent = d.currentSession.name;
@@ -182,22 +235,62 @@
 
       renderEnrollment(d.enrollmentByDepartment || []);
       renderTrend(d.admissionTrend || []);
+      renderRevenueTrend(d.revenueTrend || []);
+      renderLevels(d.enrollmentByLevel || []);
       renderPending(d);
+
+      // Load recent activity separately
+      loadActivity();
     } catch (err) {
       console.error('[rector/dashboard]', err);
       core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
     }
   }
 
+  async function loadActivity() {
+    try {
+      const res = await core.portalFetch('/api/rector/recent-activity?limit=10');
+      renderActivity(res.data || []);
+    } catch (err) {
+      $('rector-activity').innerHTML = `<div style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem;">Activity feed unavailable.</div>`;
+    }
+  }
+
+  function renderActivity(rows) {
+    const box = $('rector-activity');
+    if (!rows.length) {
+      box.innerHTML = `<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">No recent activity.</div>`;
+      return;
+    }
+
+    const META = {
+      application: { icon: '📋', bg: '#fef3c7', fg: '#92400e' },
+      payment:     { icon: '💰', bg: '#d1fae5', fg: '#065f46' },
+      student:     { icon: '👤', bg: '#dbeafe', fg: '#1e40af' },
+      complaint:   { icon: '💬', bg: '#fee2e2', fg: '#991b1b' },
+    };
+
+    box.innerHTML = rows.map((r) => {
+      const m = META[r.type] || META.application;
+      return `
+        <div class="rector-row">
+          <div style="width:34px;height:34px;border-radius:9px;background:${m.bg};color:${m.fg};display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">${m.icon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.82rem;font-weight:700;color:#0f172a;">${esc(r.title || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.description || '')}</div>
+          </div>
+          <div style="font-size:.68rem;color:#94a3b8;flex-shrink:0;">${esc(timeAgo(r.at))}</div>
+        </div>`;
+    }).join('');
+  }
+
   function renderEnrollment(rows) {
     const box = $('rector-enrollment');
-
     if (!rows || !rows.length) {
       box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No enrollment data.</div>';
       $('rector-enroll-total').textContent = '0 students';
       return;
     }
-
     const total = rows.reduce((n, r) => n + Number(r.students || 0), 0);
     const max = Math.max(...rows.map(r => Number(r.students || 0)), 1);
     $('rector-enroll-total').textContent = `${total} students`;
@@ -223,43 +316,89 @@
 
   function renderTrend(rows) {
     const box = $('rector-trend');
-
     if (!rows || !rows.length) {
       box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No trend data.</div>';
       return;
     }
-
     const sorted = [...rows].reverse();
     const max = Math.max(...sorted.map(r => Number(r.applications || 0)), 1);
-
     box.innerHTML = `
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:.5rem;height:180px;padding-bottom:.5rem;border-bottom:1px solid #e5e7eb;">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:.5rem;height:150px;padding-bottom:.5rem;border-bottom:1px solid #e5e7eb;">
         ${sorted.map((r) => {
           const value = Number(r.applications || 0);
-          const heightPct = Math.max(8, Math.round((value / max) * 100));
+          const h = Math.max(8, Math.round((value / max) * 100));
           return `
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
-              <div style="font-size:.72rem;font-weight:800;color:#065f46;margin-bottom:.35rem;">${value}</div>
-              <div style="width:100%;max-width:44px;height:${heightPct}%;background:linear-gradient(180deg,#10b981,#065f46);border-radius:6px 6px 0 0;"></div>
+              <div style="font-size:.68rem;font-weight:800;color:#065f46;margin-bottom:.25rem;">${value}</div>
+              <div style="width:100%;max-width:38px;height:${h}%;background:linear-gradient(180deg,#10b981,#065f46);border-radius:5px 5px 0 0;"></div>
             </div>`;
         }).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.5rem;">
-        ${sorted.map((r) => `
-          <div style="flex:1;text-align:center;font-size:.68rem;color:#64748b;font-weight:600;">${esc(r.month)}</div>
-        `).join('')}
+        ${sorted.map((r) => `<div style="flex:1;text-align:center;font-size:.65rem;color:#64748b;font-weight:600;">${esc(r.month)}</div>`).join('')}
+      </div>`;
+  }
+
+  function renderRevenueTrend(rows) {
+    const box = $('rector-revenue');
+    if (!rows || !rows.length) {
+      box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No revenue data.</div>';
+      return;
+    }
+    const sorted = [...rows].reverse();
+    const max = Math.max(...sorted.map(r => Number(r.total || 0)), 1);
+    box.innerHTML = `
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:.5rem;height:150px;padding-bottom:.5rem;border-bottom:1px solid #e5e7eb;">
+        ${sorted.map((r) => {
+          const value = Number(r.total || 0);
+          const h = Math.max(8, Math.round((value / max) * 100));
+          return `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+              <div style="font-size:.65rem;font-weight:800;color:#5b21b6;margin-bottom:.25rem;">${fmtMoneyShort(value)}</div>
+              <div style="width:100%;max-width:38px;height:${h}%;background:linear-gradient(180deg,#8b5cf6,#5b21b6);border-radius:5px 5px 0 0;"></div>
+            </div>`;
+        }).join('')}
       </div>
-    `;
+      <div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.5rem;">
+        ${sorted.map((r) => `<div style="flex:1;text-align:center;font-size:.65rem;color:#64748b;font-weight:600;">${esc(r.month)}</div>`).join('')}
+      </div>`;
+  }
+
+  function renderLevels(rows) {
+    const box = $('rector-levels');
+    if (!rows || !rows.length) {
+      box.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:.82rem;">No data.</div>';
+      return;
+    }
+    const total = rows.reduce((n, r) => n + Number(r.count || 0), 0);
+    const COLORS = { ND: '#10b981', HND: '#3b82f6', CERT: '#f59e0b' };
+    box.innerHTML = rows.map((r) => {
+      const value = Number(r.count || 0);
+      const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+      const color = COLORS[r.level] || '#6366f1';
+      return `
+        <div style="margin-bottom:.75rem;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:.35rem;">
+            <span style="font-size:.82rem;color:#334155;font-weight:700;">${esc(r.level)}</span>
+            <span style="font-size:.82rem;font-weight:800;color:${color};">${value} <span style="color:#94a3b8;font-weight:400;font-size:.7rem;">(${pct}%)</span></span>
+          </div>
+          <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;"></div>
+          </div>
+        </div>`;
+    }).join('') + `
+      <div style="padding:.6rem .75rem;margin-top:.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:.75rem;color:#14532d;text-align:center;font-weight:600;">
+        ${total} students total
+      </div>`;
   }
 
   function renderPending(d) {
-    // Rows are non-clickable for now — the linked pages don't exist yet.
-    // Show the counts and a hint to view details elsewhere.
     const rows = [
-      { label: 'Pending Applications', value: d.pendingApplications || 0, hint: 'Awaiting admission officer review', icon: '📋', bg: '#fef3c7', fg: '#92400e' },
-      { label: 'Pending Results', value: d.pendingResults || 0, hint: 'Submitted by lecturers, awaiting HOD/admin', icon: '📝', bg: '#dbeafe', fg: '#1e40af' },
-      { label: 'Pending Payments', value: d.pendingPayments || 0, hint: 'Awaiting bursar verification', icon: '💰', bg: '#d1fae5', fg: '#065f46' },
-      { label: 'Open Complaints', value: d.openComplaints || 0, hint: 'Awaiting response', icon: '💬', bg: '#fee2e2', fg: '#991b1b' },
+      { label: 'Pending Applications',  value: d.pendingApplications || 0, hint: 'Awaiting admission officer review', icon: '📋', bg: '#fef3c7', fg: '#92400e' },
+      { label: 'Pending Results',       value: d.pendingResults || 0,      hint: 'Submitted by lecturers, awaiting HOD/admin', icon: '📝', bg: '#dbeafe', fg: '#1e40af' },
+      { label: 'Pending Payments',      value: d.pendingPayments || 0,     hint: 'Awaiting bursar verification', icon: '💰', bg: '#d1fae5', fg: '#065f46' },
+      { label: 'Open Complaints',       value: d.openComplaints || 0,      hint: 'Awaiting response', icon: '💬', bg: '#fee2e2', fg: '#991b1b' },
+      { label: 'Overdue Library Books', value: d.overdueBooks || 0,        hint: 'Borrowed past due date', icon: '📚', bg: '#ede9fe', fg: '#5b21b6' },
     ];
 
     $('rector-pending').innerHTML = rows.map((r) => `

@@ -3756,3 +3756,18 @@ header.navbar .menu-toggle {
   .wizard-nav { flex-direction: column-reverse; }
   .wizard-nav button { width: 100%; }
 }
+
+/* Wizard indicator compatibility — engine uses .active/.done */
+.apply-progress-step.active { background: #ecfdf5; }
+.apply-progress-step.done { background: #f0fdf4; }
+.apply-progress-step.active .apply-progress-num { background: #065f46; color: #fff; }
+.apply-progress-step.done .apply-progress-num { background: #10b981; color: #fff; }
+.apply-progress-step.done .apply-progress-num::before {
+  content: '✓';
+  font-weight: 800;
+  font-size: .9rem;
+}
+.apply-progress-step.done .apply-progress-num { font-size: 0; }
+.apply-progress-step.done .apply-progress-num::before { font-size: .9rem; }
+.apply-progress-step.active .apply-progress-label { color: #065f46; font-weight: 700; }
+.apply-progress-step.done .apply-progress-label { color: #059669; }

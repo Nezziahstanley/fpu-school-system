@@ -4,16 +4,64 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ND Application — Federal Polytechnic Ugep</title>
-  <meta name="description" content="Apply for National Diploma (ND) programmes at Federal Polytechnic Ugep." />
   <link rel="icon" href="/images/logo.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* ====== Upload dropzones ====== */
+    .doc-upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: .5rem;
+    }
+    @media (max-width: 640px) { .doc-upload-grid { grid-template-columns: 1fr; } }
+
+    .doc-slot {
+      background: #fff;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+      min-height: 140px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .4rem;
+    }
+    .doc-slot:hover { border-color: #065f46; background: #f0fdf4; }
+    .doc-slot.has-file { border-style: solid; border-color: #10b981; background: #ecfdf5; }
+    .doc-slot.is-required::before {
+      content: '*';
+      position: absolute;
+      top: .5rem; right: .75rem;
+      color: #dc2626;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .doc-slot-icon { font-size: 1.8rem; }
+    .doc-slot-name { font-weight: 700; font-size: .85rem; color: #0f172a; }
+    .doc-slot-hint { font-size: .72rem; color: #94a3b8; }
+    .doc-slot-file {
+      font-size: .75rem; color: #065f46; font-weight: 600;
+      word-break: break-all; max-width: 90%;
+    }
+    .doc-slot input[type="file"] { display: none; }
+    .doc-slot-clear {
+      position: absolute; top: .35rem; right: .35rem;
+      background: #dc2626; color: #fff; border: none;
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: .8rem; cursor: pointer; line-height: 1;
+      display: none;
+    }
+    .doc-slot.has-file .doc-slot-clear { display: block; }
+  </style>
 </head>
 <body>
 
-  <!-- ============ NAVBAR ============ -->
   <header class="navbar">
     <div class="container navbar-inner">
       <a href="/" class="brand">
@@ -23,7 +71,6 @@
           <span class="brand-motto">Knowledge · Skills · Service</span>
         </span>
       </a>
-
       <nav class="nav-links" id="navLinks">
         <li><a href="/">Home</a></li>
         <li><a href="/about.html">About</a></li>
@@ -36,21 +83,17 @@
           <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
         </li>
       </nav>
-
       <div class="nav-auth">
         <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
         <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
       </div>
-
       <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" type="button">☰</button>
     </div>
   </header>
 
-  <!-- ============ APPLICATION ============ -->
   <main class="apply-shell">
     <div class="apply-container">
 
-      <!-- Header -->
       <div class="apply-head">
         <div class="apply-head-badge">ND</div>
         <div>
@@ -59,7 +102,6 @@
         </div>
       </div>
 
-      <!-- Progress -->
       <div class="apply-progress">
         <div class="apply-progress-step is-active" data-step-indicator="0">
           <span class="apply-progress-num">1</span>
@@ -71,51 +113,36 @@
         </div>
         <div class="apply-progress-step" data-step-indicator="2">
           <span class="apply-progress-num">3</span>
-          <span class="apply-progress-label">Review &amp; Submit</span>
+          <span class="apply-progress-label">Documents</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="3">
+          <span class="apply-progress-num">4</span>
+          <span class="apply-progress-label">Review</span>
         </div>
       </div>
 
-      <!-- Form -->
-      <form id="apply-nd-form" data-wizard novalidate>
+      <form id="apply-nd-form" data-wizard novalidate enctype="multipart/form-data">
 
         <!-- STEP 1: Personal -->
         <div class="wizard-step active" data-step="0">
           <div class="form-section">
             <div class="form-section-title">
               <span class="form-section-icon">👤</span>
-              <div>
-                <h2>Personal Information</h2>
-                <p>Your details as they appear on official documents</p>
-              </div>
+              <div><h2>Personal Information</h2><p>Your details as they appear on official documents</p></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>First Name <span class="req">*</span></label>
-                <input type="text" name="firstName" required data-review="First Name" placeholder="e.g. Stanley" />
-              </div>
-              <div class="form-group">
-                <label>Last Name <span class="req">*</span></label>
-                <input type="text" name="lastName" required data-review="Last Name" placeholder="e.g. Vincent" />
-              </div>
+              <div class="form-group"><label>First Name <span class="req">*</span></label><input type="text" name="firstName" required data-review="First Name" /></div>
+              <div class="form-group"><label>Last Name <span class="req">*</span></label><input type="text" name="lastName" required data-review="Last Name" /></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>Middle Name</label>
-                <input type="text" name="middleName" data-review="Middle Name" placeholder="Optional" />
-              </div>
-              <div class="form-group">
-                <label>Email Address <span class="req">*</span></label>
-                <input type="email" name="email" required data-review="Email" placeholder="you@example.com" />
-              </div>
+              <div class="form-group"><label>Middle Name</label><input type="text" name="middleName" data-review="Middle Name" /></div>
+              <div class="form-group"><label>Email Address <span class="req">*</span></label><input type="email" name="email" required data-review="Email" /></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>Phone Number <span class="req">*</span></label>
-                <input type="tel" name="phone" required data-review="Phone" placeholder="e.g. 07041145338" />
-              </div>
+              <div class="form-group"><label>Phone Number <span class="req">*</span></label><input type="tel" name="phone" required data-review="Phone" /></div>
               <div class="form-group">
                 <label>Gender <span class="req">*</span></label>
                 <select name="gender" required data-review="Gender">
@@ -127,10 +154,7 @@
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>Date of Birth <span class="req">*</span></label>
-                <input type="date" name="dateOfBirth" required data-review="Date of Birth" />
-              </div>
+              <div class="form-group"><label>Date of Birth <span class="req">*</span></label><input type="date" name="dateOfBirth" required data-review="Date of Birth" /></div>
               <div class="form-group">
                 <label>Marital Status <span class="req">*</span></label>
                 <select name="maritalStatus" required data-review="Marital Status">
@@ -158,7 +182,7 @@
               <div class="form-group">
                 <label>State of Origin <span class="req">*</span></label>
                 <select name="stateOfOrigin" id="pub-state" required data-review="State of Origin">
-                  <option value="">Loading states…</option>
+                  <option value="">Loading…</option>
                 </select>
               </div>
             </div>
@@ -170,15 +194,12 @@
                   <option value="">Select state first…</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Nationality</label>
-                <input type="text" name="nationality" value="Nigerian" data-review="Nationality" />
-              </div>
+              <div class="form-group"><label>Nationality</label><input type="text" name="nationality" value="Nigerian" data-review="Nationality" /></div>
             </div>
 
             <div class="form-group">
               <label>Home Address <span class="req">*</span></label>
-              <textarea name="address" rows="3" required placeholder="Street, city, state" data-review="Address"></textarea>
+              <textarea name="address" rows="2" required data-review="Address" placeholder="Street, city, state"></textarea>
             </div>
           </div>
         </div>
@@ -188,21 +209,12 @@
           <div class="form-section">
             <div class="form-section-title">
               <span class="form-section-icon">🎓</span>
-              <div>
-                <h2>Academic Information</h2>
-                <p>Your O'Level results and preferred programme</p>
-              </div>
+              <div><h2>Academic Information</h2><p>O'Level results and preferred programme</p></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>JAMB Registration Number</label>
-                <input type="text" name="jambRegNo" data-review="JAMB Reg No." placeholder="Optional" />
-              </div>
-              <div class="form-group">
-                <label>JAMB Score</label>
-                <input type="number" min="0" max="400" name="jambScore" data-review="JAMB Score" placeholder="0 – 400" />
-              </div>
+              <div class="form-group"><label>JAMB Registration Number</label><input type="text" name="jambRegNo" data-review="JAMB Reg No." /></div>
+              <div class="form-group"><label>JAMB Score</label><input type="number" min="0" max="400" name="jambScore" data-review="JAMB Score" /></div>
             </div>
 
             <div class="form-row">
@@ -215,10 +227,7 @@
                   <option value="nabteb">NABTEB</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>O'Level Year <span class="req">*</span></label>
-                <input type="number" min="1990" max="2030" name="olevelYear" required data-review="O'Level Year" placeholder="e.g. 2024" />
-              </div>
+              <div class="form-group"><label>O'Level Year <span class="req">*</span></label><input type="number" min="1990" max="2030" name="olevelYear" required data-review="O'Level Year" /></div>
             </div>
 
             <div class="form-row">
@@ -228,13 +237,9 @@
                   <option value="">Loading programmes…</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Preferred Session</label>
-                <input type="text" name="session" value="2026/2027" readonly data-review="Session" />
-              </div>
+              <div class="form-group"><label>Preferred Session</label><input type="text" name="session" value="2026/2027" readonly data-review="Session" /></div>
             </div>
 
-            <!-- Hidden fields required by API -->
             <input type="hidden" name="departmentId" id="nd-department" />
             <input type="hidden" name="schoolId" id="nd-school" />
             <input type="hidden" name="level" value="ND" />
@@ -242,49 +247,90 @@
           </div>
         </div>
 
-        <!-- STEP 3: Review & Submit -->
+        <!-- STEP 3: Documents -->
         <div class="wizard-step" data-step="2">
           <div class="form-section">
             <div class="form-section-title">
-              <span class="form-section-icon">✓</span>
-              <div>
-                <h2>Review &amp; Submit</h2>
-                <p>Check your details before submitting</p>
+              <span class="form-section-icon">📎</span>
+              <div><h2>Documents Upload</h2><p>Upload clear photos or scans — PDF, JPG, or PNG (max 5 MB each)</p></div>
+            </div>
+
+            <div class="doc-upload-grid">
+              <!-- O'Level Result -->
+              <div class="doc-slot is-required" data-slot="olevel">
+                <input type="file" id="file-olevel" name="file_olevel" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">📄</div>
+                <div class="doc-slot-name">O'Level Result</div>
+                <div class="doc-slot-hint">WAEC / NECO / NABTEB statement</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- Birth Certificate OR Age Declaration -->
+              <div class="doc-slot is-required" data-slot="birth">
+                <input type="file" id="file-birth" name="file_birth" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🎂</div>
+                <div class="doc-slot-name">Birth Cert / Age Declaration</div>
+                <div class="doc-slot-hint">Either document accepted</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- LGA Certificate (Optional) -->
+              <div class="doc-slot" data-slot="lga">
+                <input type="file" id="file-lga" name="file_lga" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">📍</div>
+                <div class="doc-slot-name">LGA Certificate</div>
+                <div class="doc-slot-hint">Optional — Local Government Area</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- Passport Photo -->
+              <div class="doc-slot is-required" data-slot="passport">
+                <input type="file" id="file-passport" name="file_passport" accept=".jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🖼️</div>
+                <div class="doc-slot-name">Passport Photograph</div>
+                <div class="doc-slot-hint">Recent — red background preferred</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
               </div>
             </div>
 
-            <div class="review-card" data-review-container></div>
-
-            <div class="form-section" style="margin-top:1.5rem;background:#f0fdf4;border:1px solid #bbf7d0;">
-              <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#065f46;">📋 Documents required</h3>
-              <ul style="margin:0;padding-left:1.2rem;font-size:.85rem;color:#374151;line-height:1.8;">
-                <li>O'Level Result</li>
-                <li>Birth Certificate or Age Declaration</li>
-                <li>Local Government Area Certificate</li>
-                <li>Passport Photograph</li>
-              </ul>
-            </div>
-
-            <p class="apply-terms">
-              By submitting this application you confirm that all information provided is accurate and that you meet the entry requirements for the ND programme you selected.
+            <p style="margin-top:1rem;font-size:.78rem;color:#64748b;">
+              <strong>Note:</strong> Files marked with <span style="color:#dc2626;">*</span> are required. You can also provide the LGA certificate later if you don't have it now.
             </p>
           </div>
         </div>
 
-        <!-- NAV -->
+        <!-- STEP 4: Review -->
+        <div class="wizard-step" data-step="3">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">✓</span>
+              <div><h2>Review &amp; Submit</h2><p>Confirm your details before submitting</p></div>
+            </div>
+
+            <div class="review-card" data-review-container></div>
+
+            <p class="apply-terms" style="margin-top:1.25rem;">
+              By submitting this application you confirm that all information provided is accurate, that the documents uploaded are genuine, and that you meet the entry requirements for the selected programme.
+            </p>
+          </div>
+        </div>
+
         <div class="wizard-nav">
           <button type="button" class="btn btn-outline" data-wizard-prev>← Back</button>
           <button type="button" class="btn btn-primary" data-wizard-next>Next →</button>
           <button type="submit" class="btn btn-accent" data-wizard-submit hidden>Submit Application</button>
         </div>
 
-        <!-- Success screen -->
         <div id="nd-success" class="apply-success" hidden>
           <div class="apply-success-icon">✓</div>
           <h2>Application submitted!</h2>
           <p>Your application number is</p>
           <div class="apply-success-number" id="nd-success-number">—</div>
-          <p>Please save this number. You'll use it together with your email to check your application status.</p>
+          <p>Save this number. You'll use it with your email to check your application status.</p>
           <div class="apply-success-actions">
             <a href="/apply-status.html" class="btn btn-primary">Check Status</a>
             <a href="/" class="btn btn-outline">Back to Home</a>
@@ -316,18 +362,11 @@
         const list = (json.programmes || []).filter((p) => String(p.level).toUpperCase() === 'ND');
         const sel = document.getElementById('nd-programme');
         if (!sel) return;
-        if (!list.length) {
-          sel.innerHTML = '<option value="">No ND programmes available</option>';
-          return;
-        }
         sel.innerHTML = '<option value="">Select programme…</option>' +
           list.map((p) => `<option value="${p.id}" data-dept="${p.departmentId || ''}" data-school="${p.schoolId || ''}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
-      } catch (err) {
-        console.error('[programmes] failed:', err);
-      }
+      } catch (err) { console.error('[programmes]', err); }
     })();
 
-    // Sync hidden department/school when a programme is chosen
     document.getElementById('nd-programme')?.addEventListener('change', function () {
       const opt = this.options[this.selectedIndex];
       if (!opt) return;
@@ -337,7 +376,7 @@
       if (school) school.value = opt.dataset.school || '';
     });
 
-    // ---------- Country → State → LGA cascade ----------
+    // ---------- Geo cascade ----------
     (async function initGeo() {
       const country = document.getElementById('pub-country');
       const state = document.getElementById('pub-state');
@@ -350,13 +389,9 @@
         try {
           const res = await fetch('/api/geo/states?country=' + encodeURIComponent(country.value || 'Nigeria'));
           const json = await res.json();
-          const rows = json.data || [];
           state.innerHTML = '<option value="">Select state…</option>' +
-            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) {
-          console.error('[geo]', err);
-          state.innerHTML = '<option value="">Could not load states</option>';
-        }
+            (json.data || []).map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch { state.innerHTML = '<option value="">Could not load</option>'; }
       }
       async function loadLgas() {
         const s = state.value;
@@ -365,52 +400,82 @@
         try {
           const res = await fetch('/api/geo/lgas?country=' + encodeURIComponent(country.value || 'Nigeria') + '&state=' + encodeURIComponent(s));
           const json = await res.json();
-          const rows = json.data || [];
           lga.innerHTML = '<option value="">Select LGA…</option>' +
-            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) {
-          console.error('[geo]', err);
-          lga.innerHTML = '<option value="">Could not load LGAs</option>';
-        }
+            (json.data || []).map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch { lga.innerHTML = '<option value="">Could not load</option>'; }
       }
       country.addEventListener('change', loadStates);
       state.addEventListener('change', loadLgas);
       await loadStates();
     })();
 
-    // ---------- Submit ----------
+    // ---------- Document upload wiring ----------
+    document.querySelectorAll('.doc-slot').forEach(function (slot) {
+      const input = slot.querySelector('input[type=file]');
+      const nameEl = slot.querySelector('[data-file-name]');
+      const clearBtn = slot.querySelector('[data-clear]');
+      slot.addEventListener('click', function (e) {
+        if (e.target === clearBtn) return;
+        input.click();
+      });
+      input.addEventListener('change', function () {
+        const f = input.files[0];
+        if (f) {
+          nameEl.textContent = f.name + ' · ' + (f.size / 1024).toFixed(0) + ' KB';
+          slot.classList.add('has-file');
+        } else {
+          nameEl.textContent = '';
+          slot.classList.remove('has-file');
+        }
+      });
+      clearBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        input.value = '';
+        nameEl.textContent = '';
+        slot.classList.remove('has-file');
+      });
+    });
+
+    // ---------- Submit via multipart ----------
     const form = document.getElementById('apply-nd-form');
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // Copy state/lga to expected API names
-      const fd = new FormData(form);
-      const body = Object.fromEntries(fd);
+      // Verify required files
+      const required = ['file-olevel', 'file-birth', 'file-passport'];
+      for (const id of required) {
+        const el = document.getElementById(id);
+        if (!el || !el.files[0]) {
+          const slotName = el ? el.closest('.doc-slot').querySelector('.doc-slot-name').textContent : id;
+          alert('Please upload: ' + slotName);
+          el?.closest('.doc-slot')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+      }
 
-      // Compose oLevelResult if separate fields exist
-      if (body.olevelType || body.olevelYear) {
-        body.oLevelResult = { type: body.olevelType, year: body.olevelYear };
+      const fd = new FormData(form);
+
+      // Fold the o'level type/year into the payload shape the API expects
+      const olevelType = form.querySelector('[name="olevelType"]').value;
+      const olevelYear = form.querySelector('[name="olevelYear"]').value;
+      if (olevelType || olevelYear) {
+        fd.set('oLevelResult', JSON.stringify({ type: olevelType, year: olevelYear }));
       }
 
       const btn = form.querySelector('[data-wizard-submit]');
       btn.disabled = true;
       const prev = btn.textContent;
-      btn.textContent = 'Submitting…';
+      btn.textContent = 'Uploading & submitting…';
 
       try {
-        const res = await fetch('/api/apply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        const res = await fetch('/api/apply', { method: 'POST', body: fd });
         const json = await res.json();
         if (!res.ok || json.success === false) throw new Error(json.error || 'Submission failed.');
 
-        // Show success
-        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress').forEach((el) => (el.hidden = true));
-        const success = document.getElementById('nd-success');
-        success.hidden = false;
+        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress, .apply-head').forEach((el) => (el.hidden = true));
+        document.getElementById('nd-success').hidden = false;
         document.getElementById('nd-success-number').textContent = json.applicationNumber || '—';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {
         alert(err.message);
       } finally {

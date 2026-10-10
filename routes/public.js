@@ -393,17 +393,28 @@ router.get('/geo/countries', (_req, res) => {
 // GET /api/geo/states?country=NG  (public, no auth)
 // ------------------------------------------------------------
 router.get('/geo/states', (req, res) => {
-  const country = req.query.country || 'NG';
-  return res.json({ success: true, data: geo.listStates(country) });
+  const q = String(req.query.country || 'NG').trim();
+  let code = q.length === 2 ? q.toUpperCase() : null;
+  if (!code) {
+    const found = (geo.COUNTRIES || []).find((c) => c.name.toLowerCase() === q.toLowerCase());
+    if (found) code = found.code;
+  }
+  return res.json({ success: true, data: code ? geo.listStates(code) : [] });
 });
 
 // ------------------------------------------------------------
 // GET /api/geo/lgas?country=NG&state=Cross%20River  (public, no auth)
 // ------------------------------------------------------------
 router.get('/geo/lgas', (req, res) => {
-  const { country = 'NG', state } = req.query;
+  const q = String(req.query.country || 'NG').trim();
+  const state = String(req.query.state || '').trim();
   if (!state) return res.status(400).json({ success: false, error: 'state is required.' });
-  return res.json({ success: true, data: geo.listLgas(country, state) });
+  let code = q.length === 2 ? q.toUpperCase() : null;
+  if (!code) {
+    const found = (geo.COUNTRIES || []).find((c) => c.name.toLowerCase() === q.toLowerCase());
+    if (found) code = found.code;
+  }
+  return res.json({ success: true, data: code ? geo.listLgas(code, state) : [] });
 });
 
 // TEMP DEBUG — remove after fixing

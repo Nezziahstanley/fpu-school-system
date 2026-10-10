@@ -1,0 +1,1716 @@
+﻿=== COMMS MODULES AUDIT ===
+--- routes/announcements.js ---
+// ============================================================
+// FPU — Admin announcements API
+// Mounted at /api/admin/announcements
+// ============================================================
+
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+
+const notifQueries = require('../db/queries/notifications');
+const { requireRole } = require('../middleware/auth');
+const { logAudit } = require('../utils/audit');
+
+const STAFF = ['admin', 'registrar', 'rector', 'academic_officer', 'lecturer', 'hod', 'bursar', 'librarian', 'exam_officer', 'admission_officer'];
+
+router.get('/', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const { audience, isPublished } = req.query;
+    const rows = await notifQueries.listAnnouncementsWithAuthor({
+      audience,
+      isPublished: isPublished === undefined ? undefined : isPublished === 'true',
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/:id', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const row = await notifQueries.findAnnouncementById(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Announcement not found.' });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const { title, body } = req.body || {};
+    if (!title || !body) return res.status(400).json({ success: false, error: 'title and body are required.' });
+    const row = await notifQueries.createAnnouncement({ ...req.body, authorId: req.user.id });
+    await logAudit({ req, action: 'announcement.create', entity: 'announcement', entityId: row.id, after: row });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.put('/:id', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const existing = await notifQueries.findAnnouncementById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Announcement not found.' });
+    const patch = { ...req.body };
+    delete patch.id;
+    delete patch.authorId;
+    const row = await notifQueries.updateAnnouncement(existing.id, patch);
+    await logAudit({ req, action: 'announcement.update', entity: 'announcement', entityId: existing.id, before: existing, after: row });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/:id', requireRole(['admin', 'registrar']), async (req, res, next) => {
+  try {
+    const row = await notifQueries.removeAnnouncement(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Announcement not found.' });
+    await logAudit({ req, action: 'announcement.delete', entity: 'announcement', entityId: row.id, before: row });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+module.exports = router;
+--- routes/notifications.js ---
+// ============================================================
+// FPU — Admin notifications & messages API
+// Mounted at /api/admin/notifications
+// ============================================================
+
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+
+const notifQueries = require('../db/queries/notifications');
+const { requireRole } = require('../middleware/auth');
+const { logAudit } = require('../utils/audit');
+
+const STAFF = ['admin', 'registrar', 'rector', 'hod', 'bursar'];
+
+router.get('/', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const { userId, limit = 200, offset = 0 } = req.query;
+    const target = userId || req.user.id;
+    const rows = await notifQueries.listNotifications(target, { limit: Number(limit), offset: Number(offset) });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const { userId, title, body, type, link } = req.body || {};
+    if (!userId || !title) return res.status(400).json({ success: false, error: 'userId and title are required.' });
+    const row = await notifQueries.createNotification({ userId, title, body, type, link });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/broadcast', requireRole(['admin', 'registrar', 'rector']), async (req, res, next) => {
+  try {
+    const { userIds, title, body, type, link } = req.body || {};
+    if (!Array.isArray(userIds) || !title) {
+      return res.status(400).json({ success: false, error: 'userIds[] and title are required.' });
+    }
+    const rows = userIds.map((uid) => ({ userId: Number(uid), title, body: body || null, type: type || 'info', link: link || null }));
+    const inserted = await notifQueries.bulkCreateNotifications(rows);
+    await logAudit({ req, action: 'notification.broadcast', after: { count: inserted.length } });
+    return res.status(201).json({ success: true, data: inserted });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/:id/read', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const row = await notifQueries.markNotificationRead(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Notification not found.' });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/read-all', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const count = await notifQueries.markAllNotificationsRead(req.user.id);
+    return res.json({ success: true, count });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/:id', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const row = await notifQueries.removeNotification(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Notification not found.' });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+module.exports = router;
+--- db/queries/notifications.js ---
+// ============================================================
+// FPU — Query helper: announcements, notifications, complaints, messages
+// ============================================================
+
+'use strict';
+
+const { db, sql, schema } = require('../index');
+const { eq, and, or, desc, asc, inArray } = require('drizzle-orm');
+
+const {
+  announcements, notifications, complaints, messages, users,
+} = schema;
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+
+async function listAnnouncementsWithAuthor({ audience, isPublished } = {}) {
+  const conds = [];
+  if (audience) conds.push(eq(announcements.audience, audience));
+  if (isPublished !== undefined) conds.push(eq(announcements.isPublished, !!isPublished));
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select({ announcement: announcements, author: users })
+    .from(announcements)
+    .leftJoin(users, eq(announcements.authorId, users.id))
+    .where(where)
+    .orderBy(desc(announcements.publishedAt));
+}
+
+async function findAnnouncementById(id) {
+  if (!id) return null;
+  const [row] = await db
+    .select({ announcement: announcements, author: users })
+    .from(announcements)
+    .leftJoin(users, eq(announcements.authorId, users.id))
+    .where(eq(announcements.id, Number(id)))
+    .limit(1);
+  if (!row) return null;
+  return { ...row.announcement, author: row.author };
+}
+
+async function createAnnouncement(payload) {
+  const [row] = await db
+    .insert(announcements)
+    .values({
+      title: payload.title,
+      body: payload.body,
+      audience: payload.audience || 'all',
+      priority: payload.priority || 'normal',
+      authorId: Number(payload.authorId),
+      isPublished: payload.isPublished !== false,
+      publishedAt: new Date(),
+      expiresAt: payload.expiresAt ? new Date(payload.expiresAt) : null,
+    })
+    .returning();
+  return row;
+}
+
+async function updateAnnouncement(id, patch) {
+  const allowed = ['title', 'body', 'audience', 'priority', 'isPublished', 'expiresAt'];
+  const clean = {};
+  for (const k of allowed) {
+    if (patch[k] !== undefined) {
+      clean[k] = k === 'expiresAt'
+        ? (patch[k] ? new Date(patch[k]) : null)
+        : patch[k];
+    }
+  }
+  const [row] = await db.update(announcements).set(clean).where(eq(announcements.id, Number(id))).returning();
+  return row || null;
+}
+
+async function removeAnnouncement(id) {
+  const [row] = await db.delete(announcements).where(eq(announcements.id, Number(id))).returning();
+  return row || null;
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+async function listNotifications(userId, { unreadOnly = false, limit = 200, offset = 0 } = {}) {
+  const conds = [eq(notifications.userId, Number(userId))];
+  if (unreadOnly) conds.push(eq(notifications.isRead, false));
+
+  return db
+    .select()
+    .from(notifications)
+    .where(and(...conds))
+    .orderBy(desc(notifications.createdAt))
+    .limit(Number(limit))
+    .offset(Number(offset));
+}
+
+// ------------------------------------------------------------
+// countUnreadNotifications — used by shared.js /notifications
+// and by the dashboard summary card.
+// ------------------------------------------------------------
+async function countUnreadNotifications(userId) {
+  if (!userId) return 0;
+  const rows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(and(
+      eq(notifications.userId, Number(userId)),
+      eq(notifications.isRead, false)
+    ));
+  return rows.length;
+}
+
+async function createNotification({ userId, title, body, type, link }) {
+  const [row] = await db
+    .insert(notifications)
+    .values({
+      userId: Number(userId),
+      title,
+      body: body || null,
+      type: type || 'info',
+      link: link || null,
+    })
+    .returning();
+  return row;
+}
+
+async function bulkCreateNotifications(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  return db.insert(notifications).values(rows.map((r) => ({
+    userId: Number(r.userId),
+    title: r.title,
+    body: r.body || null,
+    type: r.type || 'info',
+    link: r.link || null,
+  }))).returning();
+}
+
+async function markNotificationRead(id, userId) {
+  const [row] = await db
+    .update(notifications)
+    .set({ isRead: true, readAt: new Date() })
+    .where(and(eq(notifications.id, Number(id)), eq(notifications.userId, Number(userId))))
+    .returning();
+  return row || null;
+}
+
+async function markAllNotificationsRead(userId) {
+  const rows = await db
+    .update(notifications)
+    .set({ isRead: true, readAt: new Date() })
+    .where(and(eq(notifications.userId, Number(userId)), eq(notifications.isRead, false)))
+    .returning({ id: notifications.id });
+  return rows.length;
+}
+
+async function removeNotification(id, userId) {
+  const [row] = await db
+    .delete(notifications)
+    .where(and(eq(notifications.id, Number(id)), eq(notifications.userId, Number(userId))))
+    .returning();
+  return row || null;
+}
+
+// ============================================================
+// COMPLAINTS
+// ============================================================
+
+async function listComplaintsWithUser({ status, category, search } = {}) {
+  const conds = [];
+  if (status) conds.push(eq(complaints.status, status));
+  if (category) conds.push(eq(complaints.category, category));
+  if (search) {
+    const term = `%${String(search).trim()}%`;
+    conds.push(sql`(${complaints.subject} ILIKE ${term} OR ${complaints.body} ILIKE ${term})`);
+  }
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select({ complaint: complaints, user: users })
+    .from(complaints)
+    .leftJoin(users, eq(complaints.userId, users.id))
+    .where(where)
+    .orderBy(desc(complaints.createdAt));
+}
+
+// ------------------------------------------------------------
+// listComplaints — flat list for a single user (used by
+// shared.js /complaints for the current user).
+// ------------------------------------------------------------
+async function listComplaints({ userId, status } = {}) {
+  const conds = [];
+  if (userId) conds.push(eq(complaints.userId, Number(userId)));
+  if (status) conds.push(eq(complaints.status, status));
+  const where = conds.length ? and(...conds) : undefined;
+
+  return db
+    .select()
+    .from(complaints)
+    .where(where)
+    .orderBy(desc(complaints.createdAt));
+}
+
+async function findComplaintById(id) {
+  if (!id) return null;
+  const [row] = await db
+    .select({ complaint: complaints, user: users })
+    .from(complaints)
+    .leftJoin(users, eq(complaints.userId, users.id))
+    .where(eq(complaints.id, Number(id)))
+    .limit(1);
+  if (!row) return null;
+  return { ...row.complaint, user: row.user };
+}
+
+async function createComplaint({ userId, subject, body, category }) {
+  const [row] = await db
+    .insert(complaints)
+    .values({
+      userId: Number(userId),
+      subject,
+      body,
+      category: category || null,
+      status: 'open',
+    })
+    .returning();
+  return row;
+}
+
+async function respondToComplaint(id, { response, respondedBy, status }) {
+  const [row] = await db
+    .update(complaints)
+    .set({
+      response,
+      respondedBy: respondedBy ? Number(respondedBy) : null,
+      respondedAt: new Date(),
+      status: status || 'resolved',
+    })
+    .where(eq(complaints.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+async function updateComplaintStatus(id, status) {
+  const [row] = await db
+    .update(complaints)
+    .set({ status })
+    .where(eq(complaints.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+async function removeComplaint(id) {
+  const [row] = await db.delete(complaints).where(eq(complaints.id, Number(id))).returning();
+  return row || null;
+}
+
+// ============================================================
+// MESSAGES
+// ============================================================
+
+async function listMessages({ userId, box = 'inbox', limit = 200 } = {}) {
+  const column = box === 'sent' ? messages.senderId : messages.recipientId;
+  return db
+    .select({ message: messages, sender: users })
+    .from(messages)
+    .leftJoin(users, eq(messages.senderId, users.id))
+    .where(eq(column, Number(userId)))
+    .orderBy(desc(messages.createdAt))
+    .limit(Number(limit));
+}
+
+// ------------------------------------------------------------
+// countUnreadMessages — used by dashboard summary.
+// ------------------------------------------------------------
+async function countUnreadMessages(userId) {
+  if (!userId) return 0;
+  const rows = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(and(
+      eq(messages.recipientId, Number(userId)),
+      eq(messages.isRead, false)
+    ));
+  return rows.length;
+}
+
+async function createMessage({ senderId, recipientId, subject, body, parentId }) {
+  const [row] = await db
+    .insert(messages)
+    .values({
+      senderId: Number(senderId),
+      recipientId: Number(recipientId),
+      subject: subject || null,
+      body,
+      parentId: parentId ? Number(parentId) : null,
+    })
+    .returning();
+  return row;
+}
+
+async function markMessageRead(id, userId) {
+  const [row] = await db
+    .update(messages)
+    .set({ isRead: true, readAt: new Date() })
+    .where(and(eq(messages.id, Number(id)), eq(messages.recipientId, Number(userId))))
+    .returning();
+  return row || null;
+}
+
+// ============================================================
+// EXPORTS
+// ============================================================
+module.exports = {
+  // announcements
+  listAnnouncementsWithAuthor,
+  findAnnouncementById,
+  createAnnouncement,
+  updateAnnouncement,
+  removeAnnouncement,
+
+  // notifications
+  listNotifications,
+  countUnreadNotifications,   // ← NEW
+  createNotification,
+  bulkCreateNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  removeNotification,
+
+  // complaints
+  listComplaintsWithUser,
+  listComplaints,             // ← NEW (used by shared.js)
+  findComplaintById,
+  createComplaint,
+  respondToComplaint,
+  updateComplaintStatus,
+  removeComplaint,
+
+  // messages
+  listMessages,
+  countUnreadMessages,        // ← NEW
+  createMessage,
+  markMessageRead,
+};
+--- routes/portal/shared.js (messages + notifications parts) ---
+// ============================================================
+// FPU — Shared portal API
+// Mounted at /api/portal
+// ------------------------------------------------------------
+// Endpoints used by every logged-in user regardless of role:
+//   photo, change-password, messages, notifications,
+//   announcements, complaints, security, avatar-upload,
+//   payments/submit, library/books
+// ============================================================
+
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+
+const { db, schema } = require('../../db');
+const { eq, and, desc } = require('drizzle-orm');
+
+const notifQueries = require('../../db/queries/notifications');
+const userQueries = require('../../db/queries/users');
+const sessionQueries = require('../../db/queries/sessions');
+const paymentQueries = require('../../db/queries/payments');
+const libQueries = require('../../db/queries/library');
+
+const { requireUser } = require('../../middleware/auth');
+const { logSecurity } = require('../../utils/audit');
+
+const {
+  users, photoUploads, messages, notifications,
+  announcements, complaints, borrowRecords, books,
+} = schema;
+
+// ============================================================
+// POST /api/portal/change-password
+// ============================================================
+router.post('/change-password', requireUser, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'currentPassword and newPassword are required.' });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ success: false, error: 'New password must be at least 6 characters.' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const me = await userQueries.findByEmail(req.user.email);
+    if (!me || !me.passwordHash) {
+      return res.status(400).json({ success: false, error: 'Account not found.' });
+    }
+
+    const ok = await bcrypt.compare(String(currentPassword), me.passwordHash);
+    if (!ok) {
+      await logSecurity({ req, event: 'password_change_failed', severity: 'warning' });
+      return res.status(401).json({ success: false, error: 'Current password is incorrect.' });
+    }
+
+    const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
+    const hash = await bcrypt.hash(String(newPassword), rounds);
+    await userQueries.updatePassword(req.user.id, hash);
+
+    await logSecurity({ req, event: 'password_changed', severity: 'info' });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/portal/photo — current user's photo
+// ============================================================
+router.get('/photo', requireUser, async (req, res, next) => {
+  try {
+    const [row] = await db
+      .select()
+      .from(photoUploads)
+      .where(and(eq(photoUploads.userId, req.user.id), eq(photoUploads.isCurrent, true)))
+      .limit(1);
+    return res.json({
+      success: true,
+      data: row || null,
+      photoUrl: req.user.photoUrl || null,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/portal/photo — save/update the user's photo URL
+// ------------------------------------------------------------
+// Body: { photoUrl } OR { url } (accept both).
+// Also locks in idCardPhotoUrl on the FIRST upload.
+// ============================================================
+router.post('/photo', requireUser, async (req, res, next) => {
+  try {
+    const url = String(req.body?.photoUrl || req.body?.url || '').trim();
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'photoUrl is required.' });
+    }
+
+    const updates = { photoUrl: url, updatedAt: new Date() };
+    // Lock in the ID-card photo only on first upload
+    if (!req.user.idCardPhotoUrl) {
+      updates.idCardPhotoUrl = url;
+    }
+
+    const [row] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, req.user.id))
+      .returning();
+
+    // Also record in photo_uploads history
+    try {
+      await db.insert(photoUploads).values({
+        userId: req.user.id,
+        url,
+        mimeType: req.body?.mimeType || null,
+        sizeBytes: req.body?.sizeBytes ? Number(req.body.sizeBytes) : null,
+        isCurrent: true,
+      });
+      // Mark older uploads as not current
+      await db
+        .update(photoUploads)
+        .set({ isCurrent: false })
+        .where(and(eq(photoUploads.userId, req.user.id), eq(photoUploads.isCurrent, true)));
+    } catch {
+      // history is optional — ignore failures
+    }
+
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// MESSAGES
+// ============================================================
+router.get('/messages', requireUser, async (req, res, next) => {
+  try {
+    const box = req.query.box === 'sent' ? 'sent' : 'inbox';
+    const rows = await notifQueries.listMessages({ userId: req.user.id, box });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.get('/messages/:id', requireUser, async (req, res, next) => {
+  try {
+    const [row] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, Number(req.params.id)))
+      .limit(1);
+    if (!row) return res.status(404).json({ success: false, error: 'Message not found.' });
+    if (row.recipientId !== req.user.id && row.senderId !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/messages', requireUser, async (req, res, next) => {
+  try {
+    const { recipientId, subject, body, parentId } = req.body || {};
+    if (!recipientId || !body) {
+      return res.status(400).json({ success: false, error: 'recipientId and body are required.' });
+    }
+    const row = await notifQueries.createMessage({
+      senderId: req.user.id,
+      recipientId,
+      subject,
+      body,
+      parentId,
+    });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/messages/:id', requireUser, async (req, res, next) => {
+  try {
+    const [row] = await db
+      .delete(messages)
+      .where(and(eq(messages.id, Number(req.params.id)), eq(messages.recipientId, req.user.id)))
+      .returning();
+    if (!row) return res.status(404).json({ success: false, error: 'Message not found.' });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+router.get('/notifications', requireUser, async (req, res, next) => {
+  try {
+    const rows = await notifQueries.listNotifications(req.user.id, {
+      unreadOnly: req.query.unread === 'true',
+      limit: Number(req.query.limit) || 100,
+    });
+    const unread = await notifQueries.countUnreadNotifications(req.user.id);
+    return res.json({ success: true, data: rows, unread });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/notifications/:id/read', requireUser, async (req, res, next) => {
+  try {
+    const row = await notifQueries.markNotificationRead(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Notification not found.' });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/notifications/read-all', requireUser, async (req, res, next) => {
+  try {
+    const count = await notifQueries.markAllNotificationsRead(req.user.id);
+    return res.json({ success: true, count });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.delete('/notifications/:id', requireUser, async (req, res, next) => {
+  try {
+    const row = await notifQueries.removeNotification(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Notification not found.' });
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+router.get('/announcements', requireUser, async (req, res, next) => {
+  try {
+    const rows = await notifQueries.listAnnouncementsWithAuthor({
+      audience: req.user.role,
+      isPublished: true,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// COMPLAINTS
+// ============================================================
+router.get('/complaints', requireUser, async (req, res, next) => {
+  try {
+    const rows = await notifQueries.listComplaints({ userId: req.user.id });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/complaints', requireUser, async (req, res, next) => {
+  try {
+    const { subject, body, category } = req.body || {};
+    if (!subject || !body) {
+      return res.status(400).json({ success: false, error: 'subject and body are required.' });
+    }
+    const row = await notifQueries.createComplaint({
+      userId: req.user.id,
+      subject,
+      body,
+      category,
+    });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+// ============================================================
+// SECURITY (sessions + login history)
+// ============================================================
+router.get('/security', requireUser, async (req, res, next) => {
+  try {
+    const sessions = await sessionQueries.listUserSessions(req.user.id);
+
+    let logins = [];
+    try {
+      const audit = require('../../db/queries/audit');
+      logins = await audit.listLogins({ userId: req.user.id, limit: 30 });
+    } catch { /* audit helper missing — return empty */ }
+
+    return res.json({ success: true, sessions, logins });
+  } catch (err) {
+    console.error('[portal/security] error:', err);
+    return next(err);
+  }
+});
+
+router.post('/security/revoke-all', requireUser, async (req, res, next) => {
+  try {
+    const count = await sessionQueries.revokeAllUserSessions(req.user.id, {
+      exceptToken: req.authToken || null,
+    });
+    return res.json({ success: true, count });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/security/revoke/:token', requireUser, async (req, res, next) => {
+  try {
+    await sessionQueries.revokeUserSession(req.params.token);
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// AVATAR UPLOAD — multipart via multer
+// ============================================================
+router.post('/avatar-upload', requireUser, async (req, res, next) => {
+  try {
+    // This endpoint expects a file already handled by multer middleware
+    // in your previous version. If not, the client should POST to /photo
+    // with a URL instead.
+    return res.status(400).json({
+      success: false,
+      error: 'Use POST /api/portal/photo with { photoUrl } for now.',
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// PAYMENTS — student submits a payment receipt
+// ============================================================
+router.post('/payments/submit', requireUser, async (req, res, next) => {
+  try {
+    const { amount, reference, bankName, depositorName, depositDate, sessionId } = req.body || {};
+    if (!amount || !reference) {
+      return res.status(400).json({ success: false, error: 'amount and reference are required.' });
+    }
+    const row = await paymentQueries.create({
+      studentId: req.user.id,
+      sessionId: sessionId ? Number(sessionId) : req.user.currentSessionId,
+      amount: String(amount),
+      reference,
+      bankName,
+      depositorName,
+      depositDate,
+      status: 'pending',
+    });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// LIBRARY — search books (any logged-in user)
+// ============================================================
+router.get('/library/books', requireUser, async (req, res, next) => {
+  try {
+    const rows = await libQueries.listBooks({
+      search: req.query.search,
+      category: req.query.category,
+      availableOnly: req.query.availableOnly === 'true',
+      limit: Number(req.query.limit) || 100,
+      offset: Number(req.query.offset) || 0,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+module.exports = router;
+--- portal/app.html topbar ---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" />
+  <link rel="stylesheet" href="/css/portal.css" />
+</head>
+<body class="portal-app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="/images/logo.png" alt="FPU" />
+      <span>FPU Portal</span>
+    </div>
+    <nav id="sidebar-nav">
+      <div class="loading" style="color:#a7f3d0;padding:1rem;"><span class="spinner"></span> Loading…</div>
+    </nav>
+    <div class="sidebar-footer">
+      <span>&copy; <span id="sb-year"></span> FPU</span>
+      <span style="font-size:.68rem;">v1.0</span>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div>
+        <h1 id="topbar-title">Dashboard</h1>
+        <div class="subtitle" id="page-subtitle"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="Notifications" onclick="FPU_SPA.navigatePortal('portal-notifications')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      </button>
+      <button class="icon-btn" title="Messages" onclick="FPU_SPA.navigatePortal('portal-messages')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+      </button>
+      <div class="user-chip-wrap" id="topbar-user-wrap">
+        <button class="user-chip" id="topbar-user-chip" type="button" aria-haspopup="menu" aria-expanded="false">
+          <div class="avatar" id="topbar-avatar">U</div>
+          <div>
+            <div class="name" id="topbar-name">User</div>
+            <div class="role" id="topbar-role">student</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="user-menu" id="topbar-user-menu" role="menu" hidden>
+          <div class="user-menu-header">
+            <div class="avatar" id="user-menu-avatar">U</div>
+            <div>
+              <div class="name" id="user-menu-name">User</div>
+              <div class="email" id="user-menu-email">user@example.com</div>
+            </div>
+          </div>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item" role="menuitem" data-menu="profile">👤 My Profile</button>
+          <button class="user-menu-item" role="menuitem" data-menu="photo">📷 My Photo</button>
+          <button class="user-menu-item" role="menuitem" data-menu="password">🔒 Change Password</button>
+          <button class="user-menu-item" role="menuitem" data-menu="notifications">🔔 Notifications</button>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item user-menu-danger" role="menuitem" data-menu="logout">🚪 Sign Out</button>
+        </div>
+      </div>
+      <button class="icon-btn" title="Sign out" id="topbar-logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main" id="main">
+    <div id="page-view">
+      <div class="loading"><span class="spinner"></span> Loading portal…</div>
+    </div>
+  </main>
+
+  <div id="toast-wrap" class="toast-wrap"></div>
+
+  <script src="/js/portal-core.js"></script>
+  <script src="/js/portal-photo-helper.js"></script>
+  <script src="/js/portal-spa.js"></script>
+  <script>
+    document.getElementById('sb-year').textContent = new Date().getFullYear();
+  </script>
+<!-- PORTAL MOBILE FALLBACK START -->
+<style id="portal-mobile-fallback">
+@media (max-width: 980px) {
+  html, body.portal-app { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
+
+  body.portal-app #sidebar {
+    position: fixed !important; top:0 !important; bottom:0 !important; left:0 !important;
+    width: 280px !important; max-width: 84vw !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;
+    transition: transform .25s ease-out !important;
+    z-index: 1100 !important; overflow-y: auto !important;
+  }
+  body.portal-app.sidebar-open #sidebar,
+  body.portal-app #sidebar.open {
+    transform: translateX(0) !important;
+    visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;
+  }
+  body.portal-app.sidebar-open::after {
+    content:'' !important; position:fixed !important; inset:0 !important;
+    background: rgba(15,23,42,.5) !important; z-index: 1090 !important;
+  }
+
+  body.portal-app .layout,
+  body.portal-app .app-layout,
+  body.portal-app .app-shell,
+  body.portal-app .portal-layout,
+  body.portal-app .portal-shell,
+  body.portal-app > * {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  main.main {
+    width: 100% !important; max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+  main.main > *, main.main > * > * {
+    width: 100% !important; max-width: 100% !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .topbar, .portal-topbar, .app-topbar, header.topbar {
+    width: 100% !important; max-width: 100% !important;
+    left: 0 !important; right: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .panel, .card, .tile, .greeting, .filters, .filter-bar {
+    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+  }
+
+  .greeting { flex-direction: column !important; align-items: flex-start !important; gap: .75rem !important; }
+  .greeting .meta { text-align: left !important; width: 100% !important; padding-top: .75rem !important; border-top: 1px solid rgba(255,255,255,.18) !important; }
+
+  .tile-grid, .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
+  }
+
+  .grid, .row, .cols, .chart-grid, [class*="grid-"], [class*="cols-"] {
+    display: block !important; grid-template-columns: 1fr !important; gap: .75rem !important;
+  }
+
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+
+  main.main [style*="max-width"] { max-width: 100% !important; }
+}
+@media (max-width: 640px) {
+  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
+  .tile-grid, .stat-grid { grid-template-columns: 1fr !important; }
+  main.main { padding-left: .5rem !important; padding-right: .5rem !important; }
+}
+@media (max-width: 400px) {
+  body.portal-app #sidebar { width: 240px !important; max-width: 90vw !important; }
+}
+</style>
+<script>
+/* Portal mobile — sidebar toggle fallback */
+(function () {
+  function bind() {
+    var toggle = document.getElementById('sidebar-toggle');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) return;
+    if (toggle.dataset.bound === '1') return;
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      var open = document.body.classList.toggle('sidebar-open');
+      sb.classList.toggle('open', open);
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      document.body.classList.remove('sidebar-open');
+      sb.classList.remove('open');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+        document.body.classList.remove('sidebar-open');
+        sb.classList.remove('open');
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+</script>
+<!-- PORTAL MOBILE FALLBACK END -->
+<!-- PORTAL SIDEBAR TOGGLE FIX START -->
+<script>
+(function () {
+  'use strict';
+  function openSidebar() {
+    document.body.classList.add('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.add('open');
+  }
+  function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('open');
+  }
+  function toggleSidebar() {
+    if (document.body.classList.contains('sidebar-open')) closeSidebar();
+    else openSidebar();
+  }
+  function bind() {
+    var toggle =
+      document.getElementById('sidebar-toggle') ||
+      document.querySelector('.topbar .toggle') ||
+      document.querySelector('button[aria-label*="sidebar" i]') ||
+      document.querySelector('button[aria-label*="menu" i]');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) { console.warn('[sidebar] elements missing'); return; }
+    if (toggle.dataset.sbBound === '1') return;
+    toggle.dataset.sbBound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSidebar();
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      closeSidebar();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSidebar();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+<!-- PORTAL SIDEBAR TOGGLE FIX END -->
+</body>
+</html>
+
+--- shared partials: announcements/notifications/messages ---
+-- shared/announcements.html --
+<!-- Shared → Announcements -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📢</div>
+    <div>
+      <h1>Announcements</h1>
+      <div class="sub">Institution-wide announcements</div>
+    </div>
+  </div>
+</section>
+
+<div class="filter-bar">
+  <input type="search" id="an-search" placeholder="Search announcements…" />
+  <select id="an-category">
+    <option value="">All Categories</option>
+    <option value="general">General</option>
+    <option value="academic">Academic</option>
+    <option value="event">Event</option>
+    <option value="urgent">Urgent</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="an-refresh">Refresh</button>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h3>Latest Announcements</h3><span class="badge" id="an-count">0</span></div>
+  <div class="panel-body" id="an-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [], FILTERED = [];
+
+  // Rows come as { announcement: {...}, author: {...} }
+  function unwrap(r) {
+    const a = r.announcement || r;
+    const author = r.author || {};
+    return {
+      ...a,
+      authorName: (author.firstName || author.lastName)
+        ? `${author.firstName || ''} ${author.lastName || ''}`.trim()
+        : 'Administration',
+    };
+  }
+
+  function getTitle(a) { return a.title || 'Untitled Announcement'; }
+  function getBody(a) { return a.body || a.content || a.message || ''; }
+  function getCategory(a) { return (a.category || 'general').toLowerCase(); }
+  function getDate(a) { return a.createdAt || a.publishedAt || a.date; }
+
+  function render() {
+    $('an-count').textContent = FILTERED.length;
+    if (!FILTERED.length) {
+      $('an-list').innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">No announcements.</p>';
+      return;
+    }
+    $('an-list').innerHTML = FILTERED.map((a) => `
+      <div style="padding:1rem 0;border-bottom:1px solid #eee;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <div style="flex:1;">
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;">
+              ${esc(getCategory(a))} · ${esc(a.authorName)}
+            </div>
+            <strong style="font-size:1rem;color:#0f172a;">${esc(getTitle(a))}</strong>
+            <p style="margin:.5rem 0 0;color:#374151;line-height:1.6;">${esc(getBody(a))}</p>
+          </div>
+          <div class="muted small" style="white-space:nowrap;">
+            ${getDate(a) ? new Date(getDate(a)).toLocaleDateString() : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('an-search').value || '').trim().toLowerCase();
+    const cat = $('an-category').value;
+    FILTERED = ALL.filter((a) => {
+      const hay = `${getTitle(a)} ${getBody(a)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (cat && getCategory(a) !== cat) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
+    try {
+      const res = await core.portalFetch('/api/announcements');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      ALL = raw.map(unwrap);
+      applyFilter();
+    } catch (err) {
+      console.error('[announcements]', err);
+      $('an-list').innerHTML = `<div class="alert alert-error">Could not load announcements: ${esc(err.message)}</div>`;
+    }
+  }
+
+  $('an-search').addEventListener('input', applyFilter);
+  $('an-category').addEventListener('change', applyFilter);
+  $('an-refresh').addEventListener('click', load);
+
+  load();
+})();
+</script>
+-- shared/notifications.html --
+<!-- Shared → Notifications -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">🔔</div>
+    <div>
+      <h1>Notifications</h1>
+      <div class="sub">Recent activity and alerts</div>
+    </div>
+  </div>
+</section>
+
+<div class="filter-bar">
+  <input type="search" id="nt-search" placeholder="Search notifications…" />
+  <select id="nt-status">
+    <option value="">All</option>
+    <option value="unread">Unread</option>
+    <option value="read">Read</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="nt-mark-all">Mark All Read</button>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Recent</h3>
+    <span class="badge" id="nt-count">0</span>
+  </div>
+  <div class="panel-body" id="nt-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [], FILTERED = [];
+
+  function getTitle(n) { return n.title || 'Notification'; }
+  function getBody(n) { return n.body || n.message || ''; }
+  function getDate(n) { return n.createdAt || n.date; }
+  function isRead(n) { return n.isRead === true || n.readAt != null; }
+
+  function render() {
+    $('nt-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('nt-list').innerHTML = `
+        <div style="text-align:center;padding:3rem 1rem;color:#94a3b8;">
+          <div style="font-size:3rem;margin-bottom:1rem;">🔔</div>
+          <p style="font-size:14px;font-weight:500;">No notifications.</p>
+          <p style="font-size:12.5px;margin-top:.5rem;">You'll see alerts here when something needs your attention.</p>
+        </div>`;
+      return;
+    }
+
+    $('nt-list').innerHTML = FILTERED.map((n) => `
+      <div style="padding:1rem;border-bottom:1px solid #eee;${isRead(n) ? '' : 'background:#f0fdf4;'}">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <div style="flex:1;">
+            <strong>${esc(getTitle(n))}</strong>
+            <p style="margin:.25rem 0 0;color:#374151;">${esc(getBody(n))}</p>
+          </div>
+          <div class="muted small" style="white-space:nowrap;">
+            ${getDate(n) ? new Date(getDate(n)).toLocaleDateString() : ''}
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('nt-search').value || '').trim().toLowerCase();
+    const st = $('nt-status').value;
+    FILTERED = ALL.filter((n) => {
+      const hay = `${getTitle(n)} ${getBody(n)}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (st === 'unread' && isRead(n)) return false;
+      if (st === 'read' && !isRead(n)) return false;
+      return true;
+    });
+    render();
+  }
+
+  async function load() {
+    try {
+      const res = await core.portalFetch('/api/notifications');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.notifications || []);
+      // Notifications may be nested as { notification: {...} }
+      ALL = raw.map((n) => n.notification || n);
+      applyFilter();
+    } catch (err) {
+      // API may return 404 if not yet built — show empty state
+      ALL = [];
+      applyFilter();
+    }
+  }
+
+  $('nt-search').addEventListener('input', applyFilter);
+  $('nt-status').addEventListener('change', applyFilter);
+  $('nt-mark-all').addEventListener('click', async () => {
+    if (!ALL.length) {
+      core.showToast && core.showToast('No notifications to mark', 'info');
+      return;
+    }
+    try {
+      await core.portalFetch('/api/notifications/read-all', { method: 'POST' });
+      core.showToast && core.showToast('All marked as read', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message || 'Failed to mark as read', 'error');
+    }
+  });
+
+  load();
+})();
+</script>
+-- shared/messages.html --
+<!-- Shared → Messages -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">💬</div>
+    <div>
+      <h1>Messages</h1>
+      <div class="sub">Your internal messages and conversations</div>
+    </div>
+  </div>
+</section>
+
+<!-- Filter bar — no Compose button (feature not yet available) -->
+<div class="filter-bar">
+  <input type="search" id="ms-search" placeholder="Search messages…" />
+  <select id="ms-status">
+    <option value="">All</option>
+    <option value="unread">Unread</option>
+    <option value="read">Read</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="ms-refresh">Refresh</button>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Inbox</h3>
+    <span class="badge" id="ms-count">0</span>
+  </div>
+  <div class="panel-body" id="ms-list">
+    <div class="loading"><span class="spinner"></span> Loading…</div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  // ----------------------------------------------------------
+  // Render
+  // ----------------------------------------------------------
+  function render() {
+    $('ms-count').textContent = FILTERED.length;
+
+    // Empty state
+    if (!FILTERED.length) {
+      $('ms-list').innerHTML = `
+        <div style="text-align:center;padding:3.5rem 1rem;color:#94a3b8;">
+          <div style="font-size:3.5rem;margin-bottom:1rem;">📭</div>
+          <p style="font-size:14.5px;font-weight:600;color:#475569;margin:0;">No messages yet</p>
+          <p style="font-size:12.5px;margin:.5rem 0 0;color:#94a3b8;">
+            Messages from staff and students will appear here once the messaging system is enabled.
+          </p>
+        </div>`;
+      return;
+    }
+
+    // Message list
+    $('ms-list').innerHTML = FILTERED.map((m) => `
+      <div style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;${m.isRead ? '' : 'background:#f0fdf4;'}" data-id="${m.id}">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
+          <strong style="color:#0f172a;">${esc(m.senderName || m.from || 'System')}</strong>
+          <span class="muted small" style="white-space:nowrap;">
+            ${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}
+          </span>
+        </div>
+        <div style="margin-top:.35rem;color:#1f2937;font-weight:500;">${esc(m.subject || 'No subject')}</div>
+        <div style="margin-top:.25rem;color:#64748b;font-size:13px;line-height:1.5;">
+          ${esc((m.preview || m.body || '').slice(0, 120))}${(m.body || '').length > 120 ? '…' : ''}
+        </div>
+      </div>`).join('');
+  }
+
+  // ----------------------------------------------------------
+  // Filter
+  // ----------------------------------------------------------
+  function applyFilter() {
+    const q = ($('ms-search').value || '').trim().toLowerCase();
+    const st = $('ms-status').value;
+
+    FILTERED = ALL.filter((m) => {
+      const hay = `${m.senderName || ''} ${m.subject || ''} ${m.body || ''}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (st === 'unread' && m.isRead) return false;
+      if (st === 'read' && !m.isRead) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  // ----------------------------------------------------------
+  // Load messages
+  // ----------------------------------------------------------
+  // The messaging backend isn't built yet, so we gracefully
+  // show the empty state. When `/api/messages` is ready,
+  // uncomment the try block below to fetch real data.
+  // ----------------------------------------------------------
+  async function load() {
+    // try {
+    //   const res = await core.portalFetch('/api/messages');
+    //   const payload = res.data || res || {};
+    //   const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
+    //   // Handle possible nesting: { message: {...} }
+    //   ALL = raw.map((m) => m.message || m);
+    // } catch (err) {
+    //   console.warn('[messages] endpoint unavailable, showing empty state');
+    //   ALL = [];
+    // }
+
+    // Hardcoded empty for now
+    ALL = [];
+    applyFilter();
+  }
+
+  // ----------------------------------------------------------
+  // Wire up
+  // ----------------------------------------------------------
+  $('ms-search').addEventListener('input', applyFilter);
+  $('ms-status').addEventListener('change', applyFilter);
+  $('ms-refresh').addEventListener('click', load);
+
+  // Go
+  load();
+})();
+</script>
+--- schema tables ---
+> const announcementPriorityEnum = pgEnum('announcement_priority', [
+    'low', 'normal', 'high',
+  ]);
+  
+> const announcementAudienceEnum = pgEnum('announcement_audience', [
+    'all', 'student', 'staff', 'lecturer', 'hod',
+  ]);
+  
+> const notifTypeEnum = pgEnum('notification_type', [
+    'info', 'warning', 'success', 'complaint', 'fee',
+  ]);
+  
+  const registrationStatusEnum = pgEnum('registration_status', [
+    'pending', 'approved', 'rejected',
+  ]);
+  
+  // ============================================================
+  // 1. USERS
+  // ============================================================
+  const users = pgTable('users', {
+    id: serial('id').primaryKey(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    passwordHash: text('password_hash').notNull(),
+    role: userRoleEnum('role').notNull().default('student'),
+  
+    firstName: varchar('first_name', { length: 100 }).notNull(),
+    lastName: varchar('last_name', { length: 100 }).notNull(),
+    middleName: varchar('middle_name', { length: 100 }),
+  
+> const messages = pgTable('messages', {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    senderId: integer('sender_id').notNull(),
+    recipientId: integer('recipient_id').notNull(),
+    subject: varchar('subject', { length: 200 }),
+    body: text('body').notNull(),
+    isRead: boolean('is_read').notNull().default(false),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    parentId: integer('parent_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    senderIdx: index('idx_messages_sender').on(t.senderId),
+    recipientIdx: index('idx_messages_recipient').on(t.recipientId),
+    readIdx: index('idx_messages_read').on(t.isRead),
+  }));
+  
+  // ============================================================
+  // 32. NOTIFICATIONS
+  // ============================================================
+> const notifications = pgTable('notifications', {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    userId: integer('user_id').notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    body: text('body'),
+>   type: notifTypeEnum('type').default('info'),
+    link: text('link'),
+    isRead: boolean('is_read').notNull().default(false),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  }, (t) => ({
+    userIdx: index('idx_notifications_user').on(t.userId),
+    readIdx: index('idx_notifications_read').on(t.isRead),
+  }));
+  
+  // ============================================================
+  // 33. ANNOUNCEMENTS
+  // ============================================================
+> const announcements = pgTable('announcements', {
+    id: serial('id').primaryKey(),
+    title: varchar('title', { length: 200 }).notNull(),
+    body: text('body').notNull(),
+>   audience: announcementAudienceEnum('audience').notNull().default('all'),
+>   priority: announcementPriorityEnum('priority').notNull().default('normal'),
+    authorId: integer('author_id').notNull(),
+    isPublished: boolean('is_published').notNull().default(true),
+    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  }, (t) => ({
+    audienceIdx: index('idx_announcements_audience').on(t.audience),
+    publishedIdx: index('idx_announcements_published').on(t.isPublished),
+  }));
+  
+  // ============================================================
+  // 34. STAFF PROFILES
+  // ============================================================
+  const staffProfiles = pgTable('staff_profiles', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').notNull().unique(),
+    staffNumber: varchar('staff_number', { length: 40 }).unique(),
+    departmentId: integer('department_id'),
+    rank: varchar('rank', { length: 80 }),
+    specialization: varchar('specialization', { length: 200 }),
+    qualification: varchar('qualification', { length: 200 }),
+>   announcementPriorityEnum,
+>   announcementAudienceEnum,
+>   notifTypeEnum,
+    registrationStatusEnum,
+  
+    // tables
+    users,
+    adminSessions,
+    userSessions,
+    academicSessions,
+    schools,
+    departments,
+    programmes,
+    courses,
+    courseAllocations,
+    courseRegistrations,
+    results,
+    gradeScales,
+    feeStructures,
+    payments,
+    clearances,
+    applications,
+    timetableSlots,
+--- portal-spa.js sidebar entries ---
+    // ----------------------------------------------------------
+>   const SHARED_PAGES = [
+      { key: 'portal-profile',          label: 'My Profile',     icon: ICON.user },
+      { key: 'portal-photo',            label: 'My Photo',       icon: ICON.photo },
+>     { key: 'portal-messages',         label: 'Messages',       icon: ICON.chat },
+>     { key: 'portal-notifications',    label: 'Notifications',  icon: ICON.bell },
+>     { key: 'portal-announcements',    label: 'Announcements',  icon: ICON.megaphone },
+      { key: 'portal-complaints',       label: 'Complaints',     icon: ICON.chat },
+      student: [
+>       'portal-profile', 'portal-photo', 'portal-notifications',
+>       'portal-announcements', 'portal-complaints', 'portal-security',
+      ],
+      lecturer: [
+>       'portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements',
+        'admin-exams',
+      hod: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'admin-exams', 'admin-transcript',
+      bursar: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'admin-documents', 'admin-transcript',
+      rector: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'portal-complaints',
+        'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements', 'admin-transcript',
+      ],
+      librarian: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'admin-library', 'admin-borrows',
+      exam_officer: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'admin-exams', 'admin-courses',
+      academic_officer: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+        'admin-programmes', 'admin-courses', 'admin-sessions', 'admin-exams',
+      admission_officer: [
+>       'portal-profile', 'portal-photo', 'portal-messages',
+>       'portal-notifications', 'portal-announcements',
+      ],
+      lecturer: (role, roleItems, sharedItems) => {
+>       const personalKeys = ['portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements'];
+        const referenceKeys = ['admin-exams'];
+    const SHARED_FILE_MAP = {
+>     'portal-profile': 'profile', 'portal-photo': 'photo', 'portal-messages': 'messages',
+>     'portal-notifications': 'notifications', 'portal-announcements': 'announcements',
+      'portal-complaints': 'complaints', 'portal-security': 'security',
+    });
+>   SHARED_PAGES.forEach((item) => { PORTAL_TITLES[item.key] = item.label; });
+  
+      const allowed = SHARED_BY_ROLE[role];
+>     if (allowed === '*') return SHARED_PAGES;
+      if (!Array.isArray(allowed)) return [];
+>     return SHARED_PAGES.filter((p) => allowed.includes(p.key));
+    }
+      // Shared pages
+>     if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
+        const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
+          if (action === 'photo')          navigatePortal('portal-photo');
+>         if (action === 'notifications')  navigatePortal('portal-notifications');
+          if (action === 'password') {
+--- routes/index.js mounts ---
+router.use('/admin/announcements',  require('./announcements'));
+router.use('/admin/notifications',  require('./notifications'));

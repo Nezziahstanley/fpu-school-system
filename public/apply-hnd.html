@@ -286,7 +286,7 @@
     // ---------- Load HND programmes into the select ----------
     (async function loadProgrammes() {
       try {
-        const res = await fetch('/api/public/programmes?level=HND');
+        const res = await fetch('/api/programmes?level=HND');
         const json = await res.json();
         const rows = (json.data || []).filter((p) => String(p.level).toUpperCase() === 'HND');
         const sel = document.getElementById('hnd-programme');

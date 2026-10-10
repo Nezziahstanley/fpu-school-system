@@ -405,9 +405,42 @@ async function touchLogin(id) {
 // ============================================================
 // Exports
 // ============================================================
+
+// ============================================================
+// findHodForDepartment — returns the HOD user for a department
+// ============================================================
+async function findHodForDepartment(departmentId) {
+  if (!departmentId) return null;
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(and(
+      eq(users.role, 'hod'),
+      eq(users.departmentId, Number(departmentId))
+    ))
+    .limit(1);
+  return row || null;
+}
+
+// ============================================================
+// findHodForDepartment — returns the HOD user for a department
+// ============================================================
+async function findHodForDepartment(departmentId) {
+  if (!departmentId) return null;
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(and(
+      eq(users.role, 'hod'),
+      eq(users.departmentId, Number(departmentId))
+    ))
+    .limit(1);
+  return row || null;
+}
 module.exports = {
   findById,
   findByIdWithRelations,
+  findHodForDepartment,
   findByEmail,
   emailExists,
   list,

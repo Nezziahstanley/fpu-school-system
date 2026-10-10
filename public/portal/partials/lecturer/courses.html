@@ -1,4 +1,14 @@
 ﻿<!-- Portal → Lecturer → My Courses -->
+<style>
+  .lc-status-chip { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+  .lc-status-chip.assigned  { background: #fef3c7; color: #92400e; }
+  .lc-status-chip.accepted  { background: #d1fae5; color: #065f46; }
+  .lc-status-chip.flagged   { background: #fee2e2; color: #991b1b; }
+  .lc-status-chip.cancelled { background: #f1f5f9; color: #475569; }
+  #lc-flag-modal { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1rem; }
+  #lc-flag-modal.open { display: flex; }
+  #lc-flag-modal > div { background: #fff; border-radius: 14px; max-width: 480px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+</style>
 <section class="greeting">
   <div class="who">
     <div class="avatar">📚</div>
@@ -39,11 +49,11 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Code</th><th>Title</th><th>Level</th><th>Units</th><th>Semester</th><th>Session</th>
+            <th>Code</th><th>Title</th><th>Level</th><th>Units</th><th>Semester</th><th>Session</th><th>Status</th><th style="width:180px;">Actions</th>
           </tr>
         </thead>
         <tbody id="lc-tbody">
-          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -68,7 +78,7 @@
     if (!tbody) return;
 
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No courses match your filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No courses match your filters.</td></tr>';
       return;
     }
 
@@ -82,7 +92,7 @@
           <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
           <td>${c.units || 0}</td>
           <td>${esc(c.semester || '—')}</td>
-          <td>${esc(c.sessionName || '—')}</td>
+          <td>${esc(c.sessionName || '—')}</td><td>'+statusChip(c.status)+'</td><td>'+actionButtons(c)+'</td>
         </tr>`;
     }).join('');
   }
@@ -111,7 +121,7 @@
 
   async function load() {
     const tbody = $('lc-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/admin/allocations/my');
       const payload = res.data || res || {};
@@ -128,7 +138,7 @@
           title: crs.title || alloc.courseTitle || '—',
           level: crs.level || alloc.level || '—',
           units: crs.unit || alloc.units || 0,
-          semester: alloc.semester || '—',
+          semester: alloc.semester || '—', status: alloc.status || 'assigned', lecturerId: alloc.lecturerId,
           sessionName: ses.name || alloc.sessionName || '—',
         };
       });
@@ -138,7 +148,7 @@
       applyFilter();
     } catch (err) {
       console.error('[lecturer-courses]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -162,4 +172,107 @@
 
   load();
 })();
+
+// ============================================================
+// ALLOCATION ACCEPTANCE (Design B)
+// ============================================================
+var CURRENT_ALLOC = null;
+
+function statusChip(s) {
+  var v = String(s || 'assigned').toLowerCase();
+  return '<span class="lc-status-chip ' + v + '">' + esc(v) + '</span>';
+}
+
+function actionButtons(c) {
+  var s = String(c.status || 'assigned').toLowerCase();
+  if (s === 'assigned' || s === 'flagged') {
+    return '<button class="btn btn-primary btn-sm" data-act="accept" data-id="' + esc(c.id) + '">Accept</button> '
+         + '<button class="btn btn-outline btn-sm" data-act="flag" data-id="' + esc(c.id) + '">Flag</button>';
+  }
+  return '<span class="muted small">—</span>';
+}
+
+async function accept(c) {
+  if (!confirm('Accept the assignment for ' + c.code + '?')) return;
+  try {
+    await core.portalFetch('/api/lecturer/allocations/' + c.id + '/accept', { method: 'POST' });
+    core.showToast && core.showToast('Accepted.', 'success');
+    load();
+  } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+}
+
+function openFlag(c) {
+  CURRENT_ALLOC = c;
+  document.getElementById('lc-flag-sub').textContent = c.code + ' — ' + c.title;
+  document.getElementById('lc-flag-reason').value = '';
+  document.getElementById('lc-flag-note').value = '';
+  document.getElementById('lc-flag-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeFlag() {
+  CURRENT_ALLOC = null;
+  document.getElementById('lc-flag-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+async function saveFlag() {
+  if (!CURRENT_ALLOC) return;
+  var reason = document.getElementById('lc-flag-reason').value;
+  var note = document.getElementById('lc-flag-note').value.trim();
+  if (!reason) { core.showToast && core.showToast('Reason required.', 'warning'); return; }
+  var btn = document.getElementById('lc-flag-save');
+  btn.disabled = true;
+  var prev = btn.textContent;
+  btn.textContent = 'Sending…';
+  try {
+    await core.portalFetch('/api/lecturer/allocations/' + CURRENT_ALLOC.id + '/flag', {
+      method: 'POST',
+      body: { reason: reason, note: note },
+    });
+    core.showToast && core.showToast('Flagged. Your HOD has been notified.', 'warning');
+    closeFlag();
+    load();
+  } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = prev; }
+}
+
+// Wire flag modal
+document.getElementById('lc-flag-close')?.addEventListener('click', closeFlag);
+document.getElementById('lc-flag-cancel')?.addEventListener('click', closeFlag);
+document.getElementById('lc-flag-save')?.addEventListener('click', saveFlag);
+document.getElementById('lc-flag-modal')?.addEventListener('click', function (e) {
+  if (e.target.id === 'lc-flag-modal') closeFlag();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeFlag();
+});
+
+
+<!-- Flag modal -->
+<div id="lc-flag-modal" role="dialog" aria-modal="true">
+  <div>
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1.05rem;">Flag this assignment</h3>
+      <button type="button" id="lc-flag-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <p class="muted small" id="lc-flag-sub" style="margin:0 0 .85rem;"></p>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Reason *</label>
+      <select id="lc-flag-reason" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;margin-bottom:.85rem;">
+        <option value="">— Select —</option>
+        <option value="study-leave">Study leave / sabbatical</option>
+        <option value="overload">Overload (exceeds capacity)</option>
+        <option value="specialty">Specialty mismatch</option>
+        <option value="medical">Medical / personal</option>
+        <option value="other">Other</option>
+      </select>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Note (optional)</label>
+      <textarea id="lc-flag-note" rows="3" maxlength="500" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;box-sizing:border-box;resize:vertical;margin-bottom:1rem;"></textarea>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="lc-flag-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="button" id="lc-flag-save" class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;">Flag</button>
+      </div>
+    </div>
+  </div>
+</div>
 </script>
+

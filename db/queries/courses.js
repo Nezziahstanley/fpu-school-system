@@ -427,10 +427,70 @@ async function listWithAllocations({ departmentId, sessionId, semester, level } 
     .where(where)
     .orderBy(asc(courses.code));
 }
+
+// ============================================================
+// ALLOCATION WORKFLOW HELPERS (Design B)
+// ============================================================
+
+async function acceptAllocation(id, lecturerId) {
+  const [row] = await db
+    .update(courseAllocations)
+    .set({ status: 'accepted', respondedAt: new Date() })
+    .where(and(
+      eq(courseAllocations.id, Number(id)),
+      eq(courseAllocations.lecturerId, Number(lecturerId)),
+      inArray(courseAllocations.status, ['assigned', 'flagged'])
+    ))
+    .returning();
+  return row || null;
+}
+
+async function flagAllocation(id, lecturerId, reason, note) {
+  const [row] = await db
+    .update(courseAllocations)
+    .set({
+      status: 'flagged',
+      flagReason: reason || null,
+      flagNote: note || null,
+      respondedAt: new Date(),
+    })
+    .where(and(
+      eq(courseAllocations.id, Number(id)),
+      eq(courseAllocations.lecturerId, Number(lecturerId))
+    ))
+    .returning();
+  return row || null;
+}
+
+async function forceAcceptAllocation(id, actorId) {
+  const [row] = await db
+    .update(courseAllocations)
+    .set({ status: 'accepted', respondedAt: new Date() })
+    .where(eq(courseAllocations.id, Number(id)))
+    .returning();
+  return row || null;
+}
+
+async function countFlaggedAllocations(departmentId, sessionId) {
+  const rows = await db
+    .select({ id: courseAllocations.id })
+    .from(courseAllocations)
+    .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+    .where(and(
+      eq(courseAllocations.status, 'flagged'),
+      departmentId ? eq(courses.departmentId, Number(departmentId)) : sql`true`,
+      sessionId ? eq(courseAllocations.sessionId, Number(sessionId)) : sql`true`
+    ));
+  return rows.length;
+}
 module.exports = {
   // courses
   list,
   listWithAllocations,
+  acceptAllocation,
+  flagAllocation,
+  forceAcceptAllocation,
+  countFlaggedAllocations,
   count,
   findById,
   findByIdWithRelations,
@@ -469,3 +529,4 @@ module.exports = {
   updateDepartment,
   removeDepartment,
 }; 
+

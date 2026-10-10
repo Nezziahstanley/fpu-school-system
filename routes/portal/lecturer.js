@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Lecturer portal API
 // Mounted at /api/lecturer
 // ============================================================
@@ -550,4 +550,134 @@ router.get('/security', only, async (req, res, next) => {
   }
 });
 
+
+// ============================================================
+// ALLOCATION ACCEPTANCE WORKFLOW (Design B)
+// ============================================================
+
+// POST /api/lecturer/allocations/:id/accept
+router.post('/allocations/:id/accept', requireRole('lecturer', 'hod'), async (req, res, next) => {
+  try {
+    const row = await courseQueries.acceptAllocation(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+    await logAudit({ req, action: 'lecturer.allocation_accept', entity: 'course_allocation', entityId: row.id });
+
+    // Notify the HOD
+    try {
+      const course = await courseQueries.findById(row.courseId);
+      const hod = await userQueries.findHodForDepartment(course.departmentId);
+      if (hod) {
+        await notifQueries.createNotification({
+          userId: hod.id,
+          title: 'Course assignment accepted',
+          body: (course.code || '') + ' — ' + (course.title || '') + ' accepted by lecturer.',
+          type: 'success',
+          link: '/portal/app.html#hod-courses',
+        });
+      }
+    } catch (e) { /* best-effort */ }
+
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// POST /api/lecturer/allocations/:id/flag
+// Body: { reason, note }
+router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req, res, next) => {
+  try {
+    const { reason, note } = req.body || {};
+    if (!reason) return res.status(400).json({ success: false, error: 'reason is required.' });
+    const row = await courseQueries.flagAllocation(req.params.id, req.user.id, reason, note);
+    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+    await logAudit({
+      req,
+      action: 'lecturer.allocation_flag',
+      entity: 'course_allocation',
+      entityId: row.id,
+      after: { reason, note },
+    });
+
+    // Notify the HOD
+    try {
+      const course = await courseQueries.findById(row.courseId);
+      const hod = await userQueries.findHodForDepartment(course.departmentId);
+      if (hod) {
+        await notifQueries.createNotification({
+          userId: hod.id,
+          title: 'Course assignment flagged',
+          body: (course.code || '') + ' — ' + (course.title || '') + ' was flagged: ' + reason,
+          type: 'warning',
+          link: '/portal/app.html#hod-courses',
+        });
+      }
+    } catch (e) { /* best-effort */ }
+
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// ALLOCATION ACCEPTANCE WORKFLOW (Design B)
+// ============================================================
+
+// POST /api/lecturer/allocations/:id/accept
+router.post('/allocations/:id/accept', requireRole('lecturer', 'hod'), async (req, res, next) => {
+  try {
+    const row = await courseQueries.acceptAllocation(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+    await logAudit({ req, action: 'lecturer.allocation_accept', entity: 'course_allocation', entityId: row.id });
+
+    // Notify the HOD
+    try {
+      const course = await courseQueries.findById(row.courseId);
+      const hod = await userQueries.findHodForDepartment(course.departmentId);
+      if (hod) {
+        await notifQueries.createNotification({
+          userId: hod.id,
+          title: 'Course assignment accepted',
+          body: (course.code || '') + ' — ' + (course.title || '') + ' accepted by lecturer.',
+          type: 'success',
+          link: '/portal/app.html#hod-courses',
+        });
+      }
+    } catch (e) { /* best-effort */ }
+
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// POST /api/lecturer/allocations/:id/flag
+// Body: { reason, note }
+router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req, res, next) => {
+  try {
+    const { reason, note } = req.body || {};
+    if (!reason) return res.status(400).json({ success: false, error: 'reason is required.' });
+    const row = await courseQueries.flagAllocation(req.params.id, req.user.id, reason, note);
+    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+    await logAudit({
+      req,
+      action: 'lecturer.allocation_flag',
+      entity: 'course_allocation',
+      entityId: row.id,
+      after: { reason, note },
+    });
+
+    // Notify the HOD
+    try {
+      const course = await courseQueries.findById(row.courseId);
+      const hod = await userQueries.findHodForDepartment(course.departmentId);
+      if (hod) {
+        await notifQueries.createNotification({
+          userId: hod.id,
+          title: 'Course assignment flagged',
+          body: (course.code || '') + ' — ' + (course.title || '') + ' was flagged: ' + reason,
+          type: 'warning',
+          link: '/portal/app.html#hod-courses',
+        });
+      }
+    } catch (e) { /* best-effort */ }
+
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
 module.exports = router;

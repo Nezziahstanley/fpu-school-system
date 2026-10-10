@@ -453,4 +453,38 @@ router.delete('/allocate/:id', only, async (req, res, next) => {
     return res.json({ success: true });
   } catch (err) { return next(err); }
 });
+
+// ============================================================
+// POST /api/hod/allocate/:id/force-accept
+// Override a lecturer's flag — HOD decides the assignment stands.
+// ============================================================
+router.post('/allocate/:id/force-accept', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const existing = await courseQueries.findAllocationById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    const course = await courseQueries.findById(existing.courseId);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    const row = await courseQueries.forceAcceptAllocation(existing.id, req.user.id);
+    await logAudit({ req, action: 'hod.force_accept_allocation', entity: 'course_allocation', entityId: row.id });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/hod/flagged
+// Count of flagged allocations in the HOD's department.
+// ============================================================
+router.get('/flagged', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const count = await courseQueries.countFlaggedAllocations(departmentId, req.user.currentSessionId);
+    return res.json({ success: true, data: { count } });
+  } catch (err) { return next(err); }
+});
 module.exports = router;
+

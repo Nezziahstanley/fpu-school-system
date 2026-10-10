@@ -3,11 +3,7 @@
 -- Adds acceptance workflow to course_allocations
 -- ============================================================
 
-DO $$ BEGIN
-  CREATE TYPE allocation_status AS ENUM ('assigned', 'accepted', 'flagged', 'cancelled');
-EXCEPTION
-  WHEN duplicate_object THEN null;
-END $$;
+CREATE TYPE allocation_status AS ENUM ('assigned', 'accepted', 'flagged', 'cancelled');
 
 ALTER TABLE course_allocations
   ADD COLUMN IF NOT EXISTS status allocation_status NOT NULL DEFAULT 'assigned',
@@ -16,7 +12,6 @@ ALTER TABLE course_allocations
   ADD COLUMN IF NOT EXISTS flag_note text,
   ADD COLUMN IF NOT EXISTS responded_at timestamptz;
 
--- Backfill: existing rows are treated as already accepted
 UPDATE course_allocations
    SET status = 'accepted', responded_at = created_at
  WHERE status = 'assigned';

@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — Course / programme / school / department queries
 // Used by: routes/courses, routes/programmes, routes/schools,
 //          routes/departments, routes/allocations, routes/adminLookups
@@ -361,9 +361,76 @@ async function removeDepartment(id) {
   return !!row;
 }
 
+
+// ============================================================
+// listWithAllocations — courses in a dept joined with their
+// current allocation (if any) for a given session+semester.
+// Returns: [{ course, allocation, lecturer, session }]
+// ============================================================
+async function listWithAllocations({ departmentId, sessionId, semester, level } = {}) {
+  const conds = [];
+  if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
+  if (level) conds.push(eq(courses.level, level));
+
+  const where = conds.length ? and(...conds) : undefined;
+
+  const allocConds = [];
+  if (sessionId) allocConds.push(eq(courseAllocations.sessionId, Number(sessionId)));
+  if (semester) allocConds.push(eq(courseAllocations.semester, semester));
+  const allocWhere = allocConds.length ? and(...allocConds) : undefined;
+
+  return db
+    .select({
+      course: courses,
+      allocation: courseAllocations,
+      lecturer: users,
+    })
+    .from(courses)
+    .leftJoin(courseAllocations, and(
+      eq(courseAllocations.courseId, courses.id),
+      allocWhere || sql`true`
+    ))
+    .leftJoin(users, eq(courseAllocations.lecturerId, users.id))
+    .where(where)
+    .orderBy(asc(courses.code));
+}
+
+// ============================================================
+// listWithAllocations — courses in a dept joined with their
+// current allocation (if any) for a given session+semester.
+// Returns: [{ course, allocation, lecturer, session }]
+// ============================================================
+async function listWithAllocations({ departmentId, sessionId, semester, level } = {}) {
+  const conds = [];
+  if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
+  if (level) conds.push(eq(courses.level, level));
+
+  const where = conds.length ? and(...conds) : undefined;
+
+  const allocConds = [];
+  if (sessionId) allocConds.push(eq(courseAllocations.sessionId, Number(sessionId)));
+  if (semester) allocConds.push(eq(courseAllocations.semester, semester));
+  const allocWhere = allocConds.length ? and(...allocConds) : undefined;
+
+  return db
+    .select({
+      course: courses,
+      allocation: courseAllocations,
+      lecturer: users,
+    })
+    .from(courses)
+    .leftJoin(courseAllocations, and(
+      eq(courseAllocations.courseId, courses.id),
+      allocWhere || sql`true`
+    ))
+    .leftJoin(users, eq(courseAllocations.lecturerId, users.id))
+    .where(where)
+    .orderBy(asc(courses.code));
+}
 module.exports = {
   // courses
   list,
+  listWithAllocations,
   count,
   findById,
   findByIdWithRelations,

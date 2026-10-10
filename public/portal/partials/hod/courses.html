@@ -1,55 +1,49 @@
-﻿<!-- Portal → HOD → Courses -->
+﻿<!-- Portal → HOD → Courses (with lecturer assignment) -->
 <section class="greeting">
   <div class="who">
-    <div class="avatar">C</div>
+    <div class="avatar">📚</div>
     <div>
       <h1>Department Courses</h1>
-      <div class="sub" id="c-dept-sub">All courses in your department</div>
+      <div class="sub">Assign lecturers to each course</div>
     </div>
   </div>
 </section>
 
-<!-- Filter bar -->
-<div class="filter-bar">
-  <input type="search" id="c-search" placeholder="Search code, title, or lecturer…" />
-  <select id="c-level">
+<style>
+  .hc-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+  .hc-toolbar input[type="search"] { flex: 1 1 220px; min-width: 180px; padding: .55rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; }
+  .hc-toolbar select { padding: .55rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; background: #fff; }
+  .hc-chip { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .68rem; font-weight: 700; letter-spacing: .04em; }
+  .hc-chip.assigned  { background: #d1fae5; color: #065f46; }
+  .hc-chip.unassigned{ background: #fef3c7; color: #92400e; }
+  .hc-chip.nd        { background: #dbeafe; color: #1e40af; }
+  .hc-chip.hnd       { background: #fef3c7; color: #b45309; }
+  .hc-empty { padding: 2.5rem 1rem; text-align: center; color: #94a3b8; }
+
+  #hc-modal { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1rem; }
+  #hc-modal.open { display: flex; }
+  #hc-modal > div { background: #fff; border-radius: 14px; max-width: 560px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+</style>
+
+<div class="hc-toolbar">
+  <input type="search" id="hc-search" placeholder="Search code or title…" />
+  <select id="hc-level">
     <option value="">All Levels</option>
     <option value="ND">ND</option>
     <option value="HND">HND</option>
   </select>
-  <select id="c-semester">
-    <option value="">All Semesters</option>
-    <option>First</option>
-    <option>Second</option>
+  <select id="hc-status">
+    <option value="">All</option>
+    <option value="assigned">Assigned</option>
+    <option value="unassigned">Unassigned</option>
   </select>
-  <button class="btn btn-outline btn-sm" id="c-export">Export CSV</button>
+  <button class="btn btn-outline btn-sm" id="hc-refresh">↻ Refresh</button>
 </div>
 
-<!-- Stats row -->
-<div class="stat-grid" style="grid-template-columns: repeat(4, 1fr);">
-  <div class="stat">
-    <div class="meta"><span class="label">Total Courses</span><span class="value" id="c-total">—</span></div>
-    <div class="ic">📚</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">ND Courses</span><span class="value" id="c-nd">—</span></div>
-    <div class="ic">📘</div>
-  </div>
-  <div class="stat accent">
-    <div class="meta"><span class="label">HND Courses</span><span class="value" id="c-hnd">—</span></div>
-    <div class="ic">📗</div>
-  </div>
-  <div class="stat purple">
-    <div class="meta"><span class="label">Total Units</span><span class="value" id="c-units">—</span></div>
-    <div class="ic">🎯</div>
-  </div>
-</div>
-
-<!-- Table -->
 <section class="panel">
   <div class="panel-head">
-    <h3>Courses</h3>
-    <span class="badge" id="c-count">0</span>
+    <h3 style="margin:0;">Courses</h3>
+    <span class="badge" id="hc-count">0</span>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
@@ -58,176 +52,244 @@
           <tr>
             <th>Code</th>
             <th>Title</th>
-            <th>Units</th>
             <th>Level</th>
+            <th>Units</th>
             <th>Semester</th>
             <th>Lecturer</th>
-            <th>Enrolled</th>
+            <th style="width:180px;">Actions</th>
           </tr>
         </thead>
-        <tbody id="c-tbody">
-          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="hc-tbody">
+          <tr><td colspan="7" class="hc-empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
 
+<!-- Assign modal -->
+<div id="hc-modal" role="dialog" aria-modal="true">
+  <div>
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1.05rem;" id="hc-modal-title">Assign Lecturer</h3>
+      <button type="button" id="hc-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <p class="muted small" id="hc-modal-sub" style="margin:0 0 .85rem;"></p>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Lecturer *</label>
+      <select id="hc-lecturer" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;margin-bottom:.85rem;">
+        <option value="">— Select —</option>
+      </select>
+      <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Semester *</label>
+      <select id="hc-semester" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;margin-bottom:1rem;">
+        <option value="first">First Semester</option>
+        <option value="second">Second Semester</option>
+      </select>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="hc-modal-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="button" id="hc-modal-save" class="btn btn-primary btn-sm">Assign</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
-  const deptId = user.departmentId;
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
 
-  let ALL = [];
-  let FILTERED = [];
+  var ALL = [];
+  var LECTURERS = [];
+  var CURRENT = null;   // the course being assigned
 
-  if (user.departmentName) {
-    const el = $('c-dept-sub');
-    if (el) el.textContent = `All courses in ${user.departmentName}`;
-  }
-
-  // ---------------------------------------------------------
-  // Field extractors — matched to YOUR schema
-  // ---------------------------------------------------------
-  // Schema: { code, title, unit (singular), level ('ND'|'HND'),
-  //           semesterName ('First'|'Second'), lecturerName? }
-  // ---------------------------------------------------------
-  function getUnits(c) {
-    return Number(c.unit ?? c.units ?? c.creditUnits ?? 0) || 0;
-  }
-  function getLevel(c) {
-    return String(c.level || '').toUpperCase().trim() || '—';
-  }
-  function getSemester(c) {
-    return c.semesterName || c.semester || '—';
-  }
-  function getLecturer(c) {
-    return c.lecturerName || c.lecturer_name || (c.lecturer && c.lecturer.name) || '—';
-  }
-  function getEnrolled(c) {
-    return c.enrolledCount != null ? c.enrolledCount : (c.enrolled != null ? c.enrolled : '—');
+  function levelChip(l) {
+    var v = String(l || '').toUpperCase();
+    var cls = v === 'HND' ? 'hnd' : 'nd';
+    return '<span class="hc-chip ' + cls + '">' + esc(v || '—') + '</span>';
   }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   function render() {
-    $('c-count').textContent = FILTERED.length;
+    var tbody = $('hc-tbody');
+    var count = $('hc-count');
+    var q = ($('hc-search').value || '').trim().toLowerCase();
+    var lvl = $('hc-level').value;
+    var st = $('hc-status').value;
 
-    if (!FILTERED.length) {
-      $('c-tbody').innerHTML =
-        '<tr><td colspan="7" class="empty">No courses match your filters.</td></tr>';
-      return;
-    }
-
-    $('c-tbody').innerHTML = FILTERED.map((c) => {
-      const level = getLevel(c);
-      const chipClass = 'chip-' + level.toLowerCase();
-      return `
-        <tr>
-          <td><strong>${esc(c.code || '')}</strong></td>
-          <td>${esc(c.title || '')}</td>
-          <td>${getUnits(c) || '—'}</td>
-          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
-          <td>${esc(getSemester(c))}</td>
-          <td>${esc(getLecturer(c))}</td>
-          <td>${getEnrolled(c)}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
-  function applyFilter() {
-    const q = ($('c-search').value || '').trim().toLowerCase();
-    const lvl = $('c-level').value;
-    const sem = $('c-semester').value;
-
-    FILTERED = ALL.filter((c) => {
-      const hay = `${c.code || ''} ${c.title || ''} ${getLecturer(c)}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (lvl && getLevel(c) !== lvl.toUpperCase()) return false;
-      if (sem && String(getSemester(c)).toLowerCase() !== sem.toLowerCase()) return false;
+    var rows = ALL.filter(function (r) {
+      var c = r.course || {};
+      var hay = ((c.code || '') + ' ' + (c.title || '')).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return false;
+      if (lvl && String(c.level || '').toUpperCase() !== lvl) return false;
+      if (st === 'assigned' && !(r.lecturer && r.lecturer.id)) return false;
+      if (st === 'unassigned' && (r.lecturer && r.lecturer.id)) return false;
       return true;
     });
 
-    render();
+    count.textContent = rows.length;
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="hc-empty">No courses match your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(function (r) {
+      var c = r.course || {};
+      var a = r.allocation || {};
+      var l = r.lecturer || {};
+      var assigned = l && l.id;
+      var lecturerCell = assigned
+        ? '<strong>' + esc([l.firstName, l.lastName].filter(Boolean).join(' ')) + '</strong>'
+          + '<div class="muted small" style="font-size:.72rem;">' + esc(l.email || '') + '</div>'
+        : '<span class="hc-chip unassigned">unassigned</span>';
+
+      var actions = assigned
+        ? '<button class="btn btn-outline btn-sm" data-act="reassign" data-id="' + esc(c.id) + '" data-alloc="' + esc(a.id) + '">Reassign</button> '
+          + '<button class="btn btn-ghost btn-sm" data-act="unassign" data-alloc="' + esc(a.id) + '" style="color:#dc2626;">Unassign</button>'
+        : '<button class="btn btn-primary btn-sm" data-act="assign" data-id="' + esc(c.id) + '">Assign</button>';
+
+      return '<tr>'
+        + '<td><strong>' + esc(c.code) + '</strong></td>'
+        + '<td>' + esc(c.title) + '</td>'
+        + '<td>' + levelChip(c.level) + '</td>'
+        + '<td>' + (c.unit || 0) + '</td>'
+        + '<td>' + esc(a.semester || c.semesterName || '—') + '</td>'
+        + '<td>' + lecturerCell + '</td>'
+        + '<td>' + actions + '</td>'
+        + '</tr>';
+    }).join('');
+
+    // Wire actions
+    tbody.querySelectorAll('button[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var act = b.dataset.act;
+        if (act === 'assign' || act === 'reassign') openAssign(b.dataset.id);
+        if (act === 'unassign') unassign(b.dataset.alloc);
+      });
+    });
   }
 
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
-  function updateStats() {
-    const total = ALL.length;
-    const nd = ALL.filter((c) => getLevel(c) === 'ND').length;
-    const hnd = ALL.filter((c) => getLevel(c) === 'HND').length;
-    const units = ALL.reduce((sum, c) => sum + getUnits(c), 0);
-
-    $('c-total').textContent = total;
-    $('c-nd').textContent = nd;
-    $('c-hnd').textContent = hnd;
-    $('c-units').textContent = units;
-  }
-
-  // ---------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------
   async function load() {
+    $('hc-tbody').innerHTML = '<tr><td colspan="7" class="hc-empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/courses?departmentId=' + deptId);
-      const payload = res.data || res || {};
-      ALL = Array.isArray(payload)
-        ? payload
-        : (payload.rows || payload.courses || []);
-
-      console.log('[hod-courses] Loaded', ALL.length, 'courses. Sample:', ALL[0]);
-
-      updateStats();
-      applyFilter();
+      var res = await core.portalFetch('/api/hod/courses-with-allocations');
+      ALL = (res && res.data) || [];
+      render();
     } catch (err) {
-      console.error('[hod-courses]', err);
-      $('c-tbody').innerHTML =
-        `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      $('hc-tbody').innerHTML = '<tr><td colspan="7" class="hc-empty">' + esc(err.message) + '</td></tr>';
     }
   }
 
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
-  function exportCsv() {
-    const headers = ['Code', 'Title', 'Units', 'Level', 'Semester', 'Lecturer', 'Enrolled'];
-    const rows = FILTERED.map((c) => [
-      c.code || '',
-      c.title || '',
-      getUnits(c),
-      getLevel(c),
-      getSemester(c),
-      getLecturer(c),
-      getEnrolled(c) === '—' ? '' : getEnrolled(c),
-    ]);
-
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `hod-courses-${(user.departmentCode || 'dept')}-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  async function loadLecturers() {
+    try {
+      var res = await core.portalFetch('/api/hod/lecturers');
+      LECTURERS = (res && res.data) || [];
+    } catch (e) {
+      LECTURERS = [];
+    }
   }
 
-  $('c-search').addEventListener('input', applyFilter);
-  $('c-level').addEventListener('change', applyFilter);
-  $('c-semester').addEventListener('change', applyFilter);
-  $('c-export').addEventListener('click', exportCsv);
+  function openAssign(courseId) {
+    var course = ALL.find(function (r) { return String((r.course || {}).id) === String(courseId); });
+    if (!course) return;
+    CURRENT = course;
 
-  load();
+    $('hc-modal-title').textContent = course.lecturer && course.lecturer.id ? 'Reassign Lecturer' : 'Assign Lecturer';
+    var c = course.course || {};
+    $('hc-modal-sub').textContent = c.code + ' — ' + c.title + ' (' + (c.unit || 0) + ' units)';
+
+    // Fill lecturer dropdown
+    var sel = $('hc-lecturer');
+    sel.innerHTML = '<option value="">— Select —</option>'
+      + LECTURERS.map(function (l) {
+        var n = [l.firstName, l.lastName].filter(Boolean).join(' ');
+        return '<option value="' + esc(l.id) + '">' + esc(n || l.email || ('User #' + l.id)) + '</option>';
+      }).join('');
+
+    // Preselect if reassigning
+    if (course.lecturer && course.lecturer.id) {
+      sel.value = String(course.lecturer.id);
+    }
+
+    // Preselect semester
+    var semester = (course.allocation && course.allocation.semester) || c.semesterName || 'first';
+    $('hc-semester').value = String(semester).toLowerCase() === 'second' ? 'second' : 'first';
+
+    $('hc-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    $('hc-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    CURRENT = null;
+  }
+
+  async function saveAssign() {
+    if (!CURRENT) return;
+    var lecturerId = $('hc-lecturer').value;
+    var semester = $('hc-semester').value;
+    if (!lecturerId) { core.showToast && core.showToast('Select a lecturer.', 'warning'); return; }
+
+    var courseId = (CURRENT.course || {}).id;
+    var btn = $('hc-modal-save');
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Saving…';
+    try {
+      // If reassigning, remove the old allocation first
+      if (CURRENT.allocation && CURRENT.allocation.id) {
+        try {
+          await core.portalFetch('/api/hod/allocate/' + CURRENT.allocation.id, { method: 'DELETE' });
+        } catch (e) { /* ignore */ }
+      }
+      await core.portalFetch('/api/hod/allocate', {
+        method: 'POST',
+        body: { courseId: Number(courseId), lecturerId: Number(lecturerId), semester: semester },
+      });
+      core.showToast && core.showToast('Lecturer assigned.', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  async function unassign(allocId) {
+    if (!allocId) return;
+    if (!confirm('Remove the lecturer assignment for this course?')) return;
+    try {
+      await core.portalFetch('/api/hod/allocate/' + allocId, { method: 'DELETE' });
+      core.showToast && core.showToast('Assignment removed.', 'warning');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // Wire
+  $('hc-search').addEventListener('input', render);
+  $('hc-level').addEventListener('change', render);
+  $('hc-status').addEventListener('change', render);
+  $('hc-refresh').addEventListener('click', load);
+  $('hc-modal-close').addEventListener('click', closeModal);
+  $('hc-modal-cancel').addEventListener('click', closeModal);
+  $('hc-modal-save').addEventListener('click', saveAssign);
+  $('hc-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'hc-modal') closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('hc-modal').classList.contains('open')) closeModal();
+  });
+
+  // Boot
+  (async function init() {
+    await loadLecturers();
+    await load();
+  })();
 })();
 </script>

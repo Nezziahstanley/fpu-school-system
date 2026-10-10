@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — HOD portal API
 // Mounted at /api/hod
 // ============================================================
@@ -209,4 +209,248 @@ router.get('/security', only, async (req, res, next) => {
   }
 });
 
+
+// ============================================================
+// GET /api/hod/courses-with-allocations
+// Courses in the HOD's department joined to their current
+// allocation (if any) so the UI can show "Assigned to: X".
+// ============================================================
+router.get('/courses-with-allocations', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const sessionId = req.user.currentSessionId;
+    const semester = req.query.semester || null;
+
+    const rows = await courseQueries.listWithAllocations({
+      departmentId,
+      sessionId,
+      semester,
+      level: req.query.level,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/hod/lecturers
+// All lecturers in the HOD's department (for the assign picker).
+// ============================================================
+router.get('/lecturers', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const rows = await userQueries.listStaff({ departmentId });
+    const lecturers = (rows || []).filter(function (u) {
+      return String(u.role || '').toLowerCase() === 'lecturer';
+    });
+    return res.json({ success: true, data: lecturers });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/hod/allocate
+// Body: { courseId, lecturerId, semester }
+// Uses the HOD's current session automatically.
+// ============================================================
+router.post('/allocate', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const sessionId = req.user.currentSessionId;
+    const { courseId, lecturerId, semester } = req.body || {};
+
+    if (!courseId || !lecturerId || !semester) {
+      return res.status(400).json({ success: false, error: 'courseId, lecturerId, and semester are required.' });
+    }
+
+    // Confirm the course belongs to the HOD's department
+    const course = await courseQueries.findById(courseId);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course is not in your department.' });
+    }
+
+    // Confirm the lecturer is in the HOD's department
+    const lecturer = await userQueries.findById(lecturerId);
+    if (!lecturer || lecturer.role !== 'lecturer') {
+      return res.status(404).json({ success: false, error: 'Lecturer not found.' });
+    }
+    if (Number(lecturer.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Lecturer is not in your department.' });
+    }
+
+    const row = await courseQueries.createAllocation({
+      courseId, lecturerId, sessionId, semester,
+    });
+
+    await logAudit({
+      req,
+      action: 'hod.allocate_course',
+      entity: 'course_allocation',
+      entityId: row.id,
+      after: row,
+    });
+
+    // Notify the lecturer
+    try {
+      await notifQueries.createNotification({
+        userId: Number(lecturerId),
+        title: 'New course assigned',
+        body: 'You have been assigned ' + (course.code || '') + ' — ' + (course.title || '') + ' for ' + semester + ' semester.',
+        type: 'info',
+        link: '/portal/app.html#lecturer-courses',
+      });
+    } catch (e) { /* notification is best-effort */ }
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/hod/allocate/:id
+// Removes an allocation owned by the HOD's department.
+// ============================================================
+router.delete('/allocate/:id', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const existing = await courseQueries.findAllocationById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    // Confirm the course is in the HOD's department
+    const course = await courseQueries.findById(existing.courseId);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    await courseQueries.removeAllocation(existing.id);
+    await logAudit({
+      req,
+      action: 'hod.unallocate_course',
+      entity: 'course_allocation',
+      entityId: existing.id,
+      before: existing,
+    });
+    return res.json({ success: true });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/hod/courses-with-allocations
+// Courses in the HOD's department joined to their current
+// allocation (if any) so the UI can show "Assigned to: X".
+// ============================================================
+router.get('/courses-with-allocations', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const sessionId = req.user.currentSessionId;
+    const semester = req.query.semester || null;
+
+    const rows = await courseQueries.listWithAllocations({
+      departmentId,
+      sessionId,
+      semester,
+      level: req.query.level,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/hod/lecturers
+// All lecturers in the HOD's department (for the assign picker).
+// ============================================================
+router.get('/lecturers', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const rows = await userQueries.listStaff({ departmentId });
+    const lecturers = (rows || []).filter(function (u) {
+      return String(u.role || '').toLowerCase() === 'lecturer';
+    });
+    return res.json({ success: true, data: lecturers });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/hod/allocate
+// Body: { courseId, lecturerId, semester }
+// Uses the HOD's current session automatically.
+// ============================================================
+router.post('/allocate', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const sessionId = req.user.currentSessionId;
+    const { courseId, lecturerId, semester } = req.body || {};
+
+    if (!courseId || !lecturerId || !semester) {
+      return res.status(400).json({ success: false, error: 'courseId, lecturerId, and semester are required.' });
+    }
+
+    // Confirm the course belongs to the HOD's department
+    const course = await courseQueries.findById(courseId);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course is not in your department.' });
+    }
+
+    // Confirm the lecturer is in the HOD's department
+    const lecturer = await userQueries.findById(lecturerId);
+    if (!lecturer || lecturer.role !== 'lecturer') {
+      return res.status(404).json({ success: false, error: 'Lecturer not found.' });
+    }
+    if (Number(lecturer.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Lecturer is not in your department.' });
+    }
+
+    const row = await courseQueries.createAllocation({
+      courseId, lecturerId, sessionId, semester,
+    });
+
+    await logAudit({
+      req,
+      action: 'hod.allocate_course',
+      entity: 'course_allocation',
+      entityId: row.id,
+      after: row,
+    });
+
+    // Notify the lecturer
+    try {
+      await notifQueries.createNotification({
+        userId: Number(lecturerId),
+        title: 'New course assigned',
+        body: 'You have been assigned ' + (course.code || '') + ' — ' + (course.title || '') + ' for ' + semester + ' semester.',
+        type: 'info',
+        link: '/portal/app.html#lecturer-courses',
+      });
+    } catch (e) { /* notification is best-effort */ }
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/hod/allocate/:id
+// Removes an allocation owned by the HOD's department.
+// ============================================================
+router.delete('/allocate/:id', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const existing = await courseQueries.findAllocationById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    // Confirm the course is in the HOD's department
+    const course = await courseQueries.findById(existing.courseId);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    await courseQueries.removeAllocation(existing.id);
+    await logAudit({
+      req,
+      action: 'hod.unallocate_course',
+      entity: 'course_allocation',
+      entityId: existing.id,
+      before: existing,
+    });
+    return res.json({ success: true });
+  } catch (err) { return next(err); }
+});
 module.exports = router;

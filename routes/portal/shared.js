@@ -273,6 +273,162 @@ router.get('/announcements', requireUser, async (req, res, next) => {
   }
 });
 
+// ------------------------------------------------------------
+// STAFF ANNOUNCEMENT WRITE ENDPOINTS
+// Everyone below can read; only staff can write. Role limits
+// what audience they can target.
+// ------------------------------------------------------------
+const STAFF_ANNOUNCE_ROLES = [
+  'admin', 'registrar', 'rector', 'bursar', 'librarian',
+  'hod', 'exam_officer', 'academic_officer', 'admission_officer', 'lecturer',
+];
+
+// Which audience values each role may target when creating / editing.
+// Weakest → strongest. Anyone can target 'all' if listed.
+const ANNOUNCE_TARGETS = {
+  admin:              ['all', 'student', 'staff', 'lecturer', 'hod'],
+  registrar:          ['all', 'student', 'staff', 'lecturer', 'hod'],
+  rector:             ['all', 'student', 'staff', 'lecturer', 'hod'],
+  academic_officer:   ['all', 'student', 'staff', 'lecturer', 'hod'],
+  exam_officer:       ['student', 'staff', 'lecturer', 'hod'],
+  admission_officer:  ['student', 'staff'],
+  bursar:             ['all', 'student', 'staff'],
+  librarian:          ['all', 'student', 'staff'],
+  hod:                ['student', 'staff', 'lecturer'],
+  lecturer:           ['student'],
+};
+
+// POST /api/portal/announcements — staff create
+router.post('/announcements', requireUser, async (req, res, next) => {
+  try {
+    const role = String(req.user.role || '').toLowerCase();
+    if (!STAFF_ANNOUNCE_ROLES.includes(role)) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    const { title, body, audience, priority, isPublished, expiresAt } = req.body || {};
+    if (!title || !body) {
+      return res.status(400).json({ success: false, error: 'title and body are required.' });
+    }
+    const aud = audience || 'all';
+    const allowed = ANNOUNCE_TARGETS[role] || ['all'];
+    if (!allowed.includes(aud)) {
+      return res.status(403).json({
+        success: false,
+        error: `Your role cannot target "${aud}". Allowed: ${allowed.join(', ')}.`,
+      });
+    }
+    const row = await notifQueries.createAnnouncement({
+      title,
+      body,
+      audience: aud,
+      priority: priority || 'normal',
+      isPublished: isPublished !== false,
+      expiresAt: expiresAt || null,
+      authorId: req.user.id,
+    });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/portal/announcements/:id — author (or admin) edit
+router.put('/announcements/:id', requireUser, async (req, res, next) => {
+  try {
+    const role = String(req.user.role || '').toLowerCase();
+    if (!STAFF_ANNOUNCE_ROLES.includes(role)) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    const existing = await notifQueries.findAnnouncementById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Not found.' });
+
+    // Only the author or an admin can edit
+    if (existing.authorId !== req.user.id && role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'You can only edit your own announcements.' });
+    }
+
+    const b = req.body || {};
+    const patch = {};
+    if (b.title !== undefined) patch.title = b.title;
+    if (b.body !== undefined) patch.body = b.body;
+    if (b.priority !== undefined) patch.priority = b.priority;
+    if (b.isPublished !== undefined) patch.isPublished = !!b.isPublished;
+    if (b.expiresAt !== undefined) patch.expiresAt = b.expiresAt || null;
+    if (b.audience !== undefined) {
+      const allowed = ANNOUNCE_TARGETS[role] || ['all'];
+      if (!allowed.includes(b.audience)) {
+        return res.status(403).json({ success: false, error: `Your role cannot target "${b.audience}".` });
+      }
+      patch.audience = b.audience;
+    }
+
+    const row = await notifQueries.updateAnnouncement(existing.id, patch);
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// DELETE /api/portal/announcements/:id — author (or admin)
+router.delete('/announcements/:id', requireUser, async (req, res, next) => {
+  try {
+    const role = String(req.user.role || '').toLowerCase();
+    if (!STAFF_ANNOUNCE_ROLES.includes(role)) {
+      return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    const existing = await notifQueries.findAnnouncementById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Not found.' });
+
+    if (existing.authorId !== req.user.id && role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'You can only delete your own announcements.' });
+    }
+
+    await notifQueries.removeAnnouncement(existing.id);
+    return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ------------------------------------------------------------
+// GET /api/portal/users/search?q=... — recipient picker for
+// messages + reference. Returns up to 20 matches for the
+// current user's messaging scope (students/staff peers).
+// ------------------------------------------------------------
+router.get('/users/search', requireUser, async (req, res, next) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) return res.json({ success: true, data: [] });
+
+    const { ilike, or: orOp, ne, and: andOp } = require('drizzle-orm');
+    const term = `%${q}%`;
+    const rows = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        role: users.role,
+        matricNumber: users.matricNumber,
+      })
+      .from(users)
+      .where(andOp(
+        ne(users.id, req.user.id),
+        orOp(
+          ilike(users.firstName, term),
+          ilike(users.lastName, term),
+          ilike(users.email, term),
+          ilike(users.matricNumber, term)
+        )
+      ))
+      .limit(20);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // ============================================================
 // COMPLAINTS
 // ============================================================
@@ -405,3 +561,4 @@ router.get('/library/books', requireUser, async (req, res, next) => {
 });
 
 module.exports = router;
+

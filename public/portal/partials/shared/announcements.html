@@ -1,4 +1,4 @@
-﻿<!-- Shared → Announcements -->
+﻿<!-- Shared → Announcements (role-aware: read for all, write for staff) -->
 <section class="greeting">
   <div class="who">
     <div class="avatar">📢</div>
@@ -9,102 +9,360 @@
   </div>
 </section>
 
-<div class="filter-bar">
+<style>
+  .an-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+  .an-toolbar input[type="search"] { flex: 1 1 220px; min-width: 180px; padding: .55rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; }
+  .an-toolbar select { padding: .55rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; background:#fff; }
+  .an-list { display: flex; flex-direction: column; gap: .75rem; }
+  .an-card { background: #fff; border: 1px solid #e5e7eb; border-left: 4px solid #064e3b; border-radius: 10px; padding: 1rem 1.1rem; }
+  .an-card.priority-high { border-left-color: #dc2626; }
+  .an-card.priority-low  { border-left-color: #94a3b8; }
+  .an-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; flex-wrap: wrap; }
+  .an-meta { font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #64748b; display: flex; gap: .5rem; flex-wrap: wrap; }
+  .an-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .62rem; font-weight: 800; letter-spacing: .05em; }
+  .an-badge.audience { background: #e0e7ff; color: #3730a3; }
+  .an-badge.priority-high { background: #fee2e2; color: #991b1b; }
+  .an-badge.priority-normal { background: #f1f5f9; color: #475569; }
+  .an-badge.priority-low { background: #f1f5f9; color: #94a3b8; }
+  .an-badge.draft { background: #fef3c7; color: #92400e; }
+  .an-title { margin: .45rem 0 .35rem; font-size: 1.02rem; font-weight: 700; color: #0f172a; }
+  .an-body { margin: 0; color: #374151; line-height: 1.6; font-size: .9rem; white-space: pre-wrap; }
+  .an-footer { display: flex; justify-content: space-between; align-items: center; margin-top: .75rem; padding-top: .6rem; border-top: 1px dashed #e5e7eb; gap: .5rem; flex-wrap: wrap; }
+  .an-actions { display: flex; gap: .35rem; }
+  .an-empty { text-align: center; padding: 3rem 1rem; color: #94a3b8; background: #fff; border: 2px dashed #e2e8f0; border-radius: 12px; }
+
+  /* Modal */
+  #an-modal { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1rem; }
+  #an-modal.open { display: flex; }
+  #an-modal > div { background: #fff; border-radius: 14px; max-width: 640px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+</style>
+
+<!-- Toolbar -->
+<div class="an-toolbar">
   <input type="search" id="an-search" placeholder="Search announcements…" />
-  <select id="an-category">
-    <option value="">All Categories</option>
-    <option value="general">General</option>
-    <option value="academic">Academic</option>
-    <option value="event">Event</option>
-    <option value="urgent">Urgent</option>
+  <select id="an-audience">
+    <option value="">All audiences</option>
+    <option value="all">Everyone</option>
+    <option value="student">Students</option>
+    <option value="staff">Staff</option>
+    <option value="lecturer">Lecturers</option>
+    <option value="hod">HODs</option>
   </select>
-  <button class="btn btn-outline btn-sm" id="an-refresh">Refresh</button>
+  <select id="an-priority">
+    <option value="">All priorities</option>
+    <option value="high">High</option>
+    <option value="normal">Normal</option>
+    <option value="low">Low</option>
+  </select>
+  <button class="btn btn-primary btn-sm" id="an-new" style="display:none;">+ New Announcement</button>
+  <button class="btn btn-outline btn-sm" id="an-refresh">↻ Refresh</button>
 </div>
 
+<!-- List -->
 <section class="panel">
-  <div class="panel-head"><h3>Latest Announcements</h3><span class="badge" id="an-count">0</span></div>
-  <div class="panel-body" id="an-list">
-    <div class="loading"><span class="spinner"></span> Loading…</div>
+  <div class="panel-head">
+    <h3 style="margin:0;">Latest Announcements</h3>
+    <span class="badge" id="an-count">0</span>
+  </div>
+  <div class="panel-body">
+    <div class="an-list" id="an-list">
+      <div class="loading"><span class="spinner"></span> Loading…</div>
+    </div>
   </div>
 </section>
+
+<!-- Compose / edit modal -->
+<div id="an-modal" role="dialog" aria-modal="true">
+  <div>
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;font-size:1.05rem;" id="an-modal-title">New Announcement</h3>
+      <button type="button" id="an-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;">✕</button>
+    </div>
+    <form id="an-form" style="padding:1.25rem;">
+      <input type="hidden" name="id" />
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Title *</label>
+        <input type="text" name="title" required maxlength="200" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Body *</label>
+        <textarea name="body" required rows="6" maxlength="5000" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;">
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Audience</label>
+          <select name="audience" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="all">Everyone</option>
+            <option value="student">Students</option>
+            <option value="staff">Staff</option>
+            <option value="lecturer">Lecturers</option>
+            <option value="hod">HODs</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Priority</label>
+          <select name="priority" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Expires (optional)</label>
+        <input type="date" name="expiresAt" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#334155;margin-bottom:1rem;">
+        <input type="checkbox" name="isPublished" checked />
+        Publish immediately (uncheck to save as draft)
+      </label>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="an-form-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="submit" id="an-form-submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
 
-  let ALL = [], FILTERED = [];
+  var me = (core.getPortalUser && core.getPortalUser()) || {};
+  var ROLE = String(me.role || '').toLowerCase();
+  var MY_ID = Number(me.id) || 0;
 
-  // Rows come as { announcement: {...}, author: {...} }
+  var STAFF_ROLES = ['admin','registrar','rector','bursar','librarian','hod','exam_officer','academic_officer','admission_officer','lecturer'];
+  var IS_STAFF = STAFF_ROLES.indexOf(ROLE) >= 0;
+  var IS_ADMIN = ROLE === 'admin';
+
+  // Who can target what (mirrors backend ANNOUNCE_TARGETS)
+  var TARGETS = {
+    admin:             ['all','student','staff','lecturer','hod'],
+    registrar:         ['all','student','staff','lecturer','hod'],
+    rector:            ['all','student','staff','lecturer','hod'],
+    academic_officer:  ['all','student','staff','lecturer','hod'],
+    exam_officer:      ['student','staff','lecturer','hod'],
+    admission_officer: ['student','staff'],
+    bursar:            ['all','student','staff'],
+    librarian:         ['all','student','staff'],
+    hod:               ['student','staff','lecturer'],
+    lecturer:          ['student'],
+  };
+
+  var ALL = [];
+  var EDITING_ID = null;
+
+  // Show New button for staff
+  if (IS_STAFF) $('an-new').style.display = '';
+
+  function audienceLabel(a) {
+    return ({ all:'Everyone', student:'Students', staff:'Staff', lecturer:'Lecturers', hod:'HODs' })[a] || a || 'Everyone';
+  }
+
   function unwrap(r) {
-    const a = r.announcement || r;
-    const author = r.author || {};
+    var a = r.announcement || r;
+    var author = r.author || {};
     return {
-      ...a,
-      authorName: (author.firstName || author.lastName)
-        ? `${author.firstName || ''} ${author.lastName || ''}`.trim()
-        : 'Administration',
+      id: a.id,
+      title: a.title || 'Untitled',
+      body: a.body || '',
+      audience: a.audience || 'all',
+      priority: a.priority || 'normal',
+      isPublished: a.isPublished !== false,
+      publishedAt: a.publishedAt || a.createdAt,
+      expiresAt: a.expiresAt,
+      authorId: a.authorId,
+      authorName: [author.firstName, author.lastName].filter(Boolean).join(' ') || 'Administration',
     };
   }
 
-  function getTitle(a) { return a.title || 'Untitled Announcement'; }
-  function getBody(a) { return a.body || a.content || a.message || ''; }
-  function getCategory(a) { return (a.category || 'general').toLowerCase(); }
-  function getDate(a) { return a.createdAt || a.publishedAt || a.date; }
-
   function render() {
-    $('an-count').textContent = FILTERED.length;
-    if (!FILTERED.length) {
-      $('an-list').innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">No announcements.</p>';
+    $('an-count').textContent = ALL.length;
+    if (!ALL.length) {
+      $('an-list').innerHTML = '<div class="an-empty">📢<br>No announcements yet.<br><span style="font-size:.78rem;">' + (IS_STAFF ? 'Use “+ New Announcement” to publish the first one.' : 'Check back later.') + '</span></div>';
       return;
     }
-    $('an-list').innerHTML = FILTERED.map((a) => `
-      <div style="padding:1rem 0;border-bottom:1px solid #eee;">
-        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
-          <div style="flex:1;">
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem;">
-              ${esc(getCategory(a))} · ${esc(a.authorName)}
-            </div>
-            <strong style="font-size:1rem;color:#0f172a;">${esc(getTitle(a))}</strong>
-            <p style="margin:.5rem 0 0;color:#374151;line-height:1.6;">${esc(getBody(a))}</p>
-          </div>
-          <div class="muted small" style="white-space:nowrap;">
-            ${getDate(a) ? new Date(getDate(a)).toLocaleDateString() : ''}
-          </div>
-        </div>
-      </div>`).join('');
+    $('an-list').innerHTML = ALL.map(function (a) {
+      var editable = IS_STAFF && (IS_ADMIN || a.authorId === MY_ID);
+      var draft = a.isPublished === false;
+      var prioClass = a.priority === 'high' ? 'priority-high' : (a.priority === 'low' ? 'priority-low' : '');
+      var actions = editable
+        ? '<div class="an-actions">'
+          + '<button class="btn btn-outline btn-sm" data-edit="' + esc(a.id) + '">Edit</button>'
+          + '<button class="btn btn-ghost btn-sm" data-del="' + esc(a.id) + '" style="color:#dc2626;">Delete</button>'
+          + '</div>'
+        : '';
+      return '<div class="an-card ' + prioClass + '">'
+        + '<div class="an-card-head">'
+        +   '<div class="an-meta">'
+        +     '<span class="an-badge audience">' + esc(audienceLabel(a.audience)) + '</span>'
+        +     '<span class="an-badge priority-' + esc(a.priority) + '">' + esc(a.priority) + '</span>'
+        +     (draft ? '<span class="an-badge draft">draft</span>' : '')
+        +   '</div>'
+        +   '<span class="muted small" style="font-size:.75rem;">' + esc(dateFmt(a.publishedAt)) + '</span>'
+        + '</div>'
+        + '<h3 class="an-title">' + esc(a.title) + '</h3>'
+        + '<p class="an-body">' + esc(a.body) + '</p>'
+        + '<div class="an-footer">'
+        +   '<span class="muted small" style="font-size:.72rem;">by ' + esc(a.authorName) + '</span>'
+        +   actions
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    // Wire actions
+    $('an-list').querySelectorAll('button[data-edit]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var row = ALL.find(function (x) { return String(x.id) === b.dataset.edit; });
+        openForm(row);
+      });
+    });
+    $('an-list').querySelectorAll('button[data-del]').forEach(function (b) {
+      b.addEventListener('click', function () { delAnnouncement(b.dataset.del); });
+    });
   }
 
   function applyFilter() {
-    const q = ($('an-search').value || '').trim().toLowerCase();
-    const cat = $('an-category').value;
-    FILTERED = ALL.filter((a) => {
-      const hay = `${getTitle(a)} ${getBody(a)}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (cat && getCategory(a) !== cat) return false;
+    var q = $('an-search').value.trim().toLowerCase();
+    var aud = $('an-audience').value;
+    var pri = $('an-priority').value;
+    var filtered = ALL.filter(function (a) {
+      var hay = (a.title + ' ' + a.body).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return false;
+      if (aud && a.audience !== aud) return false;
+      if (pri && a.priority !== pri) return false;
       return true;
     });
+    // render uses ALL — swap temporarily
+    var keep = ALL;
+    ALL = filtered;
     render();
+    ALL = keep;
   }
 
   async function load() {
     try {
-      const res = await core.portalFetch('/api/portal/announcements');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
+      var res = await core.portalFetch('/api/portal/announcements');
+      var payload = res.data || res || {};
+      var raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
       ALL = raw.map(unwrap);
       applyFilter();
     } catch (err) {
-      console.error('[announcements]', err);
-      $('an-list').innerHTML = `<div class="alert alert-error">Could not load announcements: ${esc(err.message)}</div>`;
+      $('an-list').innerHTML = '<div class="alert alert-error">Could not load announcements: ' + esc(err.message) + '</div>';
     }
   }
 
+  // ------- Form modal -------
+  function tuneTargetOptions() {
+    var sel = $('an-form').querySelector('[name="audience"]');
+    var allowed = TARGETS[ROLE] || ['all'];
+    Array.from(sel.options).forEach(function (o) {
+      o.hidden = !allowed.includes(o.value);
+      if (o.hidden && o.value === sel.value) {
+        sel.value = allowed[0];
+      }
+    });
+  }
+
+  function openForm(row) {
+    var form = $('an-form');
+    form.reset();
+    EDITING_ID = null;
+    tuneTargetOptions();
+    if (row) {
+      EDITING_ID = row.id;
+      $('an-modal-title').textContent = 'Edit Announcement';
+      form.querySelector('[name="id"]').value = row.id;
+      form.querySelector('[name="title"]').value = row.title;
+      form.querySelector('[name="body"]').value = row.body;
+      form.querySelector('[name="audience"]').value = row.audience;
+      form.querySelector('[name="priority"]').value = row.priority;
+      form.querySelector('[name="isPublished"]').checked = row.isPublished !== false;
+      if (row.expiresAt) {
+        var d = new Date(row.expiresAt);
+        var iso = d.toISOString().slice(0, 10);
+        form.querySelector('[name="expiresAt"]').value = iso;
+      }
+    } else {
+      $('an-modal-title').textContent = 'New Announcement';
+      form.querySelector('[name="isPublished"]').checked = true;
+    }
+    $('an-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeForm() {
+    EDITING_ID = null;
+    $('an-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function submitForm(e) {
+    e.preventDefault();
+    var form = $('an-form');
+    var fd = new FormData(form);
+    var body = {};
+    fd.forEach(function (v, k) { body[k] = v; });
+    body.isPublished = form.querySelector('[name="isPublished"]').checked;
+    if (!body.expiresAt) delete body.expiresAt;
+
+    var btn = $('an-form-submit');
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Saving…';
+
+    try {
+      if (EDITING_ID) {
+        await core.portalFetch('/api/portal/announcements/' + EDITING_ID, { method: 'PUT', body: body });
+        core.showToast && core.showToast('Announcement updated.', 'success');
+      } else {
+        await core.portalFetch('/api/portal/announcements', { method: 'POST', body: body });
+        core.showToast && core.showToast('Announcement published.', 'success');
+      }
+      closeForm();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  async function delAnnouncement(id) {
+    if (!confirm('Delete this announcement? This cannot be undone.')) return;
+    try {
+      await core.portalFetch('/api/portal/announcements/' + id, { method: 'DELETE' });
+      core.showToast && core.showToast('Deleted.', 'warning');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // ------- Wire up -------
   $('an-search').addEventListener('input', applyFilter);
-  $('an-category').addEventListener('change', applyFilter);
+  $('an-audience').addEventListener('change', applyFilter);
+  $('an-priority').addEventListener('change', applyFilter);
   $('an-refresh').addEventListener('click', load);
+
+  if (IS_STAFF) {
+    $('an-new').addEventListener('click', function () { openForm(null); });
+    $('an-modal-close').addEventListener('click', closeForm);
+    $('an-form-cancel').addEventListener('click', closeForm);
+    $('an-form').addEventListener('submit', submitForm);
+    $('an-modal').addEventListener('click', function (e) {
+      if (e.target.id === 'an-modal') closeForm();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && $('an-modal').classList.contains('open')) closeForm();
+    });
+  }
 
   load();
 })();

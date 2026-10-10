@@ -10,21 +10,14 @@ const router = express.Router();
 
 const GEO = require('../config/geo');
 
-// ------------------------------------------------------------
 // GET /api/geo/countries
-// ------------------------------------------------------------
 router.get('/countries', (_req, res) => {
-  return res.json({ success: true, data: GEO.COUNTRIES });
+  return res.json({ success: true, data: GEO.COUNTRIES || [] });
 });
 
-// ------------------------------------------------------------
 // GET /api/geo/states?country=Nigeria
-//   Accepts country NAME ("Nigeria") or CODE ("NG")
-// ------------------------------------------------------------
 router.get('/states', (req, res) => {
   const q = String(req.query.country || 'Nigeria').trim();
-
-  // Resolve to a country code
   let code = null;
   if (q.length === 2) code = q.toUpperCase();
   else {
@@ -33,8 +26,7 @@ router.get('/states', (req, res) => {
     );
     if (found) code = found.code;
   }
-
-  const states = (code && GEO.STATES[code]) || [];
+  const states = (code && GEO.STATES && GEO.STATES[code]) || [];
   return res.json({
     success: true,
     country: code,
@@ -42,9 +34,7 @@ router.get('/states', (req, res) => {
   });
 });
 
-// ------------------------------------------------------------
 // GET /api/geo/lgas?country=Nigeria&state=Abia
-// ------------------------------------------------------------
 router.get('/lgas', (req, res) => {
   const q = String(req.query.country || 'Nigeria').trim();
   const stateName = String(req.query.state || '').trim();
@@ -62,15 +52,15 @@ router.get('/lgas', (req, res) => {
     return res.json({ success: true, data: [] });
   }
 
-  // LGAS might be keyed by country → state, or flat; handle both
+  // Try the LGAS[country][state] structure first
   let lgAs = [];
-  const byCountry = GEO.LGAS[code];
+  const byCountry = GEO.LGAS && GEO.LGAS[code];
   if (byCountry) {
     if (Array.isArray(byCountry)) lgAs = byCountry;
     else if (byCountry[stateName]) lgAs = byCountry[stateName];
   }
-  // Fallback: if LGAS is a flat map keyed by state name
-  if (!lgAs.length && GEO.LGAS[stateName]) {
+  // Fallback: LGAS[stateName] direct
+  if (!lgAs.length && GEO.LGAS && GEO.LGAS[stateName]) {
     lgAs = GEO.LGAS[stateName];
   }
 

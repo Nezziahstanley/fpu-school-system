@@ -1,6 +1,6 @@
 ﻿// ============================================================
-// FPU — API router
-// Mounted in server.js as: app.use('/api', require('./routes'))
+// FPU — Route index
+// Mounts every router under /api/*
 // ============================================================
 
 'use strict';
@@ -9,9 +9,9 @@ const express = require('express');
 const router = express.Router();
 
 // ------------------------------------------------------------
-// Health & public
+// Public
 // ------------------------------------------------------------
-router.use('/',           require('./health'));
+router.use('/', require('./health'));
 router.use('/admin/auth', require('./adminAuth'));
 router.use('/admin',      require('./adminAuth'));
 router.use('/admin/seed', require('./adminSeed'));
@@ -19,14 +19,9 @@ router.use('/', require('./public'));
 router.use('/geo', require('./geo'));
 
 // ------------------------------------------------------------
-// Public — ID card lookup
-// ------------------------------------------------------------
-router.use('/public/id-lookup', require('./idLookup'));
-
-// ------------------------------------------------------------
 // Admin — lookups
 // ------------------------------------------------------------
-router.use('/admin/lookups',        require('./adminLookups'));
+router.use('/admin/lookups', require('./adminLookups'));
 
 // ------------------------------------------------------------
 // Admin — core resources
@@ -93,16 +88,6 @@ router.use('/admin/reports',        require('./reports'));
 // STAFF endpoints (non-admin path) — read-only for staff roles
 // ------------------------------------------------------------
 router.use('/courses',              require('./courses'));
-router.use('/exams',                require('./exams'));
-router.use('/programmes',           require('./programmes'));
-router.use('/departments',          require('./departments'));
-router.use('/students',             require('./students'));
-router.use('/results',              require('./results'));
-router.use('/attendance',           require('./attendance'));
-router.use('/registrations',        require('./registrations'));
-router.use('/allocations',          require('./allocations'));
-router.use('/transcript',           require('./transcript'));
-router.use('/audit',                require('./audit'));
 
 // ------------------------------------------------------------
 // Portal — shared

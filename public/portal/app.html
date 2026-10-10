@@ -207,5 +207,56 @@
 })();
 </script>
 <!-- PORTAL MOBILE FALLBACK END -->
+<!-- PORTAL SIDEBAR TOGGLE FIX START -->
+<script>
+(function () {
+  'use strict';
+  function openSidebar() {
+    document.body.classList.add('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.add('open');
+  }
+  function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('open');
+  }
+  function toggleSidebar() {
+    if (document.body.classList.contains('sidebar-open')) closeSidebar();
+    else openSidebar();
+  }
+  function bind() {
+    var toggle =
+      document.getElementById('sidebar-toggle') ||
+      document.querySelector('.topbar .toggle') ||
+      document.querySelector('button[aria-label*="sidebar" i]') ||
+      document.querySelector('button[aria-label*="menu" i]');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) { console.warn('[sidebar] elements missing'); return; }
+    if (toggle.dataset.sbBound === '1') return;
+    toggle.dataset.sbBound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSidebar();
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      closeSidebar();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSidebar();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+<!-- PORTAL SIDEBAR TOGGLE FIX END -->
 </body>
 </html>
+

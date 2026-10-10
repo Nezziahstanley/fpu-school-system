@@ -1582,3 +1582,167 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     font-size: 1rem !important;
   }
 }
+
+/* ============================================================
+   PORTAL MOBILE POLISH — layout, topbar, sidebar toggle
+   ============================================================ */
+
+@media (max-width: 980px) {
+  /* --- Layout shell --- */
+  html, body.portal-app {
+    overflow-x: hidden !important;
+    width: 100% !important;
+  }
+
+  /* --- Topbar: sits at top, single row, no overlap --- */
+  .topbar,
+  .portal-topbar,
+  .app-topbar,
+  header.topbar,
+  body.portal-app .topbar {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 56px !important;
+    margin: 0 !important;
+    padding: .5rem .75rem !important;
+    box-sizing: border-box !important;
+    z-index: 900 !important;
+    background: #fff !important;
+    box-shadow: 0 1px 4px rgba(15,23,42,.08) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: .5rem !important;
+  }
+
+  .topbar .topbar-left,
+  .topbar .topbar-right,
+  .topbar .actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: .4rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Icons in the topbar shrink so they don't overflow */
+  .topbar button,
+  .topbar .icon-btn,
+  .topbar a[href*="logout"] {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+  }
+
+  .topbar .user-chip .name,
+  .topbar .user-chip .role { display: none !important; }
+
+  /* Main content flows under the topbar (sticky handles spacing) */
+  main.main,
+  .main,
+  .content,
+  .page-view {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Greeting card gets its own row, no collision */
+  .greeting {
+    margin-top: .75rem !important;
+  }
+
+  /* --- Sidebar off-canvas --- */
+  body.portal-app #sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    max-width: 84vw !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: transform .25s ease-out, opacity .15s ease-out !important;
+    z-index: 1100 !important;
+    overflow-y: auto !important;
+    background: #064e3b !important;
+    box-shadow: 4px 0 24px rgba(15,23,42,.3) !important;
+  }
+  body.portal-app.sidebar-open #sidebar,
+  body.portal-app #sidebar.open {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  body.portal-app.sidebar-open::after {
+    content: '' !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15,23,42,.55) !important;
+    z-index: 1090 !important;
+  }
+
+  /* Content full width */
+  main.main, .main, .content, .page-view {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+  main.main > *, main.main > * > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Tiles: 1 per row on small, 2 per row on tablet */
+  .tile-grid, .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .5rem !important;
+  }
+
+  /* Panels full width */
+  .panel, .card, .tile { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+
+  .greeting {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .65rem !important;
+    padding: 1rem !important;
+  }
+  .greeting .meta {
+    text-align: left !important;
+    width: 100% !important;
+    padding-top: .65rem !important;
+    border-top: 1px solid rgba(255,255,255,.18) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .tile-grid, .stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
+  main.main, .main, .content, .page-view {
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
+  }
+  .greeting h1, .greeting .who h1 { font-size: 1.1rem !important; }
+  .greeting .who .sub { font-size: .78rem !important; }
+}

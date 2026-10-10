@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU School Management System — Drizzle schema
 // ------------------------------------------------------------
 // PostgreSQL 16. Every table maps to snake_case in the DB.
@@ -80,6 +80,10 @@ const announcementAudienceEnum = pgEnum('announcement_audience', [
 const notifTypeEnum = pgEnum('notification_type', [
   'info', 'warning', 'success', 'complaint', 'fee',
 ]);
+
+  const allocationStatusEnum = pgEnum('allocation_status', [
+    'assigned', 'accepted', 'flagged', 'cancelled',
+  ]);
 
 const registrationStatusEnum = pgEnum('registration_status', [
   'pending', 'approved', 'rejected',
@@ -252,7 +256,14 @@ const courseAllocations = pgTable('course_allocations', {
   lecturerId: integer('lecturer_id').notNull(),
   sessionId: integer('session_id').notNull(),
   semester: semesterEnum('semester').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+
+    status: allocationStatusEnum('status').notNull().default('assigned'),
+    assignedBy: integer('assigned_by'),
+    flagReason: varchar('flag_reason', { length: 80 }),
+    flagNote: text('flag_note'),
+    respondedAt: timestamp('responded_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uniqueAlloc: uniqueIndex('uniq_course_allocation')
     .on(t.courseId, t.lecturerId, t.sessionId, t.semester),
@@ -914,6 +925,7 @@ module.exports = {
   announcementPriorityEnum,
   announcementAudienceEnum,
   notifTypeEnum,
+  allocationStatusEnum,
   registrationStatusEnum,
 
   // tables

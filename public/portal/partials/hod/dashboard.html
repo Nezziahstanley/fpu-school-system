@@ -202,6 +202,12 @@
 
 <script>
 (function () {
+
+// Safe text setter — skips when the element is missing
+function setText(id, value) {
+  var el = (typeof id === 'string') ? document.getElementById(id) : id;
+  if (el) el.textContent = value;
+}
   'use strict';
 
   const core = window.FPU_PORTAL || {};
@@ -295,7 +301,7 @@
 
     // Department staff
     try {
-      const st = await core.portalFetch('/api/staff?departmentId=' + deptId);
+      const st = await core.portalFetch('/api/hod/staff?departmentId=' + deptId);
       const list = st.data || st || [];
       $('hod-stat-staff').textContent = list.length;
     } catch { $('hod-stat-staff').textContent = '—'; }
@@ -500,7 +506,7 @@
   async function chartWorkload() {
     try {
       const [stRes, cRes] = await Promise.all([
-        core.portalFetch('/api/staff?departmentId=' + deptId),
+        core.portalFetch('/api/hod/staff?departmentId=' + deptId),
         core.portalFetch('/api/courses?departmentId=' + deptId),
       ]);
       const staff = stRes.data || stRes || [];
@@ -543,7 +549,7 @@
   // ----------------------------------------------------------
   async function loadStaffList() {
     try {
-      const r = await core.portalFetch('/api/staff?departmentId=' + deptId);
+      const r = await core.portalFetch('/api/hod/staff?departmentId=' + deptId);
       const rows = r.data || r || [];
       const box = $('hod-staff-list');
       if (!rows.length) { box.innerHTML = '<p class="muted">No staff yet.</p>'; return; }

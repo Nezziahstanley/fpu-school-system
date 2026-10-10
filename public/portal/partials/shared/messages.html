@@ -42,7 +42,7 @@
   /* Recipient picker */
   .recip-wrap { position: relative; }
   .recip-results { position: absolute; z-index: 10; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; max-height: 260px; overflow-y: auto; box-shadow: 0 8px 20px rgba(15,23,42,.12); }
-  .recip-results:empty { display: none; }
+  .recip-results:empty, .recip-results.hidden { display: none; }
   .recip-option { padding: .55rem .75rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: .85rem; display: flex; justify-content: space-between; gap: .5rem; }
   .recip-option:hover { background: #f0fdf4; }
   .recip-role { font-size: .68rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
@@ -271,13 +271,15 @@
   }
 
   async function searchRecipients(q) {
-    if (!q || q.length < 2) {
-      $('ms-recipient-results').innerHTML = '';
-      return;
-    }
+    var box = $('ms-recipient-results');
+    if (!q || q.length < 2) { box.innerHTML = ''; return; }
+    console.log('[msg-picker] searching:', q);
+    box.innerHTML = '<div class="recip-option" style="cursor:default;color:#94a3b8;">Searching…</div>';
     try {
       var res = await core.portalFetch('/api/portal/users/search?q=' + encodeURIComponent(q));
-      var rows = (res && res.data) || [];
+      console.log('[msg-picker] raw res:', res);
+      var rows = (res && (res.data || res.rows)) || [];
+      console.log('[msg-picker] matches:', rows.length);
       if (!rows.length) {
         $('ms-recipient-results').innerHTML =
           '<div class="recip-option" style="cursor:default;color:#94a3b8;">No matches.</div>';
@@ -437,3 +439,4 @@
   load();
 })();
 </script>
+

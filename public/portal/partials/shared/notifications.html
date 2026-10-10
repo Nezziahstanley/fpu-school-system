@@ -85,7 +85,7 @@
 
   async function load() {
     try {
-      const res = await core.portalFetch('/api/notifications');
+      const res = await core.portalFetch('/api/portal/notifications');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.notifications || []);
       // Notifications may be nested as { notification: {...} }
@@ -106,7 +106,7 @@
       return;
     }
     try {
-      await core.portalFetch('/api/notifications/read-all', { method: 'POST' });
+      await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
       core.showToast && core.showToast('All marked as read', 'success');
       load();
     } catch (err) {

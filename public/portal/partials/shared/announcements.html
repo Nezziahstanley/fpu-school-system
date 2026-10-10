@@ -91,7 +91,7 @@
 
   async function load() {
     try {
-      const res = await core.portalFetch('/api/announcements');
+      const res = await core.portalFetch('/api/portal/announcements');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.announcements || []);
       ALL = raw.map(unwrap);

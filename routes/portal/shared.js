@@ -247,11 +247,27 @@ router.delete('/notifications/:id', requireUser, async (req, res, next) => {
 // ============================================================
 router.get('/announcements', requireUser, async (req, res, next) => {
   try {
-    const rows = await notifQueries.listAnnouncementsWithAuthor({
+    const all = await notifQueries.listAnnouncementsWithAuthor({
+      audience: 'all',
+      isPublished: true,
+    });
+    const mine = await notifQueries.listAnnouncementsWithAuthor({
       audience: req.user.role,
       isPublished: true,
     });
-    return res.json({ success: true, data: rows });
+    // Merge + dedupe by id, sort by publishedAt desc
+    const seen = new Set();
+    const merged = [];
+    [...all, ...mine].forEach((r) => {
+      const a = r.announcement || r;
+      if (!seen.has(a.id)) { seen.add(a.id); merged.push(r); }
+    });
+    merged.sort((x, y) => {
+      const ax = (x.announcement || x).publishedAt || '';
+      const ay = (y.announcement || y).publishedAt || '';
+      return String(ay).localeCompare(String(ax));
+    });
+    return res.json({ success: true, data: merged });
   } catch (err) {
     return next(err);
   }

@@ -101,19 +101,27 @@
   // uncomment the try block below to fetch real data.
   // ----------------------------------------------------------
   async function load() {
-    // try {
-    //   const res = await core.portalFetch('/api/messages');
-    //   const payload = res.data || res || {};
-    //   const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
-    //   // Handle possible nesting: { message: {...} }
-    //   ALL = raw.map((m) => m.message || m);
-    // } catch (err) {
-    //   console.warn('[messages] endpoint unavailable, showing empty state');
-    //   ALL = [];
-    // }
-
-    // Hardcoded empty for now
-    ALL = [];
+    try {
+      const res = await core.portalFetch('/api/portal/messages');
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
+      ALL = raw.map((m) => {
+        const msg = m.message || m;
+        const sender = m.sender || {};
+        return {
+          id: msg.id,
+          senderId: msg.senderId,
+          senderName: [sender.firstName, sender.lastName].filter(Boolean).join(' ') || sender.email || 'User',
+          subject: msg.subject,
+          body: msg.body,
+          isRead: msg.isRead,
+          createdAt: msg.createdAt,
+        };
+      });
+    } catch (err) {
+      console.warn('[messages] load failed:', err.message);
+      ALL = [];
+    }
     applyFilter();
   }
 

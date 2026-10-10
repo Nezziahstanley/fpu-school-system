@@ -316,9 +316,11 @@
       // BUT: if the key itself starts with the folder name, use the full key
       // (e.g. for admission-officer-applications where folder = admission-officer,
       // we want the file to be "admission-officer-applications.html" in the admission-officer folder)
+      // Try the STRIPPED filename first (e.g. lecturer-courses → courses.html),
+      // then fall back to the raw key for partials that keep the prefix in the filename.
       const candidates = [
-        `${cleanKey}.html`,
         `${file}.html`,
+        `${cleanKey}.html`,
       ];
       return {
         url: `/portal/partials/${folder}/${candidates[0]}`,
@@ -385,9 +387,21 @@
       return;
     }
     view.querySelectorAll('script').forEach((old) => {
-      const s = document.createElement('script');
-      if (old.src) s.src = old.src; else s.textContent = old.textContent;
-      old.replaceWith(s);
+      try {
+        const s = document.createElement('script');
+        if (old.src) {
+          s.src = old.src;
+        } else {
+          // Safely move the inline JS: use textContent, wrap in a guard
+          s.textContent = String(old.textContent || '');
+        }
+        // Use parentNode.replaceChild as a fallback for older browsers
+        if (old.parentNode) {
+          old.parentNode.replaceChild(s, old);
+        }
+      } catch (err) {
+        console.warn('[portal-spa] script inject failed:', err && err.message);
+      }
     });
   }
 
@@ -545,3 +559,4 @@
     initPortalSPA();
   }
 })();
+

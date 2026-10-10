@@ -1,4 +1,4 @@
-﻿<!-- Shared → Messages -->
+﻿<!-- Shared → Messages (inbox + compose + thread view) -->
 <section class="greeting">
   <div class="who">
     <div class="avatar">💬</div>
@@ -9,130 +9,431 @@
   </div>
 </section>
 
-<!-- Filter bar — no Compose button (feature not yet available) -->
-<div class="filter-bar">
+<style>
+  .ms-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: 1rem; }
+  .ms-toolbar input[type="search"] { flex: 1 1 220px; min-width: 180px; padding: .55rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; }
+  .ms-toolbar select { padding: .55rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; background: #fff; }
+
+  .ms-list { display: flex; flex-direction: column; }
+  .ms-item { display: flex; gap: .75rem; align-items: flex-start; padding: .85rem 1rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background .12s; }
+  .ms-item:hover { background: #f8fafc; }
+  .ms-item.unread { background: #f0fdf4; }
+  .ms-item.unread:hover { background: #dcfce7; }
+  .ms-avatar { width: 38px; height: 38px; border-radius: 50%; background: #d1fae5; color: #065f46; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem; flex-shrink: 0; }
+  .ms-item.unread .ms-avatar { background: #065f46; color: #fff; }
+  .ms-main { flex: 1; min-width: 0; }
+  .ms-row { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+  .ms-sender { font-weight: 700; color: #0f172a; font-size: .9rem; }
+  .ms-item.unread .ms-sender::before { content: '● '; color: #065f46; font-size: .7em; }
+  .ms-date { font-size: .7rem; color: #94a3b8; white-space: nowrap; }
+  .ms-subject { font-weight: 600; color: #1f2937; font-size: .85rem; margin-top: .15rem; }
+  .ms-preview { color: #64748b; font-size: .8rem; margin-top: .15rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ms-empty { text-align: center; padding: 3.5rem 1rem; color: #94a3b8; }
+  .ms-empty-ic { font-size: 3.5rem; margin-bottom: 1rem; }
+
+  /* Compose + thread modals */
+  #ms-compose, #ms-thread { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1rem; }
+  #ms-compose.open, #ms-thread.open { display: flex; }
+  #ms-compose > div, #ms-thread > div { background: #fff; border-radius: 14px; max-width: 720px; width: 100%; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+  .ms-modal-head { padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+  .ms-modal-title { margin: 0; font-size: 1.05rem; color: #0f172a; }
+  .ms-modal-close { background: transparent; border: none; font-size: 1.4rem; cursor: pointer; color: #64748b; width: 30px; height: 30px; border-radius: 6px; line-height: 1; }
+
+  /* Recipient picker */
+  .recip-wrap { position: relative; }
+  .recip-results { position: absolute; z-index: 10; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; max-height: 260px; overflow-y: auto; box-shadow: 0 8px 20px rgba(15,23,42,.12); }
+  .recip-results:empty { display: none; }
+  .recip-option { padding: .55rem .75rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: .85rem; display: flex; justify-content: space-between; gap: .5rem; }
+  .recip-option:hover { background: #f0fdf4; }
+  .recip-role { font-size: .68rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: .04em; }
+  .recip-chosen { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; background: #dcfce7; color: #065f46; border-radius: 99px; font-size: .78rem; font-weight: 600; margin-top: .4rem; }
+  .recip-chosen button { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; }
+
+  /* Thread bubbles */
+  .thread-list { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .6rem; background: #f8fafc; max-height: 50vh; overflow-y: auto; }
+  .bubble { max-width: 78%; padding: .6rem .85rem; border-radius: 12px; font-size: .88rem; line-height: 1.5; white-space: pre-wrap; }
+  .bubble.mine { align-self: flex-end; background: #065f46; color: #fff; }
+  .bubble.theirs { align-self: flex-start; background: #fff; color: #1f2937; border: 1px solid #e5e7eb; }
+  .bubble-time { font-size: .65rem; opacity: .75; margin-top: .25rem; display: block; }
+</style>
+
+<!-- Toolbar -->
+<div class="ms-toolbar">
   <input type="search" id="ms-search" placeholder="Search messages…" />
   <select id="ms-status">
     <option value="">All</option>
     <option value="unread">Unread</option>
     <option value="read">Read</option>
   </select>
-  <button class="btn btn-outline btn-sm" id="ms-refresh">Refresh</button>
+  <button class="btn btn-primary btn-sm" id="ms-new">+ New Message</button>
+  <button class="btn btn-outline btn-sm" id="ms-refresh">↻ Refresh</button>
 </div>
 
+<!-- Inbox -->
 <section class="panel">
   <div class="panel-head">
-    <h3>Inbox</h3>
+    <h3 style="margin:0;">Inbox</h3>
     <span class="badge" id="ms-count">0</span>
   </div>
-  <div class="panel-body" id="ms-list">
-    <div class="loading"><span class="spinner"></span> Loading…</div>
+  <div class="panel-body flush">
+    <div class="ms-list" id="ms-list">
+      <div class="loading" style="padding:2rem;"><span class="spinner"></span> Loading…</div>
+    </div>
   </div>
 </section>
+
+<!-- Compose modal -->
+<div id="ms-compose" role="dialog" aria-modal="true">
+  <div>
+    <div class="ms-modal-head">
+      <h3 class="ms-modal-title" id="ms-compose-title">New Message</h3>
+      <button type="button" class="ms-modal-close" id="ms-compose-close">✕</button>
+    </div>
+    <form id="ms-compose-form" style="padding:1.25rem;">
+      <div style="margin-bottom:.75rem;" class="recip-wrap">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Recipient *</label>
+        <input type="text" id="ms-recipient-input" autocomplete="off" placeholder="Type a name, email, or matric…" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+        <input type="hidden" name="recipientId" id="ms-recipient-id" />
+        <div class="recip-results" id="ms-recipient-results"></div>
+        <div id="ms-recipient-chosen"></div>
+      </div>
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Subject</label>
+        <input type="text" name="subject" maxlength="200" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Message *</label>
+        <textarea name="body" required rows="6" maxlength="5000" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" class="btn btn-outline btn-sm" id="ms-compose-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="ms-compose-submit">Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Thread modal -->
+<div id="ms-thread" role="dialog" aria-modal="true">
+  <div>
+    <div class="ms-modal-head">
+      <div>
+        <h3 class="ms-modal-title" id="ms-thread-title">Message</h3>
+        <div class="muted small" id="ms-thread-sub" style="font-size:.78rem;margin-top:.15rem;"></div>
+      </div>
+      <button type="button" class="ms-modal-close" id="ms-thread-close">✕</button>
+    </div>
+    <div class="thread-list" id="ms-thread-list"></div>
+    <form id="ms-reply-form" style="padding:1rem 1.25rem;border-top:1px solid #e5e7eb;">
+      <textarea name="body" required rows="3" placeholder="Type your reply…" style="width:100%;padding:.6rem .75rem;font-size:.88rem;border:1px solid #d1d5db;border-radius:8px;font-family:inherit;box-sizing:border-box;resize:vertical;"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:.6rem;">
+        <button type="submit" class="btn btn-primary btn-sm" id="ms-reply-submit">Send Reply</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
 (function () {
   'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
 
-  let ALL = [];
-  let FILTERED = [];
+  var me = (core.getPortalUser && core.getPortalUser()) || {};
+  var MY_ID = Number(me.id) || 0;
 
-  // ----------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------
+  var ALL = [];
+  var FILTERED = [];
+  var THREAD_ID = null;
+  var PICKED = null; // { id, firstName, lastName, email, role, matricNumber }
+  var searchTimer = null;
+
+  // ---------- helpers ----------
+  function initials(u) {
+    var f = (u.firstName || '').charAt(0);
+    var l = (u.lastName || '').charAt(0);
+    return (f + l).toUpperCase() || '?';
+  }
+  function fullName(u) {
+    var n = [u.firstName, u.lastName].filter(Boolean).join(' ');
+    return n || u.email || 'User';
+  }
+
+  // ---------- render inbox ----------
   function render() {
     $('ms-count').textContent = FILTERED.length;
 
-    // Empty state
     if (!FILTERED.length) {
-      $('ms-list').innerHTML = `
-        <div style="text-align:center;padding:3.5rem 1rem;color:#94a3b8;">
-          <div style="font-size:3.5rem;margin-bottom:1rem;">📭</div>
-          <p style="font-size:14.5px;font-weight:600;color:#475569;margin:0;">No messages yet</p>
-          <p style="font-size:12.5px;margin:.5rem 0 0;color:#94a3b8;">
-            Messages from staff and students will appear here once the messaging system is enabled.
-          </p>
-        </div>`;
+      $('ms-list').innerHTML = '<div class="ms-empty">'
+        + '<div class="ms-empty-ic">📭</div>'
+        + '<p style="font-size:14.5px;font-weight:600;color:#475569;margin:0;">No messages yet</p>'
+        + '<p style="font-size:12.5px;margin:.5rem 0 0;color:#94a3b8;">Click "+ New Message" to start a conversation.</p>'
+        + '</div>';
       return;
     }
 
-    // Message list
-    $('ms-list').innerHTML = FILTERED.map((m) => `
-      <div style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;${m.isRead ? '' : 'background:#f0fdf4;'}" data-id="${m.id}">
-        <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
-          <strong style="color:#0f172a;">${esc(m.senderName || m.from || 'System')}</strong>
-          <span class="muted small" style="white-space:nowrap;">
-            ${m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}
-          </span>
-        </div>
-        <div style="margin-top:.35rem;color:#1f2937;font-weight:500;">${esc(m.subject || 'No subject')}</div>
-        <div style="margin-top:.25rem;color:#64748b;font-size:13px;line-height:1.5;">
-          ${esc((m.preview || m.body || '').slice(0, 120))}${(m.body || '').length > 120 ? '…' : ''}
-        </div>
-      </div>`).join('');
+    $('ms-list').innerHTML = FILTERED.map(function (m) {
+      return '<div class="ms-item ' + (m.isRead ? '' : 'unread') + '" data-id="' + esc(m.id) + '">'
+        + '<div class="ms-avatar">' + esc(initials({ firstName: m.senderName ? m.senderName.split(' ')[0] : '', lastName: m.senderName ? m.senderName.split(' ').slice(1).join(' ') : '' })) + '</div>'
+        + '<div class="ms-main">'
+        +   '<div class="ms-row">'
+        +     '<span class="ms-sender">' + esc(m.senderName || 'User') + '</span>'
+        +     '<span class="ms-date">' + esc(timeAgo(m.createdAt) || dateFmt(m.createdAt)) + '</span>'
+        +   '</div>'
+        +   (m.subject ? '<div class="ms-subject">' + esc(m.subject) + '</div>' : '')
+        +   '<div class="ms-preview">' + esc((m.body || '').slice(0, 140)) + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    $('ms-list').querySelectorAll('.ms-item[data-id]').forEach(function (el) {
+      el.addEventListener('click', function () { openThread(el.dataset.id); });
+    });
   }
 
-  // ----------------------------------------------------------
-  // Filter
-  // ----------------------------------------------------------
+  // ---------- filter ----------
   function applyFilter() {
-    const q = ($('ms-search').value || '').trim().toLowerCase();
-    const st = $('ms-status').value;
-
-    FILTERED = ALL.filter((m) => {
-      const hay = `${m.senderName || ''} ${m.subject || ''} ${m.body || ''}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
+    var q = $('ms-search').value.trim().toLowerCase();
+    var st = $('ms-status').value;
+    FILTERED = ALL.filter(function (m) {
+      var hay = ((m.senderName || '') + ' ' + (m.subject || '') + ' ' + (m.body || '')).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return false;
       if (st === 'unread' && m.isRead) return false;
       if (st === 'read' && !m.isRead) return false;
       return true;
     });
-
     render();
   }
 
-  // ----------------------------------------------------------
-  // Load messages
-  // ----------------------------------------------------------
-  // The messaging backend isn't built yet, so we gracefully
-  // show the empty state. When `/api/messages` is ready,
-  // uncomment the try block below to fetch real data.
-  // ----------------------------------------------------------
+  // ---------- load inbox ----------
   async function load() {
     try {
-      const res = await core.portalFetch('/api/portal/messages');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
-      ALL = raw.map((m) => {
-        const msg = m.message || m;
-        const sender = m.sender || {};
+      var res = await core.portalFetch('/api/portal/messages');
+      var payload = res.data || res || {};
+      var raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
+      ALL = raw.map(function (m) {
+        var msg = m.message || m;
+        var sender = m.sender || {};
         return {
           id: msg.id,
           senderId: msg.senderId,
-          senderName: [sender.firstName, sender.lastName].filter(Boolean).join(' ') || sender.email || 'User',
+          senderName: fullName(sender) || 'User',
           subject: msg.subject,
           body: msg.body,
           isRead: msg.isRead,
           createdAt: msg.createdAt,
         };
       });
+      applyFilter();
     } catch (err) {
-      console.warn('[messages] load failed:', err.message);
       ALL = [];
+      applyFilter();
     }
-    applyFilter();
   }
 
-  // ----------------------------------------------------------
-  // Wire up
-  // ----------------------------------------------------------
+  // ---------- compose modal ----------
+  function openCompose() {
+    PICKED = null;
+    $('ms-compose-form').reset();
+    $('ms-recipient-id').value = '';
+    $('ms-recipient-input').value = '';
+    $('ms-recipient-results').innerHTML = '';
+    $('ms-recipient-chosen').innerHTML = '';
+    $('ms-compose').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeCompose() {
+    $('ms-compose').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ---------- recipient picker ----------
+  function pickRecipient(u) {
+    PICKED = u;
+    $('ms-recipient-id').value = u.id;
+    $('ms-recipient-input').value = fullName(u);
+    $('ms-recipient-results').innerHTML = '';
+    var roleLabel = (u.role || '').replace(/_/g, ' ');
+    $('ms-recipient-chosen').innerHTML =
+      '<span class="recip-chosen">' + esc(fullName(u))
+      + ' <span style="opacity:.75;font-weight:400;">· ' + esc(roleLabel) + '</span>'
+      + ' <button type="button" id="ms-clear-recip" title="Change">✕</button></span>';
+    $('ms-clear-recip').addEventListener('click', function () {
+      PICKED = null;
+      $('ms-recipient-id').value = '';
+      $('ms-recipient-input').value = '';
+      $('ms-recipient-chosen').innerHTML = '';
+      $('ms-recipient-input').focus();
+    });
+  }
+
+  async function searchRecipients(q) {
+    if (!q || q.length < 2) {
+      $('ms-recipient-results').innerHTML = '';
+      return;
+    }
+    try {
+      var res = await core.portalFetch('/api/portal/users/search?q=' + encodeURIComponent(q));
+      var rows = (res && res.data) || [];
+      if (!rows.length) {
+        $('ms-recipient-results').innerHTML =
+          '<div class="recip-option" style="cursor:default;color:#94a3b8;">No matches.</div>';
+        return;
+      }
+      $('ms-recipient-results').innerHTML = rows.map(function (u) {
+        var label = fullName(u);
+        var role = (u.role || '').replace(/_/g, ' ');
+        var sub = u.matricNumber ? (' · ' + u.matricNumber) : (u.email ? (' · ' + u.email) : '');
+        return '<div class="recip-option" data-uid="' + esc(u.id) + '">'
+          + '<span><strong>' + esc(label) + '</strong><span style="color:#94a3b8;">' + esc(sub) + '</span></span>'
+          + '<span class="recip-role">' + esc(role) + '</span>'
+          + '</div>';
+      }).join('');
+      $('ms-recipient-results').querySelectorAll('.recip-option[data-uid]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          var row = rows.find(function (u) { return String(u.id) === el.dataset.uid; });
+          if (row) pickRecipient(row);
+        });
+      });
+    } catch (err) {
+      $('ms-recipient-results').innerHTML =
+        '<div class="recip-option" style="cursor:default;color:#dc2626;">' + esc(err.message) + '</div>';
+    }
+  }
+
+  async function submitCompose(e) {
+    e.preventDefault();
+    var form = $('ms-compose-form');
+    var recipientId = $('ms-recipient-id').value;
+    if (!recipientId) {
+      core.showToast && core.showToast('Pick a recipient first.', 'warning');
+      $('ms-recipient-input').focus();
+      return;
+    }
+    var fd = new FormData(form);
+    var body = { recipientId: Number(recipientId) };
+    fd.forEach(function (v, k) { if (k !== 'recipientId') body[k] = v; });
+
+    var btn = $('ms-compose-submit');
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Sending…';
+    try {
+      await core.portalFetch('/api/portal/messages', { method: 'POST', body: body });
+      core.showToast && core.showToast('Message sent.', 'success');
+      closeCompose();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  // ---------- thread view ----------
+  async function openThread(id) {
+    THREAD_ID = id;
+    var row = ALL.find(function (m) { return String(m.id) === String(id); });
+    $('ms-thread-title').textContent = row && row.subject ? row.subject : 'Message';
+    $('ms-thread-sub').textContent = row && row.senderName ? ('From ' + row.senderName) : '';
+    $('ms-thread-list').innerHTML = '<div class="loading" style="padding:1.5rem;"><span class="spinner"></span> Loading…</div>';
+    $('ms-thread').classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    try {
+      var res = await core.portalFetch('/api/portal/messages/' + id);
+      var m = (res && res.data) || {};
+      var mine = Number(m.senderId) === MY_ID;
+      $('ms-thread-list').innerHTML = '<div class="bubble ' + (mine ? 'mine' : 'theirs') + '">'
+        + esc(m.body || '')
+        + '<span class="bubble-time">' + esc(timeAgo(m.createdAt) || dateFmt(m.createdAt)) + '</span>'
+        + '</div>';
+    } catch (err) {
+      $('ms-thread-list').innerHTML = '<div class="alert alert-error">' + esc(err.message) + '</div>';
+    }
+  }
+  function closeThread() {
+    THREAD_ID = null;
+    $('ms-thread').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  async function submitReply(e) {
+    e.preventDefault();
+    if (!THREAD_ID) return;
+    var form = $('ms-reply-form');
+    var fd = new FormData(form);
+    var body = fd.get('body');
+    if (!body || !body.trim()) return;
+    var row = ALL.find(function (m) { return String(m.id) === String(THREAD_ID); });
+    var recipientId = row && row.senderId ? row.senderId : null;
+    if (!recipientId || recipientId === MY_ID) {
+      core.showToast && core.showToast('Cannot determine recipient.', 'warning');
+      return;
+    }
+    var btn = $('ms-reply-submit');
+    btn.disabled = true;
+    var prev = btn.textContent;
+    btn.textContent = 'Sending…';
+    try {
+      await core.portalFetch('/api/portal/messages', {
+        method: 'POST',
+        body: { recipientId: recipientId, subject: row.subject, body: body, parentId: THREAD_ID },
+      });
+      form.reset();
+      core.showToast && core.showToast('Reply sent.', 'success');
+      closeThread();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  }
+
+  // ---------- wire up ----------
   $('ms-search').addEventListener('input', applyFilter);
   $('ms-status').addEventListener('change', applyFilter);
   $('ms-refresh').addEventListener('click', load);
 
-  // Go
+  $('ms-new').addEventListener('click', openCompose);
+  $('ms-compose-close').addEventListener('click', closeCompose);
+  $('ms-compose-cancel').addEventListener('click', closeCompose);
+  $('ms-compose-form').addEventListener('submit', submitCompose);
+  $('ms-compose').addEventListener('click', function (e) {
+    if (e.target.id === 'ms-compose') closeCompose();
+  });
+
+  $('ms-thread-close').addEventListener('click', closeThread);
+  $('ms-thread').addEventListener('click', function (e) {
+    if (e.target.id === 'ms-thread') closeThread();
+  });
+  $('ms-reply-form').addEventListener('submit', submitReply);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if ($('ms-compose').classList.contains('open')) closeCompose();
+    else if ($('ms-thread').classList.contains('open')) closeThread();
+  });
+
+  // Recipient input with debounce
+  $('ms-recipient-input').addEventListener('input', function (e) {
+    clearTimeout(searchTimer);
+    var q = e.target.value.trim();
+    if (PICKED && q !== fullName(PICKED)) {
+      PICKED = null;
+      $('ms-recipient-id').value = '';
+      $('ms-recipient-chosen').innerHTML = '';
+    }
+    searchTimer = setTimeout(function () { searchRecipients(q); }, 220);
+  });
+
+  // Boot
   load();
 })();
 </script>

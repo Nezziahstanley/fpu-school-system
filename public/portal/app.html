@@ -331,6 +331,7 @@
 })();
 </script>
 <!-- PORTAL SIDEBAR TOGGLE FIX END -->
+
 <script id="notif-bell-js">
 (function () {
   'use strict';
@@ -342,10 +343,11 @@
   var POLL_MS = 30000;
   var panel, bell, badge, list;
   var timer = null;
+  var bound = false;
 
   function renderList(rows) {
     if (!rows.length) {
-      list.innerHTML = '<div class="notif-empty">You\'re all caught up ✨</div>';
+      list.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
       return;
     }
     list.innerHTML = rows.slice(0, 10).map(function (n) {
@@ -358,7 +360,6 @@
         + (n.body ? '<div class="notif-item-body">' + esc(n.body) + '</div>' : '')
         + '</button>';
     }).join('');
-
     list.querySelectorAll('.notif-item').forEach(function (el) {
       el.addEventListener('click', function () { openItem(el); });
     });
@@ -367,25 +368,19 @@
   async function openItem(el) {
     var id = el.dataset.id;
     var link = el.dataset.link || '';
-    try {
-      await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' });
-    } catch (e) { /* best-effort */ }
+    try { await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' }); }
+    catch (e) { /* silent */ }
     closePanel();
     refresh();
     if (link) {
-      // If it's a hash-based portal link, navigate via SPA
       var hash = link.split('#').pop();
-      if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && hash.indexOf('portal') === 0) {
+      if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && /^[a-z-]+$/.test(hash)) {
         window.FPU_SPA.navigatePortal(hash);
-      } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && hash.match(/^[a-z-]+$/)) {
-        window.FPU_SPA.navigatePortal(hash);
-      } else {
-        window.location.href = link;
+        return;
       }
-    } else {
-      if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
-        window.FPU_SPA.navigatePortal('portal-notifications');
-      }
+      window.location.href = link;
+    } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+      window.FPU_SPA.navigatePortal('portal-notifications');
     }
   }
 
@@ -394,38 +389,32 @@
       var res = await core.portalFetch('/api/portal/notifications?limit=10');
       var rows = (res && res.data) || [];
       var unread = (res && res.unread) || 0;
-      // Update badge
-      if (unread > 0) {
-        badge.hidden = false;
-        badge.textContent = unread > 99 ? '99+' : String(unread);
-      } else {
-        badge.hidden = true;
+      if (badge) {
+        if (unread > 0) { badge.hidden = false; badge.textContent = unread > 99 ? '99+' : String(unread); }
+        else { badge.hidden = true; }
       }
-      // Update list
-      renderList(rows);
-    } catch (err) {
-      // silent — API may not be ready
-    }
+      if (list) renderList(rows);
+    } catch (err) { /* silent */ }
   }
 
   function openPanel() {
+    if (!panel) return;
     panel.hidden = false;
-    bell.setAttribute('aria-expanded', 'true');
+    if (bell) bell.setAttribute('aria-expanded', 'true');
     refresh();
   }
   function closePanel() {
+    if (!panel) return;
     panel.hidden = true;
-    bell.setAttribute('aria-expanded', 'false');
+    if (bell) bell.setAttribute('aria-expanded', 'false');
   }
 
   async function markAllRead() {
     try {
       await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
-      core.showToast && core.showToast('All marked as read.', 'success');
+      if (core.showToast) core.showToast('All marked as read.', 'success');
       refresh();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
+    } catch (err) { if (core.showToast) core.showToast(err.message, 'error'); }
   }
 
   function goToNotifications() {
@@ -438,49 +427,58 @@
   }
 
   function bind() {
+    if (bound) return;
     panel = $('notif-panel');
     bell = $('notif-bell');
     badge = $('notif-badge');
     list = $('notif-list');
-    if (!panel || !bell) return;
+    if (!panel || !bell || !list) return false;
+    bound = true;
 
     bell.addEventListener('click', function (e) {
       e.stopPropagation();
       if (panel.hidden) openPanel(); else closePanel();
     });
-
     var markAll = $('notif-mark-all');
     if (markAll) markAll.addEventListener('click', function (e) { e.stopPropagation(); markAllRead(); });
-
     var viewAll = $('notif-view-all');
     if (viewAll) viewAll.addEventListener('click', function (e) { e.stopPropagation(); goToNotifications(); });
 
     document.addEventListener('click', function (e) {
-      if (panel.hidden) return;
+      if (!panel || panel.hidden) return;
       if (panel.contains(e.target) || bell.contains(e.target)) return;
       closePanel();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !panel.hidden) closePanel();
+      if (e.key === 'Escape' && panel && !panel.hidden) closePanel();
     });
 
-    // Initial load + poll
     refresh();
     if (timer) clearInterval(timer);
     timer = setInterval(refresh, POLL_MS);
-
-    // Refresh whenever the user navigates (SPA)
     window.addEventListener('hashchange', refresh);
+    return true;
+  }
+
+  // Retry loop: keep trying every 100ms until the bell exists
+  function init() {
+    if (bind()) return;
+    var attempts = 0;
+    var retry = setInterval(function () {
+      attempts++;
+      if (bind() || attempts > 50) clearInterval(retry);
+    }, 100);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    bind();
+    init();
   }
 })();
 </script>
 </body>
 </html>
+
 
 

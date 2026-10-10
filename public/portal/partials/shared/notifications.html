@@ -57,10 +57,13 @@
     }
 
     $('nt-list').innerHTML = FILTERED.map((n) => `
-      <div style="padding:1rem;border-bottom:1px solid #eee;${isRead(n) ? '' : 'background:#f0fdf4;'}">
+      <div class="nt-item" data-id="${esc(n.id)}" data-link="${esc(n.link || '')}" style="padding:1rem;border-bottom:1px solid #eee;cursor:pointer;${isRead(n) ? '' : 'background:#f0fdf4;'}">
         <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;">
           <div style="flex:1;">
-            <strong>${esc(getTitle(n))}</strong>
+            <strong style="display:flex;align-items:center;gap:.35rem;">
+              ${isRead(n) ? '' : '<span style="width:6px;height:6px;background:#10b981;border-radius:50%;flex-shrink:0;"></span>'}
+              ${esc(getTitle(n))}
+            </strong>
             <p style="margin:.25rem 0 0;color:#374151;">${esc(getBody(n))}</p>
           </div>
           <div class="muted small" style="white-space:nowrap;">
@@ -68,6 +71,25 @@
           </div>
         </div>
       </div>`).join('');
+
+    // Click-to-read
+    $('nt-list').querySelectorAll('.nt-item').forEach(function (el) {
+      el.addEventListener('click', async function () {
+        const id = el.dataset.id;
+        const link = el.dataset.link || '';
+        try {
+          await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' });
+        } catch (e) { /* best-effort */ }
+        if (link && window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+          const hash = link.split('#').pop();
+          if (hash && hash.indexOf('portal') === 0 || hash.match(/^[a-z-]+$/)) {
+            window.FPU_SPA.navigatePortal(hash);
+            return;
+          }
+        }
+        load();
+      });
+    });
   }
 
   function applyFilter() {
@@ -117,3 +139,4 @@
   load();
 })();
 </script>
+

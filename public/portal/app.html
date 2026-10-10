@@ -6,6 +6,80 @@
   <title>Portal — Federal Polytechnic Ugep</title>
   <link rel="icon" href="/images/logo.png" />
   <link rel="stylesheet" href="/css/portal.css" />
+<style id="notif-css">
+  .notif-wrap { position: relative; }
+  .notif-badge {
+    position: absolute; top: 2px; right: 2px;
+    min-width: 16px; height: 16px;
+    background: #dc2626; color: #fff;
+    border-radius: 99px; font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; line-height: 1;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .notif-badge[hidden] { display: none !important; }
+  .notif-panel {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    width: 360px; max-width: calc(100vw - 20px);
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.06);
+    z-index: 5000; overflow: hidden;
+  }
+  .notif-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-weight: 700; font-size: .85rem; color: #0f172a;
+  }
+  .notif-mark-all {
+    background: none; border: none; cursor: pointer;
+    color: #065f46; font-size: .75rem; font-weight: 600;
+    padding: 0;
+  }
+  .notif-mark-all:hover { text-decoration: underline; }
+  .notif-list { max-height: 380px; overflow-y: auto; }
+  .notif-item {
+    display: block; width: 100%; text-align: left;
+    padding: .75rem 1rem;
+    border: none; background: transparent;
+    border-bottom: 1px solid #f8fafc;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .notif-item:hover { background: #f8fafc; }
+  .notif-item.unread { background: #f0fdf4; }
+  .notif-item.unread:hover { background: #dcfce7; }
+  .notif-item-top {
+    display: flex; justify-content: space-between; gap: .5rem;
+    align-items: baseline;
+  }
+  .notif-item-title {
+    font-weight: 700; color: #0f172a; font-size: .82rem;
+    display: flex; align-items: center; gap: .35rem;
+  }
+  .notif-dot { width: 6px; height: 6px; background: #10b981; border-radius: 50%; flex-shrink: 0; }
+  .notif-item-time { font-size: .68rem; color: #94a3b8; white-space: nowrap; }
+  .notif-item-body {
+    color: #475569; font-size: .75rem; margin-top: .2rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .notif-empty { padding: 2rem 1rem; text-align: center; color: #94a3b8; font-size: .82rem; }
+  .notif-loading { padding: 1.5rem; text-align: center; color: #94a3b8; font-size: .82rem; }
+  .notif-foot {
+    padding: .6rem 1rem;
+    border-top: 1px solid #f1f5f9;
+    text-align: center;
+  }
+  .notif-view-all {
+    background: none; border: none; cursor: pointer;
+    color: #065f46; font-size: .78rem; font-weight: 700;
+    padding: 0;
+  }
+  .notif-view-all:hover { text-decoration: underline; }
+  @media (max-width: 640px) {
+    .notif-panel { width: calc(100vw - 20px); right: -8px; }
+  }
+</style>
 </head>
 <body class="portal-app">
 
@@ -257,6 +331,156 @@
 })();
 </script>
 <!-- PORTAL SIDEBAR TOGGLE FIX END -->
+<script id="notif-bell-js">
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+  var POLL_MS = 30000;
+  var panel, bell, badge, list;
+  var timer = null;
+
+  function renderList(rows) {
+    if (!rows.length) {
+      list.innerHTML = '<div class="notif-empty">You\'re all caught up ✨</div>';
+      return;
+    }
+    list.innerHTML = rows.slice(0, 10).map(function (n) {
+      var unread = n.isRead === false || n.isRead === undefined;
+      return '<button type="button" class="notif-item ' + (unread ? 'unread' : '') + '" data-id="' + esc(n.id) + '" data-link="' + esc(n.link || '') + '">'
+        + '<div class="notif-item-top">'
+        +   '<span class="notif-item-title">' + (unread ? '<span class="notif-dot"></span>' : '') + esc(n.title || 'Notification') + '</span>'
+        +   '<span class="notif-item-time">' + esc(timeAgo(n.createdAt) || '') + '</span>'
+        + '</div>'
+        + (n.body ? '<div class="notif-item-body">' + esc(n.body) + '</div>' : '')
+        + '</button>';
+    }).join('');
+
+    list.querySelectorAll('.notif-item').forEach(function (el) {
+      el.addEventListener('click', function () { openItem(el); });
+    });
+  }
+
+  async function openItem(el) {
+    var id = el.dataset.id;
+    var link = el.dataset.link || '';
+    try {
+      await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' });
+    } catch (e) { /* best-effort */ }
+    closePanel();
+    refresh();
+    if (link) {
+      // If it's a hash-based portal link, navigate via SPA
+      var hash = link.split('#').pop();
+      if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && hash.indexOf('portal') === 0) {
+        window.FPU_SPA.navigatePortal(hash);
+      } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && hash.match(/^[a-z-]+$/)) {
+        window.FPU_SPA.navigatePortal(hash);
+      } else {
+        window.location.href = link;
+      }
+    } else {
+      if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+        window.FPU_SPA.navigatePortal('portal-notifications');
+      }
+    }
+  }
+
+  async function refresh() {
+    try {
+      var res = await core.portalFetch('/api/portal/notifications?limit=10');
+      var rows = (res && res.data) || [];
+      var unread = (res && res.unread) || 0;
+      // Update badge
+      if (unread > 0) {
+        badge.hidden = false;
+        badge.textContent = unread > 99 ? '99+' : String(unread);
+      } else {
+        badge.hidden = true;
+      }
+      // Update list
+      renderList(rows);
+    } catch (err) {
+      // silent — API may not be ready
+    }
+  }
+
+  function openPanel() {
+    panel.hidden = false;
+    bell.setAttribute('aria-expanded', 'true');
+    refresh();
+  }
+  function closePanel() {
+    panel.hidden = true;
+    bell.setAttribute('aria-expanded', 'false');
+  }
+
+  async function markAllRead() {
+    try {
+      await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
+      core.showToast && core.showToast('All marked as read.', 'success');
+      refresh();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  function goToNotifications() {
+    closePanel();
+    if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+      window.FPU_SPA.navigatePortal('portal-notifications');
+    } else {
+      window.location.hash = 'portal-notifications';
+    }
+  }
+
+  function bind() {
+    panel = $('notif-panel');
+    bell = $('notif-bell');
+    badge = $('notif-badge');
+    list = $('notif-list');
+    if (!panel || !bell) return;
+
+    bell.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (panel.hidden) openPanel(); else closePanel();
+    });
+
+    var markAll = $('notif-mark-all');
+    if (markAll) markAll.addEventListener('click', function (e) { e.stopPropagation(); markAllRead(); });
+
+    var viewAll = $('notif-view-all');
+    if (viewAll) viewAll.addEventListener('click', function (e) { e.stopPropagation(); goToNotifications(); });
+
+    document.addEventListener('click', function (e) {
+      if (panel.hidden) return;
+      if (panel.contains(e.target) || bell.contains(e.target)) return;
+      closePanel();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !panel.hidden) closePanel();
+    });
+
+    // Initial load + poll
+    refresh();
+    if (timer) clearInterval(timer);
+    timer = setInterval(refresh, POLL_MS);
+
+    // Refresh whenever the user navigates (SPA)
+    window.addEventListener('hashchange', refresh);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+})();
+</script>
 </body>
 </html>
+
 

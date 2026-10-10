@@ -26,22 +26,8 @@
 
       <nav class="nav-links" id="navLinks">
         <li><a href="/">Home</a></li>
-        <li class="has-dropdown">
-          <a href="/about.html">About</a>
-          <ul class="dropdown-menu">
-            <li><a href="/about.html">About FPU</a></li>
-            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
-            <li><a href="/about.html#campus">Our Campuses</a></li>
-            <li><a href="/administration.html">Administration</a></li>
-          </ul>
-        </li>
-        <li class="has-dropdown">
-          <a href="/programmes.html">Programmes</a>
-          <ul class="dropdown-menu">
-            <li><a href="/nd.html">ND Programmes</a></li>
-            <li><a href="/hnd.html">HND Programmes</a></li>
-          </ul>
-        </li>
+        <li><a href="/about.html">About</a></li>
+        <li><a href="/programmes.html">Programmes</a></li>
         <li><a href="/apply-status.html">Check Status</a></li>
         <li><a href="/announcements.html">News</a></li>
         <li><a href="/contact.html">Contact</a></li>
@@ -52,70 +38,86 @@
       </nav>
 
       <div class="nav-auth">
-        <button class="search-toggle" id="searchToggle" aria-label="Search" aria-expanded="false" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="M20 20l-3.5-3.5"/>
-          </svg>
-        </button>
         <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
         <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
       </div>
 
       <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" type="button">☰</button>
     </div>
-
-    <div class="search-panel" id="searchPanel">
-      <form id="siteSearchForm" action="/programmes.html" method="get">
-        <input type="search" name="q" id="siteSearchInput" placeholder="Search programmes, news, or pages…" autocomplete="off" />
-        <button type="submit">Search</button>
-      </form>
-    </div>
   </header>
 
   <!-- ============ APPLICATION ============ -->
-  <main class="application-page">
-    <div class="container">
-      <div class="application-card">
-        <div class="application-head">
-          <h1>ND Application</h1>
-          <p class="muted">National Diploma — 2026/2027 session</p>
-        </div>
+  <main class="apply-shell">
+    <div class="apply-container">
 
-        <form id="apply-nd-form" novalidate>
-          <!-- STEP 1: Personal -->
-          <div class="wizard-step active" data-step="1">
-            <h2>1. Personal Information</h2>
+      <!-- Header -->
+      <div class="apply-head">
+        <div class="apply-head-badge">ND</div>
+        <div>
+          <h1>National Diploma Application</h1>
+          <p>2026/2027 admission session · Federal Polytechnic Ugep</p>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="apply-progress">
+        <div class="apply-progress-step is-active" data-step-indicator="0">
+          <span class="apply-progress-num">1</span>
+          <span class="apply-progress-label">Personal</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="1">
+          <span class="apply-progress-num">2</span>
+          <span class="apply-progress-label">Academic</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="2">
+          <span class="apply-progress-num">3</span>
+          <span class="apply-progress-label">Review &amp; Submit</span>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <form id="apply-nd-form" data-wizard novalidate>
+
+        <!-- STEP 1: Personal -->
+        <div class="wizard-step active" data-step="0">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">👤</span>
+              <div>
+                <h2>Personal Information</h2>
+                <p>Your details as they appear on official documents</p>
+              </div>
+            </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>First Name <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="firstName" required data-review="First Name" />
+                <label>First Name <span class="req">*</span></label>
+                <input type="text" name="firstName" required data-review="First Name" placeholder="e.g. Stanley" />
               </div>
               <div class="form-group">
-                <label>Last Name <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="lastName" required data-review="Last Name" />
+                <label>Last Name <span class="req">*</span></label>
+                <input type="text" name="lastName" required data-review="Last Name" placeholder="e.g. Vincent" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label>Middle Name</label>
-                <input type="text" name="middleName" data-review="Middle Name" />
+                <input type="text" name="middleName" data-review="Middle Name" placeholder="Optional" />
               </div>
               <div class="form-group">
-                <label>Email Address <span style="color:#dc2626;">*</span></label>
-                <input type="email" name="email" required data-review="Email" />
+                <label>Email Address <span class="req">*</span></label>
+                <input type="email" name="email" required data-review="Email" placeholder="you@example.com" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Phone Number <span style="color:#dc2626;">*</span></label>
-                <input type="tel" name="phone" required data-review="Phone" />
+                <label>Phone Number <span class="req">*</span></label>
+                <input type="tel" name="phone" required data-review="Phone" placeholder="e.g. 07041145338" />
               </div>
               <div class="form-group">
-                <label>Gender <span style="color:#dc2626;">*</span></label>
+                <label>Gender <span class="req">*</span></label>
                 <select name="gender" required data-review="Gender">
                   <option value="">Select gender</option>
                   <option value="male">Male</option>
@@ -126,11 +128,11 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Date of Birth <span style="color:#dc2626;">*</span></label>
+                <label>Date of Birth <span class="req">*</span></label>
                 <input type="date" name="dateOfBirth" required data-review="Date of Birth" />
               </div>
               <div class="form-group">
-                <label>Marital Status <span style="color:#dc2626;">*</span></label>
+                <label>Marital Status <span class="req">*</span></label>
                 <select name="maritalStatus" required data-review="Marital Status">
                   <option value="">Select status</option>
                   <option value="single">Single</option>
@@ -143,7 +145,7 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Country <span style="color:#dc2626;">*</span></label>
+                <label>Country <span class="req">*</span></label>
                 <select name="country" id="pub-country" required data-review="Country">
                   <option value="Nigeria" selected>Nigeria</option>
                   <option value="Ghana">Ghana</option>
@@ -154,16 +156,16 @@
                 </select>
               </div>
               <div class="form-group">
-                <label>State of Origin <span style="color:#dc2626;">*</span></label>
+                <label>State of Origin <span class="req">*</span></label>
                 <select name="stateOfOrigin" id="pub-state" required data-review="State of Origin">
-                  <option value="">Select state…</option>
+                  <option value="">Loading states…</option>
                 </select>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Local Government Area <span style="color:#dc2626;">*</span></label>
+                <label>Local Government Area <span class="req">*</span></label>
                 <select name="lga" id="pub-lga" required data-review="LGA">
                   <option value="">Select state first…</option>
                 </select>
@@ -175,29 +177,37 @@
             </div>
 
             <div class="form-group">
-              <label>Home Address <span style="color:#dc2626;">*</span></label>
-              <textarea name="address" rows="2" required placeholder="Street, city, state" data-review="Address"></textarea>
+              <label>Home Address <span class="req">*</span></label>
+              <textarea name="address" rows="3" required placeholder="Street, city, state" data-review="Address"></textarea>
             </div>
           </div>
+        </div>
 
-          <!-- STEP 2: Academic -->
-          <div class="wizard-step" data-step="2">
-            <h2>2. Academic Information</h2>
+        <!-- STEP 2: Academic -->
+        <div class="wizard-step" data-step="1">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">🎓</span>
+              <div>
+                <h2>Academic Information</h2>
+                <p>Your O'Level results and preferred programme</p>
+              </div>
+            </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label>JAMB Registration Number</label>
-                <input type="text" name="jambRegNumber" data-review="JAMB Reg No." />
+                <input type="text" name="jambRegNo" data-review="JAMB Reg No." placeholder="Optional" />
               </div>
               <div class="form-group">
                 <label>JAMB Score</label>
-                <input type="number" min="0" max="400" name="jambScore" data-review="JAMB Score" />
+                <input type="number" min="0" max="400" name="jambScore" data-review="JAMB Score" placeholder="0 – 400" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>O'Level Examination Type <span style="color:#dc2626;">*</span></label>
+                <label>O'Level Examination Type <span class="req">*</span></label>
                 <select name="olevelType" required data-review="O'Level Type">
                   <option value="">Select</option>
                   <option value="waec">WAEC</option>
@@ -206,14 +216,14 @@
                 </select>
               </div>
               <div class="form-group">
-                <label>O'Level Year <span style="color:#dc2626;">*</span></label>
-                <input type="number" min="1990" max="2030" name="olevelYear" required data-review="O'Level Year" />
+                <label>O'Level Year <span class="req">*</span></label>
+                <input type="number" min="1990" max="2030" name="olevelYear" required data-review="O'Level Year" placeholder="e.g. 2024" />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>ND Programme <span style="color:#dc2626;">*</span></label>
+                <label>ND Programme <span class="req">*</span></label>
                 <select name="programmeId" id="nd-programme" required data-review="ND Programme">
                   <option value="">Loading programmes…</option>
                 </select>
@@ -223,39 +233,71 @@
                 <input type="text" name="session" value="2026/2027" readonly data-review="Session" />
               </div>
             </div>
+
+            <!-- Hidden fields required by API -->
+            <input type="hidden" name="departmentId" id="nd-department" />
+            <input type="hidden" name="schoolId" id="nd-school" />
+            <input type="hidden" name="level" value="ND" />
+            <input type="hidden" name="type" value="ND" />
           </div>
+        </div>
 
-          <!-- STEP 3: Documents & Submit -->
-          <div class="wizard-step" data-step="3">
-            <h2>3. Documents &amp; Submission</h2>
-
-            <div class="doc-checklist">
-              <div class="doc-item">✓ O'Level Result</div>
-              <div class="doc-item">✓ Birth Certificate or Age Declaration</div>
-              <div class="doc-item">✓ Local Government Area Certificate</div>
-              <div class="doc-item">✓ Passport Photograph</div>
+        <!-- STEP 3: Review & Submit -->
+        <div class="wizard-step" data-step="2">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">✓</span>
+              <div>
+                <h2>Review &amp; Submit</h2>
+                <p>Check your details before submitting</p>
+              </div>
             </div>
 
-            <p class="muted small" style="margin-top:1rem;">
+            <div class="review-card" data-review-container></div>
+
+            <div class="form-section" style="margin-top:1.5rem;background:#f0fdf4;border:1px solid #bbf7d0;">
+              <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#065f46;">📋 Documents required</h3>
+              <ul style="margin:0;padding-left:1.2rem;font-size:.85rem;color:#374151;line-height:1.8;">
+                <li>O'Level Result</li>
+                <li>Birth Certificate or Age Declaration</li>
+                <li>Local Government Area Certificate</li>
+                <li>Passport Photograph</li>
+              </ul>
+            </div>
+
+            <p class="apply-terms">
               By submitting this application you confirm that all information provided is accurate and that you meet the entry requirements for the ND programme you selected.
             </p>
           </div>
+        </div>
 
-          <!-- NAVIGATION -->
-          <div class="wizard-nav">
-            <button type="button" class="btn btn-outline" data-wizard="back">← Back</button>
-            <button type="button" class="btn btn-primary" data-wizard="next">Next →</button>
-            <button type="submit" class="btn btn-accent" id="nd-submit" style="display:none;">Submit Application</button>
+        <!-- NAV -->
+        <div class="wizard-nav">
+          <button type="button" class="btn btn-outline" data-wizard-prev>← Back</button>
+          <button type="button" class="btn btn-primary" data-wizard-next>Next →</button>
+          <button type="submit" class="btn btn-accent" data-wizard-submit hidden>Submit Application</button>
+        </div>
+
+        <!-- Success screen -->
+        <div id="nd-success" class="apply-success" hidden>
+          <div class="apply-success-icon">✓</div>
+          <h2>Application submitted!</h2>
+          <p>Your application number is</p>
+          <div class="apply-success-number" id="nd-success-number">—</div>
+          <p>Please save this number. You'll use it together with your email to check your application status.</p>
+          <div class="apply-success-actions">
+            <a href="/apply-status.html" class="btn btn-primary">Check Status</a>
+            <a href="/" class="btn btn-outline">Back to Home</a>
           </div>
-        </form>
-      </div>
+        </div>
+
+      </form>
     </div>
   </main>
 
-  <!-- ============ FOOTER ============ -->
   <footer class="footer">
     <div class="container">
-      <div class="footer-bottom" style="padding-top:1rem;">
+      <div class="footer-bottom" style="padding:1rem 0;">
         <p>© <span id="year"></span> Federal Polytechnic Ugep. All rights reserved.</p>
       </div>
     </div>
@@ -266,24 +308,34 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // ---------- Load ND programmes into the select ----------
+    // ---------- Load ND programmes ----------
     (async function loadProgrammes() {
       try {
-        const res = await fetch('/api/programmes?level=ND');
+        const res = await fetch('/api/programmes');
         const json = await res.json();
-        const rows = (json.data || []).filter((p) => String(p.level).toUpperCase() === 'ND');
+        const list = (json.programmes || []).filter((p) => String(p.level).toUpperCase() === 'ND');
         const sel = document.getElementById('nd-programme');
         if (!sel) return;
-        if (!rows.length) {
+        if (!list.length) {
           sel.innerHTML = '<option value="">No ND programmes available</option>';
           return;
         }
         sel.innerHTML = '<option value="">Select programme…</option>' +
-          rows.map((p) => `<option value="${p.id}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
+          list.map((p) => `<option value="${p.id}" data-dept="${p.departmentId || ''}" data-school="${p.schoolId || ''}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
       } catch (err) {
         console.error('[programmes] failed:', err);
       }
     })();
+
+    // Sync hidden department/school when a programme is chosen
+    document.getElementById('nd-programme')?.addEventListener('change', function () {
+      const opt = this.options[this.selectedIndex];
+      if (!opt) return;
+      const dept = document.getElementById('nd-department');
+      const school = document.getElementById('nd-school');
+      if (dept) dept.value = opt.dataset.dept || '';
+      if (school) school.value = opt.dataset.school || '';
+    });
 
     // ---------- Country → State → LGA cascade ----------
     (async function initGeo() {
@@ -292,52 +344,80 @@
       const lga = document.getElementById('pub-lga');
       if (!country || !state || !lga) return;
 
-      async function fetchStates(countryName) {
-        const res = await fetch(`/api/geo/states?country=${encodeURIComponent(countryName || 'Nigeria')}`);
-        const json = await res.json();
-        return (json.data || []);
-      }
-
-      async function fetchLgas(countryName, stateName) {
-        const res = await fetch(`/api/geo/lgas?country=${encodeURIComponent(countryName || 'Nigeria')}&state=${encodeURIComponent(stateName)}`);
-        const json = await res.json();
-        return (json.data || []);
-      }
-
       async function loadStates() {
         state.innerHTML = '<option value="">Loading…</option>';
         lga.innerHTML = '<option value="">Select state first…</option>';
         try {
-          const rows = await fetchStates(country.value || 'Nigeria');
+          const res = await fetch('/api/geo/states?country=' + encodeURIComponent(country.value || 'Nigeria'));
+          const json = await res.json();
+          const rows = json.data || [];
           state.innerHTML = '<option value="">Select state…</option>' +
             rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
         } catch (err) {
-          console.error('[geo] states failed:', err);
+          console.error('[geo]', err);
           state.innerHTML = '<option value="">Could not load states</option>';
         }
       }
-
       async function loadLgas() {
         const s = state.value;
-        if (!s) {
-          lga.innerHTML = '<option value="">Select state first…</option>';
-          return;
-        }
+        if (!s) { lga.innerHTML = '<option value="">Select state first…</option>'; return; }
         lga.innerHTML = '<option value="">Loading…</option>';
         try {
-          const rows = await fetchLgas(country.value || 'Nigeria', s);
+          const res = await fetch('/api/geo/lgas?country=' + encodeURIComponent(country.value || 'Nigeria') + '&state=' + encodeURIComponent(s));
+          const json = await res.json();
+          const rows = json.data || [];
           lga.innerHTML = '<option value="">Select LGA…</option>' +
             rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
         } catch (err) {
-          console.error('[geo] lgas failed:', err);
+          console.error('[geo]', err);
           lga.innerHTML = '<option value="">Could not load LGAs</option>';
         }
       }
-
       country.addEventListener('change', loadStates);
       state.addEventListener('change', loadLgas);
       await loadStates();
     })();
+
+    // ---------- Submit ----------
+    const form = document.getElementById('apply-nd-form');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Copy state/lga to expected API names
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd);
+
+      // Compose oLevelResult if separate fields exist
+      if (body.olevelType || body.olevelYear) {
+        body.oLevelResult = { type: body.olevelType, year: body.olevelYear };
+      }
+
+      const btn = form.querySelector('[data-wizard-submit]');
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await fetch('/api/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (!res.ok || json.success === false) throw new Error(json.error || 'Submission failed.');
+
+        // Show success
+        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress').forEach((el) => (el.hidden = true));
+        const success = document.getElementById('nd-success');
+        success.hidden = false;
+        document.getElementById('nd-success-number').textContent = json.applicationNumber || '—';
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
   </script>
 </body>
 </html>

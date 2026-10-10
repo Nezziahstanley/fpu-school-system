@@ -13,7 +13,6 @@
 </head>
 <body>
 
-  <!-- ============ NAVBAR ============ -->
   <header class="navbar">
     <div class="container navbar-inner">
       <a href="/" class="brand">
@@ -23,99 +22,78 @@
           <span class="brand-motto">Knowledge · Skills · Service</span>
         </span>
       </a>
-
       <nav class="nav-links" id="navLinks">
         <li><a href="/">Home</a></li>
-        <li class="has-dropdown">
-          <a href="/about.html">About</a>
-          <ul class="dropdown-menu">
-            <li><a href="/about.html">About FPU</a></li>
-            <li><a href="/about.html#vision">Vision &amp; Mission</a></li>
-            <li><a href="/about.html#campus">Our Campuses</a></li>
-            <li><a href="/administration.html">Administration</a></li>
-          </ul>
-        </li>
-        <li class="has-dropdown">
-          <a href="/programmes.html">Programmes</a>
-          <ul class="dropdown-menu">
-            <li><a href="/nd.html">ND Programmes</a></li>
-            <li><a href="/hnd.html">HND Programmes</a></li>
-          </ul>
-        </li>
+        <li><a href="/about.html">About</a></li>
+        <li><a href="/programmes.html">Programmes</a></li>
         <li><a href="/apply-status.html">Check Status</a></li>
         <li><a href="/announcements.html">News</a></li>
         <li><a href="/contact.html">Contact</a></li>
         <li class="mobile-auth">
           <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
-          <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+          <a href="/apply-hnd.html" class="btn btn-accent btn-sm">Apply Now</a>
         </li>
       </nav>
-
       <div class="nav-auth">
-        <button class="search-toggle" id="searchToggle" aria-label="Search" aria-expanded="false" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-            <circle cx="11" cy="11" r="7"/>
-            <path d="M20 20l-3.5-3.5"/>
-          </svg>
-        </button>
         <a href="/login.html" class="btn btn-ghost btn-sm">Login</a>
-        <a href="/apply.html" class="btn btn-accent btn-sm">Apply Now</a>
+        <a href="/apply-hnd.html" class="btn btn-accent btn-sm">Apply Now</a>
       </div>
-
       <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" type="button">☰</button>
-    </div>
-
-    <div class="search-panel" id="searchPanel">
-      <form id="siteSearchForm" action="/programmes.html" method="get">
-        <input type="search" name="q" id="siteSearchInput" placeholder="Search programmes, news, or pages…" autocomplete="off" />
-        <button type="submit">Search</button>
-      </form>
     </div>
   </header>
 
-  <!-- ============ APPLICATION ============ -->
-  <main class="application-page">
-    <div class="container">
-      <div class="application-card">
-        <div class="application-head">
-          <h1>HND Application</h1>
-          <p class="muted">Higher National Diploma — 2026/2027 session</p>
+  <main class="apply-shell">
+    <div class="apply-container">
+      <div class="apply-head">
+        <div class="apply-head-badge apply-head-badge--hnd">HND</div>
+        <div>
+          <h1>Higher National Diploma Application</h1>
+          <p>2026/2027 admission session · Federal Polytechnic Ugep</p>
         </div>
+      </div>
 
-        <form id="apply-hnd-form" novalidate>
-          <!-- STEP 1: Personal -->
-          <div class="wizard-step active" data-step="1">
-            <h2>1. Personal Information</h2>
+      <div class="apply-progress">
+        <div class="apply-progress-step is-active" data-step-indicator="0">
+          <span class="apply-progress-num">1</span>
+          <span class="apply-progress-label">Personal</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="1">
+          <span class="apply-progress-num">2</span>
+          <span class="apply-progress-label">Academic</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="2">
+          <span class="apply-progress-num">3</span>
+          <span class="apply-progress-label">Review &amp; Submit</span>
+        </div>
+      </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>First Name <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="firstName" required data-review="First Name" />
-              </div>
-              <div class="form-group">
-                <label>Last Name <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="lastName" required data-review="Last Name" />
+      <form id="apply-hnd-form" data-wizard novalidate>
+
+        <!-- STEP 1: Personal -->
+        <div class="wizard-step active" data-step="0">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">👤</span>
+              <div>
+                <h2>Personal Information</h2>
+                <p>Your details as they appear on official documents</p>
               </div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>Middle Name</label>
-                <input type="text" name="middleName" data-review="Middle Name" />
-              </div>
-              <div class="form-group">
-                <label>Email Address <span style="color:#dc2626;">*</span></label>
-                <input type="email" name="email" required data-review="Email" />
-              </div>
+              <div class="form-group"><label>First Name <span class="req">*</span></label><input type="text" name="firstName" required data-review="First Name" /></div>
+              <div class="form-group"><label>Last Name <span class="req">*</span></label><input type="text" name="lastName" required data-review="Last Name" /></div>
             </div>
 
             <div class="form-row">
+              <div class="form-group"><label>Middle Name</label><input type="text" name="middleName" data-review="Middle Name" /></div>
+              <div class="form-group"><label>Email Address <span class="req">*</span></label><input type="email" name="email" required data-review="Email" /></div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group"><label>Phone Number <span class="req">*</span></label><input type="tel" name="phone" required data-review="Phone" /></div>
               <div class="form-group">
-                <label>Phone Number <span style="color:#dc2626;">*</span></label>
-                <input type="tel" name="phone" required data-review="Phone" />
-              </div>
-              <div class="form-group">
-                <label>Gender <span style="color:#dc2626;">*</span></label>
+                <label>Gender <span class="req">*</span></label>
                 <select name="gender" required data-review="Gender">
                   <option value="">Select gender</option>
                   <option value="male">Male</option>
@@ -125,12 +103,9 @@
             </div>
 
             <div class="form-row">
+              <div class="form-group"><label>Date of Birth <span class="req">*</span></label><input type="date" name="dateOfBirth" required data-review="Date of Birth" /></div>
               <div class="form-group">
-                <label>Date of Birth <span style="color:#dc2626;">*</span></label>
-                <input type="date" name="dateOfBirth" required data-review="Date of Birth" />
-              </div>
-              <div class="form-group">
-                <label>Marital Status <span style="color:#dc2626;">*</span></label>
+                <label>Marital Status <span class="req">*</span></label>
                 <select name="maritalStatus" required data-review="Marital Status">
                   <option value="">Select status</option>
                   <option value="single">Single</option>
@@ -143,7 +118,7 @@
 
             <div class="form-row">
               <div class="form-group">
-                <label>Country <span style="color:#dc2626;">*</span></label>
+                <label>Country <span class="req">*</span></label>
                 <select name="country" id="pub-country" required data-review="Country">
                   <option value="Nigeria" selected>Nigeria</option>
                   <option value="Ghana">Ghana</option>
@@ -154,125 +129,135 @@
                 </select>
               </div>
               <div class="form-group">
-                <label>State of Origin <span style="color:#dc2626;">*</span></label>
+                <label>State of Origin <span class="req">*</span></label>
                 <select name="stateOfOrigin" id="pub-state" required data-review="State of Origin">
-                  <option value="">Select state…</option>
+                  <option value="">Loading…</option>
                 </select>
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Local Government Area <span style="color:#dc2626;">*</span></label>
+                <label>Local Government Area <span class="req">*</span></label>
                 <select name="lga" id="pub-lga" required data-review="LGA">
                   <option value="">Select state first…</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Nationality</label>
-                <input type="text" name="nationality" value="Nigerian" data-review="Nationality" />
-              </div>
+              <div class="form-group"><label>Nationality</label><input type="text" name="nationality" value="Nigerian" data-review="Nationality" /></div>
             </div>
 
             <div class="form-group">
-              <label>Home Address <span style="color:#dc2626;">*</span></label>
-              <textarea name="address" rows="2" required placeholder="Street, city, state" data-review="Address"></textarea>
+              <label>Home Address <span class="req">*</span></label>
+              <textarea name="address" rows="3" required data-review="Address" placeholder="Street, city, state"></textarea>
             </div>
           </div>
+        </div>
 
-          <!-- STEP 2: Academic -->
-          <div class="wizard-step" data-step="2">
-            <h2>2. Academic Information</h2>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>ND Programme Attended <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="ndProgramme" required data-review="ND Programme" />
-              </div>
-              <div class="form-group">
-                <label>ND Institution <span style="color:#dc2626;">*</span></label>
-                <input type="text" name="ndInstitution" required data-review="ND Institution" />
+        <!-- STEP 2: Academic -->
+        <div class="wizard-step" data-step="1">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">🎓</span>
+              <div>
+                <h2>ND Background &amp; HND Programme</h2>
+                <p>Your National Diploma details and SIWES record</p>
               </div>
             </div>
 
             <div class="form-row">
-              <div class="form-group">
-                <label>ND CGPA <span style="color:#dc2626;">*</span></label>
-                <input type="number" step="0.01" min="0" max="4" name="ndCgpa" required data-review="ND CGPA" />
-              </div>
-              <div class="form-group">
-                <label>ND Graduation Year <span style="color:#dc2626;">*</span></label>
-                <input type="number" min="1990" max="2030" name="ndGraduationYear" required data-review="ND Year" />
-              </div>
+              <div class="form-group"><label>ND Institution <span class="req">*</span></label><input type="text" name="ndInstitution" required data-review="ND Institution" /></div>
+              <div class="form-group"><label>ND Programme <span class="req">*</span></label><input type="text" name="ndProgramme" required data-review="ND Programme" /></div>
             </div>
 
             <div class="form-row">
+              <div class="form-group"><label>ND Matric Number <span class="req">*</span></label><input type="text" name="ndMatric" required data-review="ND Matric" /></div>
+              <div class="form-group"><label>ND Graduation Year <span class="req">*</span></label><input type="number" min="1990" max="2030" name="ndYear" required data-review="ND Year" /></div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group"><label>ND CGPA <span class="req">*</span></label><input type="number" step="0.01" min="0" max="4" name="ndCgpa" required data-review="ND CGPA" /></div>
               <div class="form-group">
-                <label>SIWES Completed <span style="color:#dc2626;">*</span></label>
-                <select name="siwesCompleted" required data-review="SIWES">
+                <label>SIWES Completed <span class="req">*</span></label>
+                <select name="itCompleted" required data-review="SIWES Completed">
                   <option value="">Select</option>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>NYSC Status</label>
-                <select name="nyscStatus" data-review="NYSC">
-                  <option value="">Select</option>
-                  <option value="completed">Completed</option>
-                  <option value="exempted">Exempted</option>
-                  <option value="pending">Pending</option>
-                  <option value="not-applicable">Not applicable</option>
-                </select>
-              </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>HND Programme <span style="color:#dc2626;">*</span></label>
+                <label>HND Programme <span class="req">*</span></label>
                 <select name="programmeId" id="hnd-programme" required data-review="HND Programme">
                   <option value="">Loading programmes…</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label>Preferred Session</label>
-                <input type="text" name="session" value="2026/2027" readonly data-review="Session" />
+              <div class="form-group"><label>Preferred Session</label><input type="text" name="session" value="2026/2027" readonly data-review="Session" /></div>
+            </div>
+
+            <input type="hidden" name="departmentId" id="hnd-department" />
+            <input type="hidden" name="schoolId" id="hnd-school" />
+            <input type="hidden" name="level" value="HND" />
+            <input type="hidden" name="type" value="HND" />
+          </div>
+        </div>
+
+        <!-- STEP 3: Review -->
+        <div class="wizard-step" data-step="2">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">✓</span>
+              <div>
+                <h2>Review &amp; Submit</h2>
+                <p>Check your details before submitting</p>
               </div>
             </div>
-          </div>
 
-          <!-- STEP 3: Documents & Submit -->
-          <div class="wizard-step" data-step="3">
-            <h2>3. Documents &amp; Submission</h2>
+            <div class="review-card" data-review-container></div>
 
-            <div class="doc-checklist">
-              <div class="doc-item">✓ ND Certificate or Statement of Result</div>
-              <div class="doc-item">✓ O'Level Result(s)</div>
-              <div class="doc-item">✓ Birth Certificate or Age Declaration</div>
-              <div class="doc-item">✓ Local Government Area Certificate</div>
-              <div class="doc-item">✓ Passport Photograph</div>
+            <div class="form-section" style="margin-top:1.5rem;background:#fef3c7;border:1px solid #fde68a;">
+              <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#92400e;">📋 Documents required for HND</h3>
+              <ul style="margin:0;padding-left:1.2rem;font-size:.85rem;color:#78350f;line-height:1.8;">
+                <li>ND Certificate or Statement of Result</li>
+                <li>O'Level Result(s)</li>
+                <li>Birth Certificate or Age Declaration</li>
+                <li>Local Government Area Certificate</li>
+                <li>Passport Photograph</li>
+                <li>SIWES Completion Certificate</li>
+              </ul>
             </div>
 
-            <p class="muted small" style="margin-top:1rem;">
+            <p class="apply-terms">
               By submitting this application you confirm that all information provided is accurate and that you meet the entry requirements for the HND programme you selected.
             </p>
           </div>
+        </div>
 
-          <!-- NAVIGATION -->
-          <div class="wizard-nav">
-            <button type="button" class="btn btn-outline" data-wizard="back">← Back</button>
-            <button type="button" class="btn btn-primary" data-wizard="next">Next →</button>
-            <button type="submit" class="btn btn-accent" id="hnd-submit" style="display:none;">Submit Application</button>
+        <div class="wizard-nav">
+          <button type="button" class="btn btn-outline" data-wizard-prev>← Back</button>
+          <button type="button" class="btn btn-primary" data-wizard-next>Next →</button>
+          <button type="submit" class="btn btn-accent" data-wizard-submit hidden>Submit Application</button>
+        </div>
+
+        <div id="hnd-success" class="apply-success" hidden>
+          <div class="apply-success-icon">✓</div>
+          <h2>Application submitted!</h2>
+          <p>Your application number is</p>
+          <div class="apply-success-number" id="hnd-success-number">—</div>
+          <p>Please save this number. You'll use it together with your email to check your application status.</p>
+          <div class="apply-success-actions">
+            <a href="/apply-status.html" class="btn btn-primary">Check Status</a>
+            <a href="/" class="btn btn-outline">Back to Home</a>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   </main>
 
-  <!-- ============ FOOTER ============ -->
   <footer class="footer">
     <div class="container">
-      <div class="footer-bottom" style="padding-top:1rem;">
+      <div class="footer-bottom" style="padding:1rem 0;">
         <p>© <span id="year"></span> Federal Polytechnic Ugep. All rights reserved.</p>
       </div>
     </div>
@@ -283,78 +268,100 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // ---------- Load HND programmes into the select ----------
+    // Load HND programmes
     (async function loadProgrammes() {
       try {
-        const res = await fetch('/api/programmes?level=HND');
+        const res = await fetch('/api/programmes');
         const json = await res.json();
-        const rows = (json.data || []).filter((p) => String(p.level).toUpperCase() === 'HND');
+        const list = (json.programmes || []).filter((p) => String(p.level).toUpperCase() === 'HND');
         const sel = document.getElementById('hnd-programme');
         if (!sel) return;
-        if (!rows.length) {
+        if (!list.length) {
           sel.innerHTML = '<option value="">No HND programmes available</option>';
           return;
         }
         sel.innerHTML = '<option value="">Select programme…</option>' +
-          rows.map((p) => `<option value="${p.id}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
+          list.map((p) => `<option value="${p.id}" data-dept="${p.departmentId || ''}" data-school="${p.schoolId || ''}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
       } catch (err) {
         console.error('[programmes] failed:', err);
       }
     })();
 
-    // ---------- Country → State → LGA cascade (public form) ----------
+    document.getElementById('hnd-programme')?.addEventListener('change', function () {
+      const opt = this.options[this.selectedIndex];
+      if (!opt) return;
+      const dept = document.getElementById('hnd-department');
+      const school = document.getElementById('hnd-school');
+      if (dept) dept.value = opt.dataset.dept || '';
+      if (school) school.value = opt.dataset.school || '';
+    });
+
+    // Geo cascade
     (async function initGeo() {
       const country = document.getElementById('pub-country');
       const state = document.getElementById('pub-state');
       const lga = document.getElementById('pub-lga');
       if (!country || !state || !lga) return;
 
-      async function fetchStates(countryName) {
-        const res = await fetch(`/api/geo/states?country=${encodeURIComponent(countryName || 'Nigeria')}`);
-        const json = await res.json();
-        return (json.data || []);
-      }
-
-      async function fetchLgas(countryName, stateName) {
-        const res = await fetch(`/api/geo/lgas?country=${encodeURIComponent(countryName || 'Nigeria')}&state=${encodeURIComponent(stateName)}`);
-        const json = await res.json();
-        return (json.data || []);
-      }
-
       async function loadStates() {
         state.innerHTML = '<option value="">Loading…</option>';
         lga.innerHTML = '<option value="">Select state first…</option>';
         try {
-          const rows = await fetchStates(country.value || 'Nigeria');
+          const res = await fetch('/api/geo/states?country=' + encodeURIComponent(country.value || 'Nigeria'));
+          const json = await res.json();
+          const rows = json.data || [];
           state.innerHTML = '<option value="">Select state…</option>' +
             rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) {
-          console.error('[geo] states failed:', err);
-          state.innerHTML = '<option value="">Could not load states</option>';
-        }
+        } catch (err) { console.error('[geo]', err); state.innerHTML = '<option value="">Could not load states</option>'; }
       }
-
       async function loadLgas() {
         const s = state.value;
-        if (!s) {
-          lga.innerHTML = '<option value="">Select state first…</option>';
-          return;
-        }
+        if (!s) { lga.innerHTML = '<option value="">Select state first…</option>'; return; }
         lga.innerHTML = '<option value="">Loading…</option>';
         try {
-          const rows = await fetchLgas(country.value || 'Nigeria', s);
+          const res = await fetch('/api/geo/lgas?country=' + encodeURIComponent(country.value || 'Nigeria') + '&state=' + encodeURIComponent(s));
+          const json = await res.json();
+          const rows = json.data || [];
           lga.innerHTML = '<option value="">Select LGA…</option>' +
             rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) {
-          console.error('[geo] lgas failed:', err);
-          lga.innerHTML = '<option value="">Could not load LGAs</option>';
-        }
+        } catch (err) { console.error('[geo]', err); lga.innerHTML = '<option value="">Could not load LGAs</option>'; }
       }
-
       country.addEventListener('change', loadStates);
       state.addEventListener('change', loadLgas);
       await loadStates();
     })();
+
+    // Submit
+    const form = document.getElementById('apply-hnd-form');
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd);
+
+      const btn = form.querySelector('[data-wizard-submit]');
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Submitting…';
+
+      try {
+        const res = await fetch('/api/apply-hnd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (!res.ok || json.success === false) throw new Error(json.error || 'Submission failed.');
+
+        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress').forEach((el) => (el.hidden = true));
+        document.getElementById('hnd-success').hidden = false;
+        document.getElementById('hnd-success-number').textContent = json.applicationNumber || '—';
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
   </script>
 </body>
 </html>

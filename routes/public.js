@@ -406,4 +406,18 @@ router.get('/geo/lgas', (req, res) => {
   return res.json({ success: true, data: geo.listLgas(country, state) });
 });
 
+// TEMP DEBUG — remove after fixing
+router.get('/geo/__debug', (_req, res) => {
+  const G = require('../config/geo');
+  return res.json({
+    hasCountries: Array.isArray(G.COUNTRIES),
+    countryCount: (G.COUNTRIES || []).length,
+    stateKeys: Object.keys(G.STATES || {}),
+    ngCount: (G.STATES && G.STATES.NG) ? G.STATES.NG.length : 0,
+    ngSample: (G.STATES && G.STATES.NG) ? G.STATES.NG.slice(0, 3) : [],
+    listStatesType: typeof G.listStates,
+    listStatesResult: (typeof G.listStates === 'function') ? G.listStates('NG').slice(0, 3) : null,
+  });
+});
+
 module.exports = router;

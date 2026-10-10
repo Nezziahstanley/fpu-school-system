@@ -1746,3 +1746,140 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   .greeting h1, .greeting .who h1 { font-size: 1.1rem !important; }
   .greeting .who .sub { font-size: .78rem !important; }
 }
+
+/* ============================================================
+   PORTAL TOPBAR — single row on mobile
+   ☰  Dashboard                       🔔 ✉ ⬤ →
+   ============================================================ */
+@media (max-width: 980px) {
+  .topbar,
+  .portal-topbar,
+  .app-topbar,
+  header.topbar,
+  body.portal-app .topbar {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 60px !important;
+    min-height: 60px !important;
+    margin: 0 !important;
+    padding: .5rem .75rem !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+    box-shadow: 0 1px 4px rgba(15,23,42,.08) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: .5rem !important;
+    z-index: 900 !important;
+  }
+
+  /* Left group (toggle + title) */
+  .topbar > *:first-child,
+  .topbar .topbar-left,
+  .topbar .left {
+    display: flex !important;
+    align-items: center !important;
+    gap: .6rem !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+  }
+
+  /* Right group (bell / mail / avatar / logout) */
+  .topbar .topbar-right,
+  .topbar .right,
+  .topbar .actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: .3rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Title styling — truncates rather than wraps */
+  .topbar .page-title,
+  .topbar h1,
+  .topbar .title {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: #064e3b !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 45vw !important;
+  }
+
+  /* Icon buttons — compact and round */
+  .topbar button,
+  .topbar .icon-btn,
+  .topbar a[href*="logout"],
+  .topbar .avatar {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+    font-size: .9rem !important;
+  }
+
+  /* Hamburger — first child in the left group, always visible */
+  #sidebar-toggle,
+  .topbar .toggle,
+  .topbar button[aria-label*="sidebar" i],
+  .topbar button[aria-label*="menu" i] {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Hide "name / role" text next to user avatar */
+  .topbar .user-chip .name,
+  .topbar .user-chip .role,
+  .topbar .user-name,
+  .topbar .user-role { display: none !important; }
+
+  /* Content flows under the sticky topbar */
+  main.main,
+  .main,
+  .content,
+  .page-view {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  .greeting { margin-top: .75rem !important; }
+}
+
+@media (max-width: 640px) {
+  .topbar,
+  .portal-topbar,
+  .app-topbar,
+  header.topbar,
+  body.portal-app .topbar {
+    height: 56px !important;
+    min-height: 56px !important;
+    padding: .4rem .6rem !important;
+  }
+  .topbar button,
+  .topbar .icon-btn,
+  .topbar a[href*="logout"] {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+  }
+}

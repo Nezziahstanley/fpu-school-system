@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FPU — API router
 // Mounted in server.js as: app.use('/api', require('./routes'))
 // ============================================================
@@ -16,6 +16,7 @@ router.use('/admin/auth', require('./adminAuth'));
 router.use('/admin',      require('./adminAuth'));
 router.use('/admin/seed', require('./adminSeed'));
 router.use('/', require('./public'));
+router.use('/geo', require('./geo'));
 
 // ------------------------------------------------------------
 // Public — ID card lookup

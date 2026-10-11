@@ -1,18 +1,23 @@
 // ============================================================
-// FPU — Email service (Nodemailer)
+// FPU — Email service
 // ------------------------------------------------------------
-// Public API:
-//   baseTemplate(title, body)         -> HTML string
-//   sendApplicationReceived(app)      -> Promise
-//   sendApplicationApproved(app)      -> Promise
-//   sendApplicationRejected(app, reason)
-//   sendRegistrationComplete(user)    -> Promise
-//   isEmailEnabled()                  -> boolean
-//   sendMail({ to, subject, html })   -> Promise
+// Two transports, tried in this order:
+//   1. Resend HTTP API   (RESEND_API_KEY)   ← works on Render free tier
+//   2. Nodemailer SMTP   (SMTP_HOST + creds)
 //
-// Safety: if EMAIL_ENABLED != 'true', OR SMTP credentials are
-// incomplete, every send* is an instant no-op. Transport has a
-// hard 8-second timeout so nothing hangs the HTTP response.
+// If neither is available, every send* becomes an instant
+// no-op with { skipped: true }. No hanging.
+//
+// Public API:
+//   baseTemplate(title, body)
+//   sendMail({ to, subject, html, text })
+//   sendApplicationReceived(app)
+//   sendApplicationApproved(app)
+//   sendApplicationRejected(app, reason)
+//   sendRegistrationComplete(user)
+//   sendMatriculationLetter(app)
+//   sendRejectionLetter(app)
+//   isEmailEnabled()
 // ============================================================
 
 'use strict';
@@ -23,6 +28,7 @@ const nodemailer = require('nodemailer');
 
 const {
   EMAIL_ENABLED,
+  RESEND_API_KEY,
   SMTP_HOST,
   SMTP_PORT,
   SMTP_SECURE,
@@ -33,36 +39,43 @@ const {
 } = process.env;
 
 const INSTITUTION = INSTITUTION_NAME || 'Federal Polytechnic Ugep';
-const FROM = EMAIL_FROM || `"${INSTITUTION}" <no-reply@fedpolyugep.edu.ng>`;
+const DEFAULT_FROM = EMAIL_FROM || `"${INSTITUTION}" <onboarding@resend.dev>`;
 
 const SEND_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS) || 8000;
 
-let transporter = null;
-let transporterInitAttempted = false;
+// ------------------------------------------------------------
+// Config detection
+// ------------------------------------------------------------
+function hasResend() {
+  return !!RESEND_API_KEY;
+}
 
-// ------------------------------------------------------------
-// isEmailEnabled — true only when ALL required config is present
-// ------------------------------------------------------------
+function hasSMTP() {
+  return !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+}
+
 function isEmailEnabled() {
   if (String(EMAIL_ENABLED).toLowerCase() !== 'true') return false;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return false;
-  return true;
+  return hasResend() || hasSMTP();
 }
 
 // ------------------------------------------------------------
-// getTransporter — lazily build once, with hard timeouts
+// Transport selector
 // ------------------------------------------------------------
-function getTransporter() {
-  if (transporterInitAttempted) return transporter;
-  transporterInitAttempted = true;
+let smtpTransport = null;
+let smtpInit = false;
 
-  if (!isEmailEnabled()) {
-    transporter = null;
+function getSMTPTransport() {
+  if (smtpInit) return smtpTransport;
+  smtpInit = true;
+
+  if (!hasSMTP()) {
+    smtpTransport = null;
     return null;
   }
 
   try {
-    transporter = nodemailer.createTransport({
+    smtpTransport = nodemailer.createTransport({
       host: SMTP_HOST,
       port: Number(SMTP_PORT) || 587,
       secure: String(SMTP_SECURE).toLowerCase() === 'true',
@@ -73,11 +86,10 @@ function getTransporter() {
       pool: false,
     });
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[email] transporter init failed:', err.message);
-    transporter = null;
+    console.error('[email] SMTP transport init failed:', err.message);
+    smtpTransport = null;
   }
-  return transporter;
+  return smtpTransport;
 }
 
 // ------------------------------------------------------------
@@ -122,7 +134,6 @@ function baseTemplate(title, body) {
 </html>`;
 }
 
-// ------------------------------------------------------------
 function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s)
@@ -134,27 +145,98 @@ function escapeHtml(s) {
 }
 
 // ------------------------------------------------------------
-// Low-level send with timeout guard
+// Parse "Name <email@domain>" into { name, email }
 // ------------------------------------------------------------
-async function sendMail({ to, subject, html, text }) {
-  if (!isEmailEnabled()) return { skipped: true, reason: 'disabled' };
-  const t = getTransporter();
-  if (!t) return { skipped: true, reason: 'no-transporter' };
+function parseFrom(from) {
+  const m = String(from).match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (m) return { name: m[1].replace(/^"|"$/g, '').trim() || INSTITUTION, email: m[2].trim() };
+  return { name: INSTITUTION, email: String(from).trim() };
+}
+
+// ------------------------------------------------------------
+// Resend HTTP API transport
+// ------------------------------------------------------------
+async function sendViaResend({ to, subject, html, text }) {
+  const from = parseFrom(DEFAULT_FROM);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${from.name} <${from.email}>`,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        html,
+        text: text || undefined,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = JSON.parse(bodyText); } catch { /* not JSON */ }
+      const msg = parsed?.message || parsed?.error || bodyText || `HTTP ${res.status}`;
+      console.error('[email] Resend API error:', res.status, msg);
+      return { ok: false, error: msg };
+    }
+
+    const json = await res.json().catch(() => ({}));
+    return { ok: true, messageId: json.id || null, provider: 'resend' };
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') {
+      return { ok: false, error: `Resend request timed out after ${SEND_TIMEOUT_MS}ms` };
+    }
+    console.error('[email] Resend fetch failed:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+// ------------------------------------------------------------
+// SMTP transport (fallback)
+// ------------------------------------------------------------
+async function sendViaSMTP({ to, subject, html, text }) {
+  const t = getSMTPTransport();
+  if (!t) return { skipped: true, reason: 'no-smtp' };
 
   try {
     const info = await t.sendMail({
-      from: FROM,
+      from: DEFAULT_FROM,
       to,
       subject,
       html,
       text: text || undefined,
     });
-    return { ok: true, messageId: info.messageId };
+    return { ok: true, messageId: info.messageId, provider: 'smtp' };
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[email] send failed:', err.message);
+    console.error('[email] SMTP send failed:', err.message);
     return { ok: false, error: err.message };
   }
+}
+
+// ------------------------------------------------------------
+// Public sendMail — picks transport
+// ------------------------------------------------------------
+async function sendMail({ to, subject, html, text }) {
+  if (!isEmailEnabled()) return { skipped: true, reason: 'disabled' };
+
+  if (hasResend()) {
+    return sendViaResend({ to, subject, html, text });
+  }
+  if (hasSMTP()) {
+    return sendViaSMTP({ to, subject, html, text });
+  }
+  return { skipped: true, reason: 'no-transport' };
 }
 
 // ============================================================
@@ -182,7 +264,7 @@ async function sendApplicationReceived(app) {
 }
 
 // ============================================================
-// TEMPLATE 2 — Application approved
+// TEMPLATE 2 — Application approved (Provisional admission)
 // ============================================================
 async function sendApplicationApproved(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
@@ -277,7 +359,7 @@ async function sendMatriculationLetter(app) {
 }
 
 // ============================================================
-// TEMPLATE 6 — Rejection letter (formal letter format)
+// TEMPLATE 6 — Rejection letter (formal)
 // ============================================================
 async function sendRejectionLetter(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
@@ -299,6 +381,20 @@ async function sendRejectionLetter(app) {
   });
 }
 
+// ============================================================
+// Diagnostic — useful to run in Render shell:
+//   node -e "console.log(require('./utils/emailService').describe())"
+// ============================================================
+function describe() {
+  return {
+    emailEnabled: isEmailEnabled(),
+    resendConfigured: hasResend(),
+    smtpConfigured: hasSMTP(),
+    from: DEFAULT_FROM,
+    timeoutMs: SEND_TIMEOUT_MS,
+  };
+}
+
 module.exports = {
   baseTemplate,
   isEmailEnabled,
@@ -309,4 +405,5 @@ module.exports = {
   sendRegistrationComplete,
   sendMatriculationLetter,
   sendRejectionLetter,
+  describe,
 };

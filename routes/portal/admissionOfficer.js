@@ -226,7 +226,9 @@ router.post('/applications/:id/approve', only, async (req, res, next) => {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
     const updated = await appQueries.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
-    await sendApplicationApproved(updated).catch(() => {});
+    Promise.resolve()
+  .then(() => sendApplicationApproved(updated))
+  .catch((e) => console.error('[admission] approve email failed (non-fatal):', e && e.message));
     await logAudit({ req, action: 'admission.approve', entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
@@ -244,7 +246,9 @@ router.post('/applications/:id/reject', only, async (req, res, next) => {
       reviewedBy: req.user.id,
       rejectionReason: reason || 'Application did not meet requirements.',
     });
-    await sendApplicationRejected(updated, reason).catch(() => {});
+    Promise.resolve()
+  .then(() => sendApplicationRejected(updated, reason))
+  .catch((e) => console.error('[admission] reject email failed (non-fatal):', e && e.message));
     await logAudit({ req, action: 'admission.reject', entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
@@ -308,7 +312,9 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
     });
 
     await appQueries.markRegistered(app.id, { userId: user.id, matricNumber: matric });
-    await sendRegistrationComplete(user).catch(() => {});
+    Promise.resolve()
+  .then(() => sendRegistrationComplete(user))
+  .catch((e) => console.error('[admission] register email failed (non-fatal):', e && e.message));
     await logAudit({ req, action: 'admission.register', entity: 'application', entityId: app.id, after: { userId: user.id, matric } });
 
     return res.json({ success: true, data: { user, matricNumber: matric } });

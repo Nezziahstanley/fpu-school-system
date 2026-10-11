@@ -3771,3 +3771,133 @@ header.navbar .menu-toggle {
 .apply-progress-step.done .apply-progress-num::before { font-size: .9rem; }
 .apply-progress-step.active .apply-progress-label { color: #065f46; font-weight: 700; }
 .apply-progress-step.done .apply-progress-label { color: #059669; }
+
+/* ============================================================
+   AUTH / LOGIN / REGISTER — centered card layout
+   Added to support register.html, login.html, forgot-password.html
+   ============================================================ */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #ecfdf5 0%, transparent 60%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 2rem 1.75rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.login-card h1 {
+  margin: 0 0 .35rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+}
+
+.login-card .subtitle {
+  margin: 0 0 1.25rem;
+  font-size: .9rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.login-card .muted {
+  color: #64748b;
+}
+
+.login-card .form-group {
+  margin-bottom: 1rem;
+}
+
+.login-card .form-label {
+  display: block;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #475569;
+  margin-bottom: .35rem;
+}
+
+.form-control,
+.form-select {
+  width: 100%;
+  padding: .65rem .85rem;
+  font-size: .95rem;
+  color: #0f172a;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s;
+  box-sizing: border-box;
+}
+
+.form-control:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #065f46;
+  box-shadow: 0 0 0 3px rgba(6, 95, 70, 0.12);
+}
+
+.login-card .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .7rem 1rem;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .15s, transform .05s;
+}
+
+.login-card .btn-primary {
+  background: #065f46;
+  color: #fff;
+  border-color: #065f46;
+}
+
+.login-card .btn-primary:hover {
+  background: #047857;
+}
+
+.login-card .btn-primary:active {
+  transform: translateY(1px);
+}
+
+.login-card .btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.login-card .links {
+  text-align: center;
+  font-size: .9rem;
+}
+
+.login-card .links a {
+  color: #065f46;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-card .links a:hover {
+  text-decoration: underline;
+}
+
+.login-card .text-center { text-align: center; }
+.login-card .mb-3 { margin-bottom: 1rem; }
+.login-card .mt-3 { margin-top: 1rem; }

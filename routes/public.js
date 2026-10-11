@@ -205,7 +205,10 @@ router.post('/apply', applicationUpload, async (req, res, next) => {
       passportUrl: savedPassportUrl,
     });
 
-    await sendApplicationReceived(app).catch(() => {});
+    // Fire and forget — don't block the response on SMTP
+    sendApplicationReceived(app).catch((e) =>
+      console.error('[apply] email send failed (non-fatal):', e.message)
+    );
     return res.status(201).json({
       success: true,
       applicationNumber: app.applicationNumber,
@@ -297,7 +300,14 @@ router.post('/apply-hnd', applicationUpload, async (req, res, next) => {
       passportUrl: savedPassportUrl,
     });
 
-    await sendApplicationReceived(app).catch(() => {});
+    // Fire-and-forget — never block the HTTP response on SMTP.
+    // Render free tier often can't reach outbound SMTP, which made
+    // this hang for ~2 minutes and left the frontend stuck on
+    // "Uploading & submitting…".
+    Promise.resolve()
+      .then(() => sendApplicationReceived(app))
+      .catch((e) => console.error('[apply] email send failed (non-fatal):', e && e.message));
+
     return res.status(201).json({
       success: true,
       applicationNumber: app.applicationNumber,

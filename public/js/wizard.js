@@ -203,11 +203,13 @@
         stepEl.classList.toggle('active', i === this.currentIndex);
       });
 
-      // Indicators
+      // Indicators — support BOTH naming conventions:
+      //   'active' / 'done'      (legacy)
+      //   'is-active' / 'is-done' (what apply.html + style.css use)
       this.indicators.forEach((indEl, i) => {
-        indEl.classList.remove('active', 'done');
-        if (i < this.currentIndex) indEl.classList.add('done');
-        if (i === this.currentIndex) indEl.classList.add('active');
+        indEl.classList.remove('active', 'done', 'is-active', 'is-done');
+        if (i < this.currentIndex) indEl.classList.add('done', 'is-done');
+        if (i === this.currentIndex) indEl.classList.add('active', 'is-active');
       });
 
       // Nav buttons

@@ -1,0 +1,219 @@
+<!-- Letter 3 — Matriculation / Enrollment Confirmation -->
+<div class="ltr-wrap">
+  <div class="ltr-paper" id="ltr-paper">
+    <div class="ltr-loading" id="ltr-loading">
+      <div class="ltr-spinner"></div>
+      <div style="margin-top:.65rem;color:#64748b;font-size:.85rem;">Loading letter…</div>
+    </div>
+    <div class="ltr-content" id="ltr-content" style="display:none;"></div>
+  </div>
+</div>
+
+<style>
+  .ltr-wrap { width:100%; display:flex; justify-content:center; }
+  .ltr-paper {
+    position:relative; background:#fff;
+    width:210mm; min-height:297mm; max-width:100%;
+    margin:0 auto; padding:20mm 18mm;
+    border:1px solid #e5e7eb; border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+    font-family:Georgia, "Times New Roman", serif;
+    color:#111827; font-size:13.5px; line-height:1.7;
+    box-sizing:border-box; overflow:hidden;
+  }
+  .ltr-paper::before {
+    content:""; position:absolute; top:50%; left:50%;
+    width:130mm; height:130mm; transform:translate(-50%,-50%);
+    background:url('/images/logo.png') center/contain no-repeat;
+    opacity:.06; pointer-events:none; z-index:0;
+  }
+  .ltr-paper::after {
+    content:""; position:absolute; top:12mm; right:12mm;
+    width:20mm; height:20mm;
+    background:url('/images/logo.png') center/contain no-repeat;
+    opacity:.15; pointer-events:none; z-index:0;
+  }
+  .ltr-content, .ltr-loading { position:relative; z-index:1; }
+  .ltr-loading { padding:4rem 1rem; text-align:center; }
+  .ltr-spinner {
+    display:inline-block; width:28px; height:28px;
+    border:3px solid #e2e8f0; border-top-color:#065f46;
+    border-radius:50%; animation:ltrSpin .8s linear infinite;
+  }
+  @keyframes ltrSpin { to { transform: rotate(360deg); } }
+  .ltr-head { display:flex;align-items:center;gap:1rem;padding-bottom:1rem;border-bottom:3px double #065f46;margin-bottom:1.75rem; }
+  .ltr-logo { width:70px;height:70px;object-fit:contain;flex-shrink:0; }
+  .ltr-inst { flex:1;text-align:center; }
+  .ltr-inst-name { font-family:Georgia,serif;font-size:20px;font-weight:800;color:#065f46;letter-spacing:.04em;text-transform:uppercase;line-height:1.15; }
+  .ltr-inst-motto { font-size:11px;font-style:italic;color:#475569;margin-top:.25rem; }
+  .ltr-inst-contact { font-size:10.5px;color:#64748b;margin-top:.4rem;font-family:Arial,sans-serif; }
+  .ltr-meta { display:flex;justify-content:space-between;font-size:12px;margin-bottom:1.5rem;font-family:Arial,sans-serif; }
+  .ltr-meta strong { color:#065f46; }
+  .ltr-recipient { margin-bottom:1.5rem;font-size:13.5px; }
+  .ltr-recipient .name { font-weight:800;text-transform:uppercase;letter-spacing:.02em; }
+  .ltr-subject { text-align:center;font-weight:800;text-decoration:underline;text-transform:uppercase;letter-spacing:.05em;margin:1.5rem 0;font-size:14px; }
+  .ltr-body p { margin:.75rem 0;text-align:justify; }
+  .ltr-box { background:rgba(240,253,244,.92);border-left:4px solid #065f46;padding:.85rem 1rem;margin:1.25rem 0;border-radius:4px; }
+  .ltr-box .row { display:flex;justify-content:space-between;padding:.25rem 0;font-size:12.5px;font-family:Arial,sans-serif; }
+  .ltr-box .label { color:#475569; }
+  .ltr-box .value { font-weight:700;color:#065f46; }
+  .ltr-matric {
+    background:#ecfdf5; border:2px dashed #10b981;
+    padding:1rem; margin:1.25rem 0; border-radius:6px; text-align:center;
+  }
+  .ltr-matric .lbl { font-size:10px; font-weight:800; letter-spacing:.12em; color:#065f46; text-transform:uppercase; }
+  .ltr-matric .num {
+    font-family: "Courier New", monospace; font-size:20px; font-weight:800;
+    color:#065f46; margin-top:.35rem; letter-spacing:.04em;
+  }
+  .ltr-list { margin:.75rem 0 1rem 1.25rem;padding:0; }
+  .ltr-list li { margin:.35rem 0;font-size:13px; }
+  .ltr-sign { margin-top:3rem;font-family:Arial,sans-serif; }
+  .ltr-sign .line { width:220px;border-top:1.5px solid #111827;margin-top:2.5rem;margin-bottom:.35rem; }
+  .ltr-sign .name { font-weight:800;font-size:13px;color:#065f46; }
+  .ltr-sign .role { font-size:11.5px;color:#475569; }
+  .ltr-footer { margin-top:2.5rem;padding-top:.75rem;border-top:1px dashed #cbd5e1;font-size:10px;color:#94a3b8;text-align:center;font-family:Arial,sans-serif;letter-spacing:.05em; }
+
+  @media print {
+    @page { size:A4; margin:0; }
+    body * { visibility:hidden; }
+    .ltr-paper, .ltr-paper * { visibility:visible; }
+    .ltr-paper { position:absolute;left:0;top:0;width:210mm;min-height:297mm;padding:18mm 16mm;border:none;border-radius:0;box-shadow:none; }
+    .ltr-paper::before { opacity:.08; }
+    .ltr-paper::after  { opacity:.18; }
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+  const fmtDate = (d) => { if (!d) return '—'; const dt = new Date(d); return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' }); };
+
+  async function boot() {
+    let app = window.FPU_CURRENT_APPLICANT;
+    if (!app) {
+      const id = new URLSearchParams(location.search).get('applicant');
+      if (id) {
+        try {
+          const res = await fetch(`/api/admission-officer/applications/${id}`, { credentials:'include' });
+          const json = await res.json();
+          if (json.success) app = json.data;
+        } catch {}
+      }
+    }
+    if (!app) { $('ltr-loading').innerHTML = '<div style="color:#991b1b;font-size:.85rem;">No applicant provided.</div>'; return; }
+    render(app);
+  }
+
+  function render(app) {
+    const inst = {
+      name: 'Federal Polytechnic Ugep',
+      motto: 'Citadel of Technical Excellence',
+      address: 'Ugep, Cross River State, Nigeria',
+      phone: '07069096879',
+      email: 'contact@fedpolyugep.edu.ng',
+      website: 'fedpolyugep.edu.ng',
+    };
+
+    const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+    const year = new Date().getFullYear();
+    const session = app.sessionName || `${year - 1}/${year}`;
+    const today = fmtDate(new Date());
+    const me = window.FPU_PORTAL?.getPortalUser?.() || {};
+    const registrarName = me.firstName ? `${me.firstName} ${me.lastName || ''}`.trim() : 'Registrar';
+
+    const matric = app.matricNumber || '(not yet assigned)';
+    const effectiveDate = fmtDate(app.matriculatedAt || new Date());
+
+    $('ltr-content').innerHTML = `
+      <div class="ltr-head">
+        <img class="ltr-logo" src="/images/logo.png" alt="Logo" onerror="this.style.display='none';" />
+        <div class="ltr-inst">
+          <div class="ltr-inst-name">${esc(inst.name)}</div>
+          <div class="ltr-inst-motto">${esc(inst.motto)}</div>
+          <div class="ltr-inst-contact">${esc(inst.address)} · 📞 ${esc(inst.phone)} · ✉️ ${esc(inst.email)}</div>
+        </div>
+      </div>
+
+      <div class="ltr-meta">
+        <div><strong>Ref No:</strong> ${esc(app.applicationNumber || '—')}</div>
+        <div><strong>Date:</strong> ${esc(today)}</div>
+      </div>
+
+      <div class="ltr-recipient">
+        <div class="name">${esc(fullName)}</div>
+        <div>${esc(app.email || '')}</div>
+        <div>${esc(app.phone || '')}</div>
+        <div>${esc(app.address || '—')}</div>
+      </div>
+
+      <p style="margin:0;">Dear <strong>${esc(fullName)}</strong>,</p>
+
+      <div class="ltr-subject">Confirmation of Matriculation &amp; Enrollment</div>
+
+      <div class="ltr-body">
+        <p>
+          I am pleased to confirm that you have been formally matriculated as a student of
+          <strong>${esc(inst.name)}</strong> for the <strong>${esc(session)}</strong> academic session,
+          having satisfied all admission, document-verification, and fee requirements.
+        </p>
+
+        <div class="ltr-matric">
+          <div class="lbl">Matriculation Number</div>
+          <div class="num">${esc(matric)}</div>
+        </div>
+
+        <div class="ltr-box">
+          <div class="row"><span class="label">Programme</span><span class="value">${esc(app.programmeName || '—')}</span></div>
+          <div class="row"><span class="label">Department</span><span class="value">${esc(app.departmentName || '—')}</span></div>
+          <div class="row"><span class="label">Level</span><span class="value">${esc(app.level || '—')}</span></div>
+          <div class="row"><span class="label">Session</span><span class="value">${esc(session)}</span></div>
+          <div class="row"><span class="label">Effective Date</span><span class="value">${esc(effectiveDate)}</span></div>
+        </div>
+
+        <p>As a matriculated student, you are now entitled to:</p>
+        <ul class="ltr-list">
+          <li>Use your matriculation number for all official academic communications.</li>
+          <li>Register for courses in the current and subsequent semesters.</li>
+          <li>Sit for examinations upon satisfying attendance and fee requirements.</li>
+          <li>Access the library, ICT centre, and other institutional facilities.</li>
+        </ul>
+
+        <p><strong>Next steps:</strong></p>
+        <ol class="ltr-list">
+          <li>Collect your student ID card from the ICT Centre with this letter and one passport photograph.</li>
+          <li>Complete your course registration on the student portal before the deadline.</li>
+          <li>Note the academic calendar for the session (available on the institution website).</li>
+        </ol>
+
+        <p>Congratulations and welcome to the ${esc(inst.name)} family.</p>
+      </div>
+
+      <div class="ltr-sign">
+        <div>Yours faithfully,</div>
+        <div class="line"></div>
+        <div class="name">${esc(registrarName)}</div>
+        <div class="role">Registrar</div>
+        <div class="role">${esc(inst.name)}</div>
+      </div>
+
+      <div class="ltr-footer">This letter is not valid without the official stamp of ${esc(inst.name)} · ${esc(inst.website)}</div>
+    `;
+
+    $('ltr-loading').style.display = 'none';
+    $('ltr-content').style.display = 'block';
+    window.dispatchEvent(new CustomEvent('letter:rendered', { detail: { type: 'matriculation', app } }));
+  }
+
+  window.addEventListener('letter:setApplicant', (e) => {
+    window.FPU_CURRENT_APPLICANT = e.detail.app;
+    render(e.detail.app);
+  });
+
+  boot();
+})();
+</script>

@@ -1,6 +1,5 @@
 ﻿// ============================================================
 // FPU — Route index
-// Mounts every router under /api/*
 // ============================================================
 
 'use strict';
@@ -16,7 +15,6 @@ router.use('/admin/auth', require('./adminAuth'));
 router.use('/admin',      require('./adminAuth'));
 router.use('/admin/seed', require('./adminSeed'));
 router.use('/', require('./public'));
-router.use('/geo', require('./geo'));
 
 // ------------------------------------------------------------
 // Admin — lookups
@@ -85,7 +83,7 @@ router.use('/admin/audit',          require('./audit'));
 router.use('/admin/reports',        require('./reports'));
 
 // ------------------------------------------------------------
-// STAFF endpoints (non-admin path) — read-only for staff roles
+// STAFF endpoints
 // ------------------------------------------------------------
 router.use('/courses',              require('./courses'));
 

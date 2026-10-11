@@ -4,12 +4,61 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HND Application — Federal Polytechnic Ugep</title>
-  <meta name="description" content="Apply for Higher National Diploma (HND) programmes at Federal Polytechnic Ugep." />
   <link rel="icon" href="/images/logo.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* ====== Upload dropzones ====== */
+    .doc-upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: .5rem;
+    }
+    @media (max-width: 640px) { .doc-upload-grid { grid-template-columns: 1fr; } }
+
+    .doc-slot {
+      background: #fff;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+      min-height: 140px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .4rem;
+    }
+    .doc-slot:hover { border-color: #065f46; background: #f0fdf4; }
+    .doc-slot.has-file { border-style: solid; border-color: #10b981; background: #ecfdf5; }
+    .doc-slot.is-required::before {
+      content: '*';
+      position: absolute;
+      top: .5rem; right: .75rem;
+      color: #dc2626;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .doc-slot-icon { font-size: 1.8rem; }
+    .doc-slot-name { font-weight: 700; font-size: .85rem; color: #0f172a; }
+    .doc-slot-hint { font-size: .72rem; color: #94a3b8; }
+    .doc-slot-file {
+      font-size: .75rem; color: #065f46; font-weight: 600;
+      word-break: break-all; max-width: 90%;
+    }
+    .doc-slot input[type="file"] { display: none; }
+    .doc-slot-clear {
+      position: absolute; top: .35rem; right: .35rem;
+      background: #dc2626; color: #fff; border: none;
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: .8rem; cursor: pointer; line-height: 1;
+      display: none;
+    }
+    .doc-slot.has-file .doc-slot-clear { display: block; }
+  </style>
 </head>
 <body>
 
@@ -44,6 +93,7 @@
 
   <main class="apply-shell">
     <div class="apply-container">
+
       <div class="apply-head">
         <div class="apply-head-badge apply-head-badge--hnd">HND</div>
         <div>
@@ -59,25 +109,26 @@
         </div>
         <div class="apply-progress-step" data-step-indicator="1">
           <span class="apply-progress-num">2</span>
-          <span class="apply-progress-label">Academic</span>
+          <span class="apply-progress-label">ND Background</span>
         </div>
         <div class="apply-progress-step" data-step-indicator="2">
           <span class="apply-progress-num">3</span>
-          <span class="apply-progress-label">Review &amp; Submit</span>
+          <span class="apply-progress-label">Documents</span>
+        </div>
+        <div class="apply-progress-step" data-step-indicator="3">
+          <span class="apply-progress-num">4</span>
+          <span class="apply-progress-label">Review</span>
         </div>
       </div>
 
-      <form id="apply-hnd-form" data-wizard novalidate>
+      <form id="apply-hnd-form" data-wizard novalidate enctype="multipart/form-data">
 
-        <!-- STEP 1: Personal -->
+        <!-- ================= STEP 1: Personal ================= -->
         <div class="wizard-step active" data-step="0">
           <div class="form-section">
             <div class="form-section-title">
               <span class="form-section-icon">👤</span>
-              <div>
-                <h2>Personal Information</h2>
-                <p>Your details as they appear on official documents</p>
-              </div>
+              <div><h2>Personal Information</h2><p>Your details as they appear on official documents</p></div>
             </div>
 
             <div class="form-row">
@@ -148,34 +199,31 @@
 
             <div class="form-group">
               <label>Home Address <span class="req">*</span></label>
-              <textarea name="address" rows="3" required data-review="Address" placeholder="Street, city, state"></textarea>
+              <textarea name="address" rows="2" required data-review="Address" placeholder="Street, city, state"></textarea>
             </div>
           </div>
         </div>
 
-        <!-- STEP 2: Academic -->
+        <!-- ================= STEP 2: ND Background ================= -->
         <div class="wizard-step" data-step="1">
           <div class="form-section">
             <div class="form-section-title">
               <span class="form-section-icon">🎓</span>
-              <div>
-                <h2>ND Background &amp; HND Programme</h2>
-                <p>Your National Diploma details and SIWES record</p>
-              </div>
+              <div><h2>ND Background</h2><p>Your National Diploma programme and SIWES record</p></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group"><label>ND Institution <span class="req">*</span></label><input type="text" name="ndInstitution" required data-review="ND Institution" /></div>
-              <div class="form-group"><label>ND Programme <span class="req">*</span></label><input type="text" name="ndProgramme" required data-review="ND Programme" /></div>
+              <div class="form-group"><label>ND Institution <span class="req">*</span></label><input type="text" name="ndInstitution" required data-review="ND Institution" placeholder="e.g. Federal Polytechnic Ugep" /></div>
+              <div class="form-group"><label>ND Programme <span class="req">*</span></label><input type="text" name="ndProgramme" required data-review="ND Programme" placeholder="e.g. Computer Science" /></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group"><label>ND Matric Number <span class="req">*</span></label><input type="text" name="ndMatric" required data-review="ND Matric" /></div>
-              <div class="form-group"><label>ND Graduation Year <span class="req">*</span></label><input type="number" min="1990" max="2030" name="ndYear" required data-review="ND Year" /></div>
+              <div class="form-group"><label>ND Matric Number <span class="req">*</span></label><input type="text" name="ndMatric" required data-review="ND Matric No." placeholder="e.g. FPU/CSC/ND/22/001" /></div>
+              <div class="form-group"><label>ND Graduation Year <span class="req">*</span></label><input type="number" min="1990" max="2030" name="ndYear" required data-review="ND Graduation Year" placeholder="e.g. 2024" /></div>
             </div>
 
             <div class="form-row">
-              <div class="form-group"><label>ND CGPA <span class="req">*</span></label><input type="number" step="0.01" min="0" max="4" name="ndCgpa" required data-review="ND CGPA" /></div>
+              <div class="form-group"><label>ND CGPA <span class="req">*</span></label><input type="number" step="0.01" min="0" max="4" name="ndCgpa" required data-review="ND CGPA" placeholder="e.g. 3.25" /></div>
               <div class="form-group">
                 <label>SIWES Completed <span class="req">*</span></label>
                 <select name="itCompleted" required data-review="SIWES Completed">
@@ -203,33 +251,94 @@
           </div>
         </div>
 
-        <!-- STEP 3: Review -->
+        <!-- ================= STEP 3: Documents ================= -->
         <div class="wizard-step" data-step="2">
           <div class="form-section">
             <div class="form-section-title">
-              <span class="form-section-icon">✓</span>
-              <div>
-                <h2>Review &amp; Submit</h2>
-                <p>Check your details before submitting</p>
+              <span class="form-section-icon">📎</span>
+              <div><h2>Documents Upload</h2><p>Upload clear photos or scans — PDF, JPG, or PNG (max 5 MB each)</p></div>
+            </div>
+
+            <div class="doc-upload-grid">
+              <!-- O'Level Result -->
+              <div class="doc-slot is-required" data-slot="olevel">
+                <input type="file" id="file-olevel" name="file_olevel" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">📄</div>
+                <div class="doc-slot-name">O'Level Result</div>
+                <div class="doc-slot-hint">WAEC / NECO / NABTEB</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
               </div>
+
+              <!-- ND Certificate / Statement of Result -->
+              <div class="doc-slot is-required" data-slot="nd-cert">
+                <input type="file" id="file-nd-cert" name="file_nd_cert" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🎓</div>
+                <div class="doc-slot-name">ND Certificate / Statement of Result</div>
+                <div class="doc-slot-hint">National Diploma proof</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- Birth Certificate / Age Declaration -->
+              <div class="doc-slot is-required" data-slot="birth">
+                <input type="file" id="file-birth" name="file_birth" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🎂</div>
+                <div class="doc-slot-name">Birth Cert / Age Declaration</div>
+                <div class="doc-slot-hint">Either document accepted</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- LGA Certificate (Optional) -->
+              <div class="doc-slot" data-slot="lga">
+                <input type="file" id="file-lga" name="file_lga" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">📍</div>
+                <div class="doc-slot-name">LGA Certificate</div>
+                <div class="doc-slot-hint">Optional — Local Government Area</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- SIWES Certificate -->
+              <div class="doc-slot is-required" data-slot="siwes">
+                <input type="file" id="file-siwes" name="file_siwes" accept=".pdf,.jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🛠️</div>
+                <div class="doc-slot-name">SIWES Completion Certificate</div>
+                <div class="doc-slot-hint">Industrial training proof</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+
+              <!-- Passport Photo -->
+              <div class="doc-slot is-required" data-slot="passport">
+                <input type="file" id="file-passport" name="file_passport" accept=".jpg,.jpeg,.png" />
+                <div class="doc-slot-icon">🖼️</div>
+                <div class="doc-slot-name">Passport Photograph</div>
+                <div class="doc-slot-hint">Recent — red background preferred</div>
+                <div class="doc-slot-file" data-file-name></div>
+                <button type="button" class="doc-slot-clear" data-clear>×</button>
+              </div>
+            </div>
+
+            <p style="margin-top:1rem;font-size:.78rem;color:#64748b;">
+              <strong>Note:</strong> Files marked with <span style="color:#dc2626;">*</span> are required. You can also provide the LGA certificate later if you don't have it now.
+            </p>
+          </div>
+        </div>
+
+        <!-- ================= STEP 4: Review ================= -->
+        <div class="wizard-step" data-step="3">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="form-section-icon">✓</span>
+              <div><h2>Review &amp; Submit</h2><p>Confirm your details before submitting</p></div>
             </div>
 
             <div class="review-card" data-review-container></div>
 
-            <div class="form-section" style="margin-top:1.5rem;background:#fef3c7;border:1px solid #fde68a;">
-              <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#92400e;">📋 Documents required for HND</h3>
-              <ul style="margin:0;padding-left:1.2rem;font-size:.85rem;color:#78350f;line-height:1.8;">
-                <li>ND Certificate or Statement of Result</li>
-                <li>O'Level Result(s)</li>
-                <li>Birth Certificate or Age Declaration</li>
-                <li>Local Government Area Certificate</li>
-                <li>Passport Photograph</li>
-                <li>SIWES Completion Certificate</li>
-              </ul>
-            </div>
-
-            <p class="apply-terms">
-              By submitting this application you confirm that all information provided is accurate and that you meet the entry requirements for the HND programme you selected.
+            <p class="apply-terms" style="margin-top:1.25rem;">
+              By submitting this application you confirm that all information provided is accurate, that the documents uploaded are genuine, and that you meet the entry requirements for the HND programme you selected.
             </p>
           </div>
         </div>
@@ -245,12 +354,13 @@
           <h2>Application submitted!</h2>
           <p>Your application number is</p>
           <div class="apply-success-number" id="hnd-success-number">—</div>
-          <p>Please save this number. You'll use it together with your email to check your application status.</p>
+          <p>Save this number. You'll use it with your email to check your application status.</p>
           <div class="apply-success-actions">
             <a href="/apply-status.html" class="btn btn-primary">Check Status</a>
             <a href="/" class="btn btn-outline">Back to Home</a>
           </div>
         </div>
+
       </form>
     </div>
   </main>
@@ -268,7 +378,7 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // Load HND programmes
+    // ---------- Load HND programmes ----------
     (async function loadProgrammes() {
       try {
         const res = await fetch('/api/programmes');
@@ -276,15 +386,9 @@
         const list = (json.programmes || []).filter((p) => String(p.level).toUpperCase() === 'HND');
         const sel = document.getElementById('hnd-programme');
         if (!sel) return;
-        if (!list.length) {
-          sel.innerHTML = '<option value="">No HND programmes available</option>';
-          return;
-        }
         sel.innerHTML = '<option value="">Select programme…</option>' +
           list.map((p) => `<option value="${p.id}" data-dept="${p.departmentId || ''}" data-school="${p.schoolId || ''}">${p.name || p.title || ('Programme #' + p.id)}</option>`).join('');
-      } catch (err) {
-        console.error('[programmes] failed:', err);
-      }
+      } catch (err) { console.error('[programmes]', err); }
     })();
 
     document.getElementById('hnd-programme')?.addEventListener('change', function () {
@@ -296,7 +400,7 @@
       if (school) school.value = opt.dataset.school || '';
     });
 
-    // Geo cascade
+    // ---------- Geo cascade ----------
     (async function initGeo() {
       const country = document.getElementById('pub-country');
       const state = document.getElementById('pub-state');
@@ -309,10 +413,9 @@
         try {
           const res = await fetch('/api/geo/states?country=' + encodeURIComponent(country.value || 'Nigeria'));
           const json = await res.json();
-          const rows = json.data || [];
           state.innerHTML = '<option value="">Select state…</option>' +
-            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) { console.error('[geo]', err); state.innerHTML = '<option value="">Could not load states</option>'; }
+            (json.data || []).map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch { state.innerHTML = '<option value="">Could not load</option>'; }
       }
       async function loadLgas() {
         const s = state.value;
@@ -321,40 +424,75 @@
         try {
           const res = await fetch('/api/geo/lgas?country=' + encodeURIComponent(country.value || 'Nigeria') + '&state=' + encodeURIComponent(s));
           const json = await res.json();
-          const rows = json.data || [];
           lga.innerHTML = '<option value="">Select LGA…</option>' +
-            rows.map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
-        } catch (err) { console.error('[geo]', err); lga.innerHTML = '<option value="">Could not load LGAs</option>'; }
+            (json.data || []).map((r) => `<option value="${r.name}">${r.name}</option>`).join('');
+        } catch { lga.innerHTML = '<option value="">Could not load</option>'; }
       }
       country.addEventListener('change', loadStates);
       state.addEventListener('change', loadLgas);
       await loadStates();
     })();
 
-    // Submit
+    // ---------- Document upload wiring ----------
+    document.querySelectorAll('.doc-slot').forEach(function (slot) {
+      const input = slot.querySelector('input[type=file]');
+      const nameEl = slot.querySelector('[data-file-name]');
+      const clearBtn = slot.querySelector('[data-clear]');
+      slot.addEventListener('click', function (e) {
+        if (e.target === clearBtn) return;
+        input.click();
+      });
+      input.addEventListener('change', function () {
+        const f = input.files[0];
+        if (f) {
+          nameEl.textContent = f.name + ' · ' + (f.size / 1024).toFixed(0) + ' KB';
+          slot.classList.add('has-file');
+        } else {
+          nameEl.textContent = '';
+          slot.classList.remove('has-file');
+        }
+      });
+      clearBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        input.value = '';
+        nameEl.textContent = '';
+        slot.classList.remove('has-file');
+      });
+    });
+
+    // ---------- Submit via multipart ----------
     const form = document.getElementById('apply-hnd-form');
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      // Verify required files
+      const required = ['file-olevel', 'file-nd-cert', 'file-birth', 'file-siwes', 'file-passport'];
+      for (const id of required) {
+        const el = document.getElementById(id);
+        if (!el || !el.files[0]) {
+          const slotName = el ? el.closest('.doc-slot').querySelector('.doc-slot-name').textContent : id;
+          alert('Please upload: ' + slotName);
+          el?.closest('.doc-slot')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+      }
+
       const fd = new FormData(form);
-      const body = Object.fromEntries(fd);
 
       const btn = form.querySelector('[data-wizard-submit]');
       btn.disabled = true;
       const prev = btn.textContent;
-      btn.textContent = 'Submitting…';
+      btn.textContent = 'Uploading & submitting…';
 
       try {
-        const res = await fetch('/api/apply-hnd', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        const res = await fetch('/api/apply-hnd', { method: 'POST', body: fd });
         const json = await res.json();
         if (!res.ok || json.success === false) throw new Error(json.error || 'Submission failed.');
 
-        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress').forEach((el) => (el.hidden = true));
+        form.querySelectorAll('.wizard-step, .wizard-nav, .apply-progress, .apply-head').forEach((el) => (el.hidden = true));
         document.getElementById('hnd-success').hidden = false;
         document.getElementById('hnd-success-number').textContent = json.applicationNumber || '—';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (err) {
         alert(err.message);
       } finally {

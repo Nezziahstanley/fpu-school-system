@@ -126,3 +126,12 @@ dump.txt
 .env.local-backup
 
 HANDOFF_PROMPT.txt
+
+# Local dumps and backups
+project_dump.txt
+tree_only.txt
+backups/
+.env.bak-*
+*.bak
+*.bak-*
+*.broken

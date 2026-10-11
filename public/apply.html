@@ -102,26 +102,26 @@
         </div>
       </div>
 
-      <div class="apply-progress">
-        <div class="apply-progress-step is-active" data-step-indicator="0">
-          <span class="apply-progress-num">1</span>
-          <span class="apply-progress-label">Personal</span>
-        </div>
-        <div class="apply-progress-step" data-step-indicator="1">
-          <span class="apply-progress-num">2</span>
-          <span class="apply-progress-label">Academic</span>
-        </div>
-        <div class="apply-progress-step" data-step-indicator="2">
-          <span class="apply-progress-num">3</span>
-          <span class="apply-progress-label">Documents</span>
-        </div>
-        <div class="apply-progress-step" data-step-indicator="3">
-          <span class="apply-progress-num">4</span>
-          <span class="apply-progress-label">Review</span>
-        </div>
-      </div>
-
       <form id="apply-nd-form" data-wizard novalidate enctype="multipart/form-data">
+
+        <div class="apply-progress">
+          <div class="apply-progress-step is-active" data-step-indicator="0">
+            <span class="apply-progress-num">1</span>
+            <span class="apply-progress-label">Personal</span>
+          </div>
+          <div class="apply-progress-step" data-step-indicator="1">
+            <span class="apply-progress-num">2</span>
+            <span class="apply-progress-label">Academic</span>
+          </div>
+          <div class="apply-progress-step" data-step-indicator="2">
+            <span class="apply-progress-num">3</span>
+            <span class="apply-progress-label">Documents</span>
+          </div>
+          <div class="apply-progress-step" data-step-indicator="3">
+            <span class="apply-progress-num">4</span>
+            <span class="apply-progress-label">Review</span>
+          </div>
+        </div>
 
         <!-- STEP 1: Personal -->
         <div class="wizard-step active" data-step="0">
@@ -350,7 +350,7 @@
   </footer>
 
   <script src="/js/main.js"></script>
-  <script src="/js/wizard.js"></script>
+  <script src="/js/wizard.js?v=2"></script>
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 

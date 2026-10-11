@@ -59,7 +59,18 @@
       );
 
       this.steps = Array.from(this.form.querySelectorAll(this.options.stepSelector));
-      this.indicators = Array.from(this.form.querySelectorAll(this.options.indicatorSelector));
+
+      // Indicators may live inside the form OR be siblings of it
+      // (e.g. a progress bar rendered above the form). Look inside
+      // first; if none found, widen the search to the closest
+      // wrapping container, then document.
+      let indicators = Array.from(this.form.querySelectorAll(this.options.indicatorSelector));
+      if (!indicators.length) {
+        const scope = this.form.parentElement || document;
+        indicators = Array.from(scope.querySelectorAll(this.options.indicatorSelector));
+      }
+      this.indicators = indicators;
+
       this.currentIndex = 0;
       this.total = this.steps.length;
 

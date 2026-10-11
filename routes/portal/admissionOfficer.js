@@ -13,7 +13,14 @@ const appQueries = require('../../db/queries/applications');
 const sessionQueries = require('../../db/queries/sessions');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
-const { sendApplicationApproved, sendApplicationRejected, sendRegistrationComplete } = require('../../utils/emailService');
+const {
+  sendApplicationApproved,
+  sendApplicationRejected,
+  sendRegistrationComplete,
+  sendMatriculationLetter,
+  sendRejectionLetter,
+  baseTemplate,
+} = require('../../utils/emailService');
 const { hashPassword } = require('../../utils/password');
 const { assignFIFOMatric } = require('../../utils/matricHelper');
 const { getMatricPrefix } = require('../../db/queries/settings');
@@ -393,6 +400,173 @@ router.get('/security', only, async (req, res, next) => {
     const sessions = await sessionQueries.listUserSessions(req.user.id);
     const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
     return res.json({ success: true, sessions, logins });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/admission-officer/bulk/eligible
+// Returns applicants grouped by department, split into:
+//   - readyForMatriculation: status IN (approved, registered)
+//   - readyForEmail: list with letter type hint based on status
+// ============================================================
+router.get('/bulk/eligible', only, async (_req, res, next) => {
+  try {
+    const rows = await appQueries.listWithRelations({
+      status: ['approved', 'registered', 'rejected'],
+      limit: 2000,
+    });
+
+    const flat = rows.map((r) => ({
+      ...r.application,
+      programmeName:  r.programme?.name  || r.programme?.title || null,
+      departmentName: r.department?.name || null,
+      departmentCode: r.department?.code || null,
+      schoolName:     r.school?.name     || null,
+    }));
+
+    // Group by department for the matriculation view
+    const byDept = new Map();
+    flat.forEach((a) => {
+      const key = a.departmentId || 0;
+      if (!byDept.has(key)) {
+        byDept.set(key, {
+          departmentId:   a.departmentId,
+          departmentName: a.departmentName || 'Unassigned Department',
+          departmentCode: a.departmentCode || '',
+          students: [],
+        });
+      }
+      byDept.get(key).students.push(a);
+    });
+
+    const departments = [...byDept.values()].sort((a, b) =>
+      String(a.departmentName).localeCompare(String(b.departmentName))
+    );
+
+    return res.json({ success: true, data: { departments, total: flat.length } });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/admission-officer/bulk/matriculate
+// Body: { ids: number[], sendEmails?: boolean }
+// Sequentially assigns matric numbers and (optionally) emails
+// the matriculation letter to each.
+// ============================================================
+router.post('/bulk/matriculate', only, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+    const sendEmails = req.body?.sendEmails !== false;
+
+    if (!ids.length) return res.status(400).json({ success: false, error: 'ids array is required.' });
+
+    const results = { ok: [], failed: [], emailed: 0, emailSkipped: 0 };
+
+    for (const id of ids) {
+      try {
+        const app = await appQueries.findById(id);
+        if (!app) {
+          results.failed.push({ id, error: 'Not found.' });
+          continue;
+        }
+        if (!['approved', 'registered'].includes(app.status)) {
+          results.failed.push({ id, error: `Status "${app.status}" not eligible.` });
+          continue;
+        }
+        if (app.matricNumber) {
+          // Already has a matric — don't reassign; still allow email resend
+          if (sendEmails) {
+            const enriched = await appQueries.findByIdWithRelations(id);
+            const r = await sendMatriculationLetter(enriched).catch(() => ({ ok: false }));
+            if (r.ok) results.emailed++; else results.emailSkipped++;
+          }
+          results.ok.push({ id, matricNumber: app.matricNumber, alreadyAssigned: true });
+          continue;
+        }
+
+        // Generate matric
+        const dept = app.departmentId ? await courseQueries.findDepartmentById(app.departmentId) : null;
+        const school = await courseQueries.findSchoolById(app.schoolId || dept?.schoolId);
+        const prefix = await getMatricPrefix();
+        const matric = await assignFIFOMatric({
+          prefix,
+          schoolCode: school?.code || 'SST',
+          deptCode: dept?.code || 'GEN',
+          level: app.level || 'ND',
+          year: getYearShort(new Date()),
+        });
+
+        const updated = await appQueries.setMatricNumber(id, matric);
+        await logAudit({ req, action: 'admission.bulk_matriculate', entity: 'application', entityId: id, after: { matric } });
+
+        results.ok.push({ id, matricNumber: matric });
+
+        if (sendEmails) {
+          try {
+            const enriched = { ...updated, programmeName: null, departmentName: dept?.name || null };
+            const r = await sendMatriculationLetter(enriched);
+            if (r.ok) results.emailed++;
+            else results.emailSkipped++;
+          } catch {
+            results.emailSkipped++;
+          }
+        }
+      } catch (err) {
+        results.failed.push({ id, error: err.message });
+      }
+    }
+
+    return res.json({ success: true, data: results });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/admission-officer/bulk/email
+// Body: { ids: number[], type: 'provisional'|'acceptance'|'matriculation'|'rejection' }
+// Sends the chosen letter type to each applicant in the list.
+// ============================================================
+router.post('/bulk/email', only, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+    const type = String(req.body?.type || '').trim();
+
+    const ALLOWED = ['provisional', 'acceptance', 'matriculation', 'rejection'];
+    if (!ALLOWED.includes(type)) {
+      return res.status(400).json({ success: false, error: `type must be one of: ${ALLOWED.join(', ')}` });
+    }
+    if (!ids.length) return res.status(400).json({ success: false, error: 'ids array is required.' });
+
+    const results = { ok: [], failed: [], skipped: 0 };
+
+    for (const id of ids) {
+      try {
+        const enriched = await appQueries.findByIdWithRelations(id);
+        if (!enriched) { results.failed.push({ id, error: 'Not found.' }); continue; }
+
+        let r;
+        if (type === 'provisional')       r = await sendApplicationApproved(enriched);
+        else if (type === 'acceptance')   r = await sendMail({
+          to: enriched.email,
+          subject: `Acceptance Acknowledged — ${enriched.applicationNumber}`,
+          html: baseTemplate('Acceptance Confirmation', `
+            <p>Dear <strong>${enriched.firstName} ${enriched.lastName}</strong>,</p>
+            <p>Your acceptance of the offer of admission has been received and recorded.</p>
+            <p>Please complete your registration at the Admissions Office.</p>
+            <p>Warm regards,<br/><strong>Admissions Office</strong></p>
+          `),
+        });
+        else if (type === 'matriculation') r = await sendMatriculationLetter(enriched);
+        else if (type === 'rejection')     r = await sendRejectionLetter(enriched);
+
+        if (r && r.ok)          results.ok.push({ id });
+        else if (r && r.skipped) results.skipped++;
+        else                     results.failed.push({ id, error: r?.error || 'Unknown error.' });
+      } catch (err) {
+        results.failed.push({ id, error: err.message });
+      }
+    }
+
+    return res.json({ success: true, data: results });
   } catch (err) { return next(err); }
 });
 

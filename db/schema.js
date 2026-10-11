@@ -29,7 +29,7 @@ const levelEnum = pgEnum('level', ['ND', 'HND', 'CERT']);
 const semesterEnum = pgEnum('semester', ['first', 'second']);
 
 const appStatusEnum = pgEnum('application_status', [
-  'pending', 'under_review', 'approved', 'rejected', 'registered',
+  'pending', 'under_review', 'approved', 'rejected', 'registered', 'matriculated',
 ]);
 
 const resultStatusEnum = pgEnum('result_status', [
@@ -449,6 +449,18 @@ const applications = pgTable('applications', {
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   rejectionReason: text('rejection_reason'),
   admittedAt: timestamp('admitted_at', { withTimezone: true }),
+
+    documentsVerifiedAt: timestamp('documents_verified_at', { withTimezone: true }),
+  documentsVerifiedBy: integer('documents_verified_by'),
+
+  letter1SentAt: timestamp('letter1_sent_at', { withTimezone: true }),
+  letter2SentAt: timestamp('letter2_sent_at', { withTimezone: true }),
+  letter3SentAt: timestamp('letter3_sent_at', { withTimezone: true }),
+
+  matricNumber: varchar('matric_number', { length: 40 }),
+  matriculatedAt: timestamp('matriculated_at', { withTimezone: true }),
+
+  notes: text('notes'),
 
   matricNumber: varchar('matric_number', { length: 40 }),
   userId: integer('user_id'),

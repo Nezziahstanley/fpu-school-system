@@ -19,6 +19,9 @@ const { assignFIFOMatric } = require('../../utils/matricHelper');
 const { getMatricPrefix } = require('../../db/queries/settings');
 const { getYearShort } = require('../../config/departments');
 const courseQueries = require('../../db/queries/courses');
+const userQuery = require('../../db/queries/users');   // alias for findByEmail
+const path = require('path');
+const fs = require('fs');
 
 const only = requireRole('admission_officer', 'admin', 'registrar');
 
@@ -62,6 +65,159 @@ router.get('/applications/:id', only, async (req, res, next) => {
     const row = await appQueries.findById(req.params.id);
     if (!row) return res.status(404).json({ success: false, error: 'Application not found.' });
     return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/admission-officer/applications/:id/documents
+// Returns the uploaded file URLs + existence check.
+// Reads from applications.oLevelResult.documents (JSONB).
+// ============================================================
+router.get('/applications/:id/documents', only, async (req, res, next) => {
+  try {
+    const app = await appQueries.findById(req.params.id);
+    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
+
+    // oLevelResult may be a string (older rows) or object (newer rows)
+    let olevel = app.oLevelResult;
+    if (typeof olevel === 'string') {
+      try { olevel = JSON.parse(olevel); } catch { olevel = {}; }
+    }
+    const docs = (olevel && olevel.documents) || {};
+
+    // The physical files live under public/uploads
+    const uploadsDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+
+    const present = (url) => {
+      if (!url) return false;
+      const filename = path.basename(String(url));
+      try {
+        return fs.existsSync(path.join(uploadsDir, filename));
+      } catch {
+        return false;
+      }
+    };
+
+    // Expected slots (even if not uploaded)
+    const SLOTS = [
+      { key: 'olevel',   label: "O'Level Result",                 url: docs.olevel   || null },
+      { key: 'birth',    label: 'Birth Cert / Age Declaration',   url: docs.birth    || null },
+      { key: 'lga',      label: 'LGA Certificate (optional)',     url: docs.lga      || null },
+      { key: 'passport', label: 'Passport Photograph',            url: docs.passport || null },
+      { key: 'ndCert',   label: 'ND Certificate (HND only)',      url: docs.ndCert   || null },
+      { key: 'siwes',    label: 'SIWES Certificate (HND only)',   url: docs.siwes    || null },
+    ];
+
+    const data = SLOTS.map((s) => ({
+      key: s.key,
+      label: s.label,
+      url: s.url,
+      exists: present(s.url),
+    }));
+
+    return res.json({
+      success: true,
+      data,
+      verified: {
+        at: app.documentsVerifiedAt || null,
+        by: app.documentsVerifiedBy || null,
+      },
+    });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/admission-officer/applications/:id/verify-documents
+// Marks the applicant's uploaded documents as verified.
+// ============================================================
+router.post('/applications/:id/verify-documents', only, async (req, res, next) => {
+  try {
+    const app = await appQueries.findById(req.params.id);
+    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
+
+    const updated = await appQueries.verifyDocuments(app.id, req.user.id);
+    await logAudit({
+      req, action: 'admission.verify_documents', entity: 'application', entityId: app.id,
+    });
+    return res.json({ success: true, data: updated });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/admission-officer/applications/:id/matriculate
+// Body: { matricNumber?: string }
+// If matricNumber is not supplied, generates one using the same
+// helper as the register endpoint. Moves status to 'matriculated'.
+// ============================================================
+router.post('/applications/:id/matriculate', only, async (req, res, next) => {
+  try {
+    const app = await appQueries.findById(req.params.id);
+    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
+
+    if (!['registered', 'approved'].includes(app.status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Application must be approved or registered before matriculation.',
+      });
+    }
+
+    let matricNumber = String(req.body?.matricNumber || app.matricNumber || '').trim();
+
+    // Auto-generate if not supplied
+    if (!matricNumber) {
+      const dept = app.departmentId ? await courseQueries.findDepartmentById(app.departmentId) : null;
+      const school = await courseQueries.findSchoolById(app.schoolId || dept?.schoolId);
+      const prefix = await getMatricPrefix();
+      matricNumber = await assignFIFOMatric({
+        prefix,
+        schoolCode: school?.code || 'SST',
+        deptCode: dept?.code || 'GEN',
+        level: app.level || 'ND',
+        year: getYearShort(new Date()),
+      });
+    }
+
+    const updated = await appQueries.setMatricNumber(app.id, matricNumber);
+    await logAudit({
+      req, action: 'admission.matriculate', entity: 'application', entityId: app.id,
+      after: { matricNumber },
+    });
+    return res.json({ success: true, data: updated });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/admission-officer/applications/:id/letter/:type/sent
+// Records that a specific letter was printed / emailed.
+// type = provisional | acceptance | matriculation | rejection
+// Marks the corresponding *_sent_at column. Purely a tracking
+// endpoint — actual email send is handled elsewhere.
+// ============================================================
+router.post('/applications/:id/letter/:type/sent', only, async (req, res, next) => {
+  try {
+    const app = await appQueries.findById(req.params.id);
+    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
+
+    const MAP = {
+      provisional:   1,
+      acceptance:    2,
+      matriculation: 3,
+    };
+
+    const which = MAP[req.params.type];
+    if (!which) {
+      return res.status(400).json({
+        success: false,
+        error: `Unknown letter type "${req.params.type}". Use provisional, acceptance, or matriculation.`,
+      });
+    }
+
+    const updated = await appQueries.markLetterSent(app.id, which);
+    await logAudit({
+      req, action: `admission.letter_${req.params.type}_sent`,
+      entity: 'application', entityId: app.id,
+    });
+    return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 

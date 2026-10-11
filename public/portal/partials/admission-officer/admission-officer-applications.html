@@ -398,9 +398,47 @@
     try {
       const opts = { method: 'POST' };
       if (body && Object.keys(body).length) opts.body = body;
-      await core.portalFetch(endpoint, opts);
+      const res = await core.portalFetch(endpoint, opts);
+
+      // ---- Determine new status ----
+      let newStatus = null;
+      if (/\/approve$/.test(endpoint))  newStatus = 'approved';
+      if (/\/reject$/.test(endpoint))   newStatus = 'rejected';
+      if (/\/register$/.test(endpoint)) newStatus = 'registered';
+
+      if (newStatus) {
+        const m = endpoint.match(/\/applications\/(\d+)\//);
+        const id = m ? m[1] : null;
+        const row = ALL.find((a) => String(a.id) === String(id));
+
+        if (row) {
+          row.status = newStatus;
+          if (newStatus === 'registered' && res?.data?.matricNumber) {
+            row.matricNumber = res.data.matricNumber;
+          }
+          if (newStatus === 'rejected' && body?.reason) {
+            row.rejectionReason = body.reason;
+          }
+          // Instantly re-render from mutated state
+          renderStats();
+          applyFilters();
+        } else {
+          await load();
+        }
+      }
+
       core.showToast && core.showToast(`${label} successfully.`, 'success');
-      load();
+
+      // Refresh stats in background (top tiles only)
+      try {
+        const stats = await core.portalFetch('/api/admission-officer/dashboard');
+        const d = stats.data || stats || {};
+        const byStatus = d.byStatus || {};
+        const counts = { total: d.total || 0, pending: 0, approved: 0, rejected: 0, registered: 0, matriculated: 0 };
+        Object.keys(byStatus).forEach(k => { if (counts[k] !== undefined) counts[k] = byStatus[k]; });
+        // (stat tiles are re-derived inside renderStats from ALL, so no-op here)
+      } catch { /* ignore */ }
+
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
     }

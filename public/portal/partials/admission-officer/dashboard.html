@@ -261,6 +261,33 @@
   }
 
   // ------------------------------------------------------------
+  // Refresh only the top stats (tiles + status breakdown + rate)
+  // without touching the recent applications list.
+  // ------------------------------------------------------------
+  async function refreshStatsOnly() {
+    try {
+      const dash = await core.portalFetch('/api/admission-officer/dashboard');
+      const d = dash.data || dash || {};
+      const byStatus = d.byStatus || {};
+      const total = d.total || 0;
+
+      $('ao-total').textContent    = total || 0;
+      $('ao-pending').textContent  = byStatus.pending || 0;
+      $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
+      $('ao-rejected').textContent = byStatus.rejected || 0;
+
+      const admitted = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
+      const rate = total > 0 ? Math.round((admitted / total) * 100) : 0;
+      if ($('ao-rate'))       $('ao-rate').textContent = `${rate}%`;
+      if ($('ao-rate-label')) $('ao-rate-label').textContent = `${admitted} of ${total} applications`;
+
+      renderStatusList(byStatus, total);
+    } catch (err) {
+      console.warn('[ao-dashboard] refreshStatsOnly failed:', err.message);
+    }
+  }
+
+  // ------------------------------------------------------------
   // Render the status breakdown list
   // ------------------------------------------------------------
   function renderStatusList(byStatus, total) {
@@ -403,7 +430,6 @@
 
     if (confirmMsg && !confirm(confirmMsg)) return;
 
-    // Disable the button to prevent double-click
     const btn = document.querySelector(`[data-action="${action}"][data-id="${id}"]`);
     const oldText = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = 'Working…'; }
@@ -414,35 +440,34 @@
       const res = await core.portalFetch(endpoint, opts);
 
       // ---- Optimistic UI update ----
-      const row = (window.__ao_recent || []).find((a) => String(a.id) === String(id));
+      const row = (window.__ao_recent || []).find((a) => Number(a.id) === Number(id));
+
       if (row) {
-        if (action === 'approve')  row.status = 'approved';
-        if (action === 'reject') {
+        if (action === 'approve') {
+          row.status = 'approved';
+        } else if (action === 'reject') {
           row.status = 'rejected';
           if (payload?.reason) row.rejectionReason = payload.reason;
-        }
-        if (action === 'register' && res.data) {
+        } else if (action === 'register') {
           row.status = 'registered';
-          row.matricNumber = res.data.matricNumber;
+          if (res?.data?.matricNumber) row.matricNumber = res.data.matricNumber;
         }
-      }
-
-      // Toast
-      if (action === 'register') {
-        const matric = res.data?.matricNumber || '';
-        core.showToast && core.showToast(`Student registered! Matric: ${matric}`, 'success');
+        renderRecent(window.__ao_recent);
       } else {
-        core.showToast && core.showToast(
-          action === 'approve' ? 'Application approved.' : 'Application rejected.',
-          'success'
-        );
+        await load();
       }
 
-      // Re-render instantly from local state
-      if (window.__ao_recent) renderRecent(window.__ao_recent);
+      if (action === 'register') {
+        const matric = res?.data?.matricNumber || '';
+        core.showToast && core.showToast(`Student registered! Matric: ${matric}`, 'success');
+      } else if (action === 'approve') {
+        core.showToast && core.showToast('Application approved.', 'success');
+      } else if (action === 'reject') {
+        core.showToast && core.showToast('Application rejected.', 'success');
+      }
 
-      // Then refresh stats in the background
-      try { await load(); } catch { /* ignore */ }
+      // Refresh only the top stats
+      refreshStatsOnly();
 
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');

@@ -39,8 +39,20 @@ const geo = require('../config/geo');
 // ============================================================
 // MULTER — file upload config (disk storage → public/uploads)
 // ============================================================
-const UPLOAD_DIR = path.join(__dirname, '..', 'public', 'uploads');
-try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (e) { /* ignore */ }
+const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.join(__dirname, '..', 'public', 'uploads');
+
+// ---- Diagnostic boot log (visible in Render logs) ----
+(function ensureUploadDir() {
+  try {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    fs.accessSync(UPLOAD_DIR, fs.constants.W_OK);
+    console.log('[uploads] dir ready and writable:', UPLOAD_DIR);
+  } catch (e) {
+    console.error('[uploads] FAILED to prepare dir:', UPLOAD_DIR, '→', e.message);
+  }
+})();
 
 const ALLOWED_MIMES = [
   'application/pdf',
@@ -85,8 +97,6 @@ const applicationUpload = upload.fields([
 
 // ------------------------------------------------------------
 // Helper: extract uploaded file paths from req.files
-//   returns { olevelUrl, birthUrl, lgaUrl, passportUrl,
-//             ndCertUrl, siwesUrl }
 // ------------------------------------------------------------
 function pickFileUrls(req) {
   const f = req.files || {};
@@ -507,6 +517,12 @@ router.get('/geo/lgas', (req, res) => {
 router.use((err, _req, res, next) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ success: false, error: 'File too large. Max 5 MB.' });
+  }
+  if (err && err.code === 'LIMIT_FILE_COUNT') {
+    return res.status(400).json({ success: false, error: 'Too many files.' });
+  }
+  if (err && err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ success: false, error: `Unexpected file field: ${err.field}` });
   }
   if (err && err.message && err.message.includes('Only PDF')) {
     return res.status(400).json({ success: false, error: err.message });

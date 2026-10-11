@@ -95,10 +95,40 @@ async function remove(id) {
   return row || null;
 }
 
+// ------------------------------------------------------------
+// findOne — used by student clearance request + exam officer
+//           eligibility check.
+// ------------------------------------------------------------
+async function findOne({ studentId, sessionId, type } = {}) {
+  const conds = [];
+  if (studentId) conds.push(eq(clearances.studentId, Number(studentId)));
+  if (sessionId) conds.push(eq(clearances.sessionId, Number(sessionId)));
+  if (type) conds.push(eq(clearances.type, type));
+  if (!conds.length) return null;
+  const [row] = await db.select().from(clearances).where(and(...conds)).limit(1);
+  return row || null;
+}
+
+// ------------------------------------------------------------
+// list — simple list for one student + session.
+// (listWithStudent is the admin/HOD join version.)
+// ------------------------------------------------------------
+async function list({ studentId, sessionId, type, status } = {}) {
+  const conds = [];
+  if (studentId) conds.push(eq(clearances.studentId, Number(studentId)));
+  if (sessionId) conds.push(eq(clearances.sessionId, Number(sessionId)));
+  if (type) conds.push(eq(clearances.type, type));
+  if (status) conds.push(eq(clearances.status, status));
+  const where = conds.length ? and(...conds) : undefined;
+  return db.select().from(clearances).where(where).orderBy(desc(clearances.createdAt));
+}
+
 module.exports = {
   listWithStudent,
+  list,              // ← add
   countByStatus,
   findById,
+  findOne,           // ← add
   create,
   markCleared,
   markRejected,

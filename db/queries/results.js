@@ -318,6 +318,48 @@ async function remove(id) {
   return row || null;
 }
 
+// ------------------------------------------------------------
+// submitBatch — bulk upsert + set status='submitted' in one go.
+// Used by the lecturer "Submit Results" screen.
+//
+// Each row: { studentId, courseId, sessionId, semester,
+//             score, grade, points }
+// ------------------------------------------------------------
+async function submitBatch(rows, userId) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const now = new Date();
+  const values = rows.map((r) => ({
+    studentId: Number(r.studentId),
+    courseId: Number(r.courseId),
+    sessionId: Number(r.sessionId),
+    semester: r.semester,
+    score: String(r.score),
+    grade: r.grade || null,
+    points: r.points !== undefined ? String(r.points) : null,
+    status: 'submitted',
+    submittedBy: userId ? Number(userId) : null,
+    submittedAt: now,
+  }));
+
+  return db
+    .insert(results)
+    .values(values)
+    .onConflictDoUpdate({
+      target: [results.studentId, results.courseId, results.sessionId, results.semester],
+      set: {
+        score: sql`EXCLUDED.score`,
+        grade: sql`EXCLUDED.grade`,
+        points: sql`EXCLUDED.points`,
+        status: 'submitted',
+        submittedBy: sql`EXCLUDED.submitted_by`,
+        submittedAt: sql`EXCLUDED.submitted_at`,
+        updatedAt: now,
+      },
+    })
+    .returning();
+}
+
 module.exports = {
   list,
   listWithCourse,
@@ -341,4 +383,5 @@ module.exports = {
   updateGradeScale,
   removeGradeScale,
   remove,
+  submitBatch,
 };

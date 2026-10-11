@@ -28,13 +28,13 @@ async function list({
       ? conds.push(inArray(applications.status, status))
       : conds.push(eq(applications.status, status));
   }
-  if (type)        conds.push(eq(applications.type, type));
-  if (programmeId) conds.push(eq(applications.programmeId, Number(programmeId)));
+  if (type)         conds.push(eq(applications.type, type));
+  if (programmeId)  conds.push(eq(applications.programmeId, Number(programmeId)));
   if (departmentId) conds.push(eq(applications.departmentId, Number(departmentId)));
-  if (schoolId)    conds.push(eq(applications.schoolId, Number(schoolId)));
-  if (sessionId)   conds.push(eq(applications.sessionId, Number(sessionId)));
-  if (fromDate)    conds.push(gte(applications.createdAt, new Date(fromDate)));
-  if (toDate)      conds.push(lte(applications.createdAt, new Date(toDate)));
+  if (schoolId)     conds.push(eq(applications.schoolId, Number(schoolId)));
+  if (sessionId)    conds.push(eq(applications.sessionId, Number(sessionId)));
+  if (fromDate)     conds.push(gte(applications.createdAt, new Date(fromDate)));
+  if (toDate)       conds.push(lte(applications.createdAt, new Date(toDate)));
 
   if (search) {
     const term = `%${String(search).trim()}%`;
@@ -62,16 +62,40 @@ async function list({
 
 // ------------------------------------------------------------
 // listWithRelations — joins programme / dept / school for views
+// Accepts the same filters as list()
 // ------------------------------------------------------------
 async function listWithRelations(opts = {}) {
   const conds = [];
+
   if (opts.status) {
     Array.isArray(opts.status)
       ? conds.push(inArray(applications.status, opts.status))
       : conds.push(eq(applications.status, opts.status));
   }
-  if (opts.type) conds.push(eq(applications.type, opts.type));
+  if (opts.type)         conds.push(eq(applications.type, opts.type));
+  if (opts.programmeId)  conds.push(eq(applications.programmeId, Number(opts.programmeId)));
+  if (opts.departmentId) conds.push(eq(applications.departmentId, Number(opts.departmentId)));
+  if (opts.schoolId)     conds.push(eq(applications.schoolId, Number(opts.schoolId)));
+  if (opts.sessionId)    conds.push(eq(applications.sessionId, Number(opts.sessionId)));
+  if (opts.fromDate)     conds.push(gte(applications.createdAt, new Date(opts.fromDate)));
+  if (opts.toDate)       conds.push(lte(applications.createdAt, new Date(opts.toDate)));
+
+  if (opts.search) {
+    const term = `%${String(opts.search).trim()}%`;
+    conds.push(or(
+      ilike(applications.firstName, term),
+      ilike(applications.lastName, term),
+      ilike(applications.middleName, term),
+      ilike(applications.email, term),
+      ilike(applications.phone, term),
+      ilike(applications.applicationNumber, term),
+      ilike(applications.matricNumber, term),
+    ));
+  }
+
   const where = conds.length ? and(...conds) : undefined;
+  const limit = Number(opts.limit || 500);
+  const offset = Number(opts.offset || 0);
 
   return db
     .select({
@@ -85,7 +109,9 @@ async function listWithRelations(opts = {}) {
     .leftJoin(departments, eq(applications.departmentId, departments.id))
     .leftJoin(schools, eq(applications.schoolId, schools.id))
     .where(where)
-    .orderBy(desc(applications.createdAt));
+    .orderBy(desc(applications.createdAt))
+    .limit(limit)
+    .offset(offset);
 }
 
 // ------------------------------------------------------------
@@ -99,6 +125,35 @@ async function findById(id) {
     .where(eq(applications.id, Number(id)))
     .limit(1);
   return row || null;
+}
+
+// ------------------------------------------------------------
+// findByIdWithRelations — same but joined
+// ------------------------------------------------------------
+async function findByIdWithRelations(id) {
+  if (!id) return null;
+  const rows = await db
+    .select({
+      application: applications,
+      programme: programmes,
+      department: departments,
+      school: schools,
+    })
+    .from(applications)
+    .leftJoin(programmes, eq(applications.programmeId, programmes.id))
+    .leftJoin(departments, eq(applications.departmentId, departments.id))
+    .leftJoin(schools, eq(applications.schoolId, schools.id))
+    .where(eq(applications.id, Number(id)))
+    .limit(1);
+
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    ...r.application,
+    programmeName:  r.programme?.name  || r.programme?.title || null,
+    departmentName: r.department?.name || null,
+    schoolName:     r.school?.name     || null,
+  };
 }
 
 // ------------------------------------------------------------
@@ -385,6 +440,7 @@ module.exports = {
   list,
   listWithRelations,
   findById,
+  findByIdWithRelations,
   findByNumber,
   findByEmail,
   create,

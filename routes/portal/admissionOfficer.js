@@ -19,7 +19,6 @@ const { assignFIFOMatric } = require('../../utils/matricHelper');
 const { getMatricPrefix } = require('../../db/queries/settings');
 const { getYearShort } = require('../../config/departments');
 const courseQueries = require('../../db/queries/courses');
-const userQuery = require('../../db/queries/users');   // alias for findByEmail
 const path = require('path');
 const fs = require('fs');
 
@@ -42,50 +41,58 @@ router.get('/dashboard', only, async (_req, res, next) => {
 
 // ============================================================
 // GET /api/admission-officer/applications
+// Returns applications WITH programme / department / school names.
 // ============================================================
 router.get('/applications', only, async (req, res, next) => {
   try {
-    const rows = await appQueries.list({
+    const rows = await appQueries.listWithRelations({
       status: req.query.status,
       type: req.query.type,
       search: req.query.search,
       programmeId: req.query.programmeId,
       departmentId: req.query.departmentId,
       schoolId: req.query.schoolId,
+      limit: req.query.limit ? Number(req.query.limit) : 500,
     });
-    return res.json({ success: true, data: rows });
+
+    // Flatten the joins into the top-level shape the frontend expects
+    const data = rows.map((r) => ({
+      ...r.application,
+      programmeName:  r.programme?.name  || r.programme?.title || null,
+      departmentName: r.department?.name || null,
+      schoolName:     r.school?.name     || null,
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
 // GET /api/admission-officer/applications/:id
+// Returns a single application with relation names attached.
 // ============================================================
 router.get('/applications/:id', only, async (req, res, next) => {
   try {
-    const row = await appQueries.findById(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Application not found.' });
-    return res.json({ success: true, data: row });
+    const data = await appQueries.findByIdWithRelations(req.params.id);
+    if (!data) return res.status(404).json({ success: false, error: 'Application not found.' });
+    return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
 // GET /api/admission-officer/applications/:id/documents
-// Returns the uploaded file URLs + existence check.
-// Reads from applications.oLevelResult.documents (JSONB).
 // ============================================================
 router.get('/applications/:id/documents', only, async (req, res, next) => {
   try {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
 
-    // oLevelResult may be a string (older rows) or object (newer rows)
     let olevel = app.oLevelResult;
     if (typeof olevel === 'string') {
       try { olevel = JSON.parse(olevel); } catch { olevel = {}; }
     }
     const docs = (olevel && olevel.documents) || {};
 
-    // The physical files live under public/uploads
     const uploadsDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 
     const present = (url) => {
@@ -98,7 +105,6 @@ router.get('/applications/:id/documents', only, async (req, res, next) => {
       }
     };
 
-    // Expected slots (even if not uploaded)
     const SLOTS = [
       { key: 'olevel',   label: "O'Level Result",                 url: docs.olevel   || null },
       { key: 'birth',    label: 'Birth Cert / Age Declaration',   url: docs.birth    || null },
@@ -128,7 +134,6 @@ router.get('/applications/:id/documents', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/admission-officer/applications/:id/verify-documents
-// Marks the applicant's uploaded documents as verified.
 // ============================================================
 router.post('/applications/:id/verify-documents', only, async (req, res, next) => {
   try {
@@ -145,9 +150,6 @@ router.post('/applications/:id/verify-documents', only, async (req, res, next) =
 
 // ============================================================
 // POST /api/admission-officer/applications/:id/matriculate
-// Body: { matricNumber?: string }
-// If matricNumber is not supplied, generates one using the same
-// helper as the register endpoint. Moves status to 'matriculated'.
 // ============================================================
 router.post('/applications/:id/matriculate', only, async (req, res, next) => {
   try {
@@ -163,7 +165,6 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
 
     let matricNumber = String(req.body?.matricNumber || app.matricNumber || '').trim();
 
-    // Auto-generate if not supplied
     if (!matricNumber) {
       const dept = app.departmentId ? await courseQueries.findDepartmentById(app.departmentId) : null;
       const school = await courseQueries.findSchoolById(app.schoolId || dept?.schoolId);
@@ -188,10 +189,6 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/admission-officer/applications/:id/letter/:type/sent
-// Records that a specific letter was printed / emailed.
-// type = provisional | acceptance | matriculation | rejection
-// Marks the corresponding *_sent_at column. Purely a tracking
-// endpoint — actual email send is handled elsewhere.
 // ============================================================
 router.post('/applications/:id/letter/:type/sent', only, async (req, res, next) => {
   try {
@@ -208,7 +205,7 @@ router.post('/applications/:id/letter/:type/sent', only, async (req, res, next) 
     if (!which) {
       return res.status(400).json({
         success: false,
-        error: `Unknown letter type "${req.params.type}". Use provisional, acceptance, or matriculation.`,
+        error: `Unknown letter type "${req.params.type}".`,
       });
     }
 
@@ -255,13 +252,13 @@ router.post('/applications/:id/reject', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/admission-officer/applications/:id/register
-// Creates student account + assigns matric (same logic as admin).
 // ============================================================
 router.post('/applications/:id/register', only, async (req, res, next) => {
   try {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
     if (app.status === 'registered') return res.status(400).json({ success: false, error: 'Already registered.' });
+    if (app.status === 'matriculated') return res.status(400).json({ success: false, error: 'Already matriculated.' });
     if (app.status !== 'approved') return res.status(400).json({ success: false, error: 'Application must be approved first.' });
 
     const existing = await userQueries.findByEmail(app.email);
@@ -320,23 +317,34 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/admission-officer/admitted
+// Returns approved + registered + matriculated WITH relations.
 // ============================================================
 router.get('/admitted', only, async (req, res, next) => {
   try {
-    const rows = await appQueries.list({ status: ['approved', 'registered'], limit: 500, offset: 0 });
-    return res.json({ success: true, data: rows });
+    const rows = await appQueries.listWithRelations({
+      status: ['approved', 'registered', 'matriculated'],
+      limit: 500,
+    });
+
+    const data = rows.map((r) => ({
+      ...r.application,
+      programmeName:  r.programme?.name  || r.programme?.title || null,
+      departmentName: r.department?.name || null,
+      schoolName:     r.school?.name     || null,
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
 // GET /api/admission-officer/letters/:id
-// Returns the letter HTML for an approved application.
 // ============================================================
 router.get('/letters/:id', only, async (req, res, next) => {
   try {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
-    if (!['approved', 'registered'].includes(app.status)) {
+    if (!['approved', 'registered', 'matriculated'].includes(app.status)) {
       return res.status(400).json({ success: false, error: 'Admission letter is available only after approval.' });
     }
     const { baseTemplate } = require('../../utils/emailService');

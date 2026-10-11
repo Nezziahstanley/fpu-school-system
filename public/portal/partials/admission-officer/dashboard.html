@@ -51,7 +51,7 @@
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
       <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">📋</div>
       <div style="min-width:0;">
-        <div style="font-size:1.5rem;font-weight:800;color:#dbdfe8;line-height:1;" id="ao-total">—</div>
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-total">—</div>
         <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Total</div>
       </div>
     </div>
@@ -160,7 +160,7 @@
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.85rem;color:#0f172a;">🔔 Recent Applications</div>
-      <a href="#admission-officer-admitted" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View All →</a>
+      <a href="#admission-officer-applications" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View All →</a>
     </div>
     <div style="padding:.5rem 0;" id="ao-recent-list">
       <div style="padding:1.5rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>
@@ -209,6 +209,7 @@
     approved:     { label: 'Approved',     bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
     rejected:     { label: 'Rejected',     bg: '#fee2e2', fg: '#991b1b', dot: '#ef4444' },
     registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
+    matriculated: { label: 'Matriculated', bg: '#ecfdf5', fg: '#065f46', dot: '#059669' },
   };
   const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
 
@@ -224,7 +225,6 @@
     }
 
     try {
-      // 1. Dashboard stats
       const dash = await core.portalFetch('/api/admission-officer/dashboard');
       const d = dash.data || dash || {};
       const byStatus = d.byStatus || {};
@@ -232,20 +232,18 @@
 
       $('ao-total').textContent    = total || 0;
       $('ao-pending').textContent  = byStatus.pending || 0;
-      $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0);
+      $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
       $('ao-rejected').textContent = byStatus.rejected || 0;
 
       if (d.currentSession?.name && $('ao-dash-session')) {
         $('ao-dash-session').textContent = d.currentSession.name;
       }
 
-      // Rate: approved + registered / total
-      const admitted = (byStatus.approved || 0) + (byStatus.registered || 0);
+      const admitted = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
       const rate = total > 0 ? Math.round((admitted / total) * 100) : 0;
       if ($('ao-rate'))       $('ao-rate').textContent = `${rate}%`;
       if ($('ao-rate-label')) $('ao-rate-label').textContent = `${admitted} of ${total} applications`;
 
-      // Status breakdown list
       renderStatusList(byStatus, total);
 
     } catch (err) {
@@ -253,7 +251,6 @@
       $('ao-status-list').innerHTML = `<div style="font-size:.8rem;color:#dc2626;text-align:center;padding:1rem 0;">⚠️ ${esc(err.message)}</div>`;
     }
 
-    // 2. Recent applications
     try {
       const recent = await core.portalFetch('/api/admission-officer/applications?limit=6');
       const rows = recent.data || [];
@@ -267,7 +264,7 @@
   // Render the status breakdown list
   // ------------------------------------------------------------
   function renderStatusList(byStatus, total) {
-    const order = ['pending', 'under_review', 'approved', 'registered', 'rejected'];
+    const order = ['pending', 'under_review', 'approved', 'registered', 'matriculated', 'rejected'];
     const html = order.map((key) => {
       const count = byStatus[key] || 0;
       const meta = statusMeta(key);
@@ -298,6 +295,7 @@
   // Render recent applications list
   // ------------------------------------------------------------
   function renderRecent(rows) {
+    window.__ao_recent = rows;   // expose for optimistic updates
     const box = $('ao-recent-list');
     if (!rows.length) {
       box.innerHTML = `
@@ -313,7 +311,6 @@
       const initials = ((a.firstName || '?')[0] + (a.lastName || '?')[0]).toUpperCase();
       const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
 
-      // Actions based on status
       let actions = '';
       if (a.status === 'pending' || a.status === 'under_review') {
         actions = `
@@ -325,17 +322,20 @@
         actions = `
           <button class="ao-action-btn" data-action="register" data-id="${a.id}"
                   style="background:#065f46;color:#fff;">📝 Register</button>
-          <a href="#admission-officer-letters" class="ao-action-btn"
+          <a href="#admission-officer-letters?applicant=${a.id}" class="ao-action-btn"
              style="background:#f1f5f9;color:#475569;text-decoration:none;display:inline-flex;align-items:center;">✉️ Letter</a>`;
       } else if (a.status === 'registered') {
         actions = `
           <span style="font-size:.72rem;color:#64748b;font-style:italic;">✓ Registered as ${esc(a.matricNumber || 'student')}</span>`;
+      } else if (a.status === 'matriculated') {
+        actions = `
+          <span style="font-size:.72rem;color:#065f46;font-weight:700;">🎓 ${esc(a.matricNumber || 'Matriculated')}</span>`;
       } else {
         actions = `<span style="font-size:.72rem;color:#94a3b8;">${esc(a.rejectionReason || 'Rejected')}</span>`;
       }
 
       return `
-        <div class="ao-row">
+        <div class="ao-row" data-row-id="${a.id}">
           <div style="
             width:42px;height:42px;border-radius:50%;
             background:linear-gradient(135deg,#065f46,#047857);
@@ -352,7 +352,7 @@
               </span>
             </div>
             <div style="font-size:.72rem;color:#64748b;">
-              ${esc(a.applicationNumber || '')} · ${esc(a.type || 'ND')} · ${esc(a.departmentName || a.departmentCode || 'No dept')}
+              ${esc(a.applicationNumber || '')} · ${esc(a.type || 'ND')} · ${esc(a.departmentName || 'No dept')}
               <span style="color:#cbd5e1;">·</span> ${esc(timeAgo(a.createdAt))}
             </div>
           </div>
@@ -365,12 +365,15 @@
 
     // Wire up action buttons
     box.querySelectorAll('[data-action]').forEach((btn) => {
-      btn.addEventListener('click', () => handleAction(btn.dataset.action, btn.dataset.id));
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleAction(btn.dataset.action, btn.dataset.id);
+      });
     });
   }
 
   // ------------------------------------------------------------
-  // Handle approve / reject / register
+  // Handle approve / reject / register with OPTIMISTIC UI update
   // ------------------------------------------------------------
   async function handleAction(action, id) {
     let endpoint;
@@ -382,13 +385,14 @@
         endpoint = `/api/admission-officer/applications/${id}/approve`;
         confirmMsg = 'Approve this application?';
         break;
-      case 'reject':
+      case 'reject': {
         const reason = prompt('Reason for rejection (optional):');
-        if (reason === null) return; // user cancelled
+        if (reason === null) return;
         endpoint = `/api/admission-officer/applications/${id}/reject`;
         payload = { reason: reason || 'Application did not meet requirements.' };
         confirmMsg = null;
         break;
+      }
       case 'register':
         endpoint = `/api/admission-officer/applications/${id}/register`;
         confirmMsg = 'Create the student account and assign a matric number?';
@@ -399,20 +403,50 @@
 
     if (confirmMsg && !confirm(confirmMsg)) return;
 
+    // Disable the button to prevent double-click
+    const btn = document.querySelector(`[data-action="${action}"][data-id="${id}"]`);
+    const oldText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = 'Working…'; }
+
     try {
       const opts = { method: 'POST' };
       if (payload) opts.body = payload;
       const res = await core.portalFetch(endpoint, opts);
 
+      // ---- Optimistic UI update ----
+      const row = (window.__ao_recent || []).find((a) => String(a.id) === String(id));
+      if (row) {
+        if (action === 'approve')  row.status = 'approved';
+        if (action === 'reject') {
+          row.status = 'rejected';
+          if (payload?.reason) row.rejectionReason = payload.reason;
+        }
+        if (action === 'register' && res.data) {
+          row.status = 'registered';
+          row.matricNumber = res.data.matricNumber;
+        }
+      }
+
+      // Toast
       if (action === 'register') {
         const matric = res.data?.matricNumber || '';
         core.showToast && core.showToast(`Student registered! Matric: ${matric}`, 'success');
       } else {
-        core.showToast && core.showToast(`Application ${action}d successfully.`, 'success');
+        core.showToast && core.showToast(
+          action === 'approve' ? 'Application approved.' : 'Application rejected.',
+          'success'
+        );
       }
-      load();
+
+      // Re-render instantly from local state
+      if (window.__ao_recent) renderRecent(window.__ao_recent);
+
+      // Then refresh stats in the background
+      try { await load(); } catch { /* ignore */ }
+
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = oldText; }
     }
   }
 

@@ -1,7 +1,7 @@
-<!-- Portal → Admission Officer → Letters -->
+<!-- Portal → Admission Officer → Letters (with type switcher + docs panel) -->
 <div style="padding:0;">
 
-  <!-- HEADER -->
+  <!-- ═══════ HEADER ═══════ -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Admission Letters</h2>
@@ -13,24 +13,29 @@
         background:#065f46;color:#fff;border:none;
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
         opacity:.5;
-      ">🖨 Print Letter</button>
+      ">🖨 Print</button>
       <button id="ado-ltr-download" disabled style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#fff;color:#065f46;border:1px solid #bbf7d0;
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
         opacity:.5;
       ">📄 Save as PDF</button>
+      <button id="ado-ltr-mark-sent" disabled style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+        opacity:.5;
+      ">✉️ Mark as Sent</button>
     </div>
   </div>
 
-  <!-- TWO-COLUMN LAYOUT -->
+  <!-- ═══════ TWO-COLUMN LAYOUT ═══════ -->
   <div style="display:grid;grid-template-columns:340px 1fr;gap:1rem;align-items:flex-start;">
 
     <!-- ═══════ LEFT: APPLICANT PICKER ═══════ -->
     <div style="
       background:#fff;border:1px solid #e5e7eb;border-radius:14px;
-      overflow:hidden;
-      position:sticky;top:1rem;
+      overflow:hidden;position:sticky;top:1rem;
       max-height:calc(100vh - 140px);
       display:flex;flex-direction:column;
     ">
@@ -40,10 +45,11 @@
                style="width:100%;padding:.5rem .7rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
       </div>
 
-      <div style="padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;background:#f8fafc;">
+      <div style="padding:.55rem .85rem;border-bottom:1px solid #f1f5f9;background:#f8fafc;display:flex;justify-content:space-between;align-items:center;">
         <div style="font-size:.7rem;color:#64748b;">
           <span id="ado-ltr-count">0</span> applicant(s)
         </div>
+        <div id="ado-ltr-verified-count" style="font-size:.68rem;color:#065f46;font-weight:700;"></div>
       </div>
 
       <div id="ado-ltr-list" style="flex:1;overflow-y:auto;padding:.4rem;">
@@ -54,8 +60,10 @@
       </div>
     </div>
 
-    <!-- ═══════ RIGHT: LETTER PREVIEW ═══════ -->
-    <div>
+    <!-- ═══════ RIGHT: LETTER + DOCUMENTS ═══════ -->
+    <div style="min-width:0;">
+
+      <!-- Empty state -->
       <div id="ado-ltr-empty" style="
         background:#fff;border:2px dashed #e2e8f0;border-radius:14px;
         padding:4rem 1rem;text-align:center;
@@ -63,238 +71,179 @@
         <div style="font-size:3.5rem;margin-bottom:.75rem;opacity:.5;">✉️</div>
         <h3 style="margin:0 0 .5rem;color:#0f172a;font-size:1.1rem;font-weight:800;">No applicant selected</h3>
         <p style="margin:0 auto;max-width:400px;font-size:.85rem;color:#64748b;line-height:1.6;">
-          Choose an applicant from the list on the left to preview their admission letter. Only <strong>approved</strong> or <strong>registered</strong> applicants have letters.
+          Choose an applicant from the list on the left to preview their admission letter.
         </p>
       </div>
 
+      <!-- Letter panel -->
       <div id="ado-ltr-preview" style="display:none;">
-        <div class="ado-letter-paper" id="ado-ltr-paper"></div>
+
+        <!-- Letter type switcher -->
+        <div style="
+          background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+          padding:.6rem;margin-bottom:.85rem;
+          display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;
+        ">
+          <span style="font-size:.72rem;font-weight:700;color:#64748b;letter-spacing:.05em;text-transform:uppercase;padding:0 .5rem;">Letter</span>
+          <button class="ado-ltr-tab" data-type="provisional" style="
+            padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+            background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+          ">Provisional</button>
+          <button class="ado-ltr-tab" data-type="acceptance" style="
+            padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+            background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;
+          ">Acceptance</button>
+          <button class="ado-ltr-tab" data-type="matriculation" style="
+            padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+            background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;
+          ">Matriculation</button>
+          <button class="ado-ltr-tab" data-type="rejection" style="
+            padding:.45rem .85rem;font-size:.78rem;font-weight:700;
+            background:#f1f5f9;color:#991b1b;border:none;border-radius:8px;cursor:pointer;
+          ">Rejection</button>
+          <div style="flex:1;text-align:right;font-size:.7rem;color:#94a3b8;padding-right:.35rem;" id="ado-ltr-template-status"></div>
+        </div>
+
+        <!-- Letter paper mount point -->
+        <div id="ado-ltr-mount"></div>
+
+        <!-- ═══════ DOCUMENTS PANEL ═══════ -->
+        <div style="margin-top:1.25rem;background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+          <div style="
+            padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;
+            display:flex;justify-content:space-between;align-items:center;cursor:pointer;
+          " id="ado-docs-toggle">
+            <div style="display:flex;align-items:center;gap:.55rem;">
+              <span style="font-size:1.1rem;">📎</span>
+              <div>
+                <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Attached Documents</div>
+                <div style="font-size:.72rem;color:#64748b;" id="ado-docs-subtitle">Click to view uploads</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.5rem;">
+              <span id="ado-docs-verify-badge"></span>
+              <span id="ado-docs-caret" style="font-size:1rem;color:#64748b;transition:transform .15s;">▼</span>
+            </div>
+          </div>
+
+          <div id="ado-docs-body" style="display:none;padding:1rem;">
+            <div id="ado-docs-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;"></div>
+
+            <div style="
+              margin-top:1rem;padding-top:1rem;border-top:1px solid #f1f5f9;
+              display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;
+            ">
+              <div style="font-size:.75rem;color:#64748b;" id="ado-docs-verified-line">
+                Not yet verified
+              </div>
+              <div style="display:flex;gap:.5rem;">
+                <button id="ado-docs-verify" style="
+                  padding:.5rem .9rem;font-size:.78rem;font-weight:700;
+                  background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+                ">✓ Mark Documents Verified</button>
+                <button id="ado-docs-refresh" style="
+                  padding:.5rem .9rem;font-size:.78rem;font-weight:700;
+                  background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;
+                ">↻ Refresh</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions bar -->
+        <div style="
+          margin-top:1rem;padding:.85rem 1rem;
+          background:#fff;border:1px solid #e5e7eb;border-radius:14px;
+          display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end;
+        ">
+          <button id="ado-ltr-matriculate" disabled style="
+            padding:.55rem .9rem;font-size:.78rem;font-weight:700;
+            background:#e0e7ff;color:#3730a3;border:none;border-radius:8px;cursor:pointer;
+            opacity:.5;
+          ">🎓 Mark as Matriculated</button>
+          <button id="ado-ltr-register" disabled style="
+            padding:.55rem .9rem;font-size:.78rem;font-weight:700;
+            background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+            opacity:.5;
+          ">📝 Register Student</button>
+          <button id="ado-ltr-reject" disabled style="
+            padding:.55rem .9rem;font-size:.78rem;font-weight:700;
+            background:#fee2e2;color:#991b1b;border:none;border-radius:8px;cursor:pointer;
+            opacity:.5;
+          ">✕ Reject Applicant</button>
+        </div>
+
       </div>
     </div>
-
   </div>
+</div>
 
+<!-- LIGHTBOX for documents -->
+<div id="ado-lightbox" style="
+  display:none;position:fixed;inset:0;background:rgba(15,23,42,.88);
+  z-index:9999;align-items:center;justify-content:center;padding:1rem;
+">
+  <div style="max-width:90vw;max-height:90vh;position:relative;">
+    <button id="ado-lightbox-close" style="
+      position:absolute;top:-40px;right:0;background:#fff;border:none;
+      width:36px;height:36px;border-radius:50%;cursor:pointer;
+      font-size:1.1rem;font-weight:800;color:#0f172a;
+    ">✕</button>
+    <img id="ado-lightbox-img" src="" alt="" style="
+      max-width:90vw;max-height:85vh;border-radius:12px;
+      background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.5);
+    " />
+    <div id="ado-lightbox-label" style="
+      text-align:center;color:#fff;font-size:.85rem;margin-top:.75rem;font-weight:600;
+    "></div>
+  </div>
 </div>
 
 <style>
   @keyframes adoSpin { to { transform: rotate(360deg); } }
 
   .ado-applicant-item {
-    padding:.65rem .7rem;
-    border-radius:8px;
-    cursor:pointer;
-    margin-bottom:.25rem;
-    transition:background .15s, border-color .15s;
+    padding:.65rem .7rem;border-radius:8px;cursor:pointer;
+    margin-bottom:.25rem;transition:background .15s, border-color .15s;
     border:1px solid transparent;
   }
   .ado-applicant-item:hover { background:#f8fafc; }
-  .ado-applicant-item.active {
-    background:#ecfdf5;
-    border-color:#a7f3d0;
+  .ado-applicant-item.active { background:#ecfdf5; border-color:#a7f3d0; }
+
+  .ado-doc-card {
+    background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;
+    padding:.65rem;text-align:center;position:relative;overflow:hidden;
+    cursor:pointer;transition:border-color .15s, transform .1s;
+  }
+  .ado-doc-card:hover { border-color:#065f46; transform:translateY(-1px); }
+  .ado-doc-card.is-missing { opacity:.55; cursor:not-allowed; }
+  .ado-doc-card.is-missing:hover { border-color:#e5e7eb; transform:none; }
+  .ado-doc-thumb {
+    width:100%;height:110px;object-fit:cover;border-radius:6px;
+    background:#fff;border:1px solid #f1f5f9;display:block;
+  }
+  .ado-doc-placeholder {
+    width:100%;height:110px;display:flex;align-items:center;justify-content:center;
+    background:#fff;border:1px dashed #cbd5e1;border-radius:6px;
+    font-size:1.5rem;color:#94a3b8;
+  }
+  .ado-doc-label {
+    font-size:.7rem;font-weight:700;color:#0f172a;margin-top:.5rem;
+    line-height:1.2;
+  }
+  .ado-doc-meta { font-size:.62rem;color:#94a3b8;margin-top:.2rem; }
+
+  .ado-doc-flag {
+    position:absolute;top:.35rem;right:.35rem;
+    padding:2px 6px;border-radius:99px;
+    font-size:.58rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
   }
 
-  /* ═══ Letter paper — A4 proportions with watermark ═══ */
-  .ado-letter-paper {
-    position: relative;
-    background:#fff;
-    width:210mm;
-    min-height:297mm;
-    max-width:100%;
-    margin:0 auto;
-    padding:20mm 18mm;
-    border:1px solid #e5e7eb;
-    border-radius:6px;
-    box-shadow:0 8px 24px rgba(0,0,0,.08);
-    font-family:Georgia, "Times New Roman", serif;
-    color:#111827;
-    font-size:13.5px;
-    line-height:1.7;
-    box-sizing:border-box;
-    overflow: hidden;
-  }
-
-  /* ═══ WATERMARK — large transparent logo centered ═══ */
-  .ado-letter-paper::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 130mm;
-    height: 130mm;
-    transform: translate(-50%, -50%);
-    background-image: url('/images/logo.png');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    opacity: 0.06;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ═══ Small logo top-right corner (semi-transparent accent) ═══ */
-  .ado-letter-paper::after {
-    content: "";
-    position: absolute;
-    top: 12mm;
-    right: 12mm;
-    width: 20mm;
-    height: 20mm;
-    background-image: url('/images/logo.png');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    opacity: 0.15;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* Ensure all content sits above the watermark */
-  .ado-letter-paper > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .ado-letter-paper .ltr-head {
-    display:flex;align-items:center;gap:1rem;
-    padding-bottom:1rem;
-    border-bottom:3px double #065f46;
-    margin-bottom:1.75rem;
-  }
-  .ado-letter-paper .ltr-logo {
-    width:70px;height:70px;object-fit:contain;flex-shrink:0;
-  }
-  .ado-letter-paper .ltr-inst {
-    flex:1;text-align:center;
-  }
-  .ado-letter-paper .ltr-inst-name {
-    font-family:Georgia, serif;
-    font-size:20px;
-    font-weight:800;
-    color:#065f46;
-    letter-spacing:.04em;
-    text-transform:uppercase;
-    line-height:1.15;
-  }
-  .ado-letter-paper .ltr-inst-motto {
-    font-size:11px;
-    font-style:italic;
-    color:#475569;
-    margin-top:.25rem;
-  }
-  .ado-letter-paper .ltr-inst-contact {
-    font-size:10.5px;
-    color:#64748b;
-    margin-top:.4rem;
-    font-family:Arial, sans-serif;
-  }
-
-  .ado-letter-paper .ltr-meta {
-    display:flex;justify-content:space-between;
-    font-size:12px;
-    margin-bottom:1.5rem;
-    font-family:Arial, sans-serif;
-  }
-  .ado-letter-paper .ltr-meta strong { color:#065f46; }
-
-  .ado-letter-paper .ltr-recipient {
-    margin-bottom:1.5rem;
-    font-size:13.5px;
-  }
-  .ado-letter-paper .ltr-recipient .name {
-    font-weight:800;text-transform:uppercase;
-    letter-spacing:.02em;
-  }
-
-  .ado-letter-paper .ltr-subject {
-    text-align:center;
-    font-weight:800;
-    text-decoration:underline;
-    text-transform:uppercase;
-    letter-spacing:.05em;
-    margin:1.5rem 0;
-    font-size:14px;
-  }
-
-  .ado-letter-paper .ltr-body p {
-    margin:.75rem 0;
-    text-align:justify;
-  }
-
-  .ado-letter-paper .ltr-programme-box {
-    background:rgba(240, 253, 244, 0.92);
-    border-left:4px solid #065f46;
-    padding:.85rem 1rem;
-    margin:1.25rem 0;
-    border-radius:4px;
-  }
-  .ado-letter-paper .ltr-programme-box .row {
-    display:flex;justify-content:space-between;
-    padding:.25rem 0;
-    font-size:12.5px;
-    font-family:Arial, sans-serif;
-  }
-  .ado-letter-paper .ltr-programme-box .label { color:#475569; }
-  .ado-letter-paper .ltr-programme-box .value { font-weight:700; color:#065f46; }
-
-  .ado-letter-paper .ltr-list {
-    margin:.75rem 0 1rem 1.25rem;
-    padding:0;
-  }
-  .ado-letter-paper .ltr-list li {
-    margin:.35rem 0;
-    font-size:13px;
-  }
-
-  .ado-letter-paper .ltr-sign {
-    margin-top:3rem;
-    font-family:Arial, sans-serif;
-  }
-  .ado-letter-paper .ltr-sign .line {
-    width:220px;
-    border-top:1.5px solid #111827;
-    margin-top:2.5rem;
-    margin-bottom:.35rem;
-  }
-  .ado-letter-paper .ltr-sign .name {
-    font-weight:800;
-    font-size:13px;
-    color:#065f46;
-  }
-  .ado-letter-paper .ltr-sign .role {
-    font-size:11.5px;
-    color:#475569;
-  }
-
-  .ado-letter-paper .ltr-footer {
-    margin-top:2.5rem;
-    padding-top:.75rem;
-    border-top:1px dashed #cbd5e1;
-    font-size:10px;
-    color:#94a3b8;
-    text-align:center;
-    font-family:Arial, sans-serif;
-    letter-spacing:.05em;
-  }
-
-  /* ═══ PRINT — A4 with watermark preserved ═══ */
   @media print {
     @page { size: A4; margin: 0; }
     body * { visibility: hidden; }
-    #ado-ltr-preview, #ado-ltr-preview * { visibility: visible; }
-    #ado-ltr-preview { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
-    .ado-letter-paper {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 18mm 16mm;
-      border: none;
-      border-radius: 0;
-      box-shadow: none;
-      page-break-inside: avoid;
-    }
-    /* Print CSS — watermarks often need a slightly higher opacity */
-    .ado-letter-paper::before { opacity: 0.08; }
-    .ado-letter-paper::after  { opacity: 0.18; }
-    .filter-bar, .greeting, .page-head { display: none !important; }
+    #ado-ltr-mount, #ado-ltr-mount * { visibility: visible; }
+    #ado-ltr-mount { position:absolute;left:0;top:0;width:100%; }
   }
 </style>
 
@@ -304,15 +253,15 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const fmtDate = (d) => {
-    if (!d) return '—';
-    const dt = new Date(d);
-    if (isNaN(dt)) return '—';
-    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
 
+  // ---------- State ----------
   let ALL = [];
   let SELECTED = null;
+  let CURRENT_TYPE = 'provisional';
+  let TEMPLATE_CACHE = {};   // type -> HTML string
+  let DOCS_CACHE = null;     // last docs response for SELECTED
+
+  const TEMPLATE_PATH = '/portal/partials/admission-officer/letter-templates/';
 
   // ============================================================
   // Load applicants
@@ -324,6 +273,11 @@
       ALL = Array.isArray(res.data) ? res.data : [];
       renderList(ALL);
       $('ado-ltr-count').textContent = ALL.length;
+
+      const verifiedCount = ALL.filter(a => a.documentsVerifiedAt).length;
+      $('ado-ltr-verified-count').textContent = verifiedCount
+        ? `✓ ${verifiedCount} verified`
+        : '';
     } catch (err) {
       listEl.innerHTML = `<div style="padding:1rem;color:#991b1b;font-size:.8rem;">⚠️ ${esc(err.message)}</div>`;
     }
@@ -342,10 +296,13 @@
     listEl.innerHTML = rows.map(a => {
       const initials = ((a.firstName || '?')[0] + (a.lastName || '?')[0]).toUpperCase();
       const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
-      const meta = a.status === 'registered'
-        ? { label: 'Registered', bg: '#e0e7ff', fg: '#3730a3' }
-        : { label: 'Approved',   bg: '#d1fae5', fg: '#065f46' };
+      const meta = a.status === 'matriculated'
+        ? { label: 'Matriculated', bg: '#ecfdf5', fg: '#065f46' }
+        : a.status === 'registered'
+          ? { label: 'Registered', bg: '#e0e7ff', fg: '#3730a3' }
+          : { label: 'Approved',   bg: '#d1fae5', fg: '#065f46' };
       const active = SELECTED && SELECTED.id === a.id;
+      const docsVerified = a.documentsVerifiedAt ? '✓' : '';
 
       return `
         <div class="ado-applicant-item ${active ? 'active' : ''}" data-id="${a.id}">
@@ -355,7 +312,10 @@
               <div style="font-weight:700;font-size:.82rem;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(fullName)}</div>
               <div style="font-size:.68rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(a.applicationNumber || '')} · ${esc(a.level || '')}</div>
             </div>
-            <span style="font-size:.6rem;font-weight:800;padding:2px 6px;border-radius:99px;background:${meta.bg};color:${meta.fg};text-transform:uppercase;letter-spacing:.04em;">${meta.label}</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.15rem;">
+              <span style="font-size:.58rem;font-weight:800;padding:2px 6px;border-radius:99px;background:${meta.bg};color:${meta.fg};text-transform:uppercase;letter-spacing:.04em;">${meta.label}</span>
+              ${docsVerified ? '<span style="font-size:.6rem;color:#065f46;font-weight:800;">✓ docs</span>' : ''}
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -375,7 +335,6 @@
   function filterList() {
     const q = ($('ado-ltr-search')?.value || '').trim().toLowerCase();
     if (!q) return renderList(ALL);
-
     const filtered = ALL.filter(a => {
       const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
       return hay.includes(q);
@@ -385,168 +344,358 @@
   }
 
   // ============================================================
-  // Select applicant → render letter
+  // Select applicant
   // ============================================================
   function selectApplicant(app) {
     SELECTED = app;
+    DOCS_CACHE = null;
     filterList();
 
     $('ado-ltr-empty').style.display = 'none';
     $('ado-ltr-preview').style.display = 'block';
 
-    ['ado-ltr-print', 'ado-ltr-download'].forEach(id => {
+    ['ado-ltr-print', 'ado-ltr-download', 'ado-ltr-mark-sent'].forEach(id => {
       const btn = $(id);
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     });
 
-    renderLetter(app);
+    // Actions
+    const canRegister   = app.status === 'approved';
+    const canMatriculate = app.status === 'registered' || app.status === 'approved';
+    const canReject     = app.status !== 'rejected' && app.status !== 'matriculated';
+
+    setBtn('ado-ltr-register',   canRegister);
+    setBtn('ado-ltr-matriculate',canMatriculate);
+    setBtn('ado-ltr-reject',     canReject);
+
+    // Smart default letter type based on status
+    let defaultType = 'provisional';
+    if (app.status === 'rejected') defaultType = 'rejection';
+    else if (app.status === 'matriculated') defaultType = 'matriculation';
+    else if (app.status === 'registered') defaultType = 'acceptance';
+    setActiveTab(defaultType, true);
+
+    // Load docs panel (collapsed by default)
+    loadDocuments(false);
+  }
+
+  function setBtn(id, enabled) {
+    const b = $(id);
+    if (!b) return;
+    b.disabled = !enabled;
+    b.style.opacity = enabled ? '1' : '.5';
+    b.style.cursor = enabled ? 'pointer' : 'not-allowed';
   }
 
   // ============================================================
-  // Render letter HTML
+  // Letter type tabs
   // ============================================================
-  function renderLetter(app) {
-    const inst = {
-      name: 'Federal Polytechnic Ugep',
-      motto: 'Citadel of Technical Excellence',
-      address: 'Ugep, Cross River State, Nigeria',
-      phone: '07069096879',
-      email: 'contact@fedpolyugep.edu.ng',
-      website: 'fedpolyugep.edu.ng',
-    };
+  function setActiveTab(type, silent) {
+    CURRENT_TYPE = type;
+    document.querySelectorAll('.ado-ltr-tab').forEach(btn => {
+      const on = btn.dataset.type === type;
+      if (type === 'rejection') {
+        btn.style.background = on ? '#991b1b' : '#f1f5f9';
+        btn.style.color = on ? '#fff' : '#991b1b';
+      } else {
+        btn.style.background = on ? '#065f46' : '#f1f5f9';
+        btn.style.color = on ? '#fff' : '#475569';
+      }
+    });
+    if (!silent) renderLetter();
+  }
 
-    const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
-    const address = app.address || '—';
-    const today = fmtDate(new Date());
-    const year = new Date().getFullYear();
-    const session = app.sessionName || `${year - 1}/${year}`;
+  document.querySelectorAll('.ado-ltr-tab').forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.type));
+  });
 
-    const me = core.getPortalUser ? core.getPortalUser() : {};
-    const officerName = me.firstName
-      ? `${me.firstName} ${me.lastName || ''}`.trim()
-      : 'Admission Officer';
+  // ============================================================
+  // Fetch + inject letter template, then push applicant into it
+  // ============================================================
+  async function renderLetter() {
+    if (!SELECTED) return;
+    const mount = $('ado-ltr-mount');
+    const status = $('ado-ltr-template-status');
 
-    $('ado-ltr-paper').innerHTML = `
-      <!-- HEADER -->
-      <div class="ltr-head">
-        <img class="ltr-logo" src="/images/logo.png" alt="Logo"
-             onerror="this.style.display='none';" />
-        <div class="ltr-inst">
-          <div class="ltr-inst-name">${esc(inst.name)}</div>
-          <div class="ltr-inst-motto">${esc(inst.motto)}</div>
-          <div class="ltr-inst-contact">
-            ${esc(inst.address)} · 📞 ${esc(inst.phone)} · ✉️ ${esc(inst.email)}
-          </div>
-        </div>
-      </div>
+    status.textContent = 'Loading…';
 
-      <!-- META -->
-      <div class="ltr-meta">
-        <div>
-          <strong>Ref No:</strong> ${esc(app.applicationNumber || '—')}
-        </div>
-        <div>
-          <strong>Date:</strong> ${esc(today)}
-        </div>
-      </div>
+    try {
+      let html = TEMPLATE_CACHE[CURRENT_TYPE];
 
-      <!-- RECIPIENT -->
-      <div class="ltr-recipient">
-        <div class="name">${esc(fullName)}</div>
-        <div>${esc(app.email || '')}</div>
-        <div>${esc(app.phone || '')}</div>
-        <div>${esc(address)}</div>
-      </div>
+      if (!html) {
+        const res = await fetch(`${TEMPLATE_PATH}${CURRENT_TYPE}.html`, { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`Template not found: ${CURRENT_TYPE}`);
+        html = await res.text();
+        TEMPLATE_CACHE[CURRENT_TYPE] = html;
+      }
 
-      <p style="margin:0;">Dear <strong>${esc(fullName)}</strong>,</p>
+      // Replace the mount with fresh HTML. This re-executes inline scripts.
+      mount.innerHTML = html;
 
-      <div class="ltr-subject">
-        Offer of Provisional Admission — ${esc(app.level || 'ND')} Programme
-      </div>
+      // Re-execute any <script> tags inside the injected HTML
+      mount.querySelectorAll('script').forEach((old) => {
+        const s = document.createElement('script');
+        if (old.src) s.src = old.src;
+        else s.textContent = old.textContent;
+        old.parentNode.replaceChild(s, old);
+      });
 
-      <div class="ltr-body">
-        <p>
-          Following your application with reference number <strong>${esc(app.applicationNumber || '—')}</strong>,
-          I am pleased to inform you that you have been offered <strong>provisional admission</strong>
-          into <strong>${esc(inst.name)}</strong> for the <strong>${esc(session)}</strong> academic session.
-        </p>
+      // Give the template its applicant
+      window.FPU_CURRENT_APPLICANT = SELECTED;
+      window.dispatchEvent(new CustomEvent('letter:setApplicant', { detail: { app: SELECTED } }));
 
-        <p>Your admission details are as follows:</p>
-
-        <div class="ltr-programme-box">
-          <div class="row">
-            <span class="label">Programme</span>
-            <span class="value">${esc(app.programmeName || app.type || '—')}</span>
-          </div>
-          <div class="row">
-            <span class="label">Department</span>
-            <span class="value">${esc(app.departmentName || '—')}</span>
-          </div>
-          <div class="row">
-            <span class="label">Level</span>
-            <span class="value">${esc(app.level || '—')}</span>
-          </div>
-          <div class="row">
-            <span class="label">Session</span>
-            <span class="value">${esc(session)}</span>
-          </div>
-          <div class="row">
-            <span class="label">Mode of Entry</span>
-            <span class="value">UTME / JAMB (${esc(app.jambScore || '—')})</span>
-          </div>
-        </div>
-
-        <p><strong>This offer is subject to the following conditions:</strong></p>
-        <ol class="ltr-list">
-          <li>Verification of your O'Level results and JAMB credentials.</li>
-          <li>Payment of the prescribed acceptance and registration fees.</li>
-          <li>Completion of all registration formalities within the stipulated time.</li>
-          <li>Production of original credentials at the point of physical screening.</li>
-        </ol>
-
-        <p>
-          Kindly report to the Admissions Office within <strong>two (2) weeks</strong> of the date of this letter,
-          and present the following documents:
-        </p>
-        <ul class="ltr-list">
-          <li>Original JAMB result slip (and admission letter printed from JAMB CAPS).</li>
-          <li>Original O'Level certificate(s) or statement of result.</li>
-          <li>Birth certificate or sworn declaration of age.</li>
-          <li>Local Government Area certificate of origin.</li>
-          <li>Four (4) recent passport photographs.</li>
-        </ul>
-
-        <p>
-          Failure to comply with these conditions within the stipulated period may result in the forfeiture of this offer.
-          This admission is provisional and subject to final verification by the Registrar.
-        </p>
-
-        <p style="margin-top:1.25rem;">
-          Please accept my warm congratulations on your admission.
-        </p>
-      </div>
-
-      <div class="ltr-sign">
-        <div>Yours faithfully,</div>
-        <div class="line"></div>
-        <div class="name">${esc(officerName)}</div>
-        <div class="role">Admission Officer</div>
-        <div class="role">${esc(inst.name)}</div>
-      </div>
-
-      <div class="ltr-footer">
-        This letter is not valid without the official stamp of ${esc(inst.name)} · ${esc(inst.website)}
-      </div>
-    `;
+      status.textContent = `Template: ${CURRENT_TYPE}`;
+    } catch (err) {
+      console.error('[letter]', err);
+      mount.innerHTML = `
+        <div style="padding:2rem;background:#fff;border:1px solid #fecaca;border-radius:12px;text-align:center;">
+          <div style="font-size:1.5rem;color:#991b1b;">⚠️</div>
+          <div style="font-weight:800;color:#991b1b;margin-top:.35rem;">Failed to load letter</div>
+          <div style="font-size:.8rem;color:#7f1d1d;margin-top:.35rem;">${esc(err.message)}</div>
+        </div>`;
+      status.textContent = '';
+    }
   }
 
   // ============================================================
-  // Print + PDF
+  // Documents panel
+  // ============================================================
+  async function loadDocuments(forceExpand) {
+    if (!SELECTED) return;
+    const grid = $('ado-docs-grid');
+    const subtitle = $('ado-docs-subtitle');
+    const badge = $('ado-docs-verify-badge');
+    const verifiedLine = $('ado-docs-verified-line');
+    const verifyBtn = $('ado-docs-verify');
+
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#94a3b8;font-size:.8rem;">
+        <div style="display:inline-block;width:22px;height:22px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
+        <div style="margin-top:.5rem;">Loading documents…</div>
+      </div>`;
+
+    try {
+      const res = await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/documents`);
+      DOCS_CACHE = res;
+      const docs = Array.isArray(res.data) ? res.data : [];
+      const uploaded = docs.filter(d => d.url && d.exists);
+
+      subtitle.textContent = uploaded.length
+        ? `${uploaded.length} of ${docs.length} uploaded`
+        : 'No uploaded documents';
+      $('ado-ltr-count') && ($('ado-ltr-count').textContent = ALL.length);
+
+      const isVerified = !!(res.verified && res.verified.at);
+      badge.innerHTML = isVerified
+        ? `<span style="font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:99px;background:#d1fae5;color:#065f46;">✓ Verified</span>`
+        : `<span style="font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:99px;background:#fef3c7;color:#92400e;">⏳ Not verified</span>`;
+
+      verifiedLine.textContent = isVerified
+        ? `Verified ${new Date(res.verified.at).toLocaleDateString('en-GB')}`
+        : 'Not yet verified';
+
+      verifyBtn.disabled = isVerified;
+      verifyBtn.style.opacity = isVerified ? '.5' : '1';
+      verifyBtn.style.cursor = isVerified ? 'not-allowed' : 'pointer';
+
+      grid.innerHTML = docs.map(d => {
+        const ok = d.url && d.exists;
+        const isImage = ok && /\.(png|jpe?g|webp)$/i.test(d.url);
+        const ext = ok ? (d.url.match(/\.([a-z0-9]+)$/i) || [])[1] || '' : '';
+
+        return `
+          <div class="ado-doc-card ${ok ? '' : 'is-missing'}"
+               data-url="${ok ? esc(d.url) : ''}"
+               data-label="${esc(d.label)}"
+               data-image="${isImage ? '1' : '0'}">
+            ${ok
+              ? (isImage
+                  ? `<img class="ado-doc-thumb" src="${esc(d.url)}" alt="${esc(d.label)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
+                     <div class="ado-doc-placeholder" style="display:none;">🖼️</div>`
+                  : `<div class="ado-doc-placeholder">📄</div>`)
+              : `<div class="ado-doc-placeholder">∅</div>`}
+            <div class="ado-doc-label">${esc(d.label)}</div>
+            <div class="ado-doc-meta">${ok ? esc(ext.toUpperCase() || 'FILE') : 'Not uploaded'}</div>
+            ${ok ? `<span class="ado-doc-flag" style="background:#d1fae5;color:#065f46;">✓</span>`
+                 : `<span class="ado-doc-flag" style="background:#fee2e2;color:#991b1b;">✕</span>`}
+          </div>`;
+      }).join('');
+
+      // Click handler for opening docs
+      grid.querySelectorAll('.ado-doc-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const url = card.dataset.url;
+          if (!url) return;
+          openLightbox(url, card.dataset.label, card.dataset.image === '1');
+        });
+      });
+
+      if (forceExpand) expandDocs(true);
+    } catch (err) {
+      grid.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#991b1b;font-size:.8rem;">⚠️ ${esc(err.message)}</div>`;
+      subtitle.textContent = 'Failed to load';
+    }
+  }
+
+  // ---------- Docs panel toggle ----------
+  function expandDocs(expand) {
+    const body = $('ado-docs-body');
+    const caret = $('ado-docs-caret');
+    body.style.display = expand ? 'block' : 'none';
+    caret.style.transform = expand ? 'rotate(180deg)' : 'rotate(0)';
+  }
+
+  $('ado-docs-toggle')?.addEventListener('click', () => {
+    const body = $('ado-docs-body');
+    const isOpen = body.style.display === 'block';
+    expandDocs(!isOpen);
+  });
+
+  $('ado-docs-refresh')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    loadDocuments(true);
+  });
+
+  // ---------- Verify button ----------
+  $('ado-docs-verify')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!SELECTED) return;
+
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Verifying…';
+
+    try {
+      await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/verify-documents`, { method: 'POST' });
+      core.showToast && core.showToast('Documents verified.', 'success');
+
+      // Update local cache so the list shows the ✓ docs badge
+      const local = ALL.find(a => a.id === SELECTED.id);
+      if (local) local.documentsVerifiedAt = new Date().toISOString();
+      SELECTED.documentsVerifiedAt = new Date().toISOString();
+      filterList();
+
+      loadDocuments(true);
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+
+  // ============================================================
+  // Lightbox
+  // ============================================================
+  function openLightbox(url, label, isImage) {
+    const box = $('ado-lightbox');
+    const img = $('ado-lightbox-img');
+    const lab = $('ado-lightbox-label');
+
+    if (isImage) {
+      img.src = url;
+      img.style.display = 'block';
+      lab.textContent = label || '';
+    } else {
+      // Non-image — just open in new tab
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    box.style.display = 'flex';
+  }
+
+  $('ado-lightbox-close')?.addEventListener('click', () => {
+    $('ado-lightbox').style.display = 'none';
+    $('ado-lightbox-img').src = '';
+  });
+  $('ado-lightbox')?.addEventListener('click', (e) => {
+    if (e.target.id === 'ado-lightbox') {
+      $('ado-lightbox').style.display = 'none';
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') $('ado-lightbox').style.display = 'none';
+  });
+
+  // ============================================================
+  // Print / PDF / Mark sent
   // ============================================================
   $('ado-ltr-print')?.addEventListener('click', () => window.print());
+
   $('ado-ltr-download')?.addEventListener('click', () => {
-    core.showToast && core.showToast('Use "Save as PDF" in the print dialog.', 'info');
+    core.showToast && core.showToast('Choose "Save as PDF" in the print dialog.', 'info');
     setTimeout(() => window.print(), 200);
+  });
+
+  $('ado-ltr-mark-sent')?.addEventListener('click', async (e) => {
+    if (!SELECTED) return;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Marking…';
+
+    try {
+      await core.portalFetch(
+        `/api/admission-officer/applications/${SELECTED.id}/letter/${CURRENT_TYPE}/sent`,
+        { method: 'POST' }
+      );
+      core.showToast && core.showToast(`${CURRENT_TYPE} letter marked as sent.`, 'success');
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+
+  // ============================================================
+  // Action buttons (matriculate, register, reject)
+  // ============================================================
+  $('ado-ltr-matriculate')?.addEventListener('click', async () => {
+    if (!SELECTED) return;
+    if (!confirm(`Mark ${SELECTED.firstName} ${SELECTED.lastName} as matriculated?`)) return;
+
+    try {
+      const res = await core.portalFetch(
+        `/api/admission-officer/applications/${SELECTED.id}/matriculate`,
+        { method: 'POST' }
+      );
+      core.showToast && core.showToast(`Matriculated: ${res.data?.matricNumber || ''}`, 'success');
+      // Refresh list so status pill updates
+      await loadApplicants();
+      const refreshed = ALL.find(a => a.id === SELECTED.id);
+      if (refreshed) selectApplicant(refreshed);
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  });
+
+  $('ado-ltr-register')?.addEventListener('click', () => {
+    if (!SELECTED) return;
+    window.location.hash = `#admission-officer-admitted?applicant=${SELECTED.id}`;
+  });
+
+  $('ado-ltr-reject')?.addEventListener('click', async () => {
+    if (!SELECTED) return;
+    const reason = prompt(`Reason for rejecting ${SELECTED.firstName} ${SELECTED.lastName}:`);
+    if (reason === null) return;
+
+    try {
+      await core.portalFetch(
+        `/api/admission-officer/applications/${SELECTED.id}/reject`,
+        { method: 'POST', body: { reason: reason || 'Did not meet requirements.' } }
+      );
+      core.showToast && core.showToast('Applicant rejected.', 'success');
+      await loadApplicants();
+      const refreshed = ALL.find(a => a.id === SELECTED.id);
+      if (refreshed) {
+        selectApplicant(refreshed);
+        setActiveTab('rejection');
+      }
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   });
 
   // ============================================================
@@ -559,7 +708,7 @@
   });
 
   // ============================================================
-  // Deep link from Admitted page (?applicant=X)
+  // Deep link (?applicant=X)
   // ============================================================
   function checkDeepLink() {
     const hash = window.location.hash || '';
@@ -567,10 +716,13 @@
     if (match && ALL.length) {
       const id = Number(match[1]);
       const app = ALL.find(a => a.id === id);
-      if (app) setTimeout(() => selectApplicant(app), 300);
+      if (app) setTimeout(() => selectApplicant(app), 200);
     }
   }
 
+  // ============================================================
+  // Kick off
+  // ============================================================
   loadApplicants().then(() => checkDeepLink());
 })();
 </script>

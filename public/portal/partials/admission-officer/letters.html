@@ -5,9 +5,16 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Admission Letters</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Preview individual letters, or matriculate students in bulk by department</p>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Preview individual letters, or send in bulk by department</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;" id="ado-single-actions">
+      <button id="ado-upload-signature" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+      ">🖋️ Upload Signature</button>
+      <input type="file" id="ado-signature-file" accept="image/png, image/jpeg" style="display:none;" />
+
       <button id="ado-ltr-print" disabled style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;
@@ -214,11 +221,23 @@
           <input type="checkbox" id="ado-bulk-select-all" style="cursor:pointer;" />
           Select all
         </label>
+
+        <select id="ado-bulk-letter-type" style="
+          padding:.5rem .75rem;font-size:.8rem;font-weight:700;
+          border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#0f172a;cursor:pointer;
+        ">
+          <option value="provisional">Provisional Letter</option>
+          <option value="acceptance">Acceptance Letter</option>
+          <option value="matriculation">Matriculation Letter</option>
+          <option value="rejection">Rejection Letter</option>
+        </select>
+
         <button id="ado-bulk-email-btn" disabled style="
           padding:.55rem 1rem;font-size:.82rem;font-weight:700;
-          background:#fff;color:#065f46;border:1px solid #bbf7d0;
+          background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;
           border-radius:8px;cursor:pointer;opacity:.5;
         ">✉️ Email Selected</button>
+
         <button id="ado-bulk-matriculate-all" disabled style="
           padding:.55rem 1rem;font-size:.82rem;font-weight:700;
           background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -232,62 +251,6 @@
       <div style="text-align:center;padding:3rem;color:#94a3b8;">
         <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
         <div style="margin-top:.65rem;font-size:.85rem;">Loading departments…</div>
-      </div>
-    </div>
-
-    <!-- Progress bar (during bulk operation) -->
-    <div id="ado-bulk-progress" style="
-      display:none;position:fixed;bottom:1.5rem;right:1.5rem;
-      background:#0f172a;color:#fff;padding:1rem 1.25rem;border-radius:12px;
-      box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:9999;max-width:340px;
-    ">
-      <div style="font-size:.85rem;font-weight:800;margin-bottom:.35rem;" id="ado-bulk-progress-title">Processing…</div>
-      <div style="font-size:.75rem;opacity:.8;margin-bottom:.5rem;" id="ado-bulk-progress-detail">0 / 0</div>
-      <div style="height:6px;background:#374151;border-radius:99px;overflow:hidden;">
-        <div id="ado-bulk-progress-bar" style="height:100%;width:0%;background:#10b981;transition:width .2s;"></div>
-      </div>
-    </div>
-
-    <!-- Email type chooser (modal) -->
-    <div id="ado-bulk-email-modal" style="
-      display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);
-      z-index:9998;align-items:center;justify-content:center;padding:1rem;
-    ">
-      <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;padding:1.5rem;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-        <div style="font-weight:800;font-size:1.05rem;color:#0f172a;margin-bottom:.35rem;">Email Letters</div>
-        <div style="font-size:.82rem;color:#64748b;margin-bottom:1rem;">
-          Send one of the four letters to <strong id="ado-bulk-email-count">0</strong> selected applicants.
-        </div>
-
-        <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.25rem;">
-          <label style="display:flex;align-items:center;gap:.55rem;padding:.65rem .8rem;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
-            <input type="radio" name="ado-bulk-letter" value="provisional" checked />
-            <span style="font-size:.85rem;font-weight:700;">Provisional Admission Letter</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:.55rem;padding:.65rem .8rem;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
-            <input type="radio" name="ado-bulk-letter" value="acceptance" />
-            <span style="font-size:.85rem;font-weight:700;">Acceptance Confirmation Letter</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:.55rem;padding:.65rem .8rem;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
-            <input type="radio" name="ado-bulk-letter" value="matriculation" />
-            <span style="font-size:.85rem;font-weight:700;">Matriculation Confirmation Letter</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:.55rem;padding:.65rem .8rem;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
-            <input type="radio" name="ado-bulk-letter" value="rejection" />
-            <span style="font-size:.85rem;font-weight:700;">Rejection Letter</span>
-          </label>
-        </div>
-
-        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
-          <button id="ado-bulk-email-cancel" type="button" style="
-            padding:.6rem 1rem;font-size:.85rem;font-weight:600;
-            background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;
-          ">Cancel</button>
-          <button id="ado-bulk-email-confirm" type="button" style="
-            padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;
-            background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-          ">Send Emails</button>
-        </div>
       </div>
     </div>
 
@@ -386,14 +349,13 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   // ---------- State ----------
-  let ALL = [];                 // applicants for single view
+  let ALL = [];
   let SELECTED = null;
   let CURRENT_TYPE = 'provisional';
   let TEMPLATE_CACHE = {};
-  let DOCS_CACHE = null;
 
-  let BULK = null;              // { departments: [...], total }
-  let BULK_SELECTED = new Set();// set of applicant ids
+  let BULK = null;
+  let BULK_SELECTED = new Set();
 
   const TEMPLATE_PATH = '/portal/partials/admission-officer/letter-templates/';
 
@@ -419,7 +381,53 @@
   }
 
   // ============================================================
-  // SINGLE TAB — Load applicants list
+  // SIGNATURE UPLOAD
+  // ============================================================
+  $('ado-upload-signature')?.addEventListener('click', () => $('ado-signature-file').click());
+
+  $('ado-signature-file')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('signature', file);
+
+    const btn = $('ado-upload-signature');
+    const prev = btn.textContent;
+    btn.textContent = 'Uploading…';
+    btn.disabled = true;
+
+    try {
+      // Use native fetch for FormData to ensure headers are set correctly
+      const res = await fetch('/api/admission-officer/profile/signature', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('fpu_token')}` },
+        body: formData
+      });
+      
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+
+      core.showToast && core.showToast('Signature uploaded successfully!', 'success');
+      
+      // Update local user data
+      if (core.getPortalUser) {
+        const user = core.getPortalUser();
+        user.signatureUrl = json.signatureUrl;
+      }
+
+      if (SELECTED) renderLetter();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.textContent = prev;
+      btn.disabled = false;
+      e.target.value = '';
+    }
+  });
+
+  // ============================================================
+  // SINGLE TAB
   // ============================================================
   async function loadApplicants() {
     const listEl = $('ado-ltr-list');
@@ -428,9 +436,6 @@
       ALL = Array.isArray(res.data) ? res.data : [];
       renderList(ALL);
       $('ado-ltr-count').textContent = ALL.length;
-
-      const verifiedCount = ALL.filter(a => a.documentsVerifiedAt).length;
-      $('ado-ltr-verified-count').textContent = verifiedCount ? `✓ ${verifiedCount} verified` : '';
     } catch (err) {
       listEl.innerHTML = `<div style="padding:1rem;color:#991b1b;font-size:.8rem;">⚠️ ${esc(err.message)}</div>`;
     }
@@ -490,7 +495,6 @@
 
   function selectApplicant(app) {
     SELECTED = app;
-    DOCS_CACHE = null;
     filterList();
 
     $('ado-ltr-empty').style.display = 'none';
@@ -526,7 +530,6 @@
     b.style.cursor = enabled ? 'pointer' : 'not-allowed';
   }
 
-  // ---------- Letter type tabs ----------
   function setActiveTab(type, silent) {
     CURRENT_TYPE = type;
     document.querySelectorAll('.ado-ltr-tab').forEach(btn => {
@@ -545,20 +548,14 @@
   document.querySelectorAll('.ado-ltr-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const requested = btn.dataset.type;
-
       if (requested === 'matriculation' && SELECTED && !SELECTED.matricNumber) {
         core.showToast && core.showToast('Matriculation letter requires a matric number. Register the student first.', 'warning');
-        return;
-      }
-      if (requested === 'acceptance' && SELECTED && SELECTED.status === 'rejected') {
-        core.showToast && core.showToast('Acceptance letter is not available for rejected applications.', 'warning');
         return;
       }
       setActiveTab(requested);
     });
   });
 
-  // ---------- Letter render ----------
   async function renderLetter() {
     if (!SELECTED) return;
     const mount = $('ado-ltr-mount');
@@ -598,7 +595,6 @@
     }
   }
 
-  // ---------- Documents panel ----------
   async function loadDocuments(forceExpand) {
     if (!SELECTED) return;
     const grid = $('ado-docs-grid');
@@ -615,7 +611,6 @@
 
     try {
       const res = await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/documents`);
-      DOCS_CACHE = res;
       const docs = Array.isArray(res.data) ? res.data : [];
       const uploaded = docs.filter(d => d.url && d.exists);
 
@@ -694,7 +689,6 @@
     try {
       await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/verify-documents`, { method: 'POST' });
       core.showToast && core.showToast('Documents verified.', 'success');
-
       const local = ALL.find(a => a.id === SELECTED.id);
       if (local) local.documentsVerifiedAt = new Date().toISOString();
       SELECTED.documentsVerifiedAt = new Date().toISOString();
@@ -708,7 +702,6 @@
     }
   });
 
-  // ---------- Lightbox ----------
   function openLightbox(url, label, isImage) {
     if (!isImage) { window.open(url, '_blank', 'noopener'); return; }
     $('ado-lightbox-img').src = url;
@@ -724,7 +717,6 @@
     if (e.target.id === 'ado-lightbox') $('ado-lightbox').style.display = 'none';
   });
 
-  // ---------- Single actions ----------
   $('ado-ltr-print')?.addEventListener('click', () => window.print());
   $('ado-ltr-download')?.addEventListener('click', () => {
     core.showToast && core.showToast('Choose "Save as PDF" in the print dialog.', 'info');
@@ -771,8 +763,7 @@
     const reason = prompt(`Reason for rejecting ${SELECTED.firstName} ${SELECTED.lastName}:`);
     if (reason === null) return;
     try {
-      await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/reject`,
-        { method: 'POST', body: { reason: reason || 'Did not meet requirements.' } });
+      await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/reject`, { method: 'POST', body: { reason: reason || 'Did not meet requirements.' } });
       core.showToast && core.showToast('Applicant rejected.', 'success');
       await loadApplicants();
       const refreshed = ALL.find(a => a.id === SELECTED.id);
@@ -877,20 +868,11 @@
                 </div>
               </div>
             </div>
-            <button class="ado-bulk-dept-matriculate" data-dept="${di}" style="
-              padding:.45rem .8rem;font-size:.75rem;font-weight:700;
-              background:${selectedHere > 0 ? '#065f46' : '#f1f5f9'};
-              color:${selectedHere > 0 ? '#fff' : '#94a3b8'};
-              border:none;border-radius:6px;cursor:${selectedHere > 0 ? 'pointer' : 'not-allowed'};
-            " ${selectedHere > 0 ? '' : 'disabled'}>
-              🎓 Matriculate selected
-            </button>
           </div>
           ${rows}
         </div>`;
     }).join('');
 
-    // Wire checkboxes
     box.querySelectorAll('.ado-bulk-checkbox').forEach(cb => {
       cb.addEventListener('change', () => {
         const id = Number(cb.dataset.id);
@@ -911,17 +893,6 @@
       });
     });
 
-    box.querySelectorAll('.ado-bulk-dept-matriculate').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const di = Number(btn.dataset.dept);
-        const dept = BULK.departments[di];
-        if (!dept) return;
-        const ids = dept.students.filter(s => BULK_SELECTED.has(s.id)).map(s => s.id);
-        if (!ids.length) return;
-        await bulkMatriculate(ids, `Matriculate ${ids.length} students in ${dept.departmentName}?`);
-      });
-    });
-
     updateBulkButtons();
   }
 
@@ -933,7 +904,6 @@
     if (eBtn) { eBtn.disabled = count === 0; eBtn.style.opacity = count === 0 ? '.5' : '1'; }
   }
 
-  // ---------- Select all ----------
   $('ado-bulk-select-all')?.addEventListener('change', (e) => {
     if (!BULK) return;
     if (e.target.checked) {
@@ -944,122 +914,46 @@
     renderBulk();
   });
 
-  // ---------- Bulk matriculate ----------
-  async function bulkMatriculate(ids, confirmMsg) {
-    if (!confirm(confirmMsg)) return;
-
-    const sendEmails = confirm(`${ids.length} student(s) will be matriculated.\n\nAlso email each student their matriculation letter?`)
-      ? true : false;
-
-    showBulkProgress('Matriculating…', 0, ids.length);
-
+  $('ado-bulk-matriculate-all')?.addEventListener('click', async () => {
+    const ids = [...BULK_SELECTED];
+    if (!ids.length) return;
+    if (!confirm(`Matriculate ${ids.length} selected students?`)) return;
+    
+    const sendEmails = confirm(`Also email each student their matriculation letter?`);
+    
     try {
       const res = await core.portalFetch('/api/admission-officer/bulk/matriculate', {
         method: 'POST',
-        body: { ids, sendEmails },
+        body: { ids, sendEmails }
       });
-
-      const r = res.data || {};
-      const ok = (r.ok || []).length;
-      const failed = (r.failed || []).length;
-      const emailed = r.emailed || 0;
-      const emailSkipped = r.emailSkipped || 0;
-
-      updateBulkProgress(ids.length, ids.length);
-
-      let msg = `✅ ${ok} matriculated`;
-      if (failed) msg += ` · ${failed} failed`;
-      if (sendEmails) msg += ` · ${emailed} emails sent`;
-      if (sendEmails && emailSkipped) msg += ` · ${emailSkipped} emails skipped (SMTP off)`;
-
-      core.showToast && core.showToast(msg, failed ? 'warning' : 'success');
-
-      // Clear selection and reload
+      core.showToast && core.showToast(`Matriculated ${res.data?.ok?.length || 0} students.`, 'success');
       BULK_SELECTED.clear();
       await loadBulk();
       await loadApplicants();
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      hideBulkProgress();
     }
-  }
+  });
 
-  $('ado-bulk-matriculate-all')?.addEventListener('click', async () => {
+  $('ado-bulk-email-btn')?.addEventListener('click', async () => {
     const ids = [...BULK_SELECTED];
     if (!ids.length) return;
-    await bulkMatriculate(ids, `Matriculate ${ids.length} selected students across all departments?`);
-  });
-
-  // ---------- Bulk email modal ----------
-  $('ado-bulk-email-btn')?.addEventListener('click', () => {
-    if (!BULK_SELECTED.size) return;
-    $('ado-bulk-email-count').textContent = BULK_SELECTED.size;
-    $('ado-bulk-email-modal').style.display = 'flex';
-  });
-
-  $('ado-bulk-email-cancel')?.addEventListener('click', () => {
-    $('ado-bulk-email-modal').style.display = 'none';
-  });
-
-  $('ado-bulk-email-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'ado-bulk-email-modal') $('ado-bulk-email-modal').style.display = 'none';
-  });
-
-  $('ado-bulk-email-confirm')?.addEventListener('click', async () => {
-    const ids = [...BULK_SELECTED];
-    if (!ids.length) return;
-
-    const type = document.querySelector('input[name="ado-bulk-letter"]:checked')?.value || 'provisional';
-    $('ado-bulk-email-modal').style.display = 'none';
-
-    showBulkProgress(`Sending ${type} letters…`, 0, ids.length);
-
+    const type = $('ado-bulk-letter-type').value;
+    if (!confirm(`Send ${type} letters to ${ids.length} selected students?`)) return;
+    
     try {
       const res = await core.portalFetch('/api/admission-officer/bulk/email', {
         method: 'POST',
-        body: { ids, type },
+        body: { ids, type }
       });
-
-      const r = res.data || {};
-      const ok = (r.ok || []).length;
-      const failed = (r.failed || []).length;
-      const skipped = r.skipped || 0;
-
-      updateBulkProgress(ids.length, ids.length);
-
-      let msg = `✉️ ${ok} sent`;
-      if (failed) msg += ` · ${failed} failed`;
-      if (skipped) msg += ` · ${skipped} skipped (SMTP off)`;
-
-      core.showToast && core.showToast(msg, failed ? 'warning' : 'success');
+      core.showToast && core.showToast(`Sent ${res.data?.ok?.length || 0} emails.`, 'success');
+      BULK_SELECTED.clear();
+      renderBulk();
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      hideBulkProgress();
     }
   });
 
-  // ---------- Progress bar helpers ----------
-  function showBulkProgress(title, done, total) {
-    $('ado-bulk-progress').style.display = 'block';
-    $('ado-bulk-progress-title').textContent = title;
-    $('ado-bulk-progress-detail').textContent = `${done} / ${total}`;
-    $('ado-bulk-progress-bar').style.width = total ? `${(done / total) * 100}%` : '0%';
-  }
-
-  function updateBulkProgress(done, total) {
-    $('ado-bulk-progress-detail').textContent = `${done} / ${total}`;
-    $('ado-bulk-progress-bar').style.width = total ? `${(done / total) * 100}%` : '100%';
-  }
-
-  function hideBulkProgress() {
-    setTimeout(() => { $('ado-bulk-progress').style.display = 'none'; }, 1200);
-  }
-
-  // ============================================================
-  // Deep link (?applicant=X) — switches to Single tab
-  // ============================================================
   function checkDeepLink() {
     const hash = window.location.hash || '';
     const match = hash.match(/applicant=(\d+)/);
@@ -1073,9 +967,6 @@
     }
   }
 
-  // ============================================================
-  // Kick off
-  // ============================================================
   loadApplicants().then(() => checkDeepLink());
 })();
 </script>

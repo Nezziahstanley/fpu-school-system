@@ -1,38 +1,114 @@
 // ============================================================
 // FPU — Admissions Officer portal API
-// Mounted at /api/admission-officer
 // ============================================================
 
 'use strict';
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { eq } = require('drizzle-orm');
 
 const userQueries = require('../../db/queries/users');
 const appQueries = require('../../db/queries/applications');
 const sessionQueries = require('../../db/queries/sessions');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
-const {
-  sendApplicationApproved,
-  sendApplicationRejected,
+const { 
+  sendApplicationApproved, 
+  sendApplicationRejected, 
   sendRegistrationComplete,
   sendMatriculationLetter,
   sendRejectionLetter,
   baseTemplate,
+  sendMail
 } = require('../../utils/emailService');
 const { hashPassword } = require('../../utils/password');
 const { assignFIFOMatric } = require('../../utils/matricHelper');
 const { getMatricPrefix } = require('../../db/queries/settings');
 const { getYearShort } = require('../../config/departments');
 const courseQueries = require('../../db/queries/courses');
-const path = require('path');
-const fs = require('fs');
+const { db, schema } = require('../../db');
+const { users } = schema;
 
 const only = requireRole('admission_officer', 'admin', 'registrar');
 
+// Setup multer for signature uploads
+const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const upload = multer({ dest: UPLOAD_DIR });
+
 // ============================================================
-// GET /api/admission-officer/dashboard
+// POST /profile/signature
+// ============================================================
+router.post('/profile/signature', only, upload.single('signature'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded.' });
+    
+    const ext = path.extname(req.file.originalname) || '.png';
+    const newName = `signature-${req.user.id}-${Date.now()}${ext}`;
+    const newPath = path.join(UPLOAD_DIR, newName);
+    fs.renameSync(req.file.path, newPath);
+    
+    const signatureUrl = `/uploads/${newName}`;
+    await db.update(users).set({ signatureUrl }).where(eq(users.id, req.user.id));
+    
+    return res.json({ success: true, signatureUrl });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /bulk/email
+// ============================================================
+router.post('/bulk/email', only, async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+    const type = String(req.body?.type || '').trim();
+
+    const ALLOWED = ['provisional', 'acceptance', 'matriculation', 'rejection'];
+    if (!ALLOWED.includes(type)) {
+      return res.status(400).json({ success: false, error: `type must be one of: ${ALLOWED.join(', ')}` });
+    }
+    if (!ids.length) return res.status(400).json({ success: false, error: 'ids array is required.' });
+
+    const results = { ok: [], failed: [], skipped: 0 };
+
+    for (const id of ids) {
+      try {
+        const enriched = await appQueries.findByIdWithRelations(id);
+        if (!enriched) { results.failed.push({ id, error: 'Not found.' }); continue; }
+
+        let r;
+        if (type === 'provisional')       r = await sendApplicationApproved(enriched);
+        else if (type === 'acceptance')   r = await sendMail({
+          to: enriched.email,
+          subject: `Acceptance Acknowledged — ${enriched.applicationNumber}`,
+          html: baseTemplate('Acceptance Confirmation', `
+            <p>Dear <strong>${enriched.firstName} ${enriched.lastName}</strong>,</p>
+            <p>Your acceptance of the offer of admission has been received and recorded.</p>
+            <p>Please complete your registration at the Admissions Office.</p>
+            <p>Warm regards,<br/><strong>Admissions Office</strong></p>
+          `),
+        });
+        else if (type === 'matriculation') r = await sendMatriculationLetter(enriched);
+        else if (type === 'rejection')     r = await sendRejectionLetter(enriched);
+
+        if (r && r.ok)          results.ok.push({ id });
+        else if (r && r.skipped) results.skipped++;
+        else                     results.failed.push({ id, error: r?.error || 'Unknown error.' });
+      } catch (err) {
+        results.failed.push({ id, error: err.message });
+      }
+    }
+
+    return res.json({ success: true, data: results });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /dashboard
 // ============================================================
 router.get('/dashboard', only, async (_req, res, next) => {
   try {
@@ -47,8 +123,7 @@ router.get('/dashboard', only, async (_req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/applications
-// Returns applications WITH programme / department / school names.
+// GET /applications
 // ============================================================
 router.get('/applications', only, async (req, res, next) => {
   try {
@@ -62,7 +137,6 @@ router.get('/applications', only, async (req, res, next) => {
       limit: req.query.limit ? Number(req.query.limit) : 500,
     });
 
-    // Flatten the joins into the top-level shape the frontend expects
     const data = rows.map((r) => ({
       ...r.application,
       programmeName:  r.programme?.name  || r.programme?.title || null,
@@ -75,8 +149,7 @@ router.get('/applications', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/applications/:id
-// Returns a single application with relation names attached.
+// GET /applications/:id
 // ============================================================
 router.get('/applications/:id', only, async (req, res, next) => {
   try {
@@ -87,7 +160,7 @@ router.get('/applications/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/applications/:id/documents
+// GET /applications/:id/documents
 // ============================================================
 router.get('/applications/:id/documents', only, async (req, res, next) => {
   try {
@@ -140,7 +213,7 @@ router.get('/applications/:id/documents', only, async (req, res, next) => {
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/verify-documents
+// POST /applications/:id/verify-documents
 // ============================================================
 router.post('/applications/:id/verify-documents', only, async (req, res, next) => {
   try {
@@ -148,15 +221,13 @@ router.post('/applications/:id/verify-documents', only, async (req, res, next) =
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
 
     const updated = await appQueries.verifyDocuments(app.id, req.user.id);
-    await logAudit({
-      req, action: 'admission.verify_documents', entity: 'application', entityId: app.id,
-    });
+    await logAudit({ req, action: 'admission.verify_documents', entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/matriculate
+// POST /applications/:id/matriculate
 // ============================================================
 router.post('/applications/:id/matriculate', only, async (req, res, next) => {
   try {
@@ -164,10 +235,7 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
 
     if (!['registered', 'approved'].includes(app.status)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Application must be approved or registered before matriculation.',
-      });
+      return res.status(400).json({ success: false, error: 'Application must be approved or registered before matriculation.' });
     }
 
     let matricNumber = String(req.body?.matricNumber || app.matricNumber || '').trim();
@@ -186,63 +254,49 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
     }
 
     const updated = await appQueries.setMatricNumber(app.id, matricNumber);
-    await logAudit({
-      req, action: 'admission.matriculate', entity: 'application', entityId: app.id,
-      after: { matricNumber },
-    });
+    await logAudit({ req, action: 'admission.matriculate', entity: 'application', entityId: app.id, after: { matricNumber } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/letter/:type/sent
+// POST /applications/:id/letter/:type/sent
 // ============================================================
 router.post('/applications/:id/letter/:type/sent', only, async (req, res, next) => {
   try {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
 
-    const MAP = {
-      provisional:   1,
-      acceptance:    2,
-      matriculation: 3,
-    };
-
+    const MAP = { provisional: 1, acceptance: 2, matriculation: 3 };
     const which = MAP[req.params.type];
-    if (!which) {
-      return res.status(400).json({
-        success: false,
-        error: `Unknown letter type "${req.params.type}".`,
-      });
-    }
+    if (!which) return res.status(400).json({ success: false, error: `Unknown letter type "${req.params.type}".` });
 
     const updated = await appQueries.markLetterSent(app.id, which);
-    await logAudit({
-      req, action: `admission.letter_${req.params.type}_sent`,
-      entity: 'application', entityId: app.id,
-    });
+    await logAudit({ req, action: `admission.letter_${req.params.type}_sent`, entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/approve
+// POST /applications/:id/approve
 // ============================================================
 router.post('/applications/:id/approve', only, async (req, res, next) => {
   try {
     const app = await appQueries.findById(req.params.id);
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
     const updated = await appQueries.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
+    
     Promise.resolve()
-  .then(() => sendApplicationApproved(updated))
-  .catch((e) => console.error('[admission] approve email failed (non-fatal):', e && e.message));
+      .then(() => sendApplicationApproved(updated))
+      .catch((e) => console.error('[admission] approve email failed:', e?.message));
+      
     await logAudit({ req, action: 'admission.approve', entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/reject
+// POST /applications/:id/reject
 // ============================================================
 router.post('/applications/:id/reject', only, async (req, res, next) => {
   try {
@@ -253,16 +307,18 @@ router.post('/applications/:id/reject', only, async (req, res, next) => {
       reviewedBy: req.user.id,
       rejectionReason: reason || 'Application did not meet requirements.',
     });
+    
     Promise.resolve()
-  .then(() => sendApplicationRejected(updated, reason))
-  .catch((e) => console.error('[admission] reject email failed (non-fatal):', e && e.message));
+      .then(() => sendApplicationRejected(updated, reason))
+      .catch((e) => console.error('[admission] reject email failed:', e?.message));
+      
     await logAudit({ req, action: 'admission.reject', entity: 'application', entityId: app.id });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/admission-officer/applications/:id/register
+// POST /applications/:id/register
 // ============================================================
 router.post('/applications/:id/register', only, async (req, res, next) => {
   try {
@@ -278,9 +334,7 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
     const departmentId = Number(req.body?.departmentId || app.departmentId);
     const programmeId = Number(req.body?.programmeId || app.programmeId);
     const level = req.body?.level || app.level || 'ND';
-    if (!departmentId || !programmeId) {
-      return res.status(400).json({ success: false, error: 'departmentId and programmeId are required.' });
-    }
+    if (!departmentId || !programmeId) return res.status(400).json({ success: false, error: 'departmentId and programmeId are required.' });
 
     const dept = await courseQueries.findDepartmentById(departmentId);
     if (!dept) return res.status(400).json({ success: false, error: 'Invalid departmentId.' });
@@ -319,9 +373,11 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
     });
 
     await appQueries.markRegistered(app.id, { userId: user.id, matricNumber: matric });
+    
     Promise.resolve()
-  .then(() => sendRegistrationComplete(user))
-  .catch((e) => console.error('[admission] register email failed (non-fatal):', e && e.message));
+      .then(() => sendRegistrationComplete(user))
+      .catch((e) => console.error('[admission] register email failed:', e?.message));
+      
     await logAudit({ req, action: 'admission.register', entity: 'application', entityId: app.id, after: { userId: user.id, matric } });
 
     return res.json({ success: true, data: { user, matricNumber: matric } });
@@ -329,52 +385,23 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/admitted
-// Returns approved + registered + matriculated WITH relations.
+// GET /admitted
 // ============================================================
 router.get('/admitted', only, async (req, res, next) => {
   try {
-    const rows = await appQueries.listWithRelations({
-      status: ['approved', 'registered', 'matriculated'],
-      limit: 500,
-    });
-
+    const rows = await appQueries.listWithRelations({ status: ['approved', 'registered', 'matriculated'], limit: 500 });
     const data = rows.map((r) => ({
       ...r.application,
       programmeName:  r.programme?.name  || r.programme?.title || null,
       departmentName: r.department?.name || null,
       schoolName:     r.school?.name     || null,
     }));
-
     return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// GET /api/admission-officer/letters/:id
-// ============================================================
-router.get('/letters/:id', only, async (req, res, next) => {
-  try {
-    const app = await appQueries.findById(req.params.id);
-    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
-    if (!['approved', 'registered', 'matriculated'].includes(app.status)) {
-      return res.status(400).json({ success: false, error: 'Admission letter is available only after approval.' });
-    }
-    const { baseTemplate } = require('../../utils/emailService');
-    const html = baseTemplate('Admission Letter', `
-      <p>Dear <strong>${app.firstName} ${app.lastName}</strong>,</p>
-      <p>We are pleased to offer you admission into <strong>Federal Polytechnic Ugep</strong>.</p>
-      <p><strong>Application Number:</strong> ${app.applicationNumber}<br/>
-         <strong>Programme Level:</strong> ${app.type || app.level}</p>
-      <p>Please log in to the portal to complete your registration.</p>
-      <p>Signed,<br/><strong>Admissions Office</strong></p>
-    `);
-    return res.json({ success: true, html, application: app });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/admission-officer/reports
+// GET /reports
 // ============================================================
 router.get('/reports', only, async (_req, res, next) => {
   try {
@@ -388,7 +415,7 @@ router.get('/reports', only, async (_req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/profile, /security
+// GET /profile, /security
 // ============================================================
 router.get('/profile', only, async (req, res, next) => {
   try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
@@ -404,18 +431,11 @@ router.get('/security', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admission-officer/bulk/eligible
-// Returns applicants grouped by department, split into:
-//   - readyForMatriculation: status IN (approved, registered)
-//   - readyForEmail: list with letter type hint based on status
+// GET /bulk/eligible
 // ============================================================
 router.get('/bulk/eligible', only, async (_req, res, next) => {
   try {
-    const rows = await appQueries.listWithRelations({
-      status: ['approved', 'registered', 'rejected'],
-      limit: 2000,
-    });
-
+    const rows = await appQueries.listWithRelations({ status: ['approved', 'registered', 'rejected'], limit: 2000 });
     const flat = rows.map((r) => ({
       ...r.application,
       programmeName:  r.programme?.name  || r.programme?.title || null,
@@ -424,7 +444,6 @@ router.get('/bulk/eligible', only, async (_req, res, next) => {
       schoolName:     r.school?.name     || null,
     }));
 
-    // Group by department for the matriculation view
     const byDept = new Map();
     flat.forEach((a) => {
       const key = a.departmentId || 0;
@@ -448,16 +467,12 @@ router.get('/bulk/eligible', only, async (_req, res, next) => {
 });
 
 // ============================================================
-// POST /api/admission-officer/bulk/matriculate
-// Body: { ids: number[], sendEmails?: boolean }
-// Sequentially assigns matric numbers and (optionally) emails
-// the matriculation letter to each.
+// POST /bulk/matriculate
 // ============================================================
 router.post('/bulk/matriculate', only, async (req, res, next) => {
   try {
     const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
     const sendEmails = req.body?.sendEmails !== false;
-
     if (!ids.length) return res.status(400).json({ success: false, error: 'ids array is required.' });
 
     const results = { ok: [], failed: [], emailed: 0, emailSkipped: 0 };
@@ -465,16 +480,10 @@ router.post('/bulk/matriculate', only, async (req, res, next) => {
     for (const id of ids) {
       try {
         const app = await appQueries.findById(id);
-        if (!app) {
-          results.failed.push({ id, error: 'Not found.' });
-          continue;
-        }
-        if (!['approved', 'registered'].includes(app.status)) {
-          results.failed.push({ id, error: `Status "${app.status}" not eligible.` });
-          continue;
-        }
+        if (!app) { results.failed.push({ id, error: 'Not found.' }); continue; }
+        if (!['approved', 'registered'].includes(app.status)) { results.failed.push({ id, error: `Status "${app.status}" not eligible.` }); continue; }
+
         if (app.matricNumber) {
-          // Already has a matric — don't reassign; still allow email resend
           if (sendEmails) {
             const enriched = await appQueries.findByIdWithRelations(id);
             const r = await sendMatriculationLetter(enriched).catch(() => ({ ok: false }));
@@ -484,7 +493,6 @@ router.post('/bulk/matriculate', only, async (req, res, next) => {
           continue;
         }
 
-        // Generate matric
         const dept = app.departmentId ? await courseQueries.findDepartmentById(app.departmentId) : null;
         const school = await courseQueries.findSchoolById(app.schoolId || dept?.schoolId);
         const prefix = await getMatricPrefix();
@@ -505,62 +513,9 @@ router.post('/bulk/matriculate', only, async (req, res, next) => {
           try {
             const enriched = { ...updated, programmeName: null, departmentName: dept?.name || null };
             const r = await sendMatriculationLetter(enriched);
-            if (r.ok) results.emailed++;
-            else results.emailSkipped++;
-          } catch {
-            results.emailSkipped++;
-          }
+            if (r.ok) results.emailed++; else results.emailSkipped++;
+          } catch { results.emailSkipped++; }
         }
-      } catch (err) {
-        results.failed.push({ id, error: err.message });
-      }
-    }
-
-    return res.json({ success: true, data: results });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// POST /api/admission-officer/bulk/email
-// Body: { ids: number[], type: 'provisional'|'acceptance'|'matriculation'|'rejection' }
-// Sends the chosen letter type to each applicant in the list.
-// ============================================================
-router.post('/bulk/email', only, async (req, res, next) => {
-  try {
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
-    const type = String(req.body?.type || '').trim();
-
-    const ALLOWED = ['provisional', 'acceptance', 'matriculation', 'rejection'];
-    if (!ALLOWED.includes(type)) {
-      return res.status(400).json({ success: false, error: `type must be one of: ${ALLOWED.join(', ')}` });
-    }
-    if (!ids.length) return res.status(400).json({ success: false, error: 'ids array is required.' });
-
-    const results = { ok: [], failed: [], skipped: 0 };
-
-    for (const id of ids) {
-      try {
-        const enriched = await appQueries.findByIdWithRelations(id);
-        if (!enriched) { results.failed.push({ id, error: 'Not found.' }); continue; }
-
-        let r;
-        if (type === 'provisional')       r = await sendApplicationApproved(enriched);
-        else if (type === 'acceptance')   r = await sendMail({
-          to: enriched.email,
-          subject: `Acceptance Acknowledged — ${enriched.applicationNumber}`,
-          html: baseTemplate('Acceptance Confirmation', `
-            <p>Dear <strong>${enriched.firstName} ${enriched.lastName}</strong>,</p>
-            <p>Your acceptance of the offer of admission has been received and recorded.</p>
-            <p>Please complete your registration at the Admissions Office.</p>
-            <p>Warm regards,<br/><strong>Admissions Office</strong></p>
-          `),
-        });
-        else if (type === 'matriculation') r = await sendMatriculationLetter(enriched);
-        else if (type === 'rejection')     r = await sendRejectionLetter(enriched);
-
-        if (r && r.ok)          results.ok.push({ id });
-        else if (r && r.skipped) results.skipped++;
-        else                     results.failed.push({ id, error: r?.error || 'Unknown error.' });
       } catch (err) {
         results.failed.push({ id, error: err.message });
       }

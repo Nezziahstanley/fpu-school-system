@@ -94,6 +94,7 @@ const registrationStatusEnum = pgEnum('registration_status', [
 // ============================================================
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
+  signatureUrl: varchar('signature_url', { length: 255 }),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('student'),
@@ -450,7 +451,7 @@ const applications = pgTable('applications', {
   rejectionReason: text('rejection_reason'),
   admittedAt: timestamp('admitted_at', { withTimezone: true }),
 
-    documentsVerifiedAt: timestamp('documents_verified_at', { withTimezone: true }),
+  documentsVerifiedAt: timestamp('documents_verified_at', { withTimezone: true }),
   documentsVerifiedBy: integer('documents_verified_by'),
 
   letter1SentAt: timestamp('letter1_sent_at', { withTimezone: true }),
@@ -461,8 +462,8 @@ const applications = pgTable('applications', {
   matriculatedAt: timestamp('matriculated_at', { withTimezone: true }),
 
   notes: text('notes'),
+  signedBy: integer('signed_by'),
 
-  matricNumber: varchar('matric_number', { length: 40 }),
   userId: integer('user_id'),
 
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

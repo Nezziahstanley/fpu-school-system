@@ -150,7 +150,7 @@ async function sendApplicationReceived(app) {
 
 async function sendApplicationApproved(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
-  const letterUrl = `${BASE_URL}/api/public/letters/${app.applicationNumber}?type=provisional`;
+  const letterUrl = `${BASE_URL}/api/letters/${app.applicationNumber}?type=provisional`;
   const body = `
     <p>Dear <strong>${escapeHtml(name)}</strong>,</p>
     <p>Congratulations! Your application to <strong>${escapeHtml(INSTITUTION)}</strong> has been <strong>APPROVED</strong>.</p>
@@ -167,7 +167,7 @@ async function sendApplicationApproved(app) {
 
 async function sendApplicationRejected(app, reason) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
-  const letterUrl = `${BASE_URL}/api/public/letters/${app.applicationNumber}?type=rejection`;
+  const letterUrl = `${BASE_URL}/api/letters/${app.applicationNumber}?type=rejection`;
   const body = `
     <p>Dear <strong>${escapeHtml(name)}</strong>,</p>
     <p>After careful review, we regret to inform you that your application could not be successful at this time.</p>
@@ -183,7 +183,7 @@ async function sendApplicationRejected(app, reason) {
 
 async function sendMatriculationLetter(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
-  const letterUrl = `${BASE_URL}/api/public/letters/${app.applicationNumber}?type=matriculation`;
+  const letterUrl = `${BASE_URL}/api/letters/${app.applicationNumber}?type=matriculation`;
   const body = `
     <p>Dear <strong>${escapeHtml(name)}</strong>,</p>
     <p>You have been formally matriculated as a student of <strong>${escapeHtml(INSTITUTION)}</strong>.</p>
@@ -201,7 +201,7 @@ async function sendMatriculationLetter(app) {
 
 async function sendRejectionLetter(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
-  const letterUrl = `${BASE_URL}/api/public/letters/${app.applicationNumber}?type=rejection`;
+  const letterUrl = `${BASE_URL}/api/letters/${app.applicationNumber}?type=rejection`;
   const body = `
     <p>Dear <strong>${escapeHtml(name)}</strong>,</p>
     <p>We refer to your application for admission into ${escapeHtml(app.programmeName || 'the programme')}.</p>

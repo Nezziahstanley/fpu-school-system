@@ -1,20 +1,6 @@
 // ============================================================
 // FPU — Public API (unauthenticated)
 // Mounted at /api
-// ------------------------------------------------------------
-// Endpoints:
-//   POST /api/apply            — ND / Certificate application
-//   POST /api/apply-hnd        — HND application
-//   GET  /api/apply-status     — check status by number + email
-//   POST /api/contact          — contact form
-//   POST /api/register-token   — email verification token
-//   GET  /api/announcements    — public announcements
-//   GET  /api/programmes       — programmes + departments + schools
-//   GET  /api/institution      — institution info
-//   GET  /api/banks            — bank accounts
-//   GET  /api/geo/countries    — public country list
-//   GET  /api/geo/states       — public state list per country
-//   GET  /api/geo/lgas         — public LGA list per state
 // ============================================================
 
 'use strict';
@@ -37,18 +23,16 @@ const { logSecurity } = require('../utils/audit');
 const geo = require('../config/geo');
 
 // ============================================================
-// MULTER — file upload config (disk storage → public/uploads)
+// MULTER — file upload config
 // ============================================================
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   ? path.resolve(process.env.UPLOAD_DIR)
   : path.join(__dirname, '..', 'public', 'uploads');
 
-// ---- Diagnostic boot log (visible in Render logs) ----
 (function ensureUploadDir() {
   try {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
     fs.accessSync(UPLOAD_DIR, fs.constants.W_OK);
-    console.log('[uploads] dir ready and writable:', UPLOAD_DIR);
   } catch (e) {
     console.error('[uploads] FAILED to prepare dir:', UPLOAD_DIR, '→', e.message);
   }
@@ -85,7 +69,6 @@ const upload = multer({
   },
 });
 
-// Accepts the union of ND + HND document fields
 const applicationUpload = upload.fields([
   { name: 'file_olevel',   maxCount: 1 },
   { name: 'file_birth',    maxCount: 1 },
@@ -95,9 +78,6 @@ const applicationUpload = upload.fields([
   { name: 'file_siwes',    maxCount: 1 },
 ]);
 
-// ------------------------------------------------------------
-// Helper: extract uploaded file paths from req.files
-// ------------------------------------------------------------
 function pickFileUrls(req) {
   const f = req.files || {};
   const url = (arr) => (Array.isArray(arr) && arr[0]) ? `/uploads/${arr[0].filename}` : null;
@@ -111,9 +91,6 @@ function pickFileUrls(req) {
   };
 }
 
-// ------------------------------------------------------------
-// Base64 image saver (kept for backward compat — inline photos)
-// ------------------------------------------------------------
 function savePassportPhoto(dataUrl, prefix = 'passport') {
   if (!dataUrl || typeof dataUrl !== 'string') return null;
   if (!dataUrl.startsWith('data:image/')) return null;
@@ -136,7 +113,7 @@ function savePassportPhoto(dataUrl, prefix = 'passport') {
 }
 
 // ============================================================
-// POST /api/apply  (ND / Certificate) — accepts multipart
+// POST /api/apply (ND)
 // ============================================================
 router.post('/apply', applicationUpload, async (req, res, next) => {
   try {
@@ -162,14 +139,8 @@ router.post('/apply', applicationUpload, async (req, res, next) => {
     const resolvedSchoolId = Number(schoolId) || dept.schoolId;
     const applicationNumber = await appQueries.generateApplicationNumber('ND');
 
-    // Uploaded files → public URLs
     const files = pickFileUrls(req);
-
-    // Passport: prefer the uploaded file, fall back to inline base64
-    const savedPassportUrl =
-      files.passportUrl ||
-      savePassportPhoto(passportData, 'nd-app') ||
-      null;
+    const savedPassportUrl = files.passportUrl || savePassportPhoto(passportData, 'nd-app') || null;
 
     const oLevelObj = files.olevelUrl
       ? (typeof oLevelResult === 'string'
@@ -177,7 +148,6 @@ router.post('/apply', applicationUpload, async (req, res, next) => {
           : (oLevelResult || { summary: oLevel || null }))
       : (oLevelResult || (oLevel ? { summary: oLevel } : null));
 
-    // Attach documents meta
     const documents = {
       olevel: files.olevelUrl,
       birth: files.birthUrl,
@@ -196,31 +166,22 @@ router.post('/apply', applicationUpload, async (req, res, next) => {
       departmentId: Number(departmentId),
       schoolId: resolvedSchoolId,
       level: level || programmeType || 'ND',
-      oLevelResult: {
-        ...(oLevelObj || {}),
-        documents,
-      },
+      oLevelResult: { ...(oLevelObj || {}), documents },
       jambScore: jambScore ? Number(jambScore) : null,
       jambRegNo: jambRegNo || jambReg || null,
       passportUrl: savedPassportUrl,
     });
 
-    // Fire and forget — don't block the response on SMTP
-    sendApplicationReceived(app).catch((e) =>
-      console.error('[apply] email send failed (non-fatal):', e.message)
-    );
-    return res.status(201).json({
-      success: true,
-      applicationNumber: app.applicationNumber,
-      data: app,
-    });
-  } catch (err) {
-    return next(err);
-  }
+    Promise.resolve()
+      .then(() => sendApplicationReceived(app))
+      .catch((e) => console.error('[apply] email send failed:', e?.message));
+
+    return res.status(201).json({ success: true, applicationNumber: app.applicationNumber, data: app });
+  } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/apply-hnd  (HND) — accepts multipart
+// POST /api/apply-hnd (HND)
 // ============================================================
 router.post('/apply-hnd', applicationUpload, async (req, res, next) => {
   try {
@@ -251,10 +212,7 @@ router.post('/apply-hnd', applicationUpload, async (req, res, next) => {
     const applicationNumber = await appQueries.generateApplicationNumber('HND');
 
     const files = pickFileUrls(req);
-    const savedPassportUrl =
-      files.passportUrl ||
-      savePassportPhoto(passportData, 'hnd-app') ||
-      null;
+    const savedPassportUrl = files.passportUrl || savePassportPhoto(passportData, 'hnd-app') || null;
 
     const documents = {
       olevel: files.olevelUrl,
@@ -300,27 +258,17 @@ router.post('/apply-hnd', applicationUpload, async (req, res, next) => {
       passportUrl: savedPassportUrl,
     });
 
-    // Fire-and-forget — never block the HTTP response on SMTP.
-    // Render free tier often can't reach outbound SMTP, which made
-    // this hang for ~2 minutes and left the frontend stuck on
-    // "Uploading & submitting…".
     Promise.resolve()
       .then(() => sendApplicationReceived(app))
-      .catch((e) => console.error('[apply] email send failed (non-fatal):', e && e.message));
+      .catch((e) => console.error('[apply-hnd] email send failed:', e?.message));
 
-    return res.status(201).json({
-      success: true,
-      applicationNumber: app.applicationNumber,
-      data: app,
-    });
-  } catch (err) {
-    return next(err);
-  }
+    return res.status(201).json({ success: true, applicationNumber: app.applicationNumber, data: app });
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
-// GET /api/apply-status?number=&email=
-// ------------------------------------------------------------
+// ============================================================
+// GET /api/apply-status
+// ============================================================
 router.get('/apply-status', async (req, res, next) => {
   try {
     const { number, email } = req.query;
@@ -349,14 +297,69 @@ router.get('/apply-status', async (req, res, next) => {
         matricNumber: app.matricNumber,
       },
     });
-  } catch (err) {
-    return next(err);
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/letters/:applicationNumber
+// Public HTML wrapper to view/print admission letters from email
+// ============================================================
+router.get('/letters/:applicationNumber', async (req, res, next) => {
+  try {
+    const app = await appQueries.findByNumber(req.params.applicationNumber);
+    
+    if (!app) {
+      return res.status(404).send('Letter not found. Please check your link.');
+    }
+    
+    if (!['approved', 'registered', 'matriculated', 'rejected'].includes(app.status)) {
+      return res.status(403).send('Your admission is not yet approved.');
+    }
+
+    const enriched = await appQueries.findByIdWithRelations(app.id);
+    
+    let letterType = req.query.type || 'provisional';
+    if (!req.query.type) {
+      if (app.status === 'matriculated') letterType = 'matriculation';
+      else if (app.status === 'rejected') letterType = 'rejection';
+      else if (app.status === 'registered') letterType = 'acceptance';
+    }
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Letter - ${app.applicationNumber}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { background: #f3f4f6; padding: 20px; margin: 0; }
+          .print-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 15px 25px; font-size: 16px; font-weight: bold; background: #065f46; color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+          @media print { 
+            body { background: white; padding: 0; }
+            .print-btn { display: none; } 
+          }
+        </style>
+      </head>
+      <body>
+        <div id="letter-mount">Loading letter...</div>
+        <button class="print-btn" onclick="window.print()">🖨 Download / Print PDF</button>
+        
+        <script>
+          window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched)};
+        </script>
+        <script src="/portal/partials/admission-officer/letter-templates/${letterType}.html"></script>
+      </body>
+      </html>
+    `);
+  } catch (err) { 
+    console.error('[public letters] error:', err);
+    return next(err); 
   }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // POST /api/contact
-// ------------------------------------------------------------
+// ============================================================
 router.post('/contact', async (req, res, next) => {
   try {
     const { name, email, subject, message } = req.body || {};
@@ -364,9 +367,7 @@ router.post('/contact', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'name, email, message are required.' });
     }
 
-    const adminUser = await userQueries.findByEmail(
-      process.env.ADMIN_EMAIL || 'admin@fedpolyugep.edu.ng'
-    );
+    const adminUser = await userQueries.findByEmail(process.env.ADMIN_EMAIL || 'admin@fedpolyugep.edu.ng');
     const attributedTo = adminUser?.id || 1;
 
     const row = await notifQueries.createComplaint({
@@ -376,22 +377,15 @@ router.post('/contact', async (req, res, next) => {
       category: 'contact',
     });
 
-    await logSecurity({
-      req,
-      event: 'public_contact_submitted',
-      severity: 'info',
-      details: { email, subject },
-    });
+    await logSecurity({ req, event: 'public_contact_submitted', severity: 'info', details: { email, subject } });
 
     return res.status(201).json({ success: true, data: { id: row.id } });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // POST /api/register-token
-// ------------------------------------------------------------
+// ============================================================
 router.post('/register-token', async (req, res, next) => {
   try {
     const { email, purpose } = req.body || {};
@@ -404,33 +398,18 @@ router.post('/register-token', async (req, res, next) => {
 
     await auditQueries.createToken({ email, token, purpose, expiresAt });
 
-    await logSecurity({
-      req,
-      event: 'register_token_issued',
-      severity: 'info',
-      details: { email, purpose },
-    });
+    await logSecurity({ req, event: 'register_token_issued', severity: 'info', details: { email, purpose } });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Verification token generated.',
-      token,
-      expiresAt,
-    });
-  } catch (err) {
-    return next(err);
-  }
+    return res.status(201).json({ success: true, message: 'Verification token generated.', token, expiresAt });
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // GET /api/announcements
-// ------------------------------------------------------------
+// ============================================================
 router.get('/announcements', async (req, res, next) => {
   try {
-    const rows = await notifQueries.listAnnouncementsWithAuthor({
-      audience: req.query.audience || 'all',
-      isPublished: true,
-    });
+    const rows = await notifQueries.listAnnouncementsWithAuthor({ audience: req.query.audience || 'all', isPublished: true });
     const data = rows.map((r) => ({
       id: r.announcement.id,
       title: r.announcement.title,
@@ -440,152 +419,76 @@ router.get('/announcements', async (req, res, next) => {
       authorName: r.author ? `${r.author.firstName} ${r.author.lastName}`.trim() : null,
     }));
     return res.json({ success: true, data });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // GET /api/programmes
-// ------------------------------------------------------------
+// ============================================================
 router.get('/programmes', async (_req, res, next) => {
   try {
     const programmes = await courseQueries.listProgrammes({});
     const departments = await courseQueries.listDepartments({});
     const schools = await courseQueries.listSchools();
     return res.json({ success: true, programmes, departments, schools });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // GET /api/institution
-// ------------------------------------------------------------
+// ============================================================
 router.get('/institution', async (_req, res, next) => {
   try {
     const institution = await settingsQueries.getInstitution();
     const banks = await settingsQueries.getBankAccounts();
     return res.json({ success: true, institution, banks });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
+// ============================================================
 // GET /api/banks
-// ------------------------------------------------------------
+// ============================================================
 router.get('/banks', async (_req, res, next) => {
-  try {
-    return res.json({ success: true, data: await settingsQueries.getBankAccounts() });
-  } catch (err) {
-    return next(err);
-  }
+  try { return res.json({ success: true, data: await settingsQueries.getBankAccounts() }); }
+  catch (err) { return next(err); }
 });
 
-// ------------------------------------------------------------
-// GEO — Countries / States / LGAs
-// ------------------------------------------------------------
+// ============================================================
+// GEO
+// ============================================================
+router.get('/geo/countries', (_req, res) => { return res.json({ success: true, data: geo.listCountries() }); });
 
-// GET /api/geo/countries
-router.get('/geo/countries', (_req, res) => {
-  return res.json({ success: true, data: geo.listCountries() });
-});
-
-// GET /api/geo/states?country=Nigeria  (also accepts NG)
 router.get('/geo/states', (req, res) => {
   const q = String(req.query.country || 'NG').trim();
   let code = q.length === 2 ? q.toUpperCase() : null;
   if (!code) {
-    const found = (geo.COUNTRIES || []).find(
-      (c) => c.name.toLowerCase() === q.toLowerCase()
-    );
+    const found = (geo.COUNTRIES || []).find((c) => c.name.toLowerCase() === q.toLowerCase());
     if (found) code = found.code;
   }
   return res.json({ success: true, data: code ? geo.listStates(code) : [] });
 });
 
-// GET /api/geo/lgas?country=Nigeria&state=Abia
 router.get('/geo/lgas', (req, res) => {
   const q = String(req.query.country || 'NG').trim();
   const state = String(req.query.state || '').trim();
   if (!state) return res.status(400).json({ success: false, error: 'state is required.' });
-
   let code = q.length === 2 ? q.toUpperCase() : null;
   if (!code) {
-    const found = (geo.COUNTRIES || []).find(
-      (c) => c.name.toLowerCase() === q.toLowerCase()
-    );
+    const found = (geo.COUNTRIES || []).find((c) => c.name.toLowerCase() === q.toLowerCase());
     if (found) code = found.code;
   }
   return res.json({ success: true, data: code ? geo.listLgas(code, state) : [] });
 });
 
-// ------------------------------------------------------------
-// Multer error handler — friendly message on upload failures
-// ------------------------------------------------------------
+// ============================================================
+// Multer error handler
+// ============================================================
 router.use((err, _req, res, next) => {
-  if (err && err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ success: false, error: 'File too large. Max 5 MB.' });
-  }
-  if (err && err.code === 'LIMIT_FILE_COUNT') {
-    return res.status(400).json({ success: false, error: 'Too many files.' });
-  }
-  if (err && err.code === 'LIMIT_UNEXPECTED_FILE') {
-    return res.status(400).json({ success: false, error: `Unexpected file field: ${err.field}` });
-  }
-  if (err && err.message && err.message.includes('Only PDF')) {
-    return res.status(400).json({ success: false, error: err.message });
-  }
+  if (err && err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ success: false, error: 'File too large. Max 5 MB.' });
+  if (err && err.code === 'LIMIT_FILE_COUNT') return res.status(400).json({ success: false, error: 'Too many files.' });
+  if (err && err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ success: false, error: `Unexpected file field: ${err.field}` });
+  if (err && err.message && err.message.includes('Only PDF')) return res.status(400).json({ success: false, error: err.message });
   return next(err);
 });
 
-// ============================================================
-// GET /api/public/letters/:applicationNumber
-// Public endpoint to view an admission letter via email link
-// ============================================================
-router.get('/public/letters/:applicationNumber', async (req, res, next) => {
-  try {
-    const appQueries = require('../db/queries/applications');
-    const app = await appQueries.findByNumber(req.params.applicationNumber);
-    
-    if (!app) {
-      return res.status(404).send('Letter not found. Check your link.');
-    }
-    
-    // Only allow if they are approved, registered, or matriculated
-    if (!['approved', 'registered', 'matriculated'].includes(app.status)) {
-      return res.status(403).send('Your admission is not yet approved.');
-    }
-
-    const enriched = await appQueries.findByIdWithRelations(app.id);
-    
-    // Send a simple HTML page that links to the actual letter template
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Admission Letter - ${app.applicationNumber}</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="/css/style.css" />
-        <style>
-          body { background: #f3f4f6; padding: 20px; }
-          .print-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 15px 25px; font-size: 16px; font-weight: bold; background: #065f46; color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-          @media print { .print-btn { display: none; } }
-        </style>
-      </head>
-      <body>
-        <div id="letter-mount">Loading letter...</div>
-        <button class="print-btn" onclick="window.print()">🖨 Download / Print PDF</button>
-        
-        <script>
-          // We pass the applicant data directly to the page
-          window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched)};
-        </script>
-        <script src="/portal/partials/admission-officer/letter-templates/provisional.html"></script>
-      </body>
-      </html>
-    `);
-  } catch (err) { return next(err); }
-});
 module.exports = router;

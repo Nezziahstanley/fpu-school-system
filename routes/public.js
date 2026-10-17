@@ -540,4 +540,52 @@ router.use((err, _req, res, next) => {
   return next(err);
 });
 
+// ============================================================
+// GET /api/public/letters/:applicationNumber
+// Public endpoint to view an admission letter via email link
+// ============================================================
+router.get('/public/letters/:applicationNumber', async (req, res, next) => {
+  try {
+    const appQueries = require('../db/queries/applications');
+    const app = await appQueries.findByNumber(req.params.applicationNumber);
+    
+    if (!app) {
+      return res.status(404).send('Letter not found. Check your link.');
+    }
+    
+    // Only allow if they are approved, registered, or matriculated
+    if (!['approved', 'registered', 'matriculated'].includes(app.status)) {
+      return res.status(403).send('Your admission is not yet approved.');
+    }
+
+    const enriched = await appQueries.findByIdWithRelations(app.id);
+    
+    // Send a simple HTML page that links to the actual letter template
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Admission Letter - ${app.applicationNumber}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="/css/style.css" />
+        <style>
+          body { background: #f3f4f6; padding: 20px; }
+          .print-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 15px 25px; font-size: 16px; font-weight: bold; background: #065f46; color: white; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+          @media print { .print-btn { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div id="letter-mount">Loading letter...</div>
+        <button class="print-btn" onclick="window.print()">🖨 Download / Print PDF</button>
+        
+        <script>
+          // We pass the applicant data directly to the page
+          window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched)};
+        </script>
+        <script src="/portal/partials/admission-officer/letter-templates/provisional.html"></script>
+      </body>
+      </html>
+    `);
+  } catch (err) { return next(err); }
+});
 module.exports = router;

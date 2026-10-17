@@ -301,12 +301,13 @@ router.get('/apply-status', async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/letters/:applicationNumber
+// GET /api/letters/:id
 // Public HTML wrapper to view/print admission letters from email
 // ============================================================
-router.get('/letters/:applicationNumber', async (req, res, next) => {
+router.get('/letters/:id', async (req, res, next) => {
   try {
-    const app = await appQueries.findByNumber(req.params.applicationNumber);
+    // We search by numeric ID to avoid slashes in the applicationNumber
+    const app = await appQueries.findById(req.params.id);
     
     if (!app) {
       return res.status(404).send('Letter not found. Please check your link.');

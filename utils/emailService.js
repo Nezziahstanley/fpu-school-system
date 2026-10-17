@@ -1,12 +1,8 @@
 // ============================================================
-// FPU — Email service
+// FPU — Email service (SendGrid HTTP API)
 // ------------------------------------------------------------
-// Two transports, tried in this order:
-//   1. Resend HTTP API   (RESEND_API_KEY)   ← works on Render free tier
-//   2. Nodemailer SMTP   (SMTP_HOST + creds)
-//
-// If neither is available, every send* becomes an instant
-// no-op with { skipped: true }. No hanging.
+// Uses SendGrid's Web API (Port 443), which works on Render's
+// free tier. No SMTP ports required.
 //
 // Public API:
 //   baseTemplate(title, body)
@@ -24,72 +20,28 @@
 
 require('dotenv').config();
 
-const nodemailer = require('nodemailer');
-
 const {
   EMAIL_ENABLED,
-  RESEND_API_KEY,
-  SMTP_HOST,
-  SMTP_PORT,
-  SMTP_SECURE,
-  SMTP_USER,
-  SMTP_PASS,
+  SENDGRID_API_KEY,
   EMAIL_FROM,
   INSTITUTION_NAME,
 } = process.env;
 
 const INSTITUTION = INSTITUTION_NAME || 'Federal Polytechnic Ugep';
-const DEFAULT_FROM = EMAIL_FROM || `"${INSTITUTION}" <onboarding@resend.dev>`;
+const DEFAULT_FROM = EMAIL_FROM || `"${INSTITUTION}" <no-reply@fedpolyugep.edu.ng>`;
 
-const SEND_TIMEOUT_MS = Number(process.env.SMTP_TIMEOUT_MS) || 8000;
+const SEND_TIMEOUT_MS = 8000;
 
 // ------------------------------------------------------------
 // Config detection
 // ------------------------------------------------------------
-function hasResend() {
-  return !!RESEND_API_KEY;
-}
-
-function hasSMTP() {
-  return !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+function hasSendGrid() {
+  return !!SENDGRID_API_KEY;
 }
 
 function isEmailEnabled() {
   if (String(EMAIL_ENABLED).toLowerCase() !== 'true') return false;
-  return hasResend() || hasSMTP();
-}
-
-// ------------------------------------------------------------
-// Transport selector
-// ------------------------------------------------------------
-let smtpTransport = null;
-let smtpInit = false;
-
-function getSMTPTransport() {
-  if (smtpInit) return smtpTransport;
-  smtpInit = true;
-
-  if (!hasSMTP()) {
-    smtpTransport = null;
-    return null;
-  }
-
-  try {
-    smtpTransport = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: Number(SMTP_PORT) || 587,
-      secure: String(SMTP_SECURE).toLowerCase() === 'true',
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-      connectionTimeout: SEND_TIMEOUT_MS,
-      greetingTimeout: SEND_TIMEOUT_MS,
-      socketTimeout: SEND_TIMEOUT_MS,
-      pool: false,
-    });
-  } catch (err) {
-    console.error('[email] SMTP transport init failed:', err.message);
-    smtpTransport = null;
-  }
-  return smtpTransport;
+  return hasSendGrid();
 }
 
 // ------------------------------------------------------------
@@ -145,98 +97,92 @@ function escapeHtml(s) {
 }
 
 // ------------------------------------------------------------
-// Parse "Name <email@domain>" into { name, email }
+// SendGrid HTTP API transport
 // ------------------------------------------------------------
-function parseFrom(from) {
-  const m = String(from).match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
-  if (m) return { name: m[1].replace(/^"|"$/g, '').trim() || INSTITUTION, email: m[2].trim() };
-  return { name: INSTITUTION, email: String(from).trim() };
-}
+async function sendViaSendGrid({ to, subject, html, text }) {
+  // Parse "Name <email>" if EMAIL_FROM is formatted that way
+  let fromEmail = DEFAULT_FROM;
+  let fromName = INSTITUTION;
+  const m = String(DEFAULT_FROM).match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (m) {
+    fromName = m[1].replace(/^"|"$/g, '').trim() || INSTITUTION;
+    fromEmail = m[2].trim();
+  } else {
+    fromEmail = String(DEFAULT_FROM).trim();
+  }
 
-// ------------------------------------------------------------
-// Resend HTTP API transport
-// ------------------------------------------------------------
-async function sendViaResend({ to, subject, html, text }) {
-  const from = parseFrom(DEFAULT_FROM);
+  const payload = {
+    personalizations: [
+      {
+        to: [{ email: Array.isArray(to) ? to[0] : to }],
+        subject: subject,
+      },
+    ],
+    from: { email: fromEmail, name: fromName },
+    content: [
+      {
+        type: 'text/html',
+        value: html,
+      },
+    ],
+  };
+
+  // Add plain text fallback if provided
+  if (text) {
+    payload.content.unshift({ type: 'text/plain', value: text });
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Authorization': `Bearer ${SENDGRID_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: `${from.name} <${from.email}>`,
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html,
-        text: text || undefined,
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
 
     clearTimeout(timer);
 
     if (!res.ok) {
+      // SendGrid usually returns a 400 with an "errors" array
       const bodyText = await res.text().catch(() => '');
-      let parsed = null;
-      try { parsed = JSON.parse(bodyText); } catch { /* not JSON */ }
-      const msg = parsed?.message || parsed?.error || bodyText || `HTTP ${res.status}`;
-      console.error('[email] Resend API error:', res.status, msg);
-      return { ok: false, error: msg };
+      let errorMsg = `HTTP ${res.status}`;
+      try {
+        const parsed = JSON.parse(bodyText);
+        if (parsed.errors && parsed.errors.length > 0) {
+          errorMsg = parsed.errors.map(e => e.message).join(', ');
+        }
+      } catch {}
+      
+      console.error('[email] SendGrid API error:', errorMsg);
+      return { ok: false, error: errorMsg };
     }
 
-    const json = await res.json().catch(() => ({}));
-    return { ok: true, messageId: json.id || null, provider: 'resend' };
+    // SendGrid returns 202 Accepted with no body
+    return { ok: true, provider: 'sendgrid' };
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
-      return { ok: false, error: `Resend request timed out after ${SEND_TIMEOUT_MS}ms` };
+      return { ok: false, error: `SendGrid request timed out after ${SEND_TIMEOUT_MS}ms` };
     }
-    console.error('[email] Resend fetch failed:', err.message);
+    console.error('[email] SendGrid fetch failed:', err.message);
     return { ok: false, error: err.message };
   }
 }
 
 // ------------------------------------------------------------
-// SMTP transport (fallback)
-// ------------------------------------------------------------
-async function sendViaSMTP({ to, subject, html, text }) {
-  const t = getSMTPTransport();
-  if (!t) return { skipped: true, reason: 'no-smtp' };
-
-  try {
-    const info = await t.sendMail({
-      from: DEFAULT_FROM,
-      to,
-      subject,
-      html,
-      text: text || undefined,
-    });
-    return { ok: true, messageId: info.messageId, provider: 'smtp' };
-  } catch (err) {
-    console.error('[email] SMTP send failed:', err.message);
-    return { ok: false, error: err.message };
-  }
-}
-
-// ------------------------------------------------------------
-// Public sendMail — picks transport
+// Public sendMail
 // ------------------------------------------------------------
 async function sendMail({ to, subject, html, text }) {
   if (!isEmailEnabled()) return { skipped: true, reason: 'disabled' };
+  if (!hasSendGrid()) return { skipped: true, reason: 'no-sendgrid-key' };
 
-  if (hasResend()) {
-    return sendViaResend({ to, subject, html, text });
-  }
-  if (hasSMTP()) {
-    return sendViaSMTP({ to, subject, html, text });
-  }
-  return { skipped: true, reason: 'no-transport' };
+  return sendViaSendGrid({ to, subject, html, text });
 }
 
 // ============================================================
@@ -253,7 +199,6 @@ async function sendApplicationReceived(app) {
       <strong>Status:</strong> Pending Review
     </p>
     <p>You can check the status of your application at any time using your application number and the email address you supplied.</p>
-    <p>If you did not submit this application, please contact us immediately.</p>
     <p>Warm regards,<br/><strong>Admissions Office</strong><br/>${escapeHtml(INSTITUTION)}</p>
   `;
   return sendMail({
@@ -264,7 +209,7 @@ async function sendApplicationReceived(app) {
 }
 
 // ============================================================
-// TEMPLATE 2 — Application approved (Provisional admission)
+// TEMPLATE 2 — Application approved
 // ============================================================
 async function sendApplicationApproved(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
@@ -332,7 +277,7 @@ async function sendRegistrationComplete(user) {
 }
 
 // ============================================================
-// TEMPLATE 5 — Matriculation letter (BULK)
+// TEMPLATE 5 — Matriculation letter
 // ============================================================
 async function sendMatriculationLetter(app) {
   const name = `${app.firstName || ''} ${app.lastName || ''}`.trim();
@@ -382,14 +327,12 @@ async function sendRejectionLetter(app) {
 }
 
 // ============================================================
-// Diagnostic — useful to run in Render shell:
-//   node -e "console.log(require('./utils/emailService').describe())"
+// Diagnostic Helper
 // ============================================================
 function describe() {
   return {
     emailEnabled: isEmailEnabled(),
-    resendConfigured: hasResend(),
-    smtpConfigured: hasSMTP(),
+    sendgridConfigured: hasSendGrid(),
     from: DEFAULT_FROM,
     timeoutMs: SEND_TIMEOUT_MS,
   };

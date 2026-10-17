@@ -306,7 +306,6 @@ router.get('/apply-status', async (req, res, next) => {
 // ============================================================
 router.get('/letters/:id', async (req, res, next) => {
   try {
-    // We search by numeric ID to avoid slashes in the applicationNumber
     const app = await appQueries.findById(req.params.id);
     
     if (!app) {
@@ -347,8 +346,26 @@ router.get('/letters/:id', async (req, res, next) => {
         
         <script>
           window.FPU_CURRENT_APPLICANT = ${JSON.stringify(enriched)};
+          
+          // Fetch the HTML template and inject it
+          fetch('/portal/partials/admission-officer/letter-templates/${letterType}.html')
+            .then(res => res.text())
+            .then(html => {
+              const mount = document.getElementById('letter-mount');
+              mount.innerHTML = html;
+              
+              // Re-execute the scripts inside the template
+              mount.querySelectorAll('script').forEach(old => {
+                const s = document.createElement('script');
+                if (old.src) s.src = old.src;
+                else s.textContent = old.textContent;
+                old.parentNode.replaceChild(s, old);
+              });
+            })
+            .catch(err => {
+              document.getElementById('letter-mount').innerHTML = '<div style="color:red; padding: 20px;">Error loading letter template: ' + err.message + '</div>';
+            });
         </script>
-        <script src="/portal/partials/admission-officer/letter-templates/${letterType}.html"></script>
       </body>
       </html>
     `);

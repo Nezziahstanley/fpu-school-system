@@ -5,9 +5,10 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Admission Letters</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Preview individual letters, or send in bulk by department</p>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Preview individual letters, or matriculate students in bulk by department</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;" id="ado-single-actions">
+      
       <button id="ado-upload-signature" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;
@@ -21,18 +22,27 @@
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
         opacity:.5;
       ">🖨 Print</button>
+      
       <button id="ado-ltr-download" disabled style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#fff;color:#065f46;border:1px solid #bbf7d0;
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
         opacity:.5;
       ">📄 Save as PDF</button>
+
       <button id="ado-ltr-mark-sent" disabled style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
         opacity:.5;
       ">✉️ Mark as Sent</button>
+
+      <button id="ado-ltr-send-email" disabled style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;
+        border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+        opacity:.5;
+      ">✉️ Send to Email</button>
     </div>
   </div>
 
@@ -398,7 +408,6 @@
     btn.disabled = true;
 
     try {
-      // Use native fetch for FormData to ensure headers are set correctly
       const res = await fetch('/api/admission-officer/profile/signature', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('fpu_token')}` },
@@ -410,7 +419,6 @@
 
       core.showToast && core.showToast('Signature uploaded successfully!', 'success');
       
-      // Update local user data
       if (core.getPortalUser) {
         const user = core.getPortalUser();
         user.signatureUrl = json.signatureUrl;
@@ -500,7 +508,7 @@
     $('ado-ltr-empty').style.display = 'none';
     $('ado-ltr-preview').style.display = 'block';
 
-    ['ado-ltr-print', 'ado-ltr-download', 'ado-ltr-mark-sent'].forEach(id => {
+    ['ado-ltr-print', 'ado-ltr-download', 'ado-ltr-mark-sent', 'ado-ltr-send-email'].forEach(id => {
       const btn = $(id);
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     });
@@ -731,6 +739,30 @@
     try {
       await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/letter/${CURRENT_TYPE}/sent`, { method: 'POST' });
       core.showToast && core.showToast(`${CURRENT_TYPE} letter marked as sent.`, 'success');
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+
+  $('ado-ltr-send-email')?.addEventListener('click', async (e) => {
+    if (!SELECTED) return;
+    const btn = e.currentTarget;
+    const confirmSend = confirm(`Send the ${CURRENT_TYPE} letter to ${SELECTED.firstName} (${SELECTED.email})?`);
+    if (!confirmSend) return;
+
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Sending…';
+
+    try {
+      await core.portalFetch(`/api/admission-officer/applications/${SELECTED.id}/email`, {
+        method: 'POST',
+        body: { type: CURRENT_TYPE }
+      });
+      core.showToast && core.showToast(`Email sent to ${SELECTED.email}!`, 'success');
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
     } finally {

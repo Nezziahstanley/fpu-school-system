@@ -60,7 +60,46 @@ router.post('/profile/signature', only, upload.single('signature'), async (req, 
 });
 
 // ============================================================
+// POST /applications/:id/email
+// Send a single letter to a specific applicant
+// ============================================================
+router.post('/applications/:id/email', only, async (req, res, next) => {
+  try {
+    const app = await appQueries.findByIdWithRelations(req.params.id);
+    if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
+
+    const type = String(req.body?.type || 'provisional');
+
+    let r;
+    if (type === 'provisional')       r = await sendApplicationApproved(app);
+    else if (type === 'acceptance')   r = await sendMail({
+      to: app.email,
+      subject: `Acceptance Acknowledged — ${app.applicationNumber}`,
+      html: baseTemplate('Acceptance Confirmation', `
+        <p>Dear <strong>${app.firstName} ${app.lastName}</strong>,</p>
+        <p>Your acceptance of the offer of admission has been received and recorded.</p>
+        <p>Please complete your registration at the Admissions Office.</p>
+        <p>Warm regards,<br/><strong>Admissions Office</strong></p>
+      `),
+    });
+    else if (type === 'matriculation') r = await sendMatriculationLetter(app);
+    else if (type === 'rejection')     r = await sendRejectionLetter(app);
+
+    if (!r) throw new Error('Unknown letter type.');
+    if (r.skipped) return res.status(400).json({ success: false, error: 'Email service disabled (check config).' });
+    if (!r.ok) throw new Error(r.error || 'Failed to send.');
+
+    // Mark as sent in DB
+    const MAP = { provisional: 1, acceptance: 2, matriculation: 3 };
+    if (MAP[type]) await appQueries.markLetterSent(app.id, MAP[type]);
+
+    return res.json({ success: true, message: 'Email sent successfully.' });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // POST /bulk/email
+// Send letters in bulk
 // ============================================================
 router.post('/bulk/email', only, async (req, res, next) => {
   try {

@@ -139,11 +139,18 @@
     $('ltr-content').innerHTML = `
       <div class="ltr-head">
         <img class="ltr-logo" src="/images/logo.png" alt="Logo" onerror="this.style.display='none';" />
+        
         <div class="ltr-inst">
           <div class="ltr-inst-name">${esc(inst.name)}</div>
           <div class="ltr-inst-motto">${esc(inst.motto)}</div>
           <div class="ltr-inst-contact">${esc(inst.address)} · 📞 ${esc(inst.phone)} · ✉️ ${esc(inst.email)}</div>
         </div>
+
+        ${app.passportUrl ? `
+          <img src="${esc(app.passportUrl)}" alt="Passport" style="width:80px; height:90px; object-fit:cover; border:2px solid #065f46; border-radius:4px; flex-shrink:0;" onerror="this.style.display='none';" />
+        ` : `
+          <div style="width:80px; height:90px; flex-shrink:0;"></div>
+        `}
       </div>
 
       <div class="ltr-meta">
@@ -196,10 +203,9 @@
         <p style="margin-top:1.25rem;">Please accept my warm congratulations on your admission.</p>
       </div>
 
-            <div class="ltr-sign">
+      <div class="ltr-sign">
         <div>Yours faithfully,</div>
         
-        <!-- Digital Signature -->
         ${me.signatureUrl ? `
           <img src="${esc(me.signatureUrl)}" alt="Signature" style="height: 50px; max-width: 200px; object-fit: contain; margin-top: 1rem; margin-bottom: .25rem; display: block;" />
         ` : `

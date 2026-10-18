@@ -169,6 +169,31 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/registrar/transcripts/students
+// ============================================================
+router.get('/transcripts/students', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
 // GET /api/registrar/recent-students
 // ============================================================
 router.get('/recent-students', only, async (req, res, next) => {
@@ -407,6 +432,23 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
         issuedAt: new Date(),
         issuedBy: req.user.id,
       })
+      .where(eq(documents.id, docId))
+      .returning();
+
+    return res.json({ success: true, data: updated });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/registrar/documents/:id/mark-issued
+// Marks a document as issued without uploading a file (used for auto-generated transcripts)
+// ============================================================
+router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
+  try {
+    const docId = Number(req.params.id);
+    const [updated] = await db
+      .update(documents)
+      .set({ status: 'issued', issuedAt: new Date(), issuedBy: req.user.id })
       .where(eq(documents.id, docId))
       .returning();
 

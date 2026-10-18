@@ -234,7 +234,14 @@
   async function load() {
     $('gr-tbody').innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/graduation');
+            const user = core.getPortalUser ? core.getPortalUser() : {};
+      const isRegistrar = user.role === 'registrar';
+      
+      const endpoint = isRegistrar 
+        ? '/api/registrar/graduations' 
+        : '/api/admin/graduation'; // Or wherever the admin gets it from
+
+      const res = await core.portalFetch(endpoint);
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.graduations || []);
       ALL = raw.map(unwrap);

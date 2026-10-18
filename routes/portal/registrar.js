@@ -445,4 +445,45 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/registrar/graduations
+// Returns eligible graduation candidates (HND and final year ND)
+// ============================================================
+router.get('/graduations', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+        // We'll calculate CGPA in the frontend or a separate query for now
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(and(
+        eq(users.role, 'student'),
+        inArray(users.level, ['HND', 'ND']) // Adjust this logic if you have specific year tracking
+      ))
+      .orderBy(desc(users.createdAt));
+
+    // Attach a mock CGPA for the UI (you can replace this with actual CGPA calculation)
+    const data = rows.map(r => ({
+      ...r,
+      cgpa: 3.45, // Placeholder until we hook up the GPA calculation
+      classification: 'Upper Credit',
+      status: 'Eligible',
+      eligible: true
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

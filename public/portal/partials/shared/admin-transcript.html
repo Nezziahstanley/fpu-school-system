@@ -81,6 +81,7 @@
 
   let ALL = [];
   let FILTERED = [];
+  let CURRENT_DEPT = 'all';
 
   async function load() {
     const tbody = $('tr-tbody');
@@ -91,19 +92,47 @@
 
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
-      const isRegistrar = user.role === 'registrar';
+      const role = user.role;
       
-      const endpoint = isRegistrar 
-        ? '/api/registrar/transcripts/students' 
-        : '/api/admin/students';
+      let endpoint = '/api/admin/students';
+      if (role === 'registrar') endpoint = '/api/registrar/transcripts/students';
+      else if (role === 'rector') endpoint = '/api/rector/transcripts';
         
       const res = await core.portalFetch(endpoint);
       ALL = Array.isArray(res.data) ? res.data : [];
       
+      if (role === 'rector') {
+        buildDeptFilter();
+      }
+
       applyFilters();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
+  }
+
+  function buildDeptFilter() {
+    // Add department filter to the top bar if it's a rector
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    if (user.role !== 'rector') return;
+
+    const headerActions = document.querySelector('#tr-search')?.parentElement;
+    if (!headerActions) return;
+
+    const deptNames = [...new Set(ALL.map(s => s.departmentName).filter(Boolean))].sort();
+    
+    const select = document.createElement('select');
+    select.id = 'tr-filter-dept';
+    select.style = "padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;";
+    select.innerHTML = `<option value="all">All Departments</option>` + 
+      deptNames.map(d => `<option value="${d}">${d}</option>`).join('');
+
+    select.addEventListener('change', (e) => {
+      CURRENT_DEPT = e.target.value;
+      applyFilters();
+    });
+
+    headerActions.insertBefore(select, headerActions.children[1]);
   }
 
   function applyFilters() {
@@ -111,6 +140,7 @@
     const level = $('tr-level')?.value || '';
 
     FILTERED = ALL.filter(s => {
+      if (CURRENT_DEPT !== 'all' && s.departmentName !== CURRENT_DEPT) return false;
       if (level && s.level !== level) return false;
       if (q) {
         const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.matricNumber || ''}`.toLowerCase();
@@ -125,26 +155,100 @@
 
   function renderTable(rows) {
     const tbody = $('tr-tbody');
+    const thead = document.querySelector('thead');
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No students found.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = rows.map(s => {
-      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      return `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
-          </td>
-          <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:right;">
-            <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
-          </td>
-        </tr>`;
-    }).join('');
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    const isRector = user.role === 'rector';
+
+    if (isRector && CURRENT_DEPT === 'all') {
+      // Rector view: Group by department
+      const groups = {};
+      rows.forEach(s => {
+        const d = s.departmentName || 'Unassigned';
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(s);
+      });
+
+      // Sort departments alphabetically
+      const sortedDepts = Object.keys(groups).sort();
+
+      // Update the table head to add CGPA column for Rector
+      thead.innerHTML = `<tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+        <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric No.</th>
+        <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Full Name</th>
+        <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+        <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">CGPA</th>
+        <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+      </tr>`;
+
+      let html = '';
+      sortedDepts.forEach(dept => {
+        const students = groups[dept];
+        const avgCgpa = (students.reduce((sum, s) => sum + (Number(s.cgpa) || 0), 0) / students.length).toFixed(2);
+        
+        html += `
+          <tr style="background:#f0fdf4;border-top:2px solid #bbf7d0;">
+            <td colspan="5" style="padding:.75rem;font-weight:800;color:#065f46;font-size:.85rem;">
+              🏛️ ${esc(dept)} 
+              <span style="font-weight:600;color:#059669;font-size:.75rem;margin-left:.5rem;">
+                ${students.length} students · Avg CGPA: ${avgCgpa}
+              </span>
+            </td>
+          </tr>
+        `;
+
+        students.forEach(s => {
+          const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+          const cgpaDisplay = Number(s.cgpa).toFixed(2);
+          html += `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
+              <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
+              <td style="padding:.65rem .75rem;text-align:center;">
+                <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
+              </td>
+              <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${cgpaDisplay}</td>
+              <td style="padding:.65rem .75rem;text-align:right;">
+                <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
+              </td>
+            </tr>
+          `;
+        });
+      });
+      
+      tbody.innerHTML = html;
+      
+    } else {
+      // Regular flat view (Registrar or filtered by one department)
+      thead.innerHTML = `<tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+        <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric No.</th>
+        <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Full Name</th>
+        <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+        <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">CGPA</th>
+        <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+      </tr>`;
+
+      tbody.innerHTML = rows.map(s => {
+        const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+        const cgpaDisplay = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
+            </td>
+            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${cgpaDisplay}</td>
+            <td style="padding:.65rem .75rem;text-align:right;">
+              <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
 
     tbody.querySelectorAll('.tr-view-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -167,10 +271,11 @@
 
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
-      const isRegistrar = user.role === 'registrar';
-      const endpoint = isRegistrar
-        ? `/api/registrar/transcript/${studentId}`
-        : `/api/admin/transcript/${studentId}`;
+      const role = user.role;
+      
+      let endpoint = `/api/admin/transcript/${studentId}`;
+      if (role === 'registrar') endpoint = `/api/registrar/transcript/${studentId}`;
+      else if (role === 'rector') endpoint = `/api/registrar/transcript/${studentId}`; // Reuse registrar logic for rector
 
       const res = await core.portalFetch(endpoint);
       const data = res.data || res;

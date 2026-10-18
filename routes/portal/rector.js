@@ -451,5 +451,51 @@ router.get('/security', only, async (req, res, next) => {
     return res.json({ success: true, sessions, logins });
   } catch (err) { return next(err); }
 });
+// ============================================================
+// GET /api/rector/transcripts
+// Returns all students with their calculated CGPA for transcript viewing
+// ============================================================
+router.get('/transcripts', only, async (req, res, next) => {
+  try {
+    const userQueries = require('../../db/queries/users');
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA } = require('../../utils/gpa');
+    const { users, programmes, departments } = schema;
+
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+        departmentId: departments.id,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(departments.name, users.lastName);
+
+    // Calculate CGPA for each student
+    const data = [];
+    for (const s of rows) {
+      const results = await resultQueries.publishedForStudent(s.id, {});
+      const summary = computeStudentCGPA(
+        results.map((r) => ({
+          unit: Number(r.course?.unit) || 0,
+          points: Number(r.result?.points) || 0,
+          sessionId: r.result?.sessionId,
+          semester: r.result?.semester,
+        }))
+      );
+      data.push({ ...s, cgpa: summary.cgpa || 0 });
+    }
+
+    return res.json({ success: true, data });
+  } catch (err) { return next(err); }
+});
 
 module.exports = router;

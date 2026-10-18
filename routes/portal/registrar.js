@@ -10,7 +10,15 @@ const { eq, and, sql, desc } = require('drizzle-orm');
 
 const { requireRole } = require('../../middleware/auth');
 const { db, schema } = require('../../db');
-const { users, applications, programmes, academicSessions, courseRegistrations, clearances } = schema;
+const { 
+  users, 
+  applications, 
+  programmes, 
+  academicSessions, 
+  courseRegistrations, 
+  clearances,
+  departments
+} = schema;
 
 const only = requireRole('registrar', 'admin');
 
@@ -42,7 +50,7 @@ router.get('/dashboard', only, async (req, res, next) => {
     const progCount = await db.select({ count: sql`count(*)::int` }).from(programmes);
 
     // 7. Demographics: Students by Department
-    const depts = await db.select({ id: schema.departments.id, name: schema.departments.name }).from(schema.departments);
+    const depts = await db.select({ id: departments.id, name: departments.name }).from(departments);
     const deptMap = {};
     depts.forEach(d => { deptMap[d.id] = d.name; });
 
@@ -86,32 +94,55 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/registrar/students
+// GET /api/registrar/trends
+// Returns monthly aggregation for charts
 // ============================================================
-router.get('/students', only, async (req, res, next) => {
+router.get('/trends', only, async (req, res, next) => {
   try {
-    const rows = await db
-      .select({
-        id: users.id,
-        matricNumber: users.matricNumber,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        level: users.level,
-        email: users.email,
-        phone: users.phone,
-        programmeId: users.programmeId,
-        departmentId: users.departmentId,
-        createdAt: users.createdAt,
-        programmeName: programmes.name,
-        departmentName: schema.departments.name,
-      })
-      .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .leftJoin(schema.departments, eq(users.departmentId, schema.departments.id))
-      .where(eq(users.role, 'student'))
-      .orderBy(desc(users.createdAt));
+    // 1. Enrollment Trend
+    const students = await db.select({ createdAt: users.createdAt }).from(users).where(eq(users.role, 'student'));
+    const enrollments = {};
+    students.forEach(s => {
+      if (!s.createdAt) return;
+      const d = new Date(s.createdAt);
+      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+      enrollments[key] = (enrollments[key] || 0) + 1;
+    });
+    
+    const sortedEnrollKeys = Object.keys(enrollments).sort((a, b) => new Date(a) - new Date(b));
+    let cumSum = 0;
+    const enrollmentData = sortedEnrollKeys.map(k => {
+      cumSum += enrollments[k];
+      return cumSum;
+    });
 
-    return res.json({ success: true, data: rows });
+    // 2. Admission Trend
+    const apps = await db.select({ createdAt: applications.createdAt }).from(applications);
+    const admissions = {};
+    apps.forEach(a => {
+      if (!a.createdAt) return;
+      const d = new Date(a.createdAt);
+      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+      admissions[key] = (admissions[key] || 0) + 1;
+    });
+    const sortedAdmKeys = Object.keys(admissions).sort((a, b) => new Date(a) - new Date(b));
+    const admissionData = sortedAdmKeys.map(k => admissions[k]);
+
+    // 3. Registration Status
+    const regs = await db.select({ status: courseRegistrations.status }).from(courseRegistrations);
+    const regStats = { pending: 0, approved: 0, rejected: 0 };
+    regs.forEach(r => {
+      if (regStats[r.status] !== undefined) regStats[r.status]++;
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        enrollment: { labels: sortedEnrollKeys, values: enrollmentData },
+        admission: { labels: sortedAdmKeys, values: admissionData },
+        registrations: regStats
+      }
+    });
   } catch (err) {
     return next(err);
   }
@@ -162,56 +193,29 @@ router.get('/recent-applications', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/registrar/trends
-// Returns monthly aggregation for charts
+// GET /api/registrar/students
 // ============================================================
-router.get('/trends', only, async (req, res, next) => {
+router.get('/students', only, async (req, res, next) => {
   try {
-    // 1. Enrollment Trend (Students by month)
-    const students = await db.select({ createdAt: users.createdAt }).from(users).where(eq(users.role, 'student'));
-    const enrollments = {};
-    students.forEach(s => {
-      if (!s.createdAt) return;
-      const d = new Date(s.createdAt);
-      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
-      enrollments[key] = (enrollments[key] || 0) + 1;
-    });
-    
-    // Convert to sorted arrays and calculate cumulative sum
-    const sortedEnrollKeys = Object.keys(enrollments).sort((a, b) => new Date(a) - new Date(b));
-    let cumSum = 0;
-    const enrollmentData = sortedEnrollKeys.map(k => {
-      cumSum += enrollments[k];
-      return cumSum;
-    });
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        email: users.email,
+        phone: users.phone,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(desc(users.createdAt));
 
-    // 2. Admission Trend (Applications by month)
-    const apps = await db.select({ createdAt: applications.createdAt }).from(applications);
-    const admissions = {};
-    apps.forEach(a => {
-      if (!a.createdAt) return;
-      const d = new Date(a.createdAt);
-      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
-      admissions[key] = (admissions[key] || 0) + 1;
-    });
-    const sortedAdmKeys = Object.keys(admissions).sort((a, b) => new Date(a) - new Date(b));
-    const admissionData = sortedAdmKeys.map(k => admissions[k]);
-
-    // 3. Registration Status (Current state)
-    const regs = await db.select({ status: courseRegistrations.status }).from(courseRegistrations);
-    const regStats = { pending: 0, approved: 0, rejected: 0 };
-    regs.forEach(r => {
-      if (regStats[r.status] !== undefined) regStats[r.status]++;
-    });
-
-    return res.json({
-      success: true,
-      data: {
-        enrollment: { labels: sortedEnrollKeys, values: enrollmentData },
-        admission: { labels: sortedAdmKeys, values: admissionData },
-        registrations: regStats
-      }
-    });
+    return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
   }

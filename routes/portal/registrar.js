@@ -238,4 +238,70 @@ router.get('/sessions', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/registrar/registrations
+// Returns all course registrations with student & course details
+// ============================================================
+router.get('/registrations', only, async (req, res, next) => {
+  try {
+    const { status, sessionId, semester } = req.query;
+    
+    const conds = [];
+    if (status) conds.push(eq(courseRegistrations.status, status));
+    if (sessionId) conds.push(eq(courseRegistrations.sessionId, Number(sessionId)));
+    if (semester) conds.push(eq(courseRegistrations.semester, semester));
+
+    const where = conds.length ? and(...conds) : undefined;
+
+    const rows = await db
+      .select({
+        registration: courseRegistrations,
+        student: users,
+        course: schema.courses,
+        session: academicSessions,
+      })
+      .from(courseRegistrations)
+      .leftJoin(users, eq(courseRegistrations.studentId, users.id))
+      .leftJoin(schema.courses, eq(courseRegistrations.courseId, schema.courses.id))
+      .leftJoin(academicSessions, eq(courseRegistrations.sessionId, academicSessions.id))
+      .where(where)
+      .orderBy(desc(courseRegistrations.createdAt));
+
+    const data = rows.map((r) => ({
+      id: r.registration.id,
+      registration: r.registration,
+      student: r.student,
+      course: r.course,
+      session: r.session,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/registrar/registrations/:id/status
+// Approve or reject a registration
+// ============================================================
+router.post('/registrations/:id/status', only, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status.' });
+    }
+
+    const [row] = await db
+      .update(courseRegistrations)
+      .set({ status, approvedAt: status === 'approved' ? new Date() : null, approvedBy: req.user.id })
+      .where(eq(courseRegistrations.id, Number(req.params.id)))
+      .returning();
+
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

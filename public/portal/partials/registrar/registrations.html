@@ -245,7 +245,7 @@
       // Fetch sessions map first so extraction has names
       await loadSessionMap();
 
-      const res = await core.portalFetch('/api/registrations/with-student');
+      const res = await core.portalFetch('/api/registrar/registrations');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
       ALL = raw.map(unwrap);

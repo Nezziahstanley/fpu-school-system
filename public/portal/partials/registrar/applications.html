@@ -1,0 +1,326 @@
+<!-- Portal → Registrar → Applications -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Applications</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Review and monitor all submitted applications</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <input type="search" id="reg-apps-search" placeholder="Search applicant or app no…"
+             style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:220px;" />
+      <select id="reg-apps-status" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+        <option value="">All Status</option>
+        <option value="pending">Pending</option>
+        <option value="under_review">Under Review</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+        <option value="registered">Registered</option>
+        <option value="matriculated">Matriculated</option>
+      </select>
+      <button id="reg-apps-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- STAT TILES -->
+  <div id="reg-apps-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Showing <span id="reg-apps-shown">0</span> of <span id="reg-apps-total">0</span> applications
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">App No.</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Applicant</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">JAMB</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Submitted</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="reg-apps-tbody">
+          <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:raSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="reg-apps-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="reg-apps-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Application Details</h3>
+      <button id="reg-apps-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0;width:32px;height:32px;border-radius:8px;">✕</button>
+    </div>
+    <div id="reg-apps-modal-body" style="padding:1.25rem;"></div>
+  </div>
+</div>
+
+<style>
+  @keyframes raSpin { to { transform: rotate(360deg); } }
+  #reg-apps-tbody tr { transition: background .1s; }
+  #reg-apps-tbody tr:hover { background: #f8fafc; }
+  .ra-status-badge {
+    display:inline-flex;align-items:center;gap:.3rem;
+    padding:3px 9px;border-radius:99px;
+    font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  }
+  .ra-btn-sm {
+    padding:.35rem .7rem;font-size:.72rem;font-weight:700;
+    border-radius:6px;border:none;cursor:pointer;font-family:inherit;
+    transition:all .15s;
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  const STATUS_META = {
+    pending:      { label: 'Pending',      bg: '#fef3c7', fg: '#92400e', dot: '#f59e0b' },
+    under_review: { label: 'Under Review', bg: '#dbeafe', fg: '#1e40af', dot: '#3b82f6' },
+    approved:     { label: 'Approved',     bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
+    rejected:     { label: 'Rejected',     bg: '#fee2e2', fg: '#991b1b', dot: '#ef4444' },
+    registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
+    matriculated: { label: 'Matriculated', bg: '#ecfdf5', fg: '#065f46', dot: '#059669' },
+  };
+  const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
+
+  let ALL = [];
+  let FILTERED = [];
+
+  function openModal() { $('reg-apps-modal').style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+  function closeModal() {
+    $('reg-apps-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    $('reg-apps-modal-body').innerHTML = '';
+  }
+
+  async function load() {
+    const tbody = $('reg-apps-tbody');
+    tbody.innerHTML = `
+      <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:raSpin .8s linear infinite;"></div>
+        <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+      </td></tr>`;
+
+    try {
+      const res = await core.portalFetch('/api/registrar/applications');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderStats();
+      applyFilters();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderStats() {
+    const counts = { total: ALL.length, pending: 0, approved: 0, rejected: 0, registered: 0, matriculated: 0, under_review: 0 };
+    ALL.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+    const admitted = counts.approved + counts.registered + counts.matriculated;
+
+    const tiles = [
+      { label: 'Total',     value: counts.total,     bg: '#e0e7ff', fg: '#3730a3', icon: '📋' },
+      { label: 'Pending',   value: counts.pending + counts.under_review, bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
+      { label: 'Admitted',  value: admitted,         bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'Rejected',  value: counts.rejected,  bg: '#fee2e2', fg: '#991b1b', icon: '❌' },
+    ];
+
+    $('reg-apps-stats').innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
+        <div style="min-width:0;">
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilters() {
+    const q = ($('reg-apps-search')?.value || '').trim().toLowerCase();
+    const status = $('reg-apps-status')?.value || '';
+
+    FILTERED = ALL.filter(a => {
+      if (status && a.status !== status) return false;
+      if (q) {
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderTable(FILTERED);
+    $('reg-apps-shown').textContent = FILTERED.length;
+    $('reg-apps-total').textContent = ALL.length;
+  }
+
+  function renderTable(rows) {
+    const tbody = $('reg-apps-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="8" style="padding:3rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📭</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No matching applications</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(a => {
+      const meta = statusMeta(a.status);
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim() || '—';
+      return `
+        <tr data-id="${a.id}">
+          <td style="padding:.65rem .75rem;">
+            <code style="font-size:.75rem;color:#475569;">${esc(a.applicationNumber || '—')}</code>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>
+            <div style="font-size:.72rem;color:#94a3b8;">${esc(a.email || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-size:.8rem;color:#0f172a;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.programmeName || '—')}</div>
+            <div style="font-size:.7rem;color:#94a3b8;">${esc(a.departmentName || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(a.level || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="font-size:.78rem;font-weight:700;color:#334155;">${esc(a.jambScore || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span class="ra-status-badge" style="background:${meta.bg};color:${meta.fg};">
+              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+              ${meta.label}
+            </span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:right;font-size:.75rem;color:#475569;">
+            ${fmtDate(a.createdAt)}
+          </td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            <button class="ra-btn-sm" data-action="view" data-id="${a.id}"
+                    style="background:#f1f5f9;color:#475569;">👁 View</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('[data-action="view"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = Number(btn.dataset.id);
+        const app = ALL.find(a => a.id === id);
+        if (app) openDetail(app);
+      });
+    });
+  }
+
+  function openDetail(app) {
+    const meta = statusMeta(app.status);
+    const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
+
+    const row = (label, value) => `
+      <div style="display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid #f1f5f9;">
+        <span style="font-size:.75rem;color:#64748b;font-weight:600;">${label}</span>
+        <span style="font-size:.82rem;color:#0f172a;font-weight:700;text-align:right;max-width:60%;">${esc(value || '—')}</span>
+      </div>`;
+
+    $('reg-apps-modal-title').textContent = 'Application Details';
+    $('reg-apps-modal-body').innerHTML = `
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.1rem;flex-shrink:0;">
+          ${esc((app.firstName || '?')[0].toUpperCase() + (app.lastName || '?')[0].toUpperCase())}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;color:#0f172a;font-size:1.05rem;">${esc(fullName)}</div>
+          <div style="font-size:.78rem;color:#64748b;margin-top:.2rem;">${esc(app.email || '')}</div>
+          <div style="margin-top:.4rem;">
+            <span class="ra-status-badge" style="background:${meta.bg};color:${meta.fg};">
+              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+              ${meta.label}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Application</div>
+        ${row('Application No.', app.applicationNumber)}
+        ${row('Type', app.type)}
+        ${row('Level', app.level)}
+        ${row('JAMB Reg. No.', app.jambRegNo)}
+        ${row('JAMB Score', app.jambScore)}
+        ${row('Submitted', fmtDate(app.createdAt))}
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Academic</div>
+        ${row('Programme', app.programmeName)}
+        ${row('Department', app.departmentName)}
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Personal</div>
+        ${row('Phone', app.phone)}
+        ${row('Gender', app.gender)}
+        ${row('Date of Birth', fmtDate(app.dateOfBirth))}
+        ${row('State of Origin', app.stateOfOrigin)}
+        ${row('LGA', app.lga)}
+      </div>
+
+      ${app.rejectionReason ? `
+        <div style="margin-top:1rem;padding:.85rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">
+          <div style="font-size:.68rem;font-weight:800;color:#991b1b;letter-spacing:.08em;text-transform:uppercase;">Rejection Reason</div>
+          <div style="font-size:.82rem;color:#7f1d1d;margin-top:.3rem;">${esc(app.rejectionReason)}</div>
+        </div>` : ''}
+
+      <div style="display:flex;justify-content:flex-end;margin-top:1.25rem;">
+        <button id="reg-apps-modal-close-2" type="button" style="
+          padding:.6rem 1rem;font-size:.85rem;font-weight:600;
+          background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;
+        ">Close</button>
+      </div>
+    `;
+
+    openModal();
+    $('reg-apps-modal-close-2')?.addEventListener('click', closeModal);
+  }
+
+  // ---------- Wiring ----------
+  let searchTimer;
+  $('reg-apps-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilters, 200);
+  });
+  $('reg-apps-status')?.addEventListener('change', applyFilters);
+  $('reg-apps-refresh')?.addEventListener('click', load);
+
+  $('reg-apps-modal-close')?.addEventListener('click', closeModal);
+  $('reg-apps-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'reg-apps-modal') closeModal();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  // Kick off
+  load();
+})();
+</script>

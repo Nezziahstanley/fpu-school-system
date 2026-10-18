@@ -304,4 +304,55 @@ router.post('/registrations/:id/status', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/registrar/applications
+// Returns all applications for the Registrar to view
+// ============================================================
+router.get('/applications', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        application: applications,
+        programme: programmes,
+        department: departments,
+      })
+      .from(applications)
+      .leftJoin(programmes, eq(applications.programmeId, programmes.id))
+      .leftJoin(departments, eq(applications.departmentId, departments.id))
+      .orderBy(desc(applications.createdAt));
+
+    const data = rows.map((r) => ({
+      ...r.application,
+      programmeName: r.programme?.name || null,
+      departmentName: r.department?.name || null,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/registrar/applications/:id
+// Returns a single application with full details
+// ============================================================
+router.get('/applications/:id', only, async (req, res, next) => {
+  try {
+    const [row] = await db
+      .select()
+      .from(applications)
+      .where(eq(applications.id, Number(req.params.id)))
+      .limit(1);
+
+    if (!row) {
+      return res.status(404).json({ success: false, error: 'Application not found.' });
+    }
+
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

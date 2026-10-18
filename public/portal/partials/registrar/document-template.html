@@ -101,11 +101,19 @@
     return;
   }
 
-  // Using native fetch to get the registrar's transcript data
-  fetch(`/api/registrar/transcript/${studentId}`)
-    .then(res => res.json())
+  // Get the JWT token from localStorage
+  const token = localStorage.getItem('fpu_token');
+
+  // Using native fetch with the auth header
+  fetch(`/api/registrar/transcript/${studentId}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+    .then(res => {
+      if (!res.ok) throw new Error('Failed to load data (Status ' + res.status + ')');
+      return res.json();
+    })
     .then(data => {
-      if (!data.success) throw new Error('Failed to load');
+      if (!data.success) throw new Error(data.error || 'Failed to load');
       
       const s = data.student;
       const rows = data.rows;
@@ -138,7 +146,7 @@
 
     })
     .catch(err => {
-      document.getElementById('doc-student-name').textContent = 'Error loading transcript.';
+      document.getElementById('doc-student-name').textContent = 'Error: ' + err.message;
     });
 })();
 </script>

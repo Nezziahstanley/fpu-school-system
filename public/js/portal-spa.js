@@ -92,7 +92,7 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
+      'admin-admitted', 'admin-documents', 'admin-graduations',
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
@@ -124,12 +124,15 @@
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
     registrar: (role, roleItems, sharedItems) => {
-      const registryKeys = ['admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations'];
+      const mainItems = roleItems.filter((it) => it.key.startsWith('registrar-'));
+      
+      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-graduations'];
       const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
+      
       const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
-      const visibleRoleItems = roleItems.filter((it) => it.key !== 'registrar-student-profile');
+
       return [
-        { title: 'Main',     items: visibleRoleItems },
+        { title: 'Main',     items: mainItems },
         { title: 'Registry', items: registryItems },
         { title: 'Personal', items: personalItems },
       ];
@@ -203,7 +206,7 @@
       { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },
       { key: 'rector-reports',      label: 'Reports',      icon: ICON.chart },
     ],
-        registrar: [
+    registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },
       { key: 'registrar-students',        label: 'Students',        icon: ICON.users },
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
@@ -295,28 +298,22 @@
     }
 
     // Role-specific pages (student-*, lecturer-*, admission-officer-*, etc.)
-    // These live under /portal/partials/<folder>/<slug>.html
     const roleList = PORTAL_SIDEBAR[role] || [];
     const roleItem = roleList.find((p) => p.key === cleanKey);
     if (roleItem) {
-      // Strip the role prefix from the key (e.g. "admission-officer-dashboard" → "dashboard")
-    const file = cleanKey
-      .replace(/^exam-officer-/, '')
-      .replace(/^academic-officer-/, '')
-      .replace(/^admission-officer-/, '')
-      .replace(/^superadmin-/, '')
-      .replace(/^bursar-/, '')
-      .replace(/^rector-/, '')
-      .replace(/^registrar-/, '')
-      .replace(/^librarian-/, '')
-      .replace(/^hod-/, '')
-      .replace(/^lecturer-/, '')
-      .replace(/^student-/, '');
-      // BUT: if the key itself starts with the folder name, use the full key
-      // (e.g. for admission-officer-applications where folder = admission-officer,
-      // we want the file to be "admission-officer-applications.html" in the admission-officer folder)
-      // Try the STRIPPED filename first (e.g. lecturer-courses → courses.html),
-      // then fall back to the raw key for partials that keep the prefix in the filename.
+      const file = cleanKey
+        .replace(/^exam-officer-/, '')
+        .replace(/^academic-officer-/, '')
+        .replace(/^admission-officer-/, '')
+        .replace(/^superadmin-/, '')
+        .replace(/^bursar-/, '')
+        .replace(/^rector-/, '')
+        .replace(/^registrar-/, '')
+        .replace(/^librarian-/, '')
+        .replace(/^hod-/, '')
+        .replace(/^lecturer-/, '')
+        .replace(/^student-/, '');
+
       const candidates = [
         `${file}.html`,
         `${cleanKey}.html`,
@@ -391,10 +388,8 @@
         if (old.src) {
           s.src = old.src;
         } else {
-          // Safely move the inline JS: use textContent, wrap in a guard
           s.textContent = String(old.textContent || '');
         }
-        // Use parentNode.replaceChild as a fallback for older browsers
         if (old.parentNode) {
           old.parentNode.replaceChild(s, old);
         }
@@ -423,9 +418,7 @@
     window.location.hash = `#${pageKey}`;
 
     try {
-      // Try primary URL
       let res = await fetch(cfg.url, { cache: 'no-cache' });
-      // Fallback to alternate URL if primary 404s
       if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
         res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
       }
@@ -558,4 +551,3 @@
     initPortalSPA();
   }
 })();
-

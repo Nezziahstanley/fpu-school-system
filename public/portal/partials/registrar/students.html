@@ -176,7 +176,7 @@
     if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
 
     try {
-      const res = await core.portalFetch('/api/students');
+      const res = await core.portalFetch('/api/registrar/students');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
       console.log('[registrar-students] Loaded', ALL.length);

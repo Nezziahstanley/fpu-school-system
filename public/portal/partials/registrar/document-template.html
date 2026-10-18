@@ -1,0 +1,144 @@
+<!-- Portal → Registrar → Official Transcript Template -->
+<div style="padding: 0; background: #f1f5f9; min-height: 100vh;" id="doc-print-wrapper">
+  
+  <div style="max-width: 800px; margin: 2rem auto; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.1); padding: 3rem; position: relative; font-family: 'Times New Roman', Times, serif;" id="doc-paper">
+    
+    <!-- Watermark -->
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.05; pointer-events: none;">
+      <img src="/images/logo.png" style="width: 400px;" alt="Watermark">
+    </div>
+
+    <!-- Header -->
+    <div style="text-align: center; border-bottom: 3px double #065f46; padding-bottom: 1.5rem; margin-bottom: 2rem; position: relative; z-index: 1;">
+      <img src="/images/logo.png" style="width: 80px; height: 80px; object-fit: contain; margin-bottom: 1rem;" alt="Logo">
+      <h1 style="margin: 0; font-size: 1.8rem; color: #065f46; text-transform: uppercase; letter-spacing: 1px;">Federal Polytechnic Ugep</h1>
+      <p style="margin: 0.2rem 0 0; font-size: 0.9rem; color: #475569; font-style: italic;">Citadel of Technical Excellence</p>
+      <p style="margin: 0.2rem 0 0; font-size: 0.8rem; color: #64748b;">Ugep, Cross River State, Nigeria</p>
+      <h2 style="margin: 1.5rem 0 0; font-size: 1.2rem; text-transform: uppercase; text-decoration: underline;">Official Academic Transcript</h2>
+    </div>
+
+    <!-- Student Info -->
+    <div style="display: flex; justify-content: space-between; margin-bottom: 2rem; position: relative; z-index: 1;">
+      <div>
+        <div style="font-size: 0.85rem; color: #475569; margin-bottom: 0.2rem;">Name:</div>
+        <div style="font-weight: bold; font-size: 1.1rem;" id="doc-student-name">Loading...</div>
+        
+        <div style="font-size: 0.85rem; color: #475569; margin-top: 0.8rem; margin-bottom: 0.2rem;">Matric Number:</div>
+        <div style="font-weight: bold; font-family: monospace; font-size: 1rem;" id="doc-student-matric">...</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.85rem; color: #475569; margin-bottom: 0.2rem;">Programme:</div>
+        <div style="font-weight: bold;" id="doc-student-prog">...</div>
+        
+        <div style="font-size: 0.85rem; color: #475569; margin-top: 0.8rem; margin-bottom: 0.2rem;">Department:</div>
+        <div style="font-weight: bold;" id="doc-student-dept">...</div>
+      </div>
+    </div>
+
+    <!-- Results Table -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; position: relative; z-index: 1;">
+      <thead>
+        <tr style="background: #ecfdf5; border-bottom: 2px solid #065f46;">
+          <th style="padding: 0.75rem; text-align: left;">Course Code</th>
+          <th style="padding: 0.75rem; text-align: left;">Course Title</th>
+          <th style="padding: 0.75rem; text-align: center;">Units</th>
+          <th style="padding: 0.75rem; text-align: center;">Score</th>
+          <th style="padding: 0.75rem; text-align: center;">Grade</th>
+          <th style="padding: 0.75rem; text-align: center;">Points</th>
+        </tr>
+      </thead>
+      <tbody id="doc-results-tbody">
+        <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading results...</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Summary -->
+    <div style="margin-top: 2rem; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 1rem; position: relative; z-index: 1;">
+      <div>
+        <div style="font-size: 0.85rem; color: #475569;">Total Units Earned:</div>
+        <div style="font-weight: bold; font-size: 1.1rem;" id="doc-total-units">—</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.85rem; color: #475569;">Cumulative GPA (CGPA):</div>
+        <div style="font-weight: bold; font-size: 1.3rem; color: #065f46;" id="doc-cgpa">—</div>
+      </div>
+    </div>
+
+    <!-- Signature -->
+    <div style="margin-top: 4rem; position: relative; z-index: 1;">
+      <div style="width: 200px; border-top: 1px solid #000; margin-bottom: 0.2rem;"></div>
+      <div style="font-weight: bold;">Registrar</div>
+      <div style="font-size: 0.8rem; color: #475569;">Federal Polytechnic Ugep</div>
+    </div>
+
+    <!-- Date -->
+    <div style="position: absolute; bottom: 2rem; right: 3rem; font-size: 0.8rem; color: #64748b; z-index: 1;">
+      Date Issued: <span id="doc-date">—</span>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div style="max-width: 800px; margin: 0 auto 3rem; display: flex; justify-content: flex-end; gap: 1rem; padding: 0 3rem;">
+    <button onclick="window.print()" style="padding: 0.6rem 1.5rem; background: #065f46; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">🖨 Print / Save as PDF</button>
+  </div>
+</div>
+
+<style>
+  @media print {
+    body * { visibility: hidden; }
+    #doc-paper, #doc-paper * { visibility: visible; }
+    #doc-paper { position: absolute; left: 0; top: 0; box-shadow: none; margin: 0; padding: 2rem; width: 100%; }
+  }
+</style>
+
+<script>
+(function () {
+  const urlParams = new URLSearchParams(window.location.search);
+  const studentId = urlParams.get('studentId');
+  
+  if (!studentId) {
+    document.getElementById('doc-student-name').textContent = 'Error: No student ID provided.';
+    return;
+  }
+
+  // Using native fetch to get the registrar's transcript data
+  fetch(`/api/registrar/transcript/${studentId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) throw new Error('Failed to load');
+      
+      const s = data.student;
+      const rows = data.rows;
+      const summary = data.summary;
+
+      document.getElementById('doc-student-name').textContent = `${s.firstName} ${s.lastName}`;
+      document.getElementById('doc-student-matric').textContent = s.matricNumber || '—';
+      document.getElementById('doc-student-prog').textContent = s.programmeName || '—';
+      document.getElementById('doc-student-dept').textContent = s.departmentName || '—';
+      document.getElementById('doc-date').textContent = new Date().toLocaleDateString('en-GB');
+
+      const tbody = document.getElementById('doc-results-tbody');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: #991b1b;">No published results found for this student.</td></tr>';
+      } else {
+        tbody.innerHTML = rows.map(r => `
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 0.75rem; font-weight: bold;">${r.course.code}</td>
+            <td style="padding: 0.75rem;">${r.course.title}</td>
+            <td style="padding: 0.75rem; text-align: center;">${r.course.unit}</td>
+            <td style="padding: 0.75rem; text-align: center;">${r.result.score || '—'}</td>
+            <td style="padding: 0.75rem; text-align: center; font-weight: bold;">${r.result.grade || '—'}</td>
+            <td style="padding: 0.75rem; text-align: center;">${r.result.points || '—'}</td>
+          </tr>
+        `).join('');
+      }
+
+      document.getElementById('doc-total-units').textContent = summary.totalUnits;
+      document.getElementById('doc-cgpa').textContent = summary.cgpa;
+
+    })
+    .catch(err => {
+      document.getElementById('doc-student-name').textContent = 'Error loading transcript.';
+    });
+})();
+</script>

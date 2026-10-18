@@ -150,7 +150,10 @@
       let actions = '';
       if (d.status === 'pending' || d.status === 'approved') {
         if (d.type === 'Transcript') {
-          actions = `<button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Generate</button>`;
+          actions = `
+            <button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#eff6ff;color:#1e40af;margin-right:.35rem;">👁 Preview</button>
+            <button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Issue</button>
+          `;
         } else {
           actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📄 Upload</button>`;
         }
@@ -177,14 +180,15 @@
         </tr>`;
     }).join('');
 
-    tbody.querySelectorAll('[data-action="issue"]').forEach(btn => {
+    // Wire Preview button
+    tbody.querySelectorAll('[data-action="preview-transcript"]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.id);
-        const doc = ALL.find(d => d.id === id);
-        if (doc) openIssueModal(doc);
+        const userId = btn.dataset.userid;
+        window.open(`/portal/partials/registrar/document-template.html?studentId=${userId}`, '_blank');
       });
     });
 
+    // Wire Issue button
     tbody.querySelectorAll('[data-action="generate-transcript"]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const userId = btn.dataset.userid;
@@ -200,6 +204,15 @@
         } catch (err) {
           console.error('Failed to mark transcript as issued:', err);
         }
+      });
+    });
+
+    // Wire Upload button
+    tbody.querySelectorAll('[data-action="issue"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = Number(btn.dataset.id);
+        const doc = ALL.find(d => d.id === id);
+        if (doc) openIssueModal(doc);
       });
     });
   }

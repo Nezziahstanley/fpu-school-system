@@ -392,6 +392,41 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/bursar/transcript/:studentId
+// Returns the full transcript for a student
+// ============================================================
+router.get('/transcript/:studentId', only, async (req, res, next) => {
+  try {
+    const userQueries = require('../../db/queries/users');
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
+
+    const studentId = Number(req.params.studentId);
+    const student = await userQueries.findByIdWithRelations(studentId);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    const rows = await resultQueries.publishedForStudent(studentId, {});
+    const summary = computeStudentCGPA(
+      rows.map((r) => ({
+        unit: Number(r.course?.unit) || 0,
+        points: Number(r.result?.points) || 0,
+        sessionId: r.result?.sessionId,
+        semester: r.result?.semester,
+      }))
+    );
+
+    return res.json({
+      success: true,
+      student,
+      rows,
+      summary: { ...summary, classification: classifyDegree(summary.cgpa) },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
 // PROFILE + SECURITY
 // ============================================================
 router.get('/profile', only, async (req, res, next) => {

@@ -228,7 +228,7 @@
     $('tr-result-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
-      const res = await core.portalFetch('/api/transcript/' + studentId);
+      const res = await core.portalFetch(`/api/bursar/transcript/${studentId}`);
       const payload = res.data || res || {};
 
       // The transcript endpoint omits programme info; the list row

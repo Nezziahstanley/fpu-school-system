@@ -282,6 +282,27 @@ router.get('/reports', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/exam-officer/lookups
+// Returns departments and courses for the Exam Officer
+// ============================================================
+router.get('/lookups', only, async (req, res, next) => {
+  try {
+    const courseQueries = require('../../db/queries/courses');
+    
+    const departments = await courseQueries.listDepartments({});
+    const courses = await courseQueries.list({});
+
+    return res.json({
+      success: true,
+      departments,
+      courses
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
 // GET /api/exam-officer/profile, /security
 // ============================================================
 router.get('/profile', only, async (req, res, next) => {

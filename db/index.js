@@ -20,12 +20,11 @@ const useSSL =
   process.env.DATABASE_SSL === 'true' ||
   /neon\.tech|render\.com|sslmode=require/.test(connectionString);
 
+const isLocal = /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL || '');
+
 const pool = new Pool({
-  connectionString,
-  ssl: useSSL ? { rejectUnauthorized: false } : false,
-  max: 5,                       // Neon free tier: keep pool small
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
+  connectionString: process.env.DATABASE_URL,
+  ssl: isLocal ? false : { rejectUnauthorized: false },
 });
 
 const db = drizzle(pool, { schema });

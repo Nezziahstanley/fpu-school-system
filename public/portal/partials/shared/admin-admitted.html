@@ -1,81 +1,77 @@
-<!-- Shared → Admitted (staff view) -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">✅</div>
+<!-- Portal → Shared → Admitted Students -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h1>Admitted Students</h1>
-      <div class="sub">Applicants who have been offered admission</div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Admitted Students</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Applicants who have been offered admission</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <input type="search" id="ado-search" placeholder="Search application no., name, or email…"
+             style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:260px;" />
+      <select id="ado-filter-level" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+        <option value="">All Levels</option>
+        <option value="ND">ND</option>
+        <option value="HND">HND</option>
+      </select>
+      <button id="ado-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
+      <button id="ado-export" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;
+        border-radius:8px;cursor:pointer;
+      ">📥 Export CSV</button>
     </div>
   </div>
-</section>
 
-<!-- Filter bar -->
-<div class="filter-bar">
-  <input type="search" id="ad-search" placeholder="Search application no., name, or email…" />
-  <select id="ad-level">
-    <option value="">All Levels</option>
-    <option value="ND">ND</option>
-    <option value="HND">HND</option>
-  </select>
-  <select id="ad-programme"><option value="">All Programmes</option></select>
-  <select id="ad-status">
-    <option value="">All Status</option>
-    <option value="admitted">Admitted</option>
-    <option value="approved">Approved</option>
-    <option value="registered">Registered</option>
-    <option value="accepted">Accepted</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="ad-refresh">Refresh</button>
-  <button class="btn btn-outline btn-sm" id="ad-export">Export CSV</button>
-</div>
+  <!-- STAT TILES -->
+  <div id="ado-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
 
-<!-- Stats row -->
-<div class="stat-grid">
-  <div class="stat">
-    <div class="meta"><span class="label">Total Admitted</span><span class="value" id="ad-total">—</span></div>
-    <div class="ic">✅</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">ND Admitted</span><span class="value" id="ad-nd">—</span></div>
-    <div class="ic">📘</div>
-  </div>
-  <div class="stat accent">
-    <div class="meta"><span class="label">HND Admitted</span><span class="value" id="ad-hnd">—</span></div>
-    <div class="ic">📗</div>
-  </div>
-  <div class="stat purple">
-    <div class="meta"><span class="label">Registered</span><span class="value" id="ad-registered">—</span></div>
-    <div class="ic">🎓</div>
-  </div>
-</div>
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Showing <span id="ado-shown">0</span> of <span id="ado-total">0</span> admitted students
+      </div>
+    </div>
 
-<!-- Table -->
-<section class="panel">
-  <div class="panel-head">
-    <h3>Admitted List</h3>
-    <span class="badge" id="ad-count">0</span>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>App No.</th>
-            <th>Applicant Name</th>
-            <th>Email</th>
-            <th>Programme</th>
-            <th>Level</th>
-            <th>Admitted On</th>
-            <th>Status</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">App No.</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Applicant Name</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Email</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Admitted On</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
           </tr>
         </thead>
-        <tbody id="ad-tbody">
-          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="ado-tbody">
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+          </td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+</div>
+
+<style>
+  @keyframes adoSpin { to { transform: rotate(360deg); } }
+  #ado-tbody tr { transition: background .1s; }
+  #ado-tbody tr:hover { background: #f8fafc; }
+  .ado-status-badge {
+    display:inline-flex;align-items:center;gap:.3rem;
+    padding:3px 9px;border-radius:99px;
+    font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  }
+</style>
 
 <script>
 (function () {
@@ -83,197 +79,167 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  const STATUS_META = {
+    approved:     { label: 'Approved',     bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
+    registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
+    matriculated: { label: 'Matriculated', bg: '#ecfdf5', fg: '#065f46', dot: '#059669' },
+  };
+  const statusMeta = (s) => STATUS_META[s] || { label: 'Approved', bg: '#d1fae5', fg: '#065f46', dot: '#10b981' };
 
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // Extractors — API may return nested { application, programme }
-  // ---------------------------------------------------------
-  function unwrap(r) {
-    const app = r.application || r;
-    const prog = r.programme || {};
-    return {
-      id: app.id,
-      applicationNumber: app.applicationNumber || app.appNumber || `APP-${app.id}`,
-      firstName: app.firstName || '',
-      lastName: app.lastName || '',
-      email: app.email || '',
-      programmeName: prog.name || app.programmeName || '—',
-      level: app.level || prog.level || '—',
-      status: (app.status || 'pending').toLowerCase(),
-      admittedAt: app.admittedAt || app.approvedAt || app.reviewedAt || app.updatedAt,
-    };
+  async function load() {
+    const tbody = $('ado-tbody');
+    tbody.innerHTML = `
+      <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
+        <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+      </td></tr>`;
+
+    try {
+      // Dynamic routing based on user role
+      const user = core.getPortalUser ? core.getPortalUser() : {};
+      const isRegistrar = user.role === 'registrar';
+      
+      const endpoint = isRegistrar 
+        ? '/api/registrar/admitted' 
+        : '/api/admin/applications?status=approved,registered,matriculated';
+
+      const res = await core.portalFetch(endpoint);
+      
+      // Both endpoints return { success: true, data: [...] }
+      ALL = Array.isArray(res.data) ? res.data : [];
+      
+      renderStats();
+      applyFilters();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
   }
 
-  function getName(a) { return `${a.firstName} ${a.lastName}`.trim() || '—'; }
-  function getLevel(a) { return String(a.level || '').toUpperCase().trim() || '—'; }
-  function getProgramme(a) { return a.programmeName || '—'; }
-  function isRegistered(a) { return a.status === 'registered'; }
+  function renderStats() {
+    const counts = { total: ALL.length, nd: 0, hnd: 0, registered: 0 };
+    ALL.forEach(a => { 
+      if (String(a.level).toUpperCase() === 'ND') counts.nd++;
+      if (String(a.level).toUpperCase() === 'HND') counts.hnd++;
+      if (a.status === 'registered' || a.status === 'matriculated') counts.registered++;
+    });
 
-  function statusBadge(a) {
-    const map = {
-      admitted:   'badge-active',
-      approved:   'badge-active',
-      registered: 'badge-success',
-      accepted:   'badge-warning',
-    };
-    return `<span class="badge-status ${map[a.status] || 'badge-inactive'}">${esc(a.status)}</span>`;
+    const tiles = [
+      { label: 'Total Admitted', value: counts.total,      bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'ND Admitted',    value: counts.nd,         bg: '#dbeafe', fg: '#1e40af', icon: '📘' },
+      { label: 'HND Admitted',   value: counts.hnd,        bg: '#fef3c7', fg: '#92400e', icon: '📗' },
+      { label: 'Registered',     value: counts.registered, bg: '#e0e7ff', fg: '#3730a3', icon: '🎓' },
+    ];
+
+    $('ado-stats').innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
+        <div style="min-width:0;">
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
   }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
-  function render() {
-    $('ad-count').textContent = FILTERED.length;
+  function applyFilters() {
+    const q = ($('ado-search')?.value || '').trim().toLowerCase();
+    const level = $('ado-filter-level')?.value || '';
 
-    if (!FILTERED.length) {
-      $('ad-tbody').innerHTML = `
-        <tr><td colspan="7" class="empty" style="padding:2rem 1rem;text-align:center;">
-          <div style="font-size:2rem;margin-bottom:.5rem;">📥</div>
-          <div style="font-weight:600;color:#475569;">No admitted students yet</div>
-          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
-            Once applications are approved and marked as admitted, they'll appear here.
-          </div>
+    FILTERED = ALL.filter(a => {
+      if (level && String(a.level).toUpperCase() !== level) return false;
+      if (q) {
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderTable(FILTERED);
+    $('ado-shown').textContent = FILTERED.length;
+    $('ado-total').textContent = ALL.length;
+  }
+
+  function renderTable(rows) {
+    const tbody = $('ado-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = `
+        <tr><td colspan="7" style="padding:3rem 1rem;text-align:center;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📭</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No admitted students found</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
         </td></tr>`;
       return;
     }
 
-    $('ad-tbody').innerHTML = FILTERED.map((a) => {
-      const level = getLevel(a);
-      const chipClass = 'chip-' + level.toLowerCase();
+    tbody.innerHTML = rows.map(a => {
+      const meta = statusMeta(a.status);
+      const fullName = `${a.firstName || ''} ${a.lastName || ''}`.trim();
       return `
         <tr>
-          <td><code>${esc(a.applicationNumber)}</code></td>
-          <td><strong>${esc(getName(a))}</strong></td>
-          <td>${esc(a.email)}</td>
-          <td>${esc(getProgramme(a))}</td>
-          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
-          <td>${a.admittedAt ? new Date(a.admittedAt).toLocaleDateString() : '—'}</td>
-          <td>${statusBadge(a)}</td>
+          <td style="padding:.65rem .75rem;">
+            <code style="font-size:.75rem;color:#475569;">${esc(a.applicationNumber || '—')}</code>
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>
+          </td>
+          <td style="padding:.65rem .75rem;font-size:.78rem;color:#64748b;">
+            ${esc(a.email || '—')}
+          </td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-size:.8rem;color:#0f172a;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.programmeName || '—')}</div>
+            <div style="font-size:.7rem;color:#94a3b8;">${esc(a.departmentName || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(a.level || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#475569;">
+            ${fmtDate(a.admittedAt || a.createdAt)}
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span class="ado-status-badge" style="background:${meta.bg};color:${meta.fg};">
+              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
+              ${meta.label}
+            </span>
+          </td>
         </tr>`;
     }).join('');
   }
 
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
-  function applyFilter() {
-    const q = ($('ad-search').value || '').trim().toLowerCase();
-    const lvl = $('ad-level').value;
-    const prog = $('ad-programme').value;
-    const st = $('ad-status').value;
+  // ---------- Wiring ----------
+  let searchTimer;
+  $('ado-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilters, 200);
+  });
+  $('ado-filter-level')?.addEventListener('change', applyFilters);
+  $('ado-refresh')?.addEventListener('click', load);
 
-    FILTERED = ALL.filter((a) => {
-      const hay = `${a.applicationNumber} ${a.firstName} ${a.lastName} ${a.email} ${getProgramme(a)}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (lvl && getLevel(a) !== lvl) return false;
-      if (prog && getProgramme(a) !== prog) return false;
-      if (st && a.status !== st) return false;
-      return true;
-    });
-
-    render();
-  }
-
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
-  function updateStats() {
-    const total = ALL.length;
-    const nd = ALL.filter((a) => getLevel(a) === 'ND').length;
-    const hnd = ALL.filter((a) => getLevel(a) === 'HND').length;
-    const registered = ALL.filter(isRegistered).length;
-
-    $('ad-total').textContent = total;
-    $('ad-nd').textContent = nd;
-    $('ad-hnd').textContent = hnd;
-    $('ad-registered').textContent = registered;
-  }
-
-  // ---------------------------------------------------------
-  // Programme dropdown
-  // ---------------------------------------------------------
-  function populateProgrammes() {
-    const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
-    const sel = $('ad-programme');
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Programmes</option>' +
-      progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-    sel.value = cur;
-  }
-
-  // ---------------------------------------------------------
-  // Load — fetch all applications, filter client-side
-  // ---------------------------------------------------------
-  async function load() {
-    $('ad-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
-    try {
-      // Fetch ALL applications (no filters — server handles them badly)
-      const res = await core.portalFetch('/api/applications?limit=1000');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.applications || []);
-
-      // Filter client-side to only admitted/approved/registered/accepted
-      const ADMITTED_STATUSES = ['admitted', 'approved', 'registered', 'accepted'];
-      ALL = raw
-        .map(unwrap)
-        .filter((a) => ADMITTED_STATUSES.includes(a.status));
-
-      console.log(`[admitted] Loaded ${ALL.length} admitted from ${raw.length} total applications`);
-
-      populateProgrammes();
-      updateStats();
-      applyFilter();
-    } catch (err) {
-      console.error('[admitted]', err);
-      // Graceful empty state even on error
-      ALL = [];
-      updateStats();
-      $('ad-tbody').innerHTML = `
-        <tr><td colspan="7" class="empty" style="padding:2rem 1rem;text-align:center;">
-          <div style="font-size:2rem;margin-bottom:.5rem;">📥</div>
-          <div style="font-weight:600;color:#475569;">No admitted students yet</div>
-          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
-            Applications will appear here once they've been approved.
-          </div>
-        </td></tr>`;
+  $('ado-export')?.addEventListener('click', () => {
+    if (!FILTERED.length) {
+      core.showToast && core.showToast('No rows to export.', 'warning');
+      return;
     }
-  }
-
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
-  function exportCsv() {
-    const headers = ['App No', 'Name', 'Email', 'Programme', 'Level', 'Admitted On', 'Status'];
-    const rows = FILTERED.map((a) => [
-      a.applicationNumber,
-      getName(a),
-      a.email,
-      getProgramme(a),
-      getLevel(a),
-      a.admittedAt ? new Date(a.admittedAt).toLocaleDateString() : '',
-      a.status,
+    const headers = ['App No','First Name','Last Name','Email','Programme','Level','Status','Admitted On'];
+    const rows = FILTERED.map(a => [
+      a.applicationNumber || '', a.firstName || '', a.lastName || '', a.email || '',
+      a.programmeName || '', a.level || '', a.status || '', fmtDate(a.admittedAt || a.createdAt),
     ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
+    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `admitted-students-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `admitted-students-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    core.showToast && core.showToast(`Exported ${FILTERED.length} rows.`, 'success');
+  });
 
-  $('ad-search').addEventListener('input', applyFilter);
-  $('ad-level').addEventListener('change', applyFilter);
-  $('ad-programme').addEventListener('change', applyFilter);
-  $('ad-status').addEventListener('change', applyFilter);
-  $('ad-refresh').addEventListener('click', load);
-  $('ad-export').addEventListener('click', exportCsv);
-
+  // Kick off
   load();
 })();
 </script>

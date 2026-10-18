@@ -206,7 +206,7 @@
     if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
 
     try {
-      const res = await core.portalFetch('/api/sessions');
+      const res = await core.portalFetch('/api/registrar/sessions');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
       console.log('[registrar-sessions] Loaded', ALL.length, 'sessions');

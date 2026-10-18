@@ -221,4 +221,21 @@ router.get('/students', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/registrar/sessions
+// Returns all academic sessions for the Registrar
+// ============================================================
+router.get('/sessions', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(academicSessions)
+      .orderBy(desc(academicSessions.startDate));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

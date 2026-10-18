@@ -50,11 +50,11 @@
   </div>
 </div>
 
-<!-- MODAL -->
+<!-- MODAL (for manual uploads like Certificates) -->
 <div id="reg-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Issue Document</h3>
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Upload Document</h3>
       <button id="reg-doc-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
     <div style="padding:1.25rem;">
@@ -149,7 +149,11 @@
       
       let actions = '';
       if (d.status === 'pending' || d.status === 'approved') {
-        actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📄 Issue</button>`;
+        if (d.type === 'Transcript') {
+          actions = `<button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Generate</button>`;
+        } else {
+          actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📄 Upload</button>`;
+        }
       } else if (d.status === 'issued' && d.fileUrl) {
         actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#f1f5f9;color:#475569;text-decoration:none;">👁 View</a>`;
       } else {
@@ -178,6 +182,24 @@
         const id = Number(btn.dataset.id);
         const doc = ALL.find(d => d.id === id);
         if (doc) openIssueModal(doc);
+      });
+    });
+
+    tbody.querySelectorAll('[data-action="generate-transcript"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const userId = btn.dataset.userid;
+        const docId = btn.dataset.id;
+        
+        // Open the template in a new tab
+        window.open(`/portal/partials/registrar/document-template.html?studentId=${userId}`, '_blank');
+        
+        // Mark as issued in the background
+        try {
+          await core.portalFetch(`/api/registrar/documents/${docId}/mark-issued`, { method: 'POST' });
+          load(); // Refresh the table
+        } catch (err) {
+          console.error('Failed to mark transcript as issued:', err);
+        }
       });
     });
   }

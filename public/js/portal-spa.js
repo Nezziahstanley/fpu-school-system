@@ -92,7 +92,7 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
+      'admin-admitted', 'admin-documents', 'admin-graduations',
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
@@ -132,11 +132,14 @@
         'registrar-registrations'
       ];
       
-      // These are the shared pages we want under "Registry"
-      const registryKeys = ['admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations'];
-      
+      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-graduations'];
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
-      const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
+      
+      const registryItems = [
+        { key: 'admin-applications-list', label: 'Applications', icon: ICON.file },
+        ...sharedItems.filter((p) => registryKeys.includes(p.key))
+      ];
+      
       const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
 
       return [

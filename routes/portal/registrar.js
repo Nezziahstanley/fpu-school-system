@@ -161,4 +161,60 @@ router.get('/recent-applications', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/registrar/trends
+// Returns monthly aggregation for charts
+// ============================================================
+router.get('/trends', only, async (req, res, next) => {
+  try {
+    // 1. Enrollment Trend (Students by month)
+    const students = await db.select({ createdAt: users.createdAt }).from(users).where(eq(users.role, 'student'));
+    const enrollments = {};
+    students.forEach(s => {
+      if (!s.createdAt) return;
+      const d = new Date(s.createdAt);
+      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+      enrollments[key] = (enrollments[key] || 0) + 1;
+    });
+    
+    // Convert to sorted arrays and calculate cumulative sum
+    const sortedEnrollKeys = Object.keys(enrollments).sort((a, b) => new Date(a) - new Date(b));
+    let cumSum = 0;
+    const enrollmentData = sortedEnrollKeys.map(k => {
+      cumSum += enrollments[k];
+      return cumSum;
+    });
+
+    // 2. Admission Trend (Applications by month)
+    const apps = await db.select({ createdAt: applications.createdAt }).from(applications);
+    const admissions = {};
+    apps.forEach(a => {
+      if (!a.createdAt) return;
+      const d = new Date(a.createdAt);
+      const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
+      admissions[key] = (admissions[key] || 0) + 1;
+    });
+    const sortedAdmKeys = Object.keys(admissions).sort((a, b) => new Date(a) - new Date(b));
+    const admissionData = sortedAdmKeys.map(k => admissions[k]);
+
+    // 3. Registration Status (Current state)
+    const regs = await db.select({ status: courseRegistrations.status }).from(courseRegistrations);
+    const regStats = { pending: 0, approved: 0, rejected: 0 };
+    regs.forEach(r => {
+      if (regStats[r.status] !== undefined) regStats[r.status]++;
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        enrollment: { labels: sortedEnrollKeys, values: enrollmentData },
+        admission: { labels: sortedAdmKeys, values: admissionData },
+        registrations: regStats
+      }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

@@ -231,15 +231,8 @@
       makeDoughnut('reg-chart-gender', labels, values, [COLORS.blue, COLORS.pink, COLORS.slate]);
     } else emptyChart('reg-chart-gender');
 
-    // 4. Enrollment trend — placeholder using students data
-    //    (true trend needs per-month aggregation; skip for now)
-    emptyChart('reg-chart-enrollment', 'Detailed monthly data coming soon');
-
-    // 5. Registration Status — placeholder
-    emptyChart('reg-chart-registrations', 'Detailed registration data coming soon');
-
-    // 6. Admission trend — placeholder
-    emptyChart('reg-chart-admission', 'Detailed admission data coming soon');
+    // Note: The trend data is fetched separately in loadAll(), 
+    // so we skip rendering it here. The main loadAll() will handle it.
   }
 
   // ============================================================
@@ -286,25 +279,50 @@
   // ============================================================
   // Main
   // ============================================================
-  async function loadAll() {
+    async function loadAll() {
     Object.keys(charts).forEach(destroyChart);
 
     const data = await loadData();
     if (!data) return;
 
     renderStats();
-    renderCharts();
+    renderCharts(); // Renders Level, Dept, Gender
+    
+    // Fetch and render Trends
+    try {
+      const tRes = await core.portalFetch('/api/registrar/trends');
+      const trends = tRes.data || tRes || {};
+      
+      // Enrollment
+      if (trends.enrollment && trends.enrollment.labels.length) {
+        makeLine('reg-chart-enrollment', trends.enrollment.labels, trends.enrollment.values, { label: 'Total Students', color: COLORS.purple });
+      } else {
+        emptyChart('reg-chart-enrollment');
+      }
+
+      // Registrations
+      if (trends.registrations) {
+        const labels = ['Pending', 'Approved', 'Rejected'];
+        const values = [trends.registrations.pending, trends.registrations.approved, trends.registrations.rejected];
+        makeDoughnut('reg-chart-registrations', labels, values, [COLORS.gold, COLORS.green, COLORS.red]);
+      } else {
+        emptyChart('reg-chart-registrations');
+      }
+
+      // Admissions
+      if (trends.admission && trends.admission.labels.length) {
+        makeLine('reg-chart-admission', trends.admission.labels, trends.admission.values, { label: 'New Applications', color: COLORS.gold });
+      } else {
+        emptyChart('reg-chart-admission');
+      }
+    } catch (err) {
+      console.warn('Trends failed:', err);
+      emptyChart('reg-chart-enrollment');
+      emptyChart('reg-chart-registrations');
+      emptyChart('reg-chart-admission');
+    }
 
     await Promise.all([loadRecentStudents(), loadRecentApps()]);
-  }
-
-  $('reg-refresh')?.addEventListener('click', loadAll);
-  $('reg-range')?.addEventListener('change', loadAll);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
-  } else {
-    setTimeout(loadAll, 100);
   }
 })();
 </script>

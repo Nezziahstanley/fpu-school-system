@@ -1,93 +1,4 @@
-﻿<!-- Portal → Shared → Transcript Viewer -->
-<div style="padding:0;">
-
-  <!-- HEADER -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Transcript</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Select a student to view their transcript</p>
-    </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <input type="search" id="tr-search" placeholder="Search matric no. or student name…"
-             style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:260px;" />
-      <select id="tr-level" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-        <option value="">All Levels</option>
-        <option value="ND">ND</option>
-        <option value="HND">HND</option>
-      </select>
-      <button id="tr-print" disabled style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#fff;color:#065f46;border:1px solid #bbf7d0;
-        border-radius:8px;cursor:pointer;opacity:.5;
-      ">🖨 Print</button>
-    </div>
-  </div>
-
-  <!-- TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-size:.82rem;font-weight:700;color:#334155;">
-        Students <span id="tr-count" style="display:inline-block;background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.65rem;margin-left:.35rem;">0</span>
-      </div>
-    </div>
-
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric No.</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Full Name</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">CGPA</th>
-            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
-          </tr>
-        </thead>
-        <tbody id="tr-tbody">
-          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">
-            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:trSpin .8s linear infinite;"></div>
-            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- TRANSCRIPT VIEWER -->
-  <div id="tr-viewer" style="display:none;margin-top:1.5rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-      
-      <!-- Viewer Header -->
-      <div style="padding:1rem 1.25rem;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="tr-student-title">Transcript</div>
-        <button id="tr-close" style="
-          padding:.4rem .8rem;font-size:.75rem;font-weight:700;
-          background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;
-        ">Close</button>
-      </div>
-
-      <!-- Viewer Body -->
-      <div style="padding:1.5rem;" id="tr-content"></div>
-    </div>
-  </div>
-</div>
-
-<style>
-  @keyframes trSpin { to { transform: rotate(360deg); } }
-  #tr-tbody tr { transition: background .1s; }
-  #tr-tbody tr:hover { background: #f8fafc; }
-  .tr-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
-  .tr-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; }
-  
-  @media print {
-    body * { visibility: hidden; }
-    #tr-viewer, #tr-viewer * { visibility: visible; }
-    #tr-viewer { position: absolute; left: 0; top: 0; width: 100%; border: none; margin: 0; padding: 0; }
-    #tr-close { display: none; }
-  }
-</style>
-
-<script>
+﻿<script>
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
@@ -96,7 +7,6 @@
 
   let ALL = [];
   let FILTERED = [];
-  let CURRENT_STUDENT = null;
 
   async function load() {
     const tbody = $('tr-tbody');
@@ -109,18 +19,14 @@
       const user = core.getPortalUser ? core.getPortalUser() : {};
       const isRegistrar = user.role === 'registrar';
       
-      // Dynamically route to the correct endpoint
       const endpoint = isRegistrar 
         ? '/api/registrar/transcripts/students' 
-        : '/api/admin/students'; // (Assuming admin has this endpoint)
+        : '/api/admin/students';
         
       const res = await core.portalFetch(endpoint);
-      
-      // Normalize data (both endpoints should ideally return an array in .data)
       ALL = Array.isArray(res.data) ? res.data : [];
       
-      renderTable(ALL);
-      $('tr-count').textContent = ALL.length;
+      applyFilters();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
@@ -152,9 +58,8 @@
 
     tbody.innerHTML = rows.map(s => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      // If the endpoint returns a cgpa, use it. Otherwise show "—" until they view it.
-      const cgpaDisplay = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
-
+      
+      // We won't show the CGPA here to keep it fast. The template calculates it.
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
@@ -163,7 +68,7 @@
             <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
           </td>
           <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${cgpaDisplay}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#94a3b8;">—</td>
           <td style="padding:.65rem .75rem;text-align:right;">
             <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
           </td>
@@ -171,105 +76,12 @@
     }).join('');
 
     tbody.querySelectorAll('.tr-view-btn').forEach(btn => {
-      btn.addEventListener('click', () => viewTranscript(btn.dataset.id));
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        // Open the transcript template in a new tab
+        window.open(`/portal/partials/registrar/document-template.html?studentId=${id}`, '_blank');
+      });
     });
-  }
-
-  async function viewTranscript(studentId) {
-    const viewer = $('tr-viewer');
-    const content = $('tr-content');
-    const title = $('tr-student-title');
-    const printBtn = $('tr-print');
-
-    viewer.style.display = 'block';
-    content.innerHTML = `<div style="text-align:center;padding:3rem;color:#64748b;">
-      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:trSpin .8s linear infinite;"></div>
-      <div style="margin-top:.65rem;">Loading transcript…</div>
-    </div>`;
-    printBtn.disabled = true;
-    printBtn.style.opacity = '0.5';
-
-    try {
-      const user = core.getPortalUser ? core.getPortalUser() : {};
-      const isRegistrar = user.role === 'registrar';
-      
-      const endpoint = isRegistrar
-        ? `/api/registrar/transcript/${studentId}`
-        : `/api/admin/transcript/${studentId}`; // Or whatever admin endpoint looks like
-
-      const res = await core.portalFetch(endpoint);
-      const data = res.data || res;
-      
-      const s = data.student || {};
-      const rows = data.rows || [];
-      const summary = data.summary || {};
-
-      CURRENT_STUDENT = s;
-      title.textContent = `Transcript — ${s.firstName} ${s.lastName} (${s.matricNumber})`;
-
-      let tableRows = '';
-      if (!rows.length) {
-        tableRows = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">No published results found.</td></tr>';
-      } else {
-        tableRows = rows.map(r => `
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.course?.code || '—')}</td>
-            <td style="padding:.65rem .75rem;color:#475569;">${esc(r.course?.title || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.course?.unit || '0')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.result?.score || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.result?.grade || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.result?.points || '—')}</td>
-          </tr>
-        `).join('');
-      }
-
-      content.innerHTML = `
-        <div style="margin-bottom:1.5rem;display:flex;justify-content:space-between;">
-          <div>
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Programme</div>
-            <div style="font-weight:800;color:#0f172a;">${esc(s.programmeName || '—')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Level</div>
-            <div style="font-weight:800;color:#0f172a;">${esc(s.level || '—')}</div>
-          </div>
-        </div>
-        
-        <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">
-          <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-            <thead>
-              <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-                <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Code</th>
-                <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Course Title</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Units</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Score</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Grade</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Points</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-        </div>
-
-        <div style="margin-top:1.5rem;display:flex;justify-content:space-between;padding-top:1rem;border-top:2px solid #065f46;">
-          <div>
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Total Units</div>
-            <div style="font-size:1.1rem;font-weight:800;color:#0f172a;">${esc(summary.totalUnits || '0')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">CGPA</div>
-            <div style="font-size:1.3rem;font-weight:800;color:#065f46;">${esc(summary.cgpa || '0.00')}</div>
-            <div style="font-size:.75rem;color:#64748b;margin-top:.2rem;">${esc(summary.classification || '—')}</div>
-          </div>
-        </div>
-      `;
-
-      printBtn.disabled = false;
-      printBtn.style.opacity = '1';
-      
-    } catch (err) {
-      content.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
-    }
   }
 
   // Wiring
@@ -279,13 +91,6 @@
     searchTimer = setTimeout(applyFilters, 200);
   });
   $('tr-level')?.addEventListener('change', applyFilters);
-  
-  $('tr-close')?.addEventListener('click', () => {
-    $('tr-viewer').style.display = 'none';
-    CURRENT_STUDENT = null;
-  });
-  
-  $('tr-print')?.addEventListener('click', () => window.print());
 
   load();
 })();

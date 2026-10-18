@@ -91,8 +91,7 @@
       'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
-        registrar: [
-      'admin-admitted', 
+    registrar: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],

@@ -91,10 +91,29 @@
       'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
-    registrar: [
-      'portal-profile', 'portal-photo', 'portal-messages',
-      'portal-notifications', 'portal-announcements', 'admin-transcript',
-    ],
+    registrar: (role, roleItems, sharedItems) => {
+      const mainKeys = [
+        'registrar-dashboard', 
+        'registrar-students', 
+        'registrar-sessions', 
+        'registrar-programmes', 
+        'registrar-registrations'
+      ];
+      const registryKeys = [
+        'registrar-admitted', 
+        'registrar-documents', 
+        'registrar-graduations'
+      ];
+      
+      const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
+      const registryItems = roleItems.filter((it) => registryKeys.includes(it.key));
+      
+      return [
+        { title: 'Main',     items: mainItems },
+        { title: 'Registry', items: registryItems },
+        { title: 'Shared',   items: sharedItems },
+      ];
+    },
     librarian: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
@@ -202,15 +221,12 @@
       { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },
       { key: 'rector-reports',      label: 'Reports',      icon: ICON.chart },
     ],
-    registrar: [
+        registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },
       { key: 'registrar-students',        label: 'Students',        icon: ICON.users },
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
-      { key: 'registrar-admitted',        label: 'Admitted',        icon: ICON.check },
-      { key: 'registrar-documents',       label: 'Documents',       icon: ICON.file },
-      { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

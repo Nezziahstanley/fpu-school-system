@@ -26,7 +26,7 @@ const {
   graduations
 } = schema;
 
-const only = requireRole('registrar', 'admin');
+const only = requireRole('registrar', 'admin', 'rector');
 
 // Setup multer for document uploads
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
@@ -169,11 +169,7 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/registrar/transcripts/students
-// ============================================================
-// ============================================================
 // GET /api/registrar/transcripts
-// Returns all students with CGPA for grouping by department
 // ============================================================
 router.get('/transcripts', only, async (req, res, next) => {
   try {
@@ -212,9 +208,39 @@ router.get('/transcripts', only, async (req, res, next) => {
     }
 
     return res.json({ success: true, data });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/registrar/transcript/:studentId
+// ============================================================
+router.get('/transcript/:studentId', only, async (req, res, next) => {
+  try {
+    const userQueries = require('../../db/queries/users');
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
+
+    const studentId = Number(req.params.studentId);
+    const student = await userQueries.findByIdWithRelations(studentId);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    const rows = await resultQueries.publishedForStudent(studentId, {});
+    const summary = computeStudentCGPA(
+      rows.map((r) => ({
+        unit: Number(r.course?.unit) || 0,
+        points: Number(r.result?.points) || 0,
+        sessionId: r.result?.sessionId,
+        semester: r.result?.semester,
+      }))
+    );
+
+    return res.json({
+      success: true,
+      student,
+      rows,
+      summary: { ...summary, classification: classifyDegree(summary.cgpa) },
+    });
+  } catch (err) { return next(err); }
 });
 
 // ============================================================
@@ -465,7 +491,6 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
 
 // ============================================================
 // POST /api/registrar/documents/:id/mark-issued
-// Marks a document as issued without uploading a file (used for auto-generated transcripts)
 // ============================================================
 router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
   try {
@@ -481,38 +506,6 @@ router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/registrar/transcript/:studentId
-// ============================================================
-router.get('/transcript/:studentId', only, async (req, res, next) => {
-  try {
-    const userQueries = require('../../db/queries/users');
-    const resultQueries = require('../../db/queries/results');
-    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
-
-    const studentId = Number(req.params.studentId);
-    const student = await userQueries.findByIdWithRelations(studentId);
-    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
-
-    const rows = await resultQueries.publishedForStudent(studentId, {});
-    const summary = computeStudentCGPA(
-      rows.map((r) => ({
-        unit: Number(r.course?.unit) || 0,
-        points: Number(r.result?.points) || 0,
-        sessionId: r.result?.sessionId,
-        semester: r.result?.semester,
-      }))
-    );
-
-    return res.json({
-      success: true,
-      student,
-      rows,
-      summary: { ...summary, classification: classifyDegree(summary.cgpa) },
-    });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
 // GET /api/registrar/graduations
 // ============================================================
 router.get('/graduations', only, async (req, res, next) => {
@@ -521,7 +514,6 @@ router.get('/graduations', only, async (req, res, next) => {
     const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 
-    // Fetch all ND and HND students
     const students = await db
       .select({
         id: users.id,
@@ -541,13 +533,11 @@ router.get('/graduations', only, async (req, res, next) => {
       ))
       .orderBy(users.lastName);
 
-    // We need to check the graduations table to see who is already marked as graduated
     const graduatedRecords = await db.select({ studentId: graduations.studentId }).from(graduations);
     const graduatedSet = new Set(graduatedRecords.map(r => r.studentId));
 
     const data = [];
     for (const s of students) {
-      // Calculate real CGPA
       const results = await resultQueries.publishedForStudent(s.id, {});
       const summary = computeStudentCGPA(
         results.map((r) => ({
@@ -572,9 +562,7 @@ router.get('/graduations', only, async (req, res, next) => {
     }
 
     return res.json({ success: true, data });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
 // ============================================================
@@ -584,18 +572,16 @@ router.post('/graduations/:id/mark', only, async (req, res, next) => {
   try {
     const studentId = Number(req.params.id);
     
-    // Check if already graduated
     const existing = await db.select().from(graduations).where(eq(graduations.studentId, studentId)).limit(1);
     if (existing.length) {
       return res.status(400).json({ success: false, error: 'Student already marked as graduated.' });
     }
 
-    // Insert into graduations table
     const [row] = await db.insert(graduations).values({
       studentId: studentId,
-      sessionId: req.user.currentSessionId || 1, // Fallback to 1 if session not set
-      programmeId: 1, // You may need to fetch the actual programme ID from the user
-      level: 'ND', // You may need to fetch the actual level from the user
+      sessionId: req.user.currentSessionId || 1,
+      programmeId: 1, 
+      level: 'ND', 
       status: 'graduated',
       approvedBy: req.user.id,
       approvedAt: new Date()

@@ -7,6 +7,9 @@
 const express = require('express');
 const router = express.Router();
 const { eq, and, sql, desc, inArray } = require('drizzle-orm');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const { requireRole } = require('../../middleware/auth');
 const { db, schema } = require('../../db');
@@ -18,10 +21,16 @@ const {
   courseRegistrations, 
   clearances,
   departments,
-  courses
+  courses,
+  documents
 } = schema;
 
 const only = requireRole('registrar', 'admin');
+
+// Setup multer for document uploads
+const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const upload = multer({ dest: UPLOAD_DIR });
 
 // ============================================================
 // GET /api/registrar/dashboard
@@ -345,6 +354,62 @@ router.post('/registrations/:id/status', only, async (req, res, next) => {
       .returning();
 
     return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/registrar/documents
+// ============================================================
+router.get('/documents', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        document: documents,
+        student: users,
+      })
+      .from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .orderBy(desc(documents.requestedAt));
+
+    const data = rows.map((r) => ({
+      ...r.document,
+      studentName: `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim() || 'Unknown',
+      matricNumber: r.student?.matricNumber || '—',
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/registrar/documents/:id/issue
+// ============================================================
+router.post('/documents/:id/issue', only, upload.single('file'), async (req, res, next) => {
+  try {
+    const docId = Number(req.params.id);
+    if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded.' });
+
+    // Save file with a clean name
+    const ext = path.extname(req.file.originalname) || '.pdf';
+    const newName = `doc-${docId}-${Date.now()}${ext}`;
+    const newPath = path.join(UPLOAD_DIR, newName);
+    fs.renameSync(req.file.path, newPath);
+
+    const fileUrl = `/uploads/${newName}`;
+
+    // Update DB
+    const [updated] = await db
+      .update(documents)
+      .set({
+        status: 'issued',
+        fileUrl,
+        issuedAt: new Date(),
+        issuedBy: req.user.id,
+      })
+      .where(eq(documents.id, docId))
+      .returning();
+
+    return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
 

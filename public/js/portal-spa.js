@@ -209,6 +209,7 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
+      { key: 'registrar-documents',       label: 'Documents',       icon: ICON.file },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

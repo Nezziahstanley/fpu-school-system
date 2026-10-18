@@ -92,7 +92,7 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
+      'admin-admitted', 'admin-documents', 'admin-graduations',
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],

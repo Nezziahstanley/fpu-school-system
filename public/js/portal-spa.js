@@ -91,8 +91,8 @@
       'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
-    registrar: [
-      'admin-admitted', 'admin-documents', 'admin-graduations',
+        registrar: [
+      'admin-admitted', 
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
@@ -209,6 +209,9 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
+      { key: 'registrar-admitted',        label: 'Admitted',        icon: ICON.check },
+      { key: 'registrar-documents',       label: 'Documents',       icon: ICON.file },
+      { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

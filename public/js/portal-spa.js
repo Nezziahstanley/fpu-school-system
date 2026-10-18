@@ -123,7 +123,7 @@
   // GROUP DEFINITIONS
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
-      registrar: (role, roleItems, sharedItems) => {
+    registrar: (role, roleItems, sharedItems) => {
       const mainKeys = [
         'registrar-dashboard', 
         'registrar-students', 
@@ -132,16 +132,16 @@
         'registrar-registrations'
       ];
       
-      // We use the shared items for admitted, documents, and graduations
-      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-graduations'];
+      // The pages we want under "Registry" (Custom Registrar pages + Shared pages)
+      const registryKeys = ['admin-admitted', 'admin-documents']; // Remove admin-graduations from here
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      // Check if the custom registrar-applications page is in the role items
-      const customApps = roleItems.filter((it) => it.key === 'registrar-applications');
+      // Add custom registrar pages (applications, graduations) to the Registry group
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations'].includes(it.key));
       
       const registryItems = [
-        ...customApps,
+        ...customRegistry,
         ...sharedItems.filter((p) => registryKeys.includes(p.key))
       ];
       
@@ -229,6 +229,7 @@
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, // <-- ADD THIS
+      { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

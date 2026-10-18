@@ -1,0 +1,240 @@
+<!-- Portal → Registrar → Graduations -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Graduation Candidates</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Students eligible for graduation clearance</p>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div style="
+    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+    padding:1rem;margin-bottom:1rem;
+    display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.6rem;align-items:end;
+  ">
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Search</label>
+      <input type="search" id="grad-search" placeholder="Search matric, name, or programme…"
+             style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
+      <select id="grad-filter-level" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All Levels</option>
+        <option value="ND">ND</option>
+        <option value="HND">HND</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Status</label>
+      <select id="grad-filter-status" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All Status</option>
+        <option value="Eligible">Eligible</option>
+        <option value="Not Eligible">Not Eligible</option>
+        <option value="Graduated">Graduated</option>
+      </select>
+    </div>
+    <button id="grad-refresh" style="
+      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+      background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;height:38px;
+    ">↻ Refresh</button>
+  </div>
+
+  <!-- STAT TILES -->
+  <div id="grad-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Showing <span id="grad-shown">0</span> of <span id="grad-total">0</span> candidates
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">CGPA</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Classification</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="grad-tbody">
+          <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:gradSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes gradSpin { to { transform: rotate(360deg); } }
+  #grad-tbody tr { transition: background .1s; }
+  #grad-tbody tr:hover { background: #f8fafc; }
+  .grad-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
+  .grad-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; transition:all .15s; }
+</style>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  async function load() {
+    const tbody = $('grad-tbody');
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:gradSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
+    </td></tr>`;
+
+    try {
+      const res = await core.portalFetch('/api/registrar/graduations');
+      ALL = Array.isArray(res.data) ? res.data : [];
+      renderStats();
+      applyFilters();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderStats() {
+    const total = ALL.length;
+    const eligible = ALL.filter(s => s.cgpa >= 2.0 && s.status !== 'Graduated').length;
+    const notEligible = ALL.filter(s => s.cgpa < 2.0).length;
+    const graduated = ALL.filter(s => s.status === 'Graduated').length;
+
+    const tiles = [
+      { label: 'Total Candidates', value: total,       bg: '#e0e7ff', fg: '#3730a3', icon: '🎓' },
+      { label: 'Eligible (≥ 2.0)', value: eligible,    bg: '#d1fae5', fg: '#065f46', icon: '✅' },
+      { label: 'Not Eligible',     value: notEligible, bg: '#fee2e2', fg: '#991b1b', icon: '⚠️' },
+      { label: 'Graduated',        value: graduated,   bg: '#fef3c7', fg: '#92400e', icon: '🏆' },
+    ];
+
+    $('grad-stats').innerHTML = tiles.map(t => `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
+        <div style="min-width:0;">
+          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
+          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyFilters() {
+    const q = ($('grad-search')?.value || '').trim().toLowerCase();
+    const level = $('grad-filter-level')?.value || '';
+    const status = $('grad-filter-status')?.value || '';
+
+    FILTERED = ALL.filter(s => {
+      if (level && s.level !== level) return false;
+      if (status) {
+        if (status === 'Eligible' && (s.cgpa < 2.0 || s.status === 'Graduated')) return false;
+        if (status === 'Not Eligible' && s.cgpa >= 2.0) return false;
+        if (status === 'Graduated' && s.status !== 'Graduated') return false;
+      }
+      if (q) {
+        const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.matricNumber || ''} ${s.programmeName || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderTable(FILTERED);
+    $('grad-shown').textContent = FILTERED.length;
+    $('grad-total').textContent = ALL.length;
+  }
+
+  function renderTable(rows) {
+    const tbody = $('grad-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No candidates found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(s => {
+      const isEligible = s.cgpa >= 2.0;
+      const isGraduated = s.status === 'Graduated';
+      
+      let statusHtml = '';
+      if (isGraduated) {
+        statusHtml = `<span class="grad-badge" style="background:#e0e7ff;color:#3730a3;">Graduated</span>`;
+      } else if (isEligible) {
+        statusHtml = `<span class="grad-badge" style="background:#d1fae5;color:#065f46;">Eligible</span>`;
+      } else {
+        statusHtml = `<span class="grad-badge" style="background:#fee2e2;color:#991b1b;">Not Eligible</span>`;
+      }
+
+      const actionHtml = (!isGraduated && isEligible) 
+        ? `<button class="grad-btn btn-mark-grad" data-id="${s.id}" style="background:#065f46;color:#fff;">Mark Graduated</button>`
+        : (isGraduated ? `<span style="font-size:.72rem;color:#94a3b8;">—</span>` : `<span style="font-size:.72rem;color:#dc2626;font-weight:700;">Ineligible</span>`);
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.firstName)} ${esc(s.lastName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
+          <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${isEligible ? '#065f46' : '#dc2626'};">
+            ${Number(s.cgpa).toFixed(2)}
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:.78rem;color:#64748b;">
+            ${esc(s.classification || '—')}
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">${statusHtml}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">${actionHtml}</td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.btn-mark-grad').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!confirm('Are you sure you want to mark this student as graduated?')) return;
+        
+        btn.disabled = true;
+        btn.textContent = 'Marking...';
+        
+        try {
+          await core.portalFetch(`/api/registrar/graduations/${id}/mark`, { method: 'POST' });
+          core.showToast && core.showToast('Student marked as graduated.', 'success');
+          load(); // Reload table
+        } catch (err) {
+          core.showToast && core.showToast(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Mark Graduated';
+        }
+      });
+    });
+  }
+
+  // Wiring
+  let searchTimer;
+  $('grad-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(applyFilters, 200);
+  });
+  $('grad-filter-level')?.addEventListener('change', applyFilters);
+  $('grad-filter-status')?.addEventListener('change', applyFilters);
+  $('grad-refresh')?.addEventListener('click', load);
+
+  load();
+})();
+</script>

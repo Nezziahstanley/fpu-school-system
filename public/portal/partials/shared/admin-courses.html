@@ -146,7 +146,7 @@
 
     try {
       // Fetch departments and courses from the lookups endpoint
-      const res = await core.portalFetch('/api/admin/lookups');
+      const res = await core.portalFetch('/api/academic-officer/lookups');
       DEPARTMENTS = res.departments || [];
       COURSES = res.courses || [];
 

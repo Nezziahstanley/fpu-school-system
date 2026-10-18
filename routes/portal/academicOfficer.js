@@ -202,6 +202,30 @@ router.get('/courses', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/academic-officer/lookups
+// Returns departments and courses for the Academic Officer
+// ============================================================
+router.get('/lookups', only, async (req, res, next) => {
+  try {
+    const courseQueries = require('../../db/queries/courses');
+    
+    // Fetch all departments
+    const departments = await courseQueries.listDepartments({});
+    
+    // Fetch all courses
+    const courses = await courseQueries.list({});
+
+    return res.json({
+      success: true,
+      departments,
+      courses
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
 // GET /api/academic-officer/departments
 // ============================================================
 router.get('/departments', only, async (req, res, next) => {

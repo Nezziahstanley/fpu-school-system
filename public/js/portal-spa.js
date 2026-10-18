@@ -91,29 +91,11 @@
       'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
-    registrar: (role, roleItems, sharedItems) => {
-      const mainKeys = [
-        'registrar-dashboard', 
-        'registrar-students', 
-        'registrar-sessions', 
-        'registrar-programmes', 
-        'registrar-registrations'
-      ];
-      const registryKeys = [
-        'registrar-admitted', 
-        'registrar-documents', 
-        'registrar-graduations'
-      ];
-      
-      const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
-      const registryItems = roleItems.filter((it) => registryKeys.includes(it.key));
-      
-      return [
-        { title: 'Main',     items: mainItems },
-        { title: 'Registry', items: registryItems },
-        { title: 'Shared',   items: sharedItems },
-      ];
-    },
+    registrar: [
+      'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
+      'portal-profile', 'portal-photo', 'portal-messages',
+      'portal-notifications', 'portal-announcements', 'admin-transcript',
+    ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',

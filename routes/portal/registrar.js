@@ -22,7 +22,8 @@ const {
   clearances,
   departments,
   courses,
-  documents
+  documents,
+  graduations
 } = schema;
 
 const only = requireRole('registrar', 'admin');
@@ -447,11 +448,15 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/registrar/graduations
-// Returns eligible graduation candidates (HND and final year ND)
 // ============================================================
 router.get('/graduations', only, async (req, res, next) => {
   try {
-    const rows = await db
+    const userQueries = require('../../db/queries/users');
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
+
+    // Fetch all ND and HND students
+    const students = await db
       .select({
         id: users.id,
         matricNumber: users.matricNumber,
@@ -460,30 +465,78 @@ router.get('/graduations', only, async (req, res, next) => {
         level: users.level,
         programmeName: programmes.name,
         departmentName: departments.name,
-        // We'll calculate CGPA in the frontend or a separate query for now
       })
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .leftJoin(departments, eq(users.departmentId, departments.id))
       .where(and(
         eq(users.role, 'student'),
-        inArray(users.level, ['HND', 'ND']) // Adjust this logic if you have specific year tracking
+        inArray(users.level, ['ND', 'HND'])
       ))
-      .orderBy(desc(users.createdAt));
+      .orderBy(users.lastName);
 
-    // Attach a mock CGPA for the UI (you can replace this with actual CGPA calculation)
-    const data = rows.map(r => ({
-      ...r,
-      cgpa: 3.45, // Placeholder until we hook up the GPA calculation
-      classification: 'Upper Credit',
-      status: 'Eligible',
-      eligible: true
-    }));
+    // We need to check the graduations table to see who is already marked as graduated
+    const graduatedRecords = await db.select({ studentId: graduations.studentId }).from(graduations);
+    const graduatedSet = new Set(graduatedRecords.map(r => r.studentId));
+
+    const data = [];
+    for (const s of students) {
+      // Calculate real CGPA
+      const results = await resultQueries.publishedForStudent(s.id, {});
+      const summary = computeStudentCGPA(
+        results.map((r) => ({
+          unit: Number(r.course?.unit) || 0,
+          points: Number(r.result?.points) || 0,
+          sessionId: r.result?.sessionId,
+          semester: r.result?.semester,
+        }))
+      );
+
+      const cgpa = summary.cgpa || 0;
+      const isEligible = cgpa >= 2.0;
+      const isGraduated = graduatedSet.has(s.id);
+
+      data.push({
+        ...s,
+        cgpa: cgpa,
+        classification: classifyDegree(cgpa),
+        eligible: isEligible,
+        status: isGraduated ? 'Graduated' : (isEligible ? 'Eligible' : 'Not Eligible'),
+      });
+    }
 
     return res.json({ success: true, data });
   } catch (err) {
     return next(err);
   }
+});
+
+// ============================================================
+// POST /api/registrar/graduations/:id/mark
+// ============================================================
+router.post('/graduations/:id/mark', only, async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.id);
+    
+    // Check if already graduated
+    const existing = await db.select().from(graduations).where(eq(graduations.studentId, studentId)).limit(1);
+    if (existing.length) {
+      return res.status(400).json({ success: false, error: 'Student already marked as graduated.' });
+    }
+
+    // Insert into graduations table
+    const [row] = await db.insert(graduations).values({
+      studentId: studentId,
+      sessionId: req.user.currentSessionId || 1, // Fallback to 1 if session not set
+      programmeId: 1, // You may need to fetch the actual programme ID from the user
+      level: 'ND', // You may need to fetch the actual level from the user
+      status: 'graduated',
+      approvedBy: req.user.id,
+      approvedAt: new Date()
+    }).returning();
+
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
 });
 
 module.exports = router;

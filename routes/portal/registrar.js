@@ -117,4 +117,48 @@ router.get('/students', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/registrar/recent-students
+// ============================================================
+router.get('/recent-students', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(desc(users.createdAt))
+      .limit(5);
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/registrar/recent-applications
+// ============================================================
+router.get('/recent-applications', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: applications.id,
+        applicationNumber: applications.applicationNumber,
+        firstName: applications.firstName,
+        lastName: applications.lastName,
+        type: applications.type,
+        status: applications.status,
+      })
+      .from(applications)
+      .orderBy(desc(applications.createdAt))
+      .limit(5);
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
 module.exports = router;

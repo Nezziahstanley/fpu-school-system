@@ -171,164 +171,135 @@
     });
   }
 
-  // ---------------- Stats ----------------
-  async function loadStats() {
-    try {
-      const s = await core.portalFetch('/api/students');
-      const list = s.data || s || [];
-      $('reg-stat-students').textContent = list.length;
-      $('reg-stat-nd').textContent = list.filter(x => String(x.level).toUpperCase() === 'ND').length;
-      $('reg-stat-hnd').textContent = list.filter(x => String(x.level).toUpperCase() === 'HND').length;
-    } catch {}
+  // ============================================================
+  // Single data fetch — everything from /api/registrar/dashboard
+  // ============================================================
+  let DASH = null;
 
+  async function loadData() {
     try {
-      const cs = await core.portalFetch('/api/sessions/current');
-      const d = cs.data || cs || {};
-      $('reg-stat-session').textContent = d.name || '—';
-    } catch { $('reg-stat-session').textContent = '—'; }
-
-    try {
-      const rs = await core.portalFetch('/api/registrations/stats');
-      const d = rs.data || rs || {};
-      $('reg-stat-registrations').textContent = d.pending ?? 0;
-    } catch { $('reg-stat-registrations').textContent = '—'; }
-
-    try {
-      const a = await core.portalFetch('/api/applications/stats/summary');
-      const d = a.data || a || {};
-      $('reg-stat-apps').textContent = d.pending ?? 0;
-    } catch { $('reg-stat-apps').textContent = '—'; }
-
-    try {
-      const p = await core.portalFetch('/api/programmes');
-      const list = p.data || p || [];
-      $('reg-stat-progs').textContent = list.length;
-    } catch { $('reg-stat-progs').textContent = '—'; }
-
-    try {
-      const c = await core.portalFetch('/api/clearances/stats');
-      const d = c.data || c || {};
-      $('reg-stat-clearances').textContent = d.pending ?? 0;
-    } catch { $('reg-stat-clearances').textContent = '—'; }
+      const res = await core.portalFetch('/api/registrar/dashboard');
+      DASH = res.data || res || {};
+      return DASH;
+    } catch (err) {
+      console.error('[registrar dashboard] load failed:', err);
+      core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
+      return null;
+    }
   }
 
-  // ---------------- Charts ----------------
-  async function chartLevel() {
-    try {
-      const s = await core.portalFetch('/api/students');
-      const list = s.data || s || [];
-      const counts = { ND: 0, HND: 0 };
-      list.forEach(x => { const l = String(x.level).toUpperCase(); if (counts[l] !== undefined) counts[l]++; });
-      makeBar('reg-chart-level', ['ND', 'HND'], [counts.ND, counts.HND], { label: 'Students', colors: COLORS.purple, thickness: 50 });
-    } catch { emptyChart('reg-chart-level'); }
+  // ============================================================
+  // Render KPIs
+  // ============================================================
+  function renderStats() {
+    if (!DASH) return;
+    $('reg-stat-students').textContent = DASH.totalStudents ?? 0;
+    $('reg-stat-nd').textContent = DASH.ndStudents ?? 0;
+    $('reg-stat-hnd').textContent = DASH.hndStudents ?? 0;
+    $('reg-stat-session').textContent = DASH.activeSession || '—';
+    $('reg-stat-registrations').textContent = DASH.pendingRegistrations ?? 0;
+    $('reg-stat-apps').textContent = DASH.pendingApplications ?? 0;
+    $('reg-stat-progs').textContent = DASH.totalProgrammes ?? 0;
+    $('reg-stat-clearances').textContent = DASH.pendingClearances ?? 0;
   }
 
-  async function chartDept() {
-    try {
-      const s = await core.portalFetch('/api/students');
-      const list = s.data || s || [];
-      const counts = {};
-      list.forEach(x => {
-        const k = x.departmentName || `Dept ${x.departmentId || '?'}`;
-        counts[k] = (counts[k] || 0) + 1;
-      });
-      const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
-      if (!entries.length) return emptyChart('reg-chart-dept');
-      makeBar('reg-chart-dept', entries.map(e=>e[0]), entries.map(e=>e[1]), { label: 'Students', colors: COLORS.blue });
-    } catch { emptyChart('reg-chart-dept'); }
+  // ============================================================
+  // Render Charts
+  // ============================================================
+  function renderCharts() {
+    if (!DASH || !DASH.demographics) return;
+    const d = DASH.demographics;
+
+    // 1. By Level
+    if (d.byLevel) {
+      const labels = Object.keys(d.byLevel);
+      const values = labels.map(k => d.byLevel[k]);
+      if (values.some(v => v > 0)) makeBar('reg-chart-level', labels, values, { colors: COLORS.purple, thickness: 50 });
+      else emptyChart('reg-chart-level');
+    } else emptyChart('reg-chart-level');
+
+    // 2. By Department
+    if (d.byDept && Object.keys(d.byDept).length) {
+      const entries = Object.entries(d.byDept).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      makeBar('reg-chart-dept', entries.map(e => e[0]), entries.map(e => e[1]), { colors: COLORS.blue });
+    } else emptyChart('reg-chart-dept');
+
+    // 3. Gender
+    if (d.byGender) {
+      const labels = Object.keys(d.byGender);
+      const values = labels.map(k => d.byGender[k]);
+      makeDoughnut('reg-chart-gender', labels, values, [COLORS.blue, COLORS.pink, COLORS.slate]);
+    } else emptyChart('reg-chart-gender');
+
+    // 4. Enrollment trend — placeholder using students data
+    //    (true trend needs per-month aggregation; skip for now)
+    emptyChart('reg-chart-enrollment', 'Detailed monthly data coming soon');
+
+    // 5. Registration Status — placeholder
+    emptyChart('reg-chart-registrations', 'Detailed registration data coming soon');
+
+    // 6. Admission trend — placeholder
+    emptyChart('reg-chart-admission', 'Detailed admission data coming soon');
   }
 
-  async function chartGender() {
-    try {
-      const s = await core.portalFetch('/api/students');
-      const list = s.data || s || [];
-      let m=0, f=0, o=0;
-      list.forEach(x => { const g = String(x.gender||'').toLowerCase(); if (g==='male') m++; else if (g==='female') f++; else o++; });
-      makeDoughnut('reg-chart-gender', ['Male','Female','Not Specified'], [m,f,o], [COLORS.blue, COLORS.pink, COLORS.slate]);
-    } catch { emptyChart('reg-chart-gender'); }
-  }
-
-  async function chartEnrollment() {
-    try {
-      const s = await core.portalFetch('/api/students');
-      const list = s.data || s || [];
-      const monthly = {};
-      list.forEach(x => {
-        if (!x.createdAt) return;
-        const d = new Date(x.createdAt);
-        const k = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
-        monthly[k] = (monthly[k] || 0) + 1;
-      });
-      const sorted = Object.entries(monthly).reverse();
-      let cum = 0;
-      const data = sorted.map(([,v]) => { cum += v; return cum; });
-      if (!sorted.length) return emptyChart('reg-chart-enrollment');
-      makeLine('reg-chart-enrollment', sorted.map(e=>e[0]), data, { label: 'Students', color: COLORS.purple });
-    } catch { emptyChart('reg-chart-enrollment'); }
-  }
-
-  async function chartRegistrations() {
-    try {
-      const r = await core.portalFetch('/api/registrations?limit=1000');
-      const list = r.data || r || [];
-      const counts = {};
-      list.forEach(x => { const s = x.status || 'pending'; counts[s] = (counts[s]||0)+1; });
-      const colorMap = { pending: COLORS.gold, approved: COLORS.green, rejected: COLORS.red };
-      const keys = Object.keys(counts);
-      if (!keys.length) return emptyChart('reg-chart-registrations');
-      makeDoughnut('reg-chart-registrations', keys, keys.map(k=>counts[k]), keys.map(k=>colorMap[k]||COLORS.slate));
-    } catch { emptyChart('reg-chart-registrations'); }
-  }
-
-  async function chartAdmission() {
-    try {
-      const a = await core.portalFetch('/api/applications?limit=1000');
-      const list = a.data || a || [];
-      const monthly = {};
-      list.forEach(x => {
-        if (!x.createdAt) return;
-        const d = new Date(x.createdAt);
-        const k = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
-        monthly[k] = (monthly[k] || 0) + 1;
-      });
-      const sorted = Object.entries(monthly).reverse();
-      if (!sorted.length) return emptyChart('reg-chart-admission');
-      makeLine('reg-chart-admission', sorted.map(e=>e[0]), sorted.map(e=>e[1]), { label: 'Applications', color: COLORS.gold });
-    } catch { emptyChart('reg-chart-admission'); }
-  }
-
-  // ---------------- Recent tables ----------------
+  // ============================================================
+  // Recent tables
+  // ============================================================
   async function loadRecentStudents() {
     const tbody = $('reg-recent-students');
     try {
-      const s = await core.portalFetch('/api/students?limit=8');
-      const list = (s.data || s || []).slice(0, 8);
+      const res = await core.portalFetch('/api/registrar/recent-students');
+      const list = (res.data || []).slice(0, 8);
       tbody.innerHTML = list.length
-        ? list.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td></tr>`).join('')
-        : '<tr><td colspan="4" class="empty">No students.</td></tr>';
-    } catch { tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
+        ? list.map(x => `
+            <tr>
+              <td><code>${esc(x.matricNumber || '—')}</code></td>
+              <td>${esc(`${x.firstName || ''} ${x.lastName || ''}`.trim())}</td>
+              <td>${esc(x.level || '—')}</td>
+              <td>${esc(x.programmeName || '—')}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No students yet.</td></tr>';
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">Could not load (${esc(err.message)})</td></tr>`;
+    }
   }
 
   async function loadRecentApps() {
     const tbody = $('reg-recent-apps');
     try {
-      const a = await core.portalFetch('/api/applications?limit=8');
-      const list = (a.data || a || []).slice(0, 8);
+      const res = await core.portalFetch('/api/registrar/recent-applications');
+      const list = (res.data || []).slice(0, 8);
       tbody.innerHTML = list.length
-        ? list.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
-        : '<tr><td colspan="4" class="empty">No applications.</td></tr>';
-    } catch { tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
+        ? list.map(x => `
+            <tr>
+              <td><code>${esc(x.applicationNumber || '—')}</code></td>
+              <td>${esc(`${x.firstName || ''} ${x.lastName || ''}`.trim())}</td>
+              <td>${esc(x.type || 'ND')}</td>
+              <td>${esc((x.status || '').replace(/_/g, ' '))}</td>
+            </tr>`).join('')
+        : '<tr><td colspan="4" class="empty">No applications yet.</td></tr>';
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" class="empty">Could not load (${esc(err.message)})</td></tr>`;
+    }
   }
 
-  // ---------------- Main ----------------
+  // ============================================================
+  // Main
+  // ============================================================
   async function loadAll() {
     Object.keys(charts).forEach(destroyChart);
-    await Promise.all([loadStats(), loadRecentStudents(), loadRecentApps()]);
-    await Promise.all([chartLevel(), chartDept(), chartGender(), chartEnrollment(), chartRegistrations(), chartAdmission()]);
+
+    const data = await loadData();
+    if (!data) return;
+
+    renderStats();
+    renderCharts();
+
+    await Promise.all([loadRecentStudents(), loadRecentApps()]);
   }
 
-  $('reg-refresh').addEventListener('click', loadAll);
-  $('reg-range').addEventListener('change', loadAll);
+  $('reg-refresh')?.addEventListener('click', loadAll);
+  $('reg-range')?.addEventListener('change', loadAll);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));

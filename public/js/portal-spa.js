@@ -92,7 +92,7 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-admitted', 'admin-documents', 'admin-graduations', 'registrar-applications',
+      'admin-admitted', 'admin-documents', 'admin-graduations',
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
@@ -123,7 +123,7 @@
   // GROUP DEFINITIONS
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
-    registrar: (role, roleItems, sharedItems) => {
+      registrar: (role, roleItems, sharedItems) => {
       const mainKeys = [
         'registrar-dashboard', 
         'registrar-students', 
@@ -132,11 +132,16 @@
         'registrar-registrations'
       ];
       
+      // We use the shared items for admitted, documents, and graduations
       const registryKeys = ['admin-admitted', 'admin-documents', 'admin-graduations'];
+      
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
+      // Check if the custom registrar-applications page is in the role items
+      const customApps = roleItems.filter((it) => it.key === 'registrar-applications');
+      
       const registryItems = [
-        { key: 'admin-applications-list', label: 'Applications', icon: ICON.file },
+        ...customApps,
         ...sharedItems.filter((p) => registryKeys.includes(p.key))
       ];
       
@@ -223,6 +228,7 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
+      { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, // <-- ADD THIS
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

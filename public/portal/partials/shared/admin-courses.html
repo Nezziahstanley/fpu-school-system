@@ -145,8 +145,18 @@
       </div>`;
 
     try {
-      // Fetch departments and courses from the lookups endpoint
-      const res = await core.portalFetch('/api/academic-officer/lookups');
+      // Determine which endpoint to call based on the logged-in user's role
+      const user = core.getPortalUser ? core.getPortalUser() : {};
+      const role = user.role || 'admin';
+      
+      let apiPrefix = 'admin';
+      if (role === 'academic_officer') apiPrefix = 'academic-officer';
+      else if (role === 'exam_officer') apiPrefix = 'exam-officer';
+      else if (role === 'admission_officer') apiPrefix = 'admission-officer';
+      else if (role === 'registrar') apiPrefix = 'registrar';
+      else if (role === 'bursar') apiPrefix = 'bursar';
+      
+      const res = await core.portalFetch(`/api/${apiPrefix}/lookups`);
       DEPARTMENTS = res.departments || [];
       COURSES = res.courses || [];
 

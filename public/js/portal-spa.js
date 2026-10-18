@@ -124,12 +124,29 @@
   // ----------------------------------------------------------
   const MENU_GROUPS_BY_ROLE = {
     registrar: (role, roleItems, sharedItems) => {
-      const mainItems = roleItems.filter((it) => it.key.startsWith('registrar-'));
+      const mainKeys = [
+        'registrar-dashboard', 
+        'registrar-students', 
+        'registrar-sessions', 
+        'registrar-programmes', 
+        'registrar-registrations'
+      ];
+      const registryKeys = [
+        'registrar-applications',
+        'registrar-admitted', 
+        'registrar-documents', 
+        'registrar-graduations'
+      ];
       
-      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-graduations'];
-      const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
+      const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
+      // Combine custom registrar registry pages with shared registry pages
+      const registryItems = [
+        ...roleItems.filter((it) => registryKeys.includes(it.key)),
+        ...sharedItems.filter((p) => ['admin-admitted', 'admin-documents', 'admin-graduations'].includes(p.key))
+      ];
+      
+      const personalItems = sharedItems.filter((p) => !['admin-admitted', 'admin-documents', 'admin-graduations'].includes(p.key));
 
       return [
         { title: 'Main',     items: mainItems },
@@ -212,6 +229,10 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
+      { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file },
+      { key: 'registrar-admitted',        label: 'Admitted',        icon: ICON.check },
+      { key: 'registrar-documents',       label: 'Documents',       icon: ICON.file },
+      { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

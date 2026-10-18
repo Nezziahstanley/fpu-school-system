@@ -358,6 +358,40 @@ router.post('/documents/:id/reject', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/bursar/students
+// Returns a list of all students for transcript viewing
+// ============================================================
+router.get('/students', only, async (req, res, next) => {
+  try {
+    const userQueries = require('../../db/queries/users');
+    const { db, schema } = require('../../db');
+    const { eq, and, desc } = require('drizzle-orm');
+    const { users, programmes, departments } = schema;
+
+    // Fetch all students
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(desc(users.createdAt));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
 // PROFILE + SECURITY
 // ============================================================
 router.get('/profile', only, async (req, res, next) => {

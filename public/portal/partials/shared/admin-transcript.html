@@ -147,7 +147,7 @@
   // ---------------------------------------------------------
   async function loadStudents() {
     try {
-      const res = await core.portalFetch('/api/students');
+      const res = await core.portalFetch('/api/bursar/students');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
       console.log('[transcript] Loaded', ALL.length, 'students');

@@ -167,8 +167,8 @@
     tbody.querySelectorAll('.tr-view-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
-        // Open the transcript template in a new tab
-        window.open(`/portal/partials/registrar/document-template.html?studentId=${id}`, '_blank');
+        // Open the built-in modal viewer
+        viewTranscript(id); 
       });
     });
   }

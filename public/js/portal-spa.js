@@ -92,7 +92,7 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-admitted', 'admin-documents', 'admin-graduations',
+      'admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations',
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
@@ -131,22 +131,13 @@
         'registrar-programmes', 
         'registrar-registrations'
       ];
-      const registryKeys = [
-        'registrar-applications',
-        'registrar-admitted', 
-        'registrar-documents', 
-        'registrar-graduations'
-      ];
+      
+      // These are the shared pages we want under "Registry"
+      const registryKeys = ['admin-applications-list', 'admin-admitted', 'admin-documents', 'admin-graduations'];
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
-      
-      // Combine custom registrar registry pages with shared registry pages
-      const registryItems = [
-        ...roleItems.filter((it) => registryKeys.includes(it.key)),
-        ...sharedItems.filter((p) => ['admin-admitted', 'admin-documents', 'admin-graduations'].includes(p.key))
-      ];
-      
-      const personalItems = sharedItems.filter((p) => !['admin-admitted', 'admin-documents', 'admin-graduations'].includes(p.key));
+      const registryItems = sharedItems.filter((p) => registryKeys.includes(p.key));
+      const personalItems = sharedItems.filter((p) => !registryKeys.includes(p.key));
 
       return [
         { title: 'Main',     items: mainItems },
@@ -229,10 +220,6 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
-      { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file },
-      { key: 'registrar-admitted',        label: 'Admitted',        icon: ICON.check },
-      { key: 'registrar-documents',       label: 'Documents',       icon: ICON.file },
-      { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

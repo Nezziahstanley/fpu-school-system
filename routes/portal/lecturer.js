@@ -62,17 +62,29 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
 
-    // 3. Get student count
+    // 3. Get student count per course
+    const courseStats = [];
     let totalStudents = 0;
-    if (courseIds.length > 0) {
+    
+    for (const c of allocatedCourses) {
+      if (!c.course) continue;
+      
       const regs = await db
-        .select({ count: sql`count(distinct ${courseRegistrations.studentId})::int` })
+        .select({ count: sql`count(*)::int` })
         .from(courseRegistrations)
         .where(and(
-          inArray(courseRegistrations.courseId, courseIds),
+          eq(courseRegistrations.courseId, c.course.id),
           eq(courseRegistrations.status, 'approved')
         ));
-      totalStudents = regs[0]?.count || 0;
+      
+      const count = regs[0]?.count || 0;
+      totalStudents += count;
+      
+      courseStats.push({
+        code: c.course.code,
+        title: c.course.title,
+        students: count
+      });
     }
 
     // 4. Get pending results
@@ -117,6 +129,7 @@ router.get('/dashboard', only, async (req, res, next) => {
         assignmentsCount,
         departmentName: dept?.name || '—',
         coursesList: allocatedCourses.map(c => c.course).filter(Boolean),
+        courseStats, // <-- New data for the chart
       }
     });
   } catch (err) {

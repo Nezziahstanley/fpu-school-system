@@ -667,11 +667,13 @@ router.get('/students-list', only, async (req, res, next) => {
   try {
     const lecturerId = req.user.id;
     
-    // 1. Get allocated courses using the query helper (safer)
-    const allocations = await courseQueries.listAllocationsWithRelations({
-      lecturerId: lecturerId,
-    });
-    const courseIds = allocations.map(a => a.course?.id).filter(Boolean);
+    // 1. Get allocated course IDs directly from the table
+    const allocations = await db
+      .select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+      
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
     
     if (!courseIds.length) {
       return res.json({ success: true, data: [] });
@@ -692,7 +694,7 @@ router.get('/students-list', only, async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // 3. Fetch full student details
+    // 3. Fetch full student details (avoiding isActive in case the column doesn't exist)
     const students = await db
       .select({
         id: users.id,
@@ -701,7 +703,6 @@ router.get('/students-list', only, async (req, res, next) => {
         lastName: users.lastName,
         level: users.level,
         email: users.email,
-        isActive: users.isActive,
         programmeName: programmes.name,
         departmentName: departments.name,
       })
@@ -714,7 +715,7 @@ router.get('/students-list', only, async (req, res, next) => {
     return res.json({ success: true, data: students });
   } catch (err) {
     console.error('[lecturer/students-list] Error:', err);
-    return next(err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 module.exports = router;

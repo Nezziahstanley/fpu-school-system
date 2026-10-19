@@ -216,22 +216,32 @@
       }
 
       // --- RENDER CHARTS ---
-      // 1. Students Per Course (Bar chart using total students vs courses)
+      // 1. Students Per Course (Bar chart using real stats)
       destroyChart('chart-students');
       const ctxStudents = $('chart-students')?.getContext('2d');
       if (ctxStudents) {
+        const stats = d.courseStats || [];
+        
         activeCharts['chart-students'] = new Chart(ctxStudents, {
           type: 'bar',
           data: {
-            labels: coursesList.length ? coursesList.map(c => c.code) : ['No Courses'],
+            labels: stats.length ? stats.map(c => c.code) : ['No Courses'],
             datasets: [{
               label: 'Students Enrolled',
-              data: coursesList.length ? coursesList.map(() => Math.floor(d.totalStudents / coursesList.length) || 0) : [0],
+              data: stats.length ? stats.map(c => c.students) : [0],
               backgroundColor: '#3b82f6',
               borderRadius: 4
             }]
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } }, 
+            scales: { 
+              y: { beginAtZero: true, ticks: { precision: 0 } },
+              x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+            } 
+          }
         });
       }
 

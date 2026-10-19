@@ -660,4 +660,63 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/lecturer/students-list
+// Returns a list of students enrolled in the lecturer's courses
+// ============================================================
+router.get('/students-list', only, async (req, res, next) => {
+  try {
+    const lecturerId = req.user.id;
+    
+    // 1. Get allocated courses
+    const allocations = await db
+      .select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+      
+    const courseIds = allocations.map(a => a.courseId);
+    
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 2. Get students registered for these courses
+    const regs = await db
+      .select({ studentId: courseRegistrations.studentId })
+      .from(courseRegistrations)
+      .where(and(
+        inArray(courseRegistrations.courseId, courseIds),
+        eq(courseRegistrations.status, 'approved')
+      ));
+      
+    const studentIds = [...new Set(regs.map(r => r.studentId))]; // Unique IDs
+
+    if (!studentIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 3. Fetch student details
+    const students = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        email: users.email,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(inArray(users.id, studentIds))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: students });
+  } catch (err) {
+    return next(err);
+  }
+});
 module.exports = router;

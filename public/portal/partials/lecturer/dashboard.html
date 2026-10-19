@@ -170,10 +170,16 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // Keep track of charts so we can destroy them on refresh
-  const activeCharts = {};
-  function destroyChart(id) {
-    if (activeCharts[id]) { activeCharts[id].destroy(); delete activeCharts[id]; }
+  // Safely destroys existing chart on the canvas before drawing a new one
+  function drawChart(canvasId, config) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    if (canvas.__chart) {
+      canvas.__chart.destroy();
+    }
+    
+    canvas.__chart = new Chart(canvas, config);
   }
 
   async function load() {
@@ -216,73 +222,56 @@
       }
 
       // --- RENDER CHARTS ---
-      // 1. Students Per Course (Bar chart using real stats)
-      destroyChart('chart-students');
-      const ctxStudents = $('chart-students')?.getContext('2d');
-      if (ctxStudents) {
-        const stats = d.courseStats || [];
-        
-        activeCharts['chart-students'] = new Chart(ctxStudents, {
-          type: 'bar',
-          data: {
-            labels: stats.length ? stats.map(c => c.code) : ['No Courses'],
-            datasets: [{
-              label: 'Students Enrolled',
-              data: stats.length ? stats.map(c => c.students) : [0],
-              backgroundColor: '#3b82f6',
-              borderRadius: 4
-            }]
-          },
-          options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { legend: { display: false } }, 
-            scales: { 
-              y: { beginAtZero: true, ticks: { precision: 0 } },
-              x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
-            } 
-          }
-        });
-      }
+      const stats = d.courseStats || [];
+      drawChart('chart-students', {
+        type: 'bar',
+        data: {
+          labels: stats.length ? stats.map(c => c.code) : ['No Courses'],
+          datasets: [{
+            label: 'Students Enrolled',
+            data: stats.length ? stats.map(c => c.students) : [0],
+            backgroundColor: '#3b82f6',
+            borderRadius: 4
+          }]
+        },
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false, 
+          plugins: { legend: { display: false } }, 
+          scales: { 
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+          } 
+        }
+      });
 
-      // 2. Results Status (Doughnut chart)
-      destroyChart('chart-results');
-      const ctxResults = $('chart-results')?.getContext('2d');
-      if (ctxResults) {
-        activeCharts['chart-results'] = new Chart(ctxResults, {
-          type: 'doughnut',
-          data: {
-            labels: ['Pending', 'Published'],
-            datasets: [{
-              data: [d.pendingResults || 0, Math.max(0, (d.totalStudents || 0) - (d.pendingResults || 0))],
-              backgroundColor: ['#f59e0b', '#10b981'],
-              borderWidth: 2, borderColor: '#fff'
-            }]
-          },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
-        });
-      }
+      drawChart('chart-results', {
+        type: 'doughnut',
+        data: {
+          labels: ['Pending', 'Published'],
+          datasets: [{
+            data: [d.pendingResults || 0, Math.max(0, (d.totalStudents || 0) - (d.pendingResults || 0))],
+            backgroundColor: ['#f59e0b', '#10b981'],
+            borderWidth: 2, borderColor: '#fff'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+      });
 
-      // 3. Course Levels (Doughnut chart)
-      destroyChart('chart-levels');
-      const ctxLevels = $('chart-levels')?.getContext('2d');
-      if (ctxLevels) {
-        const ndCount = coursesList.filter(c => c.level === 'ND').length;
-        const hndCount = coursesList.filter(c => c.level === 'HND').length;
-        
-        activeCharts['chart-levels'] = new Chart(ctxLevels, {
-          type: 'doughnut',
-          data: {
-            labels: ['ND', 'HND'],
-            datasets: [{
-              data: [ndCount, hndCount],
-              backgroundColor: ['#8b5cf6', '#ec4899'],
-              borderWidth: 2, borderColor: '#fff'
-            }]
-          },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
-        });
-      }
+      const ndCount = coursesList.filter(c => c.level === 'ND').length;
+      const hndCount = coursesList.filter(c => c.level === 'HND').length;
+      drawChart('chart-levels', {
+        type: 'doughnut',
+        data: {
+          labels: ['ND', 'HND'],
+          datasets: [{
+            data: [ndCount, hndCount],
+            backgroundColor: ['#8b5cf6', '#ec4899'],
+            borderWidth: 2, borderColor: '#fff'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+      });
 
       // Pending Results text
       if (d.pendingResults > 0) {

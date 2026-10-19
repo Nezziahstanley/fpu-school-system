@@ -1,4 +1,6 @@
 <!-- Portal → Lecturer → Dashboard -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <div style="padding:0;">
 
   <!-- HEADER -->
@@ -98,8 +100,8 @@
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Students Per Course</div>
         <span style="font-size:.6rem;font-weight:800;background:#ecfdf5;color:#065f46;padding:2px 6px;border-radius:4px;">BAR</span>
       </div>
-      <div style="padding:1rem;height:200px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.82rem;" id="chart-students">
-        No courses assigned
+      <div style="padding:1rem;height:220px;position:relative;">
+        <canvas id="chart-students"></canvas>
       </div>
     </div>
 
@@ -108,8 +110,8 @@
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Results Status</div>
         <span style="font-size:.6rem;font-weight:800;background:#ecfdf5;color:#065f46;padding:2px 6px;border-radius:4px;">DOUGHNUT</span>
       </div>
-      <div style="padding:1rem;height:200px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.82rem;" id="chart-results">
-        No results yet
+      <div style="padding:1rem;height:220px;position:relative;">
+        <canvas id="chart-results"></canvas>
       </div>
     </div>
 
@@ -118,8 +120,8 @@
         <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Course Levels</div>
         <span style="font-size:.6rem;font-weight:800;background:#ecfdf5;color:#065f46;padding:2px 6px;border-radius:4px;">DOUGHNUT</span>
       </div>
-      <div style="padding:1rem;height:200px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.82rem;" id="chart-levels">
-        No courses
+      <div style="padding:1rem;height:220px;position:relative;">
+        <canvas id="chart-levels"></canvas>
       </div>
     </div>
   </div>
@@ -168,6 +170,12 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  // Keep track of charts so we can destroy them on refresh
+  const activeCharts = {};
+  function destroyChart(id) {
+    if (activeCharts[id]) { activeCharts[id].destroy(); delete activeCharts[id]; }
+  }
+
   async function load() {
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
@@ -207,18 +215,70 @@
         }
       }
 
-      // Charts
-      if (coursesList.length > 0) {
-        $('chart-students').innerHTML = `<span style="color:#065f46;font-weight:700;">${d.totalStudents} students enrolled</span>`;
-        $('chart-results').innerHTML = `<span style="color:#065f46;font-weight:700;">${d.pendingResults} pending results</span>`;
-        $('chart-levels').innerHTML = `<span style="color:#065f46;font-weight:700;">${coursesList.length} active courses</span>`;
+      // --- RENDER CHARTS ---
+      // 1. Students Per Course (Bar chart using total students vs courses)
+      destroyChart('chart-students');
+      const ctxStudents = $('chart-students')?.getContext('2d');
+      if (ctxStudents) {
+        activeCharts['chart-students'] = new Chart(ctxStudents, {
+          type: 'bar',
+          data: {
+            labels: coursesList.length ? coursesList.map(c => c.code) : ['No Courses'],
+            datasets: [{
+              label: 'Students Enrolled',
+              data: coursesList.length ? coursesList.map(() => Math.floor(d.totalStudents / coursesList.length) || 0) : [0],
+              backgroundColor: '#3b82f6',
+              borderRadius: 4
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+      }
+
+      // 2. Results Status (Doughnut chart)
+      destroyChart('chart-results');
+      const ctxResults = $('chart-results')?.getContext('2d');
+      if (ctxResults) {
+        activeCharts['chart-results'] = new Chart(ctxResults, {
+          type: 'doughnut',
+          data: {
+            labels: ['Pending', 'Published'],
+            datasets: [{
+              data: [d.pendingResults || 0, Math.max(0, (d.totalStudents || 0) - (d.pendingResults || 0))],
+              backgroundColor: ['#f59e0b', '#10b981'],
+              borderWidth: 2, borderColor: '#fff'
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+
+      // 3. Course Levels (Doughnut chart)
+      destroyChart('chart-levels');
+      const ctxLevels = $('chart-levels')?.getContext('2d');
+      if (ctxLevels) {
+        const ndCount = coursesList.filter(c => c.level === 'ND').length;
+        const hndCount = coursesList.filter(c => c.level === 'HND').length;
         
+        activeCharts['chart-levels'] = new Chart(ctxLevels, {
+          type: 'doughnut',
+          data: {
+            labels: ['ND', 'HND'],
+            datasets: [{
+              data: [ndCount, hndCount],
+              backgroundColor: ['#8b5cf6', '#ec4899'],
+              borderWidth: 2, borderColor: '#fff'
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+
+      // Pending Results text
+      if (d.pendingResults > 0) {
         $('lec-pending-results').innerHTML = `<span style="color:#065f46;font-weight:700;">You have ${d.pendingResults} pending result submissions.</span>`;
       } else {
-        $('chart-students').innerHTML = 'No courses assigned';
-        $('chart-results').innerHTML = 'No results yet';
-        $('chart-levels').innerHTML = 'No courses';
-        $('lec-pending-results').innerHTML = 'No pending results.';
+        $('lec-pending-results').textContent = 'No pending results.';
       }
       
     } catch (err) {

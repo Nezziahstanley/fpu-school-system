@@ -23,11 +23,11 @@ const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 
-// Extract all needed tables from schema
+// Extract ALL needed tables from schema
 const { 
   courseAllocations, courses, courseRegistrations, users, 
   academicSessions, results, courseMaterials, assignments, 
-  departments, assignmentSubmissions 
+  departments, assignmentSubmissions, programmes 
 } = schema;
 
 const only = requireRole('lecturer', 'hod');
@@ -129,11 +129,70 @@ router.get('/dashboard', only, async (req, res, next) => {
         assignmentsCount,
         departmentName: dept?.name || '—',
         coursesList: allocatedCourses.map(c => c.course).filter(Boolean),
-        courseStats, // <-- New data for the chart
+        courseStats, 
       }
     });
   } catch (err) {
     return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/lecturer/students-list
+// ============================================================
+router.get('/students-list', only, async (req, res, next) => {
+  try {
+    const lecturerId = req.user.id;
+    
+    // 1. Get allocated course IDs
+    const allocations = await db
+      .select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+      
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+    
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 2. Get unique student IDs registered for these courses
+    const regs = await db
+      .select({ studentId: courseRegistrations.studentId })
+      .from(courseRegistrations)
+      .where(and(
+        inArray(courseRegistrations.courseId, courseIds),
+        eq(courseRegistrations.status, 'approved')
+      ));
+      
+    const studentIds = [...new Set(regs.map(r => r.studentId))];
+
+    if (!studentIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 3. Fetch full student details
+    const students = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        email: users.email,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(inArray(users.id, studentIds))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: students });
+  } catch (err) {
+    console.error('[lecturer/students-list] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -660,62 +719,4 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
   } catch (err) { return next(err); }
 });
 
-// ============================================================
-// GET /api/lecturer/students-list
-// ============================================================
-router.get('/students-list', only, async (req, res, next) => {
-  try {
-    const lecturerId = req.user.id;
-    
-    // 1. Get allocated course IDs directly from the table
-    const allocations = await db
-      .select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations)
-      .where(eq(courseAllocations.lecturerId, lecturerId));
-      
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    
-    if (!courseIds.length) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 2. Get unique student IDs registered for these courses
-    const regs = await db
-      .select({ studentId: courseRegistrations.studentId })
-      .from(courseRegistrations)
-      .where(and(
-        inArray(courseRegistrations.courseId, courseIds),
-        eq(courseRegistrations.status, 'approved')
-      ));
-      
-    const studentIds = [...new Set(regs.map(r => r.studentId))];
-
-    if (!studentIds.length) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 3. Fetch full student details (avoiding isActive in case the column doesn't exist)
-    const students = await db
-      .select({
-        id: users.id,
-        matricNumber: users.matricNumber,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        level: users.level,
-        email: users.email,
-        programmeName: programmes.name,
-        departmentName: departments.name,
-      })
-      .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .leftJoin(departments, eq(users.departmentId, departments.id))
-      .where(inArray(users.id, studentIds))
-      .orderBy(users.lastName);
-
-    return res.json({ success: true, data: students });
-  } catch (err) {
-    console.error('[lecturer/students-list] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
 module.exports = router;

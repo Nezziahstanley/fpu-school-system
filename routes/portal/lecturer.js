@@ -18,12 +18,17 @@ const libQueries     = require('../../db/queries/library');
 const notifQueries   = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const { db, schema } = require('../../db');
-const { eq, and, desc, inArray } = require('drizzle-orm');
+const { eq, and, desc, inArray, sql } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 
-const { assignments, assignmentSubmissions, courseMaterials, users: usersTable } = schema;
+// Extract all needed tables from schema
+const { 
+  courseAllocations, courses, courseRegistrations, users, 
+  academicSessions, results, courseMaterials, assignments, 
+  departments, assignmentSubmissions 
+} = schema;
 
 const only = requireRole('lecturer', 'hod');
 
@@ -43,37 +48,76 @@ async function getAllocatedCourseIds(userId, sessionId) {
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {
   try {
-    const sessionId = req.user.currentSessionId;
-    const allocations = await courseQueries.listAllocationsWithRelations({
-      lecturerId: req.user.id, sessionId,
-    });
-    const courseIds = allocations.map((a) => a.course?.id).filter(Boolean);
+    const lecturerId = req.user.id;
 
-    const pendingResults = courseIds.length
-      ? await resultQueries.list({ status: 'draft', sessionId })
-      : [];
+    // 1. Get current session for display
+    const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
-    const totalStudents = courseIds.length
-      ? (await regQueries.listWithStudent({ sessionId, status: 'approved' }))
-          .filter((r) => courseIds.includes(r.registration.courseId))
-          .map((r) => r.registration.studentId)
-          .filter((v, i, a) => a.indexOf(v) === i).length
-      : 0;
+    // 2. Fetch ALL allocated courses (ignoring session restriction to ensure data shows)
+    const allocatedCourses = await db
+      .select({ course: courses })
+      .from(courseAllocations)
+      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(eq(courseAllocations.lecturerId, lecturerId));
 
-    const unreadNotifications = await notifQueries.countUnreadNotifications(req.user.id);
-    const unreadMessages      = await notifQueries.countUnreadMessages(req.user.id);
+    const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
+
+    // 3. Get student count
+    let totalStudents = 0;
+    if (courseIds.length > 0) {
+      const regs = await db
+        .select({ count: sql`count(distinct ${courseRegistrations.studentId})::int` })
+        .from(courseRegistrations)
+        .where(and(
+          inArray(courseRegistrations.courseId, courseIds),
+          eq(courseRegistrations.status, 'approved')
+        ));
+      totalStudents = regs[0]?.count || 0;
+    }
+
+    // 4. Get pending results
+    let pendingResults = 0;
+    if (courseIds.length > 0) {
+      const pend = await db
+        .select({ count: sql`count(*)::int` })
+        .from(results)
+        .where(and(
+          inArray(results.courseId, courseIds),
+          eq(results.status, 'draft')
+        ));
+      pendingResults = pend[0]?.count || 0;
+    }
+
+    // 5. Get materials & assignments
+    let materialsCount = 0;
+    let assignmentsCount = 0;
+    if (courseIds.length > 0) {
+      const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));
+      materialsCount = mats[0]?.count || 0;
+      
+      const ass = await db.select({ count: sql`count(*)::int` }).from(assignments).where(inArray(assignments.courseId, courseIds));
+      assignmentsCount = ass[0]?.count || 0;
+    }
+
+    // 6. Get Department Name
+    const [dept] = await db.select({ name: departments.name })
+      .from(users)
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(users.id, lecturerId))
+      .limit(1);
 
     return res.json({
       success: true,
       data: {
-        lecturer: await userQueries.findByIdWithRelations(req.user.id),
-        courses: allocations,
-        totalCourses: allocations.length,
+        coursesCount: allocatedCourses.length,
         totalStudents,
-        pendingResults: pendingResults.filter((r) => courseIds.includes(r.courseId)).length,
-        unreadNotifications,
-        unreadMessages,
-      },
+        pendingResults,
+        activeSession: currentSession?.name || '—',
+        materialsCount,
+        assignmentsCount,
+        departmentName: dept?.name || '—',
+        coursesList: allocatedCourses.map(c => c.course).filter(Boolean),
+      }
     });
   } catch (err) {
     return next(err);
@@ -144,8 +188,6 @@ router.get('/attendance', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/attendance/bulk
-// Scoped: only accepts rows whose courseId is in the lecturer's
-// allocations.
 // ============================================================
 router.post('/attendance/bulk', only, async (req, res, next) => {
   try {
@@ -211,7 +253,6 @@ router.get('/assessments', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/results
-// Scoped: the courseId must be in the lecturer's allocations.
 // ============================================================
 router.post('/results', only, async (req, res, next) => {
   try {
@@ -242,8 +283,6 @@ router.post('/results', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/results/submit
-// Scoped: silently ignores IDs whose course isn't allocated to
-// the calling lecturer.
 // ============================================================
 router.post('/results/submit', only, async (req, res, next) => {
   try {
@@ -315,7 +354,6 @@ router.get('/materials', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/materials
-// Scoped: courseId must be allocated to the lecturer.
 // ============================================================
 router.post('/materials', only, async (req, res, next) => {
   try {
@@ -361,7 +399,6 @@ router.get('/assignments', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/assignments
-// Scoped: courseId must be allocated to the lecturer.
 // ============================================================
 router.post('/assignments', only, async (req, res, next) => {
   try {
@@ -394,7 +431,6 @@ router.post('/assignments', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/lecturer/assignments/:id/submissions
-// Scoped: the assignment must belong to the calling lecturer.
 // ============================================================
 router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
@@ -411,10 +447,10 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
     const rows = await db
       .select({
         submission: assignmentSubmissions,
-        student: usersTable,
+        student: users,
       })
       .from(assignmentSubmissions)
-      .leftJoin(usersTable, eq(assignmentSubmissions.studentId, usersTable.id))
+      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
       .where(eq(assignmentSubmissions.assignmentId, Number(req.params.id)))
       .orderBy(desc(assignmentSubmissions.submittedAt));
     return res.json({ success: true, data: rows });
@@ -425,14 +461,12 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/lecturer/assignments/submissions/:id/grade
-// Scoped: the submission's assignment must belong to the lecturer.
 // ============================================================
 router.post('/assignments/submissions/:id/grade', only, async (req, res, next) => {
   try {
     const { score, feedback } = req.body || {};
     if (score === undefined) return res.status(400).json({ success: false, error: 'score is required.' });
 
-    // Find the submission, then verify via its assignment
     const [sub] = await db
       .select()
       .from(assignmentSubmissions)
@@ -562,7 +596,6 @@ router.post('/allocations/:id/accept', requireRole('lecturer', 'hod'), async (re
     if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
     await logAudit({ req, action: 'lecturer.allocation_accept', entity: 'course_allocation', entityId: row.id });
 
-    // Notify the HOD
     try {
       const course = await courseQueries.findById(row.courseId);
       const hod = await userQueries.findHodForDepartment(course.departmentId);
@@ -582,7 +615,6 @@ router.post('/allocations/:id/accept', requireRole('lecturer', 'hod'), async (re
 });
 
 // POST /api/lecturer/allocations/:id/flag
-// Body: { reason, note }
 router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req, res, next) => {
   try {
     const { reason, note } = req.body || {};
@@ -597,7 +629,6 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
       after: { reason, note },
     });
 
-    // Notify the HOD
     try {
       const course = await courseQueries.findById(row.courseId);
       const hod = await userQueries.findHodForDepartment(course.departmentId);
@@ -616,151 +647,4 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
   } catch (err) { return next(err); }
 });
 
-// ============================================================
-// ALLOCATION ACCEPTANCE WORKFLOW (Design B)
-// ============================================================
-
-// POST /api/lecturer/allocations/:id/accept
-router.post('/allocations/:id/accept', requireRole('lecturer', 'hod'), async (req, res, next) => {
-  try {
-    const row = await courseQueries.acceptAllocation(req.params.id, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
-    await logAudit({ req, action: 'lecturer.allocation_accept', entity: 'course_allocation', entityId: row.id });
-
-    // Notify the HOD
-    try {
-      const course = await courseQueries.findById(row.courseId);
-      const hod = await userQueries.findHodForDepartment(course.departmentId);
-      if (hod) {
-        await notifQueries.createNotification({
-          userId: hod.id,
-          title: 'Course assignment accepted',
-          body: (course.code || '') + ' — ' + (course.title || '') + ' accepted by lecturer.',
-          type: 'success',
-          link: '/portal/app.html#hod-courses',
-        });
-      }
-    } catch (e) { /* best-effort */ }
-
-    return res.json({ success: true, data: row });
-  } catch (err) { return next(err); }
-});
-
-// POST /api/lecturer/allocations/:id/flag
-// Body: { reason, note }
-router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req, res, next) => {
-  try {
-    const { reason, note } = req.body || {};
-    if (!reason) return res.status(400).json({ success: false, error: 'reason is required.' });
-    const row = await courseQueries.flagAllocation(req.params.id, req.user.id, reason, note);
-    if (!row) return res.status(404).json({ success: false, error: 'Allocation not found.' });
-    await logAudit({
-      req,
-      action: 'lecturer.allocation_flag',
-      entity: 'course_allocation',
-      entityId: row.id,
-      after: { reason, note },
-    });
-
-    // Notify the HOD
-    try {
-      const course = await courseQueries.findById(row.courseId);
-      const hod = await userQueries.findHodForDepartment(course.departmentId);
-      if (hod) {
-        await notifQueries.createNotification({
-          userId: hod.id,
-          title: 'Course assignment flagged',
-          body: (course.code || '') + ' — ' + (course.title || '') + ' was flagged: ' + reason,
-          type: 'warning',
-          link: '/portal/app.html#hod-courses',
-        });
-      }
-    } catch (e) { /* best-effort */ }
-
-    return res.json({ success: true, data: row });
-  } catch (err) { return next(err); }
-});
-
-
-// ============================================================
-// GET /api/lecturer/dashboard
-// ============================================================
-router.get('/dashboard', only, async (req, res, next) => {
-  try {
-    const { db, schema } = require('../../db');
-    const { eq, and, sql, inArray } = require('drizzle-orm');
-    const { courseAllocations, courses, courseRegistrations, users, academicSessions, results, courseMaterials, assignments } = schema;
-    const lecturerId = req.user.id;
-
-    // 1. Get current session
-    const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
-    const sessionId = currentSession?.id;
-
-    // 2. Get allocated courses
-    const allocatedCourses = await db
-      .select({ course: courses })
-      .from(courseAllocations)
-      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
-      .where(and(
-        eq(courseAllocations.lecturerId, lecturerId),
-        sessionId ? eq(courseAllocations.sessionId, sessionId) : undefined
-      ));
-
-    const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
-
-    // 3. Get student count for those courses
-    let totalStudents = 0;
-    if (courseIds.length > 0) {
-      const regs = await db
-        .select({ count: sql`count(distinct ${courseRegistrations.studentId})::int` })
-        .from(courseRegistrations)
-        .where(and(
-          inArray(courseRegistrations.courseId, courseIds),
-          eq(courseRegistrations.status, 'approved')
-        ));
-      totalStudents = regs[0]?.count || 0;
-    }
-
-    // 4. Get pending results (drafts)
-    let pendingResults = 0;
-    if (courseIds.length > 0) {
-      const pend = await db
-        .select({ count: sql`count(*)::int` })
-        .from(results)
-        .where(and(
-          inArray(results.courseId, courseIds),
-          eq(results.status, 'draft')
-        ));
-      pendingResults = pend[0]?.count || 0;
-    }
-
-    // 5. Get materials & assignments count
-    let materialsCount = 0;
-    let assignmentsCount = 0;
-    if (courseIds.length > 0) {
-      const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));
-      materialsCount = mats[0]?.count || 0;
-      
-      const ass = await db.select({ count: sql`count(*)::int` }).from(assignments).where(inArray(assignments.courseId, courseIds));
-      assignmentsCount = ass[0]?.count || 0;
-    }
-
-    // Return the dashboard data
-    return res.json({
-      success: true,
-      data: {
-        coursesCount: allocatedCourses.length,
-        totalStudents,
-        pendingResults,
-        activeSession: currentSession?.name || '—',
-        materialsCount,
-        assignmentsCount,
-        departmentName: req.user.departmentName || '—', // Assuming this is attached in auth
-        coursesList: allocatedCourses.map(c => c.course).filter(Boolean),
-      }
-    });
-  } catch (err) {
-    return next(err);
-  }
-});
 module.exports = router;

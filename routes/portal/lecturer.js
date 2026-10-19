@@ -680,4 +680,87 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
+
+
+// ============================================================
+// GET /api/lecturer/dashboard
+// ============================================================
+router.get('/dashboard', only, async (req, res, next) => {
+  try {
+    const { db, schema } = require('../../db');
+    const { eq, and, sql, inArray } = require('drizzle-orm');
+    const { courseAllocations, courses, courseRegistrations, users, academicSessions, results, courseMaterials, assignments } = schema;
+    const lecturerId = req.user.id;
+
+    // 1. Get current session
+    const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    const sessionId = currentSession?.id;
+
+    // 2. Get allocated courses
+    const allocatedCourses = await db
+      .select({ course: courses })
+      .from(courseAllocations)
+      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(and(
+        eq(courseAllocations.lecturerId, lecturerId),
+        sessionId ? eq(courseAllocations.sessionId, sessionId) : undefined
+      ));
+
+    const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
+
+    // 3. Get student count for those courses
+    let totalStudents = 0;
+    if (courseIds.length > 0) {
+      const regs = await db
+        .select({ count: sql`count(distinct ${courseRegistrations.studentId})::int` })
+        .from(courseRegistrations)
+        .where(and(
+          inArray(courseRegistrations.courseId, courseIds),
+          eq(courseRegistrations.status, 'approved')
+        ));
+      totalStudents = regs[0]?.count || 0;
+    }
+
+    // 4. Get pending results (drafts)
+    let pendingResults = 0;
+    if (courseIds.length > 0) {
+      const pend = await db
+        .select({ count: sql`count(*)::int` })
+        .from(results)
+        .where(and(
+          inArray(results.courseId, courseIds),
+          eq(results.status, 'draft')
+        ));
+      pendingResults = pend[0]?.count || 0;
+    }
+
+    // 5. Get materials & assignments count
+    let materialsCount = 0;
+    let assignmentsCount = 0;
+    if (courseIds.length > 0) {
+      const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));
+      materialsCount = mats[0]?.count || 0;
+      
+      const ass = await db.select({ count: sql`count(*)::int` }).from(assignments).where(inArray(assignments.courseId, courseIds));
+      assignmentsCount = ass[0]?.count || 0;
+    }
+
+    // Return the dashboard data
+    return res.json({
+      success: true,
+      data: {
+        coursesCount: allocatedCourses.length,
+        totalStudents,
+        pendingResults,
+        activeSession: currentSession?.name || '—',
+        materialsCount,
+        assignmentsCount,
+        departmentName: req.user.departmentName || '—', // Assuming this is attached in auth
+        coursesList: allocatedCourses.map(c => c.course).filter(Boolean),
+      }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
 module.exports = router;

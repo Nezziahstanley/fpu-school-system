@@ -662,25 +662,22 @@ router.post('/allocations/:id/flag', requireRole('lecturer', 'hod'), async (req,
 
 // ============================================================
 // GET /api/lecturer/students-list
-// Returns a list of students enrolled in the lecturer's courses
 // ============================================================
 router.get('/students-list', only, async (req, res, next) => {
   try {
     const lecturerId = req.user.id;
     
-    // 1. Get allocated courses
-    const allocations = await db
-      .select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations)
-      .where(eq(courseAllocations.lecturerId, lecturerId));
-      
-    const courseIds = allocations.map(a => a.courseId);
+    // 1. Get allocated courses using the query helper (safer)
+    const allocations = await courseQueries.listAllocationsWithRelations({
+      lecturerId: lecturerId,
+    });
+    const courseIds = allocations.map(a => a.course?.id).filter(Boolean);
     
     if (!courseIds.length) {
       return res.json({ success: true, data: [] });
     }
 
-    // 2. Get students registered for these courses
+    // 2. Get unique student IDs registered for these courses
     const regs = await db
       .select({ studentId: courseRegistrations.studentId })
       .from(courseRegistrations)
@@ -689,13 +686,13 @@ router.get('/students-list', only, async (req, res, next) => {
         eq(courseRegistrations.status, 'approved')
       ));
       
-    const studentIds = [...new Set(regs.map(r => r.studentId))]; // Unique IDs
+    const studentIds = [...new Set(regs.map(r => r.studentId))];
 
     if (!studentIds.length) {
       return res.json({ success: true, data: [] });
     }
 
-    // 3. Fetch student details
+    // 3. Fetch full student details
     const students = await db
       .select({
         id: users.id,
@@ -704,9 +701,9 @@ router.get('/students-list', only, async (req, res, next) => {
         lastName: users.lastName,
         level: users.level,
         email: users.email,
+        isActive: users.isActive,
         programmeName: programmes.name,
         departmentName: departments.name,
-        isActive: users.isActive,
       })
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
@@ -716,6 +713,7 @@ router.get('/students-list', only, async (req, res, next) => {
 
     return res.json({ success: true, data: students });
   } catch (err) {
+    console.error('[lecturer/students-list] Error:', err);
     return next(err);
   }
 });

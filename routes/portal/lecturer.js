@@ -35,14 +35,11 @@ const {
 
 const only = requireRole('lecturer', 'hod');
 
-// Setup multer for material uploads
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const upload = multer({ dest: UPLOAD_DIR });
 
-// ------------------------------------------------------------
 // Helper: list the course IDs the current lecturer is allocated to
-// ------------------------------------------------------------
 async function getAllocatedCourseIds(userId, sessionId) {
   const allocations = await courseQueries.listAllocationsWithRelations({
     lecturerId: userId,
@@ -176,7 +173,6 @@ router.get('/students', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'courseId is required.' });
     }
 
-    // Verify the lecturer is allocated to this course
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
@@ -322,7 +318,7 @@ router.get('/results', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/materials
+// MATERIALS CRUD
 // ============================================================
 router.get('/materials', only, async (req, res, next) => {
   try {
@@ -340,65 +336,51 @@ router.get('/materials', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// POST /api/lecturer/materials
-// ============================================================
 router.post('/materials', only, upload.single('file'), async (req, res, next) => {
   try {
     const { courseId, title, description, materialType } = req.body || {};
     let fileUrl = req.body.fileUrl || null;
 
-    if (!courseId || !title) {
-      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
-    }
-
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, Number(courseId))
-      ))
-      .limit(1);
-
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
+    if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
     if (req.file) {
       const ext = path.extname(req.file.originalname) || '';
       const newName = `material-${Date.now()}${ext}`;
-      const newPath = path.join(UPLOAD_DIR, newName);
-      
-      fs.renameSync(req.file.path, newPath);
+      fs.renameSync(req.file.path, path.join(UPLOAD_DIR, newName));
       fileUrl = `/uploads/${newName}`;
     }
 
     const [row] = await db.insert(courseMaterials).values({
-      courseId: Number(courseId),
-      lecturerId: req.user.id,
-      title: title,
-      description: description || null,
-      fileUrl: fileUrl,
-      materialType: materialType || 'note',
+      courseId: Number(courseId), lecturerId: req.user.id, title, description: description || null, fileUrl, materialType: materialType || 'note',
     }).returning();
-
     return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/materials] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.put('/materials/:id', only, async (req, res, next) => {
+  try {
+    const { title, description, materialType } = req.body || {};
+    const [row] = await db.update(courseMaterials).set({ title, description, materialType }).where(and(eq(courseMaterials.id, Number(req.params.id)), eq(courseMaterials.lecturerId, req.user.id))).returning();
+    return res.json({ success: true, data: row });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.delete('/materials/:id', only, async (req, res, next) => {
+  try {
+    await db.delete(courseMaterials).where(and(eq(courseMaterials.id, Number(req.params.id)), eq(courseMaterials.lecturerId, req.user.id)));
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
-// GET /api/lecturer/assignments
+// ASSIGNMENTS CRUD
 // ============================================================
 router.get('/assignments', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
         id: assignments.id, title: assignments.title, description: assignments.description,
-        dueDate: assignments.dueDate, maxScore: assignments.maxScore, createdAt: assignments.createdAt,
+        dueDate: assignments.dueDate, maxScore: assignments.maxScore, createdAt: assignments.createdAt, status: assignments.status,
         courseCode: courses.code,
       })
       .from(assignments)
@@ -409,40 +391,64 @@ router.get('/assignments', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// GET /api/lecturer/requests
-// ============================================================
-router.get('/requests', only, async (req, res, next) => {
+router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
   try {
-    const rows = await notifQueries.listComplaints({ userId: req.user.id });
-    return res.json({ success: true, data: rows });
+    const { courseId, title, description, dueDate, maxScore, semester } = req.body || {};
+    let attachmentUrl = null;
+
+    if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+
+    if (req.file) {
+      const ext = path.extname(req.file.originalname) || '';
+      const newName = `assignment-${Date.now()}${ext}`;
+      fs.renameSync(req.file.path, path.join(UPLOAD_DIR, newName));
+      attachmentUrl = `/uploads/${newName}`;
+    }
+
+    const [row] = await db.insert(assignments).values({
+      courseId: Number(courseId), lecturerId: req.user.id, sessionId: req.user.currentSessionId || 1,
+      semester: semester || 'first', title, description: description || null, dueDate: dueDate ? new Date(dueDate) : null,
+      maxScore: maxScore ? Number(maxScore) : 100, attachmentUrl, status: 'open',
+    }).returning();
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.put('/assignments/:id', only, async (req, res, next) => {
+  try {
+    const { title, description, dueDate, maxScore } = req.body || {};
+    const [row] = await db.update(assignments).set({ title, description, dueDate: dueDate ? new Date(dueDate) : null, maxScore: Number(maxScore) }).where(and(eq(assignments.id, Number(req.params.id)), eq(assignments.lecturerId, req.user.id))).returning();
+    return res.json({ success: true, data: row });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.delete('/assignments/:id', only, async (req, res, next) => {
+  try {
+    await db.delete(assignments).where(and(eq(assignments.id, Number(req.params.id)), eq(assignments.lecturerId, req.user.id)));
+    return res.json({ success: true });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
-// GET /api/lecturer/reports
+// OTHER ROUTES
 // ============================================================
+router.get('/requests', only, async (req, res, next) => {
+  try { return res.json({ success: true, data: await notifQueries.listComplaints({ userId: req.user.id }) }); }
+  catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
 router.get('/reports', only, async (req, res, next) => {
   try {
     const sessionId = req.user.currentSessionId;
     const allocations = await courseQueries.listAllocationsWithRelations({ lecturerId: req.user.id, sessionId });
     const courseIds = allocations.map((a) => a.course?.id).filter(Boolean);
-
     const resultRows = courseIds.length ? await resultQueries.list({ sessionId, limit: 5000 }) : [];
     const myResults = resultRows.filter((r) => courseIds.includes(r.courseId));
-
-    const summary = {
-      totalCourses: allocations.length,
-      totalResultRows: myResults.length,
-      byStatus: myResults.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {}),
-    };
+    const summary = { totalCourses: allocations.length, totalResultRows: myResults.length, byStatus: myResults.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {}) };
     return res.json({ success: true, data: { allocations, summary } });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// GET /api/lecturer/timetable
-// ============================================================
 router.get('/timetable', only, async (req, res, next) => {
   try {
     const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
@@ -464,78 +470,17 @@ router.get('/timetable', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// GET /api/lecturer/profile
-// ============================================================
 router.get('/profile', only, async (req, res, next) => {
   try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
   catch (err) { return next(err); }
 });
 
-// ============================================================
-// GET /api/lecturer/security
-// ============================================================
 router.get('/security', only, async (req, res, next) => {
   try {
     const sessions = await sessionQueries.listUserSessions(req.user.id);
     const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
     return res.json({ success: true, sessions, logins });
   } catch (err) { return next(err); }
-});
-
-// ============================================================
-// POST /api/lecturer/assignments
-// ============================================================
-router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
-  try {
-    const { courseId, title, description, dueDate, maxScore, semester } = req.body || {};
-    let attachmentUrl = null;
-
-    if (!courseId || !title) {
-      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
-    }
-
-    // Verify the lecturer is allocated to this course
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, Number(courseId))
-      ))
-      .limit(1);
-
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
-
-    // Handle File Upload
-    if (req.file) {
-      const ext = path.extname(req.file.originalname) || '';
-      const newName = `assignment-${Date.now()}${ext}`;
-      const newPath = path.join(UPLOAD_DIR, newName);
-      
-      fs.renameSync(req.file.path, newPath);
-      attachmentUrl = `/uploads/${newName}`;
-    }
-
-    const [row] = await db.insert(assignments).values({
-      courseId: Number(courseId),
-      lecturerId: req.user.id,
-      sessionId: req.user.currentSessionId || 1, // Fallback to 1 if not set
-      semester: semester || 'first',
-      title: title,
-      description: description || null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      maxScore: maxScore ? Number(maxScore) : 100,
-      attachmentUrl: attachmentUrl,
-    }).returning();
-
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/assignments] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
 });
 
 module.exports = router;

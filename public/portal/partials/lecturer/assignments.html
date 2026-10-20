@@ -50,16 +50,18 @@
   </div>
 </div>
 
-<!-- ═══════ MODAL: NEW ASSIGNMENT ═══════ -->
+<!-- ═══════ MODAL: NEW / EDIT ASSIGNMENT ═══════ -->
 <div id="asg-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">New Assignment</h3>
+      <h3 id="asg-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">New Assignment</h3>
       <button id="asg-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
 
     <div style="padding:1.25rem;">
+      <input type="hidden" id="asg-id" />
+
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
         <select id="asg-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
@@ -105,6 +107,7 @@
   @keyframes asgSpin { to { transform: rotate(360deg); } }
   #asg-tbody tr { transition: background .1s; }
   #asg-tbody tr:hover { background: #f8fafc; }
+  .asg-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer; }
 </style>
 
 <script>
@@ -116,41 +119,71 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   let ALL_COURSES = [];
+  let ALL_ASSIGNMENTS = [];
 
   async function load() {
     const tbody = $('asg-tbody');
     try {
       const res = await core.portalFetch('/api/lecturer/assignments');
-      const rows = res.data || [];
+      ALL_ASSIGNMENTS = res.data || [];
       
-      $('asg-total').textContent = rows.length;
+      $('asg-total').textContent = ALL_ASSIGNMENTS.length;
 
-      if (!rows.length) {
+      if (!ALL_ASSIGNMENTS.length) {
         tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments yet.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = rows.map(r => `
+      tbody.innerHTML = ALL_ASSIGNMENTS.map(r => `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
           <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.dueDate)}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
-            ${r.attachmentUrl ? `<a href="${esc(r.attachmentUrl)}" target="_blank" style="font-size:.75rem;color:#1e40af;text-decoration:none;font-weight:700;">View File</a>` : '—'}
+            <button class="asg-btn" data-action="view" data-id="${r.id}" style="background:#eff6ff;color:#1e40af;margin-right:.25rem;">View</button>
+            <button class="asg-btn" data-action="edit" data-id="${r.id}" style="background:#f1f5f9;color:#475569;margin-right:.25rem;">Edit</button>
+            <button class="asg-btn" data-action="delete" data-id="${r.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>
           </td>
         </tr>
       `).join('');
+
+      // Wire buttons
+      tbody.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.id);
+          const action = btn.dataset.action;
+          const item = ALL_ASSIGNMENTS.find(a => a.id === id);
+          
+          if (action === 'view') {
+            alert(`Title: ${item.title}\n\nDescription: ${item.description || 'N/A'}\nDue: ${fmtDate(item.dueDate)}\nAttachment: ${item.attachmentUrl || 'None'}`);
+          } else if (action === 'edit') {
+            openModal(item);
+          } else if (action === 'delete') {
+            if (confirm('Delete this assignment?')) {
+              core.portalFetch(`/api/lecturer/assignments/${id}`, { method: 'DELETE' })
+                .then(() => { core.showToast('Deleted', 'success'); load(); })
+                .catch(e => core.showToast(e.message, 'error'));
+            }
+          }
+        });
+      });
+
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function openModal() {
+  async function openModal(existingItem = null) {
     $('asg-modal').style.display = 'flex';
-    $('asg-title').value = '';
-    $('asg-desc').value = '';
-    $('asg-due').value = '';
+    $('asg-modal-title').textContent = existingItem ? 'Edit Assignment' : 'New Assignment';
+    
+    $('asg-id').value = existingItem ? existingItem.id : '';
+    $('asg-title').value = existingItem ? existingItem.title : '';
+    $('asg-desc').value = existingItem ? existingItem.description : '';
+    $('asg-due').value = existingItem && existingItem.dueDate ? existingItem.dueDate.split('T')[0] : '';
+    $('asg-score').value = existingItem ? existingItem.maxScore : 100;
     $('asg-file').value = '';
+    
     $('asg-course').innerHTML = '<option value="">Loading…</option>';
 
     try {
@@ -160,6 +193,7 @@
       
       $('asg-course').innerHTML = '<option value="">Select Course</option>' + 
         ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+        
     } catch (err) {
       $('asg-course').innerHTML = '<option value="">Error loading courses</option>';
     }
@@ -170,6 +204,7 @@
   }
 
   async function saveAssignment() {
+    const id = $('asg-id').value;
     const courseId = $('asg-course').value;
     const title = $('asg-title').value.trim();
     
@@ -179,7 +214,7 @@
 
     const btn = $('asg-save');
     btn.disabled = true;
-    btn.textContent = 'Publishing…';
+    btn.textContent = 'Saving…';
 
     try {
       const formData = new FormData();
@@ -191,22 +226,23 @@
       formData.append('semester', 'first');
 
       const file = $('asg-file').files[0];
-      if (file) {
-        formData.append('file', file);
-      }
+      if (file) formData.append('file', file);
 
-      // Use native fetch for FormData to ensure auth header is sent
+      // Use native fetch for FormData (crucial for file uploads + auth)
       const token = localStorage.getItem('fpu_token');
-      const res = await fetch('/api/lecturer/assignments', {
-        method: 'POST',
+      const url = id ? `/api/lecturer/assignments/${id}` : '/api/lecturer/assignments';
+      const method = id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method: method,
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to publish');
+      if (!res.ok) throw new Error(json.error || 'Failed to save');
 
-      core.showToast && core.showToast('Assignment published successfully!', 'success');
+      core.showToast && core.showToast('Saved successfully!', 'success');
       closeModal();
       load();
     } catch (err) {
@@ -217,7 +253,7 @@
     }
   }
 
-  $('asg-create')?.addEventListener('click', openModal);
+  $('asg-create')?.addEventListener('click', () => openModal(null));
   $('asg-refresh')?.addEventListener('click', load);
   $('asg-modal-close')?.addEventListener('click', closeModal);
   $('asg-cancel')?.addEventListener('click', closeModal);

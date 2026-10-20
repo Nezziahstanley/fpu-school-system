@@ -437,4 +437,44 @@ router.get('/students', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// POST /api/lecturer/materials
+// ============================================================
+router.post('/materials', only, async (req, res, next) => {
+  try {
+    const { courseId, title, description, fileUrl, materialType } = req.body || {};
+    if (!courseId || !title) {
+      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+    }
+
+    // Verify the lecturer is allocated to this course
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, Number(courseId))
+      ))
+      .limit(1);
+
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    }
+
+    const [row] = await db.insert(courseMaterials).values({
+      courseId: Number(courseId),
+      lecturerId: req.user.id,
+      title: title,
+      description: description || null,
+      fileUrl: fileUrl || null,
+      materialType: materialType || 'note',
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[lecturer/materials] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -26,7 +26,7 @@ const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 const { 
   courseAllocations, courses, courseRegistrations, users, 
   academicSessions, results, courseMaterials, assignments, 
-  departments, assignmentSubmissions, programmes 
+  departments, assignmentSubmissions, programmes, timetableSlots 
 } = schema;
 
 const only = requireRole('lecturer', 'hod');
@@ -59,7 +59,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
 
-    // Calculate unique students and total registrations
     const courseStats = [];
     let uniqueStudentIds = new Set();
     let totalRegistrations = 0;
@@ -88,7 +87,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const totalStudents = uniqueStudentIds.size;
 
-    // Get pending results
     let pendingResults = 0;
     if (courseIds.length > 0) {
       const pend = await db
@@ -101,7 +99,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       pendingResults = pend[0]?.count || 0;
     }
 
-    // Get materials & assignments
     let materialsCount = 0;
     let assignmentsCount = 0;
     if (courseIds.length > 0) {
@@ -112,7 +109,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       assignmentsCount = ass[0]?.count || 0;
     }
 
-    // Get Department Name
     const [dept] = await db.select({ name: departments.name })
       .from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))
@@ -211,6 +207,48 @@ router.get('/courses', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/lecturer/timetable
+// ============================================================
+router.get('/timetable', only, async (req, res, next) => {
+  try {
+    const lecturerId = req.user.id;
+
+    const allocations = await db
+      .select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+      
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const slots = await db
+      .select({
+        id: timetableSlots.id,
+        dayOfWeek: timetableSlots.dayOfWeek,
+        startTime: timetableSlots.startTime,
+        endTime: timetableSlots.endTime,
+        venue: timetableSlots.venue,
+        semester: timetableSlots.semester,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+      })
+      .from(timetableSlots)
+      .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
+      .where(inArray(timetableSlots.courseId, courseIds))
+      .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
+
+    return res.json({ success: true, data: slots });
+  } catch (err) {
+    console.error('[lecturer/timetable] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/lecturer/students?courseId=&sessionId=
 // ============================================================
 router.get('/students', only, async (req, res, next) => {
@@ -224,54 +262,6 @@ router.get('/students', only, async (req, res, next) => {
       status: ['pending', 'approved'],
     });
     return res.json({ success: true, data: rows });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// ============================================================
-// GET /api/lecturer/timetable
-// ============================================================
-router.get('/timetable', only, async (req, res, next) => {
-  try {
-    const lecturerId = req.user.id;
-
-    // 1. Get allocated courses
-    const allocations = await db
-      .select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations)
-      .where(eq(courseAllocations.lecturerId, lecturerId));
-      
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-
-    if (!courseIds.length) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 2. Get timetable slots for those courses
-    const slots = await db
-      .select({
-        slot: timetableSlots,
-        course: courses,
-      })
-      .from(timetableSlots)
-      .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
-      .where(inArray(timetableSlots.courseId, courseIds))
-      .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
-
-    const data = slots.map(s => ({
-      id: s.slot.id,
-      dayOfWeek: s.slot.dayOfWeek,
-      startTime: s.slot.startTime,
-      endTime: s.slot.endTime,
-      venue: s.slot.venue,
-      semester: s.slot.semester,
-      courseCode: s.course?.code || '—',
-      courseTitle: s.course?.title || '—',
-      level: s.course?.level || '—',
-    }));
-
-    return res.json({ success: true, data });
   } catch (err) {
     return next(err);
   }

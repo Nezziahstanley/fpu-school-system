@@ -8,9 +8,14 @@
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View and manage attendance records</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="att-refresh" style="
+      <button id="att-take" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+        display:inline-flex;align-items:center;gap:.35rem;
+      ">✅ Take Attendance</button>
+      <button id="att-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;
       ">↻ Refresh</button>
     </div>
   </div>
@@ -77,10 +82,64 @@
   </div>
 </div>
 
+<!-- ═══════ MODAL: TAKE ATTENDANCE ═══════ -->
+<div id="att-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Take Attendance</h3>
+      <button id="att-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:1.25rem;">
+      <!-- Form -->
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.75rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
+          <select id="att-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="">Select Course</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Date</label>
+          <input type="date" id="att-date" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester</label>
+          <select id="att-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="first">First</option>
+            <option value="second">Second</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <button id="att-load-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Load Students</button>
+        <button id="att-mark-all" style="display:none;padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">✅ Mark All Present</button>
+      </div>
+
+      <!-- Student List -->
+      <div id="att-student-list" style="border:1px solid #e5e7eb;border-radius:8px;max-height:400px;overflow-y:auto;">
+        <div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+        <button id="att-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="att-save" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;" disabled>Save Attendance</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
   @keyframes attSpin { to { transform: rotate(360deg); } }
   #att-tbody tr { transition: background .1s; }
   #att-tbody tr:hover { background: #f8fafc; }
+  .att-student-row { display:flex; align-items:center; justify-content:space-between; padding:.65rem 1rem; border-bottom:1px solid #f1f5f9; }
+  .att-student-row:last-child { border-bottom:none; }
+  .att-radio-group { display:flex; gap:.5rem; }
+  .att-radio-group label { display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; font-weight:600; cursor:pointer; }
 </style>
 
 <script>
@@ -90,7 +149,11 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  async function load() {
+  let ALL_COURSES = [];
+  let CURRENT_STUDENTS = [];
+
+  // --- Load Attendance Records ---
+  async function loadRecords() {
     const tbody = $('att-tbody');
     tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
       <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:attSpin .8s linear infinite;"></div>
@@ -101,7 +164,6 @@
       const res = await core.portalFetch('/api/lecturer/attendance');
       const rows = res.data || [];
 
-      // Update stats
       let present = 0, absent = 0, late = 0;
       rows.forEach(r => {
         if (r.status === 'present') present++;
@@ -115,7 +177,6 @@
       $('att-late').textContent = late;
       $('att-count').textContent = rows.length;
 
-      // Render Table
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No attendance records found.</td></tr>`;
         return;
@@ -148,7 +209,135 @@
     }
   }
 
-  $('att-refresh')?.addEventListener('click', load);
-  load();
+  // --- Open Modal ---
+  async function openModal() {
+    $('att-modal').style.display = 'flex';
+    $('att-date').value = new Date().toISOString().split('T')[0];
+    $('att-student-list').innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>`;
+    $('att-save').disabled = true;
+    $('att-mark-all').style.display = 'none';
+
+    if (!ALL_COURSES.length) {
+      try {
+        const res = await core.portalFetch('/api/lecturer/courses');
+        const rows = res.data || [];
+        ALL_COURSES = rows.map(r => r.course).filter(Boolean);
+        
+        const sel = $('att-course');
+        sel.innerHTML = '<option value="">Select Course</option>' + 
+          ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+      } catch (err) {
+        core.showToast && core.showToast('Failed to load courses: ' + err.message, 'error');
+      }
+    }
+  }
+
+  function closeModal() {
+    $('att-modal').style.display = 'none';
+  }
+
+  // --- Load Students ---
+  async function loadStudents() {
+    const courseId = $('att-course').value;
+    if (!courseId) return core.showToast && core.showToast('Please select a course.', 'warning');
+
+    const list = $('att-student-list');
+    list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading students…</div>`;
+    $('att-mark-all').style.display = 'none';
+
+    try {
+      const res = await core.portalFetch(`/api/lecturer/students?courseId=${courseId}`);
+      const rows = res.data || [];
+      CURRENT_STUDENTS = rows.map(r => r.student).filter(Boolean);
+
+      if (!CURRENT_STUDENTS.length) {
+        list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">No approved students found for this course.</div>`;
+        $('att-save').disabled = true;
+        return;
+      }
+
+      list.innerHTML = CURRENT_STUDENTS.map(s => `
+        <div class="att-student-row">
+          <div>
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(s.firstName)} ${esc(s.lastName)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(s.matricNumber || '—')}</div>
+          </div>
+          <div class="att-radio-group" data-id="${s.id}">
+            <label><input type="radio" name="status_${s.id}" value="present" checked /> Present</label>
+            <label><input type="radio" name="status_${s.id}" value="absent" /> Absent</label>
+            <label><input type="radio" name="status_${s.id}" value="late" /> Late</label>
+          </div>
+        </div>
+      `).join('');
+
+      $('att-save').disabled = false;
+      $('att-mark-all').style.display = 'block'; // Show the button
+
+    } catch (err) {
+      list.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${err.message}</div>`;
+      $('att-save').disabled = true;
+    }
+  }
+
+  // --- Mark All Present ---
+  function markAllPresent() {
+    CURRENT_STUDENTS.forEach(s => {
+      const radio = document.querySelector(`input[name="status_${s.id}"][value="present"]`);
+      if (radio) radio.checked = true;
+    });
+    core.showToast && core.showToast('All students marked present.', 'success');
+  }
+
+  // --- Save Attendance ---
+  async function saveAttendance() {
+    const courseId = $('att-course').value;
+    const date = $('att-date').value;
+    const semester = $('att-semester').value;
+
+    if (!courseId || !date) return core.showToast && core.showToast('Course and date are required.', 'warning');
+    if (!CURRENT_STUDENTS.length) return core.showToast && core.showToast('No students to save.', 'warning');
+
+    const rows = CURRENT_STUDENTS.map(s => {
+      const checked = document.querySelector(`input[name="status_${s.id}"]:checked`);
+      return {
+        courseId: Number(courseId),
+        studentId: s.id,
+        date: date,
+        semester: semester,
+        status: checked ? checked.value : 'present',
+      };
+    });
+
+    const btn = $('att-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      await core.portalFetch('/api/lecturer/attendance/bulk', {
+        method: 'POST',
+        body: { rows },
+      });
+      core.showToast && core.showToast('Attendance saved successfully!', 'success');
+      closeModal();
+      loadRecords();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Attendance';
+    }
+  }
+
+  // --- Wiring ---
+  $('att-take')?.addEventListener('click', openModal);
+  $('att-refresh')?.addEventListener('click', loadRecords);
+  $('att-modal-close')?.addEventListener('click', closeModal);
+  $('att-cancel')?.addEventListener('click', closeModal);
+  $('att-load-students')?.addEventListener('click', loadStudents);
+  $('att-mark-all')?.addEventListener('click', markAllPresent);
+  $('att-save')?.addEventListener('click', saveAttendance);
+  $('att-modal')?.addEventListener('click', (e) => { if (e.target.id === 'att-modal') closeModal(); });
+
+  loadRecords();
 })();
 </script>

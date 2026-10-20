@@ -7,13 +7,19 @@
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Post and manage assignments for your courses</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="asg-refresh" style="
+      <button id="asg-create" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+        display:inline-flex;align-items:center;gap:.35rem;
+      ">➕ New Assignment</button>
+      <button id="asg-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;
       ">↻ Refresh</button>
     </div>
   </div>
 
+  <!-- STAT TILES -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
       <div style="width:40px;height:40px;border-radius:10px;background:#f3e8ff;color:#6b21a8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📝</div>
@@ -24,6 +30,7 @@
     </div>
   </div>
 
+  <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -32,15 +39,73 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Due Date</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="asg-tbody">
-          <tr><td colspan="3" style="padding:3rem;text-align:center;color:#94a3b8;">Loading assignments…</td></tr>
+          <tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">Loading assignments…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
+
+<!-- ═══════ MODAL: NEW ASSIGNMENT ═══════ -->
+<div id="asg-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">New Assignment</h3>
+      <button id="asg-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:1.25rem;">
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
+        <select id="asg-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select Course</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Title</label>
+        <input type="text" id="asg-title" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g., Assignment 1 - Basics" />
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Description</label>
+        <textarea id="asg-desc" rows="3" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;resize:vertical;" placeholder="Instructions for the students..."></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Due Date</label>
+          <input type="date" id="asg-due" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Max Score</label>
+          <input type="number" id="asg-score" value="100" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Attachment (Optional)</label>
+        <input type="file" id="asg-file" style="display:block;width:100%;padding:.75rem;border:1px dashed #cbd5e1;border-radius:8px;font-size:.85rem;" />
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+        <button id="asg-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="asg-save" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Publish Assignment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes asgSpin { to { transform: rotate(360deg); } }
+  #asg-tbody tr { transition: background .1s; }
+  #asg-tbody tr:hover { background: #f8fafc; }
+</style>
 
 <script>
 (function () {
@@ -49,6 +114,8 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  let ALL_COURSES = [];
 
   async function load() {
     const tbody = $('asg-tbody');
@@ -59,7 +126,7 @@
       $('asg-total').textContent = rows.length;
 
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="3" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments yet.</td></tr>`;
         return;
       }
 
@@ -68,14 +135,94 @@
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
           <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.dueDate)}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            ${r.attachmentUrl ? `<a href="${esc(r.attachmentUrl)}" target="_blank" style="font-size:.75rem;color:#1e40af;text-decoration:none;font-weight:700;">View File</a>` : '—'}
+          </td>
         </tr>
       `).join('');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="3" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
+  async function openModal() {
+    $('asg-modal').style.display = 'flex';
+    $('asg-title').value = '';
+    $('asg-desc').value = '';
+    $('asg-due').value = '';
+    $('asg-file').value = '';
+    $('asg-course').innerHTML = '<option value="">Loading…</option>';
+
+    try {
+      const res = await core.portalFetch('/api/lecturer/courses');
+      const rows = Array.isArray(res) ? res : (res.data || []);
+      ALL_COURSES = rows;
+      
+      $('asg-course').innerHTML = '<option value="">Select Course</option>' + 
+        ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+    } catch (err) {
+      $('asg-course').innerHTML = '<option value="">Error loading courses</option>';
+    }
+  }
+
+  function closeModal() {
+    $('asg-modal').style.display = 'none';
+  }
+
+  async function saveAssignment() {
+    const courseId = $('asg-course').value;
+    const title = $('asg-title').value.trim();
+    
+    if (!courseId || !title) {
+      return core.showToast && core.showToast('Course and Title are required.', 'warning');
+    }
+
+    const btn = $('asg-save');
+    btn.disabled = true;
+    btn.textContent = 'Publishing…';
+
+    try {
+      const formData = new FormData();
+      formData.append('courseId', courseId);
+      formData.append('title', title);
+      formData.append('description', $('asg-desc').value.trim());
+      formData.append('dueDate', $('asg-due').value);
+      formData.append('maxScore', $('asg-score').value);
+      formData.append('semester', 'first'); // Defaulting for now
+
+      const file = $('asg-file').files[0];
+      if (file) {
+        formData.append('file', file);
+      }
+
+      const token = localStorage.getItem('fpu_token');
+      const res = await fetch('/api/lecturer/assignments', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to publish');
+
+      core.showToast && core.showToast('Assignment published successfully!', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Publish Assignment';
+    }
+  }
+
+  $('asg-create')?.addEventListener('click', openModal);
   $('asg-refresh')?.addEventListener('click', load);
+  $('asg-modal-close')?.addEventListener('click', closeModal);
+  $('asg-cancel')?.addEventListener('click', closeModal);
+  $('asg-save')?.addEventListener('click', saveAssignment);
+  $('asg-modal')?.addEventListener('click', (e) => { if (e.target.id === 'asg-modal') closeModal(); });
+
   load();
 })();
 </script>

@@ -483,4 +483,59 @@ router.get('/security', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// POST /api/lecturer/assignments
+// ============================================================
+router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
+  try {
+    const { courseId, title, description, dueDate, maxScore, semester } = req.body || {};
+    let attachmentUrl = null;
+
+    if (!courseId || !title) {
+      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+    }
+
+    // Verify the lecturer is allocated to this course
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, Number(courseId))
+      ))
+      .limit(1);
+
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    }
+
+    // Handle File Upload
+    if (req.file) {
+      const ext = path.extname(req.file.originalname) || '';
+      const newName = `assignment-${Date.now()}${ext}`;
+      const newPath = path.join(UPLOAD_DIR, newName);
+      
+      fs.renameSync(req.file.path, newPath);
+      attachmentUrl = `/uploads/${newName}`;
+    }
+
+    const [row] = await db.insert(assignments).values({
+      courseId: Number(courseId),
+      lecturerId: req.user.id,
+      sessionId: req.user.currentSessionId || 1, // Fallback to 1 if not set
+      semester: semester || 'first',
+      title: title,
+      description: description || null,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      maxScore: maxScore ? Number(maxScore) : 100,
+      attachmentUrl: attachmentUrl,
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[lecturer/assignments] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

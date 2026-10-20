@@ -7,6 +7,9 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const userQueries    = require('../../db/queries/users');
 const courseQueries  = require('../../db/queries/courses');
@@ -31,6 +34,11 @@ const {
 } = schema;
 
 const only = requireRole('lecturer', 'hod');
+
+// Setup multer for material uploads
+const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const upload = multer({ dest: UPLOAD_DIR });
 
 // ------------------------------------------------------------
 // Helper: list the course IDs the current lecturer is allocated to
@@ -159,6 +167,50 @@ router.get('/courses', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/lecturer/students?courseId=X
+// ============================================================
+router.get('/students', only, async (req, res, next) => {
+  try {
+    const { courseId } = req.query;
+    if (!courseId) {
+      return res.status(400).json({ success: false, error: 'courseId is required.' });
+    }
+
+    // Verify the lecturer is allocated to this course
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, Number(courseId))
+      ))
+      .limit(1);
+
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    }
+
+    const rows = await db
+      .select({
+        registration: courseRegistrations,
+        student: users,
+      })
+      .from(courseRegistrations)
+      .leftJoin(users, eq(courseRegistrations.studentId, users.id))
+      .where(and(
+        eq(courseRegistrations.courseId, Number(courseId)),
+        eq(courseRegistrations.status, 'approved')
+      ))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[lecturer/students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/lecturer/attendance
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
@@ -194,7 +246,6 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'rows[] is required.' });
     }
 
-    // 1. Verify lecturer is allocated to the course
     const courseId = Number(rows[0].courseId);
     const allocation = await db
       .select({ id: courseAllocations.id })
@@ -209,7 +260,6 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
     }
 
-    // 2. Prepare the data for insertion
     const insertData = rows.map(r => ({
       courseId: Number(r.courseId),
       studentId: Number(r.studentId),
@@ -221,21 +271,13 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       remarks: r.remarks || null,
     }));
 
-    // 3. Insert or update (upsert) each row
-    // Since Drizzle's onConflictDoUpdate can be tricky with custom unique indexes,
-    // we'll do a simple loop with delete-then-insert for this batch.
-    // This guarantees no duplicate records for the same student/date/course.
-    
     let savedCount = 0;
     for (const r of insertData) {
-      // Delete existing record for this student/course/date
       await db.delete(attendance).where(and(
         eq(attendance.courseId, r.courseId),
         eq(attendance.studentId, r.studentId),
         eq(attendance.date, r.date)
       ));
-      
-      // Insert the new one
       await db.insert(attendance).values(r);
       savedCount++;
     }
@@ -296,6 +338,56 @@ router.get('/materials', only, async (req, res, next) => {
       .orderBy(desc(courseMaterials.createdAt));
     return res.json({ success: true, data: rows });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// POST /api/lecturer/materials
+// ============================================================
+router.post('/materials', only, upload.single('file'), async (req, res, next) => {
+  try {
+    const { courseId, title, description, materialType } = req.body || {};
+    let fileUrl = req.body.fileUrl || null;
+
+    if (!courseId || !title) {
+      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+    }
+
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, Number(courseId))
+      ))
+      .limit(1);
+
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    }
+
+    if (req.file) {
+      const ext = path.extname(req.file.originalname) || '';
+      const newName = `material-${Date.now()}${ext}`;
+      const newPath = path.join(UPLOAD_DIR, newName);
+      
+      fs.renameSync(req.file.path, newPath);
+      fileUrl = `/uploads/${newName}`;
+    }
+
+    const [row] = await db.insert(courseMaterials).values({
+      courseId: Number(courseId),
+      lecturerId: req.user.id,
+      title: title,
+      description: description || null,
+      fileUrl: fileUrl,
+      materialType: materialType || 'note',
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[lecturer/materials] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
@@ -389,92 +481,6 @@ router.get('/security', only, async (req, res, next) => {
     const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
     return res.json({ success: true, sessions, logins });
   } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/lecturer/students?courseId=X
-// Returns students registered for a specific course
-// ============================================================
-router.get('/students', only, async (req, res, next) => {
-  try {
-    const { courseId } = req.query;
-    if (!courseId) {
-      return res.status(400).json({ success: false, error: 'courseId is required.' });
-    }
-
-    // Verify the lecturer is allocated to this course
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, Number(courseId))
-      ))
-      .limit(1);
-
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
-
-    // Fetch the students registered for this course
-    const rows = await db
-      .select({
-        registration: courseRegistrations,
-        student: users,
-      })
-      .from(courseRegistrations)
-      .leftJoin(users, eq(courseRegistrations.studentId, users.id))
-      .where(and(
-        eq(courseRegistrations.courseId, Number(courseId)),
-        eq(courseRegistrations.status, 'approved')
-      ))
-      .orderBy(users.lastName);
-
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error('[lecturer/students] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// POST /api/lecturer/materials
-// ============================================================
-router.post('/materials', only, async (req, res, next) => {
-  try {
-    const { courseId, title, description, fileUrl, materialType } = req.body || {};
-    if (!courseId || !title) {
-      return res.status(400).json({ success: false, error: 'courseId and title are required.' });
-    }
-
-    // Verify the lecturer is allocated to this course
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, Number(courseId))
-      ))
-      .limit(1);
-
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
-
-    const [row] = await db.insert(courseMaterials).values({
-      courseId: Number(courseId),
-      lecturerId: req.user.id,
-      title: title,
-      description: description || null,
-      fileUrl: fileUrl || null,
-      materialType: materialType || 'note',
-    }).returning();
-
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/materials] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
 });
 
 module.exports = router;

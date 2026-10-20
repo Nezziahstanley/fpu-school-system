@@ -83,10 +83,22 @@
         </select>
       </div>
 
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">File URL / Link</label>
+      <!-- TABS: Link vs File -->
+      <div style="display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:.5rem;">
+        <button id="mat-tab-link" type="button" style="padding:.4rem .8rem;font-size:.8rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">🔗 Paste Link</button>
+        <button id="mat-tab-file" type="button" style="padding:.4rem .8rem;font-size:.8rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;">📁 Upload from Device</button>
+      </div>
+
+      <!-- Link Input -->
+      <div id="mat-section-link" style="margin-bottom:1rem;">
         <input type="text" id="mat-url" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="https://..." />
         <div style="font-size:.72rem;color:#94a3b8;margin-top:.3rem;">Paste a link to a file (Google Drive, Dropbox, YouTube, etc).</div>
+      </div>
+
+      <!-- File Input -->
+      <div id="mat-section-file" style="display:none;margin-bottom:1rem;">
+        <input type="file" id="mat-file" style="display:block;width:100%;padding:.75rem;border:1px dashed #cbd5e1;border-radius:8px;font-size:.85rem;" />
+        <div style="font-size:.72rem;color:#94a3b8;margin-top:.3rem;">Select a file from your computer or phone.</div>
       </div>
 
       <div style="margin-bottom:1rem;">
@@ -117,6 +129,7 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   let ALL_COURSES = [];
+  let INPUT_MODE = 'link'; // 'link' or 'file'
 
   async function load() {
     const tbody = $('mat-tbody');
@@ -152,7 +165,9 @@
     $('mat-title').value = '';
     $('mat-url').value = '';
     $('mat-desc').value = '';
+    $('mat-file').value = '';
     $('mat-course').innerHTML = '<option value="">Loading…</option>';
+    switchTab('link');
 
     try {
       const res = await core.portalFetch('/api/lecturer/courses');
@@ -170,13 +185,31 @@
     $('mat-modal').style.display = 'none';
   }
 
+  function switchTab(mode) {
+    INPUT_MODE = mode;
+    if (mode === 'link') {
+      $('mat-tab-link').style.background = '#065f46';
+      $('mat-tab-link').style.color = '#fff';
+      $('mat-tab-file').style.background = '#f1f5f9';
+      $('mat-tab-file').style.color = '#475569';
+      $('mat-section-link').style.display = 'block';
+      $('mat-section-file').style.display = 'none';
+    } else {
+      $('mat-tab-file').style.background = '#065f46';
+      $('mat-tab-file').style.color = '#fff';
+      $('mat-tab-link').style.background = '#f1f5f9';
+      $('mat-tab-link').style.color = '#475569';
+      $('mat-section-file').style.display = 'block';
+      $('mat-section-link').style.display = 'none';
+    }
+  }
+
   async function saveMaterial() {
     const courseId = $('mat-course').value;
     const title = $('mat-title').value.trim();
     const type = $('mat-type').value;
-    const url = $('mat-url').value.trim();
     const desc = $('mat-desc').value.trim();
-
+    
     if (!courseId || !title) {
       return core.showToast && core.showToast('Course and Title are required.', 'warning');
     }
@@ -186,16 +219,34 @@
     btn.textContent = 'Saving…';
 
     try {
-      await core.portalFetch('/api/lecturer/materials', {
+      const formData = new FormData();
+      formData.append('courseId', courseId);
+      formData.append('title', title);
+      formData.append('materialType', type);
+      formData.append('description', desc);
+
+      if (INPUT_MODE === 'file') {
+        const file = $('mat-file').files[0];
+        if (!file) {
+          btn.disabled = false;
+          btn.textContent = 'Save Material';
+          return core.showToast && core.showToast('Please select a file.', 'warning');
+        }
+        formData.append('file', file);
+      } else {
+        formData.append('fileUrl', $('mat-url').value.trim());
+      }
+
+      const token = localStorage.getItem('fpu_token');
+      const res = await fetch('/api/lecturer/materials', {
         method: 'POST',
-        body: {
-          courseId: Number(courseId),
-          title,
-          materialType: type,
-          fileUrl: url || null,
-          description: desc || null,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
       });
+      
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+
       core.showToast && core.showToast('Material uploaded successfully!', 'success');
       closeModal();
       load();
@@ -213,6 +264,9 @@
   $('mat-cancel')?.addEventListener('click', closeModal);
   $('mat-save')?.addEventListener('click', saveMaterial);
   $('mat-modal')?.addEventListener('click', (e) => { if (e.target.id === 'mat-modal') closeModal(); });
+  
+  $('mat-tab-link')?.addEventListener('click', () => switchTab('link'));
+  $('mat-tab-file')?.addEventListener('click', () => switchTab('file'));
 
   load();
 })();

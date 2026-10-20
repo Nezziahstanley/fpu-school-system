@@ -194,37 +194,63 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'rows[] is required.' });
     }
 
-    const allocated = await getAllocatedCourseIds(req.user.id, req.user.currentSessionId);
-    const allowedSet = new Set(allocated.map(Number));
+    // 1. Verify lecturer is allocated to the course
+    const courseId = Number(rows[0].courseId);
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, courseId)
+      ))
+      .limit(1);
 
-    const payload = rows
-      .filter((r) => allowedSet.has(Number(r.courseId)))
-      .map((r) => ({
-        courseId: Number(r.courseId),
-        studentId: Number(r.studentId),
-        lecturerId: req.user.id,
-        sessionId: Number(r.sessionId) || req.user.currentSessionId,
-        semester: r.semester,
-        date: r.date,
-        status: r.status || 'present',
-        remarks: r.remarks || null,
-      }));
-
-    if (payload.length === 0) {
-      return res.status(403).json({
-        success: false,
-        error: 'None of the provided rows belong to your allocated courses.',
-      });
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
     }
 
-    const inserted = await attQueries.bulkUpsert(payload);
+    // 2. Prepare the data for insertion
+    const insertData = rows.map(r => ({
+      courseId: Number(r.courseId),
+      studentId: Number(r.studentId),
+      lecturerId: req.user.id,
+      sessionId: Number(r.sessionId) || req.user.currentSessionId || 1,
+      semester: r.semester,
+      date: r.date,
+      status: r.status || 'present',
+      remarks: r.remarks || null,
+    }));
+
+    // 3. Insert or update (upsert) each row
+    // Since Drizzle's onConflictDoUpdate can be tricky with custom unique indexes,
+    // we'll do a simple loop with delete-then-insert for this batch.
+    // This guarantees no duplicate records for the same student/date/course.
+    
+    let savedCount = 0;
+    for (const r of insertData) {
+      // Delete existing record for this student/course/date
+      await db.delete(attendance).where(and(
+        eq(attendance.courseId, r.courseId),
+        eq(attendance.studentId, r.studentId),
+        eq(attendance.date, r.date)
+      ));
+      
+      // Insert the new one
+      await db.insert(attendance).values(r);
+      savedCount++;
+    }
+
     await logAudit({
       req,
       action: 'lecturer.attendance_bulk',
-      after: { count: inserted.length, requested: rows.length },
+      after: { count: savedCount, courseId },
     });
-    return res.json({ success: true, data: inserted });
-  } catch (err) { return next(err); }
+
+    return res.json({ success: true, saved: savedCount });
+  } catch (err) {
+    console.error('[lecturer/attendance/bulk] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================

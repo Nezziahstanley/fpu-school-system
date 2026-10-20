@@ -136,7 +136,7 @@
 
       tbody.innerHTML = ALL_ASSIGNMENTS.map(r => `
         <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title || 'Untitled')}</td>
           <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.dueDate)}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
@@ -147,7 +147,6 @@
         </tr>
       `).join('');
 
-      // Wire buttons
       tbody.querySelectorAll('[data-action]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = Number(btn.dataset.id);
@@ -155,7 +154,7 @@
           const item = ALL_ASSIGNMENTS.find(a => a.id === id);
           
           if (action === 'view') {
-            alert(`Title: ${item.title}\n\nDescription: ${item.description || 'N/A'}\nDue: ${fmtDate(item.dueDate)}\nAttachment: ${item.attachmentUrl || 'None'}`);
+            alert(`Title: ${item.title}\n\nDescription: ${item.description || 'N/A'}\nDue: ${fmtDate(item.dueDate)}`);
           } else if (action === 'edit') {
             openModal(item);
           } else if (action === 'delete') {
@@ -228,7 +227,6 @@
       const file = $('asg-file').files[0];
       if (file) formData.append('file', file);
 
-      // Use native fetch for FormData (crucial for file uploads + auth)
       const token = localStorage.getItem('fpu_token');
       const url = id ? `/api/lecturer/assignments/${id}` : '/api/lecturer/assignments';
       const method = id ? 'PUT' : 'POST';

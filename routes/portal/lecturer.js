@@ -505,4 +505,68 @@ router.get('/security', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/lecturer/assignments/:id/submissions
+// ============================================================
+router.get('/assignments/:id/submissions', only, async (req, res, next) => {
+  try {
+    const assignmentId = Number(req.params.id);
+
+    // Verify the assignment belongs to this lecturer
+    const [assignment] = await db.select()
+      .from(assignments)
+      .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
+      .limit(1);
+
+    if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
+
+    // Get submissions with student details
+    const rows = await db
+      .select({
+        submission: assignmentSubmissions,
+        student: users,
+      })
+      .from(assignmentSubmissions)
+      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .where(eq(assignmentSubmissions.assignmentId, assignmentId))
+      .orderBy(users.lastName);
+
+    const data = rows.map(r => ({
+      id: r.submission.id,
+      studentName: `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim(),
+      matricNumber: r.student?.matricNumber || '—',
+      submissionText: r.submission.submissionText,
+      submissionUrl: r.submission.submissionUrl,
+      score: r.submission.score,
+      feedback: r.submission.feedback,
+      submittedAt: r.submission.submittedAt,
+    }));
+
+    return res.json({ success: true, data, assignment });
+  } catch (err) {
+    console.error('[lecturer/submissions] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/lecturer/submissions/:id/grade
+// ============================================================
+router.post('/submissions/:id/grade', only, async (req, res, next) => {
+  try {
+    const { score, feedback } = req.body || {};
+    if (score === undefined) return res.status(400).json({ success: false, error: 'Score is required.' });
+
+    const [row] = await db.update(assignmentSubmissions)
+      .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
+      .where(eq(assignmentSubmissions.id, Number(req.params.id)))
+      .returning();
+
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('[lecturer/grade] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

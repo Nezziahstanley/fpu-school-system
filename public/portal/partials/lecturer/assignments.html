@@ -103,11 +103,42 @@
   </div>
 </div>
 
+<!-- ═══════ MODAL: VIEW & GRADE ═══════ -->
+<div id="view-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="view-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Assignment Details</h3>
+      <button id="view-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:1.25rem;">
+      <!-- Assignment Info -->
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1.5rem;">
+        <h4 id="view-title" style="margin:0 0 .5rem;font-size:1.1rem;color:#0f172a;"></h4>
+        <p id="view-desc" style="margin:0 0 .5rem;font-size:.85rem;color:#475569;white-space:pre-wrap;"></p>
+        <div style="display:flex;gap:1.5rem;font-size:.75rem;color:#64748b;">
+          <span>Due: <strong id="view-due" style="color:#0f172a;"></strong></span>
+          <span>Max Score: <strong id="view-max" style="color:#0f172a;"></strong></span>
+        </div>
+      </div>
+
+      <!-- Submissions List -->
+      <h4 style="margin:0 0 .75rem;font-size:.9rem;color:#0f172a;font-weight:800;">Student Submissions</h4>
+      <div id="view-submissions" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading submissions…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
   @keyframes asgSpin { to { transform: rotate(360deg); } }
   #asg-tbody tr { transition: background .1s; }
   #asg-tbody tr:hover { background: #f8fafc; }
   .asg-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer; }
+  .sub-row { display:flex; align-items:center; justify-content:space-between; padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; }
+  .sub-row:last-child { border-bottom:none; }
 </style>
 
 <script>
@@ -154,7 +185,7 @@
           const item = ALL_ASSIGNMENTS.find(a => a.id === id);
           
           if (action === 'view') {
-            alert(`Title: ${item.title}\n\nDescription: ${item.description || 'N/A'}\nDue: ${fmtDate(item.dueDate)}`);
+            openViewModal(item);
           } else if (action === 'edit') {
             openModal(item);
           } else if (action === 'delete') {
@@ -172,6 +203,7 @@
     }
   }
 
+  // --- Create/Edit Modal ---
   async function openModal(existingItem = null) {
     $('asg-modal').style.display = 'flex';
     $('asg-modal-title').textContent = existingItem ? 'Edit Assignment' : 'New Assignment';
@@ -222,7 +254,6 @@
       formData.append('description', $('asg-desc').value.trim());
       formData.append('dueDate', $('asg-due').value);
       formData.append('maxScore', $('asg-score').value);
-      formData.append('semester', 'first');
 
       const file = $('asg-file').files[0];
       if (file) formData.append('file', file);
@@ -251,12 +282,86 @@
     }
   }
 
+  // --- View & Grade Modal ---
+  async function openViewModal(item) {
+    $('view-modal').style.display = 'flex';
+    $('view-modal-title').textContent = item.title;
+    $('view-title').textContent = item.title;
+    $('view-desc').textContent = item.description || 'No description.';
+    $('view-due').textContent = fmtDate(item.dueDate);
+    $('view-max').textContent = item.maxScore;
+
+    const container = $('view-submissions');
+    container.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading submissions…</div>';
+
+    try {
+      const res = await core.portalFetch(`/api/lecturer/assignments/${item.id}/submissions`);
+      const subs = res.data || [];
+
+      if (!subs.length) {
+        container.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">No submissions yet.</div>';
+        return;
+      }
+
+      container.innerHTML = subs.map(s => `
+        <div class="sub-row">
+          <div style="flex:1;">
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(s.studentName)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(s.matricNumber)}</div>
+            ${s.submissionUrl ? `<a href="${esc(s.submissionUrl)}" target="_blank" style="font-size:.72rem;color:#1e40af;font-weight:600;">View Submission</a>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <input type="number" id="score_${s.id}" value="${s.score || ''}" placeholder="Score" style="width:70px;padding:.3rem .5rem;font-size:.8rem;border:1px solid #d1d5db;border-radius:6px;" />
+            <span style="font-size:.75rem;color:#64748b;">/ ${item.maxScore}</span>
+            <button class="asg-btn btn-grade" data-id="${s.id}" style="background:#065f46;color:#fff;">Save</button>
+          </div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.btn-grade').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const score = $(`score_${id}`).value;
+          if (score === '') return core.showToast && core.showToast('Enter a score', 'warning');
+
+          btn.disabled = true;
+          btn.textContent = '…';
+
+          try {
+            await core.portalFetch(`/api/lecturer/submissions/${id}/grade`, {
+              method: 'POST',
+              body: { score: Number(score) }
+            });
+            core.showToast && core.showToast('Score saved', 'success');
+            btn.textContent = 'Saved';
+            btn.style.background = '#10b981';
+          } catch (err) {
+            core.showToast && core.showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Save';
+          }
+        });
+      });
+
+    } catch (err) {
+      container.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${esc(err.message)}</div>`;
+    }
+  }
+
+  function closeViewModal() {
+    $('view-modal').style.display = 'none';
+  }
+
+  // --- Wiring ---
   $('asg-create')?.addEventListener('click', () => openModal(null));
   $('asg-refresh')?.addEventListener('click', load);
   $('asg-modal-close')?.addEventListener('click', closeModal);
   $('asg-cancel')?.addEventListener('click', closeModal);
   $('asg-save')?.addEventListener('click', saveAssignment);
   $('asg-modal')?.addEventListener('click', (e) => { if (e.target.id === 'asg-modal') closeModal(); });
+  
+  $('view-modal-close')?.addEventListener('click', closeViewModal);
+  $('view-modal')?.addEventListener('click', (e) => { if (e.target.id === 'view-modal') closeViewModal(); });
 
   load();
 })();

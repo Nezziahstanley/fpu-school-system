@@ -23,7 +23,6 @@ const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 
-// Extract ALL needed tables from schema
 const { 
   courseAllocations, courses, courseRegistrations, users, 
   academicSessions, results, courseMaterials, assignments, 
@@ -50,10 +49,8 @@ router.get('/dashboard', only, async (req, res, next) => {
   try {
     const lecturerId = req.user.id;
 
-    // 1. Get current session for display
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
-    // 2. Fetch ALL allocated courses (ignoring session restriction to ensure data shows)
     const allocatedCourses = await db
       .select({ course: courses })
       .from(courseAllocations)
@@ -62,32 +59,36 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
 
-    // 3. Get student count per course
+    // Calculate unique students and total registrations
     const courseStats = [];
-    let totalStudents = 0;
-    
+    let uniqueStudentIds = new Set();
+    let totalRegistrations = 0;
+
     for (const c of allocatedCourses) {
       if (!c.course) continue;
       
       const regs = await db
-        .select({ count: sql`count(*)::int` })
+        .select({ studentId: courseRegistrations.studentId })
         .from(courseRegistrations)
         .where(and(
           eq(courseRegistrations.courseId, c.course.id),
           eq(courseRegistrations.status, 'approved')
         ));
       
-      const count = regs[0]?.count || 0;
-      totalStudents += count;
+      regs.forEach(r => uniqueStudentIds.add(r.studentId));
       
       courseStats.push({
         code: c.course.code,
         title: c.course.title,
-        students: count
+        students: regs.length 
       });
+
+      totalRegistrations += regs.length;
     }
 
-    // 4. Get pending results
+    const totalStudents = uniqueStudentIds.size;
+
+    // Get pending results
     let pendingResults = 0;
     if (courseIds.length > 0) {
       const pend = await db
@@ -100,7 +101,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       pendingResults = pend[0]?.count || 0;
     }
 
-    // 5. Get materials & assignments
+    // Get materials & assignments
     let materialsCount = 0;
     let assignmentsCount = 0;
     if (courseIds.length > 0) {
@@ -111,7 +112,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       assignmentsCount = ass[0]?.count || 0;
     }
 
-    // 6. Get Department Name
+    // Get Department Name
     const [dept] = await db.select({ name: departments.name })
       .from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))
@@ -123,6 +124,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       data: {
         coursesCount: allocatedCourses.length,
         totalStudents,
+        totalRegistrations,
         pendingResults,
         activeSession: currentSession?.name || '—',
         materialsCount,
@@ -144,7 +146,6 @@ router.get('/students-list', only, async (req, res, next) => {
   try {
     const lecturerId = req.user.id;
     
-    // 1. Get allocated course IDs
     const allocations = await db
       .select({ courseId: courseAllocations.courseId })
       .from(courseAllocations)
@@ -156,7 +157,6 @@ router.get('/students-list', only, async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // 2. Get unique student IDs registered for these courses
     const regs = await db
       .select({ studentId: courseRegistrations.studentId })
       .from(courseRegistrations)
@@ -171,7 +171,6 @@ router.get('/students-list', only, async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // 3. Fetch full student details
     const students = await db
       .select({
         id: users.id,

@@ -234,11 +234,44 @@ router.get('/students', only, async (req, res, next) => {
 // ============================================================
 router.get('/timetable', only, async (req, res, next) => {
   try {
-    const rows = await ttQueries.listWithRelations({
-      lecturerId: req.user.id,
-      sessionId: req.query.sessionId,
-    });
-    return res.json({ success: true, data: rows });
+    const lecturerId = req.user.id;
+
+    // 1. Get allocated courses
+    const allocations = await db
+      .select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+      
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 2. Get timetable slots for those courses
+    const slots = await db
+      .select({
+        slot: timetableSlots,
+        course: courses,
+      })
+      .from(timetableSlots)
+      .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
+      .where(inArray(timetableSlots.courseId, courseIds))
+      .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
+
+    const data = slots.map(s => ({
+      id: s.slot.id,
+      dayOfWeek: s.slot.dayOfWeek,
+      startTime: s.slot.startTime,
+      endTime: s.slot.endTime,
+      venue: s.slot.venue,
+      semester: s.slot.semester,
+      courseCode: s.course?.code || '—',
+      courseTitle: s.course?.title || '—',
+      level: s.course?.level || '—',
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) {
     return next(err);
   }

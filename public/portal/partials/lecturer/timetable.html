@@ -153,45 +153,58 @@
   }
 
   async function load() {
-    const tbody = $('lt-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
     try {
-      // First: get lecturer's assigned courses
-      try {
-        const allocRes = await core.portalFetch('/api/allocations/my');
-        const allocPayload = allocRes.data || allocRes || {};
-        const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
-        MY_COURSE_IDS = new Set(allocRaw.map((a) => {
-          const alloc = a.allocation || a;
-          return String(alloc.courseId);
-        }));
-      } catch (e) { console.warn('[timetable] allocations failed:', e.message); }
+      const res = await core.portalFetch('/api/lecturer/timetable');
+      const rows = res.data || [];
 
-      // Second: fetch all timetable slots
-      const res = await core.portalFetch('/api/timetable');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.timetable || []);
+      // Update stats
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      
+      let todayCount = 0;
+      let uniqueCourses = new Set();
 
-      // Filter to only lecturer's courses (if we have allocations)
-      let list = raw.map(unwrap);
-      if (MY_COURSE_IDS.size) {
-        list = list.filter((t) => MY_COURSE_IDS.has(String(t.courseId)));
+      rows.forEach(s => {
+        if (s.dayOfWeek && s.dayOfWeek.toLowerCase() === today.toLowerCase()) todayCount++;
+        if (s.courseCode) uniqueCourses.add(s.courseCode);
+      });
+
+      $('tt-total').textContent = rows.length;
+      $('tt-today').textContent = todayCount;
+      $('tt-week').textContent = rows.length;
+      $('tt-active').textContent = uniqueCourses.size;
+
+      // Render Table
+      const tbody = $('tt-tbody');
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">
+          <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📅</div>
+          <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No scheduled classes</div>
+          <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Your timetable will appear once the academic officer assigns slots.</div>
+        </td></tr>`;
+        return;
       }
 
-      ALL = list;
-      console.log('[lecturer-timetable] Filtered to', ALL.length, 'slots (from', raw.length, 'total)');
-      populateCourses();
-      updateStats();
-      applyFilter();
+      tbody.innerHTML = rows.map(s => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.dayOfWeek)}</td>
+          <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(s.startTime)} - ${esc(s.endTime)}</td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(s.courseCode)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(s.courseTitle)}</div>
+          </td>
+          <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.venue || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level)}</span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:.78rem;color:#64748b;">${esc(s.semester)}</td>
+        </tr>
+      `).join('');
+
     } catch (err) {
-      console.warn('[lecturer-timetable]', err.message);
-      ALL = [];
-      updateStats();
-      applyFilter();
+      core.showToast && core.showToast('Failed to load timetable: ' + err.message, 'error');
     }
   }
-
+  
   function exportCsv() {
     const headers = ['Day', 'Time', 'Course', 'Title', 'Venue', 'Level', 'Semester'];
     const rows = FILTERED.map((t) => [t.day, getTimeLabel(t), t.courseCode, t.courseTitle, t.venue, t.level, t.semester]);

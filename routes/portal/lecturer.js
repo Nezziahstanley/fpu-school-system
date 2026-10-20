@@ -365,4 +365,50 @@ router.get('/security', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/lecturer/students?courseId=X
+// Returns students registered for a specific course
+// ============================================================
+router.get('/students', only, async (req, res, next) => {
+  try {
+    const { courseId } = req.query;
+    if (!courseId) {
+      return res.status(400).json({ success: false, error: 'courseId is required.' });
+    }
+
+    // Verify the lecturer is allocated to this course
+    const allocation = await db
+      .select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, Number(courseId))
+      ))
+      .limit(1);
+
+    if (!allocation.length) {
+      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    }
+
+    // Fetch the students registered for this course
+    const rows = await db
+      .select({
+        registration: courseRegistrations,
+        student: users,
+      })
+      .from(courseRegistrations)
+      .leftJoin(users, eq(courseRegistrations.studentId, users.id))
+      .where(and(
+        eq(courseRegistrations.courseId, Number(courseId)),
+        eq(courseRegistrations.status, 'approved')
+      ))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[lecturer/students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

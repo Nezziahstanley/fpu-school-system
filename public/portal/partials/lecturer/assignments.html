@@ -188,13 +188,14 @@
       formData.append('description', $('asg-desc').value.trim());
       formData.append('dueDate', $('asg-due').value);
       formData.append('maxScore', $('asg-score').value);
-      formData.append('semester', 'first'); // Defaulting for now
+      formData.append('semester', 'first');
 
       const file = $('asg-file').files[0];
       if (file) {
         formData.append('file', file);
       }
 
+      // Use native fetch for FormData to ensure auth header is sent
       const token = localStorage.getItem('fpu_token');
       const res = await fetch('/api/lecturer/assignments', {
         method: 'POST',

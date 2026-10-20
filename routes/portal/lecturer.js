@@ -104,35 +104,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/courses
-// Returns courses allocated to the lecturer
-// ============================================================
-router.get('/courses', only, async (req, res, next) => {
-  try {
-    const rows = await db
-      .select({
-        id: courses.id,
-        code: courses.code,
-        title: courses.title,
-        level: courses.level,
-        unit: courses.unit,
-        semesterName: courses.semesterName,
-      })
-      .from(courseAllocations)
-      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
-      .where(eq(courseAllocations.lecturerId, req.user.id));
-
-    // Filter out any nulls just in case
-    const data = rows.filter(r => r.id !== null);
-
-    return res.json({ success: true, data });
-  } catch (err) {
-    console.error('[lecturer/courses] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
 // GET /api/lecturer/students-list
 // ============================================================
 router.get('/students-list', only, async (req, res, next) => {
@@ -161,6 +132,33 @@ router.get('/students-list', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/lecturer/courses
+// ============================================================
+router.get('/courses', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: courses.id,
+        code: courses.code,
+        title: courses.title,
+        level: courses.level,
+        unit: courses.unit,
+        semesterName: courses.semesterName,
+      })
+      .from(courseAllocations)
+      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(eq(courseAllocations.lecturerId, req.user.id));
+
+    const data = rows.filter(r => r.id !== null);
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[lecturer/courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/lecturer/attendance
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
@@ -184,6 +182,49 @@ router.get('/attendance', only, async (req, res, next) => {
 
     return res.json({ success: true, data: rows });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// POST /api/lecturer/attendance/bulk
+// ============================================================
+router.post('/attendance/bulk', only, async (req, res, next) => {
+  try {
+    const { rows } = req.body || {};
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'rows[] is required.' });
+    }
+
+    const allocated = await getAllocatedCourseIds(req.user.id, req.user.currentSessionId);
+    const allowedSet = new Set(allocated.map(Number));
+
+    const payload = rows
+      .filter((r) => allowedSet.has(Number(r.courseId)))
+      .map((r) => ({
+        courseId: Number(r.courseId),
+        studentId: Number(r.studentId),
+        lecturerId: req.user.id,
+        sessionId: Number(r.sessionId) || req.user.currentSessionId,
+        semester: r.semester,
+        date: r.date,
+        status: r.status || 'present',
+        remarks: r.remarks || null,
+      }));
+
+    if (payload.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'None of the provided rows belong to your allocated courses.',
+      });
+    }
+
+    const inserted = await attQueries.bulkUpsert(payload);
+    await logAudit({
+      req,
+      action: 'lecturer.attendance_bulk',
+      after: { count: inserted.length, requested: rows.length },
+    });
+    return res.json({ success: true, data: inserted });
+  } catch (err) { return next(err); }
 });
 
 // ============================================================

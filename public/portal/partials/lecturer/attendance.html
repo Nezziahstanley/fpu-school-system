@@ -209,7 +209,8 @@
     }
   }
 
-    async function openModal() {
+  // --- Open Modal ---
+  async function openModal() {
     $('att-modal').style.display = 'flex';
     $('att-date').value = new Date().toISOString().split('T')[0];
     $('att-student-list').innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>`;
@@ -221,15 +222,12 @@
 
     try {
       const res = await core.portalFetch('/api/lecturer/courses');
-      // Handle both formats (raw array or { data: [...] })
       const rows = Array.isArray(res) ? res : (res.data || []);
       
-      // The new backend returns the course directly, not nested
-      ALL_COURSES = rows.filter(c => c && c.id);
+      ALL_COURSES = rows;
 
       if (!ALL_COURSES.length) {
         sel.innerHTML = '<option value="">No courses assigned</option>';
-        core.showToast && core.showToast('No courses assigned to your account.', 'warning');
         return;
       }
 
@@ -240,6 +238,10 @@
       sel.innerHTML = '<option value="">Error loading courses</option>';
       core.showToast && core.showToast('Failed to load courses: ' + err.message, 'error');
     }
+  }
+
+  function closeModal() {
+    $('att-modal').style.display = 'none';
   }
 
   // --- Load Students ---
@@ -277,7 +279,7 @@
       `).join('');
 
       $('att-save').disabled = false;
-      $('att-mark-all').style.display = 'block'; // Show the button
+      $('att-mark-all').style.display = 'block';
 
     } catch (err) {
       list.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${err.message}</div>`;

@@ -1,58 +1,87 @@
 <!-- Portal → Lecturer → Attendance -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">✅</div>
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h1>Attendance</h1>
-      <div class="sub">View and manage attendance records</div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Attendance</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View and manage attendance records</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="att-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <input type="search" id="la-search" placeholder="Search by student or course…" />
-  <select id="la-course"><option value="">All Courses</option></select>
-  <select id="la-status">
-    <option value="">All Status</option>
-    <option value="present">Present</option>
-    <option value="absent">Absent</option>
-    <option value="late">Late</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="la-refresh">Refresh</button>
-  <button class="btn btn-outline btn-sm" id="la-export">Export CSV</button>
-</div>
-
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Records</span><span class="value" id="la-total">—</span></div><div class="ic">📋</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Present</span><span class="value" id="la-present">—</span></div><div class="ic">✅</div></div>
-  <div class="stat red"><div class="meta"><span class="label">Absent</span><span class="value" id="la-absent">—</span></div><div class="ic">❌</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Late</span><span class="value" id="la-late">—</span></div><div class="ic">⏰</div></div>
-</div>
-
-<section class="panel">
-  <div class="panel-head">
-    <h3>Attendance Records</h3>
-    <span class="badge" id="la-count">0</span>
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-total">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Records</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-present">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Present</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">❌</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-absent">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Absent</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">⏰</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-late">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Late</div>
+      </div>
+    </div>
   </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:.82rem;font-weight:700;color:#334155;">
+        Attendance Records <span id="att-count" style="display:inline-block;background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.65rem;margin-left:.35rem;">0</span>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>Date</th>
-            <th>Student</th>
-            <th>Matric</th>
-            <th>Course</th>
-            <th>Status</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
           </tr>
         </thead>
-        <tbody id="la-tbody">
-          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="att-tbody">
+          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:attSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading attendance…</div>
+          </td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+</div>
+
+<style>
+  @keyframes attSpin { to { transform: rotate(360deg); } }
+  #att-tbody tr { transition: background .1s; }
+  #att-tbody tr:hover { background: #f8fafc; }
+</style>
 
 <script>
 (function () {
@@ -60,121 +89,66 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-
-  let ALL = [], FILTERED = [];
-
-  function unwrap(r) {
-    const att = r.attendance || r;
-    const stu = r.student || {};
-    const crs = r.course || {};
-    return {
-      id: att.id,
-      date: att.date || att.createdAt,
-      status: (att.status || 'present').toLowerCase(),
-      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || '—',
-      matric: stu.matricNumber || '—',
-      courseCode: crs.code || '—',
-      courseTitle: crs.title || '',
-    };
-  }
-
-  function render() {
-    const countEl = $('la-count'); const tbody = $('la-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No attendance records.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = FILTERED.map((a) => {
-      const badgeClass = a.status === 'present' ? 'badge-active'
-                       : a.status === 'absent' ? 'badge-inactive'
-                       : 'badge-warning';
-      return `
-        <tr>
-          <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
-          <td>${esc(a.studentName)}</td>
-          <td><code>${esc(a.matric)}</code></td>
-          <td><strong>${esc(a.courseCode)}</strong> ${esc(a.courseTitle)}</td>
-          <td><span class="badge-status ${badgeClass}">${esc(a.status)}</span></td>
-        </tr>`;
-    }).join('');
-  }
-
-  function applyFilter() {
-    const q = ($('la-search')?.value || '').trim().toLowerCase();
-    const course = $('la-course')?.value || '';
-    const st = $('la-status')?.value || '';
-
-    FILTERED = ALL.filter((a) => {
-      const hay = `${a.studentName} ${a.matric} ${a.courseCode} ${a.courseTitle}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (course && a.courseCode !== course) return false;
-      if (st && a.status !== st) return false;
-      return true;
-    });
-    render();
-  }
-
-  function updateStats() {
-    setText('la-total', ALL.length);
-    setText('la-present', ALL.filter((a) => a.status === 'present').length);
-    setText('la-absent', ALL.filter((a) => a.status === 'absent').length);
-    setText('la-late', ALL.filter((a) => a.status === 'late').length);
-  }
-
-  function populateCourses() {
-    const sel = $('la-course');
-    if (!sel) return;
-    const courses = [...new Set(ALL.map((a) => a.courseCode).filter((c) => c && c !== '—'))].sort();
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Courses</option>' +
-      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    sel.value = cur;
-  }
 
   async function load() {
-    const tbody = $('la-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    const tbody = $('att-tbody');
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:attSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;font-size:.82rem;">Loading attendance…</div>
+    </td></tr>`;
+
     try {
-      const res = await core.portalFetch('/api/attendance');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
-      ALL = raw.map(unwrap);
-      console.log('[lecturer-attendance] Loaded', ALL.length);
-      populateCourses();
-      updateStats();
-      applyFilter();
+      const res = await core.portalFetch('/api/lecturer/attendance');
+      const rows = res.data || [];
+
+      // Update stats
+      let present = 0, absent = 0, late = 0;
+      rows.forEach(r => {
+        if (r.status === 'present') present++;
+        else if (r.status === 'absent') absent++;
+        else if (r.status === 'late') late++;
+      });
+
+      $('att-total').textContent = rows.length;
+      $('att-present').textContent = present;
+      $('att-absent').textContent = absent;
+      $('att-late').textContent = late;
+      $('att-count').textContent = rows.length;
+
+      // Render Table
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No attendance records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.trim();
+        let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
+        if (r.status === 'present') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
+        if (r.status === 'absent') { badgeColor = '#fee2e2'; badgeFg = '#991b1b'; }
+        if (r.status === 'late') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(r.date)}</td>
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
+            <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber || '—')}</code></td>
+            <td style="padding:.65rem .75rem;">
+              <div style="font-weight:700;color:#0f172a;font-size:.8rem;">${esc(r.courseCode)}</div>
+              <div style="font-size:.7rem;color:#64748b;">${esc(r.courseTitle)}</div>
+            </td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:${badgeColor};color:${badgeFg};border-radius:5px;text-transform:capitalize;">${esc(r.status)}</span>
+            </td>
+          </tr>`;
+      }).join('');
+
     } catch (err) {
-      console.error('[lecturer-attendance]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${err.message}</td></tr>`;
     }
   }
 
-  function exportCsv() {
-    const headers = ['Date', 'Student', 'Matric', 'Course', 'Status'];
-    const rows = FILTERED.map((a) => [
-      a.date ? new Date(a.date).toLocaleDateString() : '',
-      a.studentName, a.matric, a.courseCode, a.status,
-    ]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `lecturer-attendance-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  $('la-search')?.addEventListener('input', applyFilter);
-  $('la-course')?.addEventListener('change', applyFilter);
-  $('la-status')?.addEventListener('change', applyFilter);
-  $('la-refresh')?.addEventListener('click', load);
-  $('la-export')?.addEventListener('click', exportCsv);
-
+  $('att-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>

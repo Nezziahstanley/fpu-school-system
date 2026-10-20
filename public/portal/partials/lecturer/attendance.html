@@ -113,9 +113,25 @@
         </div>
       </div>
 
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:flex-start;margin-bottom:1rem;">
         <button id="att-load-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Load Students</button>
-        <button id="att-mark-all" style="display:none;padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">✅ Mark All Present</button>
+      </div>
+
+      <!-- Student List Header -->
+      <div id="att-header" style="display:none;background:#f8fafc;border:1px solid #e5e7eb;border-bottom:none;border-radius:8px 8px 0 0;padding:.65rem 1rem;font-size:.75rem;font-weight:800;color:#64748b;text-transform:uppercase;align-items:center;justify-content:space-between;">
+        <div>Student</div>
+        <div style="display:flex;gap:1rem;align-items:center;">
+          <span>Mark All:</span>
+          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#065f46;">
+            <input type="checkbox" id="att-bulk-present" /> Present
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#991b1b;">
+            <input type="checkbox" id="att-bulk-absent" /> Absent
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#92400e;">
+            <input type="checkbox" id="att-bulk-late" /> Late
+          </label>
+        </div>
       </div>
 
       <!-- Student List -->
@@ -215,7 +231,7 @@
     $('att-date').value = new Date().toISOString().split('T')[0];
     $('att-student-list').innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>`;
     $('att-save').disabled = true;
-    $('att-mark-all').style.display = 'none';
+    $('att-header').style.display = 'none';
 
     const sel = $('att-course');
     sel.innerHTML = '<option value="">Loading courses…</option>';
@@ -251,7 +267,7 @@
 
     const list = $('att-student-list');
     list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading students…</div>`;
-    $('att-mark-all').style.display = 'none';
+    $('att-header').style.display = 'none';
 
     try {
       const res = await core.portalFetch(`/api/lecturer/students?courseId=${courseId}`);
@@ -279,7 +295,7 @@
       `).join('');
 
       $('att-save').disabled = false;
-      $('att-mark-all').style.display = 'block';
+      $('att-header').style.display = 'flex';
 
     } catch (err) {
       list.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${err.message}</div>`;
@@ -287,13 +303,22 @@
     }
   }
 
-  // --- Mark All Present ---
-  function markAllPresent() {
+  // --- Bulk Select ---
+  function setAllStatus(status) {
     CURRENT_STUDENTS.forEach(s => {
-      const radio = document.querySelector(`input[name="status_${s.id}"][value="present"]`);
+      const radio = document.querySelector(`input[name="status_${s.id}"][value="${status}"]`);
       if (radio) radio.checked = true;
     });
-    core.showToast && core.showToast('All students marked present.', 'success');
+    
+    // Reset other checkboxes
+    ['present', 'absent', 'late'].forEach(v => {
+      if (v !== status) {
+        const cb = $(`att-bulk-${v}`);
+        if (cb) cb.checked = false;
+      }
+    });
+
+    core.showToast && core.showToast(`All students marked ${status}.`, 'success');
   }
 
   // --- Save Attendance ---
@@ -342,9 +367,13 @@
   $('att-modal-close')?.addEventListener('click', closeModal);
   $('att-cancel')?.addEventListener('click', closeModal);
   $('att-load-students')?.addEventListener('click', loadStudents);
-  $('att-mark-all')?.addEventListener('click', markAllPresent);
   $('att-save')?.addEventListener('click', saveAttendance);
   $('att-modal')?.addEventListener('click', (e) => { if (e.target.id === 'att-modal') closeModal(); });
+
+  // Bulk actions wiring
+  $('att-bulk-present')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('present'); });
+  $('att-bulk-absent')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('absent'); });
+  $('att-bulk-late')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('late'); });
 
   loadRecords();
 })();

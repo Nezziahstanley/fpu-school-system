@@ -247,7 +247,7 @@
     btn.disabled = true;
     btn.textContent = 'Saving…';
 
-    try {
+        try {
       const formData = new FormData();
       formData.append('courseId', courseId);
       formData.append('title', title);
@@ -258,18 +258,14 @@
       const file = $('asg-file').files[0];
       if (file) formData.append('file', file);
 
-      const token = localStorage.getItem('fpu_token');
+      // Use core.portalFetch, which handles the Authorization header automatically
       const url = id ? `/api/lecturer/assignments/${id}` : '/api/lecturer/assignments';
       const method = id ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      await core.portalFetch(url, {
         method: method,
-        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to save');
 
       core.showToast && core.showToast('Saved successfully!', 'success');
       closeModal();
@@ -280,7 +276,6 @@
       btn.disabled = false;
       btn.textContent = 'Publish Assignment';
     }
-  }
 
   // --- View & Grade Modal ---
   async function openViewModal(item) {

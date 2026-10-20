@@ -209,31 +209,37 @@
     }
   }
 
-  // --- Open Modal ---
-  async function openModal() {
+    async function openModal() {
     $('att-modal').style.display = 'flex';
     $('att-date').value = new Date().toISOString().split('T')[0];
     $('att-student-list').innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>`;
     $('att-save').disabled = true;
     $('att-mark-all').style.display = 'none';
 
-    if (!ALL_COURSES.length) {
-      try {
-        const res = await core.portalFetch('/api/lecturer/courses');
-        const rows = res.data || [];
-        ALL_COURSES = rows.map(r => r.course).filter(Boolean);
-        
-        const sel = $('att-course');
-        sel.innerHTML = '<option value="">Select Course</option>' + 
-          ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
-      } catch (err) {
-        core.showToast && core.showToast('Failed to load courses: ' + err.message, 'error');
-      }
-    }
-  }
+    const sel = $('att-course');
+    sel.innerHTML = '<option value="">Loading courses…</option>';
 
-  function closeModal() {
-    $('att-modal').style.display = 'none';
+    try {
+      const res = await core.portalFetch('/api/lecturer/courses');
+      // Handle both formats (raw array or { data: [...] })
+      const rows = Array.isArray(res) ? res : (res.data || []);
+      
+      // The new backend returns the course directly, not nested
+      ALL_COURSES = rows.filter(c => c && c.id);
+
+      if (!ALL_COURSES.length) {
+        sel.innerHTML = '<option value="">No courses assigned</option>';
+        core.showToast && core.showToast('No courses assigned to your account.', 'warning');
+        return;
+      }
+
+      sel.innerHTML = '<option value="">Select Course</option>' + 
+        ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+        
+    } catch (err) {
+      sel.innerHTML = '<option value="">Error loading courses</option>';
+      core.showToast && core.showToast('Failed to load courses: ' + err.message, 'error');
+    }
   }
 
   // --- Load Students ---

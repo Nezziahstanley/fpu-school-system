@@ -104,6 +104,35 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/lecturer/courses
+// Returns courses allocated to the lecturer
+// ============================================================
+router.get('/courses', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: courses.id,
+        code: courses.code,
+        title: courses.title,
+        level: courses.level,
+        unit: courses.unit,
+        semesterName: courses.semesterName,
+      })
+      .from(courseAllocations)
+      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(eq(courseAllocations.lecturerId, req.user.id));
+
+    // Filter out any nulls just in case
+    const data = rows.filter(r => r.id !== null);
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[lecturer/courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/lecturer/students-list
 // ============================================================
 router.get('/students-list', only, async (req, res, next) => {

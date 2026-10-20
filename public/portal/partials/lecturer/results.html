@@ -1,307 +1,136 @@
 <!-- Portal → Lecturer → Results -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📊</div>
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h1>Enter Results</h1>
-      <div class="sub">Enter and submit student results for your courses</div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Enter Results</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Enter and submit student results for your courses</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="res-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <select id="lr-course"><option value="">All Courses</option></select>
-  <select id="lr-session"><option value="">All Sessions</option></select>
-  <select id="lr-status">
-    <option value="">All Status</option>
-    <option value="draft">Draft</option>
-    <option value="submitted">Submitted</option>
-    <option value="hod_verified">HOD Verified</option>
-    <option value="published">Published</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="lr-refresh">Refresh</button>
-  <button class="btn btn-outline btn-sm" id="lr-export">Export CSV</button>
-</div>
-
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Results</span><span class="value" id="lr-total">—</span></div><div class="ic">📊</div></div>
-  <div class="stat red"><div class="meta"><span class="label">Drafts</span><span class="value" id="lr-drafts">—</span></div><div class="ic">✏️</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Submitted</span><span class="value" id="lr-submitted">—</span></div><div class="ic">📤</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Published</span><span class="value" id="lr-published">—</span></div><div class="ic">✅</div></div>
-</div>
-
-<section class="panel">
-  <div class="panel-head">
-    <h3>Results</h3>
-    <span class="badge" id="lr-count">0</span>
+  <!-- STATS -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-total">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Results</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✏️</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-drafts">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Drafts</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📤</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-submitted">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Submitted</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-published">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Published</div>
+      </div>
+    </div>
   </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>Student</th>
-            <th>Matric</th>
-            <th>Course</th>
-            <th>Score</th>
-            <th>Grade</th>
-            <th>Session</th>
-            <th>Status</th>
-            <th>Action</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Score</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Grade</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
-        <tbody id="lr-tbody">
-          <tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="res-tbody">
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:resSpin .8s linear infinite;"></div>
+            <div style="margin-top:.65rem;font-size:.82rem;">Loading results…</div>
+          </td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+</div>
+
+<style>
+  @keyframes resSpin { to { transform: rotate(360deg); } }
+  #res-tbody tr { transition: background .1s; }
+  #res-tbody tr:hover { background: #f8fafc; }
+</style>
 
 <script>
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-  let ALL = [], FILTERED = [];
-  let COURSE_MAP = {};   // { 505: { code, title } }
-  let SESSION_MAP = {};  // { 3: '2025/2026' }
-
-  // ---------------------------------------------------------
-  // Unwrap the nested { result, student, course } shape
-  // ---------------------------------------------------------
-  function unwrap(r) {
-    const res = r.result || r;
-    const stu = r.student || {};
-    const crs = r.course || COURSE_MAP[res.courseId] || {};
-    const ses = r.session || {};
-    const sesName = ses.name || SESSION_MAP[res.sessionId] || '—';
-
-    return {
-      id: res.id,
-      studentId: res.studentId,
-      courseId: res.courseId,
-      departmentId: stu.departmentId,
-      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${res.studentId || ''}`,
-      matric: stu.matricNumber || '—',
-      courseCode: crs.code || '—',
-      courseTitle: crs.title || '',
-      score: res.score != null ? Number(res.score) : null,
-      grade: res.grade || '—',
-      sessionName: sesName,
-      semester: res.semester || '—',
-      status: (res.status || 'draft').toLowerCase(),
-    };
-  }
-
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
-  function render() {
-    const countEl = $('lr-count'); const tbody = $('lr-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No results yet.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = FILTERED.map((r) => {
-      const badgeClass = r.status === 'published' ? 'badge-active'
-                       : r.status === 'submitted' || r.status === 'hod_verified' ? 'badge-warning'
-                       : 'badge-inactive';
-      const canEdit = r.status === 'draft';
-      const actions = canEdit
-        ? `<button class="btn btn-primary btn-xs" data-act="edit" data-id="${r.id}">Edit</button>
-           <button class="btn btn-outline btn-xs" data-act="submit" data-id="${r.id}">Submit</button>`
-        : `<span class="muted small">—</span>`;
-      return `
-        <tr>
-          <td>${esc(r.studentName)}</td>
-          <td><code>${esc(r.matric)}</code></td>
-          <td><strong>${esc(r.courseCode)}</strong> ${r.courseTitle ? `<div class="muted small">${esc(r.courseTitle)}</div>` : ''}</td>
-          <td><strong>${r.score != null ? r.score.toFixed(0) : '—'}</strong></td>
-          <td>${esc(r.grade)}</td>
-          <td>${esc(r.sessionName)}</td>
-          <td><span class="badge-status ${badgeClass}">${esc(r.status)}</span></td>
-          <td class="row-actions">${actions}</td>
-        </tr>`;
-    }).join('');
-
-    tbody.querySelectorAll('button[data-act]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        if (btn.dataset.act === 'edit') editResult(id);
-        if (btn.dataset.act === 'submit') submitResult(id);
-      });
-    });
-  }
-
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
-  function applyFilter() {
-    const course = $('lr-course')?.value || '';
-    const session = $('lr-session')?.value || '';
-    const status = $('lr-status')?.value || '';
-
-    FILTERED = ALL.filter((r) => {
-      if (course && r.courseCode !== course) return false;
-      if (session && r.sessionName !== session) return false;
-      if (status && r.status !== status) return false;
-      return true;
-    });
-    render();
-  }
-
-  function updateStats() {
-    setText('lr-total', ALL.length);
-    setText('lr-drafts', ALL.filter((r) => r.status === 'draft').length);
-    setText('lr-submitted', ALL.filter((r) => r.status === 'submitted' || r.status === 'hod_verified').length);
-    setText('lr-published', ALL.filter((r) => r.status === 'published').length);
-  }
-
-  function populateDropdowns() {
-    const courseSel = $('lr-course');
-    if (courseSel) {
-      const courses = [...new Set(ALL.map((r) => r.courseCode).filter((c) => c && c !== '—'))].sort();
-      const cur = courseSel.value;
-      courseSel.innerHTML = '<option value="">All Courses</option>' +
-        courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-      courseSel.value = cur;
-    }
-    const sesSel = $('lr-session');
-    if (sesSel) {
-      const sessions = [...new Set(ALL.map((r) => r.sessionName).filter((s) => s && s !== '—'))].sort();
-      const cur = sesSel.value;
-      sesSel.innerHTML = '<option value="">All Sessions</option>' +
-        sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-      sesSel.value = cur;
-    }
-  }
-
-  // ---------------------------------------------------------
-  // Load — get with-student + courses + sessions for lookups
-  // ---------------------------------------------------------
   async function load() {
-    const tbody = $('lr-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    const tbody = $('res-tbody');
+    tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:resSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;font-size:.82rem;">Loading results…</div>
+    </td></tr>`;
 
     try {
-      // Fetch with-student (has student info)
-      const resultsRes = await core.portalFetch('/api/results/with-student?limit=5000');
-      const payload = resultsRes.data || resultsRes || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
+      const res = await core.portalFetch('/api/lecturer/results');
+      const rows = res.data || [];
 
-      // Fetch courses for lookup (client-side)
-      try {
-        const crsRes = await core.portalFetch('/api/courses');
-        const crsPayload = crsRes.data || crsRes || {};
-        const crsList = Array.isArray(crsPayload) ? crsPayload : (crsPayload.rows || crsPayload.courses || []);
-        COURSE_MAP = Object.fromEntries(crsList.map((c) => [c.id, { code: c.code, title: c.title }]));
-      } catch (e) { console.warn('[results] courses lookup failed:', e.message); }
+      let drafts = 0, submitted = 0, published = 0;
+      rows.forEach(r => {
+        if (r.status === 'draft') drafts++;
+        else if (r.status === 'submitted') submitted++;
+        else if (r.status === 'published') published++;
+      });
 
-      // Fetch sessions for lookup (client-side)
-      try {
-        const sesRes = await core.portalFetch('/api/sessions');
-        const sesPayload = sesRes.data || sesRes || {};
-        const sesList = Array.isArray(sesPayload) ? sesPayload : (sesPayload.rows || sesPayload.sessions || []);
-        SESSION_MAP = Object.fromEntries(sesList.map((s) => [s.id, s.name]));
-      } catch (e) { console.warn('[results] sessions lookup failed:', e.message); }
+      $('res-total').textContent = rows.length;
+      $('res-drafts').textContent = drafts;
+      $('res-submitted').textContent = submitted;
+      $('res-published').textContent = published;
 
-      // Unwrap and FILTER to lecturer's department (safety)
-      let list = raw.map(unwrap);
-      if (user.departmentId) {
-        list = list.filter((r) => !r.departmentId || String(r.departmentId) === String(user.departmentId));
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No results found.</td></tr>`;
+        return;
       }
 
-      // Also filter to only courses this lecturer teaches
-      try {
-        const allocRes = await core.portalFetch('/api/allocations/my');
-        const allocPayload = allocRes.data || allocRes || {};
-        const allocRaw = Array.isArray(allocPayload) ? allocPayload : (allocPayload.rows || allocPayload.allocations || []);
-        const myCourseIds = new Set(allocRaw.map((a) => {
-          const alloc = a.allocation || a;
-          return String(alloc.courseId);
-        }));
-        if (myCourseIds.size) {
-          list = list.filter((r) => myCourseIds.has(String(r.courseId)));
-        }
-      } catch (e) { console.warn('[results] allocations filter failed:', e.message); }
-
-      ALL = list;
-      console.log('[lecturer-results] Loaded', ALL.length, '(from', raw.length, 'raw)');
-      populateDropdowns();
-      updateStats();
-      applyFilter();
+      tbody.innerHTML = rows.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentFirstName)} ${esc(r.studentLastName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber)}</code></td>
+          <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode)}</span></td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(r.status)}</td>
+          <td style="padding:.65rem .75rem;text-align:right;"><span style="font-size:.72rem;color:#94a3b8;">—</span></td>
+        </tr>
+      `).join('');
     } catch (err) {
-      console.error('[lecturer-results]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ---------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------
-  function editResult(id) {
-    const rec = ALL.find((r) => String(r.id) === String(id));
-    if (!rec) return;
-    const newScore = prompt(`New score for ${rec.studentName} (0-100):`, rec.score ?? '');
-    if (newScore === null) return;
-    const score = Number(newScore);
-    if (isNaN(score) || score < 0 || score > 100) {
-      core.showToast && core.showToast('Invalid score (must be 0-100)', 'error');
-      return;
-    }
-    (async () => {
-      try {
-        await core.portalFetch('/api/results/' + id, { method: 'PUT', body: { score } });
-        core.showToast && core.showToast('Score updated', 'success');
-        load();
-      } catch (err) {
-        core.showToast && core.showToast(err.message, 'error');
-      }
-    })();
-  }
-
-  async function submitResult(id) {
-    if (!confirm('Submit this result to your HOD for verification?')) return;
-    try {
-      await core.portalFetch('/api/results/' + id + '/submit', { method: 'POST' });
-      core.showToast && core.showToast('Submitted to HOD', 'success');
-      load();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  }
-
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
-  function exportCsv() {
-    const headers = ['Student', 'Matric', 'Course', 'Score', 'Grade', 'Session', 'Status'];
-    const rows = FILTERED.map((r) => [r.studentName, r.matric, r.courseCode, r.score ?? '', r.grade, r.sessionName, r.status]);
-    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `lecturer-results-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  $('lr-course')?.addEventListener('change', applyFilter);
-  $('lr-session')?.addEventListener('change', applyFilter);
-  $('lr-status')?.addEventListener('change', applyFilter);
-  $('lr-refresh')?.addEventListener('click', load);
-  $('lr-export')?.addEventListener('click', exportCsv);
-
+  $('res-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>

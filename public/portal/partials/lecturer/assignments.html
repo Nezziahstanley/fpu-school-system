@@ -1,94 +1,43 @@
 <!-- Portal → Lecturer → Assignments -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📝</div>
+<div style="padding:0;">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h1>Assignments</h1>
-      <div class="sub">Post and manage assignments for your courses</div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Assignments</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Post and manage assignments for your courses</p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="asg-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+      ">↻ Refresh</button>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <input type="search" id="las-search" placeholder="Search assignments…" />
-  <select id="las-course"><option value="">All Courses</option></select>
-  <select id="las-status">
-    <option value="">All Status</option>
-    <option value="open">Open</option>
-    <option value="closed">Closed</option>
-    <option value="graded">Graded</option>
-  </select>
-  <button class="btn btn-primary btn-sm" id="las-new-btn">➕ New Assignment</button>
-  <button class="btn btn-outline btn-sm" id="las-refresh">Refresh</button>
-</div>
-
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total</span><span class="value" id="las-total">—</span></div><div class="ic">📝</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Open</span><span class="value" id="las-open">—</span></div><div class="ic">🟢</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Closed</span><span class="value" id="las-closed">—</span></div><div class="ic">🔴</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">Submissions</span><span class="value" id="las-subs">—</span></div><div class="ic">📥</div></div>
-</div>
-
-<section class="panel">
-  <div class="panel-head">
-    <h3>Assignments</h3>
-    <span class="badge" id="las-count">0</span>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#f3e8ff;color:#6b21a8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📝</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="asg-total">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total</div>
+      </div>
+    </div>
   </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>Title</th>
-            <th>Course</th>
-            <th>Due Date</th>
-            <th>Submissions</th>
-            <th>Status</th>
-            <th>Action</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Due Date</th>
           </tr>
         </thead>
-        <tbody id="las-tbody">
-          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="asg-tbody">
+          <tr><td colspan="3" style="padding:3rem;text-align:center;color:#94a3b8;">Loading assignments…</td></tr>
         </tbody>
       </table>
-    </div>
-  </div>
-</section>
-
-<!-- New Assignment modal -->
-<div id="las-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:12px;max-width:560px;width:90%;max-height:90vh;overflow:auto;">
-    <div style="padding:1rem 1.25rem;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-      <strong>New Assignment</strong>
-      <button class="btn btn-outline btn-xs" id="las-modal-close">✕</button>
-    </div>
-    <div style="padding:1.25rem;">
-      <div class="form-group">
-        <label>Title *</label>
-        <input type="text" id="las-title" placeholder="e.g., Chapter 3 Exercises" />
-      </div>
-      <div class="form-group">
-        <label>Course *</label>
-        <select id="las-modal-course"><option value="">— Select —</option></select>
-      </div>
-      <div class="form-group">
-        <label>Instructions</label>
-        <textarea id="las-desc" rows="4" placeholder="What should students do?"></textarea>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="form-group">
-          <label>Due Date *</label>
-          <input type="date" id="las-due" />
-        </div>
-        <div class="form-group">
-          <label>Max Score</label>
-          <input type="number" id="las-max" min="1" max="1000" value="100" />
-        </div>
-      </div>
-      <div class="quick-actions" style="margin-top:1rem;">
-        <button class="btn btn-primary btn-sm" id="las-submit">📝 Create Assignment</button>
-        <button class="btn btn-outline btn-sm" id="las-cancel">Cancel</button>
-      </div>
     </div>
   </div>
 </div>
@@ -99,182 +48,34 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-
-  let ALL = [], FILTERED = [];
-
-  function unwrap(r) {
-    const a = r.assignment || r;
-    const crs = r.course || {};
-    return {
-      id: a.id,
-      title: a.title || '—',
-      courseCode: crs.code || a.courseCode || '—',
-      dueDate: a.dueDate || a.due_at || null,
-      maxScore: a.maxScore || a.max_score || 100,
-      submissions: a.submissionCount || a.submissions || 0,
-      status: (a.status || 'open').toLowerCase(),
-    };
-  }
-
-  function render() {
-    const countEl = $('las-count'); const tbody = $('las-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = `
-        <tr><td colspan="6" class="empty" style="padding:2.5rem 1rem;text-align:center;">
-          <div style="font-size:2.5rem;margin-bottom:.5rem;">📝</div>
-          <div style="font-weight:600;color:#475569;">No assignments yet</div>
-          <div style="font-size:12.5px;color:#94a3b8;margin-top:.25rem;">
-            Click <strong>New Assignment</strong> to post your first one.
-          </div>
-        </td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = FILTERED.map((a) => {
-      const badgeClass = a.status === 'open' ? 'badge-active'
-                       : a.status === 'closed' ? 'badge-inactive'
-                       : 'badge-warning';
-      return `
-        <tr>
-          <td><strong>${esc(a.title)}</strong></td>
-          <td>${esc(a.courseCode)}</td>
-          <td>${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}</td>
-          <td>${a.submissions}</td>
-          <td><span class="badge-status ${badgeClass}">${esc(a.status)}</span></td>
-          <td class="row-actions">
-            <button class="btn btn-outline btn-xs" data-act="view" data-id="${a.id}">View</button>
-            <button class="btn btn-outline btn-xs" data-act="delete" data-id="${a.id}">Delete</button>
-          </td>
-        </tr>`;
-    }).join('');
-
-    tbody.querySelectorAll('button[data-act]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.id;
-        if (btn.dataset.act === 'view') viewSubmissions(id);
-        if (btn.dataset.act === 'delete') deleteAssignment(id);
-      });
-    });
-  }
-
-  function applyFilter() {
-    const q = ($('las-search')?.value || '').trim().toLowerCase();
-    const course = $('las-course')?.value || '';
-    const status = $('las-status')?.value || '';
-    FILTERED = ALL.filter((a) => {
-      const hay = `${a.title} ${a.courseCode}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (course && a.courseCode !== course) return false;
-      if (status && a.status !== status) return false;
-      return true;
-    });
-    render();
-  }
-
-  function updateStats() {
-    setText('las-total', ALL.length);
-    setText('las-open', ALL.filter((a) => a.status === 'open').length);
-    setText('las-closed', ALL.filter((a) => a.status === 'closed').length);
-    setText('las-subs', ALL.reduce((s, a) => s + Number(a.submissions || 0), 0));
-  }
-
-  async function populateCourses() {
-    const sel = $('las-course');
-    const modalSel = $('las-modal-course');
-    try {
-      const res = await core.portalFetch('/api/allocations/my');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
-      const courses = raw.map((r) => {
-        const crs = r.course || r;
-        return { code: crs.code || '—', id: crs.id };
-      }).filter((c) => c.code && c.code !== '—').sort((a, b) => a.code.localeCompare(b.code));
-
-      const options = courses.map((c) => `<option value="${esc(c.code)}">${esc(c.code)}</option>`).join('');
-      if (sel) sel.innerHTML = '<option value="">All Courses</option>' + options;
-      if (modalSel) modalSel.innerHTML = '<option value="">— Select —</option>' + options;
-    } catch (err) {
-      console.warn('[assignments] could not load courses:', err.message);
-    }
-  }
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   async function load() {
-    const tbody = $('las-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
+    const tbody = $('asg-tbody');
     try {
-      const res = await core.portalFetch('/api/assignments');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.assignments || []);
-      ALL = raw.map(unwrap);
-      console.log('[lecturer-assignments] Loaded', ALL.length);
-      updateStats();
-      applyFilter();
+      const res = await core.portalFetch('/api/lecturer/assignments');
+      const rows = res.data || [];
+      
+      $('asg-total').textContent = rows.length;
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="3" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
+          <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.dueDate)}</td>
+        </tr>
+      `).join('');
     } catch (err) {
-      console.warn('[lecturer-assignments]', err.message);
-      ALL = [];
-      updateStats();
-      applyFilter();
+      tbody.innerHTML = `<tr><td colspan="3" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function deleteAssignment(id) {
-    if (!confirm('Delete this assignment? Student submissions will be kept.')) return;
-    try {
-      await core.portalFetch('/api/assignments/' + id, { method: 'DELETE' });
-      core.showToast && core.showToast('Assignment deleted', 'success');
-      load();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  }
-
-  function viewSubmissions(id) {
-    core.showToast && core.showToast('Submissions view coming soon', 'info');
-  }
-
-  // Modal
-  function openModal() { const m = $('las-modal'); if (m) m.style.display = 'flex'; }
-  function closeModal() { const m = $('las-modal'); if (m) m.style.display = 'none'; }
-
-  $('las-new-btn')?.addEventListener('click', openModal);
-  $('las-modal-close')?.addEventListener('click', closeModal);
-  $('las-cancel')?.addEventListener('click', closeModal);
-
-  $('las-submit')?.addEventListener('click', async () => {
-    const title = ($('las-title')?.value || '').trim();
-    const courseCode = $('las-modal-course')?.value || '';
-    const description = ($('las-desc')?.value || '').trim();
-    const dueDate = $('las-due')?.value || '';
-    const maxScore = Number($('las-max')?.value || 100);
-
-    if (!title) return core.showToast && core.showToast('Title is required', 'error');
-    if (!courseCode) return core.showToast && core.showToast('Course is required', 'error');
-    if (!dueDate) return core.showToast && core.showToast('Due date is required', 'error');
-
-    try {
-      await core.portalFetch('/api/assignments', {
-        method: 'POST',
-        body: { title, courseCode, description, dueDate, maxScore },
-      });
-      core.showToast && core.showToast('Assignment created', 'success');
-      closeModal();
-      load();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  });
-
-  $('las-search')?.addEventListener('input', applyFilter);
-  $('las-course')?.addEventListener('change', applyFilter);
-  $('las-status')?.addEventListener('change', applyFilter);
-  $('las-refresh')?.addEventListener('click', load);
-
-  populateCourses();
+  $('asg-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>

@@ -591,4 +591,57 @@ router.post('/requests', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+// ============================================================
+// POST /api/lecturer/results
+// ============================================================
+router.post('/results', only, async (req, res, next) => {
+  try {
+    const { studentId, courseId, score, semester } = req.body || {};
+    if (!studentId || !courseId || score === undefined) {
+      return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
+    }
+
+    // Verify allocation
+    const allocation = await db.select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId))))
+      .limit(1);
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    const numericScore = Number(score);
+    const scale = await getActiveGradeScale();
+    const { grade, points } = await scoreToGrade(numericScore, scale);
+
+    const [row] = await db.insert(results).values({
+      studentId: Number(studentId),
+      courseId: Number(courseId),
+      sessionId: req.user.currentSessionId || 1,
+      semester: semester || 'first',
+      score: String(numericScore),
+      grade: grade,
+      points: String(points),
+      status: 'draft',
+    }).onConflictDoUpdate({
+      target: [results.studentId, results.courseId, results.sessionId, results.semester],
+      set: {
+        score: String(numericScore),
+        grade: grade,
+        points: String(points),
+        status: 'draft', // Overwrite if it existed, but reset to draft
+      }
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/lecturer/results/:id
+// ============================================================
+router.delete('/results/:id', only, async (req, res, next) => {
+  try {
+    await db.delete(results).where(eq(results.id, Number(req.params.id)));
+    return res.json({ success: true });
+  } catch (err) { return next(err); }
+});
 module.exports = router;

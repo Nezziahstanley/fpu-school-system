@@ -267,6 +267,7 @@
         formData.append('fileUrl', $('mat-url').value.trim());
       }
 
+      // Use native fetch with manual token extraction to prevent auth errors
       const token = localStorage.getItem('fpu_token');
       const res = await fetch('/api/lecturer/materials', {
         method: 'POST',

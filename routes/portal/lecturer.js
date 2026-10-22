@@ -30,7 +30,7 @@ const {
   courseAllocations, courses, courseRegistrations, users, 
   academicSessions, results, courseMaterials, assignments, 
   departments, assignmentSubmissions, programmes, timetableSlots,
-  attendance
+  attendance, examSchedules
 } = schema;
 
 const only = requireRole('lecturer', 'hod');
@@ -78,12 +78,16 @@ router.get('/dashboard', only, async (req, res, next) => {
       pendingResults = pend[0]?.count || 0;
     }
 
-    let materialsCount = 0, assignmentsCount = 0;
+    let materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
     if (courseIds.length > 0) {
       const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));
       materialsCount = mats[0]?.count || 0;
+
       const ass = await db.select({ count: sql`count(*)::int` }).from(assignments).where(inArray(assignments.courseId, courseIds));
       assignmentsCount = ass[0]?.count || 0;
+
+      const att = await db.select({ count: sql`count(*)::int` }).from(attendance).where(inArray(attendance.courseId, courseIds));
+      attendanceCount = att[0]?.count || 0;
     }
 
     const [dept] = await db.select({ name: departments.name }).from(users).leftJoin(departments, eq(users.departmentId, departments.id)).where(eq(users.id, lecturerId)).limit(1);
@@ -92,6 +96,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       success: true,
       data: {
         coursesCount: allocatedCourses.length, totalStudents, totalRegistrations, pendingResults,
+        attendanceCount, // <--- Added to response
         activeSession: currentSession?.name || '—', materialsCount, assignmentsCount,
         departmentName: dept?.name || '—', coursesList: allocatedCourses.map(c => c.course).filter(Boolean), courseStats
       }
@@ -585,14 +590,12 @@ router.post('/requests', only, async (req, res, next) => {
 // GET /api/lecturer/reports
 // ============================================================
 router.get('/reports', only, async (req, res, next) => {
-  // Force browser to NEVER cache this endpoint
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   
   try {
     const lecturerId = req.user.id;
 
-    // 1. Fetch allocated courses
     const allocatedCourses = await db
       .select({ courseId: courseAllocations.courseId })
       .from(courseAllocations)
@@ -608,7 +611,6 @@ router.get('/reports', only, async (req, res, next) => {
       });
     }
 
-    // 2. Fetch all results for these courses (Safely join users to get level)
     const allResults = await db
       .select({
         score: results.score,
@@ -621,7 +623,6 @@ router.get('/reports', only, async (req, res, next) => {
       .leftJoin(users, eq(results.studentId, users.id))
       .where(inArray(results.courseId, courseIds));
 
-    // 3. Calculate Stats
     const uniqueStudents = new Set(allResults.map(r => r.studentId)).size;
     const totalResults = allResults.length;
     
@@ -654,7 +655,6 @@ router.get('/reports', only, async (req, res, next) => {
     const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
     const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
 
-    // 4. Attendance Count
     const attRows = await db
       .select({ id: attendance.id })
       .from(attendance)
@@ -721,6 +721,7 @@ router.get('/security', only, async (req, res, next) => {
     return res.json({ success: true, sessions, logins });
   } catch (err) { return next(err); }
 });
+
 // ============================================================
 // GET /api/lecturer/exams
 // ============================================================
@@ -728,8 +729,6 @@ router.get('/exams', only, async (req, res, next) => {
   try {
     const { examSchedules, courseAllocations, courses, departments } = schema;
 
-    // Query the exams table and JOIN with course allocations to ensure
-    // the lecturer ONLY sees exams for courses they are assigned to.
     const rows = await db
       .select({
         id: examSchedules.id,
@@ -754,4 +753,5 @@ router.get('/exams', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 module.exports = router;

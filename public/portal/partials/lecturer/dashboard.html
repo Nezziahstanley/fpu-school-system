@@ -170,15 +170,10 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  // Safely destroys existing chart on the canvas before drawing a new one
   function drawChart(canvasId, config) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    
-    if (canvas.__chart) {
-      canvas.__chart.destroy();
-    }
-    
+    if (canvas.__chart) canvas.__chart.destroy();
     canvas.__chart = new Chart(canvas, config);
   }
 
@@ -198,6 +193,7 @@
       $('lec-registrations').textContent = d.totalRegistrations ?? 0;
       $('lec-results').textContent = d.pendingResults ?? 0;
       $('lec-session').textContent = d.activeSession || '—';
+      $('lec-attendance').textContent = d.attendanceCount ?? 0; // <-- FIXED
       $('lec-materials').textContent = d.materialsCount ?? 0;
       $('lec-assignments').textContent = d.assignmentsCount ?? 0;
 

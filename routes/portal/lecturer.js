@@ -667,7 +667,7 @@ router.get('/reports', only, async (req, res, next) => {
       });
     }
 
-    // 2. Fetch all results for these courses
+    // 2. Fetch all results for these courses (No joins!)
     const allResults = await db
       .select({
         score: results.score,
@@ -689,7 +689,6 @@ router.get('/reports', only, async (req, res, next) => {
 
     const gradeDist = {};
     const statusDist = {};
-    const levelDist = { "100": 0, "200": 0, "300": 0, "400": 0 };
 
     allResults.forEach(r => {
       const score = Number(r.score) || 0;
@@ -698,11 +697,9 @@ router.get('/reports', only, async (req, res, next) => {
       if (score < lowest) lowest = score;
       if (score >= 40) passCount++;
 
-      // Grade
       const grade = r.grade || 'N/A';
       gradeDist[grade] = (gradeDist[grade] || 0) + 1;
 
-      // Status
       const status = r.status || 'draft';
       statusDist[status] = (statusDist[status] || 0) + 1;
     });
@@ -710,7 +707,7 @@ router.get('/reports', only, async (req, res, next) => {
     const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
     const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
 
-    // 4. Attendance Count
+    // 4. Attendance Count (No joins!)
     const attRows = await db
       .select({ id: attendance.id })
       .from(attendance)
@@ -732,7 +729,7 @@ router.get('/reports', only, async (req, res, next) => {
         },
         gradeDist,
         statusDist,
-        levelDist
+        levelDist: {} // Empty for now to prevent crashes
       }
     });
   } catch (err) {

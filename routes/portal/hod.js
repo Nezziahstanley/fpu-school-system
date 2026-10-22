@@ -312,6 +312,46 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/hod/courses-with-allocations
+// ============================================================
+router.get('/courses-with-allocations', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const sessionId = req.user.currentSessionId || 1;
+
+    const rows = await db
+      .select({
+        id: courses.id,
+        code: courses.code,
+        title: courses.title,
+        level: courses.level,
+        unit: courses.unit,
+        semesterName: courses.semesterName,
+        allocationId: courseAllocations.id,
+        lecturerId: courseAllocations.lecturerId,
+        lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+        status: courseAllocations.status,
+      })
+      .from(courses)
+      .leftJoin(
+        courseAllocations,
+        and(
+          eq(courseAllocations.courseId, courses.id),
+          eq(courseAllocations.sessionId, sessionId)
+        )
+      )
+      .leftJoin(users, eq(courseAllocations.lecturerId, users.id))
+      .where(eq(courses.departmentId, departmentId))
+      .orderBy(courses.level, courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/courses-with-allocations] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/courses
 // ============================================================
 router.get('/courses', only, async (req, res, next) => {

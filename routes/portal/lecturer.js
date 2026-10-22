@@ -39,17 +39,6 @@ const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const upload = multer({ dest: UPLOAD_DIR });
 
-// ------------------------------------------------------------
-// Helper: list the course IDs the current lecturer is allocated to
-// ------------------------------------------------------------
-async function getAllocatedCourseIds(userId, sessionId) {
-  const allocations = await courseQueries.listAllocationsWithRelations({
-    lecturerId: userId,
-    sessionId,
-  });
-  return allocations.map((a) => a.course?.id).filter(Boolean);
-}
-
 // ============================================================
 // GET /api/lecturer/dashboard
 // ============================================================
@@ -316,6 +305,59 @@ router.get('/results', only, async (req, res, next) => {
 });
 
 // ============================================================
+// POST /api/lecturer/results
+// ============================================================
+router.post('/results', only, async (req, res, next) => {
+  try {
+    const { studentId, courseId, score, semester } = req.body || {};
+    if (!studentId || !courseId || score === undefined) {
+      return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
+    }
+
+    const allocation = await db.select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId))))
+      .limit(1);
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    const numericScore = Number(score);
+    const scale = await getActiveGradeScale();
+    const { grade, points } = await scoreToGrade(numericScore, scale);
+
+    const [row] = await db.insert(results).values({
+      studentId: Number(studentId),
+      courseId: Number(courseId),
+      sessionId: req.user.currentSessionId || 1,
+      semester: semester || 'first',
+      score: String(numericScore),
+      grade: grade,
+      points: String(points),
+      status: 'draft',
+    }).onConflictDoUpdate({
+      target: [results.studentId, results.courseId, results.sessionId, results.semester],
+      set: {
+        score: String(numericScore),
+        grade: grade,
+        points: String(points),
+        status: 'draft',
+      }
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/lecturer/results/:id
+// ============================================================
+router.delete('/results/:id', only, async (req, res, next) => {
+  try {
+    await db.delete(results).where(eq(results.id, Number(req.params.id)));
+    return res.json({ success: true });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // MATERIALS
 // ============================================================
 router.get('/materials', only, async (req, res, next) => {
@@ -452,67 +494,12 @@ router.delete('/assignments/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
-// OTHER ROUTES
-// ============================================================
-router.get('/requests', only, async (req, res, next) => {
-  try { return res.json({ success: true, data: await notifQueries.listComplaints({ userId: req.user.id }) }); }
-  catch (err) { return res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/reports', only, async (req, res, next) => {
-  try {
-    const sessionId = req.user.currentSessionId;
-    const allocations = await courseQueries.listAllocationsWithRelations({ lecturerId: req.user.id, sessionId });
-    const courseIds = allocations.map((a) => a.course?.id).filter(Boolean);
-    const resultRows = courseIds.length ? await resultQueries.list({ sessionId, limit: 5000 }) : [];
-    const myResults = resultRows.filter((r) => courseIds.includes(r.courseId));
-    const summary = { totalCourses: allocations.length, totalResultRows: myResults.length, byStatus: myResults.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {}) };
-    return res.json({ success: true, data: { allocations, summary } });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/timetable', only, async (req, res, next) => {
-  try {
-    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    if (!courseIds.length) return res.json({ success: true, data: [] });
-
-    const slots = await db
-      .select({
-        id: timetableSlots.id, dayOfWeek: timetableSlots.dayOfWeek, startTime: timetableSlots.startTime,
-        endTime: timetableSlots.endTime, venue: timetableSlots.venue, semester: timetableSlots.semester,
-        courseCode: courses.code, courseTitle: courses.title, level: courses.level,
-      })
-      .from(timetableSlots)
-      .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
-      .where(inArray(timetableSlots.courseId, courseIds))
-      .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
-
-    return res.json({ success: true, data: slots });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
-});
-
-router.get('/profile', only, async (req, res, next) => {
-  try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
-  catch (err) { return next(err); }
-});
-
-router.get('/security', only, async (req, res, next) => {
-  try {
-    const sessions = await sessionQueries.listUserSessions(req.user.id);
-    const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
-    return res.json({ success: true, sessions, logins });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/lecturer/assignments/:id/submissions
+// ASSIGNMENT SUBMISSIONS
 // ============================================================
 router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
 
-    // Verify the assignment belongs to this lecturer
     const [assignment] = await db.select()
       .from(assignments)
       .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
@@ -520,7 +507,6 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
 
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // Get submissions with student details
     const rows = await db
       .select({
         submission: assignmentSubmissions,
@@ -549,9 +535,6 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   }
 });
 
-// ============================================================
-// POST /api/lecturer/submissions/:id/grade
-// ============================================================
 router.post('/submissions/:id/grade', only, async (req, res, next) => {
   try {
     const { score, feedback } = req.body || {};
@@ -568,9 +551,15 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 // ============================================================
-// POST /api/lecturer/requests
+// REQUESTS
 // ============================================================
+router.get('/requests', only, async (req, res, next) => {
+  try { return res.json({ success: true, data: await notifQueries.listComplaints({ userId: req.user.id }) }); }
+  catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
 router.post('/requests', only, async (req, res, next) => {
   try {
     const { subject, body, category } = req.body || {};
@@ -591,63 +580,15 @@ router.post('/requests', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-// ============================================================
-// POST /api/lecturer/results
-// ============================================================
-router.post('/results', only, async (req, res, next) => {
-  try {
-    const { studentId, courseId, score, semester } = req.body || {};
-    if (!studentId || !courseId || score === undefined) {
-      return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
-    }
-
-    // Verify allocation
-    const allocation = await db.select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId))))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
-
-    const numericScore = Number(score);
-    const scale = await getActiveGradeScale();
-    const { grade, points } = await scoreToGrade(numericScore, scale);
-
-    const [row] = await db.insert(results).values({
-      studentId: Number(studentId),
-      courseId: Number(courseId),
-      sessionId: req.user.currentSessionId || 1,
-      semester: semester || 'first',
-      score: String(numericScore),
-      grade: grade,
-      points: String(points),
-      status: 'draft',
-    }).onConflictDoUpdate({
-      target: [results.studentId, results.courseId, results.sessionId, results.semester],
-      set: {
-        score: String(numericScore),
-        grade: grade,
-        points: String(points),
-        status: 'draft', // Overwrite if it existed, but reset to draft
-      }
-    }).returning();
-
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) { return next(err); }
-});
 
 // ============================================================
-// DELETE /api/lecturer/results/:id
-// ============================================================
-router.delete('/results/:id', only, async (req, res, next) => {
-  try {
-    await db.delete(results).where(eq(results.id, Number(req.params.id)));
-    return res.json({ success: true });
-  } catch (err) { return next(err); }
-});
-// ============================================================
-// GET /api/lecturer/reports
+// GET /api/lecturer/reports (THE ONLY REPORTS ROUTE)
 // ============================================================
 router.get('/reports', only, async (req, res, next) => {
+  // Force browser to NEVER cache this endpoint
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  
   try {
     const lecturerId = req.user.id;
 
@@ -737,4 +678,42 @@ router.get('/reports', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ============================================================
+// TIMETABLE / PROFILE / SECURITY
+// ============================================================
+router.get('/timetable', only, async (req, res, next) => {
+  try {
+    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+    if (!courseIds.length) return res.json({ success: true, data: [] });
+
+    const slots = await db
+      .select({
+        id: timetableSlots.id, dayOfWeek: timetableSlots.dayOfWeek, startTime: timetableSlots.startTime,
+        endTime: timetableSlots.endTime, venue: timetableSlots.venue, semester: timetableSlots.semester,
+        courseCode: courses.code, courseTitle: courses.title, level: courses.level,
+      })
+      .from(timetableSlots)
+      .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
+      .where(inArray(timetableSlots.courseId, courseIds))
+      .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
+
+    return res.json({ success: true, data: slots });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+router.get('/profile', only, async (req, res, next) => {
+  try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
+  catch (err) { return next(err); }
+});
+
+router.get('/security', only, async (req, res, next) => {
+  try {
+    const sessions = await sessionQueries.listUserSessions(req.user.id);
+    const logins = await require('../../db/queries/audit').listLogins({ userId: req.user.id, limit: 30 });
+    return res.json({ success: true, sessions, logins });
+  } catch (err) { return next(err); }
+});
+
 module.exports = router;

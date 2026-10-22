@@ -49,7 +49,8 @@
     const tbody = $('exm-tbody');
     try {
       // Use the explicit admin path so the backend recognises the route
-      const res = await core.portalFetch('/api/admin/exams');
+            // Change this line:
+      const res = await core.portalFetch('/api/lecturer/exams');
       const rows = res.data || [];
 
       if (!rows.length) {

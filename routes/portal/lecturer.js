@@ -721,5 +721,19 @@ router.get('/security', only, async (req, res, next) => {
     return res.json({ success: true, sessions, logins });
   } catch (err) { return next(err); }
 });
+// ============================================================
+// GET /api/lecturer/exams
+// ============================================================
+router.get('/exams', only, async (req, res, next) => {
+  try {
+    // Use the existing examQueries to fetch all exams
+    const examQueries = require('../../db/queries/exams');
+    const rows = await examQueries.listWithCourse({});
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[lecturer/exams] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;

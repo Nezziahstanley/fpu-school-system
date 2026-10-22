@@ -3,32 +3,11 @@
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exams</h2>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Schedule</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Browse exam schedules by department</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <input id="exm-search" type="text" placeholder="Search course, venue..." style="padding:.55rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;width:220px;" />
       <button id="exm-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    </div>
-  </div>
-
-  <!-- STATS -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;">
-      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Departments</div>
-      <div style="font-size:1.35rem;font-weight:800;color:#0f172a;" id="exm-stat-dept">0</div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;">
-      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Total Exams</div>
-      <div style="font-size:1.35rem;font-weight:800;color:#0f172a;" id="exm-stat-total">0</div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;">
-      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Upcoming</div>
-      <div style="font-size:1.35rem;font-weight:800;color:#065f46;" id="exm-stat-upcoming">0</div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;">
-      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Past</div>
-      <div style="font-size:1.35rem;font-weight:800;color:#991b1b;" id="exm-stat-past">0</div>
     </div>
   </div>
 
@@ -66,73 +45,37 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
-  let ALL_EXAMS = [];
-
   async function load() {
     const tbody = $('exm-tbody');
     try {
-      // Use the explicit admin path so the auth middleware accepts the request
+      // Use the explicit admin path so the backend recognises the route
       const res = await core.portalFetch('/api/admin/exams');
-      ALL_EXAMS = res.data || [];
+      const rows = res.data || [];
 
-      // Calculate stats
-      const now = new Date();
-      let upcoming = 0, past = 0;
-      const depts = new Set();
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No exams scheduled yet.</td></tr>`;
+        return;
+      }
 
-      ALL_EXAMS.forEach(e => {
-        if (e.departmentName) depts.add(e.departmentName);
-        const examDate = new Date(e.examDate);
-        if (examDate >= now) upcoming++;
-        else past++;
-      });
-
-      $('exm-stat-dept').textContent = depts.size;
-      $('exm-stat-total').textContent = ALL_EXAMS.length;
-      $('exm-stat-upcoming').textContent = upcoming;
-      $('exm-stat-past').textContent = past;
-
-      renderTable(ALL_EXAMS);
+      tbody.innerHTML = rows.map(e => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(e.courseTitle || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.departmentName || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime)} - ${esc(e.endTime)}</td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
+        </tr>
+      `).join('');
 
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  function renderTable(rows) {
-    const tbody = $('exm-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No exams found.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = rows.map(e => `
-      <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:.65rem .75rem;">
-          <div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div>
-          <div style="font-size:.72rem;color:#64748b;">${esc(e.courseTitle || '')}</div>
-        </td>
-        <td style="padding:.65rem .75rem;color:#475569;">${esc(e.departmentName || '—')}</td>
-        <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}</td>
-        <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime)} - ${esc(e.endTime)}</td>
-        <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
-      </tr>
-    `).join('');
-  }
-
-  function filter() {
-    const q = ($('exm-search').value || '').toLowerCase();
-    const filtered = ALL_EXAMS.filter(e => 
-      (e.courseCode || '').toLowerCase().includes(q) ||
-      (e.courseTitle || '').toLowerCase().includes(q) ||
-      (e.venue || '').toLowerCase().includes(q)
-    );
-    renderTable(filtered);
-  }
-
-  $('exm-search')?.addEventListener('input', filter);
   $('exm-refresh')?.addEventListener('click', load);
-
   load();
 })();
 </script>

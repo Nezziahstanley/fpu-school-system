@@ -121,6 +121,10 @@
 
 </div>
 
+<style>
+  @keyframes repSpin { to { transform: rotate(360deg); } }
+</style>
+
 <script>
 (function () {
   'use strict';
@@ -136,20 +140,19 @@
 
   async function load() {
     try {
-      const res = await core.portalFetch('/api/lecturer/reports');
+      // Append a timestamp to the URL to bypass any aggressive caching on Render/Neon
+      const res = await core.portalFetch(`/api/lecturer/reports?t=${Date.now()}`);
       
-      // Print the exact data to the console so we can see it
-      console.log('--- REPORTS DATA ---', res);
-
+      console.log('--- REPORTS DATA RECEIVED ---', res);
       const d = res.data || {};
 
-      // Update Tiles
+      // Update tiles
       $('rep-courses').textContent = d.coursesCount || 0;
       $('rep-students').textContent = d.totalStudents || 0;
       $('rep-results').textContent = d.totalResults || 0;
       $('rep-attendance').textContent = d.attendanceSessions || 0;
 
-      // Update Summary
+      // Update summary
       const stats = d.stats || {};
       $('rep-avg').textContent = stats.averageScore !== undefined ? stats.averageScore : '—';
       $('rep-high').textContent = stats.highestScore !== undefined ? stats.highestScore : '—';

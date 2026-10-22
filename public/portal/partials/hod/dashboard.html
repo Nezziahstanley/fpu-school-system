@@ -1,32 +1,18 @@
-﻿<!-- ============================================================
-     Portal → HOD → Dashboard
-     Admin-styled analytics dashboard, scoped to HOD's department.
-     ============================================================ -->
+﻿<!-- Portal → HOD → Dashboard -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<!-- ============================================================
-     PAGE HEAD
-     ============================================================ -->
 <section class="page-head">
   <div>
     <h2>Dashboard Overview</h2>
     <p class="muted small" id="hod-dept-line">Live analytics for your department</p>
   </div>
   <div class="actions">
-    <select id="hod-dash-range" class="form-select" style="max-width: 180px;">
-      <option value="30">Last 30 days</option>
-      <option value="90">Last 90 days</option>
-      <option value="365" selected>Last 12 months</option>
-      <option value="all">All time</option>
-    </select>
     <button class="btn btn-outline btn-sm" id="hod-dash-refresh">Refresh</button>
     <a class="btn btn-primary btn-sm" href="#hod-pending-results">Review Pending Results</a>
   </div>
 </section>
 
-<!-- ============================================================
-     STAT TILES — Row 1: Department Overview
-     ============================================================ -->
+<!-- STAT TILES -->
 <div class="stat-grid">
   <div class="stat">
     <div class="meta"><span class="label">Department Students</span><span class="value" id="hod-stat-students">—</span></div>
@@ -46,10 +32,7 @@
   </div>
 </div>
 
-<!-- ============================================================
-     STAT TILES — Row 2: Activity & Alerts
-     ============================================================ -->
-<div class="stat-grid">
+<div class="stat-grid" style="margin-top:1rem;">
   <div class="stat">
     <div class="meta"><span class="label">Registered This Session</span><span class="value" id="hod-stat-registered">—</span></div>
     <div class="ic">📝</div>
@@ -62,139 +45,26 @@
     <div class="meta"><span class="label">Published Results</span><span class="value" id="hod-stat-published">—</span></div>
     <div class="ic">🎯</div>
   </div>
-  <div class="stat red" title="Students in your department with no course registration this session">
-    <div class="meta"><span class="label">No Registration ⚠️</span><span class="value" id="hod-stat-no-reg">—</span></div>
-    <div class="ic">⚠️</div>
-  </div>
 </div>
 
-<!-- ============================================================
-     CHARTS — Row 1: Department Demographics
-     ============================================================ -->
-<section class="panel">
+<!-- CHARTS -->
+<section class="panel" style="margin-top:1rem;">
   <div class="panel-head">
     <h3>👥 Department Demographics</h3>
-    <span class="small muted">Student distribution in your department</span>
   </div>
   <div class="panel-body">
     <div class="chart-grid">
       <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Students by Level</h3>
-          <span class="chart-badge">Bar</span>
-        </div>
+        <div class="chart-card-header"><h3>Students by Level</h3></div>
         <div class="chart-body"><canvas id="hod-chart-level"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Students by Programme</h3>
-          <span class="chart-badge">Bar</span>
-        </div>
+        <div class="chart-card-header"><h3>Students by Programme</h3></div>
         <div class="chart-body"><canvas id="hod-chart-programme"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Student Gender</h3>
-          <span class="chart-badge">Doughnut</span>
-        </div>
+        <div class="chart-card-header"><h3>Student Gender</h3></div>
         <div class="chart-body"><canvas id="hod-chart-gender"></canvas></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
-     CHARTS — Row 2: Academic Trends
-     ============================================================ -->
-<section class="panel">
-  <div class="panel-head">
-    <h3>📈 Academic Trends</h3>
-    <span class="small muted">Results and enrollment</span>
-  </div>
-  <div class="panel-body">
-    <div class="chart-grid">
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Results Status</h3>
-          <span class="chart-badge">Doughnut</span>
-        </div>
-        <div class="chart-body"><canvas id="hod-chart-results"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Enrollment Trend</h3>
-          <span class="chart-badge">Line</span>
-        </div>
-        <div class="chart-body"><canvas id="hod-chart-enrollment"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-card-header">
-          <h3>Staff Workload</h3>
-          <span class="chart-badge">Bar</span>
-        </div>
-        <div class="chart-body"><canvas id="hod-chart-workload"></canvas></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
-     PENDING RESULTS + DEPARTMENT STAFF
-     ============================================================ -->
-<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-  <div class="panel">
-    <div class="panel-head">
-      <h3>⏳ Results Awaiting Your Approval</h3>
-      <a class="btn btn-outline btn-sm" href="#hod-pending-results">View all →</a>
-    </div>
-    <div class="panel-body" id="hod-pending-list">
-      <div class="loading"><span class="spinner"></span> Loading…</div>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="panel-head">
-      <h3>👥 Department Staff</h3>
-      <a class="btn btn-outline btn-sm" href="#hod-staff">Manage →</a>
-    </div>
-    <div class="panel-body" id="hod-staff-list">
-      <div class="loading"><span class="spinner"></span> Loading…</div>
-    </div>
-  </div>
-</section>
-
-<!-- ============================================================
-     RECENT ACTIVITY — Registrations + Results
-     ============================================================ -->
-<section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-  <div class="panel">
-    <div class="panel-head">
-      <h3>📋 Recent Course Registrations</h3>
-      <a class="btn btn-outline btn-sm" href="#hod-students">View all →</a>
-    </div>
-    <div class="panel-body flush">
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Student</th><th>Course</th><th>Semester</th><th>Status</th></tr></thead>
-          <tbody id="hod-registrations-tbody">
-            <tr><td colspan="4" class="empty">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="panel-head">
-      <h3>📊 Recent Result Submissions</h3>
-      <a class="btn btn-outline btn-sm" href="#hod-pending-results">View all →</a>
-    </div>
-    <div class="panel-body flush">
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Course</th><th>Lecturer</th><th>Session</th><th>Status</th></tr></thead>
-          <tbody id="hod-results-tbody">
-            <tr><td colspan="4" class="empty">Loading…</td></tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -202,475 +72,88 @@
 
 <script>
 (function () {
-
-// Safe text setter — skips when the element is missing
-function setText(id, value) {
-  var el = (typeof id === 'string') ? document.getElementById(id) : id;
-  if (el) el.textContent = value;
-}
   'use strict';
-
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
-  const deptId = user.departmentId || '';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  const COLORS = {
-    green: '#065f46', greenLight: '#10b981',
-    gold: '#f59e0b', goldLight: '#fbbf24',
-    blue: '#3b82f6', blueLight: '#60a5fa',
-    red: '#dc2626', purple: '#8b5cf6',
-    pink: '#ec4899', teal: '#14b8a6',
-    cyan: '#06b6d4', slate: '#64748b',
-  };
-  const PALETTE = [COLORS.green, COLORS.gold, COLORS.blue, COLORS.purple,
-                   COLORS.pink, COLORS.teal, COLORS.cyan, COLORS.red,
-                   COLORS.greenLight, COLORS.goldLight, COLORS.blueLight, COLORS.slate];
-
-  const charts = {};
-  function destroyChart(id) {
-    if (charts[id]) { try { charts[id].destroy(); } catch (e) {} delete charts[id]; }
-  }
-  function emptyChart(id, msg) {
-    const el = $(id);
-    if (!el || !el.parentElement) return;
-    el.parentElement.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:13.5px;">${esc(msg || 'No data available')}</div>`;
+  function drawChart(canvasId, config) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    if (canvas.__chart) canvas.__chart.destroy();
+    canvas.__chart = new Chart(canvas, config);
   }
 
-  function makeBar(id, labels, data, opts) {
-    opts = opts || {};
-    const el = $(id); if (!el) return;
-    destroyChart(id);
-    charts[id] = new Chart(el, {
-      type: 'bar',
-      data: { labels, datasets: [{ label: opts.label || 'Count', data,
-        backgroundColor: opts.colors || COLORS.green, borderRadius: 6,
-        barThickness: opts.thickness || 22 }] },
-      options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
-        scales: {
-          y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
-          x: { ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }, grid: { display: false } },
-        } },
-    });
-  }
-
-  function makeDoughnut(id, labels, data, colors) {
-    const el = $(id); if (!el) return;
-    destroyChart(id);
-    charts[id] = new Chart(el, {
-      type: 'doughnut',
-      data: { labels, datasets: [{ data,
-        backgroundColor: colors || PALETTE.slice(0, labels.length),
-        borderColor: '#ffffff', borderWidth: 3 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
-        plugins: { legend: { position: 'bottom', labels: { color: '#0f172a', padding: 12, font: { size: 12, weight: 600 } } } } },
-    });
-  }
-
-  function makeLine(id, labels, data, opts) {
-    opts = opts || {};
-    const el = $(id); if (!el) return;
-    destroyChart(id);
-    charts[id] = new Chart(el, {
-      type: 'line',
-      data: { labels, datasets: [{ label: opts.label || 'Count', data,
-        borderColor: opts.color || COLORS.green,
-        backgroundColor: opts.fill || 'rgba(6, 95, 70, 0.1)',
-        tension: 0.4, fill: true, pointRadius: 5, pointHoverRadius: 7, borderWidth: 3 }] },
-      options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', padding: 10 } },
-        scales: {
-          y: { beginAtZero: true, ticks: { precision: 0, color: '#64748b', font: { size: 11 } }, grid: { color: '#f1f5f9' } },
-          x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { display: false } },
-        } },
-    });
-  }
-
-  // ----------------------------------------------------------
-  // STATS
-  // ----------------------------------------------------------
-  async function loadStats() {
-    // Department students
+  async function load() {
     try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const list = s.data || s || [];
-      $('hod-stat-students').textContent = list.length;
-    } catch { $('hod-stat-students').textContent = '—'; }
+      const res = await core.portalFetch('/api/hod/dashboard');
+      const d = res.data || {};
 
-    // Department staff
-    try {
-      const st = await core.portalFetch('/api/hod/staff?departmentId=' + deptId);
-      const list = st.data || st || [];
-      $('hod-stat-staff').textContent = list.length;
-    } catch { $('hod-stat-staff').textContent = '—'; }
+      // Tiles
+      $('hod-stat-students').textContent = d.totalStudents ?? 0;
+      $('hod-stat-staff').textContent = d.totalStaff ?? 0;
+      $('hod-stat-courses').textContent = d.activeCourses ?? 0;
+      $('hod-stat-pending').textContent = d.pendingResults ?? 0;
+      
+      $('hod-stat-registered').textContent = d.registeredThisSession ?? 0;
+      $('hod-stat-verified').textContent = d.verifiedResults ?? 0;
+      $('hod-stat-published').textContent = d.publishedResults ?? 0;
 
-    // Department courses
-    try {
-      const c = await core.portalFetch('/api/courses?departmentId=' + deptId);
-      const list = c.data || c || [];
-      $('hod-stat-courses').textContent = list.length;
-    } catch { $('hod-stat-courses').textContent = '—'; }
+      // Header
+      if (d.departmentName) $('hod-dept-line').textContent = 'Live analytics for ' + d.departmentName;
 
-    // Pending results
-    try {
-      const r = await core.portalFetch('/api/results/pending-hod');
-      const list = r.data || r || [];
-      $('hod-stat-pending').textContent = list.length;
-    } catch { $('hod-stat-pending').textContent = '—'; }
-
-    // Registered this session (approximate — from registrations count)
-    try {
-      const rg = await core.portalFetch('/api/registrations?limit=1000');
-      const list = rg.data || rg || [];
-      $('hod-stat-registered').textContent = list.length;
-    } catch { $('hod-stat-registered').textContent = '—'; }
-
-    // HOD-verified and Published
-    try {
-      const rs = await core.portalFetch('/api/results?limit=1000');
-      const list = rs.data || rs || [];
-      $('hod-stat-verified').textContent = list.filter(x => x.status === 'hod_verified').length;
-      $('hod-stat-published').textContent = list.filter(x => x.status === 'published').length;
-    } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }    // Registered this session (department-scoped)
-    try {
-      const rg = await core.portalFetch('/api/registrations');
-      const payload = rg.data || rg || {};
-      const list = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
-      $('hod-stat-registered').textContent = list.length;
-    } catch { $('hod-stat-registered').textContent = '—'; }
-
-    // HOD-verified and Published (department-scoped)
-    try {
-      const rs = await core.portalFetch('/api/results');
-      const payload = rs.data || rs || {};
-      const list = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
-      $('hod-stat-verified').textContent = list.filter(x => x.status === 'hod_verified').length;
-      $('hod-stat-published').textContent = list.filter(x => x.status === 'published').length;
-    } catch { $('hod-stat-verified').textContent = '—'; $('hod-stat-published').textContent = '—'; }    // ----------------------------------------------------------
-    // Department-scoped counts
-    // ----------------------------------------------------------
-    // Step 1: get the department's students (16 rows)
-    let deptStudentIds = [];
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const payload = s.data || s || {};
-      const students = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
-      deptStudentIds = students.map((x) => x.id);
-    } catch {
-      deptStudentIds = [];
-    }
-
-    // Step 2: fetch registrations + results, then filter to only our students
-    try {
-      const rg = await core.portalFetch('/api/registrations');
-      const payload = rg.data || rg || {};
-      const allRegs = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
-      const deptRegs = deptStudentIds.length
-        ? allRegs.filter((r) => deptStudentIds.includes(r.studentId))
-        : [];
-      $('hod-stat-registered').textContent = deptRegs.length;
-    } catch { $('hod-stat-registered').textContent = '—'; }
-
-    try {
-      const rs = await core.portalFetch('/api/results');
-      const payload = rs.data || rs || {};
-      const allResults = Array.isArray(payload) ? payload : (payload.rows || payload.results || []);
-      const deptResults = deptStudentIds.length
-        ? allResults.filter((r) => deptStudentIds.includes(r.studentId))
-        : [];
-      $('hod-stat-verified').textContent = deptResults.filter((x) => x.status === 'hod_verified').length;
-      $('hod-stat-published').textContent = deptResults.filter((x) => x.status === 'published').length;
-    } catch {
-      $('hod-stat-verified').textContent = '—';
-      $('hod-stat-published').textContent = '—';
-    }
-
-    // Students with no registration
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const students = s.data || s || [];
-      const rg = await core.portalFetch('/api/registrations?limit=1000');
-      const regs = rg.data || rg || [];
-      const registeredIds = new Set(regs.map(r => r.studentId));
-      const missing = students.filter(st => !registeredIds.has(st.id)).length;
-      $('hod-stat-no-reg').textContent = missing;
-    } catch { $('hod-stat-no-reg').textContent = '—'; }
-  }
-
-  // ----------------------------------------------------------
-  // CHART — Students by Level
-  // ----------------------------------------------------------
-  async function chartLevel() {
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const rows = s.data || s || [];
-      if (!rows.length) return emptyChart('hod-chart-level');
-      const counts = { ND1: 0, ND2: 0, HND1: 0, HND2: 0 };
-      rows.forEach(x => { if (x.level) counts[x.level] = (counts[x.level] || 0) + 1; });
-      makeBar('hod-chart-level', Object.keys(counts), Object.values(counts),
-        { label: 'Students', colors: COLORS.purple, thickness: 40 });
-    } catch { emptyChart('hod-chart-level'); }
-  }
-
-  // ----------------------------------------------------------
-  // CHART — Students by Programme
-  // ----------------------------------------------------------
-  async function chartProgramme() {
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const rows = s.data || s || [];
-      if (!rows.length) return emptyChart('hod-chart-programme');
-      const counts = {};
-      rows.forEach(x => {
-        const k = x.programmeName || x.programme?.name || `Prog ${x.programmeId || '?'}`;
-        counts[k] = (counts[k] || 0) + 1;
+      // Charts
+      const levelDist = d.studentsByLevel || {};
+      drawChart('hod-chart-level', {
+        type: 'bar',
+        data: {
+          labels: Object.keys(levelDist).length ? Object.keys(levelDist) : ['No Data'],
+          datasets: [{
+            label: 'Students',
+            data: Object.keys(levelDist).length ? Object.values(levelDist) : [0],
+            backgroundColor: '#8b5cf6',
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
       });
-      const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0, 8);
-      makeBar('hod-chart-programme', entries.map(e=>e[0]), entries.map(e=>e[1]),
-        { label: 'Students', colors: COLORS.blue });
-    } catch { emptyChart('hod-chart-programme'); }
-  }
 
-  // ----------------------------------------------------------
-  // CHART — Gender
-  // ----------------------------------------------------------
-  async function chartGender() {
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const rows = s.data || s || [];
-      if (!rows.length) return emptyChart('hod-chart-gender');
-      let m=0, f=0, o=0;
-      rows.forEach(x => {
-        const g = String(x.gender || '').toLowerCase();
-        if (g === 'male') m++;
-        else if (g === 'female') f++;
-        else o++;
+      const progDist = d.studentsByProgramme || {};
+      drawChart('hod-chart-programme', {
+        type: 'bar',
+        data: {
+          labels: Object.keys(progDist).length ? Object.keys(progDist) : ['No Data'],
+          datasets: [{
+            label: 'Students',
+            data: Object.keys(progDist).length ? Object.values(progDist) : [0],
+            backgroundColor: '#3b82f6',
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { ticks: { maxRotation: 45, minRotation: 45 } } } }
       });
-      makeDoughnut('hod-chart-gender', ['Male', 'Female', 'Not Specified'], [m, f, o],
-        [COLORS.blue, COLORS.pink, COLORS.slate]);
-    } catch { emptyChart('hod-chart-gender'); }
-  }
 
-  // ----------------------------------------------------------
-  // CHART — Results Status
-  // ----------------------------------------------------------
-  async function chartResults() {
-    try {
-      const rs = await core.portalFetch('/api/results?limit=1000');
-      const rows = rs.data || rs || [];
-      if (!rows.length) return emptyChart('hod-chart-results');
-      const counts = {};
-      rows.forEach(x => { const s = x.status || 'draft'; counts[s] = (counts[s] || 0) + 1; });
-      const colorMap = {
-        draft: COLORS.slate, submitted: COLORS.blue,
-        hod_verified: COLORS.purple, approved: COLORS.green,
-        published: COLORS.greenLight, hod_rejected: COLORS.red,
-        admin_rejected: COLORS.red,
-      };
-      const keys = Object.keys(counts);
-      makeDoughnut('hod-chart-results',
-        keys.map(k => k.replace(/_/g, ' ')),
-        keys.map(k => counts[k]),
-        keys.map(k => colorMap[k] || COLORS.slate));
-    } catch { emptyChart('hod-chart-results'); }
-  }
-
-  // ----------------------------------------------------------
-  // CHART — Enrollment Trend
-  // ----------------------------------------------------------
-  async function chartEnrollment() {
-    try {
-      const s = await core.portalFetch('/api/students?departmentId=' + deptId);
-      const rows = s.data || s || [];
-      if (!rows.length) return emptyChart('hod-chart-enrollment');
-      const monthly = {};
-      rows.forEach(x => {
-        if (!x.createdAt) return;
-        const d = new Date(x.createdAt);
-        const key = d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short' });
-        monthly[key] = (monthly[key] || 0) + 1;
+      const genderDist = d.studentsByGender || {};
+      drawChart('hod-chart-gender', {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(genderDist).length ? Object.keys(genderDist) : ['No Data'],
+          datasets: [{
+            data: Object.keys(genderDist).length ? Object.values(genderDist) : [1],
+            backgroundColor: Object.keys(genderDist).length ? ['#ec4899', '#3b82f6', '#64748b'] : ['#e5e7eb'],
+            borderWidth: 2, borderColor: '#fff'
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
       });
-      const sorted = Object.entries(monthly).reverse();
-      let cumulative = 0;
-      const data = sorted.map(([, v]) => { cumulative += v; return cumulative; });
-      makeLine('hod-chart-enrollment', sorted.map(e=>e[0]), data,
-        { label: 'Students', color: COLORS.purple });
-    } catch { emptyChart('hod-chart-enrollment'); }
-  }
 
-  // ----------------------------------------------------------
-  // CHART — Staff Workload
-  // ----------------------------------------------------------
-  async function chartWorkload() {
-    try {
-      const [stRes, cRes] = await Promise.all([
-        core.portalFetch('/api/hod/staff?departmentId=' + deptId),
-        core.portalFetch('/api/courses?departmentId=' + deptId),
-      ]);
-      const staff = stRes.data || stRes || [];
-      const courses = cRes.data || cRes || [];
-      if (!staff.length) return emptyChart('hod-chart-workload');
-      const counts = staff.map(s => {
-        const name = `${s.firstName || ''} ${s.lastName || ''}`.trim() || s.email || 'Staff';
-        const n = courses.filter(c => c.lecturerId === s.id).length;
-        return { name, n };
-      }).sort((a,b)=>b.n-a.n).slice(0, 10);
-      makeBar('hod-chart-workload', counts.map(c=>c.name), counts.map(c=>c.n),
-        { label: 'Courses', colors: COLORS.teal, thickness: 26 });
-    } catch { emptyChart('hod-chart-workload'); }
-  }
-
-  // ----------------------------------------------------------
-  // PENDING LIST
-  // ----------------------------------------------------------
-  async function loadPendingList() {
-    try {
-      const r = await core.portalFetch('/api/results/pending-hod');
-      const rows = r.data || r || [];
-      const box = $('hod-pending-list');
-      if (!rows.length) { box.innerHTML = '<p class="muted">No pending results. 🎉</p>'; return; }
-      box.innerHTML = rows.slice(0, 6).map(p => `
-        <div class="session-item">
-          <div class="meta">
-            <strong>${esc(p.courseCode || '')} — ${esc(p.courseTitle || '')}</strong>
-            <div class="small">${esc(p.lecturerName || '')} · ${esc(p.sessionName || '')}</div>
-          </div>
-          <a class="btn btn-outline btn-sm" href="#hod-pending-results">Review</a>
-        </div>`).join('');
-    } catch {
-      $('hod-pending-list').innerHTML = '<p class="muted">Could not load.</p>';
+    } catch (err) {
+      console.error('Error loading dashboard:', err);
+      core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
     }
   }
 
-  // ----------------------------------------------------------
-  // STAFF LIST
-  // ----------------------------------------------------------
-  async function loadStaffList() {
-    try {
-      const r = await core.portalFetch('/api/hod/staff?departmentId=' + deptId);
-      const rows = r.data || r || [];
-      const box = $('hod-staff-list');
-      if (!rows.length) { box.innerHTML = '<p class="muted">No staff yet.</p>'; return; }
-      box.innerHTML = rows.slice(0, 8).map(s => `
-        <div class="session-item">
-          <div class="meta">
-            <strong>${esc(s.firstName || '')} ${esc(s.lastName || '')}</strong>
-            <div class="small">${esc(s.role || '')}${s.email ? ' · ' + esc(s.email) : ''}</div>
-          </div>
-        </div>`).join('');
-    } catch {
-      $('hod-staff-list').innerHTML = '<p class="muted">Could not load.</p>';
-    }
-  }
-
-  // ----------------------------------------------------------
-  // RECENT REGISTRATIONS TABLE
-  // ----------------------------------------------------------
-  async function loadRecentRegistrations() {
-    const tbody = $('hod-registrations-tbody');
-    try {
-      const r = await core.portalFetch('/api/registrations/with-student?limit=8');
-      const rows = r.data || r || [];
-      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No registrations yet.</td></tr>'; return; }
-      tbody.innerHTML = rows.slice(0, 8).map(x => {
-        const stu = x.student || {};
-        const crs = x.course || {};
-        const reg = x.registration || x;
-        const badge = reg.status === 'approved' ? 'success' : reg.status === 'rejected' ? 'danger' : 'warning';
-        return `
-          <tr>
-            <td>${esc((stu.firstName||'') + ' ' + (stu.lastName||''))}</td>
-            <td>${esc(crs.code || ('Course ' + reg.courseId))}</td>
-            <td>${esc(reg.semester || '')}</td>
-            <td><span class="badge badge-${badge}">${esc(reg.status || '')}</span></td>
-          </tr>`;
-      }).join('');
-    } catch {
-      try {
-        const r = await core.portalFetch('/api/registrations?limit=8');
-        const rows = r.data || r || [];
-        tbody.innerHTML = rows.length ? rows.map(x => `
-          <tr>
-            <td>Student ${x.studentId}</td>
-            <td>Course ${x.courseId}</td>
-            <td>${esc(x.semester || '')}</td>
-            <td>${esc(x.status || '')}</td>
-          </tr>`).join('') : '<tr><td colspan="4" class="empty">No registrations.</td></tr>';
-      } catch {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>';
-      }
-    }
-  }
-
-  // ----------------------------------------------------------
-  // RECENT RESULTS TABLE
-  // ----------------------------------------------------------
-  async function loadRecentResults() {
-    const tbody = $('hod-results-tbody');
-    try {
-      const r = await core.portalFetch('/api/results/pending-hod');
-      const rows = r.data || r || [];
-      if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No pending results.</td></tr>'; return; }
-      tbody.innerHTML = rows.slice(0, 8).map(x => `
-        <tr>
-          <td><strong>${esc(x.courseCode || '')}</strong> — ${esc(x.courseTitle || '')}</td>
-          <td>${esc(x.lecturerName || '')}</td>
-          <td>${esc(x.sessionName || '')}</td>
-          <td><span class="badge badge-warning">pending HOD</span></td>
-        </tr>`).join('');
-    } catch {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>';
-    }
-  }
-
-  // ----------------------------------------------------------
-  // MAIN LOAD
-  // ----------------------------------------------------------
-  async function loadAll() {
-    // Header line
-    const line = $('hod-dept-line');
-    if (line) {
-      line.textContent = user.departmentName
-        ? `Live analytics for ${user.departmentName}`
-        : 'Live analytics for your department';
-    }
-
-    await Promise.all([
-      loadStats(),
-      loadPendingList(),
-      loadStaffList(),
-      loadRecentRegistrations(),
-      loadRecentResults(),
-    ]);
-
-    await Promise.all([
-      chartLevel(),
-      chartProgramme(),
-      chartGender(),
-      chartResults(),
-      chartEnrollment(),
-      chartWorkload(),
-    ]);
-  }
-
-  // Wire up
-  $('hod-dash-refresh').addEventListener('click', () => {
-    Object.keys(charts).forEach(destroyChart);
-    loadAll();
-  });
-  $('hod-dash-range').addEventListener('change', () => {
-    // Range currently only affects display; expand later if needed
-    Object.keys(charts).forEach(destroyChart);
-    loadAll();
-  });
-
-  // Auto-run
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 50));
-  } else {
-    setTimeout(loadAll, 50);
-  }
+  $('hod-dash-refresh')?.addEventListener('click', load);
+  load();
 })();
 </script>

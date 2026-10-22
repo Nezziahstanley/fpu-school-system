@@ -727,8 +727,25 @@ router.get('/security', only, async (req, res, next) => {
 router.get('/exams', only, async (req, res, next) => {
   try {
     const examQueries = require('../../db/queries/exams');
-    const rows = await examQueries.listWithCourse({});
-    return res.json({ success: true, data: rows });
+    const rawRows = await examQueries.listWithCourse({});
+
+    // Map the database columns to the exact keys the frontend is expecting
+    const data = rawRows.map(r => {
+      // Depending on your DB schema, the course details might be nested or flattened.
+      // We map them carefully so the frontend doesn't break.
+      return {
+        id: r.id,
+        courseCode: r.courseCode || r.course_code || r.course?.code || '—',
+        courseTitle: r.courseTitle || r.course_title || r.course?.title || '',
+        departmentName: r.departmentName || r.department_name || r.department?.name || '—',
+        examDate: r.examDate || r.exam_date || r.date || null,
+        startTime: r.startTime || r.start_time || '',
+        endTime: r.endTime || r.end_time || '',
+        venue: r.venue || r.location || '—'
+      };
+    });
+
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[lecturer/exams] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

@@ -644,4 +644,107 @@ router.delete('/results/:id', only, async (req, res, next) => {
     return res.json({ success: true });
   } catch (err) { return next(err); }
 });
+// ============================================================
+// GET /api/lecturer/reports
+// ============================================================
+router.get('/reports', only, async (req, res, next) => {
+  try {
+    const lecturerId = req.user.id;
+
+    // 1. Fetch allocated courses
+    const allocatedCourses = await db
+      .select({ course: courses })
+      .from(courseAllocations)
+      .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(eq(courseAllocations.lecturerId, lecturerId));
+
+    const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
+    const coursesCount = courseIds.length;
+
+    if (!coursesCount) {
+      return res.json({ 
+        success: true, 
+        data: { coursesCount: 0, totalStudents: 0, totalResults: 0, attendanceSessions: 0, stats: {}, gradeDist: {}, statusDist: {}, levelDist: {} } 
+      });
+    }
+
+    // 2. Fetch all results for these courses
+    const allResults = await db
+      .select({
+        score: results.score,
+        grade: results.grade,
+        status: results.status,
+        studentId: results.studentId,
+        level: users.level,
+      })
+      .from(results)
+      .leftJoin(users, eq(results.studentId, users.id))
+      .where(inArray(results.courseId, courseIds));
+
+    // 3. Calculate Stats
+    const uniqueStudents = new Set(allResults.map(r => r.studentId)).size;
+    const totalResults = allResults.length;
+    
+    let totalScore = 0;
+    let highest = -1;
+    let lowest = 101;
+    let passCount = 0;
+
+    const gradeDist = {};
+    const statusDist = {};
+    const levelDist = {};
+
+    allResults.forEach(r => {
+      const score = Number(r.score) || 0;
+      totalScore += score;
+      if (score > highest) highest = score;
+      if (score < lowest) lowest = score;
+      if (score >= 40) passCount++;
+
+      // Grade
+      const grade = r.grade || 'N/A';
+      gradeDist[grade] = (gradeDist[grade] || 0) + 1;
+
+      // Status
+      const status = r.status || 'draft';
+      statusDist[status] = (statusDist[status] || 0) + 1;
+
+      // Level
+      const level = r.level || 'Unknown';
+      levelDist[level] = (levelDist[level] || 0) + 1;
+    });
+
+    const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
+    const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
+
+    // 4. Attendance Count
+    const attRows = await db
+      .select({ id: attendance.id })
+      .from(attendance)
+      .where(inArray(attendance.courseId, courseIds));
+    const attendanceSessions = attRows.length;
+
+    return res.json({
+      success: true,
+      data: {
+        coursesCount,
+        totalStudents: uniqueStudents,
+        totalResults,
+        attendanceSessions,
+        stats: {
+          averageScore: avgScore,
+          highestScore: highest === -1 ? 0 : highest,
+          lowestScore: lowest === 101 ? 0 : lowest,
+          passRate,
+        },
+        gradeDist,
+        statusDist,
+        levelDist
+      }
+    });
+  } catch (err) {
+    console.error('[lecturer/reports] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 module.exports = router;

@@ -47,7 +47,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // 1. Students
     const studentRows = await db.select({
       id: users.id, level: users.level, gender: users.gender, programmeName: programmes.name,
     })
@@ -69,20 +68,17 @@ router.get('/dashboard', only, async (req, res, next) => {
       studentsByGender[g] = (studentsByGender[g] || 0) + 1;
     });
 
-    // 2. Staff
     const staffRows = await db.select({ id: users.id })
       .from(users)
       .where(and(eq(users.departmentId, departmentId), sql`${users.role} IN ('lecturer', 'hod')`));
     const totalStaff = staffRows.length;
 
-    // 3. Courses
     const courseRows = await db.select({ id: courses.id })
       .from(courses)
       .where(eq(courses.departmentId, departmentId));
     const activeCourses = courseRows.length;
     const courseIds = courseRows.map(c => c.id);
 
-    // 4. Results Breakdown
     let pendingResults = 0, verifiedResults = 0, publishedResults = 0;
     if (courseIds.length > 0) {
       const resRows = await db.select({ status: results.status })
@@ -96,7 +92,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       });
     }
 
-    // 5. Registrations
     let registeredThisSession = 0;
     if (courseIds.length > 0) {
       const regs = await db.select({ id: courseRegistrations.id })
@@ -131,6 +126,19 @@ router.get('/dashboard', only, async (req, res, next) => {
 router.get('/pending-results', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
+    const { semester, level } = req.query;
+
+    const conditions = [
+      eq(courses.departmentId, departmentId),
+      eq(results.status, 'submitted')
+    ];
+
+    if (semester) {
+      conditions.push(eq(results.semester, semester.toLowerCase())); 
+    }
+    if (level) {
+      conditions.push(eq(courses.level, level.toUpperCase()));
+    }
 
     const rows = await db
       .select({
@@ -149,10 +157,7 @@ router.get('/pending-results', only, async (req, res, next) => {
       .innerJoin(courses, eq(results.courseId, courses.id))
       .leftJoin(users, eq(results.submittedBy, users.id))
       .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
-      .where(and(
-        eq(courses.departmentId, departmentId),
-        eq(results.status, 'submitted')
-      ))
+      .where(and(...conditions))
       .orderBy(desc(results.submittedAt));
 
     const data = await Promise.all(rows.map(async (r) => {
@@ -218,14 +223,12 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/results/course/:courseId
-// Fetch all results for a specific course (to view/bulk approve)
 // ============================================================
 router.get('/results/course/:courseId', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
 
-    // Verify course belongs to HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
@@ -246,7 +249,7 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
       .innerJoin(users, eq(results.studentId, users.id))
       .where(and(
         eq(results.courseId, courseId),
-        eq(results.status, 'submitted') // Only show submitted ones
+        eq(results.status, 'submitted')
       ))
       .orderBy(users.lastName);
 
@@ -259,7 +262,6 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/bulk-approve
-// Approve multiple results at once
 // ============================================================
 router.post('/results/bulk-approve', only, async (req, res, next) => {
   try {
@@ -270,7 +272,6 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'resultIds[] is required.' });
     }
 
-    // Verify all results belong to the HOD's department
     const allResults = await db.select({
       id: results.id,
       courseId: results.courseId,
@@ -289,7 +290,6 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Results are not in your department.' });
     }
 
-    // Perform the bulk update
     await db.update(results)
       .set({ 
         status: 'hod_verified', 

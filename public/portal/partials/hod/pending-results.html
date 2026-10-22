@@ -15,8 +15,8 @@
   <select id="pr-session"><option value="">All Sessions</option></select>
   <select id="pr-semester">
     <option value="">All Semesters</option>
-    <option value="First">First</option>
-    <option value="Second">Second</option>
+    <option value="first">First</option>
+    <option value="second">Second</option>
   </select>
   <select id="pr-level">
     <option value="">All Levels</option>
@@ -77,11 +77,10 @@
   </div>
 </section>
 
-<!-- ═══════ MODAL: VIEW & BULK APPROVE RESULTS ═══════ -->
+<!-- MODAL: VIEW & BULK APPROVE RESULTS -->
 <div id="results-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
     
-    <!-- Header -->
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <div>
         <h3 id="rm-course-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Course Results</h3>
@@ -90,7 +89,6 @@
       <button id="rm-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
 
-    <!-- Body -->
     <div style="padding:1.25rem;flex:1;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
         <label style="display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:.85rem;cursor:pointer;">
@@ -178,16 +176,18 @@
 
   function applyFilter() {
     const q = ($('pr-search').value || '').trim().toLowerCase();
-    const ses = $('pr-session').value;
-    const sem = $('pr-semester').value;
-    const lvl = $('pr-level').value;
+    const ses = $('pr-session').value.toLowerCase(); 
+    const sem = $('pr-semester').value.toLowerCase(); 
+    const lvl = $('pr-level').value.toUpperCase();    
 
     FILTERED = ALL.filter((r) => {
       const hay = `${getCourseCode(r)} ${getCourseTitle(r)} ${getLecturerName(r)} ${getSessionName(r)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      if (ses && getSessionName(r) !== ses) return false;
-      if (sem && getSemester(r) !== sem) return false;
-      if (lvl && getLevel(r) !== lvl) return false;
+      
+      if (ses && getSessionName(r).toLowerCase() !== ses) return false;
+      if (sem && getSemester(r).toLowerCase() !== sem) return false;
+      if (lvl && getLevel(r).toUpperCase() !== lvl) return false;
+      
       return true;
     });
 
@@ -209,7 +209,16 @@
   async function load() {
     $('pr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/hod/pending-results');
+      const sem = $('pr-semester').value;
+      const lvl = $('pr-level').value;
+      
+      let url = '/api/hod/pending-results';
+      const params = new URLSearchParams();
+      if (sem) params.append('semester', sem);
+      if (lvl) params.append('level', lvl);
+      if (params.toString()) url += '?' + params.toString();
+
+      const res = await core.portalFetch(url);
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : [];
 
@@ -268,13 +277,11 @@
     CURRENT_COURSE = null;
   }
 
-  // Select All logic
   $('rm-select-all')?.addEventListener('change', (e) => {
     const checked = e.target.checked;
     document.querySelectorAll('.rm-checkbox').forEach(cb => { cb.checked = checked; });
   });
 
-  // Bulk Approve
   $('rm-bulk-approve')?.addEventListener('click', async () => {
     const selected = Array.from(document.querySelectorAll('.rm-checkbox:checked')).map(cb => Number(cb.value));
     if (!selected.length) return core.showToast && core.showToast('Please select at least one student.', 'warning');
@@ -292,7 +299,7 @@
       });
       core.showToast && core.showToast('Results approved successfully!', 'success');
       closeResultsModal();
-      load(); // Reload the main table to remove approved courses
+      load(); 
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
     } finally {
@@ -306,9 +313,13 @@
 
   $('pr-search').addEventListener('input', applyFilter);
   $('pr-session').addEventListener('change', applyFilter);
-  $('pr-semester').addEventListener('change', applyFilter);
-  $('pr-level').addEventListener('change', applyFilter);
+  $('pr-semester').addEventListener('change', load);
+  $('pr-level').addEventListener('change', load);
   $('pr-refresh').addEventListener('click', load);
+  $('pr-export').addEventListener('click', function() {
+    // Simple export logic
+    alert('Export functionality not implemented yet.');
+  });
 
   load();
 })();

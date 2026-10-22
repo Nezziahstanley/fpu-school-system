@@ -726,7 +726,6 @@ router.get('/security', only, async (req, res, next) => {
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {
   try {
-    // Use the existing examQueries to fetch all exams
     const examQueries = require('../../db/queries/exams');
     const rows = await examQueries.listWithCourse({});
     return res.json({ success: true, data: rows });

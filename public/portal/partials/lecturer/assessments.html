@@ -48,8 +48,7 @@
   async function load() {
     const tbody = $('exm-tbody');
     try {
-      // Use the explicit admin path so the backend recognises the route
-            // Change this line:
+      // Use the dedicated lecturer endpoint
       const res = await core.portalFetch('/api/lecturer/exams');
       const rows = res.data || [];
 

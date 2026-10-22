@@ -173,7 +173,10 @@
             <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
             <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(r.status)}</td>
             <td style="padding:.65rem .75rem;text-align:right;">
-              ${isDraft ? `<button class="res-btn" data-action="delete" data-id="${r.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>` : '—'}
+              ${isDraft ? `
+                <button class="res-btn" data-action="submit" data-id="${r.id}" style="background:#065f46;color:#fff;margin-right:.25rem;">Submit</button>
+                <button class="res-btn" data-action="delete" data-id="${r.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>
+              ` : '—'}
             </td>
           </tr>
         `;
@@ -187,6 +190,23 @@
             core.showToast && core.showToast('Deleted', 'success');
             load();
           } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+        });
+      });
+
+      tbody.querySelectorAll('[data-action="submit"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Submit this result to the HOD for approval? You cannot edit it afterwards.')) return;
+          btn.disabled = true;
+          btn.textContent = '…';
+          try {
+            await core.portalFetch(`/api/lecturer/results/${btn.dataset.id}/submit`, { method: 'POST' });
+            core.showToast && core.showToast('Result submitted!', 'success');
+            load();
+          } catch (err) { 
+            core.showToast && core.showToast(err.message, 'error'); 
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+          }
         });
       });
 

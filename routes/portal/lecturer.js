@@ -139,8 +139,8 @@ router.get('/courses', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
-        allocationId: courseAllocations.id, // <-- Important for the Accept/Flag buttons
-        status: courseAllocations.status,   // <-- Important for the UI
+        allocationId: courseAllocations.id,
+        status: courseAllocations.status,
         id: courses.id,
         code: courses.code,
         title: courses.title,
@@ -860,6 +860,41 @@ router.post('/allocations/:id/flag', only, async (req, res, next) => {
     return res.json({ success: true, message: 'Course flagged.' });
   } catch (err) {
     console.error('[lecturer/flag-allocation] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/lecturer/results/:id/submit
+// ============================================================
+router.post('/results/:id/submit', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    
+    const [result] = await db.select({
+      id: results.id,
+      courseId: results.courseId,
+    })
+    .from(results)
+    .where(eq(results.id, resultId))
+    .limit(1);
+
+    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    const alloc = await db.select({ id: courseAllocations.id })
+      .from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.update(results)
+      .set({ status: 'submitted', submittedAt: new Date(), submittedBy: req.user.id })
+      .where(eq(results.id, resultId));
+
+    return res.json({ success: true, message: 'Result submitted to HOD.' });
+  } catch (err) {
+    console.error('[lecturer/submit-result] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

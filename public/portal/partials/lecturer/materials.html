@@ -1,4 +1,4 @@
-<!-- Portal → Lecturer → Materials -->
+﻿<!-- Portal → Lecturer → Materials -->
 <div style="padding:0;">
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -51,16 +51,18 @@
   </div>
 </div>
 
-<!-- ═══════ MODAL: UPLOAD MATERIAL ═══════ -->
+<!-- ═══════ MODAL: UPLOAD / EDIT MATERIAL ═══════ -->
 <div id="mat-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Upload Material</h3>
+      <h3 id="mat-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Upload Material</h3>
       <button id="mat-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
 
     <div style="padding:1.25rem;">
+      <input type="hidden" id="mat-id" />
+      
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
         <select id="mat-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
@@ -84,7 +86,7 @@
       </div>
 
       <!-- TABS: Link vs File -->
-      <div style="display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:.5rem;">
+      <div id="mat-tabs" style="display:flex;gap:.5rem;margin-bottom:1rem;border-bottom:1px solid #e5e7eb;padding-bottom:.5rem;">
         <button id="mat-tab-link" type="button" style="padding:.4rem .8rem;font-size:.8rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">🔗 Paste Link</button>
         <button id="mat-tab-file" type="button" style="padding:.4rem .8rem;font-size:.8rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;">📁 Upload from Device</button>
       </div>
@@ -130,22 +132,23 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   let ALL_COURSES = [];
+  let ALL_MATERIALS = [];
   let INPUT_MODE = 'link'; // 'link' or 'file'
 
   async function load() {
     const tbody = $('mat-tbody');
     try {
       const res = await core.portalFetch('/api/lecturer/materials');
-      const rows = res.data || [];
+      ALL_MATERIALS = res.data || [];
       
-      $('mat-total').textContent = rows.length;
+      $('mat-total').textContent = ALL_MATERIALS.length;
 
-      if (!rows.length) {
+      if (!ALL_MATERIALS.length) {
         tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No materials uploaded yet.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = rows.map(r => `
+      tbody.innerHTML = ALL_MATERIALS.map(r => `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.title)}</td>
           <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
@@ -163,7 +166,7 @@
         btn.addEventListener('click', () => {
           const id = Number(btn.dataset.id);
           const action = btn.dataset.action;
-          const item = rows.find(a => a.id === id);
+          const item = ALL_MATERIALS.find(a => a.id === id);
 
           if (action === 'delete') {
             if (confirm('Delete this material?')) {
@@ -172,15 +175,7 @@
                 .catch(e => core.showToast(e.message, 'error'));
             }
           } else if (action === 'edit') {
-            const newTitle = prompt('Enter new title:', item.title);
-            if (newTitle && newTitle !== item.title) {
-              core.portalFetch(`/api/lecturer/materials/${id}`, { 
-                method: 'PUT', 
-                body: { title: newTitle, description: item.description, materialType: item.materialType } 
-              })
-              .then(() => { core.showToast('Updated', 'success'); load(); })
-              .catch(e => core.showToast(e.message, 'error'));
-            }
+            openModal(item);
           }
         });
       });
@@ -190,14 +185,27 @@
     }
   }
 
-  async function openModal() {
+  async function openModal(existingItem = null) {
     $('mat-modal').style.display = 'flex';
-    $('mat-title').value = '';
+    $('mat-modal-title').textContent = existingItem ? 'Edit Material' : 'Upload Material';
+    
+    $('mat-id').value = existingItem ? existingItem.id : '';
+    $('mat-title').value = existingItem ? existingItem.title : '';
+    $('mat-desc').value = existingItem ? existingItem.description : '';
+    $('mat-type').value = existingItem ? existingItem.materialType : 'note';
     $('mat-url').value = '';
-    $('mat-desc').value = '';
     $('mat-file').value = '';
+    
+    // Hide tabs when editing (since our PUT route only updates text fields)
+    $('mat-tabs').style.display = existingItem ? 'none' : 'flex';
+    $('mat-section-link').style.display = 'none';
+    $('mat-section-file').style.display = 'none';
+
+    if (!existingItem) {
+      switchTab('link');
+    }
+
     $('mat-course').innerHTML = '<option value="">Loading…</option>';
-    switchTab('link');
 
     try {
       const res = await core.portalFetch('/api/lecturer/courses');
@@ -206,6 +214,15 @@
       
       $('mat-course').innerHTML = '<option value="">Select Course</option>' + 
         ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+      
+      if (existingItem) {
+        // Find course by code to auto-select it
+        const c = ALL_COURSES.find(x => x.code === existingItem.courseCode);
+        if (c) $('mat-course').value = c.id;
+        $('mat-course').disabled = true; // Can't change course on edit
+      } else {
+        $('mat-course').disabled = false;
+      }
     } catch (err) {
       $('mat-course').innerHTML = '<option value="">Error loading courses</option>';
     }
@@ -235,6 +252,7 @@
   }
 
   async function saveMaterial() {
+    const id = $('mat-id').value;
     const courseId = $('mat-course').value;
     const title = $('mat-title').value.trim();
     const type = $('mat-type').value;
@@ -249,31 +267,40 @@
     btn.textContent = 'Saving…';
 
     try {
-      const formData = new FormData();
-      formData.append('courseId', courseId);
-      formData.append('title', title);
-      formData.append('materialType', type);
-      formData.append('description', desc);
-
-      if (INPUT_MODE === 'file') {
-        const file = $('mat-file').files[0];
-        if (!file) {
-          btn.disabled = false;
-          btn.textContent = 'Save Material';
-          return core.showToast && core.showToast('Please select a file.', 'warning');
-        }
-        formData.append('file', file);
+      if (id) {
+        // EDIT MODE (JSON update)
+        await core.portalFetch(`/api/lecturer/materials/${id}`, {
+          method: 'PUT',
+          body: { title, description: desc, materialType: type }
+        });
+        core.showToast && core.showToast('Material updated!', 'success');
       } else {
-        formData.append('fileUrl', $('mat-url').value.trim());
+        // UPLOAD MODE (FormData)
+        const formData = new FormData();
+        formData.append('courseId', courseId);
+        formData.append('title', title);
+        formData.append('materialType', type);
+        formData.append('description', desc);
+
+        if (INPUT_MODE === 'file') {
+          const file = $('mat-file').files[0];
+          if (!file) {
+            btn.disabled = false;
+            btn.textContent = 'Save Material';
+            return core.showToast && core.showToast('Please select a file.', 'warning');
+          }
+          formData.append('file', file);
+        } else {
+          formData.append('fileUrl', $('mat-url').value.trim());
+        }
+
+        await core.portalFetch('/api/lecturer/materials', {
+          method: 'POST',
+          body: formData
+        });
+        core.showToast && core.showToast('Material uploaded!', 'success');
       }
 
-      // Uses core.portalFetch which now correctly handles FormData
-      await core.portalFetch('/api/lecturer/materials', {
-        method: 'POST',
-        body: formData
-      });
-
-      core.showToast && core.showToast('Material uploaded successfully!', 'success');
       closeModal();
       load();
     } catch (err) {
@@ -284,7 +311,7 @@
     }
   }
 
-  $('mat-upload')?.addEventListener('click', openModal);
+  $('mat-upload')?.addEventListener('click', () => openModal(null));
   $('mat-refresh')?.addEventListener('click', load);
   $('mat-modal-close')?.addEventListener('click', closeModal);
   $('mat-cancel')?.addEventListener('click', closeModal);

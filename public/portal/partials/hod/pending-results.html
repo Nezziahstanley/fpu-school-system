@@ -88,12 +88,7 @@
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // Extractors
-  // ---------------------------------------------------------
-  function getLevel(r) {
-    return String(r.level || r.courseLevel || '').toUpperCase().trim() || '—';
-  }
+  function getLevel(r) { return String(r.level || r.courseLevel || '').toUpperCase().trim() || '—'; }
   function getCourseCode(r) { return r.courseCode || r.code || '—'; }
   function getCourseTitle(r) { return r.courseTitle || r.title || '—'; }
   function getLecturerName(r) {
@@ -105,15 +100,11 @@
   function getSemester(r) { return r.semesterName || r.semester || '—'; }
   function getStudentCount(r) { return r.studentCount ?? r.students ?? r.totalStudents ?? 0; }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   function render() {
     $('pr-count').textContent = FILTERED.length;
 
     if (!FILTERED.length) {
-      $('pr-tbody').innerHTML =
-        '<tr><td colspan="9" class="empty">No pending results. 🎉</td></tr>';
+      $('pr-tbody').innerHTML = '<tr><td colspan="9" class="empty">No pending results. 🎉</td></tr>';
       return;
     }
 
@@ -137,7 +128,6 @@
         </tr>`;
     }).join('');
 
-    // Row actions
     $('pr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -148,9 +138,6 @@
     });
   }
 
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
   function applyFilter() {
     const q = ($('pr-search').value || '').trim().toLowerCase();
     const ses = $('pr-session').value;
@@ -169,9 +156,6 @@
     render();
   }
 
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
   function updateStats() {
     const total = ALL.length;
     const nd = ALL.filter((r) => getLevel(r) === 'ND').length;
@@ -184,13 +168,10 @@
     $('pr-students').textContent = students;
   }
 
-  // ---------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------
   async function load() {
     $('pr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/results/pending-hod');
+      const res = await core.portalFetch('/api/hod/pending-results');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload)
         ? payload
@@ -198,7 +179,6 @@
 
       console.log('[hod-pending-results] Loaded', ALL.length, 'pending. Sample:', ALL[0]);
 
-      // Populate session dropdown
       const sessions = [...new Set(ALL.map((r) => getSessionName(r)).filter((s) => s && s !== '—'))];
       const sesSel = $('pr-session');
       const cur = sesSel.value;
@@ -215,13 +195,10 @@
     }
   }
 
-  // ---------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------
   async function approveResult(id) {
     if (!confirm('Approve this result? It will be sent to the academic office for final approval.')) return;
     try {
-      await core.portalFetch(`/api/results/${id}/hod-verify`, { method: 'POST' });
+      await core.portalFetch(`/api/hod/pending-results/${id}/verify`, { method: 'POST' });
       core.showToast('Result approved', 'success');
       load();
     } catch (err) {
@@ -233,7 +210,7 @@
     const reason = prompt('Reason for rejection (required):');
     if (!reason || !reason.trim()) return;
     try {
-      await core.portalFetch(`/api/results/${id}/hod-reject`, {
+      await core.portalFetch(`/api/hod/pending-results/${id}/reject`, {
         method: 'POST',
         body: { reason: reason.trim() },
       });
@@ -244,9 +221,6 @@
     }
   }
 
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
   function exportCsv() {
     const headers = ['Course', 'Title', 'Lecturer', 'Session', 'Semester', 'Level', 'Students', 'Submitted'];
     const rows = FILTERED.map((r) => [

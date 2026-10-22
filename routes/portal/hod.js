@@ -47,7 +47,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // 1. Students
     const studentRows = await db.select({
       id: users.id, level: users.level, gender: users.gender, programmeName: programmes.name,
     })
@@ -69,20 +68,17 @@ router.get('/dashboard', only, async (req, res, next) => {
       studentsByGender[g] = (studentsByGender[g] || 0) + 1;
     });
 
-    // 2. Staff
     const staffRows = await db.select({ id: users.id })
       .from(users)
       .where(and(eq(users.departmentId, departmentId), sql`${users.role} IN ('lecturer', 'hod')`));
     const totalStaff = staffRows.length;
 
-    // 3. Courses
     const courseRows = await db.select({ id: courses.id })
       .from(courses)
       .where(eq(courses.departmentId, departmentId));
     const activeCourses = courseRows.length;
     const courseIds = courseRows.map(c => c.id);
 
-    // 4. Results
     let pendingResults = 0, verifiedResults = 0, publishedResults = 0;
     if (courseIds.length > 0) {
       const resRows = await db.select({ status: results.status })
@@ -95,7 +91,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       });
     }
 
-    // 5. Registrations
     let registeredThisSession = 0;
     if (courseIds.length > 0) {
       const regs = await db.select({ id: courseRegistrations.id })
@@ -112,17 +107,10 @@ router.get('/dashboard', only, async (req, res, next) => {
       success: true,
       data: {
         departmentName: dept?.name || 'Department',
-        totalStudents,
-        totalStaff,
-        activeCourses,
-        pendingResults,
-        verifiedResults,
-        publishedResults,
-        registeredThisSession,
-        noRegistration: 0, // Placeholder
-        studentsByLevel,
-        studentsByProgramme,
-        studentsByGender
+        totalStudents, totalStaff, activeCourses,
+        pendingResults, verifiedResults, publishedResults,
+        registeredThisSession, noRegistration: 0,
+        studentsByLevel, studentsByProgramme, studentsByGender
       }
     });
   } catch (err) {
@@ -137,12 +125,49 @@ router.get('/dashboard', only, async (req, res, next) => {
 router.get('/pending-results', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const rows = await resultQueries.listPendingForHod(departmentId, {
-      sessionId: req.query.sessionId,
-      semester: req.query.semester,
-    });
-    return res.json({ success: true, data: rows });
-  } catch (err) { return next(err); }
+
+    const rows = await db
+      .select({
+        id: results.id,
+        courseId: results.courseId,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+        semester: results.semester,
+        status: results.status,
+        submittedAt: results.submittedAt,
+        lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+        sessionName: academicSessions.name,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .leftJoin(users, eq(results.submittedBy, users.id))
+      .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(results.status, 'submitted')
+      ))
+      .orderBy(desc(results.submittedAt));
+
+    const data = await Promise.all(rows.map(async (r) => {
+      const studs = await db.select({ count: sql`count(*)::int` })
+        .from(courseRegistrations)
+        .where(and(
+          eq(courseRegistrations.courseId, r.courseId),
+          eq(courseRegistrations.status, 'approved')
+        ));
+      
+      return {
+        ...r,
+        studentCount: studs[0]?.count || 0
+      };
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[hod/pending-results] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================

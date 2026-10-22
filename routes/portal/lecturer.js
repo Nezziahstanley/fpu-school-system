@@ -568,5 +568,27 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+// ============================================================
+// POST /api/lecturer/requests
+// ============================================================
+router.post('/requests', only, async (req, res, next) => {
+  try {
+    const { subject, body, category } = req.body || {};
+    if (!subject || !body) {
+      return res.status(400).json({ success: false, error: 'Subject and Message are required.' });
+    }
 
+    const row = await notifQueries.createComplaint({
+      userId: req.user.id,
+      subject,
+      body,
+      category: category || 'general',
+    });
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[lecturer/requests] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 module.exports = router;

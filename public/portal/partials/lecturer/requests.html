@@ -7,13 +7,19 @@
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Submit and track requests to administration</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="req-refresh" style="
+      <button id="req-create" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
+        display:inline-flex;align-items:center;gap:.35rem;
+      ">➕ New Request</button>
+      <button id="req-refresh" style="
+        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
+        background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;
       ">↻ Refresh</button>
     </div>
   </div>
 
+  <!-- STAT TILES -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
       <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📨</div>
@@ -24,6 +30,7 @@
     </div>
   </div>
 
+  <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -41,6 +48,50 @@
     </div>
   </div>
 </div>
+
+<!-- ═══════ MODAL: NEW REQUEST ═══════ -->
+<div id="req-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">New Request</h3>
+      <button id="req-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <div style="padding:1.25rem;">
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Subject</label>
+        <input type="text" id="req-subject" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g., Broken Projector" />
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Category</label>
+        <select id="req-category" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="general">General</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="academic">Academic</option>
+          <option value="financial">Financial</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Message</label>
+        <textarea id="req-body" rows="4" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;resize:vertical;" placeholder="Describe your request..."></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+        <button id="req-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="req-save" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Submit Request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @keyframes reqSpin { to { transform: rotate(360deg); } }
+  #req-tbody tr { transition: background .1s; }
+  #req-tbody tr:hover { background: #f8fafc; }
+</style>
 
 <script>
 (function () {
@@ -63,21 +114,73 @@
         return;
       }
 
-      tbody.innerHTML = rows.map(r => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.subject)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;text-transform:capitalize;">${esc(r.status || 'open')}</span>
-          </td>
-          <td style="padding:.65rem .75rem;text-align:right;color:#64748b;font-size:.75rem;">${fmtDate(r.createdAt)}</td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = rows.map(r => {
+        let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
+        if (r.status === 'open') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
+        if (r.status === 'resolved') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.subject)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:${badgeColor};color:${badgeFg};border-radius:5px;text-transform:capitalize;">${esc(r.status || 'open')}</span>
+            </td>
+            <td style="padding:.65rem .75rem;text-align:right;color:#64748b;font-size:.75rem;">${fmtDate(r.createdAt)}</td>
+          </tr>
+        `;
+      }).join('');
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="3" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
+  function openModal() {
+    $('req-modal').style.display = 'flex';
+    $('req-subject').value = '';
+    $('req-body').value = '';
+  }
+
+  function closeModal() {
+    $('req-modal').style.display = 'none';
+  }
+
+  async function saveRequest() {
+    const subject = $('req-subject').value.trim();
+    const body = $('req-body').value.trim();
+    const category = $('req-category').value;
+
+    if (!subject || !body) {
+      return core.showToast && core.showToast('Subject and Message are required.', 'warning');
+    }
+
+    const btn = $('req-save');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      await core.portalFetch('/api/lecturer/requests', {
+        method: 'POST',
+        body: { subject, body, category }
+      });
+
+      core.showToast && core.showToast('Request submitted!', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Request';
+    }
+  }
+
+  $('req-create')?.addEventListener('click', openModal);
   $('req-refresh')?.addEventListener('click', load);
+  $('req-modal-close')?.addEventListener('click', closeModal);
+  $('req-cancel')?.addEventListener('click', closeModal);
+  $('req-save')?.addEventListener('click', saveRequest);
+  $('req-modal')?.addEventListener('click', (e) => { if (e.target.id === 'req-modal') closeModal(); });
+
   load();
 })();
 </script>

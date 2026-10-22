@@ -73,7 +73,6 @@
     ],
     lecturer: [
       'portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements',
-      'admin-exams',
     ],
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',
@@ -155,12 +154,10 @@
     },
     lecturer: (role, roleItems, sharedItems) => {
       const personalKeys = ['portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements'];
-      const referenceKeys = ['admin-exams'];
 
       return [
         { title: 'Main',       items: roleItems },
         { title: 'Personal',   items: sharedItems.filter((p) => personalKeys.includes(p.key)) },
-        { title: 'References', items: sharedItems.filter((p) => referenceKeys.includes(p.key)) },
       ];
     },
     default: (role, roleItems, sharedItems) => [
@@ -201,6 +198,7 @@
       { key: 'lecturer-results',     label: 'Results',     icon: ICON.chart },
       { key: 'lecturer-materials',   label: 'Materials',   icon: ICON.book },
       { key: 'lecturer-assignments', label: 'Assignments', icon: ICON.book2 },
+      { key: 'lecturer-exams',       label: 'Exams',       icon: ICON.clipboard }, // <-- ADD THIS
       { key: 'lecturer-requests',    label: 'Requests',    icon: ICON.chat },
       { key: 'lecturer-reports',     label: 'Reports',     icon: ICON.chart },
     ],

@@ -667,7 +667,7 @@ router.get('/reports', only, async (req, res, next) => {
       });
     }
 
-    // 2. Fetch all results for these courses (Removed the leftJoin to users to prevent crashes)
+    // 2. Fetch all results for these courses
     const allResults = await db
       .select({
         score: results.score,
@@ -689,7 +689,7 @@ router.get('/reports', only, async (req, res, next) => {
 
     const gradeDist = {};
     const statusDist = {};
-    const levelDist = { "100": 0, "200": 0, "300": 0, "400": 0 }; // Fallback for level
+    const levelDist = { "100": 0, "200": 0, "300": 0, "400": 0 };
 
     allResults.forEach(r => {
       const score = Number(r.score) || 0;
@@ -732,7 +732,7 @@ router.get('/reports', only, async (req, res, next) => {
         },
         gradeDist,
         statusDist,
-        levelDist // Will be all 0s for now, but won't crash
+        levelDist
       }
     });
   } catch (err) {

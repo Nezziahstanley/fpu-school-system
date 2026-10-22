@@ -96,7 +96,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       success: true,
       data: {
         coursesCount: allocatedCourses.length, totalStudents, totalRegistrations, pendingResults,
-        attendanceCount, // <--- Added to response
+        attendanceCount,
         activeSession: currentSession?.name || '—', materialsCount, assignmentsCount,
         departmentName: dept?.name || '—', coursesList: allocatedCourses.map(c => c.course).filter(Boolean), courseStats
       }
@@ -139,6 +139,8 @@ router.get('/courses', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
+        allocationId: courseAllocations.id, // <-- Important for the Accept/Flag buttons
+        status: courseAllocations.status,   // <-- Important for the UI
         id: courses.id,
         code: courses.code,
         title: courses.title,
@@ -753,6 +755,7 @@ router.get('/exams', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 // ============================================================
 // GET /api/lecturer/exams/:id/students
 // ============================================================
@@ -761,7 +764,6 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
     const { examSchedules, courseAllocations, courses, courseRegistrations, users } = schema;
     const examId = Number(req.params.id);
 
-    // 1. Get the exam details
     const [exam] = await db.select({
       courseId: examSchedules.courseId,
       courseCode: courses.code,
@@ -776,14 +778,12 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
 
     if (!exam) return res.status(404).json({ success: false, error: 'Exam not found.' });
 
-    // 2. Verify Lecturer is allocated
     const alloc = await db.select().from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId)))
       .limit(1);
       
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-    // 3. Get students registered for the course
     const students = await db.select({
       id: users.id,
       firstName: users.firstName,
@@ -798,6 +798,68 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
     return res.json({ success: true, data: students, exam });
   } catch (err) {
     console.error('[lecturer/exam-students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/lecturer/allocations/:id/accept
+// ============================================================
+router.post('/allocations/:id/accept', only, async (req, res, next) => {
+  try {
+    const allocationId = Number(req.params.id);
+    
+    const [alloc] = await db.select()
+      .from(courseAllocations)
+      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id)))
+      .limit(1);
+
+    if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    await db.update(courseAllocations)
+      .set({ 
+        status: 'accepted', 
+        respondedAt: new Date() 
+      })
+      .where(eq(courseAllocations.id, allocationId));
+
+    await logAudit({ req, action: 'lecturer.accept_allocation', entity: 'course_allocations', entityId: allocationId });
+
+    return res.json({ success: true, message: 'Course accepted.' });
+  } catch (err) {
+    console.error('[lecturer/accept-allocation] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/lecturer/allocations/:id/flag
+// ============================================================
+router.post('/allocations/:id/flag', only, async (req, res, next) => {
+  try {
+    const allocationId = Number(req.params.id);
+    const { reason } = req.body || {};
+
+    const [alloc] = await db.select()
+      .from(courseAllocations)
+      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id)))
+      .limit(1);
+
+    if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    await db.update(courseAllocations)
+      .set({ 
+        status: 'flagged', 
+        flagReason: reason || 'Flagged by lecturer',
+        respondedAt: new Date() 
+      })
+      .where(eq(courseAllocations.id, allocationId));
+
+    await logAudit({ req, action: 'lecturer.flag_allocation', entity: 'course_allocations', entityId: allocationId, after: { reason } });
+
+    return res.json({ success: true, message: 'Course flagged.' });
+  } catch (err) {
+    console.error('[lecturer/flag-allocation] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

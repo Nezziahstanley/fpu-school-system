@@ -110,8 +110,9 @@
   function actionButtons(c) {
     const s = String(c.status || 'assigned').toLowerCase();
     if (s === 'assigned' || s === 'flagged') {
-      return '<button class="btn btn-primary btn-sm" data-act="accept" data-id="' + esc(c.id) + '">Accept</button> '
-           + '<button class="btn btn-outline btn-sm" data-act="flag" data-id="' + esc(c.id) + '">Flag</button>';
+      // Use allocationId, not the course id
+      return '<button class="btn btn-primary btn-sm" data-act="accept" data-id="' + esc(c.allocationId) + '">Accept</button> '
+           + '<button class="btn btn-outline btn-sm" data-act="flag" data-id="' + esc(c.allocationId) + '">Flag</button>';
     }
     return '<span class="muted small">—</span>';
   }
@@ -134,8 +135,8 @@
           <td><strong>${esc(c.code)}</strong></td>
           <td>${esc(c.title)}</td>
           <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
-          <td>${c.units || 0}</td>
-          <td>${esc(c.semester || '—')}</td>
+          <td>${c.unit || 0}</td>
+          <td>${esc(c.semesterName || '—')}</td>
           <td>${esc(c.sessionName || '—')}</td>
           <td>${statusChip(c.status)}</td>
           <td>${actionButtons(c)}</td>
@@ -146,7 +147,7 @@
     tbody.querySelectorAll('button[data-act]').forEach(function (b) {
       b.addEventListener('click', function () {
         const id = b.dataset.id;
-        const c = FILTERED.find(function (x) { return String(x.id) === String(id); });
+        const c = FILTERED.find(function (x) { return String(x.allocationId) === String(id); });
         if (!c) return;
         if (b.dataset.act === 'accept') accept(c);
         if (b.dataset.act === 'flag') openFlag(c);
@@ -163,7 +164,7 @@
       const hay = `${c.code} ${c.title} ${c.sessionName}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (lvl && getLevel(c) !== lvl) return false;
-      if (sem && String(c.semester).toLowerCase() !== sem) return false;
+      if (sem && String(c.semesterName).toLowerCase() !== sem) return false;
       return true;
     });
     render();
@@ -173,34 +174,27 @@
     setText('lc-total', ALL.length);
     setText('lc-nd', ALL.filter((c) => getLevel(c) === 'ND').length);
     setText('lc-hnd', ALL.filter((c) => getLevel(c) === 'HND').length);
-    setText('lc-units', ALL.reduce((s, c) => s + Number(c.units || 0), 0));
+    setText('lc-units', ALL.reduce((s, c) => s + Number(c.unit || 0), 0));
   }
 
   async function load() {
     const tbody = $('lc-tbody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/admin/allocations/my');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.allocations || []);
-
-      ALL = raw.map((r) => {
-        const alloc = r.allocation || r;
-        const crs = r.course || r;
-        const ses = r.session || {};
-        return {
-          id: alloc.id,
-          courseId: alloc.courseId || crs.id,
-          code: crs.code || alloc.courseCode || '—',
-          title: crs.title || alloc.courseTitle || '—',
-          level: crs.level || alloc.level || '—',
-          units: crs.unit || alloc.units || 0,
-          semester: alloc.semester || '—',
-          sessionName: ses.name || alloc.sessionName || '—',
-          status: alloc.status || 'assigned',
-          lecturerId: alloc.lecturerId,
-        };
-      });
+      // Query the dedicated /courses endpoint (instead of /admin/allocations/my)
+      const res = await core.portalFetch('/api/lecturer/courses');
+      const payload = res.data || res || [];
+      
+      ALL = payload.map((r) => ({
+        allocationId: r.allocationId,
+        id: r.id,
+        code: r.code,
+        title: r.title,
+        level: r.level,
+        unit: r.unit,
+        semesterName: r.semesterName,
+        status: r.status || 'assigned',
+      }));
 
       console.log('[lecturer-courses] Loaded', ALL.length);
       updateStats();
@@ -214,7 +208,7 @@
   async function accept(c) {
     if (!confirm('Accept the assignment for ' + c.code + '?')) return;
     try {
-      await core.portalFetch('/api/lecturer/allocations/' + c.id + '/accept', { method: 'POST' });
+      await core.portalFetch('/api/lecturer/allocations/' + c.allocationId + '/accept', { method: 'POST' });
       core.showToast && core.showToast('Accepted.', 'success');
       load();
     } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
@@ -243,7 +237,7 @@
     const prev = btn.textContent;
     btn.textContent = 'Sending…';
     try {
-      await core.portalFetch('/api/lecturer/allocations/' + CURRENT_ALLOC.id + '/flag', {
+      await core.portalFetch('/api/lecturer/allocations/' + CURRENT_ALLOC.allocationId + '/flag', {
         method: 'POST',
         body: { reason: reason, note: note },
       });
@@ -256,7 +250,7 @@
 
   function exportCsv() {
     const headers = ['Code', 'Title', 'Level', 'Units', 'Semester', 'Session', 'Status'];
-    const rows = FILTERED.map((c) => [c.code, c.title, getLevel(c), c.units, c.semester, c.sessionName, c.status]);
+    const rows = FILTERED.map((c) => [c.code, c.title, getLevel(c), c.unit, c.semesterName, c.sessionName, c.status]);
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');

@@ -48,12 +48,11 @@
   async function load() {
     const tbody = $('exm-tbody');
     try {
-      // Use the dedicated lecturer endpoint we will create next
       const res = await core.portalFetch('/api/lecturer/exams');
       const rows = res.data || [];
 
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No exams scheduled yet.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">You have no exams scheduled for your courses.</td></tr>`;
         return;
       }
 
@@ -65,7 +64,7 @@
           </td>
           <td style="padding:.65rem .75rem;color:#475569;">${esc(e.departmentName || '—')}</td>
           <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime)} - ${esc(e.endTime)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime || '')} - ${esc(e.endTime || '')}</td>
           <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
         </tr>
       `).join('');

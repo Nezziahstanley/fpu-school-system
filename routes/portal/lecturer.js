@@ -726,30 +726,32 @@ router.get('/security', only, async (req, res, next) => {
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {
   try {
-    const examQueries = require('../../db/queries/exams');
-    const rawRows = await examQueries.listWithCourse({});
+    const { examSchedules, courseAllocations, courses, departments } = schema;
 
-    // Map the database columns to the exact keys the frontend is expecting
-    const data = rawRows.map(r => {
-      // Depending on your DB schema, the course details might be nested or flattened.
-      // We map them carefully so the frontend doesn't break.
-      return {
-        id: r.id,
-        courseCode: r.courseCode || r.course_code || r.course?.code || '—',
-        courseTitle: r.courseTitle || r.course_title || r.course?.title || '',
-        departmentName: r.departmentName || r.department_name || r.department?.name || '—',
-        examDate: r.examDate || r.exam_date || r.date || null,
-        startTime: r.startTime || r.start_time || '',
-        endTime: r.endTime || r.end_time || '',
-        venue: r.venue || r.location || '—'
-      };
-    });
+    // Query the exams table and JOIN with course allocations to ensure
+    // the lecturer ONLY sees exams for courses they are assigned to.
+    const rows = await db
+      .select({
+        id: examSchedules.id,
+        examDate: examSchedules.examDate,
+        startTime: examSchedules.startTime,
+        endTime: examSchedules.endTime,
+        venue: examSchedules.venue,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        departmentName: departments.name,
+      })
+      .from(examSchedules)
+      .innerJoin(courses, eq(examSchedules.courseId, courses.id))
+      .innerJoin(courseAllocations, eq(examSchedules.courseId, courseAllocations.courseId))
+      .leftJoin(departments, eq(courses.departmentId, departments.id))
+      .where(eq(courseAllocations.lecturerId, req.user.id))
+      .orderBy(examSchedules.examDate);
 
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[lecturer/exams] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-
 module.exports = router;

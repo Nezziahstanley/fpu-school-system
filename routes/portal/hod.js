@@ -322,8 +322,8 @@ router.get('/courses-with-allocations', only, async (req, res, next) => {
     const rows = await db
       .select({
         id: courses.id,
-        code: courses.code,
-        title: courses.title,
+        courseCode: courses.code,
+        courseTitle: courses.title,
         level: courses.level,
         unit: courses.unit,
         semesterName: courses.semesterName,

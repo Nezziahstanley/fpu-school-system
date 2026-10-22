@@ -62,21 +62,25 @@
   // ----------------------------------------------------------
   async function portalFetch(path, opts = {}) {
     const token = getToken();
+    
+    // Check if body is FormData (for file uploads)
+    const isFormData = opts.body instanceof FormData;
+    
     const headers = {
-      'Content-Type': 'application/json',
+      // Only set JSON content-type if we are NOT sending FormData
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(opts.headers || {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
+    
     const init = { ...opts, headers };
-    if (opts.body && typeof opts.body !== 'string') init.body = JSON.stringify(opts.body);
+    
+    // Only stringify plain objects. Leave FormData and strings alone.
+    if (opts.body && typeof opts.body !== 'string' && !isFormData) {
+      init.body = JSON.stringify(opts.body);
+    }
 
     // ---- Auto-prefix admin paths for admin/superadmin ONLY ----
-    // Admin and superadmin use /api/admin/* endpoints (mounted in routes/index.js).
-    // Every other staff role uses the non-prefixed /api/<module> endpoints, which
-    // the backend exposes with STAFF role access via requireRole(STAFF).
-    //
-    // This used to be applied for all STAFF_ROLES, which caused 403s for
-    // exam_officer and other staff when hitting /api/courses, /api/exams, etc.
     const ADMIN_ROLES = ['admin', 'superadmin'];
     const ADMIN_PREFIX_MODULES = [
       'results', 'students', 'staff', 'courses', 'programmes', 'departments',
@@ -92,7 +96,7 @@
       const me = getStoredUser();
       const role = me && me.role ? String(me.role).toLowerCase() : '';
       if (ADMIN_ROLES.includes(role) && typeof path === 'string' && path.startsWith('/api/')) {
-        const rest = path.slice(5);            // e.g. "courses?limit=300"
+        const rest = path.slice(5);
         const seg = rest.split('?')[0].split('/')[0];
         if (ADMIN_PREFIX_MODULES.includes(seg)) {
           finalPath = '/api/admin/' + rest;

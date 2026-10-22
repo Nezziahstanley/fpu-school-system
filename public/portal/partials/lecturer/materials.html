@@ -267,16 +267,11 @@
         formData.append('fileUrl', $('mat-url').value.trim());
       }
 
-      // Use native fetch with manual token extraction to prevent auth errors
-      const token = localStorage.getItem('fpu_token');
-      const res = await fetch('/api/lecturer/materials', {
+      // Uses core.portalFetch which now correctly handles FormData
+      await core.portalFetch('/api/lecturer/materials', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Upload failed');
 
       core.showToast && core.showToast('Material uploaded successfully!', 'success');
       closeModal();

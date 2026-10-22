@@ -582,7 +582,7 @@ router.post('/requests', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/reports (THE ONLY REPORTS ROUTE)
+// GET /api/lecturer/reports
 // ============================================================
 router.get('/reports', only, async (req, res, next) => {
   // Force browser to NEVER cache this endpoint
@@ -608,15 +608,17 @@ router.get('/reports', only, async (req, res, next) => {
       });
     }
 
-    // 2. Fetch all results for these courses (No joins!)
+    // 2. Fetch all results for these courses (Safely join users to get level)
     const allResults = await db
       .select({
         score: results.score,
         grade: results.grade,
         status: results.status,
         studentId: results.studentId,
+        level: users.level,
       })
       .from(results)
+      .leftJoin(users, eq(results.studentId, users.id))
       .where(inArray(results.courseId, courseIds));
 
     // 3. Calculate Stats
@@ -630,6 +632,7 @@ router.get('/reports', only, async (req, res, next) => {
 
     const gradeDist = {};
     const statusDist = {};
+    const levelDist = {}; 
 
     allResults.forEach(r => {
       const score = Number(r.score) || 0;
@@ -643,12 +646,15 @@ router.get('/reports', only, async (req, res, next) => {
 
       const status = r.status || 'draft';
       statusDist[status] = (statusDist[status] || 0) + 1;
+
+      const level = r.level || 'Unknown';
+      levelDist[level] = (levelDist[level] || 0) + 1;
     });
 
     const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
     const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
 
-    // 4. Attendance Count (No joins!)
+    // 4. Attendance Count
     const attRows = await db
       .select({ id: attendance.id })
       .from(attendance)
@@ -670,7 +676,7 @@ router.get('/reports', only, async (req, res, next) => {
         },
         gradeDist,
         statusDist,
-        levelDist: {} // Empty for now to prevent crashes
+        levelDist
       }
     });
   } catch (err) {

@@ -118,6 +118,7 @@
   @keyframes matSpin { to { transform: rotate(360deg); } }
   #mat-tbody tr { transition: background .1s; }
   #mat-tbody tr:hover { background: #f8fafc; }
+  .mat-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer; }
 </style>
 
 <script>
@@ -151,10 +152,39 @@
           <td style="padding:.65rem .75rem;text-align:center;"><span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;text-transform:uppercase;">${esc(r.materialType || 'note')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.createdAt)}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
-            ${r.fileUrl ? `<a href="${esc(r.fileUrl)}" target="_blank" style="font-size:.75rem;color:#1e40af;text-decoration:none;font-weight:700;">View</a>` : '—'}
+            ${r.fileUrl ? `<a href="${esc(r.fileUrl)}" target="_blank" style="font-size:.75rem;color:#1e40af;text-decoration:none;font-weight:700;margin-right:.5rem;">View</a>` : ''}
+            <button class="mat-btn" data-action="edit" data-id="${r.id}" style="background:#f1f5f9;color:#475569;margin-right:.25rem;">Edit</button>
+            <button class="mat-btn" data-action="delete" data-id="${r.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>
           </td>
         </tr>
       `).join('');
+
+      tbody.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.id);
+          const action = btn.dataset.action;
+          const item = rows.find(a => a.id === id);
+
+          if (action === 'delete') {
+            if (confirm('Delete this material?')) {
+              core.portalFetch(`/api/lecturer/materials/${id}`, { method: 'DELETE' })
+                .then(() => { core.showToast('Deleted', 'success'); load(); })
+                .catch(e => core.showToast(e.message, 'error'));
+            }
+          } else if (action === 'edit') {
+            const newTitle = prompt('Enter new title:', item.title);
+            if (newTitle && newTitle !== item.title) {
+              core.portalFetch(`/api/lecturer/materials/${id}`, { 
+                method: 'PUT', 
+                body: { title: newTitle, description: item.description, materialType: item.materialType } 
+              })
+              .then(() => { core.showToast('Updated', 'success'); load(); })
+              .catch(e => core.showToast(e.message, 'error'));
+            }
+          }
+        });
+      });
+
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }

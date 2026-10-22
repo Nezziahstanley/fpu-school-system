@@ -47,6 +47,7 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
+    // 1. Students
     const studentRows = await db.select({
       id: users.id, level: users.level, gender: users.gender, programmeName: programmes.name,
     })
@@ -68,18 +69,20 @@ router.get('/dashboard', only, async (req, res, next) => {
       studentsByGender[g] = (studentsByGender[g] || 0) + 1;
     });
 
+    // 2. Staff
     const staffRows = await db.select({ id: users.id })
       .from(users)
       .where(and(eq(users.departmentId, departmentId), sql`${users.role} IN ('lecturer', 'hod')`));
     const totalStaff = staffRows.length;
 
+    // 3. Courses
     const courseRows = await db.select({ id: courses.id })
       .from(courses)
       .where(eq(courses.departmentId, departmentId));
     const activeCourses = courseRows.length;
     const courseIds = courseRows.map(c => c.id);
 
-    // FIXED LOGIC HERE
+    // 4. Results Breakdown
     let pendingResults = 0, verifiedResults = 0, publishedResults = 0;
     if (courseIds.length > 0) {
       const resRows = await db.select({ status: results.status })
@@ -93,6 +96,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       });
     }
 
+    // 5. Registrations
     let registeredThisSession = 0;
     if (courseIds.length > 0) {
       const regs = await db.select({ id: courseRegistrations.id })
@@ -210,6 +214,101 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
     await logAudit({ req, action: 'hod.result_reject', entity: 'result', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/hod/results/course/:courseId
+// Fetch all results for a specific course (to view/bulk approve)
+// ============================================================
+router.get('/results/course/:courseId', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const courseId = Number(req.params.courseId);
+
+    // Verify course belongs to HOD's department
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    const rows = await db
+      .select({
+        id: results.id,
+        studentId: users.id,
+        studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+        matricNumber: users.matricNumber,
+        score: results.score,
+        grade: results.grade,
+        status: results.status,
+        semester: results.semester,
+      })
+      .from(results)
+      .innerJoin(users, eq(results.studentId, users.id))
+      .where(and(
+        eq(results.courseId, courseId),
+        eq(results.status, 'submitted') // Only show submitted ones
+      ))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows, course });
+  } catch (err) {
+    console.error('[hod/results-course] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/hod/results/bulk-approve
+// Approve multiple results at once
+// ============================================================
+router.post('/results/bulk-approve', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const { resultIds } = req.body || {};
+
+    if (!Array.isArray(resultIds) || resultIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'resultIds[] is required.' });
+    }
+
+    // Verify all results belong to the HOD's department
+    const allResults = await db.select({
+      id: results.id,
+      courseId: results.courseId,
+    }).from(results).where(sql`${results.id} IN ${resultIds}`);
+
+    if (allResults.length !== resultIds.length) {
+      return res.status(404).json({ success: false, error: 'Some results were not found.' });
+    }
+
+    const courseIds = [...new Set(allResults.map(r => r.courseId))];
+    const deptCourses = await db.select({ id: courses.id })
+      .from(courses)
+      .where(and(eq(courses.departmentId, departmentId), sql`${courses.id} IN ${courseIds}`));
+
+    if (deptCourses.length !== courseIds.length) {
+      return res.status(403).json({ success: false, error: 'Results are not in your department.' });
+    }
+
+    // Perform the bulk update
+    await db.update(results)
+      .set({ 
+        status: 'hod_verified', 
+        hodVerifiedAt: new Date(), 
+        hodVerifiedBy: req.user.id 
+      })
+      .where(sql`${results.id} IN ${resultIds}`);
+
+    await logAudit({ 
+      req, 
+      action: 'hod.bulk_verify_results', 
+      after: { count: resultIds.length, resultIds } 
+    });
+
+    return res.json({ success: true, message: `${resultIds.length} results approved successfully.` });
+  } catch (err) {
+    console.error('[hod/bulk-approve] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================

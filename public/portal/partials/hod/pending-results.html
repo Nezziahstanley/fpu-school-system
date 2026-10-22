@@ -66,7 +66,7 @@
             <th>Level</th>
             <th>Students</th>
             <th>Submitted</th>
-            <th>Action</th>
+            <th style="width: 150px;">Action</th>
           </tr>
         </thead>
         <tbody id="pr-tbody">
@@ -77,28 +77,67 @@
   </div>
 </section>
 
+<!-- ═══════ MODAL: VIEW & BULK APPROVE RESULTS ═══════ -->
+<div id="results-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
+    
+    <!-- Header -->
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
+      <div>
+        <h3 id="rm-course-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Course Results</h3>
+        <p id="rm-course-code" style="margin:.2rem 0 0;font-size:.75rem;color:#64748b;"></p>
+      </div>
+      <button id="rm-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:1.25rem;flex:1;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <label style="display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:.85rem;cursor:pointer;">
+          <input type="checkbox" id="rm-select-all" style="width:16px;height:16px;" /> Select All Students
+        </label>
+        <button id="rm-bulk-approve" class="btn btn-primary btn-sm" style="background:#065f46;color:#fff;border:none;border-radius:6px;padding:.4rem .8rem;font-size:.75rem;font-weight:700;cursor:pointer;">Approve Selected</button>
+      </div>
+
+      <div style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.5rem .75rem;text-align:left;width:40px;"><input type="checkbox" disabled /></th>
+              <th style="padding:.5rem .75rem;text-align:left;">Student</th>
+              <th style="padding:.5rem .75rem;text-align:left;">Matric No</th>
+              <th style="padding:.5rem .75rem;text-align:center;">Score</th>
+              <th style="padding:.5rem .75rem;text-align:center;">Grade</th>
+            </tr>
+          </thead>
+          <tbody id="rm-tbody">
+            <!-- Injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL = [];
   let FILTERED = [];
+  let CURRENT_COURSE = null;
 
   function getLevel(r) { return String(r.level || r.courseLevel || '').toUpperCase().trim() || '—'; }
   function getCourseCode(r) { return r.courseCode || r.code || '—'; }
   function getCourseTitle(r) { return r.courseTitle || r.title || '—'; }
-  function getLecturerName(r) {
-    if (r.lecturerName) return r.lecturerName;
-    if (r.lecturer) return `${r.lecturer.firstName || ''} ${r.lecturer.lastName || ''}`.trim();
-    return '—';
-  }
+  function getLecturerName(r) { return r.lecturerName || '—'; }
   function getSessionName(r) { return r.sessionName || r.session || '—'; }
   function getSemester(r) { return r.semesterName || r.semester || '—'; }
-  function getStudentCount(r) { return r.studentCount ?? r.students ?? r.totalStudents ?? 0; }
+  function getStudentCount(r) { return r.studentCount ?? r.students ?? 0; }
 
   function render() {
     $('pr-count').textContent = FILTERED.length;
@@ -112,7 +151,7 @@
       const level = getLevel(r);
       const chipClass = 'chip-' + level.toLowerCase();
       return `
-        <tr data-id="${r.id || r.resultId}">
+        <tr data-id="${r.id}">
           <td><strong>${esc(getCourseCode(r))}</strong></td>
           <td>${esc(getCourseTitle(r))}</td>
           <td>${esc(getLecturerName(r))}</td>
@@ -122,18 +161,17 @@
           <td>${getStudentCount(r)}</td>
           <td>${r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '—'}</td>
           <td class="row-actions">
-            <button class="btn btn-primary btn-xs" data-act="approve">Approve</button>
-            <button class="btn btn-outline btn-xs" data-act="reject">Reject</button>
+            <button class="btn btn-primary btn-xs" data-act="view">View / Approve</button>
           </td>
         </tr>`;
     }).join('');
 
-    $('pr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
+    $('pr-tbody').querySelectorAll('button[data-act="view"]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const id = btn.closest('tr').dataset.id;
-        if (btn.dataset.act === 'approve') approveResult(id);
-        if (btn.dataset.act === 'reject') rejectResult(id);
+        const rowId = btn.closest('tr').dataset.id;
+        const item = FILTERED.find(x => String(x.id) === String(rowId));
+        if (item) openResultsModal(item);
       });
     });
   }
@@ -173,85 +211,104 @@
     try {
       const res = await core.portalFetch('/api/hod/pending-results');
       const payload = res.data || res || {};
-      ALL = Array.isArray(payload)
-        ? payload
-        : (payload.rows || payload.results || []);
-
-      console.log('[hod-pending-results] Loaded', ALL.length, 'pending. Sample:', ALL[0]);
+      ALL = Array.isArray(payload) ? payload : [];
 
       const sessions = [...new Set(ALL.map((r) => getSessionName(r)).filter((s) => s && s !== '—'))];
       const sesSel = $('pr-session');
-      const cur = sesSel.value;
       sesSel.innerHTML = '<option value="">All Sessions</option>' +
         sessions.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-      sesSel.value = cur;
 
       updateStats();
       applyFilter();
     } catch (err) {
-      console.error('[hod-pending-results]', err);
-      $('pr-tbody').innerHTML =
-        `<tr><td colspan="9" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      $('pr-tbody').innerHTML = `<tr><td colspan="9" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function approveResult(id) {
-    if (!confirm('Approve this result? It will be sent to the academic office for final approval.')) return;
+  // ---------------------------------------------------------
+  // MODAL LOGIC
+  // ---------------------------------------------------------
+  async function openResultsModal(courseRow) {
+    CURRENT_COURSE = courseRow;
+    $('results-modal').style.display = 'flex';
+    $('rm-course-title').textContent = courseRow.courseTitle;
+    $('rm-course-code').textContent = `${courseRow.courseCode} — ${courseRow.level} — ${courseRow.sessionName}`;
+    
+    $('rm-select-all').checked = false;
+    $('rm-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
+
     try {
-      await core.portalFetch(`/api/hod/pending-results/${id}/verify`, { method: 'POST' });
-      core.showToast('Result approved', 'success');
-      load();
+      const res = await core.portalFetch(`/api/hod/results/course/${courseRow.courseId}`);
+      const students = res.data || [];
+
+      if (!students.length) {
+        $('rm-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No submitted results found.</td></tr>';
+        return;
+      }
+
+      $('rm-tbody').innerHTML = students.map(s => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <input type="checkbox" class="rm-checkbox" value="${s.id}" style="width:16px;height:16px;" />
+          </td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber)}</code></td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(s.score)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(s.grade)}</td>
+        </tr>
+      `).join('');
+
     } catch (err) {
-      core.showToast(err.message, 'error');
+      $('rm-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function rejectResult(id) {
-    const reason = prompt('Reason for rejection (required):');
-    if (!reason || !reason.trim()) return;
+  function closeResultsModal() {
+    $('results-modal').style.display = 'none';
+    CURRENT_COURSE = null;
+  }
+
+  // Select All logic
+  $('rm-select-all')?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.rm-checkbox').forEach(cb => { cb.checked = checked; });
+  });
+
+  // Bulk Approve
+  $('rm-bulk-approve')?.addEventListener('click', async () => {
+    const selected = Array.from(document.querySelectorAll('.rm-checkbox:checked')).map(cb => Number(cb.value));
+    if (!selected.length) return core.showToast && core.showToast('Please select at least one student.', 'warning');
+
+    if (!confirm(`Approve ${selected.length} results?`)) return;
+
+    const btn = $('rm-bulk-approve');
+    btn.disabled = true;
+    btn.textContent = 'Approving…';
+
     try {
-      await core.portalFetch(`/api/hod/pending-results/${id}/reject`, {
+      await core.portalFetch('/api/hod/results/bulk-approve', {
         method: 'POST',
-        body: { reason: reason.trim() },
+        body: { resultIds: selected }
       });
-      core.showToast('Result rejected', 'success');
-      load();
+      core.showToast && core.showToast('Results approved successfully!', 'success');
+      closeResultsModal();
+      load(); // Reload the main table to remove approved courses
     } catch (err) {
-      core.showToast(err.message, 'error');
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Approve Selected';
     }
-  }
+  });
 
-  function exportCsv() {
-    const headers = ['Course', 'Title', 'Lecturer', 'Session', 'Semester', 'Level', 'Students', 'Submitted'];
-    const rows = FILTERED.map((r) => [
-      getCourseCode(r),
-      getCourseTitle(r),
-      getLecturerName(r),
-      getSessionName(r),
-      getSemester(r),
-      getLevel(r),
-      getStudentCount(r),
-      r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : '',
-    ]);
-
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `hod-pending-results-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
+  $('rm-close')?.addEventListener('click', closeResultsModal);
+  $('results-modal')?.addEventListener('click', (e) => { if (e.target.id === 'results-modal') closeResultsModal(); });
 
   $('pr-search').addEventListener('input', applyFilter);
   $('pr-session').addEventListener('change', applyFilter);
   $('pr-semester').addEventListener('change', applyFilter);
   $('pr-level').addEventListener('change', applyFilter);
   $('pr-refresh').addEventListener('click', load);
-  $('pr-export').addEventListener('click', exportCsv);
 
   load();
 })();

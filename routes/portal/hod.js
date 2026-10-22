@@ -79,15 +79,17 @@ router.get('/dashboard', only, async (req, res, next) => {
     const activeCourses = courseRows.length;
     const courseIds = courseRows.map(c => c.id);
 
+    // FIXED LOGIC HERE
     let pendingResults = 0, verifiedResults = 0, publishedResults = 0;
     if (courseIds.length > 0) {
       const resRows = await db.select({ status: results.status })
         .from(results)
         .where(sql`${results.courseId} IN ${courseIds}`);
+      
       resRows.forEach(r => {
-        if (r.status === 'draft') pendingResults++;
-        if (r.status === 'submitted') verifiedResults++;
-        if (r.status === 'published') publishedResults++;
+        if (r.status === 'draft' || r.status === 'submitted') pendingResults++;
+        else if (r.status === 'hod_verified') verifiedResults++;
+        else if (r.status === 'published') publishedResults++;
       });
     }
 

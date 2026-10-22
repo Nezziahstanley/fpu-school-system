@@ -1,6 +1,7 @@
 <!-- Portal → Lecturer → Requests -->
 <div style="padding:0;">
 
+  <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">My Requests</h2>
@@ -107,6 +108,22 @@
   @keyframes reqSpin { to { transform: rotate(360deg); } }
   #req-tbody tr { transition: background .1s; }
   #req-tbody tr:hover { background: #f8fafc; }
+  
+  /* Styled View Button */
+  .btn-view {
+    padding: .35rem .8rem;
+    font-size: .72rem;
+    font-weight: 700;
+    background: #065f46;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .btn-view:hover {
+    background: #047857;
+  }
 </style>
 
 <script>
@@ -145,7 +162,7 @@
             </td>
             <td style="padding:.65rem .75rem;text-align:right;color:#64748b;font-size:.75rem;">${fmtDate(r.createdAt)}</td>
             <td style="padding:.65rem .75rem;text-align:right;">
-              <button class="asg-btn btn-view" data-id="${r.id}" style="background:#eff6ff;color:#1e40af;">View</button>
+              <button class="btn-view" data-id="${r.id}">View</button>
             </td>
           </tr>
         `;
@@ -233,9 +250,11 @@
       `}
 
       <div style="display:flex;justify-content:flex-end;margin-top:1.25rem;">
-        <button onclick="document.getElementById('view-req-modal').style.display='none'" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
+        <button id="view-req-close-btn" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
       </div>
     `;
+
+    $('view-req-close-btn')?.addEventListener('click', () => { $('view-req-modal').style.display = 'none'; });
   }
 
   $('req-create')?.addEventListener('click', openModal);

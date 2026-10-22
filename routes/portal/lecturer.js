@@ -753,5 +753,53 @@ router.get('/exams', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+// ============================================================
+// GET /api/lecturer/exams/:id/students
+// ============================================================
+router.get('/exams/:id/students', only, async (req, res, next) => {
+  try {
+    const { examSchedules, courseAllocations, courses, courseRegistrations, users } = schema;
+    const examId = Number(req.params.id);
+
+    // 1. Get the exam details
+    const [exam] = await db.select({
+      courseId: examSchedules.courseId,
+      courseCode: courses.code,
+      examDate: examSchedules.examDate,
+      startTime: examSchedules.startTime,
+      venue: examSchedules.venue,
+    })
+    .from(examSchedules)
+    .leftJoin(courses, eq(examSchedules.courseId, courses.id))
+    .where(eq(examSchedules.id, examId))
+    .limit(1);
+
+    if (!exam) return res.status(404).json({ success: false, error: 'Exam not found.' });
+
+    // 2. Verify Lecturer is allocated
+    const alloc = await db.select().from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId)))
+      .limit(1);
+      
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    // 3. Get students registered for the course
+    const students = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      matricNumber: users.matricNumber,
+    })
+    .from(courseRegistrations)
+    .leftJoin(users, eq(courseRegistrations.studentId, users.id))
+    .where(and(eq(courseRegistrations.courseId, exam.courseId), eq(courseRegistrations.status, 'approved')))
+    .orderBy(users.lastName);
+
+    return res.json({ success: true, data: students, exam });
+  } catch (err) {
+    console.error('[lecturer/exam-students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;

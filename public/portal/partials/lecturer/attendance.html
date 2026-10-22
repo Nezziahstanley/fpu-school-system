@@ -7,7 +7,8 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Attendance</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View and manage attendance records</p>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap; align-items:center;">
+      <input type="text" id="att-search" placeholder="Search name, matric, course..." style="padding:.55rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;width:240px;" />
       <button id="att-take" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -167,6 +168,7 @@
 
   let ALL_COURSES = [];
   let CURRENT_STUDENTS = [];
+  let ALL_RECORDS = []; // Global cache for the search bar
 
   // --- Load Attendance Records ---
   async function loadRecords() {
@@ -178,51 +180,78 @@
 
     try {
       const res = await core.portalFetch('/api/lecturer/attendance');
-      const rows = res.data || [];
+      ALL_RECORDS = res.data || [];
 
       let present = 0, absent = 0, late = 0;
-      rows.forEach(r => {
+      ALL_RECORDS.forEach(r => {
         if (r.status === 'present') present++;
         else if (r.status === 'absent') absent++;
         else if (r.status === 'late') late++;
       });
 
-      $('att-total').textContent = rows.length;
+      $('att-total').textContent = ALL_RECORDS.length;
       $('att-present').textContent = present;
       $('att-absent').textContent = absent;
       $('att-late').textContent = late;
-      $('att-count').textContent = rows.length;
+      $('att-count').textContent = ALL_RECORDS.length;
 
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No attendance records found.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = rows.map(r => {
-        const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.trim();
-        let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
-        if (r.status === 'present') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
-        if (r.status === 'absent') { badgeColor = '#fee2e2'; badgeFg = '#991b1b'; }
-        if (r.status === 'late') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
-
-        return `
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(r.date)}</td>
-            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
-            <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber || '—')}</code></td>
-            <td style="padding:.65rem .75rem;">
-              <div style="font-weight:700;color:#0f172a;font-size:.8rem;">${esc(r.courseCode)}</div>
-              <div style="font-size:.7rem;color:#64748b;">${esc(r.courseTitle)}</div>
-            </td>
-            <td style="padding:.65rem .75rem;text-align:center;">
-              <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:${badgeColor};color:${badgeFg};border-radius:5px;text-transform:capitalize;">${esc(r.status)}</span>
-            </td>
-          </tr>`;
-      }).join('');
+      renderTable(ALL_RECORDS);
 
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${err.message}</td></tr>`;
     }
+  }
+
+  // --- Render Table (Filtered or Full) ---
+  function renderTable(rows) {
+    const tbody = $('att-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No attendance records found matching your search.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.trim();
+      let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
+      if (r.status === 'present') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
+      if (r.status === 'absent') { badgeColor = '#fee2e2'; badgeFg = '#991b1b'; }
+      if (r.status === 'late') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(r.date)}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber || '—')}</code></td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#0f172a;font-size:.8rem;">${esc(r.courseCode)}</div>
+            <div style="font-size:.7rem;color:#64748b;">${esc(r.courseTitle)}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:${badgeColor};color:${badgeFg};border-radius:5px;text-transform:capitalize;">${esc(r.status)}</span>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  // --- Search Filter ---
+  function filterRecords() {
+    const q = ($('att-search').value || '').toLowerCase();
+    if (!q) {
+      renderTable(ALL_RECORDS);
+      return;
+    }
+
+    const filtered = ALL_RECORDS.filter(r => {
+      const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.toLowerCase();
+      const matric = (r.matricNumber || '').toLowerCase();
+      const course = (r.courseCode || '').toLowerCase();
+      const status = (r.status || '').toLowerCase();
+      const date = (r.date || '').toLowerCase();
+
+      return fullName.includes(q) || matric.includes(q) || course.includes(q) || status.includes(q) || date.includes(q);
+    });
+
+    renderTable(filtered);
   }
 
   // --- Open Modal ---
@@ -310,7 +339,6 @@
       if (radio) radio.checked = true;
     });
     
-    // Reset other checkboxes
     ['present', 'absent', 'late'].forEach(v => {
       if (v !== status) {
         const cb = $(`att-bulk-${v}`);
@@ -369,6 +397,9 @@
   $('att-load-students')?.addEventListener('click', loadStudents);
   $('att-save')?.addEventListener('click', saveAttendance);
   $('att-modal')?.addEventListener('click', (e) => { if (e.target.id === 'att-modal') closeModal(); });
+
+  // Search wiring
+  $('att-search')?.addEventListener('input', filterRecords);
 
   // Bulk actions wiring
   $('att-bulk-present')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('present'); });

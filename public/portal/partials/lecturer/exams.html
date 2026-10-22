@@ -1,6 +1,5 @@
 <!-- Portal → Lecturer → Exams -->
 <div style="padding:0;">
-
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Schedule</h2>
@@ -11,7 +10,6 @@
     </div>
   </div>
 
-  <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -32,8 +30,21 @@
   </div>
 </div>
 
+<!-- MODAL: EXAM STUDENTS -->
+<div id="exam-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="exam-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Exam Details</h3>
+      <button id="exam-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <div id="exam-students-list"></div>
+    </div>
+  </div>
+</div>
+
 <style>
-  #exm-tbody tr { transition: background .1s; }
+  #exm-tbody tr { transition: background .1s; cursor: pointer; }
   #exm-tbody tr:hover { background: #f8fafc; }
 </style>
 
@@ -57,7 +68,7 @@
       }
 
       tbody.innerHTML = rows.map(e => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
+        <tr style="border-bottom:1px solid #f1f5f9;" data-id="${e.id}">
           <td style="padding:.65rem .75rem;">
             <div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div>
             <div style="font-size:.72rem;color:#64748b;">${esc(e.courseTitle || '')}</div>
@@ -69,12 +80,53 @@
         </tr>
       `).join('');
 
+      tbody.querySelectorAll('tr[data-id]').forEach(row => {
+        row.addEventListener('click', () => openExamModal(Number(row.dataset.id)));
+      });
+
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
+  async function openExamModal(id) {
+    $('exam-modal').style.display = 'flex';
+    $('exam-modal-title').textContent = 'Student List';
+    const list = $('exam-students-list');
+    list.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading students…</div>';
+
+    try {
+      const res = await core.portalFetch(`/api/lecturer/exams/${id}/students`);
+      const students = res.data || [];
+
+      if (!students.length) {
+        list.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.85rem;">No students registered for this course.</div>';
+        return;
+      }
+
+      list.innerHTML = students.map(s => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.75rem 1rem;border-bottom:1px solid #f1f5f9;">
+          <div>
+            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(s.firstName)} ${esc(s.lastName)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(s.matricNumber)}</div>
+          </div>
+          <span style="font-size:.75rem;font-weight:700;color:#065f46;background:#ecfdf5;padding:2px 6px;border-radius:4px;">Registered</span>
+        </div>
+      `).join('');
+
+    } catch (err) {
+      list.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${esc(err.message)}</div>`;
+    }
+  }
+
+  function closeExamModal() {
+    $('exam-modal').style.display = 'none';
+  }
+
   $('exm-refresh')?.addEventListener('click', load);
+  $('exam-modal-close')?.addEventListener('click', closeExamModal);
+  $('exam-modal')?.addEventListener('click', (e) => { if (e.target.id === 'exam-modal') closeExamModal(); });
+
   load();
 })();
 </script>

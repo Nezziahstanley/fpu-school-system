@@ -171,7 +171,7 @@
           <td style="padding:.65rem .75rem;"><span style="font-size:.75rem;font-weight:700;color:#065f46;">${esc(r.courseCode || '—')}</span></td>
           <td style="padding:.65rem .75rem;text-align:center;color:#64748b;font-size:.75rem;">${fmtDate(r.dueDate)}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
-            <button class="asg-btn" data-action="view" data-id="${r.id}" style="background:#eff6ff;color:#1e40af;margin-right:.25rem;">View</button>
+            <button class="asg-btn" data-action="view" data-id="${r.id}" style="background:#eff6ff;color:#1e40af;margin-right:.25rem;">Grade</button>
             <button class="asg-btn" data-action="edit" data-id="${r.id}" style="background:#f1f5f9;color:#475569;margin-right:.25rem;">Edit</button>
             <button class="asg-btn" data-action="delete" data-id="${r.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>
           </td>
@@ -203,6 +203,7 @@
     }
   }
 
+  // --- Create/Edit Modal ---
   async function openModal(existingItem = null) {
     $('asg-modal').style.display = 'flex';
     $('asg-modal-title').textContent = existingItem ? 'Edit Assignment' : 'New Assignment';
@@ -257,8 +258,7 @@
       const file = $('asg-file').files[0];
       if (file) formData.append('file', file);
 
-      // Native fetch with manual token extraction
-      const token = localStorage.getItem('fpu_token');
+      const token = localStorage.getItem('fpu_portal_token');
       const url = id ? `/api/lecturer/assignments/${id}` : '/api/lecturer/assignments';
       const method = id ? 'PUT' : 'POST';
 

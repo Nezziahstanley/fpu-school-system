@@ -56,14 +56,8 @@ router.get('/dashboard', only, async (_req, res, next) => {
         return {
           id: b.id,
           bookTitle: book.title || b.bookTitle || ('Book #' + b.bookId),
-          studentName:
-            [student.firstName, student.lastName].filter(Boolean).join(' ') ||
-            student.email ||
-            ('User #' + b.userId),
-          dueAt: b.dueAt,
-          borrowedAt: b.borrowedAt,
-          returnedAt: b.returnedAt,
-          status: b.status,
+          studentName: [student.firstName, student.lastName].filter(Boolean).join(' ') || student.email || ('User #' + b.userId),
+          dueAt: b.dueAt, borrowedAt: b.borrowedAt, returnedAt: b.returnedAt, status: b.status,
         };
       });
     } catch (e) { recentBorrows = []; }
@@ -78,12 +72,8 @@ router.get('/dashboard', only, async (_req, res, next) => {
         return {
           id: rv.id,
           bookTitle: book.title || rv.bookTitle || ('Book #' + rv.bookId),
-          studentName:
-            [student.firstName, student.lastName].filter(Boolean).join(' ') ||
-            student.email ||
-            ('User #' + rv.userId),
-          status: rv.status,
-          reservedAt: rv.reservedAt,
+          studentName: [student.firstName, student.lastName].filter(Boolean).join(' ') || student.email || ('User #' + rv.userId),
+          status: rv.status, reservedAt: rv.reservedAt,
         };
       });
     } catch (e) { reservations = []; }
@@ -95,8 +85,7 @@ router.get('/dashboard', only, async (_req, res, next) => {
         activeBorrows: Number(activeBorrows?.c || 0),
         overdue: Number(overdue?.c || 0),
         outstandingFines: Number(outstandingFines?.total || 0),
-        recentBorrows,
-        reservations,
+        recentBorrows, reservations,
       },
     });
   } catch (err) { return next(err); }
@@ -119,16 +108,25 @@ router.get('/books', only, async (req, res, next) => {
       ORDER BY title ASC
     `);
     return res.json({ success: true, data: result.rows || [] });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[librarian/books GET] Error:', err);
+    return next(err);
+  }
 });
 
 // ============================================================
-// POST /api/librarian/books — Create (supports PDF upload + external link)
+// POST /api/librarian/books — Create with PDF upload
 // ============================================================
 router.post('/books', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async (req, res, next) => {
+  console.log('===========================================');
+  console.log('[librarian/books POST] Request received');
+  console.log('  body:', JSON.stringify(req.body, null, 2));
+  console.log('  files:', req.files ? Object.keys(req.files) : 'none');
+
   try {
     const b = req.body || {};
     if (!b.title) {
+      console.log('[librarian/books POST] ❌ Missing title');
       return res.status(400).json({ success: false, error: 'Title is required.' });
     }
 
@@ -136,7 +134,10 @@ router.post('/books', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async
     let ebookUrl = null;
     if (req.files && req.files.pdf && req.files.pdf[0]) {
       ebookUrl = req.files.pdf[0].path;
+      console.log('[librarian/books POST] PDF uploaded to:', ebookUrl);
     }
+
+    console.log('[librarian/books POST] Inserting book with ebookUrl:', ebookUrl);
 
     const result = await db.execute(sql`
       INSERT INTO books (
@@ -157,22 +158,37 @@ router.post('/books', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async
     `);
 
     const row = result.rows[0];
+    console.log('[librarian/books POST] ✅ Inserted:', row);
+
     await logAudit({ req, action: 'librarian.book_create', entity: 'book', entityId: row.id });
     return res.status(201).json({ success: true, data: row });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[librarian/books POST] ❌ Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
-// PUT /api/librarian/books/:id — Update (supports PDF re-upload)
+// PUT /api/librarian/books/:id — Update
 // ============================================================
 router.put('/books/:id', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async (req, res, next) => {
+  console.log('===========================================');
+  console.log('[librarian/books PUT] Request for ID:', req.params.id);
+  console.log('  body:', JSON.stringify(req.body, null, 2));
+  console.log('  files:', req.files ? Object.keys(req.files) : 'none');
+
   try {
     const bookId = Number(req.params.id);
     const b = req.body || {};
 
+    if (!b.title) {
+      return res.status(400).json({ success: false, error: 'Title is required.' });
+    }
+
     let ebookUrl = null;
     if (req.files && req.files.pdf && req.files.pdf[0]) {
       ebookUrl = req.files.pdf[0].path;
+      console.log('[librarian/books PUT] New PDF:', ebookUrl);
     }
 
     await db.execute(sql`
@@ -195,9 +211,13 @@ router.put('/books/:id', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), as
       WHERE id = ${bookId}
     `);
 
+    console.log('[librarian/books PUT] ✅ Updated book ID:', bookId);
     await logAudit({ req, action: 'librarian.book_update', entity: 'book', entityId: bookId });
     return res.json({ success: true });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[librarian/books PUT] ❌ Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // ============================================================
@@ -210,17 +230,14 @@ router.delete('/books/:id', only, async (req, res, next) => {
     return res.json({ success: true });
   } catch (err) {
     if (err && /foreign key|violates/i.test(err.message || '')) {
-      return res.status(409).json({
-        success: false,
-        error: 'Cannot delete — this book has borrow history. Keep it and set copies to 0 instead.',
-      });
+      return res.status(409).json({ success: false, error: 'Cannot delete — this book has borrow history.' });
     }
     return next(err);
   }
 });
 
 // ============================================================
-// POST /api/librarian/books/:id/adjust — { delta: ±N }
+// POST /api/librarian/books/:id/adjust
 // ============================================================
 router.post('/books/:id/adjust', only, async (req, res, next) => {
   try {

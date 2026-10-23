@@ -33,7 +33,7 @@
   </div>
 </div>
 
-<!-- MODAL: ADD / EDIT BOOK -->
+<!-- MODAL -->
 <div id="book-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
@@ -116,6 +116,10 @@
   </div>
 </div>
 
+<style>
+  .act-btn { padding: .35rem .7rem; font-size: .72rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; margin-left: .25rem; }
+</style>
+
 <script>
 (function () {
   'use strict';
@@ -140,7 +144,6 @@
       $('books-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No books yet. Click "Add Book" to start.</td></tr>';
       return;
     }
-
     $('books-tbody').innerHTML = ALL_BOOKS.map(b => {
       const digital = b.ebookUrl || b.externalUrl;
       return `
@@ -153,9 +156,7 @@
               ${b.copiesAvailable} / ${b.copiesTotal}
             </span>
           </td>
-          <td style="padding:.65rem .75rem;text-align:center;font-size:1rem;">
-            ${b.ebookUrl ? '📖' : ''}${b.externalUrl ? '🔗' : ''}${!digital ? '—' : ''}
-          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:1rem;">${b.ebookUrl ? '📖' : ''}${b.externalUrl ? '🔗' : ''}${!digital ? '—' : ''}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
             <button class="act-btn" data-act="edit" data-id="${b.id}" style="background:#f1f5f9;color:#475569;">Edit</button>
             <button class="act-btn" data-act="delete" data-id="${b.id}" style="background:#fee2e2;color:#991b1b;">Delete</button>
@@ -175,7 +176,7 @@
   }
 
   async function deleteBook(id, title) {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${title}"?`)) return;
     try {
       await core.portalFetch(`/api/librarian/books/${id}`, { method: 'DELETE' });
       core.showToast && core.showToast('Book deleted', 'success');
@@ -188,7 +189,6 @@
   function openModal(book) {
     $('book-modal').style.display = 'flex';
     $('book-modal-title').textContent = book ? 'Edit Book' : 'Add Book';
-    
     $('book-id').value = book ? book.id : '';
     $('book-title').value = book ? book.title : '';
     $('book-author').value = book ? book.author || '' : '';
@@ -206,7 +206,7 @@
     $('book-pdf').value = '';
 
     if (book && book.ebookUrl) {
-      $('book-pdf-current').innerHTML = `✅ Current PDF: <a href="${esc(book.ebookUrl)}" target="_blank" style="color:#065f46;font-weight:700;">View</a> — upload a new one to replace.`;
+      $('book-pdf-current').innerHTML = `✅ Current PDF: <a href="${esc(book.ebookUrl)}" target="_blank" style="color:#065f46;font-weight:700;">View</a>`;
     } else {
       $('book-pdf-current').textContent = '';
     }
@@ -245,8 +245,12 @@
 
     try {
       const token = localStorage.getItem('fpu_portal_token') || localStorage.getItem('portal_token');
+      if (!token) throw new Error('Not logged in. Please refresh.');
+
       const url = id ? `/api/librarian/books/${id}` : '/api/librarian/books';
       const method = id ? 'PUT' : 'POST';
+
+      console.log('[books/save] Sending', method, url, 'PDF:', pdfFile ? pdfFile.name : 'none');
 
       const res = await fetch(url, {
         method,
@@ -254,14 +258,21 @@
         body: formData,
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to save');
+      const text = await res.text();
+      console.log('[books/save] Status:', res.status, 'Response:', text);
+
+      let json;
+      try { json = JSON.parse(text); } catch { json = { error: text || 'Invalid response' }; }
+
+      if (!res.ok) throw new Error(json.error || `Server ${res.status}`);
 
       core.showToast && core.showToast('Book saved!', 'success');
       closeModal();
       load();
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      console.error('[books/save] Failed:', err);
+      core.showToast && core.showToast(err.message || 'Save failed', 'error');
+      alert('Save failed: ' + (err.message || 'Unknown error'));
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save Book';
@@ -274,11 +285,6 @@
   $('book-cancel')?.addEventListener('click', closeModal);
   $('book-save')?.addEventListener('click', saveBook);
   $('book-modal')?.addEventListener('click', (e) => { if (e.target.id === 'book-modal') closeModal(); });
-
-  // Add the act-btn style
-  const style = document.createElement('style');
-  style.textContent = `.act-btn { padding: .35rem .7rem; font-size: .72rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; margin-left: .25rem; }`;
-  document.head.appendChild(style);
 
   load();
 })();

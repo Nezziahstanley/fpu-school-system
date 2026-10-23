@@ -21,8 +21,7 @@ const {
   users, courses, results, courseRegistrations, academicSessions,
   programmes, departments, courseMaterials, assignments,
   assignmentSubmissions, attendance, timetableSlots, examSchedules,
-  clearances,
-  documents       // <-- Add this
+  clearances, documents
 } = schema;
 
 const only = requireRole('student', 'admin');
@@ -321,72 +320,49 @@ router.get('/materials', only, async (req, res, next) => {
 });
 
 // ============================================================
-// ASSIGNMENTS (FULLY FIXED)
+// ASSIGNMENTS
 // ============================================================
 router.get('/assignments', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
-    // 1. Get registered course IDs
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
-      .where(and(
-        eq(courseRegistrations.studentId, studentId),
-        eq(courseRegistrations.sessionId, sessionId)
-      ));
+      .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
 
     const courseIds = regs.map(r => r.courseId);
     if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    // 2. Fetch assignments with course details
     const assignmentsList = await db
       .select({
-        id: assignments.id,
-        title: assignments.title,
-        description: assignments.description,
-        dueDate: assignments.dueDate,
-        maxScore: assignments.maxScore,
-        attachmentUrl: assignments.attachmentUrl,
-        courseCode: courses.code,
-        courseTitle: courses.title,
+        id: assignments.id, title: assignments.title, description: assignments.description,
+        dueDate: assignments.dueDate, maxScore: assignments.maxScore,
+        attachmentUrl: assignments.attachmentUrl, courseCode: courses.code, courseTitle: courses.title,
       })
       .from(assignments)
       .innerJoin(courses, eq(assignments.courseId, courses.id))
       .where(inArray(assignments.courseId, courseIds))
       .orderBy(desc(assignments.createdAt));
 
-    // 3. Fetch submissions for this student
     const submissions = await db
       .select({
         assignmentId: assignmentSubmissions.assignmentId,
         submissionText: assignmentSubmissions.submissionText,
         submissionUrl: assignmentSubmissions.submissionUrl,
-        score: assignmentSubmissions.score,
-        feedback: assignmentSubmissions.feedback,
-        submittedAt: assignmentSubmissions.submittedAt,
-        gradedAt: assignmentSubmissions.gradedAt,
+        score: assignmentSubmissions.score, feedback: assignmentSubmissions.feedback,
+        submittedAt: assignmentSubmissions.submittedAt, gradedAt: assignmentSubmissions.gradedAt,
       })
       .from(assignmentSubmissions)
       .where(eq(assignmentSubmissions.studentId, studentId));
 
     const submissionMap = {};
-    submissions.forEach(s => {
-      submissionMap[s.assignmentId] = s;
-    });
+    submissions.forEach(s => { submissionMap[s.assignmentId] = s; });
 
-    // 4. Merge assignment with submission info
-    const data = assignmentsList.map(a => ({
-      ...a,
-      submission: submissionMap[a.id] || null,
-    }));
-
+    const data = assignmentsList.map(a => ({ ...a, submission: submissionMap[a.id] || null }));
     return res.json({ success: true, data });
-  } catch (err) {
-    console.error('[student/assignments] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 router.post('/assignments/:id/submit', only, upload.single('file'), async (req, res, next) => {
@@ -403,9 +379,7 @@ router.post('/assignments/:id/submit', only, upload.single('file'), async (req, 
     if (!registration) return res.status(403).json({ success: false, error: 'You are not registered for this course.' });
 
     let submissionUrl = null;
-    if (req.file) {
-      submissionUrl = req.file.path; // Cloudinary URL
-    }
+    if (req.file) { submissionUrl = req.file.path; }
 
     const [row] = await db.insert(assignmentSubmissions).values({
       assignmentId, studentId, submissionText: req.body.text || null, submissionUrl, submittedAt: new Date(),
@@ -509,117 +483,39 @@ router.get('/exam-schedule', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/student/fees
-// ============================================================
-router.get('/fees', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
-
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
-
-    // 1. Get fee structure for this student's programme + level + session
-    let totalDue = 0;
-    try {
-      const feeQueries = require('../../db/queries/payments');
-      const feeStructure = await feeQueries.findFeeStructureWithFallback({
-        programmeId: student.programmeId,
-        level: student.level || 'ND',
-        sessionId,
-      });
-      totalDue = Number(feeStructure?.total || 0);
-    } catch (e) {
-      console.warn('[student/fees] Fee structure lookup failed:', e.message);
-    }
-
-    // 2. Get payment history
-    let payments = [];
-    try {
-      const paymentQueries = require('../../db/queries/payments');
-      const rows = await paymentQueries.listForStudent(studentId, sessionId);
-      payments = (rows || []).map(p => ({
-        id: p.id,
-        date: p.paymentDate || p.createdAt,
-        reference: p.reference || '—',
-        amount: Number(p.amount || 0),
-        method: p.method || '—',
-        status: p.status || 'pending',
-      }));
-    } catch (e) {
-      console.warn('[student/fees] Payment history lookup failed:', e.message);
-    }
-
-    const totalPaid = payments
-      .filter(p => p.status === 'verified' || p.status === 'completed')
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const balance = Math.max(0, totalDue - totalPaid);
-
-    return res.json({
-      success: true,
-      data: {
-        totalDue,
-        totalPaid,
-        balance,
-        payments,
-      }
-    });
-  } catch (err) {
-    console.error('[student/fees] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/student/clearance
+// CLEARANCE
 // ============================================================
 router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const { clearances } = schema; // Access the clearances table directly
-
-    const rows = await db
-      .select({
-        id: clearances.id,
-        type: clearances.type,
-        status: clearances.status,
-        sessionId: clearances.sessionId,
-        createdAt: clearances.createdAt,
-      })
-      .from(clearances)
-      .where(eq(clearances.studentId, studentId))
-      .orderBy(desc(clearances.createdAt));
-
-    return res.json({ success: true, data: rows });
+    const rows = await db.execute(sql`
+      SELECT id, type, status, session_id AS "sessionId", created_at AS "createdAt"
+      FROM clearances
+      WHERE student_id = ${studentId}
+      ORDER BY created_at DESC
+    `);
+    return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
     console.error('[student/clearance] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ============================================================
-// POST /api/student/clearance/request
-// ============================================================
 router.post('/clearance/request', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const { type } = req.body || {};
     const sessionId = req.user.currentSessionId || 1;
-    const { clearances } = schema;
 
-    if (!type) {
-      return res.status(400).json({ success: false, error: 'Clearance type is required.' });
-    }
+    if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
 
-    const [row] = await db.insert(clearances).values({
-      studentId,
-      sessionId,
-      type,
-      status: 'pending',
-    }).returning();
+    const row = await db.execute(sql`
+      INSERT INTO clearances (student_id, session_id, type, status, created_at)
+      VALUES (${studentId}, ${sessionId}, ${type}, 'pending', NOW())
+      RETURNING id, type, status, session_id AS "sessionId", created_at AS "createdAt"
+    `);
 
-    return res.status(201).json({ success: true, data: row });
+    return res.status(201).json({ success: true, data: row.rows[0] });
   } catch (err) {
     console.error('[student/clearance/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
@@ -627,47 +523,17 @@ router.post('/clearance/request', only, async (req, res, next) => {
 });
 
 // ============================================================
-// POST /api/student/clearance/request
-// ============================================================
-router.post('/clearance/request', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const { type } = req.body || {};
-    const sessionId = req.user.currentSessionId || 1;
-
-    if (!type) {
-      return res.status(400).json({ success: false, error: 'Clearance type is required.' });
-    }
-
-    const clearQueries = require('../../db/queries/clearances');
-    const row = await clearQueries.create({
-      studentId,
-      sessionId,
-      type,
-      status: 'pending',
-    });
-
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[student/clearance/request] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/student/documents
+// DOCUMENTS
 // ============================================================
 router.get('/documents', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-
     const result = await db.execute(sql`
       SELECT id, type, title, status, requested_at AS "createdAt", file_url AS "fileUrl"
       FROM documents
       WHERE user_id = ${studentId}
       ORDER BY requested_at DESC
     `);
-
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('[student/documents] Error:', err);
@@ -675,17 +541,12 @@ router.get('/documents', only, async (req, res, next) => {
   }
 });
 
-// ============================================================
-// POST /api/student/documents/request
-// ============================================================
 router.post('/documents/request', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const { type, title } = req.body || {};
 
-    if (!type || !title) {
-      return res.status(400).json({ success: false, error: 'Document type and title are required.' });
-    }
+    if (!type || !title) return res.status(400).json({ success: false, error: 'Document type and title are required.' });
 
     const result = await db.execute(sql`
       INSERT INTO documents (user_id, type, title, status, requested_at)
@@ -701,7 +562,7 @@ router.post('/documents/request', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/student/id-card
+// ID CARD
 // ============================================================
 router.get('/id-card', only, async (req, res, next) => {
   try {
@@ -717,6 +578,8 @@ router.get('/id-card', only, async (req, res, next) => {
         photoUrl: users.photoUrl,
         departmentName: departments.name,
         programmeName: programmes.name,
+        email: users.email,
+        phone: users.phone,
       })
       .from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))
@@ -726,19 +589,69 @@ router.get('/id-card', only, async (req, res, next) => {
 
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    // Get current session
     const [session] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+
+    const regs = await db
+      .select({ code: courses.code })
+      .from(courseRegistrations)
+      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, session?.id || 1),
+        eq(courseRegistrations.status, 'approved')
+      ))
+      .orderBy(courses.code);
+
+    const cleanMatric = (student.matricNumber || '').replace(/SMT/gi, '').trim();
+    const verifyUrl = `https://fpu-school-systems.onrender.com/portal/verify.html?matric=${encodeURIComponent(cleanMatric)}`;
 
     return res.json({
       success: true,
       data: {
         ...student,
-        matricNumber: (student.matricNumber || '').replace(/SMT/gi, '').trim(),
+        matricNumber: cleanMatric,
         sessionName: session?.name || '2026/2027',
+        courses: regs.map(r => r.code),
+        verifyUrl: verifyUrl,
       }
     });
   } catch (err) {
     console.error('[student/id-card] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// PUBLIC STUDENT VERIFICATION (for QR code scanning)
+// ============================================================
+router.get('/verify/student/:matric', async (req, res, next) => {
+  try {
+    const { matric } = req.params;
+
+    const [student] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        matricNumber: users.matricNumber,
+        level: users.level,
+        photoUrl: users.photoUrl,
+        email: users.email,
+        departmentName: departments.name,
+        programmeName: programmes.name,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(eq(users.matricNumber, matric))
+      .limit(1);
+
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    return res.json({ success: true, data: student });
+  } catch (err) {
+    console.error('[verify/student] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Verification — Federal Polytechnic Ugep</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #065f46 0%, #059669 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #fff; border-radius: 20px; max-width: 480px; width: 100%; padding: 32px; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+    .header { text-align: center; margin-bottom: 24px; }
+    .logo { width: 60px; height: 60px; background: #065f46; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fbbf24; font-weight: 900; font-size: 24px; margin-bottom: 12px; }
+    .school-name { font-size: 18px; font-weight: 800; color: #065f46; }
+    .school-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .verified-banner { background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+    .verified-banner .icon { width: 32px; height: 32px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+    .verified-banner .text { font-size: 13px; color: #065f46; font-weight: 700; }
+    .verified-banner .sub { font-size: 11px; color: #047857; font-weight: 400; }
+    .photo { width: 100px; height: 120px; background: #f1f5f9; border-radius: 10px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 3px solid #065f46; }
+    .photo img { width: 100%; height: 100%; object-fit: cover; }
+    .photo .initials { font-size: 36px; font-weight: 800; color: #065f46; }
+    .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .info-value { font-size: 14px; color: #0f172a; font-weight: 700; text-align: right; max-width: 60%; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-inactive { background: #fee2e2; color: #991b1b; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #94a3b8; }
+    .error { text-align: center; padding: 40px 20px; }
+    .error .icon { font-size: 48px; margin-bottom: 12px; }
+    .error .title { font-size: 18px; font-weight: 800; color: #991b1b; margin-bottom: 8px; }
+    .error .msg { font-size: 14px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card" id="result">
+    <div class="header">
+      <div class="logo">F</div>
+      <div class="school-name">Federal Polytechnic Ugep</div>
+      <div class="school-sub">Student Verification Portal</div>
+    </div>
+    <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+      <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #065f46; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      <div style="margin-top: 12px; font-size: 14px;">Verifying student…</div>
+    </div>
+  </div>
+
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+  <script>
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const matric = params.get('matric');
+      const result = document.getElementById('result');
+
+      if (!matric) {
+        result.innerHTML = `
+          <div class="header">
+            <div class="logo">F</div>
+            <div class="school-name">Federal Polytechnic Ugep</div>
+            <div class="school-sub">Student Verification Portal</div>
+          </div>
+          <div class="error">
+            <div class="icon">❌</div>
+            <div class="title">Invalid Link</div>
+            <div class="msg">No matric number provided in the verification link.</div>
+          </div>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/student/verify/student/${encodeURIComponent(matric)}`);
+        const json = await res.json();
+
+        if (!json.success || !json.data) {
+          result.innerHTML = `
+            <div class="header">
+              <div class="logo">F</div>
+              <div class="school-name">Federal Polytechnic Ugep</div>
+              <div class="school-sub">Student Verification Portal</div>
+            </div>
+            <div class="error">
+              <div class="icon">❌</div>
+              <div class="title">Student Not Found</div>
+              <div class="msg">No student with matric number "${matric}" exists in our records.</div>
+            </div>`;
+          return;
+        }
+
+        const s = json.data;
+        const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+        const initials = fullName.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+        const statusClass = s.isActive ? 'status-active' : 'status-inactive';
+        const statusText = s.isActive ? 'Active Student' : 'Inactive';
+
+        result.innerHTML = `
+          <div class="header">
+            <div class="logo">F</div>
+            <div class="school-name">Federal Polytechnic Ugep</div>
+            <div class="school-sub">Student Verification Portal</div>
+          </div>
+
+          <div class="verified-banner">
+            <div class="icon">✓</div>
+            <div>
+              <div class="text">Verified Student</div>
+              <div class="sub">This student is registered at our institution</div>
+            </div>
+          </div>
+
+          <div class="photo">
+            ${s.photoUrl ? `<img src="${s.photoUrl}" alt="Student Photo">` : `<div class="initials">${initials}</div>`}
+          </div>
+
+          <div class="info-row">
+            <div class="info-label">Full Name</div>
+            <div class="info-value">${fullName}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Matric Number</div>
+            <div class="info-value">${s.matricNumber || '—'}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Level</div>
+            <div class="info-value">${s.level || '—'}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Programme</div>
+            <div class="info-value">${s.programmeName || '—'}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Department</div>
+            <div class="info-value">${s.departmentName || '—'}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Status</div>
+            <div class="info-value"><span class="status-badge ${statusClass}">${statusText}</span></div>
+          </div>
+
+          <div class="footer">
+            Verified on ${new Date().toLocaleString('en-GB')}<br>
+            Federal Polytechnic Ugep — Official Verification
+          </div>
+        `;
+      } catch (err) {
+        result.innerHTML = `
+          <div class="header">
+            <div class="logo">F</div>
+            <div class="school-name">Federal Polytechnic Ugep</div>
+            <div class="school-sub">Student Verification Portal</div>
+          </div>
+          <div class="error">
+            <div class="icon">⚠️</div>
+            <div class="title">Verification Error</div>
+            <div class="msg">${err.message || 'Could not reach verification server.'}</div>
+          </div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -42,80 +42,70 @@
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const user = core.getPortalUser ? core.getPortalUser() : {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-
-  let ALL = [];
-
-  function classify(cgpa) {
-    if (cgpa == null) return '—';
-    const g = Number(cgpa);
-    if (g >= 3.50) return 'Distinction';
-    if (g >= 3.00) return 'Upper Credit';
-    if (g >= 2.50) return 'Lower Credit';
-    if (g >= 2.00) return 'Pass';
-    return 'Fail';
-  }
-
-  setText('st-matric', user.matricNumber || 'Academic record');
 
   async function load() {
-    const tbody = $('st-tbody');
+    const tbody = $('tr-tbody');
     try {
       const res = await core.portalFetch('/api/student/transcript');
-      const payload = res.data || res || {};
-      const raw = payload.rows || payload.data || (Array.isArray(payload) ? payload : []);
+      const d = res.data || {};
+      const s = d.student || {};
+      const rows = d.results || [];
 
-      ALL = raw.map((r) => {
-        const rec = r.result || r;
-        const crs = r.course || {};
-        return {
-          courseCode: crs.code || '—',
-          courseTitle: crs.title || '',
-          units: crs.unit || 0,
-          score: rec.score != null ? Number(rec.score) : null,
-          grade: rec.grade || '—',
-          points: rec.points != null ? Number(rec.points) : 0,
-          sessionId: rec.sessionId,
-          semester: rec.semester || '—',
-        };
-      });
+      // Header
+      $('tr-st-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
+      $('tr-st-matric').textContent = s.matricNumber || '—';
+      $('tr-st-programme').textContent = s.programmeName || '—';
+      $('tr-st-level').textContent = `Level ${s.level || '—'}`;
 
-      // Compute totals
-      const totalUnits = ALL.reduce((s, r) => s + r.units, 0);
-      const totalPoints = ALL.reduce((s, r) => s + r.units * r.points, 0);
-      const cgpa = totalUnits ? (totalPoints / totalUnits).toFixed(2) : '—';
+      // Stats
+      $('tr-cgpa').textContent = d.cgpa || '0.00';
+      $('tr-units').textContent = d.totalUnits || 0;
+      $('tr-classification').textContent = d.classification || '—';
+      
+      // Header CGPA
+      $('hdr-cgpa').textContent = d.cgpa || '0.00';
 
-      setText('st-total', ALL.length);
-      setText('st-units', totalUnits);
-      setText('st-cgpa', cgpa);
-      setText('st-cgpa-badge', cgpa);
-      setText('st-class', classify(cgpa));
-      setText('st-count', ALL.length);
-
-      if (tbody) {
-        tbody.innerHTML = ALL.length
-          ? ALL.map((r) => `
-              <tr>
-                <td><strong>${esc(r.courseCode)}</strong></td>
-                <td>${esc(r.courseTitle)}</td>
-                <td>${r.units}</td>
-                <td>${r.score != null ? r.score.toFixed(0) : '—'}</td>
-                <td><span class="chip">${esc(r.grade)}</span></td>
-                <td>${r.points.toFixed(1)}</td>
-                <td>${esc(r.semester)}</td>
-              </tr>`).join('')
-          : '<tr><td colspan="7" class="empty">No transcript records yet.</td></tr>';
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">No published results found.</td></tr>';
+        return;
       }
+
+      let lastSession = '';
+      let lastSemester = '';
+
+      tbody.innerHTML = rows.map(r => {
+        const session = r.sessionName || '—';
+        const sem = (r.semester || '—').toString().replace(/^\w/, c => c.toUpperCase());
+        const showSession = session !== lastSession;
+        const showSem = showSession || sem !== lastSemester;
+        lastSession = session;
+        lastSemester = sem;
+
+        return `
+          ${showSession ? `<tr><td colspan="8" style="padding:.5rem .75rem;background:#f1f5f9;font-weight:800;font-size:.72rem;color:#475569;text-transform:uppercase;">📅 ${esc(session)}</td></tr>` : ''}
+          ${showSem ? `<tr><td colspan="8" style="padding:.35rem .75rem;background:#f8fafc;font-weight:700;font-size:.7rem;color:#64748b;font-style:italic;">${esc(sem)} Semester</td></tr>` : ''}
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;color:#475569;font-size:.75rem;">${esc(session)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;font-size:.75rem;">${esc(sem)}</td>
+            <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
+            <td style="padding:.65rem .75rem;">${esc(r.courseTitle)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.unit)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.points)}</td>
+          </tr>
+        `;
+      }).join('');
+
     } catch (err) {
-      console.error('[student-transcript]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      console.error('[student/transcript] Error:', err);
+      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  $('st-print')?.addEventListener('click', () => window.print());
+  $('tr-print')?.addEventListener('click', () => window.print());
   load();
 })();
 </script>

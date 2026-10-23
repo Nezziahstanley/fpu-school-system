@@ -223,7 +223,7 @@ router.get('/transcript', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
 
-    // Fetch student info
+    // 1. Fetch student info (minimal, no joins that could fail)
     const [student] = await db
       .select({
         id: users.id,
@@ -231,14 +231,14 @@ router.get('/transcript', only, async (req, res, next) => {
         lastName: users.lastName,
         matricNumber: users.matricNumber,
         level: users.level,
-        programmeName: programmes.name,
       })
       .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .where(eq(users.id, studentId))
       .limit(1);
 
-    // Fetch all published results
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // 2. Fetch all published results
     const rows = await db
       .select({
         courseCode: courses.code,
@@ -259,10 +259,20 @@ router.get('/transcript', only, async (req, res, next) => {
       ))
       .orderBy(academicSessions.name, results.semester, courses.code);
 
-    // Calculate CGPA
+    // Deduplicate by course code
+    const uniqueResults = [];
+    const seen = new Set();
+    rows.forEach(r => {
+      if (!seen.has(r.courseCode)) {
+        seen.add(r.courseCode);
+        uniqueResults.push(r);
+      }
+    });
+
+    // 3. Calculate CGPA
     let totalPoints = 0;
     let totalUnits = 0;
-    rows.forEach(r => {
+    uniqueResults.forEach(r => {
       const unit = Number(r.unit) || 0;
       const points = Number(r.points) || 0;
       totalPoints += (points * unit);
@@ -270,7 +280,7 @@ router.get('/transcript', only, async (req, res, next) => {
     });
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
-    // Determine classification
+    // 4. Classification
     let classification = '';
     const val = parseFloat(cgpa);
     if (val >= 3.50) classification = 'Distinction';
@@ -287,7 +297,7 @@ router.get('/transcript', only, async (req, res, next) => {
           ...student,
           matricNumber: (student?.matricNumber || '').replace(/SMT/gi, '').trim(),
         },
-        results: rows,
+        results: uniqueResults,
         cgpa,
         totalUnits,
         classification,

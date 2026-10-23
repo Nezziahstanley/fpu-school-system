@@ -28,7 +28,8 @@ const {
   assignments,
   assignmentSubmissions,
   attendance,
-  timetableSlots
+  timetableSlots,
+  examSchedules     // <-- Add this line
 } = schema;
 
 // -------- Middleware --------

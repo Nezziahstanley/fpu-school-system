@@ -77,7 +77,7 @@
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-transcript', 
+      // Remove 'admin-transcript' here
     ],
     bursar: [
       'portal-profile', 'portal-photo', 'portal-messages',
@@ -210,7 +210,8 @@
       { key: 'hod-history',          label: 'History',         icon: ICON.calendar },
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
-      { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard }, // <-- ADDED
+      { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard },
+      { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
     ],
     bursar: [
       { key: 'bursar-dashboard',  label: 'Dashboard',  icon: ICON.dash },

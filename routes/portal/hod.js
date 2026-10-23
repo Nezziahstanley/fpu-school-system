@@ -776,4 +776,48 @@ router.get('/lecturers', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/hod/transcript
+// Get students in the HOD's department (for the transcript page)
+// ============================================================
+router.get('/transcript', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const students = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(and(
+        eq(users.departmentId, departmentId),
+        eq(users.role, 'student')
+      ))
+      .orderBy(users.lastName);
+
+    // Group by Programme
+    const grouped = {};
+    students.forEach(s => {
+      const prog = s.programmeName || 'Unknown Programme';
+      if (!grouped[prog]) {
+        grouped[prog] = { name: prog, students: [] };
+      }
+      grouped[prog].students.push(s);
+    });
+
+    return res.json({ success: true, data: students, grouped: Object.values(grouped) });
+  } catch (err) {
+    console.error('[hod/transcript] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

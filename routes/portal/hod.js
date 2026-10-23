@@ -121,6 +121,45 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/hod/students
+// ============================================================
+router.get('/students', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const { level, status } = req.query;
+
+    const conditions = [
+      eq(users.departmentId, departmentId),
+      eq(users.role, 'student')
+    ];
+
+    if (level) {
+      conditions.push(eq(users.level, level.toUpperCase()));
+    }
+
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        isActive: users.isActive,
+        programmeName: programmes.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(and(...conditions))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/pending-results
 // ============================================================
 router.get('/pending-results', only, async (req, res, next) => {
@@ -358,19 +397,6 @@ router.get('/courses', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const rows = await courseQueries.list({
       departmentId, level: req.query.level, semester: req.query.semester, limit: 1000,
-    });
-    return res.json({ success: true, data: rows });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/hod/students
-// ============================================================
-router.get('/students', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-    const rows = await userQueries.listStudents({
-      departmentId, programmeId: req.query.programmeId, level: req.query.level, sessionId: req.query.sessionId,
     });
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }

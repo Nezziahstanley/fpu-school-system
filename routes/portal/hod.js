@@ -150,9 +150,8 @@ router.get('/students', only, async (req, res, next) => {
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .where(and(...conditions))
-      .orderBy(users.matricNumber); // Basic sort; will refine in JS
+      .orderBy(users.matricNumber);
 
-    // Clean the matric numbers (remove SMT and spaces) for the frontend
     const data = rows.map(r => ({
       ...r,
       matricNumber: (r.matricNumber || '').replace(/SMT/gi, '').trim()
@@ -161,6 +160,37 @@ router.get('/students', only, async (req, res, next) => {
     return res.json({ success: true, data });
   } catch (err) {
     console.error('[hod/students] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/hod/staff
+// ============================================================
+router.get('/staff', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const rows = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .where(and(
+        eq(users.departmentId, departmentId),
+        sql`${users.role} IN ('lecturer', 'hod')`
+      ))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/staff] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -404,17 +434,6 @@ router.get('/courses', only, async (req, res, next) => {
     const rows = await courseQueries.list({
       departmentId, level: req.query.level, semester: req.query.semester, limit: 1000,
     });
-    return res.json({ success: true, data: rows });
-  } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/hod/staff
-// ============================================================
-router.get('/staff', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-    const rows = await userQueries.listStaff({ departmentId });
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
 });

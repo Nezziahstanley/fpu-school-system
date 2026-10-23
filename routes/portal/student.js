@@ -20,7 +20,7 @@ const { requireRole } = require('../../middleware/auth');
 const { 
   users, courses, results, courseRegistrations, academicSessions,
   programmes, departments, courseMaterials, assignments,
-  assignmentSubmissions, attendance, timetableSlots, examSchedules
+  assignmentSubmissions, attendance, timetableSlots, examSchedules, clearances
 } = schema;
 
 const only = requireRole('student', 'admin');
@@ -575,11 +575,51 @@ router.get('/fees', only, async (req, res, next) => {
 router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const clearQueries = require('../../db/queries/clearances');
-    const rows = await clearQueries.listForStudent(studentId);
-    return res.json({ success: true, data: rows || [] });
+    const { clearances } = schema; // Access the clearances table directly
+
+    const rows = await db
+      .select({
+        id: clearances.id,
+        type: clearances.type,
+        status: clearances.status,
+        sessionId: clearances.sessionId,
+        createdAt: clearances.createdAt,
+      })
+      .from(clearances)
+      .where(eq(clearances.studentId, studentId))
+      .orderBy(desc(clearances.createdAt));
+
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[student/clearance] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/student/clearance/request
+// ============================================================
+router.post('/clearance/request', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { type } = req.body || {};
+    const sessionId = req.user.currentSessionId || 1;
+    const { clearances } = schema;
+
+    if (!type) {
+      return res.status(400).json({ success: false, error: 'Clearance type is required.' });
+    }
+
+    const [row] = await db.insert(clearances).values({
+      studentId,
+      sessionId,
+      type,
+      status: 'pending',
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[student/clearance/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

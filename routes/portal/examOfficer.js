@@ -31,7 +31,7 @@ const {
   courses,
   results,
   departments,
-  programmes,
+  programmes,   // <-- Added
   schools,
   examSchedules,
   academicSessions,
@@ -288,13 +288,15 @@ router.get('/pending-publication', only, async (req, res, next) => {
       grade: results.grade,
       level: courses.level,
       departmentName: departments.name,
+      programmeName: programmes.name,
     })
     .from(results)
     .innerJoin(users, eq(results.studentId, users.id))
     .innerJoin(courses, eq(results.courseId, courses.id))
+    .innerJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(courses.departmentId, departments.id))
     .where(eq(results.status, 'hod_verified'))
-    .orderBy(departments.name, users.lastName);
+    .orderBy(departments.name, programmes.name, users.lastName);
 
     return res.json({ success: true, data: rows });
   } catch (err) {

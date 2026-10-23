@@ -11,13 +11,11 @@
 
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     
-    <!-- Loading State -->
     <div style="padding:3rem;text-align:center;color:#94a3b8;" id="pub-loading">
       <div class="spinner"></div>
       <div style="margin-top:.65rem;font-size:.82rem;">Loading results…</div>
     </div>
     
-    <!-- Content State -->
     <div id="pub-content" style="display:none;">
       <div style="padding:1rem;background:#f8fafc;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
         <label style="display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:.85rem;cursor:pointer;">
@@ -91,57 +89,95 @@
       loadingEl.style.display = 'none';
       contentEl.style.display = 'block';
 
-      // Group by Department
+      // Group by Department, then Programme
       const grouped = {};
       rows.forEach(r => {
         const dept = r.departmentName || 'Unassigned Department';
-        if (!grouped[dept]) grouped[dept] = [];
-        grouped[dept].push(r);
+        const prog = r.programmeName || 'Unassigned Programme';
+        if (!grouped[dept]) grouped[dept] = {};
+        if (!grouped[dept][prog]) grouped[dept][prog] = [];
+        grouped[dept][prog].push(r);
       });
 
       let html = '';
 
       Object.keys(grouped).sort().forEach(dept => {
-        const deptResults = grouped[dept];
-        const safeDeptClass = safeClass(dept);
-        
+        const deptProgs = grouped[dept];
+        const deptTotal = Object.values(deptProgs).reduce((sum, arr) => sum + arr.length, 0);
+        const safeDept = safeClass(dept);
+
+        // Department Header
         html += `
           <tr>
-            <td colspan="7" style="padding:.5rem .75rem;background:#f1f5f9;font-weight:800;font-size:.72rem;color:#475569;text-transform:uppercase;letter-spacing:.05em;">
+            <td colspan="7" style="padding:.6rem .75rem;background:#e2e8f0;font-weight:800;font-size:.75rem;color:#0f172a;text-transform:uppercase;letter-spacing:.05em;">
               <label style="display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;margin:0;">
-                <input type="checkbox" class="dept-check-all" data-dept="${esc(dept)}" style="width:14px;height:14px;" />
-                ${esc(dept)} (${deptResults.length})
+                <input type="checkbox" class="dept-check-all" data-dept="${esc(dept)}" style="width:16px;height:16px;" />
+                🏢 ${esc(dept)} (${deptTotal} total)
               </label>
             </td>
           </tr>`;
 
-        deptResults.forEach(r => {
+        // Programme Sub-Headers
+        Object.keys(deptProgs).sort().forEach(prog => {
+          const progResults = deptProgs[prog];
+          const safeProg = safeClass(prog);
+
           html += `
-            <tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:.65rem .75rem;text-align:center;">
-                <input type="checkbox" class="pub-check dept-${safeDeptClass}" value="${r.id}" data-dept="${esc(dept)}" style="width:16px;height:16px;" />
+            <tr>
+              <td colspan="7" style="padding:.4rem .75rem;background:#f1f5f9;font-weight:700;font-size:.72rem;color:#475569;">
+                <label style="display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;margin:0;">
+                  <input type="checkbox" class="prog-check-all" data-dept="${esc(dept)}" data-prog="${esc(prog)}" style="width:14px;height:14px;" />
+                  📚 ${esc(prog)} (${progResults.length} results)
+                </label>
               </td>
-              <td style="padding:.65rem .75rem;color:#475569;">${esc(r.departmentName || '—')}</td>
-              <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
-              <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
-              <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>
-              <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
-              <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
             </tr>`;
+
+          progResults.forEach(r => {
+            html += `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:.65rem .75rem;text-align:center;">
+                  <input type="checkbox" class="pub-check dept-${safeDept} prog-${safeProg}" value="${r.id}" data-dept="${esc(dept)}" data-prog="${esc(prog)}" style="width:16px;height:16px;" />
+                </td>
+                <td style="padding:.65rem .75rem;color:#475569;">${esc(r.departmentName || '—')}</td>
+                <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
+                <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
+                <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>
+                <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
+                <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+              </tr>`;
+          });
         });
       });
 
       $('pub-tbody').innerHTML = html;
 
+      // Bind row checkboxes
       $('pub-tbody').querySelectorAll('.pub-check').forEach(cb => {
         cb.addEventListener('change', updatePublishBtn);
       });
 
+      // Bind Department "Select All"
       $('pub-tbody').querySelectorAll('.dept-check-all').forEach(deptCb => {
         deptCb.addEventListener('change', (e) => {
           const dept = e.target.dataset.dept;
           const checked = e.target.checked;
           $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"]`).forEach(rowCb => {
+            rowCb.checked = checked;
+          });
+          $('pub-tbody').querySelectorAll(`.prog-check-all[data-dept="${dept}"]`).forEach(pcb => {
+            pcb.checked = checked;
+          });
+          updatePublishBtn();
+        });
+      });
+
+      // Bind Programme "Select All"
+      $('pub-tbody').querySelectorAll('.prog-check-all').forEach(progCb => {
+        progCb.addEventListener('change', (e) => {
+          const dept = e.target.dataset.dept;
+          const prog = e.target.dataset.prog;
+          const checked = e.target.checked;
+          $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"][data-prog="${prog}"]`).forEach(rowCb => {
             rowCb.checked = checked;
           });
           updatePublishBtn();
@@ -193,6 +229,7 @@
       const checked = e.target.checked;
       document.querySelectorAll('.pub-check').forEach(cb => { cb.checked = checked; });
       document.querySelectorAll('.dept-check-all').forEach(dcb => { dcb.checked = checked; });
+      document.querySelectorAll('.prog-check-all').forEach(pcb => { pcb.checked = checked; });
       updatePublishBtn();
     } catch (err) { /* ignore */ }
   });

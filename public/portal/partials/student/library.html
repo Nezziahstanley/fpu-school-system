@@ -140,6 +140,7 @@
     </div>
     <div style="display:flex;gap:.5rem;">
       <a id="ebook-download" href="" download style="padding:.45rem .9rem;font-size:.78rem;font-weight:700;background:#065f46;color:#fff;border-radius:6px;text-decoration:none;">⬇ Download</a>
+      <a id="ebook-external" href="" target="_blank" rel="noopener" style="padding:.45rem .9rem;font-size:.78rem;font-weight:700;background:#1e40af;color:#fff;border-radius:6px;text-decoration:none;">🔗 Open in New Tab</a>
       <button id="ebook-close" style="padding:.45rem .9rem;font-size:.78rem;font-weight:700;background:#475569;color:#fff;border:none;border-radius:6px;cursor:pointer;">✕ Close</button>
     </div>
   </div>
@@ -288,13 +289,12 @@
     $('ebook-title').textContent = book.title;
     $('ebook-author').textContent = book.author || '';
     
-    // Show loading spinner
     $('ebook-loading').style.display = 'block';
     $('ebook-frame').style.opacity = '0';
     
-    // Use Google Docs Viewer to bypass iframe restrictions
+    // Use self-hosted PDF.js viewer (bypasses all iframe/CORS issues)
     const pdfUrl = book.ebookUrl;
-    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
+    const viewerUrl = `/pdfjs/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`;
     
     const iframe = $('ebook-frame');
     iframe.onload = function() {
@@ -304,9 +304,9 @@
     };
     iframe.src = viewerUrl;
     
-    // Set download link
     $('ebook-download').href = pdfUrl;
     $('ebook-download').setAttribute('download', (book.title || 'ebook') + '.pdf');
+    $('ebook-external').href = pdfUrl;
   }
 
   function closeEbook() {

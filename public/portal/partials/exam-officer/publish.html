@@ -1,6 +1,7 @@
 <!-- Portal → Exam Officer → Publish Results -->
 <div style="padding:0;">
 
+  <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Publish Results</h2>
@@ -9,8 +10,8 @@
     <button id="pub-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
   </div>
 
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    
+  <!-- PENDING RESULTS SECTION -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:2rem;">
     <div style="padding:3rem;text-align:center;color:#94a3b8;" id="pub-loading">
       <div class="spinner"></div>
       <div style="margin-top:.65rem;font-size:.82rem;">Loading results…</div>
@@ -42,6 +43,37 @@
       </div>
     </div>
   </div>
+
+  <!-- PUBLISHED HISTORY SECTION -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.75rem;">
+    <div>
+      <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;">Recently Published Results</h3>
+      <p style="margin:.2rem 0 0;font-size:.8rem;color:#64748b;">A log of results you have published</p>
+    </div>
+    <span class="badge" id="history-count" style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;" id="history-loading">
+      Loading history…
+    </div>
+    <div style="overflow-x:auto;" id="history-content" hidden>
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Published</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Score</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Grade</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="history-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -55,7 +87,7 @@
     animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #pub-tbody tr:hover { background: #f8fafc; }
+  #pub-tbody tr:hover, #history-tbody tr:hover { background: #f8fafc; }
 </style>
 
 <script>
@@ -69,7 +101,8 @@
     return String(name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-');
   }
 
-  async function load() {
+  // -------- Pending Load --------
+  async function loadPending() {
     const loadingEl = $('pub-loading');
     const contentEl = $('pub-content');
     
@@ -89,7 +122,6 @@
       loadingEl.style.display = 'none';
       contentEl.style.display = 'block';
 
-      // Group by Department, then Programme
       const grouped = {};
       rows.forEach(r => {
         const dept = r.departmentName || 'Unassigned Department';
@@ -100,13 +132,11 @@
       });
 
       let html = '';
-
       Object.keys(grouped).sort().forEach(dept => {
         const deptProgs = grouped[dept];
         const deptTotal = Object.values(deptProgs).reduce((sum, arr) => sum + arr.length, 0);
         const safeDept = safeClass(dept);
 
-        // Department Header
         html += `
           <tr>
             <td colspan="7" style="padding:.6rem .75rem;background:#e2e8f0;font-weight:800;font-size:.75rem;color:#0f172a;text-transform:uppercase;letter-spacing:.05em;">
@@ -117,7 +147,6 @@
             </td>
           </tr>`;
 
-        // Programme Sub-Headers
         Object.keys(deptProgs).sort().forEach(prog => {
           const progResults = deptProgs[prog];
           const safeProg = safeClass(prog);
@@ -151,35 +180,24 @@
 
       $('pub-tbody').innerHTML = html;
 
-      // Bind row checkboxes
-      $('pub-tbody').querySelectorAll('.pub-check').forEach(cb => {
-        cb.addEventListener('change', updatePublishBtn);
-      });
-
-      // Bind Department "Select All"
+      $('pub-tbody').querySelectorAll('.pub-check').forEach(cb => cb.addEventListener('change', updatePublishBtn));
+      
       $('pub-tbody').querySelectorAll('.dept-check-all').forEach(deptCb => {
         deptCb.addEventListener('change', (e) => {
           const dept = e.target.dataset.dept;
           const checked = e.target.checked;
-          $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"]`).forEach(rowCb => {
-            rowCb.checked = checked;
-          });
-          $('pub-tbody').querySelectorAll(`.prog-check-all[data-dept="${dept}"]`).forEach(pcb => {
-            pcb.checked = checked;
-          });
+          $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"]`).forEach(cb => cb.checked = checked);
+          $('pub-tbody').querySelectorAll(`.prog-check-all[data-dept="${dept}"]`).forEach(pcb => pcb.checked = checked);
           updatePublishBtn();
         });
       });
 
-      // Bind Programme "Select All"
       $('pub-tbody').querySelectorAll('.prog-check-all').forEach(progCb => {
         progCb.addEventListener('change', (e) => {
           const dept = e.target.dataset.dept;
           const prog = e.target.dataset.prog;
           const checked = e.target.checked;
-          $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"][data-prog="${prog}"]`).forEach(rowCb => {
-            rowCb.checked = checked;
-          });
+          $('pub-tbody').querySelectorAll(`.pub-check[data-dept="${dept}"][data-prog="${prog}"]`).forEach(cb => cb.checked = checked);
           updatePublishBtn();
         });
       });
@@ -217,26 +235,81 @@
         body: { resultIds: selected }
       });
       core.showToast && core.showToast('Results published successfully!', 'success');
-      load();
+      
+      // Reload BOTH sections
+      loadPending();
+      loadHistory();
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
       if ($('pub-publish')) $('pub-publish').disabled = false;
     }
   }
 
+  // -------- Published History --------
+  async function loadHistory() {
+    const loadingEl = $('history-loading');
+    const contentEl = $('history-content');
+    const tbody = $('history-tbody');
+
+    loadingEl.style.display = 'block';
+    contentEl.hidden = true;
+
+    try {
+      // Assuming you have (or will create) an endpoint that returns recent published results
+      const res = await core.portalFetch('/api/exam-officer/published-results');
+      const rows = res.data || [];
+
+      $('history-count').textContent = rows.length;
+      loadingEl.style.display = 'none';
+
+      if (!rows.length) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = 'No results have been published yet.';
+        return;
+      }
+
+      contentEl.hidden = false;
+
+      tbody.innerHTML = rows.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;color:#64748b;font-size:.75rem;">${r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
+          <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span class="chip" style="background:#d1fae5;color:#065f46;font-size:.7rem;padding:2px 6px;border-radius:4px;font-weight:700;">Published</span>
+          </td>
+        </tr>
+      `).join('');
+
+    } catch (err) {
+      console.error('[exam-officer/history] Error:', err);
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = `⚠️ ${esc(err.message)}`;
+    }
+  }
+
+  // -------- Wiring --------
   $('pub-select-all')?.addEventListener('change', (e) => {
     try {
       const checked = e.target.checked;
-      document.querySelectorAll('.pub-check').forEach(cb => { cb.checked = checked; });
-      document.querySelectorAll('.dept-check-all').forEach(dcb => { dcb.checked = checked; });
-      document.querySelectorAll('.prog-check-all').forEach(pcb => { pcb.checked = checked; });
+      document.querySelectorAll('.pub-check').forEach(cb => cb.checked = checked);
+      document.querySelectorAll('.dept-check-all').forEach(dcb => dcb.checked = checked);
+      document.querySelectorAll('.prog-check-all').forEach(pcb => pcb.checked = checked);
       updatePublishBtn();
     } catch (err) { /* ignore */ }
   });
 
-  $('pub-refresh')?.addEventListener('click', load);
+  $('pub-refresh')?.addEventListener('click', () => {
+    loadPending();
+    loadHistory();
+  });
   $('pub-publish')?.addEventListener('click', publishSelected);
 
-  load();
+  // Load both sections on page load
+  loadPending();
+  loadHistory();
 })();
 </script>

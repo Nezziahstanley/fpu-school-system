@@ -332,4 +332,33 @@ router.post('/publish', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/exam-officer/published-results
+// ============================================================
+router.get('/published-results', only, async (req, res, next) => {
+  try {
+    const rows = await db.select({
+      id: results.id,
+      studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+      matricNumber: users.matricNumber,
+      courseCode: courses.code,
+      courseTitle: courses.title,
+      score: results.score,
+      grade: results.grade,
+      publishedAt: results.publishedAt,
+    })
+    .from(results)
+    .innerJoin(users, eq(results.studentId, users.id))
+    .innerJoin(courses, eq(results.courseId, courses.id))
+    .where(eq(results.status, 'published'))
+    .orderBy(desc(results.publishedAt))
+    .limit(100);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[exam-officer/published-results] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

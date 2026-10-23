@@ -569,4 +569,47 @@ router.get('/fees', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/clearance
+// ============================================================
+router.get('/clearance', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const clearQueries = require('../../db/queries/clearances');
+    const rows = await clearQueries.listForStudent(studentId);
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('[student/clearance] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/student/clearance/request
+// ============================================================
+router.post('/clearance/request', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { type } = req.body || {};
+    const sessionId = req.user.currentSessionId || 1;
+
+    if (!type) {
+      return res.status(400).json({ success: false, error: 'Clearance type is required.' });
+    }
+
+    const clearQueries = require('../../db/queries/clearances');
+    const row = await clearQueries.create({
+      studentId,
+      sessionId,
+      type,
+      status: 'pending',
+    });
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[student/clearance/request] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

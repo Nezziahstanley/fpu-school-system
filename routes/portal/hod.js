@@ -155,7 +155,7 @@ router.get('/students', only, async (req, res, next) => {
 
     const data = rows.map(r => ({
       ...r,
-      matricNumber: (r.matricNumber || '').replace(/SMT/gi, '').trim()
+      matricNumber: (r.matricNumber || '').replace(/SMT/gi, '').replace(/\/+/g, '/').trim()
     }));
 
     return res.json({ success: true, data });
@@ -729,6 +729,75 @@ router.get('/exams', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/hod/transcript
+// Get students in the HOD's department (for the transcript page)
+// ============================================================
+router.get('/transcript', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const students = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(and(
+        eq(users.departmentId, departmentId),
+        eq(users.role, 'student')
+      ))
+      .orderBy(users.lastName);
+
+    const data = students.map(s => ({
+      ...s,
+      matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim()
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[hod/transcript] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/hod/student-results/:id
+// ============================================================
+router.get('/student-results/:id', only, async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.id);
+
+    const rows = await db
+      .select({
+        id: results.id,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        score: results.score,
+        grade: results.grade,
+        status: results.status,
+        semester: results.semester,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .where(and(
+        eq(results.studentId, studentId),
+        sql`${results.status} IN ('hod_verified', 'published')`
+      ))
+      .orderBy(results.semester, courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/student-results] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/courses
 // ============================================================
 router.get('/courses', only, async (req, res, next) => {
@@ -774,50 +843,6 @@ router.get('/lecturers', only, async (req, res, next) => {
     });
     return res.json({ success: true, data: lecturers });
   } catch (err) { return next(err); }
-});
-
-// ============================================================
-// GET /api/hod/transcript
-// Get students in the HOD's department (for the transcript page)
-// ============================================================
-router.get('/transcript', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-
-    const students = await db
-      .select({
-        id: users.id,
-        matricNumber: users.matricNumber,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        level: users.level,
-        programmeName: programmes.name,
-        departmentName: departments.name,
-      })
-      .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .leftJoin(departments, eq(users.departmentId, departments.id))
-      .where(and(
-        eq(users.departmentId, departmentId),
-        eq(users.role, 'student')
-      ))
-      .orderBy(users.lastName);
-
-    // Group by Programme
-    const grouped = {};
-    students.forEach(s => {
-      const prog = s.programmeName || 'Unknown Programme';
-      if (!grouped[prog]) {
-        grouped[prog] = { name: prog, students: [] };
-      }
-      grouped[prog].students.push(s);
-    });
-
-    return res.json({ success: true, data: students, grouped: Object.values(grouped) });
-  } catch (err) {
-    console.error('[hod/transcript] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
 });
 
 module.exports = router;

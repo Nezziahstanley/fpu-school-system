@@ -8,15 +8,36 @@
 const express = require('express');
 const router = express.Router();
 
-const userQueries = require('../../db/queries/users');
-const examQueries = require('../../db/queries/exams');
-const regQueries = require('../../db/queries/registrations');
-const paymentQueries = require('../../db/queries/payments');
-const clearQueries = require('../../db/queries/clearances');
-const sessionQueries = require('../../db/queries/sessions');
-const { requireRole } = require('../../middleware/auth');
+// -------- Database & Schema --------
+const { db, schema } = require('../../db');
+const { eq, and, sql, desc, asc } = require('drizzle-orm');
 
-// Academic roles that share the exam officer portal endpoints
+// -------- Query Helpers --------
+const userQueries    = require('../../db/queries/users');
+const examQueries    = require('../../db/queries/exams');
+const regQueries     = require('../../db/queries/registrations');
+const paymentQueries = require('../../db/queries/payments');
+const clearQueries   = require('../../db/queries/clearances');
+const sessionQueries = require('../../db/queries/sessions');
+const courseQueries  = require('../../db/queries/courses');
+
+// -------- Middleware --------
+const { requireRole } = require('../../middleware/auth');
+const { logAudit }     = require('../../utils/audit');
+
+// -------- Schema Tables --------
+const {
+  users,
+  courses,
+  results,
+  departments,
+  programmes,
+  schools,
+  examSchedules,
+  academicSessions,
+} = schema;
+
+// -------- Auth --------
 const only = requireRole(
   'exam_officer',
   'academic_officer',
@@ -28,30 +49,16 @@ const only = requireRole(
 
 // ============================================================
 // GET /api/exam-officer/lookups
-// ------------------------------------------------------------
-// Cascading pickers need: departments, courses, programmes,
-// schools. All in one call, available to all academic roles.
 // ============================================================
 router.get('/lookups', only, async (req, res, next) => {
   try {
-    const { db, schema } = require('../../db');
-    const { departments, courses, programmes, schools } = schema;
-    const { asc } = require('drizzle-orm');
-
     const [depts, crs, progs, schs] = await Promise.all([
       db.select().from(departments).orderBy(asc(departments.name)),
       db.select().from(courses).orderBy(asc(courses.code)),
       db.select().from(programmes).orderBy(asc(programmes.code)),
       db.select().from(schools).orderBy(asc(schools.name)),
     ]);
-
-    return res.json({
-      success: true,
-      departments: depts,
-      courses: crs,
-      programmes: progs,
-      schools: schs,
-    });
+    return res.json({ success: true, departments: depts, courses: crs, programmes: progs, schools: schs });
   } catch (err) { return next(err); }
 });
 
@@ -118,20 +125,13 @@ router.get('/registrations', only, async (req, res, next) => {
     if (!courseId) {
       return res.status(400).json({ success: false, error: 'courseId is required.' });
     }
-
     const rows = await regQueries.listWithStudent({
       courseId,
       ...(sessionId ? { sessionId } : {}),
       ...(semester ? { semester } : {}),
       status,
     });
-
-    const data = rows.map((r) => ({
-      student: r.student,
-      registration: r.registration,
-    }));
-
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: rows.map(r => ({ student: r.student, registration: r.registration })) });
   } catch (err) { return next(err); }
 });
 
@@ -141,9 +141,7 @@ router.get('/registrations', only, async (req, res, next) => {
 router.get('/attendance', only, async (req, res, next) => {
   try {
     const { examScheduleId } = req.query;
-    if (!examScheduleId) {
-      return res.status(400).json({ success: false, error: 'examScheduleId is required.' });
-    }
+    if (!examScheduleId) return res.status(400).json({ success: false, error: 'examScheduleId is required.' });
     const rows = await examQueries.listAttendanceWithStudent({ examScheduleId });
     const counts = await examQueries.countAttendance({ examScheduleId });
     return res.json({ success: true, data: rows, counts });
@@ -160,11 +158,7 @@ router.post('/attendance', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'examScheduleId, studentId, status are required.' });
     }
     const row = await examQueries.upsertAttendance({
-      examScheduleId,
-      studentId,
-      status,
-      invigilatorId: req.user.id,
-      remarks,
+      examScheduleId, studentId, status, invigilatorId: req.user.id, remarks,
     });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -179,7 +173,7 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
     if (!examScheduleId || !Array.isArray(records) || !records.length) {
       return res.status(400).json({ success: false, error: 'examScheduleId and records[] are required.' });
     }
-    const rows = records.map((r) => ({
+    const rows = records.map(r => ({
       examScheduleId: Number(examScheduleId),
       studentId: Number(r.studentId),
       status: r.status || 'present',
@@ -212,46 +206,31 @@ router.get('/eligibility', only, async (req, res, next) => {
       status: 'approved',
     });
 
-    const results = [];
+    const resultsList = [];
     for (const r of regs) {
       const studentId = r.registration.studentId;
-
-      const totalPaid = effectiveSession
-        ? await paymentQueries.totalVerifiedForStudent(studentId, effectiveSession)
-        : 0;
-
+      const totalPaid = effectiveSession ? await paymentQueries.totalVerifiedForStudent(studentId, effectiveSession) : 0;
       const feeStructure = r.student?.programmeId
         ? await paymentQueries.findFeeStructureWithFallback({
-            programmeId: r.student.programmeId,
-            level: r.student.level || 'ND',
-            sessionId: effectiveSession,
+            programmeId: r.student.programmeId, level: r.student.level || 'ND', sessionId: effectiveSession,
           })
         : null;
-
       const totalDue = Number(feeStructure?.total || 0);
       const cleared = totalDue === 0 || Number(totalPaid) >= totalDue;
-
-      const clear = effectiveSession
-        ? await clearQueries.findOne({ studentId, sessionId: effectiveSession })
-        : null;
+      const clear = effectiveSession ? await clearQueries.findOne({ studentId, sessionId: effectiveSession }) : null;
       const clearanceOk = !clear || clear.status === 'cleared';
 
-      results.push({
-        student: r.student,
-        registration: r.registration,
-        totalPaid: Number(totalPaid),
-        totalDue,
-        cleared,
-        clearanceOk,
-        eligible: cleared && clearanceOk,
+      resultsList.push({
+        student: r.student, registration: r.registration,
+        totalPaid: Number(totalPaid), totalDue, cleared, clearanceOk, eligible: cleared && clearanceOk,
       });
     }
 
-    const eligible = results.filter((r) => r.eligible).length;
+    const eligible = resultsList.filter(r => r.eligible).length;
     return res.json({
       success: true,
-      data: results,
-      summary: { total: results.length, eligible, ineligible: results.length - eligible },
+      data: resultsList,
+      summary: { total: resultsList.length, eligible, ineligible: resultsList.length - eligible },
     });
   } catch (err) {
     console.error('[exam-officer/eligibility]', err);
@@ -268,48 +247,24 @@ router.get('/reports', only, async (req, res, next) => {
     const schedules = await examQueries.listWithCourse({ sessionId });
     const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });
     const coveredSchedules = await examQueries.countCoveredSchedules({ sessionId });
-
     return res.json({
       success: true,
-      data: {
-        schedules,
-        attendanceTotals,
-        coveredSchedules,
-        attendanceBySchedule: {},
-      },
+      data: { schedules, attendanceTotals, coveredSchedules, attendanceBySchedule: {} },
     });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// GET /api/exam-officer/lookups
-// Returns departments and courses for the Exam Officer
-// ============================================================
-router.get('/lookups', only, async (req, res, next) => {
-  try {
-    const courseQueries = require('../../db/queries/courses');
-    
-    const departments = await courseQueries.listDepartments({});
-    const courses = await courseQueries.list({});
-
-    return res.json({
-      success: true,
-      departments,
-      courses
-    });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// ============================================================
-// GET /api/exam-officer/profile, /security
+// GET /api/exam-officer/profile
 // ============================================================
 router.get('/profile', only, async (req, res, next) => {
   try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
   catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/exam-officer/security
+// ============================================================
 router.get('/security', only, async (req, res, next) => {
   try {
     const sessions = await sessionQueries.listUserSessions(req.user.id);
@@ -362,10 +317,10 @@ router.post('/publish', only, async (req, res, next) => {
       .set({ status: 'published', publishedAt: new Date() })
       .where(sql`${results.id} IN ${resultIds}`);
 
-    await logAudit({ 
-      req, 
-      action: 'exam_officer.publish_results', 
-      after: { count: resultIds.length, resultIds } 
+    await logAudit({
+      req,
+      action: 'exam_officer.publish_results',
+      after: { count: resultIds.length, resultIds },
     });
 
     return res.json({ success: true, message: `${resultIds.length} results published successfully.` });

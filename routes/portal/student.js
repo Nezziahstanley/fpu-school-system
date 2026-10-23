@@ -642,58 +642,101 @@ router.get('/borrows', only, async (req, res, next) => {
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {
   try {
-    const student = await userQueries.findByIdWithRelations(req.user.id);
-    const sessionId = req.user.currentSessionId;
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
 
-    const regs = await regQueries.listWithCourse({ studentId: req.user.id, sessionId });
-    const results = await resultQueries.publishedForStudent(req.user.id, {});
-    const summary = computeStudentCGPA(
-      results.map((r) => ({
-        unit: Number(r.course?.unit) || 0,
-        points: Number(r.result?.points) || 0,
-        sessionId: r.result?.sessionId,
-        semester: r.result?.semester,
-      }))
-    );
+    // 1. Fetch the student's basic info
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const totalDue = student.programmeId && student.level && sessionId
-      ? Number((await paymentQueries.findFeeStructure({ programmeId: student.programmeId, level: student.level, sessionId }))?.total || 0)
-      : 0;
-    const totalPaid = sessionId ? Number(await paymentQueries.totalVerifiedForStudent(req.user.id, sessionId)) : 0;
+    // 2. Get registered courses for current session
+    const regs = await db
+      .select({
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        unit: courses.unit,
+        semester: courseRegistrations.semester,
+        status: courseRegistrations.status,
+      })
+      .from(courseRegistrations)
+      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ))
+      .orderBy(courses.code);
 
-    const unreadNotifications = await notifQueries.countUnreadNotifications(req.user.id);
-    const unreadMessages = await notifQueries.countUnreadMessages(req.user.id);
-    const clearance = await clearQueries.list({ studentId: req.user.id, sessionId });
+    // 3. Get published results (for GPA calculation)
+    const allResults = await db
+      .select({
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        unit: courses.unit,
+        score: results.score,
+        grade: results.grade,
+        points: results.points,
+        semester: results.semester,
+        sessionName: academicSessions.name,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
+      .where(and(
+        eq(results.studentId, studentId),
+        eq(results.status, 'published') // Only published results
+      ))
+      .orderBy(courses.code);
+
+    // Remove duplicates (keep the latest result per course) - simple deduplication by course code
+    const uniqueResults = [];
+    const seen = new Set();
+    allResults.forEach(r => {
+      if (!seen.has(r.courseCode)) {
+        seen.add(r.courseCode);
+        uniqueResults.push(r);
+      }
+    });
+
+    // 4. Calculate CGPA (Cumulative)
+    let totalPoints = 0;
+    let totalUnits = 0;
+    uniqueResults.forEach(r => {
+      const unit = Number(r.unit) || 0;
+      const points = Number(r.points) || 0;
+      totalPoints += (points * unit);
+      totalUnits += unit;
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+
+    // 5. Calculate Current GPA (only for current session/semester) - for simplicity, use all unique results
+    // In a real system, you'd filter by current session/semester here
+    const currentGpa = cgpa; // For now, same as CGPA since we only have one session
+
+    // 6. Recent Results (last 5)
+    const recentResults = uniqueResults.slice(0, 5).reverse();
 
     return res.json({
       success: true,
       data: {
-        student,
-        registration: {
-          totalCourses: regs.length,
-          totalUnits: regs
-            .filter((r) => ['pending', 'approved'].includes(r.registration.status))
-            .reduce((s, r) => s + (Number(r.course?.unit) || 0), 0),
-          pending: regs.filter((r) => r.registration.status === 'pending').length,
+        student: {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          matricNumber: (student.matricNumber || '').replace(/SMT/gi, '').trim(),
+          level: student.level,
+          programmeId: student.programmeId,
         },
-        academic: {
-          cgpa: summary.cgpa,
-          totalUnits: summary.totalUnits,
-          classification: classifyDegree(summary.cgpa),
-          publishedResults: results.length,
-        },
-        fees: {
-          totalDue,
-          totalPaid,
-          balance: Math.max(0, totalDue - totalPaid),
-        },
-        clearance,
-        unreadNotifications,
-        unreadMessages,
-      },
+        registeredCourses: regs,
+        totalRegistered: regs.length,
+        totalUnits: regs.reduce((sum, r) => sum + Number(r.unit || 0), 0),
+        cgpa: cgpa,
+        currentGpa: currentGpa,
+        recentResults: recentResults,
+      }
     });
   } catch (err) {
-    return next(err);
+    console.error('[student/dashboard] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

@@ -171,7 +171,7 @@ router.get('/staff', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
 
-    const rows = await db
+    const staff = await db
       .select({
         id: users.id,
         firstName: users.firstName,
@@ -180,7 +180,6 @@ router.get('/staff', only, async (req, res, next) => {
         phone: users.phone,
         role: users.role,
         isActive: users.isActive,
-        courseCount: sql`(SELECT COUNT(*) FROM course_allocations ca WHERE ca.lecturer_id = ${users.id})::int`,
       })
       .from(users)
       .where(and(
@@ -189,7 +188,23 @@ router.get('/staff', only, async (req, res, next) => {
       ))
       .orderBy(users.lastName);
 
-    return res.json({ success: true, data: rows });
+    const counts = await db
+      .select({
+        lecturerId: courseAllocations.lecturerId,
+        count: sql`count(*)::int`
+      })
+      .from(courseAllocations)
+      .groupBy(courseAllocations.lecturerId);
+
+    const countMap = {};
+    counts.forEach(c => { countMap[c.lecturerId] = c.count; });
+
+    const data = staff.map(s => ({
+      ...s,
+      courseCount: countMap[s.id] || 0
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[hod/staff] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

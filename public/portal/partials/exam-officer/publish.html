@@ -5,9 +5,14 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  function safeClass(name) {
+    return String(name || 'unknown').replace(/[^a-zA-Z0-9]/g, '-');
+  }
+
   async function load() {
     $('pub-loading').style.display = 'block';
     $('pub-content').style.display = 'none';
+    $('pub-loading').innerHTML = 'Loading results…';
 
     try {
       const res = await core.portalFetch('/api/exam-officer/pending-publication');
@@ -33,6 +38,7 @@
 
       Object.keys(grouped).sort().forEach(dept => {
         const deptResults = grouped[dept];
+        const safeDeptClass = safeClass(dept);
         
         html += `
           <tr>
@@ -48,9 +54,9 @@
           html += `
             <tr style="border-bottom:1px solid #f1f5f9;">
               <td style="padding:.65rem .75rem;text-align:center;">
-                <input type="checkbox" class="pub-check dept-${esc(dept.replace(/\s+/g, '-'))}" value="${r.id}" data-dept="${esc(dept)}" style="width:16px;height:16px;" />
+                <input type="checkbox" class="pub-check dept-${safeDeptClass}" value="${r.id}" data-dept="${esc(dept)}" style="width:16px;height:16px;" />
               </td>
-              <td style="padding:.65rem .75rem;color:#475569;">${esc(r.departmentName)}</td>
+              <td style="padding:.65rem .75rem;color:#475569;">${esc(r.departmentName || '—')}</td>
               <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
               <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
               <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>
@@ -62,12 +68,10 @@
 
       $('pub-tbody').innerHTML = html;
 
-      // Bind row checkboxes
       $('pub-tbody').querySelectorAll('.pub-check').forEach(cb => {
         cb.addEventListener('change', updatePublishBtn);
       });
 
-      // Bind department checkboxes
       $('pub-tbody').querySelectorAll('.dept-check-all').forEach(deptCb => {
         deptCb.addEventListener('change', (e) => {
           const dept = e.target.dataset.dept;
@@ -82,6 +86,7 @@
       updatePublishBtn();
 
     } catch (err) {
+      console.error('[exam-officer/publish] Error:', err);
       $('pub-loading').innerHTML = `⚠️ ${esc(err.message)}`;
     }
   }
@@ -119,7 +124,6 @@
   $('pub-select-all')?.addEventListener('change', (e) => {
     const checked = e.target.checked;
     document.querySelectorAll('.pub-check').forEach(cb => { cb.checked = checked; });
-    // Reset department checkboxes to match
     document.querySelectorAll('.dept-check-all').forEach(dcb => { dcb.checked = checked; });
     updatePublishBtn();
   });

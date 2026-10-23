@@ -29,7 +29,7 @@ const {
   assignmentSubmissions,
   attendance,
   timetableSlots,
-  examSchedules     // <-- Add this line
+  examSchedules
 } = schema;
 
 // -------- Middleware --------
@@ -153,7 +153,7 @@ router.get('/results', only, async (req, res, next) => {
         id: results.id,
         courseCode: courses.code,
         courseTitle: courses.title,
-        unit: courses.unit,              // <-- Added
+        unit: courses.unit,
         score: results.score,
         grade: results.grade,
         points: results.points,
@@ -169,7 +169,7 @@ router.get('/results', only, async (req, res, next) => {
       ))
       .orderBy(academicSessions.name, results.semester, courses.code);
 
-    // Deduplicate results by course code (keep the most recent)
+    // Deduplicate
     const uniqueResults = [];
     const seen = new Set();
     rows.forEach(r => {
@@ -191,7 +191,7 @@ router.get('/results', only, async (req, res, next) => {
     });
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
-    // Determine Classification
+    // Classification
     let classification = '';
     const val = parseFloat(cgpa);
     if (val >= 3.50) classification = 'Distinction';
@@ -224,7 +224,6 @@ router.get('/transcript', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
 
-    // 1. Fetch student info (minimal, no joins that could fail)
     const [student] = await db
       .select({
         id: users.id,
@@ -239,7 +238,6 @@ router.get('/transcript', only, async (req, res, next) => {
 
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    // 2. Fetch all published results
     const rows = await db
       .select({
         courseCode: courses.code,
@@ -260,7 +258,6 @@ router.get('/transcript', only, async (req, res, next) => {
       ))
       .orderBy(academicSessions.name, results.semester, courses.code);
 
-    // Deduplicate by course code
     const uniqueResults = [];
     const seen = new Set();
     rows.forEach(r => {
@@ -270,7 +267,6 @@ router.get('/transcript', only, async (req, res, next) => {
       }
     });
 
-    // 3. Calculate CGPA
     let totalPoints = 0;
     let totalUnits = 0;
     uniqueResults.forEach(r => {
@@ -281,7 +277,6 @@ router.get('/transcript', only, async (req, res, next) => {
     });
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
-    // 4. Classification
     let classification = '';
     const val = parseFloat(cgpa);
     if (val >= 3.50) classification = 'Distinction';
@@ -343,6 +338,70 @@ router.get('/courses', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/student/registered-courses
+// ============================================================
+router.get('/registered-courses', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    const rows = await db
+      .select({
+        id: courseRegistrations.id,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        unit: courses.unit,
+        semester: courseRegistrations.semester,
+        status: courseRegistrations.status,
+      })
+      .from(courseRegistrations)
+      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ))
+      .orderBy(courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/registered-courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/student/available-courses
+// ============================================================
+router.get('/available-courses', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    const rows = await db
+      .select({
+        id: courses.id,
+        code: courses.code,
+        title: courses.title,
+        unit: courses.unit,
+        level: courses.level,
+        semesterName: courses.semesterName,
+      })
+      .from(courses)
+      .where(and(
+        eq(courses.departmentId, student.departmentId),
+        eq(courses.level, student.level)
+      ))
+      .orderBy(courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/available-courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // POST /api/student/register-course
 // ============================================================
 router.post('/register-course', only, async (req, res, next) => {
@@ -371,6 +430,33 @@ router.post('/register-course', only, async (req, res, next) => {
 });
 
 // ============================================================
+// DELETE /api/student/drop-course/:id
+// ============================================================
+router.delete('/drop-course/:id', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const regId = Number(req.params.id);
+
+    const [reg] = await db.select().from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.id, regId),
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.status, 'pending')
+      )).limit(1);
+
+    if (!reg) {
+      return res.status(403).json({ success: false, error: 'Cannot drop this course (already approved or not yours).' });
+    }
+
+    await db.delete(courseRegistrations).where(eq(courseRegistrations.id, regId));
+    return res.json({ success: true, message: 'Course dropped.' });
+  } catch (err) {
+    console.error('[student/drop-course] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/student/materials
 // ============================================================
 router.get('/materials', only, async (req, res, next) => {
@@ -378,7 +464,6 @@ router.get('/materials', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
-    // Get student's registered course IDs
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
@@ -507,31 +592,44 @@ router.post('/assignments/:id/submit', only, upload.single('file'), async (req, 
 });
 
 // ============================================================
-// GET /api/student/attendance
+// GET /api/student/attendance  (FIXED)
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
 
     const rows = await db
       .select({
         id: attendance.id,
         date: attendance.date,
         status: attendance.status,
-        courseCode: courses.code,
-        courseTitle: courses.title,
+        courseId: attendance.courseId,
       })
       .from(attendance)
-      .innerJoin(courses, eq(attendance.courseId, courses.id))
-      .where(and(
-        eq(attendance.studentId, studentId),
-        eq(attendance.sessionId, sessionId)
-      ))
-      .orderBy(desc(attendance.date))
-      .limit(200);
+      .where(eq(attendance.studentId, studentId))
+      .orderBy(desc(attendance.date));
 
-    return res.json({ success: true, data: rows });
+    const courseIds = [...new Set(rows.map(r => r.courseId))];
+    let courseMap = {};
+
+    if (courseIds.length > 0) {
+      const courseList = await db
+        .select({ id: courses.id, code: courses.code, title: courses.title })
+        .from(courses)
+        .where(inArray(courses.id, courseIds));
+
+      courseList.forEach(c => { courseMap[c.id] = c; });
+    }
+
+    const data = rows.map(r => ({
+      id: r.id,
+      date: r.date,
+      status: r.status,
+      courseCode: courseMap[r.courseId]?.code || '—',
+      courseTitle: courseMap[r.courseId]?.title || '—',
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[student/attendance] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
@@ -546,7 +644,6 @@ router.get('/timetable', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
-    // 1. Get course IDs the student is registered for
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
@@ -556,11 +653,8 @@ router.get('/timetable', only, async (req, res, next) => {
       ));
 
     const courseIds = regs.map(r => r.courseId);
-    if (!courseIds.length) {
-      return res.json({ success: true, data: [] });
-    }
+    if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    // 2. Fetch timetable slots for those courses
     const rows = await db
       .select({
         id: timetableSlots.id,
@@ -572,110 +666,17 @@ router.get('/timetable', only, async (req, res, next) => {
         courseCode: courses.code,
         courseTitle: courses.title,
         level: courses.level,
-        sessionName: academicSessions.name,   // <-- Added
+        sessionName: academicSessions.name,
       })
       .from(timetableSlots)
       .innerJoin(courses, eq(timetableSlots.courseId, courses.id))
-      .leftJoin(academicSessions, eq(timetableSlots.sessionId, academicSessions.id)) // <-- Added
+      .leftJoin(academicSessions, eq(timetableSlots.sessionId, academicSessions.id))
       .where(inArray(timetableSlots.courseId, courseIds))
       .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
 
     return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[student/timetable] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/student/available-courses
-// Returns courses the student can register for
-// ============================================================
-router.get('/available-courses', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
-
-    const rows = await db
-      .select({
-        id: courses.id,
-        code: courses.code,
-        title: courses.title,
-        unit: courses.unit,
-        level: courses.level,
-        semesterName: courses.semesterName,
-      })
-      .from(courses)
-      .where(and(
-        eq(courses.departmentId, student.departmentId),
-        eq(courses.level, student.level)
-      ))
-      .orderBy(courses.code);
-
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error('[student/available-courses] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/student/registered-courses (Alias for existing /courses)
-// ============================================================
-router.get('/registered-courses', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
-
-    const rows = await db
-      .select({
-        id: courseRegistrations.id,
-        courseCode: courses.code,
-        courseTitle: courses.title,
-        unit: courses.unit,
-        semester: courseRegistrations.semester,
-        status: courseRegistrations.status,
-      })
-      .from(courseRegistrations)
-      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
-      .where(and(
-        eq(courseRegistrations.studentId, studentId),
-        eq(courseRegistrations.sessionId, sessionId)
-      ))
-      .orderBy(courses.code);
-
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error('[student/registered-courses] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// DELETE /api/student/drop-course/:id
-// ============================================================
-router.delete('/drop-course/:id', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const regId = Number(req.params.id);
-
-    // Verify the registration belongs to this student and is still pending
-    const [reg] = await db.select().from(courseRegistrations)
-      .where(and(
-        eq(courseRegistrations.id, regId),
-        eq(courseRegistrations.studentId, studentId),
-        eq(courseRegistrations.status, 'pending')
-      )).limit(1);
-
-    if (!reg) {
-      return res.status(403).json({ success: false, error: 'Cannot drop this course (already approved or not yours).' });
-    }
-
-    await db.delete(courseRegistrations).where(eq(courseRegistrations.id, regId));
-    return res.json({ success: true, message: 'Course dropped.' });
-  } catch (err) {
-    console.error('[student/drop-course] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -688,7 +689,6 @@ router.get('/exam-schedule', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
-    // 1. Get course IDs the student is registered for
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
@@ -698,11 +698,8 @@ router.get('/exam-schedule', only, async (req, res, next) => {
       ));
 
     const courseIds = regs.map(r => r.courseId);
-    if (!courseIds.length) {
-      return res.json({ success: true, data: [] });
-    }
+    if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    // 2. Fetch exam schedule for those courses
     const rows = await db
       .select({
         id: examSchedules.id,
@@ -730,31 +727,30 @@ router.get('/exam-schedule', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/student/attendance
+// TEMPORARY: Debug attendance (to verify student ID matching)
 // ============================================================
-router.get('/attendance', only, async (req, res, next) => {
+router.get('/debug-attendance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
 
-    const rows = await db
-      .select({
-        id: attendance.id,
-        date: attendance.date,
-        status: attendance.status,
-        courseCode: courses.code,
-        courseTitle: courses.title,
-      })
-      .from(attendance)
-      .innerJoin(courses, eq(attendance.courseId, courses.id))
-      .where(eq(attendance.studentId, studentId))
-      .orderBy(desc(attendance.date))
-      .limit(200);
+    const userInfo = await db.select({ id: users.id, firstName: users.firstName, matricNumber: users.matricNumber })
+      .from(users).where(eq(users.id, studentId)).limit(1);
 
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error('[student/attendance] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+    const attendanceCount = await db.select({ count: sql`count(*)::int` })
+      .from(attendance).where(eq(attendance.studentId, studentId));
+
+    const allAttendance = await db.select({
+      studentId: attendance.studentId,
+      date: attendance.date,
+      status: attendance.status,
+    }).from(attendance).limit(20);
+
+    return res.json({
+      loggedInUser: userInfo[0],
+      myAttendanceCount: attendanceCount[0]?.count || 0,
+      sampleAllRecords: allAttendance,
+    });
+  } catch (err) { return res.status(500).json({ error: err.message }); }
 });
 
 module.exports = router;

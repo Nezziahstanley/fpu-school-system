@@ -31,7 +31,7 @@ const {
   courses,
   results,
   departments,
-  programmes,   // <-- Added
+  programmes,
   schools,
   examSchedules,
   academicSessions,
@@ -346,15 +346,24 @@ router.get('/published-results', only, async (req, res, next) => {
       score: results.score,
       grade: results.grade,
       publishedAt: results.publishedAt,
+      departmentName: departments.name,
     })
     .from(results)
     .innerJoin(users, eq(results.studentId, users.id))
     .innerJoin(courses, eq(results.courseId, courses.id))
+    .leftJoin(departments, eq(courses.departmentId, departments.id))
     .where(eq(results.status, 'published'))
-    .orderBy(desc(results.publishedAt))
-    .limit(100);
+    .orderBy(desc(results.publishedAt));
 
-    return res.json({ success: true, data: rows });
+    // Group by Department
+    const grouped = {};
+    rows.forEach(r => {
+      const dept = r.departmentName || 'Unassigned Department';
+      if (!grouped[dept]) grouped[dept] = [];
+      grouped[dept].push(r);
+    });
+
+    return res.json({ success: true, data: rows, grouped });
   } catch (err) {
     console.error('[exam-officer/published-results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

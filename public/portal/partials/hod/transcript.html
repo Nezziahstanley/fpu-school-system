@@ -6,6 +6,9 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Department Transcript</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View student transcripts for your department</p>
     </div>
+    <div style="display:flex;gap:.5rem;">
+      <button id="tr-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    </div>
   </div>
 
   <!-- Filter Bar -->
@@ -13,9 +16,7 @@
     <input type="search" id="tr-search" placeholder="Search by name or matric no..." />
     <select id="tr-programme">
       <option value="">All Programmes</option>
-      <!-- Options loaded dynamically -->
     </select>
-    <button class="btn btn-outline btn-sm" id="tr-refresh">↻ Refresh</button>
   </div>
 
   <!-- Table Container -->
@@ -48,7 +49,7 @@
   </div>
 </div>
 
-<!-- Modal (Same as before) -->
+<!-- Modal -->
 <div id="tr-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
@@ -92,14 +93,12 @@
 
       TOTAL_PAGES = pag.totalPages;
 
-      // Populate Programmes Dropdown (only once)
       if ($('tr-programme').options.length <= 1 && res.programmes) {
         $('tr-programme').innerHTML = '<option value="">All Programmes</option>' + 
           res.programmes.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
-        $('tr-programme').value = programmeId; // restore selection
+        $('tr-programme').value = programmeId;
       }
 
-      // Update Pagination Info
       $('tr-page-info').textContent = `Showing ${students.length} of ${pag.total} students (Page ${pag.page} of ${pag.totalPages})`;
       $('tr-prev').disabled = pag.page <= 1;
       $('tr-next').disabled = pag.page >= pag.totalPages;
@@ -147,11 +146,33 @@
         return;
       }
 
+      let totalPoints = 0;
+      let totalUnits = 0;
+      results.forEach(r => {
+        const unit = Number(r.unit) || 0;
+        const points = Number(r.points) || 0;
+        totalPoints += (points * unit);
+        totalUnits += unit;
+      });
+      const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+
       body.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:1.25rem;">
+          <div>
+            <div style="font-size:.75rem;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Cumulative GPA</div>
+            <div style="font-size:1.5rem;font-weight:800;color:#065f46;">${cgpa}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:.75rem;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Total Units</div>
+            <div style="font-size:1.5rem;font-weight:800;color:#065f46;">${totalUnits}</div>
+          </div>
+        </div>
+
         <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
           <thead>
             <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
               <th style="padding:.5rem .75rem;text-align:left;">Course</th>
+              <th style="padding:.5rem .75rem;text-align:center;">Unit</th>
               <th style="padding:.5rem .75rem;text-align:center;">Score</th>
               <th style="padding:.5rem .75rem;text-align:center;">Grade</th>
               <th style="padding:.5rem .75rem;text-align:center;">Status</th>
@@ -161,6 +182,7 @@
             ${results.map(r => `
               <tr style="border-bottom:1px solid #f1f5f9;">
                 <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>
+                <td style="padding:.65rem .75rem;text-align:center;">${esc(r.unit)}</td>
                 <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
                 <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
                 <td style="padding:.65rem .75rem;text-align:center;">
@@ -180,7 +202,7 @@
     $('tr-modal').style.display = 'none';
   }
 
-  // Pagination controls
+  // Pagination
   $('tr-prev')?.addEventListener('click', () => { if (CURRENT_PAGE > 1) { CURRENT_PAGE--; load(); } });
   $('tr-next')?.addEventListener('click', () => { if (CURRENT_PAGE < TOTAL_PAGES) { CURRENT_PAGE++; load(); } });
 

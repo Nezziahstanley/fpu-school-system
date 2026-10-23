@@ -595,7 +595,6 @@ router.delete('/allocate/:id', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/exams
-// Create a new exam
 // ============================================================
 router.post('/exams', only, async (req, res, next) => {
   try {
@@ -735,12 +734,11 @@ router.get('/transcript', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20; // Default 20 per page
+    const limit = Number(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     const search = req.query.search || '';
     const programmeId = req.query.programmeId;
 
-    // Build Conditions
     const conditions = [
       eq(users.departmentId, departmentId),
       eq(users.role, 'student')
@@ -753,13 +751,11 @@ router.get('/transcript', only, async (req, res, next) => {
       conditions.push(eq(users.programmeId, Number(programmeId)));
     }
 
-    // Get total count for pagination
     const [{ count }] = await db
       .select({ count: sql`count(*)::int` })
       .from(users)
       .where(and(...conditions));
 
-    // Get paginated students
     const students = await db
       .select({
         id: users.id,
@@ -777,13 +773,11 @@ router.get('/transcript', only, async (req, res, next) => {
       .limit(limit)
       .offset(offset);
 
-    // Clean matric numbers
     const data = students.map(s => ({
       ...s,
       matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim()
     }));
 
-    // Get Programmes for the filter dropdown
     const programmeList = await db
       .select({ id: programmes.id, name: programmes.name })
       .from(programmes)
@@ -816,6 +810,8 @@ router.get('/student-results/:id', only, async (req, res, next) => {
         courseTitle: courses.title,
         score: results.score,
         grade: results.grade,
+        points: results.points,       
+        unit: courses.unit,           
         status: results.status,
         semester: results.semester,
       })

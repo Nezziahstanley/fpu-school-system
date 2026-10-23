@@ -20,7 +20,9 @@ const { requireRole } = require('../../middleware/auth');
 const { 
   users, courses, results, courseRegistrations, academicSessions,
   programmes, departments, courseMaterials, assignments,
-  assignmentSubmissions, attendance, timetableSlots, examSchedules, clearances
+  assignmentSubmissions, attendance, timetableSlots, examSchedules,
+  clearances,
+  documents       // <-- Add this
 } = schema;
 
 const only = requireRole('student', 'admin');
@@ -648,6 +650,61 @@ router.post('/clearance/request', only, async (req, res, next) => {
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
     console.error('[student/clearance/request] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/student/documents
+// ============================================================
+router.get('/documents', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { documents } = schema;
+
+    const rows = await db
+      .select({
+        id: documents.id,
+        type: documents.type,
+        title: documents.title,
+        status: documents.status,
+        fileUrl: documents.fileUrl,
+        createdAt: documents.createdAt,
+      })
+      .from(documents)
+      .where(eq(documents.studentId, studentId))
+      .orderBy(desc(documents.createdAt));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/documents] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/student/documents/request
+// ============================================================
+router.post('/documents/request', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { type, title } = req.body || {};
+    const { documents } = schema;
+
+    if (!type || !title) {
+      return res.status(400).json({ success: false, error: 'Document type and title are required.' });
+    }
+
+    const [row] = await db.insert(documents).values({
+      studentId,
+      type,
+      title,
+      status: 'pending',
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[student/documents/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

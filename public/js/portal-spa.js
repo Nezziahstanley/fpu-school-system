@@ -235,6 +235,8 @@
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
+      { key: 'librarian-books',        label: 'Books',        icon: ICON.book },   // NEW
+      { key: 'librarian-borrows',      label: 'Borrows',      icon: ICON.book },
       { key: 'librarian-reservations', label: 'Reservations', icon: ICON.book },
       { key: 'librarian-fines',        label: 'Fines',        icon: ICON.money },
     ],

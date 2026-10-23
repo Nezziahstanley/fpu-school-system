@@ -1,245 +1,88 @@
 <!-- Portal → Librarian → Reservations -->
-<section class="page-head">
-  <div>
-    <h2>Book Reservations</h2>
-    <p class="muted small">Students waiting for books — mark ready when available</p>
+<div style="padding:0;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
+    <div>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Reservations</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Pending book reservations</p>
+    </div>
+    <button id="rvs-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
   </div>
-  <div class="actions">
-    <button class="btn btn-outline btn-sm" id="lib-res-refresh">↻ Refresh</button>
-  </div>
-</section>
 
-<div class="filters">
-  <div class="form-group">
-    <label class="form-label">Status</label>
-    <select class="form-select" id="lib-res-status">
-      <option value="">All</option>
-      <option value="pending">Pending</option>
-      <option value="ready">Ready for pickup</option>
-      <option value="fulfilled">Fulfilled</option>
-      <option value="cancelled">Cancelled</option>
-      <option value="expired">Expired</option>
-    </select>
-  </div>
-  <div class="form-group" style="flex:2;">
-    <label class="form-label">Search</label>
-    <input type="search" class="form-input" id="lib-res-search"
-           placeholder="Book title or student name" autocomplete="off" />
-  </div>
-</div>
-
-<div class="panel">
-  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin:0;">Reservations</h3>
-    <span class="muted small" id="lib-res-count"></span>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th style="width:32px;"></th>
-            <th>Book</th>
-            <th>Student</th>
-            <th>Status</th>
-            <th>Reserved</th>
-            <th style="width:220px;">Actions</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Book</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Reserved</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
-        <tbody id="lib-res-tbody">
-          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        <tbody id="rvs-tbody">
+          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
-<style>
-  .lib-res-detail { background: #f8fafc; }
-  .lib-res-detail td { padding: .75rem 1rem; font-size: .82rem; color: #475569; }
-  .lib-res-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
-  .lib-res-detail-row:last-child { border-bottom: none; }
-  .lib-res-detail-row strong { color: #0f172a; }
-  .lib-res-chip {
-    display: inline-block; padding: 3px 9px; border-radius: 99px;
-    font-size: .65rem; font-weight: 800; text-transform: uppercase;
-    letter-spacing: .05em;
-  }
-  .lib-res-chip.pending   { background: #fef3c7; color: #92400e; }
-  .lib-res-chip.ready     { background: #dbeafe; color: #1e40af; }
-  .lib-res-chip.fulfilled { background: #d1fae5; color: #065f46; }
-  .lib-res-chip.cancelled { background: #f1f5f9; color: #475569; }
-  .lib-res-chip.expired   { background: #fee2e2; color: #991b1b; }
-</style>
-
 <script>
 (function () {
   'use strict';
-  var core = window.FPU_PORTAL || {};
-  var $ = function (id) { return document.getElementById(id); };
-  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
-  var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
-  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
-
-  var ALL = [];
-
-  function statusChip(s) {
-    var v = String(s || '').toLowerCase();
-    var cls = ['pending','ready','fulfilled','cancelled','expired'].indexOf(v) >= 0 ? v : 'cancelled';
-    return '<span class="lib-res-chip ' + cls + '">' + esc(v || '—') + '</span>';
-  }
-
-  function studentName(r) {
-    var u = r.user || r.student || {};
-    var full = [u.firstName, u.lastName].filter(Boolean).join(' ');
-    return full || u.email || ('User #' + ((r.reservation || r).userId || ''));
-  }
-
-  function bookTitle(r) {
-    var b = r.book || {};
-    var rv = r.reservation || r;
-    return b.title || rv.bookTitle || ('Book #' + (rv.bookId || ''));
-  }
-
-  function actionsFor(rv, id) {
-    if (rv.status === 'pending') {
-      return '<button class="btn btn-sm btn-primary" data-act="ready" data-id="' + esc(id) + '">Mark Ready</button> '
-           + '<button class="btn btn-sm btn-ghost" data-act="cancel" data-id="' + esc(id) + '" style="color:#dc2626;">Cancel</button>';
-    }
-    if (rv.status === 'ready') {
-      return '<button class="btn btn-sm btn-primary" data-act="fulfill" data-id="' + esc(id) + '">Fulfill</button> '
-           + '<button class="btn btn-sm btn-ghost" data-act="cancel" data-id="' + esc(id) + '" style="color:#dc2626;">Cancel</button>';
-    }
-    return '<span class="muted small">—</span>';
-  }
-
-  function render() {
-    var tbody = $('lib-res-tbody');
-    var countEl = $('lib-res-count');
-    countEl.textContent = ALL.length ? ALL.length + ' record' + (ALL.length === 1 ? '' : 's') : '';
-
-    if (!ALL.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No reservations match your filters.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = ALL.map(function (r) {
-      var rv = r.reservation || r;
-      var id = rv.id;
-      var hasDetail = rv.readyAt || rv.fulfilledAt || rv.expiresAt;
-      var detailId = 'lib-res-detail-' + id;
-      var expandBtn = hasDetail
-        ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '">▸</button>'
-        : '';
-
-      var detailRow = '';
-      if (hasDetail) {
-        detailRow = '<tr class="lib-res-detail" id="' + esc(detailId) + '" style="display:none;">'
-          + '<td></td>'
-          + '<td colspan="5">'
-          +   (rv.readyAt
-                  ? '<div class="lib-res-detail-row"><span>Marked ready</span><strong>' + esc(timeAgo(rv.readyAt) || dateFmt(rv.readyAt)) + '</strong></div>'
-                  : '')
-          +   (rv.fulfilledAt
-                  ? '<div class="lib-res-detail-row"><span>Fulfilled</span><strong>' + esc(timeAgo(rv.fulfilledAt) || dateFmt(rv.fulfilledAt)) + '</strong></div>'
-                  : '')
-          +   (rv.expiresAt
-                  ? '<div class="lib-res-detail-row"><span>Expires</span><strong>' + esc(dateFmt(rv.expiresAt)) + '</strong></div>'
-                  : '')
-          + '</td>'
-          + '</tr>';
-      }
-
-      return '<tr>'
-        + '<td>' + expandBtn + '</td>'
-        + '<td>' + esc(bookTitle(r)) + '</td>'
-        + '<td>' + esc(studentName(r)) + '</td>'
-        + '<td>' + statusChip(rv.status) + '</td>'
-        + '<td style="color:#94a3b8;font-size:.8rem;">'
-        +   (rv.reservedAt ? esc(timeAgo(rv.reservedAt) || dateFmt(rv.reservedAt)) : '—')
-        + '</td>'
-        + '<td>' + actionsFor(rv, id) + '</td>'
-        + '</tr>'
-        + detailRow;
-    }).join('');
-
-    // Wire expand
-    tbody.querySelectorAll('button[data-expand]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var el = document.getElementById(b.dataset.expand);
-        if (!el) return;
-        var showing = el.style.display !== 'none';
-        el.style.display = showing ? 'none' : 'table-row';
-        b.textContent = showing ? '▸' : '▾';
-      });
-    });
-
-    // Wire actions
-    tbody.querySelectorAll('button[data-act]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var act = b.dataset.act;
-        var id = b.dataset.id;
-        if (act === 'ready')   doAction(id, 'ready', 'Marked ready for pickup');
-        if (act === 'fulfill') doAction(id, 'fulfill', 'Reservation fulfilled');
-        if (act === 'cancel')  doCancel(id);
-      });
-    });
-  }
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   async function load() {
-    var tbody = $('lib-res-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-
-    var qs = new URLSearchParams();
-    var status = $('lib-res-status').value;
-    var search = $('lib-res-search').value.trim().toLowerCase();
-    if (status) qs.set('status', status);
-
     try {
-      var res = await core.portalFetch('/api/librarian/reservations' + (qs.toString() ? '?' + qs : ''));
-      var rows = Array.isArray(res.data) ? res.data : [];
+      const res = await core.portalFetch('/api/librarian/reservations?status=pending');
+      const rows = res.data || [];
 
-      // Client-side search filter (endpoint doesn't support search yet)
-      if (search) {
-        rows = rows.filter(function (r) {
-          var rv = r.reservation || r;
-          var hay = (bookTitle(r) + ' ' + studentName(r)).toLowerCase();
-          return hay.indexOf(search) >= 0;
-        });
+      if (!rows.length) {
+        $('rvs-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No pending reservations.</td></tr>';
+        return;
       }
 
-      ALL = rows;
-      render();
+      $('rvs-tbody').innerHTML = rows.map(r => {
+        const rv = r.reservation || r;
+        const student = r.user || r.student || {};
+        const book = r.book || {};
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(book.title || rv.bookTitle || '—')}</td>
+            <td style="padding:.65rem .75rem;color:#475569;">${esc((student.firstName || '') + ' ' + (student.lastName || ''))}</td>
+            <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(rv.reservedAt)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Pending</span>
+            </td>
+            <td style="padding:.65rem .75rem;text-align:right;">
+              <button class="rvs-btn" data-id="${rv.id}" data-act="ready" style="background:#1e40af;color:#fff;">Mark Ready</button>
+              <button class="rvs-btn" data-id="${rv.id}" data-act="cancel" style="background:#fee2e2;color:#991b1b;">Cancel</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      $('rvs-tbody').querySelectorAll('.rvs-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const act = btn.dataset.act;
+          try {
+            await core.portalFetch(`/api/librarian/reservations/${id}/${act}`, { method: 'POST' });
+            core.showToast && core.showToast('Updated.', 'success');
+            load();
+          } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+        });
+      });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">' + esc(err.message) + '</td></tr>';
+      $('rvs-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  async function doAction(id, action, okMsg) {
-    try {
-      await core.portalFetch('/api/librarian/reservations/' + id + '/' + action, { method: 'POST' });
-      if (core.showToast) core.showToast(okMsg, 'success');
-      load();
-    } catch (err) {
-      if (core.showToast) core.showToast(err.message, 'error');
-    }
-  }
-
-  async function doCancel(id) {
-    if (!confirm('Cancel this reservation?')) return;
-    await doAction(id, 'cancel', 'Reservation cancelled');
-  }
-
-  // Wire chrome
-  $('lib-res-refresh').addEventListener('click', load);
-  $('lib-res-status').addEventListener('change', load);
-
-  var searchTimer = null;
-  $('lib-res-search').addEventListener('input', function () {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(load, 300);
-  });
-
+  $('rvs-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>

@@ -152,7 +152,7 @@ router.get('/results', only, async (req, res, next) => {
         id: results.id,
         courseCode: courses.code,
         courseTitle: courses.title,
-        unit: courses.unit,
+        unit: courses.unit,              // <-- Added
         score: results.score,
         grade: results.grade,
         points: results.points,
@@ -166,9 +166,50 @@ router.get('/results', only, async (req, res, next) => {
         eq(results.studentId, studentId),
         eq(results.status, 'published')
       ))
-      .orderBy(results.sessionId, results.semester, courses.code);
+      .orderBy(academicSessions.name, results.semester, courses.code);
 
-    return res.json({ success: true, data: rows });
+    // Deduplicate results by course code (keep the most recent)
+    const uniqueResults = [];
+    const seen = new Set();
+    rows.forEach(r => {
+      const key = `${r.courseCode}-${r.semester}-${r.sessionName}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueResults.push(r);
+      }
+    });
+
+    // Calculate CGPA
+    let totalPoints = 0;
+    let totalUnits = 0;
+    uniqueResults.forEach(r => {
+      const unit = Number(r.unit) || 0;
+      const points = Number(r.points) || 0;
+      totalPoints += (points * unit);
+      totalUnits += unit;
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+
+    // Determine Classification
+    let classification = '';
+    const val = parseFloat(cgpa);
+    if (val >= 3.50) classification = 'Distinction';
+    else if (val >= 3.00) classification = 'Upper Credit';
+    else if (val >= 2.50) classification = 'Lower Credit';
+    else if (val >= 2.00) classification = 'Pass';
+    else if (val >= 1.00) classification = 'Probation';
+    else classification = 'Fail';
+
+    return res.json({
+      success: true,
+      data: {
+        results: uniqueResults,
+        cgpa,
+        currentGpa: cgpa,
+        totalUnits,
+        classification,
+      }
+    });
   } catch (err) {
     console.error('[student/results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

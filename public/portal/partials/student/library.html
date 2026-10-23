@@ -1,7 +1,6 @@
 <!-- Portal → Student → Library -->
 <div style="padding:0;">
 
-  <!-- HEADER -->
   <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
     <div style="display:flex;align-items:center;gap:.75rem;">
       <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📚</div>
@@ -12,53 +11,37 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📚</div>
-      <div>
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-books">—</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Available Books</div>
-      </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Available Books</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-books">—</div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📖</div>
-      <div>
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-borrows">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">My Borrows</div>
-      </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Active Borrows</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-borrows">0</div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💰</div>
-      <div>
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-fines">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Unpaid Fines</div>
-      </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Unpaid Fines</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-fines">0</div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💸</div>
-      <div>
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-owed">₦0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Owed</div>
-      </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Total Owed</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-owed">₦0</div>
     </div>
   </div>
 
-  <!-- TABS -->
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
     <button class="lib-tab active" data-tab="catalogue">📚 Catalogue</button>
     <button class="lib-tab" data-tab="borrows">📖 My Borrows</button>
     <button class="lib-tab" data-tab="fines">💰 Fines</button>
   </div>
 
-  <!-- PANELS -->
+  <!-- CATALOGUE -->
   <div id="panel-catalogue">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Books for You</div>
-          <span class="badge" id="count-catalogue" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
-        </div>
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Books for You</div>
+        <span class="badge" id="count-catalogue" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
       </div>
       <div style="padding:1rem;border-bottom:1px solid #f1f5f9;display:flex;gap:.5rem;flex-wrap:wrap;">
         <input type="search" id="lib-search" placeholder="Search title, author, category..." style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
@@ -75,16 +58,18 @@
               <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Author</th>
               <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Category</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Copies</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
             </tr>
           </thead>
           <tbody id="catalogue-tbody">
-            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
+  <!-- BORROWS -->
   <div id="panel-borrows" style="display:none;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
@@ -98,16 +83,18 @@
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Borrowed</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Due</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
             </tr>
           </thead>
           <tbody id="borrows-tbody">
-            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
+  <!-- FINES -->
   <div id="panel-fines" style="display:none;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
       <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
@@ -133,11 +120,7 @@
 </div>
 
 <style>
-  .lib-tab {
-    padding: .5rem 1rem; font-size: .82rem; font-weight: 700;
-    background: #fff; color: #475569; border: 1px solid #e5e7eb;
-    border-radius: 8px; cursor: pointer;
-  }
+  .lib-tab { padding: .5rem 1rem; font-size: .82rem; font-weight: 700; background: #fff; color: #475569; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; }
   .lib-tab.active { background: #065f46; color: #fff; border-color: #065f46; }
   .lib-tab:hover:not(.active) { background: #f1f5f9; }
 </style>
@@ -151,20 +134,24 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
   const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
-  let CATALOGUE = [];
-  let BORROWS = [];
-  let FINES = [];
+  let CATALOGUE = [], BORROWS = [], FINES = [];
 
-  // ----- Catalogue -----
   async function loadCatalogue() {
     try {
       const res = await core.portalFetch('/api/student/library/catalogue');
       CATALOGUE = res.data || [];
-      $('stat-books').textContent = CATALOGUE.length;
+      $('stat-books').textContent = CATALOGUE.filter(b => b.copiesAvailable > 0).length;
+      populateCategories();
       renderCatalogue();
     } catch (err) {
-      $('catalogue-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      $('catalogue-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
+  }
+
+  function populateCategories() {
+    const cats = [...new Set(CATALOGUE.map(b => b.category).filter(Boolean))];
+    const sel = $('lib-category');
+    sel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }
 
   function renderCatalogue() {
@@ -183,44 +170,71 @@
     $('count-catalogue').textContent = filtered.length;
 
     if (!filtered.length) {
-      $('catalogue-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No books match your search.</td></tr>';
+      $('catalogue-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No books found.</td></tr>';
       return;
     }
 
-    $('catalogue-tbody').innerHTML = filtered.map(b => `
-      <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.title)}</td>
-        <td style="padding:.65rem .75rem;color:#475569;">${esc(b.author || '—')}</td>
-        <td style="padding:.65rem .75rem;color:#64748b;text-transform:capitalize;">${esc(b.category || '—')}</td>
-        <td style="padding:.65rem .75rem;text-align:center;">
-          <span style="padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${b.copiesAvailable > 0 ? '#d1fae5' : '#fee2e2'};color:${b.copiesAvailable > 0 ? '#065f46' : '#991b1b'};">
-            ${esc(b.copiesAvailable || 0)} / ${esc(b.copiesTotal || 0)}
-          </span>
-        </td>
-      </tr>
-    `).join('');
+    $('catalogue-tbody').innerHTML = filtered.map(b => {
+      const canBorrow = b.copiesAvailable > 0 && !b.alreadyBorrowed;
+      let btn;
+      if (b.alreadyBorrowed) {
+        btn = `<span style="font-size:.72rem;color:#92400e;font-weight:700;">Borrowed</span>`;
+      } else if (b.copiesAvailable <= 0) {
+        btn = `<span style="font-size:.72rem;color:#991b1b;font-weight:700;">Out of Stock</span>`;
+      } else {
+        btn = `<button class="btn-borrow" data-id="${b.id}" data-title="${esc(b.title)}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Borrow</button>`;
+      }
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.title)}</td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(b.author || '—')}</td>
+          <td style="padding:.65rem .75rem;color:#64748b;text-transform:capitalize;">${esc(b.category || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${b.copiesAvailable > 0 ? '#d1fae5' : '#fee2e2'};color:${b.copiesAvailable > 0 ? '#065f46' : '#991b1b'};">
+              ${esc(b.copiesAvailable)} / ${esc(b.copiesTotal)}
+            </span>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:right;">${btn}</td>
+        </tr>
+      `;
+    }).join('');
+
+    $('catalogue-tbody').querySelectorAll('.btn-borrow').forEach(btn => {
+      btn.addEventListener('click', () => borrowBook(Number(btn.dataset.id), btn.dataset.title));
+    });
   }
 
-  // ----- Borrows -----
+  async function borrowBook(bookId, title) {
+    if (!confirm(`Borrow "${title}"? It will be due in 14 days.`)) return;
+    try {
+      await core.portalFetch('/api/student/library/borrow', { method: 'POST', body: { bookId } });
+      core.showToast && core.showToast('Book borrowed! Due in 14 days.', 'success');
+      loadCatalogue();
+      loadBorrows();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
   async function loadBorrows() {
     try {
       const res = await core.portalFetch('/api/student/library/borrows');
       BORROWS = res.data || [];
-      $('stat-borrows').textContent = BORROWS.length;
+      $('stat-borrows').textContent = BORROWS.filter(b => b.status === 'active').length;
 
       if (!BORROWS.length) {
-        $('borrows-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">You have not borrowed any books.</td></tr>';
+        $('borrows-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">You have not borrowed any books.</td></tr>';
         return;
       }
 
       const now = new Date();
       $('borrows-tbody').innerHTML = BORROWS.map(b => {
-        const returned = b.returnedAt !== null;
+        const returned = b.status === 'returned';
         const overdue = !returned && new Date(b.dueAt) < now;
-        let badge = '';
-        if (returned) badge = '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Returned</span>';
-        else if (overdue) badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Overdue</span>';
-        else badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Active</span>';
+        let badge, action = '';
+        if (returned) { badge = '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Returned</span>'; action = `<span style="font-size:.72rem;color:#94a3b8;">${fmtDate(b.returnedAt)}</span>`; }
+        else if (overdue) { badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Overdue</span>'; action = `<button class="btn-return" data-id="${b.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#991b1b;color:#fff;border:none;border-radius:6px;cursor:pointer;">Return</button>`; }
+        else { badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Active</span>'; action = `<button class="btn-return" data-id="${b.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Return</button>`; }
 
         return `
           <tr style="border-bottom:1px solid #f1f5f9;">
@@ -228,20 +242,41 @@
             <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.borrowedAt)}</td>
             <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.dueAt)}</td>
             <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
+            <td style="padding:.65rem .75rem;text-align:right;">${action}</td>
           </tr>
         `;
       }).join('');
+
+      $('borrows-tbody').querySelectorAll('.btn-return').forEach(btn => {
+        btn.addEventListener('click', () => returnBook(Number(btn.dataset.id)));
+      });
     } catch (err) {
-      $('borrows-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      $('borrows-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ----- Fines -----
+  async function returnBook(borrowId) {
+    if (!confirm('Return this book?')) return;
+    try {
+      const res = await core.portalFetch(`/api/student/library/return/${borrowId}`, { method: 'POST' });
+      if (res.fine) {
+        core.showToast && core.showToast(`Book returned. Overdue fine: ₦${Number(res.fine.amount).toLocaleString()}`, 'warning');
+      } else {
+        core.showToast && core.showToast('Book returned successfully!', 'success');
+      }
+      loadCatalogue();
+      loadBorrows();
+      loadFines();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
   async function loadFines() {
     try {
       const res = await core.portalFetch('/api/student/library/fines');
       FINES = res.data || [];
-      const unpaid = FINES.filter(f => f.status === 'pending' || f.status === 'unpaid');
+      const unpaid = FINES.filter(f => !f.isPaid);
       $('stat-fines').textContent = unpaid.length;
       $('stat-owed').textContent = fmtMoney(unpaid.reduce((s, f) => s + Number(f.amount || 0), 0));
 
@@ -251,14 +286,14 @@
       }
 
       $('fines-tbody').innerHTML = FINES.map(f => {
-        const paid = f.status === 'paid';
+        const paid = f.isPaid;
         return `
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(f.title || '—')}</td>
             <td style="padding:.65rem .75rem;color:#475569;">${esc(f.reason || '—')}</td>
             <td style="padding:.65rem .75rem;text-align:right;font-weight:700;color:${paid ? '#065f46' : '#991b1b'};">${fmtMoney(f.amount)}</td>
             <td style="padding:.65rem .75rem;text-align:center;">
-              <span style="background:${paid ? '#d1fae5' : '#fef3c7'};color:${paid ? '#065f46' : '#92400e'};padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;text-transform:capitalize;">${esc(f.status)}</span>
+              <span style="background:${paid ? '#d1fae5' : '#fef3c7'};color:${paid ? '#065f46' : '#92400e'};padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">${paid ? 'Paid' : 'Unpaid'}</span>
             </td>
           </tr>
         `;
@@ -268,7 +303,6 @@
     }
   }
 
-  // ----- Tabs -----
   function switchTab(tab) {
     document.querySelectorAll('.lib-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     $('panel-catalogue').style.display = tab === 'catalogue' ? 'block' : 'none';
@@ -280,24 +314,11 @@
     t.addEventListener('click', () => switchTab(t.dataset.tab));
   });
 
-  // Populate categories from catalogue
-  function populateCategories() {
-    const cats = [...new Set(CATALOGUE.map(b => b.category).filter(Boolean))];
-    const sel = $('lib-category');
-    sel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  }
-
-  // Wiring
   $('lib-search')?.addEventListener('input', renderCatalogue);
   $('lib-category')?.addEventListener('change', renderCatalogue);
-  $('lib-refresh')?.addEventListener('click', () => {
-    loadCatalogue().then(populateCategories);
-    loadBorrows();
-    loadFines();
-  });
+  $('lib-refresh')?.addEventListener('click', () => { loadCatalogue(); loadBorrows(); loadFines(); });
 
-  // Initial load
-  loadCatalogue().then(populateCategories);
+  loadCatalogue();
   loadBorrows();
   loadFines();
 })();

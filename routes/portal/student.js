@@ -861,11 +861,18 @@ router.post('/graduation/apply', only, async (req, res, next) => {
 // GET /api/student/library/catalogue
 router.get('/library/catalogue', only, async (req, res, next) => {
   try {
+    const studentId = req.user.id;
+
     const result = await db.execute(sql`
-      SELECT id, title, author, isbn, category, copies_total AS "copiesTotal",
-             copies_available AS "copiesAvailable", description
-      FROM books
-      ORDER BY title ASC
+      SELECT b.id, b.title, b.author, b.isbn, b.category, b.publisher, b.year,
+             b.copies_total AS "copiesTotal", b.copies_available AS "copiesAvailable",
+             b.shelf,
+             EXISTS(
+               SELECT 1 FROM book_borrows bb
+               WHERE bb.book_id = b.id AND bb.user_id = ${studentId} AND bb.status = 'active'
+             ) AS "alreadyBorrowed"
+      FROM books b
+      ORDER BY b.title ASC
     `);
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
@@ -879,11 +886,12 @@ router.get('/library/borrows', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const result = await db.execute(sql`
-      SELECT bb.id, bb.borrowed_at AS "borrowedAt", bb.due_at AS "dueAt", bb.returned_at AS "returnedAt",
-             b.title, b.author, b.isbn, b.category
+      SELECT bb.id, bb.borrowed_at AS "borrowedAt", bb.due_at AS "dueAt",
+             bb.returned_at AS "returnedAt", bb.status,
+             b.id AS "bookId", b.title, b.author, b.isbn, b.category
       FROM book_borrows bb
       INNER JOIN books b ON bb.book_id = b.id
-      WHERE bb.student_id = ${studentId}
+      WHERE bb.user_id = ${studentId}
       ORDER BY bb.borrowed_at DESC
     `);
     return res.json({ success: true, data: result.rows || [] });
@@ -893,23 +901,134 @@ router.get('/library/borrows', only, async (req, res, next) => {
   }
 });
 
+// POST /api/student/library/borrow
+router.post('/library/borrow', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { bookId } = req.body || {};
+    if (!bookId) return res.status(400).json({ success: false, error: 'bookId is required.' });
+
+    // 1. Check book exists and has available copies
+    const bookResult = await db.execute(sql`
+      SELECT id, title, copies_total AS "copiesTotal", copies_available AS "copiesAvailable"
+      FROM books WHERE id = ${Number(bookId)} LIMIT 1
+    `);
+    const book = bookResult.rows?.[0];
+    if (!book) return res.status(404).json({ success: false, error: 'Book not found.' });
+    if (book.copiesAvailable <= 0) return res.status(400).json({ success: false, error: 'No copies available.' });
+
+    // 2. Check student doesn't already have this book
+    const existingResult = await db.execute(sql`
+      SELECT id FROM book_borrows
+      WHERE user_id = ${studentId} AND book_id = ${Number(bookId)} AND status = 'active'
+      LIMIT 1
+    `);
+    if (existingResult.rows?.length) {
+      return res.status(400).json({ success: false, error: 'You already have this book borrowed.' });
+    }
+
+    // 3. Check max 3 active borrows
+    const activeResult = await db.execute(sql`
+      SELECT COUNT(*)::int AS count FROM book_borrows
+      WHERE user_id = ${studentId} AND status = 'active'
+    `);
+    const activeCount = activeResult.rows?.[0]?.count || 0;
+    if (activeCount >= 3) {
+      return res.status(400).json({ success: false, error: 'You can only have 3 books borrowed at a time.' });
+    }
+
+    // 4. Create borrow record (due in 14 days)
+    const dueAt = new Date();
+    dueAt.setDate(dueAt.getDate() + 14);
+
+    const inserted = await db.execute(sql`
+      INSERT INTO book_borrows (book_id, user_id, due_at, status)
+      VALUES (${Number(bookId)}, ${studentId}, ${dueAt.toISOString()}, 'active')
+      RETURNING id
+    `);
+
+    // 5. Decrement available copies
+    await db.execute(sql`
+      UPDATE books SET copies_available = copies_available - 1
+      WHERE id = ${Number(bookId)} AND copies_available > 0
+    `);
+
+    return res.status(201).json({ success: true, data: { id: inserted.rows?.[0]?.id, dueAt } });
+  } catch (err) {
+    console.error('[student/library/borrow] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/student/library/return/:id
+router.post('/library/return/:id', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const borrowId = Number(req.params.id);
+
+    // 1. Get borrow record
+    const borrowResult = await db.execute(sql`
+      SELECT id, book_id AS "bookId", due_at AS "dueAt", status
+      FROM book_borrows
+      WHERE id = ${borrowId} AND user_id = ${studentId} AND status = 'active'
+      LIMIT 1
+    `);
+    const borrow = borrowResult.rows?.[0];
+    if (!borrow) return res.status(404).json({ success: false, error: 'Active borrow not found.' });
+
+    // 2. Mark as returned
+    await db.execute(sql`
+      UPDATE book_borrows
+      SET returned_at = NOW(), status = 'returned'
+      WHERE id = ${borrowId}
+    `);
+
+    // 3. Increment available copies
+    await db.execute(sql`
+      UPDATE books SET copies_available = copies_available + 1
+      WHERE id = ${borrow.bookId}
+    `);
+
+    // 4. Check for overdue fine
+    const now = new Date();
+    const dueDate = new Date(borrow.dueAt);
+    let fine = null;
+    if (now > dueDate) {
+      const daysLate = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+      const amount = daysLate * 100; // ₦100 per day
+
+      const fineResult = await db.execute(sql`
+        INSERT INTO library_fines (user_id, borrow_id, amount, reason, is_paid)
+        VALUES (${studentId}, ${borrowId}, ${amount}, ${'Overdue by ' + daysLate + ' day(s)'}, false)
+        RETURNING id, amount
+      `);
+      fine = fineResult.rows?.[0];
+    }
+
+    return res.json({ success: true, fine });
+  } catch (err) {
+    console.error('[student/library/return] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // GET /api/student/library/fines
 router.get('/library/fines', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const result = await db.execute(sql`
-      SELECT lf.id, lf.amount, lf.reason, lf.status, lf.created_at AS "createdAt",
+      SELECT lf.id, lf.amount, lf.reason, lf.is_paid AS "isPaid",
+             lf.paid_at AS "paidAt", lf.created_at AS "createdAt",
              b.title
       FROM library_fines lf
       LEFT JOIN book_borrows bb ON lf.borrow_id = bb.id
       LEFT JOIN books b ON bb.book_id = b.id
-      WHERE lf.student_id = ${studentId}
+      WHERE lf.user_id = ${studentId}
       ORDER BY lf.created_at DESC
     `);
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
-    // If the fines table doesn't exist, return empty
-    console.warn('[student/library/fines] Table may not exist:', err.message);
+    console.error('[student/library/fines] Error:', err);
     return res.json({ success: true, data: [] });
   }
 });

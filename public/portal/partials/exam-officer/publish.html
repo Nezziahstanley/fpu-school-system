@@ -1,25 +1,27 @@
 <!-- Portal → Exam Officer → Publish Results -->
 <div style="padding:0;">
 
+  <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Publish Results</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Results verified by HODs awaiting final publication</p>
     </div>
     <div style="display:flex;gap:.5rem;">
-      <button id="btn-publish-all" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">📤 Publish ALL Pending Results</button>
+      <button id="btn-publish-all" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">📤 Publish All Pending</button>
       <button id="btn-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
   </div>
 
-  <!-- Department Cards Grid -->
-  <div id="dept-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:1rem;margin-bottom:2rem;">
+  <!-- DEPARTMENT CARD GRID -->
+  <div id="dept-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:.85rem;margin-bottom:2rem;">
     <div style="padding:3rem;text-align:center;color:#94a3b8;grid-column:1/-1;">
-      <div class="spinner"></div> Loading departments…
+      <div class="spinner"></div>
+      <div style="margin-top:.65rem;">Loading departments…</div>
     </div>
   </div>
 
-  <!-- Recently Published History -->
+  <!-- PUBLISHED HISTORY -->
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:.75rem;">
     <div>
       <h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#0f172a;">Recently Published Results</h3>
@@ -48,7 +50,7 @@
   </div>
 </div>
 
-<!-- Modal: Department Results -->
+<!-- MODAL: Department Detail -->
 <div id="dept-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
     
@@ -93,11 +95,40 @@
     border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  
+  /* Department Card Styles (matching the Courses page) */
   .dept-card {
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem;
-    cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: space-between;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: .85rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    cursor: pointer;
+    transition: all .15s;
   }
-  .dept-card:hover { border-color: #065f46; box-shadow: 0 4px 12px rgba(6, 95, 70, 0.1); transform: translateY(-2px); }
+  .dept-card:hover {
+    border-color: #065f46;
+    box-shadow: 0 4px 12px rgba(6, 95, 70, 0.1);
+    transform: translateY(-1px);
+  }
+  .dept-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: .8rem;
+    flex-shrink: 0;
+  }
+  .dept-info { flex: 1; min-width: 0; }
+  .dept-name { font-weight: 800; color: #0f172a; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dept-count { font-size: .7rem; color: #64748b; margin-top: .15rem; }
+  .dept-arrow { color: #94a3b8; font-size: 1rem; flex-shrink: 0; }
 </style>
 
 <script>
@@ -110,10 +141,26 @@
   let ALL_PENDING = [];
   let CURRENT_DEPT_RESULTS = [];
 
+  // Generate a color based on department name hash
+  function getDeptColor(name) {
+    const colors = ['#065f46', '#dc2626', '#7c3aed', '#ea580c', '#0891b2', '#0284c7', '#ca8a04', '#9333ea', '#db2777', '#059669'];
+    let hash = 0;
+    const str = String(name || '');
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  // Get initials for the department icon
+  function getDeptInitials(name) {
+    const words = String(name || 'D').split(' ');
+    if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+    return String(name || 'D').substring(0, 2).toUpperCase();
+  }
+
   // -------- Load Pending by Department --------
   async function loadPending() {
     const grid = $('dept-grid');
-    grid.innerHTML = '<div style="padding:3rem;text-align:center;color:#94a3b8;grid-column:1/-1;"><div class="spinner"></div> Loading departments…</div>';
+    grid.innerHTML = '<div style="padding:3rem;text-align:center;color:#94a3b8;grid-column:1/-1;"><div class="spinner"></div><div style="margin-top:.65rem;">Loading departments…</div></div>';
 
     try {
       const res = await core.portalFetch('/api/exam-officer/pending-publication');
@@ -135,19 +182,21 @@
         grouped[dept].push(r);
       });
 
-      // Render Cards
+      // Render Cards (matching Courses page style)
       let html = '';
       Object.keys(grouped).sort().forEach(dept => {
         const count = grouped[dept].length;
+        const color = getDeptColor(dept);
+        const initials = getDeptInitials(dept);
+        
         html += `
           <div class="dept-card" data-dept="${esc(dept)}">
-            <div>
-              <div style="font-weight:800;color:#0f172a;font-size:.95rem;margin-bottom:.2rem;">🏢 ${esc(dept)}</div>
-              <div style="font-size:.75rem;color:#64748b;">Results awaiting publication</div>
+            <div class="dept-icon" style="background:${color};">${initials}</div>
+            <div class="dept-info">
+              <div class="dept-name">${esc(dept)}</div>
+              <div class="dept-count">${count} result${count !== 1 ? 's' : ''} pending</div>
             </div>
-            <div style="background:#fef3c7;color:#92400e;padding:.35rem .75rem;border-radius:99px;font-weight:800;font-size:.85rem;">
-              ${count}
-            </div>
+            <div class="dept-arrow">›</div>
           </div>
         `;
       });
@@ -171,7 +220,7 @@
   function openModal(deptName, results) {
     CURRENT_DEPT_RESULTS = results;
     $('dept-modal').style.display = 'flex';
-    $('modal-title').textContent = `🏢 ${deptName}`;
+    $('modal-title').textContent = deptName;
     $('modal-sub').textContent = `${results.length} result(s) awaiting publication`;
     
     $('modal-select-all').checked = false;

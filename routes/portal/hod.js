@@ -126,7 +126,7 @@ router.get('/dashboard', only, async (req, res, next) => {
 router.get('/students', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const { level, status } = req.query;
+    const { level } = req.query;
 
     const conditions = [
       eq(users.departmentId, departmentId),
@@ -150,9 +150,15 @@ router.get('/students', only, async (req, res, next) => {
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .where(and(...conditions))
-      .orderBy(users.lastName);
+      .orderBy(users.matricNumber); // Basic sort; will refine in JS
 
-    return res.json({ success: true, data: rows });
+    // Clean the matric numbers (remove SMT and spaces) for the frontend
+    const data = rows.map(r => ({
+      ...r,
+      matricNumber: (r.matricNumber || '').replace(/SMT/gi, '').trim()
+    }));
+
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[hod/students] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

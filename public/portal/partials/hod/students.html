@@ -17,13 +17,7 @@
     <option value="ND">ND</option>
     <option value="HND">HND</option>
   </select>
-  <select id="stu-status">
-    <option value="">All Status</option>
-    <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
-  </select>
   <button class="btn btn-outline btn-sm" id="stu-refresh">↻ Refresh</button>
-  <button class="btn btn-outline btn-sm" id="stu-export">Export CSV</button>
 </div>
 
 <!-- Stat tiles -->
@@ -40,17 +34,13 @@
     <div class="meta"><span class="label">HND Students</span><span class="value" id="stu-hnd">—</span></div>
     <div class="ic">📗</div>
   </div>
-  <div class="stat purple">
-    <div class="meta"><span class="label">Active</span><span class="value" id="stu-active">—</span></div>
-    <div class="ic">✅</div>
-  </div>
 </div>
 
-<!-- Table -->
-<section class="panel">
+<!-- ND Section -->
+<section class="panel" style="margin-bottom: 20px;">
   <div class="panel-head">
-    <h3>Students</h3>
-    <span class="badge" id="stu-count">0</span>
+    <h3>ND Students</h3>
+    <span class="badge" id="stu-nd-count">0</span>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
@@ -61,12 +51,37 @@
             <th>Full Name</th>
             <th>Level</th>
             <th>Programme</th>
-            <th>CGPA</th>
             <th>Status</th>
           </tr>
         </thead>
-        <tbody id="stu-tbody">
-          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        <tbody id="stu-nd-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- HND Section -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>HND Students</h3>
+    <span class="badge" id="stu-hnd-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Matric No.</th>
+            <th>Full Name</th>
+            <th>Level</th>
+            <th>Programme</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="stu-hnd-tbody">
+          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -83,59 +98,72 @@
   let ALL = [];
   let FILTERED = [];
 
+  function cleanMatric(matric) {
+    if (!matric) return '—';
+    return matric.replace(/SMT/gi, '').replace(/^\s+|\s+$/g, '');
+  }
+
   function render() {
-    $('stu-count').textContent = FILTERED.length;
-    const tbody = $('stu-tbody');
+    // Sort numeric for ND
+    const ndStudents = FILTERED
+      .filter(s => s.level === 'ND')
+      .sort((a, b) => cleanMatric(a.matricNumber).localeCompare(cleanMatric(b.matricNumber), undefined, { numeric: true }));
 
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No students found.</td></tr>';
-      return;
-    }
+    // Sort numeric for HND
+    const hndStudents = FILTERED
+      .filter(s => s.level === 'HND')
+      .sort((a, b) => cleanMatric(a.matricNumber).localeCompare(cleanMatric(b.matricNumber), undefined, { numeric: true }));
 
-    tbody.innerHTML = FILTERED.map(s => {
-      const statusBadge = s.isActive 
-        ? '<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#d1fae5;color:#065f46;border-radius:5px;">Active</span>'
-        : '<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#fee2e2;color:#991b1b;border-radius:5px;">Inactive</span>';
-      
-      return `
-        <tr>
-          <td><code style="font-size:.75rem;">${esc(s.matricNumber || '—')}</code></td>
-          <td><strong>${esc(s.lastName)}</strong>, ${esc(s.firstName)}</td>
-          <td><span class="chip chip-${(s.level || '').toLowerCase()}">${esc(s.level || '—')}</span></td>
-          <td>${esc(s.programmeName || '—')}</td>
-          <td>—</td>
-          <td>${statusBadge}</td>
-        </tr>
-      `;
-    }).join('');
+    $('stu-nd-count').textContent = ndStudents.length;
+    $('stu-hnd-count').textContent = hndStudents.length;
+
+    const buildRows = (students) => {
+      if (!students.length) {
+        return '<tr><td colspan="5" class="empty">No students found.</td></tr>';
+      }
+      return students.map(s => {
+        const statusBadge = s.isActive 
+          ? '<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#d1fae5;color:#065f46;border-radius:5px;">Active</span>'
+          : '<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#fee2e2;color:#991b1b;border-radius:5px;">Inactive</span>';
+        
+        return `
+          <tr>
+            <td><code style="font-size:.75rem;">${esc(cleanMatric(s.matricNumber))}</code></td>
+            <td><strong>${esc(s.lastName)}</strong>, ${esc(s.firstName)}</td>
+            <td><span class="chip chip-${(s.level || '').toLowerCase()}">${esc(s.level || '—')}</span></td>
+            <td>${esc(s.programmeName || '—')}</td>
+            <td>${statusBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    };
+
+    $('stu-nd-tbody').innerHTML = buildRows(ndStudents);
+    $('stu-hnd-tbody').innerHTML = buildRows(hndStudents);
   }
 
   function updateStats() {
     $('stu-total').textContent = ALL.length;
     $('stu-nd').textContent = ALL.filter(s => s.level === 'ND').length;
     $('stu-hnd').textContent = ALL.filter(s => s.level === 'HND').length;
-    $('stu-active').textContent = ALL.filter(s => s.isActive).length;
   }
 
   function applyFilter() {
     const q = ($('stu-search').value || '').trim().toLowerCase();
     const lvl = $('stu-level').value;
-    const st = $('stu-status').value;
 
     FILTERED = ALL.filter(s => {
-      const hay = `${s.firstName} ${s.lastName} ${s.matricNumber}`.toLowerCase();
+      const hay = `${s.firstName} ${s.lastName} ${cleanMatric(s.matricNumber)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (lvl && s.level !== lvl) return false;
-      if (st === 'active' && !s.isActive) return false;
-      if (st === 'inactive' && s.isActive) return false;
       return true;
     });
     render();
   }
 
   async function load() {
-    const tbody = $('stu-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    $('stu-nd-tbody').innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    $('stu-hnd-tbody').innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     
     try {
       const res = await core.portalFetch('/api/hod/students');
@@ -144,13 +172,14 @@
       updateStats();
       applyFilter();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+      const errRow = `<tr><td colspan="5" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+      $('stu-nd-tbody').innerHTML = errRow;
+      $('stu-hnd-tbody').innerHTML = errRow;
     }
   }
 
   $('stu-search')?.addEventListener('input', applyFilter);
   $('stu-level')?.addEventListener('change', applyFilter);
-  $('stu-status')?.addEventListener('change', applyFilter);
   $('stu-refresh')?.addEventListener('click', load);
 
   load();

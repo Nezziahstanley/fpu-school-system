@@ -14,49 +14,19 @@
 
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const router = express.Router();
 
 const { requireUser } = require('../../middleware/auth');
 const userQueries = require('../../db/queries/users');
 const { logAudit } = require('../../utils/audit');
 
-// ------------------------------------------------------------
-// Multer setup
-// ------------------------------------------------------------
-let multer;
-try {
-  multer = require('multer');
-} catch {
-  multer = null;
-}
+// Cloudinary for photo uploads
+const multer = require('multer');
+const { storage } = require('../../utils/cloudinary');
+const upload = multer({ storage });
 
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
 const MAX_SIZE_MB = Number(process.env.MAX_UPLOAD_MB) || 5;
 const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-try { fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch {}
-
-let upload = null;
-if (multer) {
-  const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (req, file, cb) => {
-      const userId = req.user ? req.user.id : 'unknown';
-      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-      cb(null, `user-${userId}-${Date.now()}${ext}`);
-    },
-  });
-
-  upload = multer({
-    storage,
-    limits: { fileSize: MAX_SIZE_MB * 1024 * 1024 },
-    fileFilter: (_req, file, cb) => {
-      if (ALLOWED_MIME.includes(file.mimetype)) return cb(null, true);
-      cb(new Error('Only JPEG, PNG, and WebP images are allowed.'));
-    },
-  });
-}
 
 // ============================================================
 // GET /api/portal/profile
@@ -66,7 +36,6 @@ router.get('/profile', requireUser, async (req, res, next) => {
     const user = await userQueries.findById(req.user.id);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
 
-    // Never leak password hash
     delete user.passwordHash;
     delete user.password_hash;
 
@@ -131,51 +100,30 @@ router.patch('/profile', requireUser, async (req, res, next) => {
 // ============================================================
 // POST /api/portal/profile/photo
 // ============================================================
-router.post('/profile/photo', requireUser, (req, res, next) => {
-  if (!upload) {
-    return res.status(503).json({
-      success: false,
-      error: 'Photo upload is not configured (multer missing).',
-    });
-  }
-
-  upload.single('photo')(req, res, async (err) => {
-    if (err) {
-      const msg = err.code === 'LIMIT_FILE_SIZE'
-        ? `File too large. Maximum ${MAX_SIZE_MB}MB.`
-        : err.message;
-      return res.status(400).json({ success: false, error: msg });
-    }
-
+router.post('/profile/photo', requireUser, upload.single('photo'), async (req, res, next) => {
+  try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded.' });
     }
 
-    try {
-      const photoUrl = `/uploads/${req.file.filename}`;
-      const prevPhoto = req.user.photoUrl;
+    // Cloudinary returns the full URL in req.file.path
+    const photoUrl = req.file.path;
 
-      await userQueries.update(req.user.id, { photoUrl });
+    await userQueries.update(req.user.id, { photoUrl });
 
-      if (prevPhoto && prevPhoto.startsWith('/uploads/')) {
-        const oldPath = path.join(UPLOAD_DIR, path.basename(prevPhoto));
-        try { fs.unlinkSync(oldPath); } catch { /* ignore */ }
-      }
+    await logAudit({
+      req,
+      userId: req.user.id,
+      action: 'portal.profile.photo.update',
+      entity: 'user',
+      entityId: req.user.id,
+    });
 
-      await logAudit({
-        req,
-        userId: req.user.id,
-        action: 'portal.profile.photo.update',
-        entity: 'user',
-        entityId: req.user.id,
-      });
-
-      return res.json({ success: true, data: { photoUrl } });
-    } catch (e) {
-      console.error('[portal/profile] photo upload error:', e);
-      return next(e);
-    }
-  });
+    return res.json({ success: true, data: { photoUrl } });
+  } catch (err) {
+    console.error('[portal/profile] photo upload error:', err);
+    return next(err);
+  }
 });
 
 // ============================================================
@@ -183,14 +131,7 @@ router.post('/profile/photo', requireUser, (req, res, next) => {
 // ============================================================
 router.delete('/profile/photo', requireUser, async (req, res, next) => {
   try {
-    const prevPhoto = req.user.photoUrl;
-
     await userQueries.update(req.user.id, { photoUrl: null });
-
-    if (prevPhoto && prevPhoto.startsWith('/uploads/')) {
-      const oldPath = path.join(UPLOAD_DIR, path.basename(prevPhoto));
-      try { fs.unlinkSync(oldPath); } catch { /* ignore */ }
-    }
 
     await logAudit({
       req,

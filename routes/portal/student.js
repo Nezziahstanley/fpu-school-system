@@ -527,4 +527,97 @@ router.get('/timetable', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/available-courses
+// Returns courses the student can register for
+// ============================================================
+router.get('/available-courses', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    const rows = await db
+      .select({
+        id: courses.id,
+        code: courses.code,
+        title: courses.title,
+        unit: courses.unit,
+        level: courses.level,
+        semesterName: courses.semesterName,
+      })
+      .from(courses)
+      .where(and(
+        eq(courses.departmentId, student.departmentId),
+        eq(courses.level, student.level)
+      ))
+      .orderBy(courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/available-courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/student/registered-courses (Alias for existing /courses)
+// ============================================================
+router.get('/registered-courses', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    const rows = await db
+      .select({
+        id: courseRegistrations.id,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        unit: courses.unit,
+        semester: courseRegistrations.semester,
+        status: courseRegistrations.status,
+      })
+      .from(courseRegistrations)
+      .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ))
+      .orderBy(courses.code);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/registered-courses] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// DELETE /api/student/drop-course/:id
+// ============================================================
+router.delete('/drop-course/:id', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const regId = Number(req.params.id);
+
+    // Verify the registration belongs to this student and is still pending
+    const [reg] = await db.select().from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.id, regId),
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.status, 'pending')
+      )).limit(1);
+
+    if (!reg) {
+      return res.status(403).json({ success: false, error: 'Cannot drop this course (already approved or not yours).' });
+    }
+
+    await db.delete(courseRegistrations).where(eq(courseRegistrations.id, regId));
+    return res.json({ success: true, message: 'Course dropped.' });
+  } catch (err) {
+    console.error('[student/drop-course] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

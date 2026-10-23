@@ -594,6 +594,111 @@ router.delete('/allocate/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
+// POST /api/hod/exams
+// Create a new exam
+// ============================================================
+router.post('/exams', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const { courseId, examDate, startTime, endTime, venue } = req.body;
+
+    if (!courseId || !examDate || !startTime || !endTime) {
+      return res.status(400).json({ success: false, error: 'Missing required fields.' });
+    }
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, Number(courseId))).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course not in your department.' });
+    }
+
+    const [row] = await db.insert(examSchedules).values({
+      courseId: Number(courseId),
+      sessionId: req.user.currentSessionId || 1,
+      semester: course.semesterName || 'first',
+      examDate: new Date(examDate),
+      startTime,
+      endTime,
+      venue,
+    }).returning();
+
+    await logAudit({ req, action: 'hod.create_exam', entity: 'exam_schedule', entityId: row.id, after: row });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[hod/create-exam] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// PUT /api/hod/exams/:id
+// ============================================================
+router.put('/exams/:id', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const examId = Number(req.params.id);
+    const { examDate, startTime, endTime, venue } = req.body;
+
+    const [existing] = await db.select({
+      id: examSchedules.id,
+      courseId: examSchedules.courseId
+    }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
+
+    if (!existing) return res.status(404).json({ success: false, error: 'Exam not found.' });
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, existing.courseId)).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    const [row] = await db.update(examSchedules)
+      .set({
+        examDate: new Date(examDate),
+        startTime,
+        endTime,
+        venue,
+      })
+      .where(eq(examSchedules.id, examId))
+      .returning();
+
+    await logAudit({ req, action: 'hod.update_exam', entity: 'exam_schedule', entityId: row.id, after: row });
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('[hod/update-exam] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// DELETE /api/hod/exams/:id
+// ============================================================
+router.delete('/exams/:id', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const examId = Number(req.params.id);
+
+    const [existing] = await db.select({
+      id: examSchedules.id,
+      courseId: examSchedules.courseId
+    }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
+
+    if (!existing) return res.status(404).json({ success: false, error: 'Exam not found.' });
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, existing.courseId)).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    await db.delete(examSchedules).where(eq(examSchedules.id, examId));
+    await logAudit({ req, action: 'hod.delete_exam', entity: 'exam_schedule', entityId: examId });
+
+    return res.json({ success: true, message: 'Exam deleted.' });
+  } catch (err) {
+    console.error('[hod/delete-exam] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/exams
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {

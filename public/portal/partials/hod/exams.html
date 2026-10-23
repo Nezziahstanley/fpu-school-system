@@ -4,9 +4,12 @@
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Department Exams</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Exam schedule for courses in your department</p>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Manage exam schedule for your department</p>
     </div>
-    <button id="exm-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    <div style="display:flex;gap:.5rem;">
+      <button id="exm-create" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">➕ New Exam</button>
+      <button id="exm-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    </div>
   </div>
 
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -19,12 +22,59 @@
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="exm-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading exams…</td></tr>
+          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading exams…</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="exm-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 id="exm-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">New Exam</h3>
+      <button id="exm-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <input type="hidden" id="exm-id" />
+      
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
+        <select id="exm-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select Course</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Exam Date</label>
+        <input type="date" id="exm-date" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time</label>
+          <input type="time" id="exm-start" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">End Time</label>
+          <input type="time" id="exm-end" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Venue</label>
+        <input type="text" id="exm-venue" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g. Lab A" />
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+        <button id="exm-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="exm-save" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Exam</button>
+      </div>
     </div>
   </div>
 </div>
@@ -37,18 +87,21 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
+  let ALL_COURSES = [];
+  let ALL_EXAMS = [];
+
   async function load() {
     const tbody = $('exm-tbody');
     try {
       const res = await core.portalFetch('/api/hod/exams');
-      const rows = res.data || [];
+      ALL_EXAMS = res.data || [];
 
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No exams scheduled yet.</td></tr>`;
+      if (!ALL_EXAMS.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No exams scheduled yet.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = rows.map(e => `
+      tbody.innerHTML = ALL_EXAMS.map(e => `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;">
             <div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div>
@@ -58,15 +111,99 @@
           <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}</td>
           <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime)} - ${esc(e.endTime)}</td>
           <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            <button class="btn-edit" data-id="${e.id}" style="background:#f1f5f9;color:#475569;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Edit</button>
+            <button class="btn-delete" data-id="${e.id}" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>
+          </td>
         </tr>
       `).join('');
 
+      tbody.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', () => openModal(ALL_EXAMS.find(x => x.id == btn.dataset.id)));
+      });
+      tbody.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Delete this exam?')) return;
+          try {
+            await core.portalFetch(`/api/hod/exams/${btn.dataset.id}`, { method: 'DELETE' });
+            core.showToast('Exam deleted', 'success');
+            load();
+          } catch (err) { core.showToast(err.message, 'error'); }
+        });
+      });
+
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  $('exm-refresh')?.addEventListener('click', load);
+  async function openModal(existing = null) {
+    $('exm-modal').style.display = 'flex';
+    $('exm-modal-title').textContent = existing ? 'Edit Exam' : 'New Exam';
+    
+    $('exm-id').value = existing ? existing.id : '';
+    $('exm-date').value = existing ? existing.examDate.split('T')[0] : '';
+    $('exm-start').value = existing ? existing.startTime : '';
+    $('exm-end').value = existing ? existing.endTime : '';
+    $('exm-venue').value = existing ? existing.venue : '';
+
+    $('exm-course').innerHTML = '<option value="">Loading…</option>';
+    try {
+      const res = await core.portalFetch('/api/hod/courses');
+      ALL_COURSES = res.data || [];
+      $('exm-course').innerHTML = '<option value="">Select Course</option>' + 
+        ALL_COURSES.map(c => `<option value="${c.id}" ${existing && existing.courseId == c.id ? 'selected' : ''}>${esc(c.code)} - ${esc(c.title)}</option>`).join('');
+    } catch (err) {
+      $('exm-course').innerHTML = '<option value="">Error loading courses</option>';
+    }
+  }
+
+  function closeModal() {
+    $('exm-modal').style.display = 'none';
+  }
+
+  async function save() {
+    const id = $('exm-id').value;
+    const payload = {
+      courseId: $('exm-course').value,
+      examDate: $('exm-date').value,
+      startTime: $('exm-start').value,
+      endTime: $('exm-end').value,
+      venue: $('exm-venue').value,
+    };
+
+    if (!payload.courseId || !payload.examDate || !payload.startTime || !payload.endTime) {
+      return core.showToast && core.showToast('Please fill all required fields.', 'warning');
+    }
+
+    const btn = $('exm-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      if (id) {
+        await core.portalFetch(`/api/hod/exams/${id}`, { method: 'PUT', body: payload });
+      } else {
+        await core.portalFetch('/api/hod/exams', { method: 'POST', body: payload });
+      }
+      core.showToast('Exam saved!', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Exam';
+    }
+  }
+
+  $('exm-create').addEventListener('click', () => openModal(null));
+  $('exm-refresh').addEventListener('click', load);
+  $('exm-modal-close').addEventListener('click', closeModal);
+  $('exm-cancel').addEventListener('click', closeModal);
+  $('exm-save').addEventListener('click', save);
+  $('exm-modal').addEventListener('click', (e) => { if (e.target.id === 'exm-modal') closeModal(); });
+
   load();
 })();
 </script>

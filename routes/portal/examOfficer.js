@@ -318,4 +318,61 @@ router.get('/security', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/exam-officer/pending-publication
+// ============================================================
+router.get('/pending-publication', only, async (req, res, next) => {
+  try {
+    const rows = await db.select({
+      id: results.id,
+      studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+      matricNumber: users.matricNumber,
+      courseCode: courses.code,
+      courseTitle: courses.title,
+      score: results.score,
+      grade: results.grade,
+      level: courses.level,
+      departmentName: departments.name,
+    })
+    .from(results)
+    .innerJoin(users, eq(results.studentId, users.id))
+    .innerJoin(courses, eq(results.courseId, courses.id))
+    .leftJoin(departments, eq(courses.departmentId, departments.id))
+    .where(eq(results.status, 'hod_verified'))
+    .orderBy(departments.name, users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[exam-officer/pending] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/exam-officer/publish
+// ============================================================
+router.post('/publish', only, async (req, res, next) => {
+  try {
+    const { resultIds } = req.body || {};
+    if (!Array.isArray(resultIds) || resultIds.length === 0) {
+      return res.status(400).json({ success: false, error: 'resultIds[] is required.' });
+    }
+
+    await db.update(results)
+      .set({ status: 'published', publishedAt: new Date() })
+      .where(sql`${results.id} IN ${resultIds}`);
+
+    await logAudit({ 
+      req, 
+      action: 'exam_officer.publish_results', 
+      after: { count: resultIds.length, resultIds } 
+    });
+
+    return res.json({ success: true, message: `${resultIds.length} results published successfully.` });
+  } catch (err) {
+    console.error('[exam-officer/publish] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

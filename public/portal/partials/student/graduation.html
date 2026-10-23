@@ -1,127 +1,179 @@
 <!-- Portal → Student → Graduation -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">🎓</div>
-    <div>
-      <h1>Graduation Status</h1>
-      <div class="sub">Your graduation clearance</div>
+<div style="padding:0;">
+
+  <!-- HEADER BANNER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">🎓</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">Graduation Status</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Check eligibility and apply for graduation</div>
+      </div>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <button class="btn btn-outline btn-sm" id="sg-refresh">Refresh</button>
-</div>
-
-<section class="panel">
-  <div class="panel-head"><h3>Status</h3></div>
-  <div class="panel-body" id="sg-content">
-    <div class="loading"><span class="spinner"></span> Loading…</div>
+  <!-- ACTION -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <button id="grad-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
   </div>
-</section>
+
+  <!-- MAIN CONTENT -->
+  <div id="grad-content">
+    <div style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</div>
+  </div>
+</div>
 
 <script>
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => (core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s));
-
-  const STATUS_COPY = {
-    pending:   'Your graduation application is being reviewed by the Registrar.',
-    approved:  'You have been approved for graduation. Awaiting convocation.',
-    graduated: 'Congratulations — you have graduated!',
-    rejected:  'Your graduation application was not approved.',
-    hod_verified: 'Your records are verified. Awaiting final approval.',
-  };
-
-  function fmtDate(d) {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   async function load() {
-    const box = $('sg-content');
-    if (!box) return;
-    box.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-
     try {
       const res = await core.portalFetch('/api/student/graduation');
-      const d = (res && res.data) || null;
+      const d = res.data || {};
+      const el = d.eligibility || {};
+      const c = $('grad-content');
 
-      // ---------- Empty state ----------
-      if (!d) {
-        box.innerHTML = `
-          <div style="text-align:center;padding:2rem 1rem;">
-            <div style="font-size:3rem;margin-bottom:.75rem;">🎓</div>
-            <h3 style="margin:0 0 .5rem;color:#0f172a;">Not Yet a Graduation Candidate</h3>
-            <p class="muted" style="max-width:420px;margin:0 auto;">
-              You'll appear here once the Registrar queues you for graduation after your final results are published.
-              If you believe this is an error, contact the Registrar's office.
-            </p>
-          </div>`;
-        return;
+      const isEligible = el.overall;
+      const application = d.application;
+
+      // Status banner color
+      const bannerBg = isEligible ? '#ecfdf5' : '#fef3c7';
+      const bannerBorder = isEligible ? '#bbf7d0' : '#fde68a';
+      const bannerColor = isEligible ? '#065f46' : '#92400e';
+      const bannerIcon = isEligible ? '✅' : '⏳';
+      const bannerTitle = isEligible ? 'You are eligible for graduation!' : 'Not yet eligible for graduation';
+      const bannerMsg = isEligible 
+        ? 'You have met all requirements. You can now apply for graduation.' 
+        : 'Complete the pending requirements below to become eligible.';
+
+      let applicationBlock = '';
+      if (application) {
+        const statusColor = application.status === 'approved' ? '#065f46' : application.status === 'rejected' ? '#991b1b' : '#92400e';
+        const statusBg = application.status === 'approved' ? '#ecfdf5' : application.status === 'rejected' ? '#fee2e2' : '#fef3c7';
+        const statusLabel = application.status === 'approved' ? 'Approved' : application.status === 'rejected' ? 'Rejected' : 'Pending Review';
+
+        applicationBlock = `
+          <div style="background:${statusBg};border-radius:12px;padding:1rem;margin-top:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-weight:800;color:${statusColor};font-size:.9rem;">Application Status</div>
+                <div style="font-size:.78rem;color:${statusColor};margin-top:.25rem;">
+                  Submitted on ${fmtDate(application.approvedAt || new Date())}
+                </div>
+              </div>
+              <div style="background:${statusColor};color:#fff;padding:.35rem .8rem;border-radius:99px;font-size:.7rem;font-weight:800;text-transform:uppercase;">${statusLabel}</div>
+            </div>
+            ${application.status === 'approved' 
+              ? `<div style="margin-top:.75rem;font-size:.82rem;color:${statusColor};">🎓 Congratulations! You have been approved for graduation. The degree certificate will be issued shortly.</div>` 
+              : application.status === 'rejected' 
+                ? `<div style="margin-top:.75rem;font-size:.82rem;color:${statusColor};">Your application was not approved. Please contact the Registrar's office for more information.</div>`
+                : `<div style="margin-top:.75rem;font-size:.82rem;color:${statusColor};">Your application is being reviewed by the Registrar's office.</div>`
+            }
+          </div>
+        `;
       }
 
-      // ---------- Badge class ----------
-      const badge =
-        d.status === 'graduated' ? 'badge-active' :
-        d.status === 'rejected'  ? 'badge-inactive' :
-        'badge-warning';
-
-      // ---------- Field values (with sensible fallbacks) ----------
-      const cgpa       = d.cgpa != null ? Number(d.cgpa).toFixed(2) : '—';
-      const classText  = d.classification || '—';
-      const programme  = d.programmeName || '—';
-      const department = d.departmentName || '—';
-      const session    = d.sessionName || '—';
-      const level      = d.level || '—';
-      const approvedAt = d.approvedAt ? fmtDate(d.approvedAt) : '—';
-      const remarks    = d.remarks || '—';
-      const copy       = STATUS_COPY[d.status] || '';
-
-      // ---------- Render ----------
-      box.innerHTML = `
-        <p class="muted" style="margin:0 0 1rem;">${esc(copy)}</p>
-
-        <div class="fees-breakdown">
-          <div class="fees-row">
-            <span>Status</span>
-            <strong><span class="badge-status ${badge}">${esc(d.status || 'pending')}</span></strong>
+      c.innerHTML = `
+        <!-- ELIGIBILITY BANNER -->
+        <div style="background:${bannerBg};border:1px solid ${bannerBorder};border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;">
+          <div style="display:flex;gap:.75rem;align-items:flex-start;">
+            <div style="font-size:2rem;line-height:1;">${bannerIcon}</div>
+            <div style="flex:1;">
+              <div style="font-weight:800;color:${bannerColor};font-size:1rem;">${bannerTitle}</div>
+              <div style="font-size:.82rem;color:${bannerColor};margin-top:.25rem;">${bannerMsg}</div>
+            </div>
           </div>
-          <div class="fees-row"><span>Level</span><strong>${esc(level)}</strong></div>
-          <div class="fees-row"><span>Programme</span><strong>${esc(programme)}</strong></div>
-          <div class="fees-row"><span>Department</span><strong>${esc(department)}</strong></div>
-          <div class="fees-row"><span>Session</span><strong>${esc(session)}</strong></div>
-          <div class="fees-row"><span>CGPA</span><strong>${cgpa}</strong></div>
-          <div class="fees-row"><span>Classification</span><strong>${esc(classText)}</strong></div>
-          <div class="fees-row"><span>Approved</span><strong>${esc(approvedAt)}</strong></div>
-          <div class="fees-row"><span>Remarks</span><strong>${esc(remarks)}</strong></div>
         </div>
 
-        ${d.status === 'graduated' ? `
-          <div style="margin-top:1.5rem;text-align:center;">
-            <button class="btn btn-primary" id="sg-statement">
-              📄 Request Statement of Result
-            </button>
-          </div>` : ''}
+        <!-- SUMMARY TILES -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.25rem;">
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">CGPA</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;" id="grad-cgpa">${esc(d.cgpa || '0.00')}</div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">${esc(d.classification || '—')}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Level</div>
+            <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;">${esc(d.student?.level || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">${esc(d.student?.matricNumber || '—')}</div>
+          </div>
+          <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+            <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Classification</div>
+            <div style="font-size:1rem;font-weight:800;color:#065f46;margin-top:.4rem;">${esc(d.classification || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">Based on CGPA</div>
+          </div>
+        </div>
+
+        <!-- REQUIREMENTS CHECKLIST -->
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:1.25rem;">
+          <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+            <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Graduation Requirements</div>
+          </div>
+          <div style="padding:1rem;">
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 0;border-bottom:1px solid #f1f5f9;">
+              <div style="width:28px;height:28px;border-radius:50%;background:${el.cgpa ? '#d1fae5' : '#fee2e2'};color:${el.cgpa ? '#065f46' : '#991b1b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;">${el.cgpa ? '✓' : '✗'}</div>
+              <div style="flex:1;">
+                <div style="font-weight:700;color:#0f172a;font-size:.85rem;">Minimum CGPA of 2.00</div>
+                <div style="font-size:.75rem;color:#64748b;">Your CGPA: ${esc(d.cgpa || '0.00')}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 0;border-bottom:1px solid #f1f5f9;">
+              <div style="width:28px;height:28px;border-radius:50%;background:${el.fees ? '#d1fae5' : '#fee2e2'};color:${el.fees ? '#065f46' : '#991b1b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;">${el.fees ? '✓' : '✗'}</div>
+              <div style="flex:1;">
+                <div style="font-weight:700;color:#0f172a;font-size:.85rem;">All Fees Cleared</div>
+                <div style="font-size:.75rem;color:#64748b;">${el.fees ? 'All fees have been paid' : 'Outstanding fees must be paid'}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem 0;">
+              <div style="width:28px;height:28px;border-radius:50%;background:${el.clearances ? '#d1fae5' : '#fee2e2'};color:${el.clearances ? '#065f46' : '#991b1b'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;">${el.clearances ? '✓' : '✗'}</div>
+              <div style="flex:1;">
+                <div style="font-weight:700;color:#0f172a;font-size:.85rem;">All Clearances Approved</div>
+                <div style="font-size:.75rem;color:#64748b;">${el.clearances ? 'All clearances are approved' : 'Pending clearances must be resolved'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        ${applicationBlock}
+
+        ${isEligible && !application 
+          ? `<div style="text-align:center;margin-top:1.25rem;">
+              <button id="grad-apply" style="padding:.75rem 2rem;font-size:.9rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🎓 Apply for Graduation</button>
+            </div>`
+          : ''}
       `;
 
-      // Wire the optional CTA
-      const btn = $('sg-statement');
-      if (btn) {
-        btn.addEventListener('click', () => {
-          window.location.hash = '#student-documents';
-        });
-      }
+      // Wire apply button
+      $('grad-apply')?.addEventListener('click', async () => {
+        if (!confirm('Submit your graduation application? This will be reviewed by the Registrar.')) return;
+
+        const btn = $('grad-apply');
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+
+        try {
+          await core.portalFetch('/api/student/graduation/apply', { method: 'POST' });
+          core.showToast && core.showToast('Graduation application submitted!', 'success');
+          load();
+        } catch (err) {
+          core.showToast && core.showToast(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = '🎓 Apply for Graduation';
+        }
+      });
+
     } catch (err) {
-      console.warn('[student-graduation]', err.message);
-      box.innerHTML = '<p class="muted" style="text-align:center;padding:2rem;">Could not load graduation status.</p>';
+      console.error('[student/graduation] Error:', err);
+      $('grad-content').innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
     }
   }
 
-  $('sg-refresh')?.addEventListener('click', load);
+  $('grad-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>

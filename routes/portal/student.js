@@ -656,4 +656,167 @@ router.get('/verify/student/:matric', async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/graduation
+// ============================================================
+router.get('/graduation', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+
+    // 1. Get student info
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // 2. Check for existing graduation record
+    const [existing] = await db.execute(sql`
+      SELECT id, session_id AS "sessionId", level, cgpa, classification, status, approved_at AS "approvedAt"
+      FROM graduations
+      WHERE student_id = ${studentId}
+      ORDER BY id DESC
+      LIMIT 1
+    `);
+
+    // 3. Calculate CGPA from published results
+    const results = await db
+      .select({ unit: courses.unit, points: results.points })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .where(and(eq(results.studentId, studentId), eq(results.status, 'published')));
+
+    let totalPoints = 0, totalUnits = 0;
+    results.forEach(r => {
+      const unit = Number(r.unit) || 0;
+      const points = Number(r.points) || 0;
+      totalPoints += (points * unit);
+      totalUnits += unit;
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+
+    // 4. Check fee status
+    let feesCleared = false;
+    try {
+      const paymentQueries = require('../../db/queries/payments');
+      const sessionId = req.user.currentSessionId || 1;
+      const feeStructure = await paymentQueries.findFeeStructureWithFallback({
+        programmeId: student.programmeId,
+        level: student.level || 'ND',
+        sessionId,
+      });
+      const totalDue = Number(feeStructure?.total || 0);
+      const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
+      feesCleared = totalDue === 0 || totalPaid >= totalDue;
+    } catch (e) {
+      console.warn('[student/graduation] Fee check failed:', e.message);
+    }
+
+    // 5. Check clearances
+    let clearancesOk = false;
+    try {
+      const clrRows = await db.execute(sql`
+        SELECT status FROM clearances WHERE student_id = ${studentId}
+      `);
+      const total = clrRows.rows.length;
+      const approved = clrRows.rows.filter(c => c.status === 'approved' || c.status === 'cleared').length;
+      clearancesOk = total === 0 || approved === total;
+    } catch (e) {
+      console.warn('[student/graduation] Clearance check failed:', e.message);
+    }
+
+    // 6. Eligibility
+    const cgpaNum = parseFloat(cgpa);
+    const isEligible = cgpaNum >= 2.00 && feesCleared && clearancesOk;
+
+    // 7. Classification
+    let classification = '';
+    if (cgpaNum >= 3.50) classification = 'Distinction';
+    else if (cgpaNum >= 3.00) classification = 'Upper Credit';
+    else if (cgpaNum >= 2.50) classification = 'Lower Credit';
+    else if (cgpaNum >= 2.00) classification = 'Pass';
+    else classification = 'Fail';
+
+    return res.json({
+      success: true,
+      data: {
+        student: {
+          firstName: student.firstName,
+          lastName: student.lastName,
+          matricNumber: (student.matricNumber || '').replace(/SMT/gi, '').trim(),
+          level: student.level,
+        },
+        cgpa,
+        classification,
+        eligibility: {
+          cgpa: cgpaNum >= 2.00,
+          fees: feesCleared,
+          clearances: clearancesOk,
+          overall: isEligible,
+        },
+        application: existing?.rows?.[0] || null,
+      }
+    });
+  } catch (err) {
+    console.error('[student/graduation] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/student/graduation/apply
+// ============================================================
+router.post('/graduation/apply', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // Check no existing application
+    const existing = await db.execute(sql`
+      SELECT id FROM graduations WHERE student_id = ${studentId} LIMIT 1
+    `);
+    if (existing.rows.length) {
+      return res.status(400).json({ success: false, error: 'You have already applied for graduation.' });
+    }
+
+    // Calculate CGPA and classification
+    const results = await db
+      .select({ unit: courses.unit, points: results.points })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .where(and(eq(results.studentId, studentId), eq(results.status, 'published')));
+
+    let totalPoints = 0, totalUnits = 0;
+    results.forEach(r => {
+      const unit = Number(r.unit) || 0;
+      totalPoints += ((Number(r.points) || 0) * unit);
+      totalUnits += unit;
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+    const cgpaNum = parseFloat(cgpa);
+
+    if (cgpaNum < 2.00) {
+      return res.status(400).json({ success: false, error: 'Minimum CGPA of 2.00 required to apply for graduation.' });
+    }
+
+    let classification = 'Fail';
+    if (cgpaNum >= 3.50) classification = 'Distinction';
+    else if (cgpaNum >= 3.00) classification = 'Upper Credit';
+    else if (cgpaNum >= 2.50) classification = 'Lower Credit';
+    else if (cgpaNum >= 2.00) classification = 'Pass';
+
+    // Insert graduation record
+    const row = await db.execute(sql`
+      INSERT INTO graduations (student_id, session_id, programme_id, level, cgpa, classification, status)
+      VALUES (${studentId}, ${sessionId}, ${student.programmeId || null}, ${student.level}, ${cgpa}, ${classification}, 'pending')
+      RETURNING id, session_id AS "sessionId", level, cgpa, classification, status
+    `);
+
+    return res.status(201).json({ success: true, data: row.rows[0] });
+  } catch (err) {
+    console.error('[student/graduation/apply] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -4,10 +4,18 @@
     <div class="avatar">📅</div>
     <div>
       <h1>Allocations History</h1>
-      <div class="sub">Past course assignments in your department</div>
+      <div class="sub">Manage past and current course assignments</div>
     </div>
   </div>
 </section>
+
+<!-- Quick Pills -->
+<div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+  <button class="status-pill active" data-status="">All (<span id="pill-all">0</span>)</button>
+  <button class="status-pill" data-status="accepted" style="color:#065f46;">Accepted (<span id="pill-accepted">0</span>)</button>
+  <button class="status-pill" data-status="flagged" style="color:#991b1b;">Flagged (<span id="pill-flagged">0</span>)</button>
+  <button class="status-pill" data-status="assigned" style="color:#92400e;">Pending (<span id="pill-assigned">0</span>)</button>
+</div>
 
 <!-- Filter bar -->
 <div class="filter-bar">
@@ -23,29 +31,23 @@
     <option value="second">Second</option>
   </select>
 
-  <select id="hist-status">
-    <option value="">All Status</option>
-    <option value="assigned">Assigned</option>
-    <option value="accepted">Accepted</option>
-    <option value="flagged">Flagged</option>
-  </select>
-
   <button class="btn btn-outline btn-sm" id="hist-refresh">↻ Refresh</button>
   <button class="btn btn-outline btn-sm" id="hist-export">Export CSV</button>
+</div>
+
+<!-- Bulk Action Bar (Hidden by default) -->
+<div id="bulk-bar" style="display:none;background:#065f46;color:#fff;padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;align-items:center;justify-content:space-between;">
+  <span id="bulk-count">0</span> rows selected
+  <div style="display:flex;gap:.5rem;">
+    <button id="bulk-accept" style="background:#10b981;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer;">Force Accept</button>
+    <button id="bulk-delete" style="background:#ef4444;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer;">Delete</button>
+  </div>
 </div>
 
 <div class="stat-grid">
   <div class="stat">
     <div class="meta"><span class="label">Total Allocations</span><span class="value" id="hist-total">—</span></div>
     <div class="ic">📅</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">Accepted</span><span class="value" id="hist-accepted">—</span></div>
-    <div class="ic">✅</div>
-  </div>
-  <div class="stat red">
-    <div class="meta"><span class="label">Flagged</span><span class="value" id="hist-flagged">—</span></div>
-    <div class="ic">🚩</div>
   </div>
 </div>
 
@@ -59,6 +61,7 @@
       <table class="data-table">
         <thead>
           <tr>
+            <th style="width:40px;"><input type="checkbox" id="select-all" /></th>
             <th>Session</th>
             <th>Course</th>
             <th>Lecturer</th>
@@ -68,12 +71,18 @@
           </tr>
         </thead>
         <tbody id="hist-tbody">
-          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
+
+<style>
+  .status-pill { padding: .4rem .8rem; border-radius: 99px; font-size: .75rem; font-weight: 700; border: 1px solid #e5e7eb; background: #fff; cursor: pointer; color: #475569; }
+  .status-pill.active { background: #065f46; color: #fff; border-color: #065f46; }
+  .status-pill:hover:not(.active) { background: #f1f5f9; }
+</style>
 
 <script>
 (function () {
@@ -85,13 +94,14 @@
 
   let ALL = [];
   let FILTERED = [];
+  let CURRENT_STATUS = '';
 
   function render() {
     $('hist-count').textContent = FILTERED.length;
     const tbody = $('hist-tbody');
 
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No allocation history found matching your filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No allocation history found matching your filters.</td></tr>';
       return;
     }
 
@@ -103,6 +113,7 @@
 
       return `
         <tr>
+          <td style="text-align:center;"><input type="checkbox" class="row-check" data-id="${r.id}" /></td>
           <td>${esc(r.sessionName || '—')}</td>
           <td><strong>${esc(r.courseCode)}</strong><br><span style="font-size:.72rem;color:#64748b;">${esc(r.courseTitle)}</span></td>
           <td>${esc(r.lecturerName)}</td>
@@ -112,12 +123,49 @@
         </tr>
       `;
     }).join('');
+
+    // Re-bind checkboxes
+    tbody.querySelectorAll('.row-check').forEach(cb => {
+      cb.addEventListener('change', updateBulkBar);
+    });
   }
 
-  function updateStats() {
-    $('hist-total').textContent = ALL.length;
-    $('hist-accepted').textContent = ALL.filter(r => r.status === 'accepted').length;
-    $('hist-flagged').textContent = ALL.filter(r => r.status === 'flagged').length;
+  function updatePills() {
+    $('pill-all').textContent = ALL.length;
+    $('pill-accepted').textContent = ALL.filter(r => r.status === 'accepted').length;
+    $('pill-flagged').textContent = ALL.filter(r => r.status === 'flagged').length;
+    $('pill-assigned').textContent = ALL.filter(r => r.status === 'assigned').length;
+  }
+
+  function updateBulkBar() {
+    const checked = document.querySelectorAll('.row-check:checked').length;
+    const bar = $('bulk-bar');
+    if (checked > 0) {
+      bar.style.display = 'flex';
+      $('bulk-count').textContent = checked;
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  function applyFilter() {
+    const q = ($('hist-search').value || '').trim().toLowerCase();
+    const ses = $('hist-session').value;
+    const sem = $('hist-semester').value;
+
+    FILTERED = ALL.filter(r => {
+      const hay = `${r.courseCode} ${r.lecturerName} ${r.sessionName}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (ses && r.sessionName !== ses) return false;
+      if (sem && String(r.semester).toLowerCase() !== sem) return false;
+      if (CURRENT_STATUS && r.status !== CURRENT_STATUS) return false;
+      return true;
+    });
+
+    // Reset select all
+    $('select-all').checked = false;
+    updateBulkBar();
+    render();
   }
 
   function populateSessions() {
@@ -127,61 +175,76 @@
       sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   }
 
-  function applyFilter() {
-    const q = ($('hist-search').value || '').trim().toLowerCase();
-    const ses = $('hist-session').value;
-    const sem = $('hist-semester').value;
-    const stat = $('hist-status').value;
-
-    FILTERED = ALL.filter(r => {
-      const hay = `${r.courseCode} ${r.lecturerName} ${r.sessionName}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (ses && r.sessionName !== ses) return false;
-      if (sem && String(r.semester).toLowerCase() !== sem) return false;
-      if (stat && r.status !== stat) return false;
-      return true;
-    });
-    render();
-  }
-
   async function load() {
-    $('hist-tbody').innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    $('hist-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/hod/allocations/history');
       ALL = res.data || [];
       
-      updateStats();
+      $('hist-total').textContent = ALL.length;
+      updatePills();
       populateSessions();
       applyFilter();
     } catch (err) {
-      $('hist-tbody').innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+      $('hist-tbody').innerHTML = `<tr><td colspan="7" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  function exportCsv() {
-    const headers = ['Session', 'Course Code', 'Course Title', 'Lecturer', 'Semester', 'Status', 'Date Assigned'];
-    const rows = FILTERED.map(r => [
-      r.sessionName || '', r.courseCode, r.courseTitle, r.lecturerName, r.semester, r.status, fmtDate(r.assignedAt)
-    ]);
+  async function forceAcceptSelected() {
+    const selected = Array.from(document.querySelectorAll('.row-check:checked')).map(cb => Number(cb.dataset.id));
+    if (!selected.length) return;
+    if (!confirm(`Force accept ${selected.length} allocations?`)) return;
 
-    const csv = [headers, ...rows]
-      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `hod-allocation-history-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      for (const id of selected) {
+        await core.portalFetch(`/api/hod/allocate/${id}/force-accept`, { method: 'POST' });
+      }
+      core.showToast && core.showToast('Allocations force-accepted!', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
   }
+
+  async function deleteSelected() {
+    const selected = Array.from(document.querySelectorAll('.row-check:checked')).map(cb => Number(cb.dataset.id));
+    if (!selected.length) return;
+    if (!confirm(`Delete ${selected.length} allocations? This cannot be undone.`)) return;
+
+    try {
+      for (const id of selected) {
+        await core.portalFetch(`/api/hod/allocate/${id}`, { method: 'DELETE' });
+      }
+      core.showToast && core.showToast('Allocations deleted.', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // Wiring
+  document.querySelectorAll('.status-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.status-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      CURRENT_STATUS = btn.dataset.status;
+      applyFilter();
+    });
+  });
+
+  $('select-all')?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
+    updateBulkBar();
+  });
+
+  $('bulk-accept')?.addEventListener('click', forceAcceptSelected);
+  $('bulk-delete')?.addEventListener('click', deleteSelected);
 
   $('hist-search')?.addEventListener('input', applyFilter);
   $('hist-session')?.addEventListener('change', applyFilter);
   $('hist-semester')?.addEventListener('change', applyFilter);
-  $('hist-status')?.addEventListener('change', applyFilter);
   $('hist-refresh')?.addEventListener('click', load);
-  $('hist-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

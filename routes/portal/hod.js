@@ -22,7 +22,8 @@ const { logAudit } = require('../../utils/audit');
 
 const { 
   users, courses, courseRegistrations, results, staffProfiles, 
-  programmes, departments, courseAllocations, academicSessions
+  programmes, departments, courseAllocations, academicSessions,
+  examSchedules
 } = schema;
 
 const only = requireRole('hod', 'admin');
@@ -455,7 +456,6 @@ router.get('/allocations/history', only, async (req, res, next) => {
         courseTitle: courses.title,
         level: courses.level,
         lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
-        // Fallback to the current session name if the allocation doesn't have one
         sessionName: sql`COALESCE(${academicSessions.name}, (SELECT name FROM academic_sessions WHERE is_current = true LIMIT 1))`,
         semester: courseAllocations.semester,
         status: courseAllocations.status,
@@ -513,6 +513,117 @@ router.get('/verified-results', only, async (req, res, next) => {
 });
 
 // ============================================================
+// POST /api/hod/allocate/:id/force-accept
+// ============================================================
+router.post('/allocate/:id/force-accept', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const allocationId = Number(req.params.id);
+
+    const [alloc] = await db.select({
+      id: courseAllocations.id,
+      courseId: courseAllocations.courseId,
+    })
+    .from(courseAllocations)
+    .where(eq(courseAllocations.id, allocationId))
+    .limit(1);
+
+    if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    const [course] = await db.select({ departmentId: courses.departmentId })
+      .from(courses)
+      .where(eq(courses.id, alloc.courseId))
+      .limit(1);
+
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    await db.update(courseAllocations)
+      .set({ 
+        status: 'accepted', 
+        respondedAt: new Date(),
+        flagReason: null,
+      })
+      .where(eq(courseAllocations.id, allocationId));
+
+    await logAudit({ req, action: 'hod.force_accept_allocation', entity: 'course_allocations', entityId: allocationId });
+
+    return res.json({ success: true, message: 'Allocation force-accepted.' });
+  } catch (err) {
+    console.error('[hod/force-accept] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// DELETE /api/hod/allocate/:id
+// ============================================================
+router.delete('/allocate/:id', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const allocationId = Number(req.params.id);
+
+    const [alloc] = await db.select({
+      id: courseAllocations.id,
+      courseId: courseAllocations.courseId,
+    })
+    .from(courseAllocations)
+    .where(eq(courseAllocations.id, allocationId))
+    .limit(1);
+
+    if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
+
+    const [course] = await db.select({ departmentId: courses.departmentId })
+      .from(courses)
+      .where(eq(courses.id, alloc.courseId))
+      .limit(1);
+
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    await db.delete(courseAllocations).where(eq(courseAllocations.id, allocationId));
+    await logAudit({ req, action: 'hod.delete_allocation', entity: 'course_allocations', entityId: allocationId });
+
+    return res.json({ success: true, message: 'Allocation deleted.' });
+  } catch (err) {
+    console.error('[hod/delete-allocation] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/hod/exams
+// ============================================================
+router.get('/exams', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const rows = await db
+      .select({
+        id: examSchedules.id,
+        examDate: examSchedules.examDate,
+        startTime: examSchedules.startTime,
+        endTime: examSchedules.endTime,
+        venue: examSchedules.venue,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+      })
+      .from(examSchedules)
+      .innerJoin(courses, eq(examSchedules.courseId, courses.id))
+      .where(eq(courses.departmentId, departmentId))
+      .orderBy(examSchedules.examDate);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/exams] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/courses
 // ============================================================
 router.get('/courses', only, async (req, res, next) => {
@@ -558,52 +669,6 @@ router.get('/lecturers', only, async (req, res, next) => {
     });
     return res.json({ success: true, data: lecturers });
   } catch (err) { return next(err); }
-});
-
-// ============================================================
-// POST /api/hod/allocate/:id/force-accept
-// ============================================================
-router.post('/allocate/:id/force-accept', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-    const allocationId = Number(req.params.id);
-
-    // 1. Verify the allocation exists and belongs to the HOD's department
-    const [alloc] = await db.select({
-      id: courseAllocations.id,
-      courseId: courseAllocations.courseId,
-    })
-    .from(courseAllocations)
-    .where(eq(courseAllocations.id, allocationId))
-    .limit(1);
-
-    if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
-
-    const [course] = await db.select({ departmentId: courses.departmentId })
-      .from(courses)
-      .where(eq(courses.id, alloc.courseId))
-      .limit(1);
-
-    if (!course || Number(course.departmentId) !== Number(departmentId)) {
-      return res.status(403).json({ success: false, error: 'Not in your department.' });
-    }
-
-    // 2. Update the status to accepted
-    await db.update(courseAllocations)
-      .set({ 
-        status: 'accepted', 
-        respondedAt: new Date(),
-        flagReason: null,
-      })
-      .where(eq(courseAllocations.id, allocationId));
-
-    await logAudit({ req, action: 'hod.force_accept_allocation', entity: 'course_allocations', entityId: allocationId });
-
-    return res.json({ success: true, message: 'Allocation force-accepted.' });
-  } catch (err) {
-    console.error('[hod/force-accept] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
 });
 
 module.exports = router;

@@ -186,8 +186,6 @@
       { key: 'student-id-card',        label: 'ID Card',             icon: ICON.idcard },
       { key: 'student-graduation',     label: 'Graduation',          icon: ICON.award },
       { key: 'student-library',        label: 'Library',             icon: ICON.library },
-      { key: 'student-announcements',  label: 'Announcements',       icon: ICON.megaphone },  // ← REMOVE
-      { key: 'student-notifications',  label: 'Notifications',       icon: ICON.bell },       // ← REMOVE
     ],
     lecturer: [
       { key: 'lecturer-dashboard',   label: 'Dashboard',   icon: ICON.dash },

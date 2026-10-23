@@ -7,14 +7,19 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 
 const userQueries = require('../../db/queries/users');
 const libQueries = require('../../db/queries/library');
 const sessionQueries = require('../../db/queries/sessions');
-const { db, schema, sql } = require('../../db');
-const { eq, inArray } = require('drizzle-orm');
+const { db, schema } = require('../../db');
+const { eq, inArray, and, sql } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
+
+// Cloudinary upload
+const { storage } = require('../../utils/cloudinary');
+const upload = multer({ storage });
 
 const { books, borrowRecords, libraryFines } = schema;
 const only = requireRole('librarian', 'admin');
@@ -94,9 +99,7 @@ router.get('/dashboard', only, async (_req, res, next) => {
         reservations,
       },
     });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
 });
 
 // ============================================================
@@ -104,61 +107,96 @@ router.get('/dashboard', only, async (_req, res, next) => {
 // ============================================================
 router.get('/books', only, async (req, res, next) => {
   try {
-    const rows = await libQueries.listBooks({
-      search: req.query.search,
-      category: req.query.category,
-      availableOnly: req.query.availableOnly === 'true',
-    });
-    return res.json({ success: true, data: rows });
+    const result = await db.execute(sql`
+      SELECT id, title, author, isbn, category, publisher, year,
+             copies_total AS "copiesTotal", copies_available AS "copiesAvailable",
+             shelf, department_id AS "departmentId", is_general AS "isGeneral",
+             ebook_url AS "ebookUrl", external_url AS "externalUrl",
+             external_source AS "externalSource", description,
+             is_digital AS "isDigital", is_physical AS "isPhysical",
+             created_at AS "createdAt"
+      FROM books
+      ORDER BY title ASC
+    `);
+    return res.json({ success: true, data: result.rows || [] });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// POST /api/librarian/books  — create
+// POST /api/librarian/books — Create (supports PDF upload + external link)
 // ============================================================
-router.post('/books', only, async (req, res, next) => {
+router.post('/books', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async (req, res, next) => {
   try {
     const b = req.body || {};
     if (!b.title) {
-      return res.status(400).json({ success: false, error: 'title is required.' });
+      return res.status(400).json({ success: false, error: 'Title is required.' });
     }
+
     const copiesTotal = Math.max(1, Number(b.copiesTotal || 1));
-    const row = await libQueries.createBook({
-      title: String(b.title).trim(),
-      author: b.author || null,
-      isbn: b.isbn || null,
-      category: b.category || null,
-      publisher: b.publisher || null,
-      year: b.year ? Number(b.year) : null,
-      copiesTotal,
-      copiesAvailable: copiesTotal,
-      shelf: b.shelf || null,
-      departmentId: b.departmentId ? Number(b.departmentId) : null,
-      isGeneral: b.isGeneral !== false,
-    });
+    let ebookUrl = null;
+    if (req.files && req.files.pdf && req.files.pdf[0]) {
+      ebookUrl = req.files.pdf[0].path;
+    }
+
+    const result = await db.execute(sql`
+      INSERT INTO books (
+        title, author, isbn, category, publisher, year,
+        copies_total, copies_available, shelf, department_id, is_general,
+        ebook_url, external_url, external_source, description,
+        is_digital, is_physical
+      ) VALUES (
+        ${String(b.title).trim()}, ${b.author || null}, ${b.isbn || null},
+        ${b.category || null}, ${b.publisher || null}, ${b.year ? Number(b.year) : null},
+        ${copiesTotal}, ${copiesTotal}, ${b.shelf || null},
+        ${b.departmentId ? Number(b.departmentId) : null}, ${b.isGeneral !== 'false'},
+        ${ebookUrl}, ${b.externalUrl || null}, ${b.externalSource || null},
+        ${b.description || null},
+        ${b.isDigital === 'true'}, ${b.isPhysical !== 'false'}
+      )
+      RETURNING id, title
+    `);
+
+    const row = result.rows[0];
     await logAudit({ req, action: 'librarian.book_create', entity: 'book', entityId: row.id });
     return res.status(201).json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
 
 // ============================================================
-// PUT /api/librarian/books/:id  — update metadata
+// PUT /api/librarian/books/:id — Update (supports PDF re-upload)
 // ============================================================
-router.put('/books/:id', only, async (req, res, next) => {
+router.put('/books/:id', only, upload.fields([{ name: 'pdf', maxCount: 1 }]), async (req, res, next) => {
   try {
+    const bookId = Number(req.params.id);
     const b = req.body || {};
-    const patch = {};
-    ['title', 'author', 'isbn', 'category', 'publisher', 'shelf'].forEach((k) => {
-      if (b[k] !== undefined) patch[k] = b[k] || null;
-    });
-    if (b.year !== undefined) patch.year = b.year ? Number(b.year) : null;
-    if (b.copiesTotal !== undefined) patch.copiesTotal = Math.max(1, Number(b.copiesTotal));
-    if (b.isGeneral !== undefined) patch.isGeneral = !!b.isGeneral;
 
-    const row = await libQueries.updateBook(req.params.id, patch);
-    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
-    await logAudit({ req, action: 'librarian.book_update', entity: 'book', entityId: row.id });
-    return res.json({ success: true, data: row });
+    let ebookUrl = null;
+    if (req.files && req.files.pdf && req.files.pdf[0]) {
+      ebookUrl = req.files.pdf[0].path;
+    }
+
+    await db.execute(sql`
+      UPDATE books SET
+        title = ${String(b.title).trim()},
+        author = ${b.author || null},
+        isbn = ${b.isbn || null},
+        category = ${b.category || null},
+        publisher = ${b.publisher || null},
+        year = ${b.year ? Number(b.year) : null},
+        copies_total = ${Math.max(1, Number(b.copiesTotal || 1))},
+        shelf = ${b.shelf || null},
+        is_general = ${b.isGeneral !== 'false'},
+        ${ebookUrl ? sql`ebook_url = ${ebookUrl},` : sql``}
+        external_url = ${b.externalUrl || null},
+        external_source = ${b.externalSource || null},
+        description = ${b.description || null},
+        is_digital = ${b.isDigital === 'true'},
+        is_physical = ${b.isPhysical !== 'false'}
+      WHERE id = ${bookId}
+    `);
+
+    await logAudit({ req, action: 'librarian.book_update', entity: 'book', entityId: bookId });
+    return res.json({ success: true });
   } catch (err) { return next(err); }
 });
 
@@ -167,9 +205,8 @@ router.put('/books/:id', only, async (req, res, next) => {
 // ============================================================
 router.delete('/books/:id', only, async (req, res, next) => {
   try {
-    const row = await libQueries.removeBook(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
-    await logAudit({ req, action: 'librarian.book_delete', entity: 'book', entityId: row.id, before: row });
+    await db.execute(sql`DELETE FROM books WHERE id = ${Number(req.params.id)}`);
+    await logAudit({ req, action: 'librarian.book_delete', entity: 'book', entityId: req.params.id });
     return res.json({ success: true });
   } catch (err) {
     if (err && /foreign key|violates/i.test(err.message || '')) {
@@ -183,14 +220,12 @@ router.delete('/books/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
-// POST /api/librarian/books/:id/adjust  — { delta: ±N }
-// Adjusts physical inventory (both copiesTotal and copiesAvailable).
-// The borrow lifecycle uses adjustCopies; this uses changeInventory.
+// POST /api/librarian/books/:id/adjust — { delta: ±N }
 // ============================================================
 router.post('/books/:id/adjust', only, async (req, res, next) => {
   try {
     const delta = Number(req.body?.delta || 0);
-    if (!delta) return res.status(400).json({ success: false, error: 'delta must be a non-zero number.' });
+    if (!delta) return res.status(400).json({ success: false, error: 'delta must be non-zero.' });
     const row = await libQueries.changeInventory(req.params.id, delta);
     if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
     await logAudit({ req, action: 'librarian.book_adjust', entity: 'book', entityId: row.id });
@@ -226,11 +261,7 @@ router.get('/reservations', only, async (req, res, next) => {
 // ============================================================
 router.post('/reservations/:id/ready', only, async (req, res, next) => {
   try {
-    const row = await libQueries.updateReservationStatus(
-      req.params.id,
-      'ready',
-      { readyAt: new Date() }
-    );
+    const row = await libQueries.updateReservationStatus(req.params.id, 'ready', { readyAt: new Date() });
     if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
     await logAudit({ req, action: 'librarian.reservation_ready', entity: 'book_reservation', entityId: row.id });
     return res.json({ success: true, data: row });
@@ -242,11 +273,7 @@ router.post('/reservations/:id/ready', only, async (req, res, next) => {
 // ============================================================
 router.post('/reservations/:id/fulfill', only, async (req, res, next) => {
   try {
-    const row = await libQueries.updateReservationStatus(
-      req.params.id,
-      'fulfilled',
-      { fulfilledAt: new Date() }
-    );
+    const row = await libQueries.updateReservationStatus(req.params.id, 'fulfilled', { fulfilledAt: new Date() });
     if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
     await logAudit({ req, action: 'librarian.reservation_fulfill', entity: 'book_reservation', entityId: row.id });
     return res.json({ success: true, data: row });
@@ -284,12 +311,7 @@ router.post('/fines/:id/pay', only, async (req, res, next) => {
   try {
     const row = await libQueries.payFine(req.params.id);
     if (!row) return res.status(404).json({ success: false, error: 'Fine not found.' });
-    await logAudit({
-      req,
-      action: 'librarian.fine_paid',
-      entity: 'library_fine',
-      entityId: row.id,
-    });
+    await logAudit({ req, action: 'librarian.fine_paid', entity: 'library_fine', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });

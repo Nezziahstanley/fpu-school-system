@@ -15,7 +15,7 @@
   <!-- ACTIONS -->
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
     <button id="fee-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    <button id="fee-print" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">🖨 Print Receipt</button>
+    <button id="fee-print" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Receipt</button>
   </div>
 
   <!-- STAT TILES -->
@@ -28,7 +28,7 @@
       </div>
     </div>
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✅</div>
+      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✅</div>
       <div>
         <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-paid">₦0</div>
         <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Paid</div>
@@ -42,7 +42,7 @@
       </div>
     </div>
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📋</div>
+      <div style="width:40px;height:40px;border-radius:10px;background:#f3e8ff;color:#6b21a8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📋</div>
       <div>
         <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-payments">0</div>
         <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Payments</div>
@@ -93,6 +93,8 @@
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
   const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+  let LAST_DATA = null;
+
   async function load() {
     const tbody = $('fee-tbody');
     tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading payment history…</td></tr>';
@@ -100,9 +102,9 @@
     try {
       const res = await core.portalFetch('/api/student/fees');
       const d = res.data || {};
+      LAST_DATA = d;
       const payments = d.payments || [];
 
-      // Update tiles
       $('stat-due').textContent = fmtMoney(d.totalDue || 0);
       $('stat-paid').textContent = fmtMoney(d.totalPaid || 0);
       $('stat-balance').textContent = fmtMoney(d.balance || 0);
@@ -141,8 +143,145 @@
     }
   }
 
+  // ============================================================
+  // Print Receipt — Opens a beautifully formatted receipt
+  // ============================================================
+  async function printReceipt() {
+    if (!LAST_DATA) {
+      core.showToast && core.showToast('Please wait for the fee data to load.', 'warning');
+      return;
+    }
+
+    const d = LAST_DATA;
+    const payments = d.payments || [];
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    const studentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Student';
+    const matric = (user.matricNumber || '').replace(/SMT/gi, '').trim() || '—';
+    const level = user.level || '—';
+    const today = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+
+    const paymentRows = payments.length
+      ? payments.map(p => `
+          <tr>
+            <td style="padding:8px;border-bottom:1px solid #eee;">${fmtDate(p.date)}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;">${esc(p.reference)}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:700;">${fmtMoney(p.amount)}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-transform:capitalize;">${esc(p.method)}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;text-transform:capitalize;">${esc(p.status)}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="5" style="padding:20px;text-align:center;color:#888;">No payments recorded yet.</td></tr>';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Fee Receipt — ${esc(studentName)}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; color: #0f172a; padding: 40px; max-width: 800px; margin: 0 auto; }
+          .header { display: flex; align-items: center; gap: 16px; border-bottom: 3px solid #065f46; padding-bottom: 16px; margin-bottom: 24px; }
+          .logo { width: 60px; height: 60px; background: #065f46; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 24px; }
+          .school-name { font-size: 20px; font-weight: 800; color: #065f46; }
+          .school-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+          .receipt-title { text-align: right; margin-left: auto; }
+          .receipt-title h1 { font-size: 18px; color: #065f46; text-transform: uppercase; letter-spacing: 1px; }
+          .receipt-title p { font-size: 12px; color: #64748b; margin-top: 4px; }
+          .student-info { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 13px; }
+          .info-grid .label { color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+          .info-grid .value { font-weight: 700; color: #0f172a; font-size: 14px; }
+          .summary { display: flex; gap: 12px; margin-bottom: 24px; }
+          .summary-card { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center; }
+          .summary-card .label { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: .5px; }
+          .summary-card .value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+          .summary-card.due .value { color: #065f46; }
+          .summary-card.paid .value { color: #1e40af; }
+          .summary-card.balance .value { color: #991b1b; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background: #065f46; color: #fff; padding: 10px 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+          th:first-child { border-radius: 6px 0 0 0; }
+          th:last-child { border-radius: 0 6px 0 0; }
+          .footer { margin-top: 32px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px dashed #e5e7eb; padding-top: 16px; }
+          .signature { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; }
+          .signature-line { border-top: 1px solid #333; width: 200px; padding-top: 4px; text-align: center; color: #64748b; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">F</div>
+          <div>
+            <div class="school-name">Federal Polytechnic Ugep</div>
+            <div class="school-sub">Fee Payment Receipt</div>
+          </div>
+          <div class="receipt-title">
+            <h1>Receipt</h1>
+            <p>Issued: ${today}</p>
+          </div>
+        </div>
+
+        <div class="student-info">
+          <div class="info-grid">
+            <div><div class="label">Student Name</div><div class="value">${esc(studentName)}</div></div>
+            <div><div class="label">Matric Number</div><div class="value">${esc(matric)}</div></div>
+            <div><div class="label">Level</div><div class="value">${esc(level)}</div></div>
+            <div><div class="label">Session</div><div class="value">2026/2027</div></div>
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-card due">
+            <div class="label">Total Fees Due</div>
+            <div class="value">${fmtMoney(d.totalDue || 0)}</div>
+          </div>
+          <div class="summary-card paid">
+            <div class="label">Total Paid</div>
+            <div class="value">${fmtMoney(d.totalPaid || 0)}</div>
+          </div>
+          <div class="summary-card balance">
+            <div class="label">Outstanding Balance</div>
+            <div class="value">${fmtMoney(d.balance || 0)}</div>
+          </div>
+        </div>
+
+        <h3 style="font-size:14px;margin-bottom:8px;color:#0f172a;">Payment History</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Reference</th><th style="text-align:right;">Amount</th><th>Method</th><th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>${paymentRows}</tbody>
+        </table>
+
+        <div class="signature">
+          <div><div class="signature-line">Student Signature</div></div>
+          <div><div class="signature-line">Bursar Signature</div></div>
+        </div>
+
+        <div class="footer">
+          This is a computer-generated receipt and does not require a physical stamp.<br>
+          Generated on ${today} — Federal Polytechnic Ugep
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        <\/script>
+      </body>
+      </html>
+    `;
+
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  }
+
   $('fee-refresh')?.addEventListener('click', load);
-  $('fee-print')?.addEventListener('click', () => window.print());
+  $('fee-print')?.addEventListener('click', printReceipt);
 
   load();
 })();

@@ -1,170 +1,164 @@
 <!-- Portal → Librarian → Dashboard -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar" id="lib-dash-avatar">L</div>
-    <div>
-      <h1>Welcome, <span id="lib-dash-name">Librarian</span></h1>
-      <div class="sub">Library Services</div>
+<div style="padding:0;">
+
+  <!-- HEADER BANNER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📚</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">Welcome, <span id="lib-name">Librarian</span></div>
+        <div style="font-size:.82rem;color:#d1fae5;">Library Services</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:1.1rem;font-weight:800;">Library</div>
+      <div style="font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">Unit</div>
     </div>
   </div>
-  <div class="meta">
-    <strong>Library</strong>
-    <span>Unit</span>
-  </div>
-</section>
 
-<div class="tile-grid">
-  <div class="tile">
-    <div class="tile-label">Total Books</div>
-    <div class="tile-value" id="lib-t-books">—</div>
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Total Books</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-books">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Active Borrows</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-active">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Overdue</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#991b1b;line-height:1;" id="stat-overdue">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;">Outstanding Fines</div>
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-fines">₦—</div>
+    </div>
   </div>
-  <div class="tile tile-blue">
-    <div class="tile-label">Active Borrows</div>
-    <div class="tile-value" id="lib-t-borrows">—</div>
+
+  <!-- TAB BUTTONS (Navigation) -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <a href="#librarian-books" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:99px;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">📚 Books</a>
+    <a href="#librarian-reservations" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:99px;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">🔖 Reservations</a>
+    <a href="#librarian-fines" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:99px;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">💰 Fines</a>
+    <a href="#librarian-borrows" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:99px;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">📖 Borrows</a>
   </div>
-  <div class="tile tile-accent">
-    <div class="tile-label">Overdue</div>
-    <div class="tile-value" id="lib-t-overdue">—</div>
+
+  <!-- RECENT BORROWS TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:1rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Recent Borrows</div>
+      <a href="#librarian-borrows" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View all →</a>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Book</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Due</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-borrows-tbody">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
-  <div class="tile tile-purple">
-    <div class="tile-label">Outstanding Fines (₦)</div>
-    <div class="tile-value" id="lib-t-fines">—</div>
+
+  <!-- RECENT RESERVATIONS TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Reservations Awaiting Action</div>
+      <a href="#librarian-reservations" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">View all →</a>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Book</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Reserved</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="recent-reservations-tbody">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
-
-<div class="quick-actions">
-  <a class="btn btn-primary btn-sm" href="#admin-library">📚 Books</a>
-  <a class="btn btn-outline btn-sm" href="#librarian-reservations">📖 Reservations</a>
-  <a class="btn btn-outline btn-sm" href="#librarian-fines">💰 Fines</a>
-  <a class="btn btn-outline btn-sm" href="#admin-borrows">📤 Borrows</a>
-</div>
-
-<div class="panel">
-  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin:0;">Recent Borrows</h3>
-    <a class="btn btn-outline btn-sm" href="#admin-borrows">View all →</a>
-  </div>
-  <div class="panel-body">
-    <div id="lib-recent-borrows" class="muted small">Loading…</div>
-  </div>
-</div>
-
-<div class="panel">
-  <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
-    <h3 style="margin:0;">Reservations Awaiting Action</h3>
-    <a class="btn btn-outline btn-sm" href="#librarian-reservations">View all →</a>
-  </div>
-  <div class="panel-body">
-    <div id="lib-reservations" class="muted small">Loading…</div>
-  </div>
-</div>
-
-<style>
-  .lib-tbl { width: 100%; border-collapse: collapse; font-size: .85rem; }
-  .lib-tbl th {
-    text-align: left; padding: .55rem .5rem; font-size: .68rem;
-    font-weight: 800; color: #64748b; text-transform: uppercase;
-    letter-spacing: .05em; border-bottom: 2px solid #e5e7eb;
-  }
-  .lib-tbl td { padding: .65rem .5rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
-  .lib-tbl tr:last-child td { border-bottom: none; }
-  .lib-chip {
-    display: inline-block; padding: 3px 9px; border-radius: 99px;
-    font-size: .65rem; font-weight: 800; text-transform: uppercase;
-    letter-spacing: .05em;
-  }
-  .lib-chip.borrowed { background: #dbeafe; color: #1e40af; }
-  .lib-chip.overdue  { background: #fee2e2; color: #991b1b; }
-  .lib-chip.returned { background: #d1fae5; color: #065f46; }
-  .lib-chip.pending  { background: #fef3c7; color: #92400e; }
-  .lib-chip.other    { background: #f1f5f9; color: #475569; }
-  .lib-empty { padding: 1.5rem 1rem; text-align: center; color: #94a3b8; font-size: .85rem; }
-  .lib-err {
-    padding: .85rem 1rem; background: #fef2f2; border: 1px solid #fecaca;
-    border-radius: 10px; color: #991b1b; font-size: .82rem;
-  }
-</style>
 
 <script>
-  (async function () {
-    'use strict';
-    var core = window.FPU_PORTAL || {};
-    var photo = window.FPU_PHOTO;
-    var $ = function (id) { return document.getElementById(id); };
-    var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
-    var money = function (n) { return core.formatMoney ? core.formatMoney(n) : '₦' + Number(n || 0).toLocaleString(); };
-    var dateFmt = function (d) { return core.formatDate ? core.formatDate(d) : (d ? new Date(d).toLocaleDateString() : ''); };
-    var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
-    var user = (core.getPortalUser && core.getPortalUser()) || {};
-
-    // Greeting + avatar
+  async function load() {
     try {
-      var firstName = user.firstName || user.first_name || 'Librarian';
-      $('lib-dash-name').textContent = firstName;
-      if (photo && photo.renderMyAvatar) photo.renderMyAvatar($('lib-dash-avatar'), user);
-    } catch (e) { /* non-fatal */ }
+      const user = core.getPortalUser ? core.getPortalUser() : {};
+      if ($('lib-name')) $('lib-name').textContent = user.firstName || 'Librarian';
 
-    function chip(status) {
-      var s = String(status || '').toLowerCase();
-      var cls = ['borrowed', 'overdue', 'returned', 'pending'].indexOf(s) >= 0 ? s : 'other';
-      return '<span class="lib-chip ' + cls + '">' + esc(s || '—') + '</span>';
-    }
+      const res = await core.portalFetch('/api/librarian/dashboard');
+      const d = res.data || {};
 
-    try {
-      var res = await core.portalFetch('/api/librarian/dashboard');
-      var d = (res && res.data) || {};
+      $('stat-books').textContent = d.totalBooks ?? 0;
+      $('stat-active').textContent = d.activeBorrows ?? 0;
+      $('stat-overdue').textContent = d.overdue ?? 0;
+      $('stat-fines').textContent = fmtMoney(d.outstandingFines || 0);
 
-      // ---- Stat tiles ----
-      $('lib-t-books').textContent   = d.totalBooks   != null ? Number(d.totalBooks).toLocaleString()   : '0';
-      $('lib-t-borrows').textContent = d.activeBorrows != null ? Number(d.activeBorrows).toLocaleString() : '0';
-      $('lib-t-overdue').textContent = d.overdue       != null ? Number(d.overdue).toLocaleString()       : '0';
-      $('lib-t-fines').textContent   = d.outstandingFines != null ? Number(d.outstandingFines).toLocaleString() : '0';
-
-      // ---- Recent Borrows ----
-      var borrows = Array.isArray(d.recentBorrows) ? d.recentBorrows : [];
+      // Recent Borrows
+      const borrows = d.recentBorrows || [];
       if (!borrows.length) {
-        $('lib-recent-borrows').innerHTML = '<div class="lib-empty">No recent borrows yet.</div>';
+        $('recent-borrows-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No recent borrows.</td></tr>';
       } else {
-        var bTbl = '<table class="lib-tbl"><thead><tr>'
-          + '<th>Book</th><th>Student</th><th>Due</th><th>Status</th>'
-          + '</tr></thead><tbody>';
-        borrows.forEach(function (b) {
-          bTbl += '<tr>'
-            + '<td>' + esc(b.bookTitle || '—') + '</td>'
-            + '<td>' + esc(b.studentName || '—') + '</td>'
-            + '<td style="color:#94a3b8;font-size:.78rem;">' + (b.dueAt ? esc(dateFmt(b.dueAt)) : '—') + '</td>'
-            + '<td>' + chip(b.status) + '</td>'
-            + '</tr>';
-        });
-        bTbl += '</tbody></table>';
-        $('lib-recent-borrows').innerHTML = bTbl;
+        $('recent-borrows-tbody').innerHTML = borrows.map(b => {
+          let badge = '';
+          const s = (b.status || '').toLowerCase();
+          if (s === 'returned') badge = '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Returned</span>';
+          else if (s === 'overdue') badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Overdue</span>';
+          else badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Borrowed</span>';
+
+          return `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.bookTitle)}</td>
+              <td style="padding:.65rem .75rem;color:#475569;">${esc(b.studentName)}</td>
+              <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.dueAt)}</td>
+              <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
+            </tr>
+          `;
+        }).join('');
       }
 
-      // ---- Reservations ----
-      var rvs = Array.isArray(d.reservations) ? d.reservations : [];
-      if (!rvs.length) {
-        $('lib-reservations').innerHTML = '<div class="lib-empty">No reservations awaiting action.</div>';
+      // Recent Reservations
+      const reservations = d.reservations || [];
+      if (!reservations.length) {
+        $('recent-reservations-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No pending reservations.</td></tr>';
       } else {
-        var rTbl = '<table class="lib-tbl"><thead><tr>'
-          + '<th>Book</th><th>Student</th><th>Reserved</th><th>Status</th>'
-          + '</tr></thead><tbody>';
-        rvs.forEach(function (r) {
-          rTbl += '<tr>'
-            + '<td>' + esc(r.bookTitle || '—') + '</td>'
-            + '<td>' + esc(r.studentName || '—') + '</td>'
-            + '<td style="color:#94a3b8;font-size:.78rem;">' + esc(timeAgo(r.reservedAt) || dateFmt(r.reservedAt) || '—') + '</td>'
-            + '<td>' + chip(r.status) + '</td>'
-            + '</tr>';
-        });
-        rTbl += '</tbody></table>';
-        $('lib-reservations').innerHTML = rTbl;
+        $('recent-reservations-tbody').innerHTML = reservations.map(r => `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.bookTitle)}</td>
+            <td style="padding:.65rem .75rem;color:#475569;">${esc(r.studentName)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(r.reservedAt)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;text-transform:capitalize;">${esc(r.status)}</span>
+            </td>
+          </tr>
+        `).join('');
       }
+
     } catch (err) {
-      var msg = esc((err && err.message) || 'Failed to load dashboard.');
-      $('lib-recent-borrows').innerHTML = '<div class="lib-err">⚠️ ' + msg + '</div>';
-      $('lib-reservations').innerHTML   = '<div class="lib-err">⚠️ ' + msg + '</div>';
-      if (core.showToast) core.showToast(msg, 'error');
+      console.error('[librarian/dashboard] Error:', err);
+      core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
     }
-  })();
+  }
+
+  load();
+})();
 </script>

@@ -9,15 +9,43 @@
   </div>
 </section>
 
+<!-- Filter bar -->
 <div class="filter-bar">
   <input type="search" id="hist-search" placeholder="Search course, lecturer…" />
+  
+  <select id="hist-session">
+    <option value="">All Sessions</option>
+  </select>
+
+  <select id="hist-semester">
+    <option value="">All Semesters</option>
+    <option value="first">First</option>
+    <option value="second">Second</option>
+  </select>
+
+  <select id="hist-status">
+    <option value="">All Status</option>
+    <option value="assigned">Assigned</option>
+    <option value="accepted">Accepted</option>
+    <option value="flagged">Flagged</option>
+  </select>
+
   <button class="btn btn-outline btn-sm" id="hist-refresh">↻ Refresh</button>
+  <button class="btn btn-outline btn-sm" id="hist-export">Export CSV</button>
 </div>
 
 <div class="stat-grid">
   <div class="stat">
     <div class="meta"><span class="label">Total Allocations</span><span class="value" id="hist-total">—</span></div>
     <div class="ic">📅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Accepted</span><span class="value" id="hist-accepted">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Flagged</span><span class="value" id="hist-flagged">—</span></div>
+    <div class="ic">🚩</div>
   </div>
 </div>
 
@@ -63,7 +91,7 @@
     const tbody = $('hist-tbody');
 
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No allocation history found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No allocation history found matching your filters.</td></tr>';
       return;
     }
 
@@ -86,11 +114,32 @@
     }).join('');
   }
 
+  function updateStats() {
+    $('hist-total').textContent = ALL.length;
+    $('hist-accepted').textContent = ALL.filter(r => r.status === 'accepted').length;
+    $('hist-flagged').textContent = ALL.filter(r => r.status === 'flagged').length;
+  }
+
+  function populateSessions() {
+    const sessions = [...new Set(ALL.map(r => r.sessionName).filter(s => s && s !== '—'))];
+    const sel = $('hist-session');
+    sel.innerHTML = '<option value="">All Sessions</option>' + 
+      sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  }
+
   function applyFilter() {
     const q = ($('hist-search').value || '').trim().toLowerCase();
+    const ses = $('hist-session').value;
+    const sem = $('hist-semester').value;
+    const stat = $('hist-status').value;
+
     FILTERED = ALL.filter(r => {
       const hay = `${r.courseCode} ${r.lecturerName} ${r.sessionName}`.toLowerCase();
-      return hay.includes(q);
+      if (q && !hay.includes(q)) return false;
+      if (ses && r.sessionName !== ses) return false;
+      if (sem && String(r.semester).toLowerCase() !== sem) return false;
+      if (stat && r.status !== stat) return false;
+      return true;
     });
     render();
   }
@@ -100,15 +149,39 @@
     try {
       const res = await core.portalFetch('/api/hod/allocations/history');
       ALL = res.data || [];
-      $('hist-total').textContent = ALL.length;
+      
+      updateStats();
+      populateSessions();
       applyFilter();
     } catch (err) {
       $('hist-tbody').innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
+  function exportCsv() {
+    const headers = ['Session', 'Course Code', 'Course Title', 'Lecturer', 'Semester', 'Status', 'Date Assigned'];
+    const rows = FILTERED.map(r => [
+      r.sessionName || '', r.courseCode, r.courseTitle, r.lecturerName, r.semester, r.status, fmtDate(r.assignedAt)
+    ]);
+
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hod-allocation-history-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   $('hist-search')?.addEventListener('input', applyFilter);
+  $('hist-session')?.addEventListener('change', applyFilter);
+  $('hist-semester')?.addEventListener('change', applyFilter);
+  $('hist-status')?.addEventListener('change', applyFilter);
   $('hist-refresh')?.addEventListener('click', load);
+  $('hist-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

@@ -1,0 +1,109 @@
+<!-- Portal → HOD → Transcript -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📜</div>
+    <div>
+      <h1>Verified Transcript</h1>
+      <div class="sub">Results approved by you and ready for the Academic Office</div>
+    </div>
+  </div>
+</section>
+
+<div class="filter-bar">
+  <input type="search" id="tr-search" placeholder="Search student, course…" />
+  <button class="btn btn-outline btn-sm" id="tr-refresh">↻ Refresh</button>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Results</span><span class="value" id="tr-total">—</span></div>
+    <div class="ic">📜</div>
+  </div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Verified Results</h3>
+    <span class="badge" id="tr-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Course</th>
+            <th>Score</th>
+            <th>Grade</th>
+            <th>Session</th>
+            <th>Semester</th>
+          </tr>
+        </thead>
+        <tbody id="tr-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let ALL = [];
+  let FILTERED = [];
+
+  function render() {
+    $('tr-count').textContent = FILTERED.length;
+    const tbody = $('tr-tbody');
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No verified results found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map(r => `
+      <tr>
+        <td><strong>${esc(r.studentName)}</strong></td>
+        <td><code>${esc(r.matricNumber || '—')}</code></td>
+        <td>${esc(r.courseCode)} - ${esc(r.courseTitle)}</td>
+        <td><strong>${esc(r.score)}</strong></td>
+        <td><span class="chip" style="background:#d1fae5;color:#065f46;">${esc(r.grade)}</span></td>
+        <td>${esc(r.sessionName || '—')}</td>
+        <td style="text-transform:capitalize;">${esc(r.semester || '—')}</td>
+      </tr>
+    `).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('tr-search').value || '').trim().toLowerCase();
+    FILTERED = ALL.filter(r => {
+      const hay = `${r.studentName} ${r.courseCode} ${r.matricNumber}`.toLowerCase();
+      return hay.includes(q);
+    });
+    render();
+  }
+
+  async function load() {
+    $('tr-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/hod/verified-results');
+      ALL = res.data || [];
+      $('tr-total').textContent = ALL.length;
+      applyFilter();
+    } catch (err) {
+      $('tr-tbody').innerHTML = `<tr><td colspan="7" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  $('tr-search')?.addEventListener('input', applyFilter);
+  $('tr-refresh')?.addEventListener('click', load);
+
+  load();
+})();
+</script>

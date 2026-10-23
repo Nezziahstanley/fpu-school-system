@@ -180,6 +180,7 @@ router.get('/staff', only, async (req, res, next) => {
         phone: users.phone,
         role: users.role,
         isActive: users.isActive,
+        courseCount: sql`(SELECT COUNT(*) FROM course_allocations ca WHERE ca.lecturer_id = ${users.id})::int`,
       })
       .from(users)
       .where(and(
@@ -421,6 +422,76 @@ router.get('/courses-with-allocations', only, async (req, res, next) => {
     return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[hod/courses-with-allocations] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/hod/allocations/history
+// ============================================================
+router.get('/allocations/history', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const rows = await db
+      .select({
+        id: courseAllocations.id,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+        lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+        sessionName: academicSessions.name,
+        semester: courseAllocations.semester,
+        status: courseAllocations.status,
+        assignedAt: courseAllocations.createdAt,
+      })
+      .from(courseAllocations)
+      .innerJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .innerJoin(users, eq(courseAllocations.lecturerId, users.id))
+      .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
+      .where(eq(courses.departmentId, departmentId))
+      .orderBy(desc(courseAllocations.createdAt));
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/allocations-history] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/hod/verified-results
+// ============================================================
+router.get('/verified-results', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const rows = await db
+      .select({
+        id: results.id,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
+        matricNumber: users.matricNumber,
+        score: results.score,
+        grade: results.grade,
+        semester: results.semester,
+        sessionName: academicSessions.name,
+        verifiedAt: results.hodVerifiedAt,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .innerJoin(users, eq(results.studentId, users.id))
+      .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(results.status, 'hod_verified')
+      ))
+      .orderBy(users.lastName);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[hod/verified-results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

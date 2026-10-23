@@ -206,9 +206,11 @@
       { key: 'hod-dashboard',        label: 'Dashboard',       icon: ICON.dash },
       { key: 'hod-pending-results',  label: 'Pending Results', icon: ICON.clipboard },
       { key: 'hod-courses',          label: 'Courses',         icon: ICON.book },
-      { key: 'hod-allocations',      label: 'Allocations',     icon: ICON.users }, // <-- ADD THIS
+      { key: 'hod-allocations',      label: 'Allocations',     icon: ICON.users },
+      { key: 'hod-history',          label: 'History',         icon: ICON.calendar }, 
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
+      { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file },     
     ],
     bursar: [
       { key: 'bursar-dashboard',  label: 'Dashboard',  icon: ICON.dash },

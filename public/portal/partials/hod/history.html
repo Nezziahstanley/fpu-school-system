@@ -1,0 +1,115 @@
+<!-- Portal → HOD → Allocations History -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📅</div>
+    <div>
+      <h1>Allocations History</h1>
+      <div class="sub">Past course assignments in your department</div>
+    </div>
+  </div>
+</section>
+
+<div class="filter-bar">
+  <input type="search" id="hist-search" placeholder="Search course, lecturer…" />
+  <button class="btn btn-outline btn-sm" id="hist-refresh">↻ Refresh</button>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Allocations</span><span class="value" id="hist-total">—</span></div>
+    <div class="ic">📅</div>
+  </div>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>Allocation History</h3>
+    <span class="badge" id="hist-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Course</th>
+            <th>Lecturer</th>
+            <th>Semester</th>
+            <th>Status</th>
+            <th>Date Assigned</th>
+          </tr>
+        </thead>
+        <tbody id="hist-tbody">
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  let ALL = [];
+  let FILTERED = [];
+
+  function render() {
+    $('hist-count').textContent = FILTERED.length;
+    const tbody = $('hist-tbody');
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No allocation history found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map(r => {
+      let badge = '';
+      if (r.status === 'accepted') badge = '<span class="chip" style="background:#d1fae5;color:#065f46;">Accepted</span>';
+      else if (r.status === 'flagged') badge = '<span class="chip" style="background:#fee2e2;color:#991b1b;">Flagged</span>';
+      else badge = '<span class="chip" style="background:#fef3c7;color:#92400e;">Assigned</span>';
+
+      return `
+        <tr>
+          <td>${esc(r.sessionName || '—')}</td>
+          <td><strong>${esc(r.courseCode)}</strong><br><span style="font-size:.72rem;color:#64748b;">${esc(r.courseTitle)}</span></td>
+          <td>${esc(r.lecturerName)}</td>
+          <td style="text-transform:capitalize;">${esc(r.semester || '—')}</td>
+          <td>${badge}</td>
+          <td>${fmtDate(r.assignedAt)}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function applyFilter() {
+    const q = ($('hist-search').value || '').trim().toLowerCase();
+    FILTERED = ALL.filter(r => {
+      const hay = `${r.courseCode} ${r.lecturerName} ${r.sessionName}`.toLowerCase();
+      return hay.includes(q);
+    });
+    render();
+  }
+
+  async function load() {
+    $('hist-tbody').innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/hod/allocations/history');
+      ALL = res.data || [];
+      $('hist-total').textContent = ALL.length;
+      applyFilter();
+    } catch (err) {
+      $('hist-tbody').innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  $('hist-search')?.addEventListener('input', applyFilter);
+  $('hist-refresh')?.addEventListener('click', load);
+
+  load();
+})();
+</script>

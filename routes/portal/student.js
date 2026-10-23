@@ -854,4 +854,64 @@ router.post('/graduation/apply', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// LIBRARY ROUTES
+// ============================================================
+
+// GET /api/student/library/catalogue
+router.get('/library/catalogue', only, async (req, res, next) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT id, title, author, isbn, category, copies_total AS "copiesTotal",
+             copies_available AS "copiesAvailable", description
+      FROM books
+      ORDER BY title ASC
+    `);
+    return res.json({ success: true, data: result.rows || [] });
+  } catch (err) {
+    console.error('[student/library/catalogue] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/student/library/borrows
+router.get('/library/borrows', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const result = await db.execute(sql`
+      SELECT bb.id, bb.borrowed_at AS "borrowedAt", bb.due_at AS "dueAt", bb.returned_at AS "returnedAt",
+             b.title, b.author, b.isbn, b.category
+      FROM book_borrows bb
+      INNER JOIN books b ON bb.book_id = b.id
+      WHERE bb.student_id = ${studentId}
+      ORDER BY bb.borrowed_at DESC
+    `);
+    return res.json({ success: true, data: result.rows || [] });
+  } catch (err) {
+    console.error('[student/library/borrows] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/student/library/fines
+router.get('/library/fines', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const result = await db.execute(sql`
+      SELECT lf.id, lf.amount, lf.reason, lf.status, lf.created_at AS "createdAt",
+             b.title
+      FROM library_fines lf
+      LEFT JOIN book_borrows bb ON lf.borrow_id = bb.id
+      LEFT JOIN books b ON bb.book_id = b.id
+      WHERE lf.student_id = ${studentId}
+      ORDER BY lf.created_at DESC
+    `);
+    return res.json({ success: true, data: result.rows || [] });
+  } catch (err) {
+    // If the fines table doesn't exist, return empty
+    console.warn('[student/library/fines] Table may not exist:', err.message);
+    return res.json({ success: true, data: [] });
+  }
+});
+
 module.exports = router;

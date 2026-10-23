@@ -1,331 +1,304 @@
 <!-- Portal → Student → Library -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📚</div>
-    <div>
-      <h1>My Library</h1>
-      <div class="sub">Browse books, borrow, and manage fines</div>
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📚</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">My Library</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Browse books, borrow, and manage fines</div>
+      </div>
     </div>
   </div>
-</section>
 
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Available Books</span><span class="value" id="sl-avail">—</span></div><div class="ic">📚</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">My Borrows</span><span class="value" id="sl-borrows">—</span></div><div class="ic">📤</div></div>
-  <div class="stat red"><div class="meta"><span class="label">Unpaid Fines</span><span class="value" id="sl-fines">—</span></div><div class="ic">💰</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Total Owed</span><span class="value" id="sl-owed">—</span></div><div class="ic">💵</div></div>
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📚</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-books">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Available Books</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📖</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-borrows">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">My Borrows</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💰</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-fines">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Unpaid Fines</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💸</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-owed">₦0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Owed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+    <button class="lib-tab active" data-tab="catalogue">📚 Catalogue</button>
+    <button class="lib-tab" data-tab="borrows">📖 My Borrows</button>
+    <button class="lib-tab" data-tab="fines">💰 Fines</button>
+  </div>
+
+  <!-- PANELS -->
+  <div id="panel-catalogue">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Books for You</div>
+          <span class="badge" id="count-catalogue" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+        </div>
+      </div>
+      <div style="padding:1rem;border-bottom:1px solid #f1f5f9;display:flex;gap:.5rem;flex-wrap:wrap;">
+        <input type="search" id="lib-search" placeholder="Search title, author, category..." style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        <select id="lib-category" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+          <option value="">All Categories</option>
+        </select>
+        <button id="lib-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Author</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Category</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Copies</th>
+            </tr>
+          </thead>
+          <tbody id="catalogue-tbody">
+            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-borrows" style="display:none;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">My Borrowed Books</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Book</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Borrowed</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Due</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="borrows-tbody">
+            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-fines" style="display:none;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">My Fines</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Book</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Reason</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Amount</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="fines-tbody">
+            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Tabs -->
-<div class="filter-bar" style="padding:.5rem;gap:.25rem;">
-  <button class="btn btn-primary btn-sm" data-slt="catalogue">📖 Catalogue</button>
-  <button class="btn btn-outline btn-sm" data-slt="borrows">📤 My Borrows</button>
-  <button class="btn btn-outline btn-sm" data-slt="fines">💰 Fines</button>
-</div>
-
-<!-- Catalogue -->
-<section class="panel" id="sl-tab-catalogue">
-  <div class="panel-head">
-    <h3>Books for You</h3>
-    <span class="badge" id="sl-cat-count">0</span>
-  </div>
-  <div class="panel-body">
-    <div class="filter-bar" style="box-shadow:none;background:transparent;padding:0 .5rem .5rem 0;">
-      <input type="search" id="sl-cat-search" placeholder="Search title, author, category…" />
-      <select id="sl-cat-category"><option value="">All Categories</option></select>
-      <button class="btn btn-outline btn-sm" id="sl-cat-refresh">Refresh</button>
-    </div>
-    <div class="table-wrap" style="margin-top:.5rem;">
-      <table class="data-table">
-        <thead><tr><th>Title</th><th>Author</th><th>Category</th><th>Copies</th><th>Action</th></tr></thead>
-        <tbody id="sl-cat-tbody">
-          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- Borrows -->
-<section class="panel" id="sl-tab-borrows" style="display:none;">
-  <div class="panel-head"><h3>My Borrowed Books</h3><span class="badge" id="sl-b-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Status</th></tr></thead>
-        <tbody id="sl-borrows-tbody">
-          <tr><td colspan="5" class="empty">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
-<!-- Fines -->
-<section class="panel" id="sl-tab-fines" style="display:none;">
-  <div class="panel-head"><h3>My Fines</h3><span class="badge" id="sl-f-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Amount</th><th>Reason</th><th>Status</th><th>Date</th></tr></thead>
-        <tbody id="sl-fines-tbody">
-          <tr><td colspan="4" class="empty">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
+<style>
+  .lib-tab {
+    padding: .5rem 1rem; font-size: .82rem; font-weight: 700;
+    background: #fff; color: #475569; border: 1px solid #e5e7eb;
+    border-radius: 8px; cursor: pointer;
+  }
+  .lib-tab.active { background: #065f46; color: #fff; border-color: #065f46; }
+  .lib-tab:hover:not(.active) { background: #f1f5f9; }
+</style>
 
 <script>
 (function () {
   'use strict';
-
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => (core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s));
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
   const fmtMoney = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
-  const fmtDate = (d) => {
-    if (!d) return '—';
-    const dt = new Date(d);
-    return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  // Student endpoints — no /admin prefix
-  const API = '/api/student/library';
 
   let CATALOGUE = [];
-  let CAT_FILTERED = [];
+  let BORROWS = [];
+  let FINES = [];
 
-  // ---------- Tabs ----------
-  function initTabs() {
-    document.querySelectorAll('[data-slt]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.slt;
-        document.querySelectorAll('[data-slt]').forEach((b) => {
-          b.classList.toggle('btn-primary', b === btn);
-          b.classList.toggle('btn-outline', b !== btn);
-        });
-        ['catalogue', 'borrows', 'fines'].forEach((t) => {
-          const panel = $('sl-tab-' + t);
-          if (panel) panel.style.display = t === tab ? '' : 'none';
-        });
-        if (tab === 'borrows') loadBorrows();
-        if (tab === 'fines') loadFines();
-      });
-    });
-  }
-
-  // ---------- Stats ----------
-  async function refreshStats() {
-    try {
-      const [borrowsRes, finesRes] = await Promise.all([
-        core.portalFetch('/api/student/borrows').catch(() => ({ borrows: [], fines: [] })),
-        Promise.resolve(null),
-      ]);
-      const borrows = (borrowsRes && borrowsRes.borrows) || [];
-      const fines = (borrowsRes && borrowsRes.fines) || [];
-
-      const activeBorrows = borrows.filter((b) => (b.borrow && b.borrow.status) === 'borrowed');
-      setText('sl-borrows', activeBorrows.length);
-
-      const unpaid = fines.filter((f) => !f.isPaid);
-      setText('sl-fines', unpaid.length);
-
-      const owed = unpaid.reduce((n, f) => n + Number(f.amount || 0), 0);
-      setText('sl-owed', fmtMoney(owed));
-    } catch {
-      // leave em-dashes
-    }
-  }
-
-  // ---------- Catalogue ----------
+  // ----- Catalogue -----
   async function loadCatalogue() {
-    const tbody = $('sl-cat-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
     try {
-      const json = await core.portalFetch('/api/student/library/catalogue');
-      CATALOGUE = (json && json.data) || [];
-      populateCategories(CATALOGUE);
-      applyCatalogueFilters();
-
-      const avail = CATALOGUE.reduce((n, b) => n + Number(b.copiesAvailable || 0), 0);
-      setText('sl-avail', avail);
+      const res = await core.portalFetch('/api/student/library/catalogue');
+      CATALOGUE = res.data || [];
+      $('stat-books').textContent = CATALOGUE.length;
+      renderCatalogue();
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>';
+      $('catalogue-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  function populateCategories(rows) {
-    const sel = $('sl-cat-category');
-    if (!sel) return;
-    const cats = [...new Set(rows.map((b) => b.category).filter(Boolean))].sort();
-    sel.innerHTML =
-      '<option value="">All Categories</option>' +
-      cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  }
+  function renderCatalogue() {
+    const q = ($('lib-search').value || '').toLowerCase();
+    const cat = $('lib-category').value;
 
-  function applyCatalogueFilters() {
-    const q = ($('sl-cat-search')?.value || '').trim().toLowerCase();
-    const cat = $('sl-cat-category')?.value || '';
-
-    CAT_FILTERED = CATALOGUE.filter((b) => {
+    const filtered = CATALOGUE.filter(b => {
+      if (q) {
+        const hay = `${b.title} ${b.author} ${b.category}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (cat && b.category !== cat) return false;
-      if (!q) return true;
-      return (
-        (b.title || '').toLowerCase().includes(q) ||
-        (b.author || '').toLowerCase().includes(q) ||
-        (b.category || '').toLowerCase().includes(q)
-      );
+      return true;
     });
 
-    renderCatalogue(CAT_FILTERED);
-    setText('sl-cat-count', CAT_FILTERED.length);
-  }
+    $('count-catalogue').textContent = filtered.length;
 
-  function renderCatalogue(rows) {
-    const tbody = $('sl-cat-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No books match your search.</td></tr>';
+    if (!filtered.length) {
+      $('catalogue-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No books match your search.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows
-      .map((b) => {
-        const available = Number(b.copiesAvailable || 0) > 0;
-        const tag = b._scope === 'general'
-          ? ' <span class="badge" title="Open to all students">General</span>'
-          : '';
-        return `
-          <tr>
-            <td>${esc(b.title)}${tag}</td>
-            <td>${esc(b.author || '—')}</td>
-            <td>${esc(b.category || '—')}</td>
-            <td>${b.copiesAvailable ?? 0} / ${b.copiesTotal ?? 0}</td>
-            <td>
-              <button class="btn btn-sm ${available ? 'btn-primary' : 'btn-outline'}"
-                      data-borrow="${b.id}" ${available ? '' : 'disabled'}>
-                ${available ? 'Borrow' : 'Unavailable'}
-              </button>
-            </td>
-          </tr>`;
-      })
-      .join('');
 
-    tbody.querySelectorAll('[data-borrow]').forEach((btn) => {
-      btn.addEventListener('click', () => borrowBook(btn.dataset.borrow));
-    });
+    $('catalogue-tbody').innerHTML = filtered.map(b => `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.title)}</td>
+        <td style="padding:.65rem .75rem;color:#475569;">${esc(b.author || '—')}</td>
+        <td style="padding:.65rem .75rem;color:#64748b;text-transform:capitalize;">${esc(b.category || '—')}</td>
+        <td style="padding:.65rem .75rem;text-align:center;">
+          <span style="padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${b.copiesAvailable > 0 ? '#d1fae5' : '#fee2e2'};color:${b.copiesAvailable > 0 ? '#065f46' : '#991b1b'};">
+            ${esc(b.copiesAvailable || 0)} / ${esc(b.copiesTotal || 0)}
+          </span>
+        </td>
+      </tr>
+    `).join('');
   }
 
-  async function borrowBook(bookId) {
-    if (!confirm('Borrow this book?')) return;
-    try {
-      await core.portalFetch('/api/student/library/borrow', {
-        method: 'POST',
-        body: { bookId: Number(bookId) },
-      });
-      core.showToast && core.showToast('Book borrowed successfully.', 'success');
-      loadCatalogue();
-      refreshStats();
-    } catch (err) {
-      core.showToast ? core.showToast(err.message, 'error') : alert(err.message);
-    }
-  }
-
-  // ---------- Borrows ----------
+  // ----- Borrows -----
   async function loadBorrows() {
-    const tbody = $('sl-borrows-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-
     try {
-      const json = await core.portalFetch('/api/student/borrows');
-      const rows = (json && json.borrows) || [];
-      setText('sl-b-count', rows.length);
+      const res = await core.portalFetch('/api/student/library/borrows');
+      BORROWS = res.data || [];
+      $('stat-borrows').textContent = BORROWS.length;
 
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty">No borrows yet.</td></tr>';
+      if (!BORROWS.length) {
+        $('borrows-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">You have not borrowed any books.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = rows
-        .map((entry) => {
-          const b = entry.borrow || {};
-          const book = entry.book || {};
-          const overdue = b.status === 'borrowed' && b.dueAt && new Date(b.dueAt) < new Date();
-          const badge = overdue
-            ? '<span class="badge red">Overdue</span>'
-            : b.status === 'returned'
-            ? '<span class="badge">Returned</span>'
-            : b.status === 'lost'
-            ? '<span class="badge red">Lost</span>'
-            : '<span class="badge blue">Borrowed</span>';
-          return `
-            <tr>
-              <td>${esc(book.title || '—')}</td>
-              <td>${fmtDate(b.borrowedAt)}</td>
-              <td>${fmtDate(b.dueAt)}</td>
-              <td>${b.returnedAt ? fmtDate(b.returnedAt) : '—'}</td>
-              <td>${badge}</td>
-            </tr>`;
-        })
-        .join('');
+      const now = new Date();
+      $('borrows-tbody').innerHTML = BORROWS.map(b => {
+        const returned = b.returnedAt !== null;
+        const overdue = !returned && new Date(b.dueAt) < now;
+        let badge = '';
+        if (returned) badge = '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Returned</span>';
+        else if (overdue) badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Overdue</span>';
+        else badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Active</span>';
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.title)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.borrowedAt)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.dueAt)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
+          </tr>
+        `;
+      }).join('');
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">' + esc(err.message) + '</td></tr>';
+      $('borrows-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ---------- Fines ----------
+  // ----- Fines -----
   async function loadFines() {
-    const tbody = $('sl-fines-tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
-
     try {
-      const json = await core.portalFetch('/api/student/borrows');
-      const rows = (json && json.fines) || [];
-      setText('sl-f-count', rows.length);
+      const res = await core.portalFetch('/api/student/library/fines');
+      FINES = res.data || [];
+      const unpaid = FINES.filter(f => f.status === 'pending' || f.status === 'unpaid');
+      $('stat-fines').textContent = unpaid.length;
+      $('stat-owed').textContent = fmtMoney(unpaid.reduce((s, f) => s + Number(f.amount || 0), 0));
 
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty">No fines. 🎉</td></tr>';
+      if (!FINES.length) {
+        $('fines-tbody').innerHTML = '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No fines on record. 🎉</td></tr>';
         return;
       }
 
-      tbody.innerHTML = rows
-        .map((f) => `
-          <tr>
-            <td>${fmtMoney(f.amount)}</td>
-            <td>${esc(f.reason || '—')}</td>
-            <td>${f.isPaid
-              ? '<span class="badge">Paid</span>'
-              : '<span class="badge red">Unpaid</span>'}</td>
-            <td>${fmtDate(f.createdAt)}</td>
-          </tr>`)
-        .join('');
+      $('fines-tbody').innerHTML = FINES.map(f => {
+        const paid = f.status === 'paid';
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(f.title || '—')}</td>
+            <td style="padding:.65rem .75rem;color:#475569;">${esc(f.reason || '—')}</td>
+            <td style="padding:.65rem .75rem;text-align:right;font-weight:700;color:${paid ? '#065f46' : '#991b1b'};">${fmtMoney(f.amount)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="background:${paid ? '#d1fae5' : '#fef3c7'};color:${paid ? '#065f46' : '#92400e'};padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;text-transform:capitalize;">${esc(f.status)}</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty">' + esc(err.message) + '</td></tr>';
+      $('fines-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ---------- Wire up ----------
-  function init() {
-    initTabs();
-    $('sl-cat-search')?.addEventListener('input', applyCatalogueFilters);
-    $('sl-cat-category')?.addEventListener('change', applyCatalogueFilters);
-    $('sl-cat-refresh')?.addEventListener('click', () => {
-      loadCatalogue();
-      refreshStats();
-    });
-
-    loadCatalogue();
-    refreshStats();
+  // ----- Tabs -----
+  function switchTab(tab) {
+    document.querySelectorAll('.lib-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    $('panel-catalogue').style.display = tab === 'catalogue' ? 'block' : 'none';
+    $('panel-borrows').style.display = tab === 'borrows' ? 'block' : 'none';
+    $('panel-fines').style.display = tab === 'fines' ? 'block' : 'none';
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  document.querySelectorAll('.lib-tab').forEach(t => {
+    t.addEventListener('click', () => switchTab(t.dataset.tab));
+  });
+
+  // Populate categories from catalogue
+  function populateCategories() {
+    const cats = [...new Set(CATALOGUE.map(b => b.category).filter(Boolean))];
+    const sel = $('lib-category');
+    sel.innerHTML = '<option value="">All Categories</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }
+
+  // Wiring
+  $('lib-search')?.addEventListener('input', renderCatalogue);
+  $('lib-category')?.addEventListener('change', renderCatalogue);
+  $('lib-refresh')?.addEventListener('click', () => {
+    loadCatalogue().then(populateCategories);
+    loadBorrows();
+    loadFines();
+  });
+
+  // Initial load
+  loadCatalogue().then(populateCategories);
+  loadBorrows();
+  loadFines();
 })();
 </script>

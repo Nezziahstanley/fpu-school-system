@@ -317,14 +317,13 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
 router.get('/courses-with-allocations', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const sessionId = req.user.currentSessionId || 1;
 
     const rows = await db
       .select({
         id: courses.id,
         code: courses.code,
         title: courses.title,
-        courseCode: courses.code,     // Include both aliases to be safe
+        courseCode: courses.code,
         courseTitle: courses.title,
         level: courses.level,
         unit: courses.unit,
@@ -333,14 +332,12 @@ router.get('/courses-with-allocations', only, async (req, res, next) => {
         lecturerId: courseAllocations.lecturerId,
         lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
         status: courseAllocations.status,
+        flagReason: courseAllocations.flagReason,
       })
       .from(courses)
       .leftJoin(
         courseAllocations,
-        and(
-          eq(courseAllocations.courseId, courses.id),
-          eq(courseAllocations.sessionId, sessionId)
-        )
+        eq(courseAllocations.courseId, courses.id)
       )
       .leftJoin(users, eq(courseAllocations.lecturerId, users.id))
       .where(eq(courses.departmentId, departmentId))

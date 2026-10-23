@@ -116,7 +116,6 @@
     }
 
     $('crs-tbody').innerHTML = FILTERED.map(c => {
-      // Ensure we handle both 'code' or 'courseCode'
       const code = c.code || c.courseCode || '—';
       const title = c.title || c.courseTitle || '—';
       const level = c.level || '—';
@@ -125,6 +124,15 @@
       const lecturer = c.lecturerName || 'unassigned';
       const isUnassigned = lecturer === 'unassigned';
 
+      let lecturerCell = '';
+      if (isUnassigned) {
+        lecturerCell = `<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#fef3c7;color:#92400e;border-radius:5px;">unassigned</span>`;
+      } else if (c.status === 'flagged') {
+        lecturerCell = `<div><strong style="color:#991b1b;">${esc(lecturer)}</strong> <span style="display:inline-block;margin-left:.3rem;padding:2px 6px;font-size:.6rem;font-weight:800;background:#fee2e2;color:#991b1b;border-radius:4px;">FLAGGED</span></div>`;
+      } else {
+        lecturerCell = `<div><strong style="color:#065f46;">${esc(lecturer)}</strong> <span style="display:inline-block;margin-left:.3rem;padding:2px 6px;font-size:.6rem;font-weight:800;background:#d1fae5;color:#065f46;border-radius:4px;">ASSIGNED</span></div>`;
+      }
+
       return `
         <tr>
           <td><strong>${esc(code)}</strong></td>
@@ -132,12 +140,7 @@
           <td style="text-align:center;"><span class="chip chip-${String(level).toLowerCase()}">${esc(level)}</span></td>
           <td style="text-align:center;">${unit}</td>
           <td style="text-align:center;">${esc(semester)}</td>
-          <td>
-            ${isUnassigned 
-              ? `<span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#fef3c7;color:#92400e;border-radius:5px;">unassigned</span>`
-              : `<strong style="color:#065f46;">${esc(lecturer)}</strong>`
-            }
-          </td>
+          <td>${lecturerCell}</td>
           <td>
             <button class="btn btn-primary btn-sm btn-assign" 
               data-id="${c.id}" 
@@ -232,7 +235,6 @@
     btn.textContent = 'Assigning…';
 
     try {
-      // This route already exists in your routes/portal/hod.js
       await core.portalFetch('/api/hod/allocate', {
         method: 'POST',
         body: { courseId: Number(courseId), lecturerId: Number(lecturerId), semester }

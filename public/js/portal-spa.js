@@ -77,7 +77,7 @@
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-exams', 'admin-transcript',
+      'admin-transcript', 
     ],
     bursar: [
       'portal-profile', 'portal-photo', 'portal-messages',

@@ -571,9 +571,11 @@ router.get('/timetable', only, async (req, res, next) => {
         courseCode: courses.code,
         courseTitle: courses.title,
         level: courses.level,
+        sessionName: academicSessions.name,   // <-- Added
       })
       .from(timetableSlots)
       .innerJoin(courses, eq(timetableSlots.courseId, courses.id))
+      .leftJoin(academicSessions, eq(timetableSlots.sessionId, academicSessions.id)) // <-- Added
       .where(inArray(timetableSlots.courseId, courseIds))
       .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
 

@@ -144,9 +144,11 @@
 
   function render() {
     const day = $('filter-day').value;
+    const ses = $('filter-session').value;
 
     const filtered = ALL_SLOTS.filter(s => {
       if (day && s.dayOfWeek !== day) return false;
+      if (ses && s.sessionName !== ses) return false;
       return true;
     });
 
@@ -193,6 +195,12 @@
       $('stat-total').textContent = ALL_SLOTS.length;
       $('stat-courses').textContent = ALL_COURSES.size;
 
+      // Populate Session dropdown
+      const sessions = [...new Set(ALL_SLOTS.map(s => s.sessionName).filter(Boolean))];
+      const sesSel = $('filter-session');
+      sesSel.innerHTML = '<option value="">All Sessions</option>' + 
+        sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+
       render();
 
     } catch (err) {
@@ -204,6 +212,7 @@
     }
   }
 
+  $('filter-session')?.addEventListener('change', render);
   $('filter-day')?.addEventListener('change', render);
   $('btn-refresh')?.addEventListener('click', load);
   $('btn-print')?.addEventListener('click', () => window.print());

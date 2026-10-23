@@ -24,13 +24,20 @@
     <div id="id-card-wrapper" style="perspective: 1200px;">
       <div id="id-card" style="width: 430px; height: 270px; position: relative; transform-style: preserve-3d; transition: transform 0.8s;">
         
-        <!-- FRONT -->
+        <!-- FRONT SIDE -->
         <div id="id-front" style="position: absolute; inset: 0; backface-visibility: hidden; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,.25); background: #fff;">
           
+          <!-- Top Green Banner -->
           <div style="background: linear-gradient(135deg, #065f46 0%, #059669 100%); height: 60px; padding: 10px 18px; display: flex; align-items: center; gap: 12px;">
+            <!-- FPU Crest -->
             <div style="width: 40px; height: 40px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid #fbbf24; overflow: hidden;">
-              <img src="/images/logo.png" alt="FPU" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-              <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; color: #065f46; font-weight: 900; font-size: 18px;">F</div>
+              <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+                <circle cx="50" cy="50" r="48" fill="#065f46"/>
+                <circle cx="50" cy="50" r="42" fill="#fbbf24"/>
+                <circle cx="50" cy="50" r="38" fill="#065f46"/>
+                <path d="M35 35 L50 25 L65 35 L65 65 L50 75 L35 65 Z" fill="#fbbf24"/>
+                <text x="50" y="58" font-size="20" font-weight="900" fill="#065f46" text-anchor="middle" font-family="Arial">F</text>
+              </svg>
             </div>
             <div style="flex: 1;">
               <div style="font-size: 14px; font-weight: 900; letter-spacing: .5px; color: #fff; line-height: 1.1;">FEDERAL POLYTECHNIC UGEP</div>
@@ -38,14 +45,18 @@
             </div>
           </div>
 
+          <!-- Yellow Stripe -->
           <div style="height: 4px; background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%);"></div>
 
+          <!-- Body -->
           <div style="padding: 12px 16px; display: flex; gap: 14px;">
+            <!-- Photo -->
             <div style="width: 95px; height: 115px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 3px solid #065f46; flex-shrink: 0;">
               <img id="id-photo" src="" alt="" style="width: 100%; height: 100%; object-fit: cover; display: none;" />
               <div id="id-initials" style="font-size: 32px; font-weight: 800; color: #065f46;">?</div>
             </div>
 
+            <!-- Info -->
             <div style="flex: 1; min-width: 0;">
               <div style="font-size: 8px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .8px;">Student Name</div>
               <div style="font-size: 14px; font-weight: 900; color: #0f172a; line-height: 1.2;" id="id-name">—</div>
@@ -77,31 +88,39 @@
               </div>
             </div>
 
+            <!-- QR Code (Front) -->
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px;">
-              <canvas id="qr-canvas-front" style="width: 60px; height: 60px; background: #fff; border: 2px solid #065f46; border-radius: 6px;"></canvas>
+              <img id="qr-front" src="" alt="QR" style="width: 60px; height: 60px; background: #fff; border: 2px solid #065f46; border-radius: 6px; padding: 2px;" />
               <div style="font-size: 6px; color: #64748b; text-align: center; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;">Scan to<br>Verify</div>
             </div>
           </div>
 
+          <!-- Bottom Green Bar -->
           <div style="position: absolute; bottom: 0; left: 0; right: 0; background: #065f46; padding: 6px 18px; display: flex; justify-content: space-between; align-items: center;">
             <div style="font-size: 9px; color: #fef08a; font-weight: 700;">OFFICIAL STUDENT ID</div>
             <div style="font-size: 8px; color: #d1fae5; font-weight: 600;">FEDPOLYUGEB</div>
           </div>
         </div>
 
-        <!-- BACK -->
+        <!-- BACK SIDE -->
         <div id="id-back" style="position: absolute; inset: 0; backface-visibility: hidden; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,.25); background: #fff; transform: rotateY(180deg);">
           
           <div style="position: absolute; inset: 8px; border: 3px solid #065f46; border-radius: 12px; padding: 12px; display: flex; flex-direction: column;">
             
+            <!-- Top Row: Logo + QR -->
             <div style="display: flex; align-items: flex-start; gap: 16px;">
               <div style="width: 55px; height: 55px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #065f46; overflow: hidden; flex-shrink: 0;">
-                <img src="/images/logo.png" alt="FPU" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
-                <div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; color: #065f46; font-weight: 900; font-size: 22px;">F</div>
+                <svg viewBox="0 0 100 100" style="width: 100%; height: 100%;">
+                  <circle cx="50" cy="50" r="48" fill="#065f46"/>
+                  <circle cx="50" cy="50" r="42" fill="#fbbf24"/>
+                  <circle cx="50" cy="50" r="38" fill="#065f46"/>
+                  <path d="M35 35 L50 25 L65 35 L65 65 L50 75 L35 65 Z" fill="#fbbf24"/>
+                  <text x="50" y="58" font-size="20" font-weight="900" fill="#065f46" text-anchor="middle" font-family="Arial">F</text>
+                </svg>
               </div>
 
               <div style="flex-shrink: 0;">
-                <canvas id="qr-canvas-back" style="width: 70px; height: 70px; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px;"></canvas>
+                <img id="qr-back" src="" alt="QR" style="width: 70px; height: 70px; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px;" />
               </div>
 
               <div style="flex: 1; text-align: right; font-size: 8px; color: #475569; line-height: 1.4;">
@@ -110,11 +129,13 @@
               </div>
             </div>
 
+            <!-- Center Text -->
             <div style="text-align: center; margin-top: 8px; font-family: 'Times New Roman', serif;">
               <div style="font-size: 9px; color: #475569; line-height: 1.4;">The person whose Photograph appears overleaf is a Student of the above Mentioned</div>
               <div style="font-size: 11px; font-weight: 900; color: #065f46; margin-top: 4px; letter-spacing: .5px;">FEDERAL POLYTECHNIC, UGEP</div>
             </div>
 
+            <!-- Contact Info -->
             <div style="text-align: center; margin-top: 6px; font-size: 8px; color: #475569; line-height: 1.5;">
               If found, please return to the<br>
               nearest police station OR<br>
@@ -122,11 +143,13 @@
               Email: <strong>contact@fedpolyugep.edu.ng</strong>
             </div>
 
+            <!-- Signature -->
             <div style="text-align: center; margin-top: auto;">
               <div style="font-family: 'Brush Script MT', cursive; font-size: 18px; color: #1e3a8a; transform: rotate(-5deg);">Fed Poly</div>
               <div style="border-top: 1px solid #0f172a; width: 120px; margin: 4px auto 0; padding-top: 2px; font-size: 7px; color: #475569; font-weight: 700;">Authorized Signature</div>
             </div>
 
+            <!-- Bottom Yellow Stripe -->
             <div style="position: absolute; bottom: -12px; left: -12px; right: -12px; height: 8px; background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%); border-radius: 0 0 8px 8px;"></div>
           </div>
         </div>
@@ -134,6 +157,7 @@
     </div>
   </div>
 
+  <!-- Instructions -->
   <div style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:12px;padding:1rem;margin-top:1.25rem;display:flex;gap:.75rem;align-items:flex-start;">
     <div style="font-size:1.5rem;">📱</div>
     <div>
@@ -142,8 +166,6 @@
     </div>
   </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 
 <style>
   @media print {
@@ -163,56 +185,16 @@
   const $ = (id) => document.getElementById(id);
 
   let FLIPPED = false;
-  let VERIFY_URL = '';
 
   function flipCard() {
     FLIPPED = !FLIPPED;
     $('id-card').style.transform = FLIPPED ? 'rotateY(180deg)' : 'rotateY(0deg)';
   }
 
-  // Wait until QRCode library is loaded
-  function waitForQRCode(callback, attempts = 0) {
-    if (typeof window.QRCode !== 'undefined' && window.QRCode.toCanvas) {
-      callback();
-    } else if (attempts < 50) {
-      setTimeout(() => waitForQRCode(callback, attempts + 1), 100);
-    } else {
-      console.error('[QR] QRCode library failed to load after 5 seconds');
-      // Show error on canvas
-      ['qr-canvas-front', 'qr-canvas-back'].forEach(id => {
-        const canvas = $(id);
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          canvas.width = 60; canvas.height = 60;
-          ctx.fillStyle = '#fee2e2';
-          ctx.fillRect(0, 0, 60, 60);
-          ctx.fillStyle = '#991b1b';
-          ctx.font = '8px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText('QR Error', 30, 32);
-        }
-      });
-    }
-  }
-
-  function renderQR(canvasId, url, size) {
-    const canvas = $(canvasId);
-    if (!canvas || !url) return;
-
-    QRCode.toCanvas(canvas, url, {
-      width: size,
-      margin: 1,
-      color: { dark: '#065f46', light: '#ffffff' },
-    }, (err) => {
-      if (err) console.error('[QR] Error for', canvasId, ':', err);
-      else console.log('[QR] Rendered', canvasId, 'successfully');
-    });
-  }
-
-  function drawQRs() {
-    if (!VERIFY_URL) return;
-    renderQR('qr-canvas-front', VERIFY_URL, 60);
-    renderQR('qr-canvas-back', VERIFY_URL, 70);
+  function generateQRDataUrl(text, size) {
+    // Use QRServer API — reliable, no client-side library needed
+    const encoded = encodeURIComponent(text);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&color=065f46&bgcolor=ffffff&margin=2`;
   }
 
   async function load() {
@@ -238,10 +220,13 @@
         $('id-initials').style.display = 'none';
       }
 
-      VERIFY_URL = d.verifyUrl || '';
-
-      // Wait for QRCode library to load, then draw
-      waitForQRCode(drawQRs);
+      // Set QR code images
+      if (d.verifyUrl) {
+        $('qr-front').src = generateQRDataUrl(d.verifyUrl, 60);
+        $('qr-back').src = generateQRDataUrl(d.verifyUrl, 70);
+      } else {
+        console.warn('[ID Card] No verifyUrl returned from API');
+      }
 
     } catch (err) {
       console.error('[student/id-card] Error:', err);

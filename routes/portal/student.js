@@ -729,4 +729,32 @@ router.get('/exam-schedule', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/attendance
+// ============================================================
+router.get('/attendance', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+
+    const rows = await db
+      .select({
+        id: attendance.id,
+        date: attendance.date,
+        status: attendance.status,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+      })
+      .from(attendance)
+      .innerJoin(courses, eq(attendance.courseId, courses.id))
+      .where(eq(attendance.studentId, studentId))
+      .orderBy(desc(attendance.date))
+      .limit(200);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/attendance] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

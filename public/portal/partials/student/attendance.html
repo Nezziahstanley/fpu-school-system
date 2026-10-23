@@ -1,46 +1,87 @@
 <!-- Portal → Student → Attendance -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">✅</div>
-    <div>
-      <h1>My Attendance</h1>
-      <div class="sub">Attendance records by course</div>
+<div style="padding:0;">
+
+  <!-- HEADER BANNER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">✅</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">My Attendance</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Attendance records by course</div>
+      </div>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <input type="search" id="sa-search" placeholder="Search course…" />
-  <select id="sa-course"><option value="">All Courses</option></select>
-  <select id="sa-status">
-    <option value="">All Status</option>
-    <option value="present">Present</option>
-    <option value="absent">Absent</option>
-    <option value="late">Late</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="sa-refresh">Refresh</button>
-</div>
+  <!-- FILTERS -->
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
+    <input type="search" id="att-search" placeholder="Search course…" style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+    <select id="att-course" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+      <option value="">All Courses</option>
+    </select>
+    <select id="att-status" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+      <option value="">All Status</option>
+      <option value="present">Present</option>
+      <option value="absent">Absent</option>
+      <option value="late">Late</option>
+    </select>
+    <button id="att-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+  </div>
 
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Records</span><span class="value" id="sa-total">—</span></div><div class="ic">📋</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Present</span><span class="value" id="sa-present">—</span></div><div class="ic">✅</div></div>
-  <div class="stat red"><div class="meta"><span class="label">Absent</span><span class="value" id="sa-absent">—</span></div><div class="ic">❌</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Attendance Rate</span><span class="value" id="sa-rate">—</span></div><div class="ic">📊</div></div>
-</div>
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📋</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-total">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Records</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✅</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-present">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Present</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">❌</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-absent">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Absent</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📊</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-rate">0%</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Attendance Rate</div>
+      </div>
+    </div>
+  </div>
 
-<section class="panel">
-  <div class="panel-head"><h3>Attendance Records</h3><span class="badge" id="sa-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Date</th><th>Course</th><th>Status</th></tr></thead>
-        <tbody id="sa-tbody">
-          <tr><td colspan="3" class="empty"><span class="spinner"></span> Loading…</td></tr>
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Attendance Records</div>
+      <span class="badge" id="att-count" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+          </tr>
+        </thead>
+        <tbody id="att-tbody">
+          <tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+</div>
 
 <script>
 (function () {
@@ -48,103 +89,88 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-  let ALL = [], FILTERED = [];
+  let ALL_RECORDS = [];
 
-  function unwrap(r) {
-    const a = r.attendance || r;
-    const crs = r.course || {};
-    return {
-      id: a.id,
-      date: a.date || a.createdAt,
-      courseCode: crs.code || '—',
-      courseTitle: crs.title || '',
-      status: (a.status || 'present').toLowerCase(),
-    };
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   function render() {
-    const countEl = $('sa-count'), tbody = $('sa-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
+    const q = ($('att-search').value || '').toLowerCase();
+    const course = $('att-course').value;
+    const status = $('att-status').value;
 
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="empty">No attendance records.</td></tr>';
+    const filtered = ALL_RECORDS.filter(r => {
+      if (q) {
+        const hay = `${r.courseCode} ${r.courseTitle}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (course && r.courseCode !== course) return false;
+      if (status && r.status !== status) return false;
+      return true;
+    });
+
+    $('att-count').textContent = filtered.length;
+
+    if (!filtered.length) {
+      $('att-tbody').innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No attendance records match your filters.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = FILTERED.map((a) => {
-      const badge = a.status === 'present' ? 'badge-active'
-                   : a.status === 'absent' ? 'badge-inactive'
-                   : 'badge-warning';
+    $('att-tbody').innerHTML = filtered.map(r => {
+      let badge = '';
+      if (r.status === 'present') badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Present</span>';
+      else if (r.status === 'absent') badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Absent</span>';
+      else if (r.status === 'late') badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Late</span>';
+      else badge = `<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">${esc(r.status)}</span>`;
+
       return `
-        <tr>
-          <td>${a.date ? new Date(a.date).toLocaleDateString() : '—'}</td>
-          <td><strong>${esc(a.courseCode)}</strong> ${esc(a.courseTitle)}</td>
-          <td><span class="badge-status ${badge}">${esc(a.status)}</span></td>
-        </tr>`;
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;color:#475569;">${fmtDate(r.date)}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#065f46;">${esc(r.courseCode)}</td>
+          <td style="padding:.65rem .75rem;">${esc(r.courseTitle)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
+        </tr>
+      `;
     }).join('');
   }
 
-  function applyFilter() {
-    const q = ($('sa-search')?.value || '').trim().toLowerCase();
-    const course = $('sa-course')?.value || '';
-    const status = $('sa-status')?.value || '';
-    FILTERED = ALL.filter((a) => {
-      const hay = `${a.courseCode} ${a.courseTitle}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (course && a.courseCode !== course) return false;
-      if (status && a.status !== status) return false;
-      return true;
-    });
-    render();
-  }
-
   function updateStats() {
-    setText('sa-total', ALL.length);
-    const present = ALL.filter((a) => a.status === 'present').length;
-    const absent = ALL.filter((a) => a.status === 'absent').length;
-    setText('sa-present', present);
-    setText('sa-absent', absent);
-    const rate = ALL.length ? Math.round((present / ALL.length) * 100) : 0;
-    setText('sa-rate', `${rate}%`);
-  }
+    const total = ALL_RECORDS.length;
+    const present = ALL_RECORDS.filter(r => r.status === 'present').length;
+    const absent = ALL_RECORDS.filter(r => r.status === 'absent').length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
 
-  function populateCourses() {
-    const sel = $('sa-course');
-    if (!sel) return;
-    const courses = [...new Set(ALL.map((a) => a.courseCode).filter((c) => c && c !== '—'))].sort();
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">All Courses</option>' +
-      courses.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    sel.value = cur;
+    $('stat-total').textContent = total;
+    $('stat-present').textContent = present;
+    $('stat-absent').textContent = absent;
+    $('stat-rate').textContent = `${rate}%`;
+
+    // Populate course filter
+    const courses = [...new Set(ALL_RECORDS.map(r => r.courseCode).filter(Boolean))];
+    const sel = $('att-course');
+    sel.innerHTML = '<option value="">All Courses</option>' + 
+      courses.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }
 
   async function load() {
-    const tbody = $('sa-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="3" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    $('att-tbody').innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/student/attendance');
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.attendance || []);
-      ALL = raw.map(unwrap);
-      console.log('[student-attendance] Loaded', ALL.length);
-      populateCourses();
+      ALL_RECORDS = res.data || [];
       updateStats();
-      applyFilter();
+      render();
     } catch (err) {
-      console.warn('[student-attendance]', err.message);
-      ALL = [];
-      updateStats();
-      applyFilter();
+      $('att-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  $('sa-search')?.addEventListener('input', applyFilter);
-  $('sa-course')?.addEventListener('change', applyFilter);
-  $('sa-status')?.addEventListener('change', applyFilter);
-  $('sa-refresh')?.addEventListener('click', load);
+  $('att-search')?.addEventListener('input', render);
+  $('att-course')?.addEventListener('change', render);
+  $('att-status')?.addEventListener('change', render);
+  $('att-refresh')?.addEventListener('click', load);
 
   load();
 })();

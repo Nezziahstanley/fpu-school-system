@@ -455,7 +455,8 @@ router.get('/allocations/history', only, async (req, res, next) => {
         courseTitle: courses.title,
         level: courses.level,
         lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
-        sessionName: academicSessions.name,
+        // Fallback to the current session name if the allocation doesn't have one
+        sessionName: sql`COALESCE(${academicSessions.name}, (SELECT name FROM academic_sessions WHERE is_current = true LIMIT 1))`,
         semester: courseAllocations.semester,
         status: courseAllocations.status,
         assignedAt: courseAllocations.createdAt,

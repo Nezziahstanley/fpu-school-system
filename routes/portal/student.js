@@ -660,24 +660,43 @@ router.post('/clearance/request', only, async (req, res, next) => {
 router.get('/documents', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const { documents } = schema;
 
-    const rows = await db
-      .select({
-        id: documents.id,
-        type: documents.type,
-        title: documents.title,
-        status: documents.status,
-        fileUrl: documents.fileUrl,
-        createdAt: documents.createdAt,
-      })
-      .from(documents)
-      .where(eq(documents.studentId, studentId))
-      .orderBy(desc(documents.createdAt));
+    // Query directly using raw SQL to be safe
+    const result = await db.execute(sql`
+      SELECT id, type, title, status, created_at AS "createdAt", file_url AS "fileUrl"
+      FROM documents
+      WHERE student_id = ${studentId}
+      ORDER BY created_at DESC
+    `);
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('[student/documents] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/student/documents/request
+// ============================================================
+router.post('/documents/request', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const { type, title } = req.body || {};
+
+    if (!type || !title) {
+      return res.status(400).json({ success: false, error: 'Document type and title are required.' });
+    }
+
+    const result = await db.execute(sql`
+      INSERT INTO documents (student_id, type, title, status, created_at)
+      VALUES (${studentId}, ${type}, ${title}, 'pending', NOW())
+      RETURNING id, type, title, status, created_at AS "createdAt"
+    `);
+
+    return res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error('[student/documents/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

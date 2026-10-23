@@ -545,6 +545,7 @@ router.get('/timetable', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
+    // 1. Get course IDs the student is registered for
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
       .from(courseRegistrations)
@@ -554,8 +555,11 @@ router.get('/timetable', only, async (req, res, next) => {
       ));
 
     const courseIds = regs.map(r => r.courseId);
-    if (!courseIds.length) return res.json({ success: true, data: [] });
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
 
+    // 2. Fetch timetable slots for those courses
     const rows = await db
       .select({
         id: timetableSlots.id,
@@ -563,8 +567,10 @@ router.get('/timetable', only, async (req, res, next) => {
         startTime: timetableSlots.startTime,
         endTime: timetableSlots.endTime,
         venue: timetableSlots.venue,
+        semester: timetableSlots.semester,
         courseCode: courses.code,
         courseTitle: courses.title,
+        level: courses.level,
       })
       .from(timetableSlots)
       .innerJoin(courses, eq(timetableSlots.courseId, courses.id))

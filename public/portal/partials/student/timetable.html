@@ -1,41 +1,136 @@
 <!-- Portal → Student → Timetable -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📅</div>
-    <div>
-      <h1>My Timetable</h1>
-      <div class="sub">Weekly class schedule grouped by semester</div>
+<div style="padding:0;">
+
+  <!-- HEADER BANNER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📅</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">My Timetable</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Weekly class schedule grouped by semester</div>
+      </div>
     </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <select id="stt-semester">
-    <option value="">All Semesters</option>
-    <option value="first">First Semester</option>
-    <option value="second">Second Semester</option>
-  </select>
-  <select id="stt-day">
-    <option value="">All Days</option>
-    <option value="Monday">Monday</option>
-    <option value="Tuesday">Tuesday</option>
-    <option value="Wednesday">Wednesday</option>
-    <option value="Thursday">Thursday</option>
-    <option value="Friday">Friday</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="stt-refresh">Refresh</button>
-  <button class="btn btn-outline btn-sm" id="stt-print">🖨 Print</button>
+  <!-- FILTERS -->
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
+    <select id="filter-session" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;">
+      <option value="">All Sessions</option>
+    </select>
+    <select id="filter-day" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;">
+      <option value="">All Days</option>
+      <option value="Monday">Monday</option>
+      <option value="Tuesday">Tuesday</option>
+      <option value="Wednesday">Wednesday</option>
+      <option value="Thursday">Thursday</option>
+      <option value="Friday">Friday</option>
+      <option value="Saturday">Saturday</option>
+    </select>
+    <button id="btn-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    <button id="btn-print" style="margin-left:auto;padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">🖨 Print</button>
+  </div>
+
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📅</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-total">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Slots</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">1️⃣</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-first">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">First Semester</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">2️⃣</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-second">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Second Semester</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#f3e8ff;color:#6b21a8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📚</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-courses">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Courses</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIRST SEMESTER -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📘 First Semester</div>
+      <span class="badge" id="count-first" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Day</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-first">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECOND SEMESTER -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:1.25rem;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📗 Second Semester</div>
+      <span class="badge" id="count-second" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Day</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-second">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- OTHER SLOTS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📋 Other Slots</div>
+      <span class="badge" id="count-other" style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Day</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Time</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-other">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
-
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Slots</span><span class="value" id="stt-total">—</span></div><div class="ic">📅</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">First Semester</span><span class="value" id="stt-first">—</span></div><div class="ic">1️⃣</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Second Semester</span><span class="value" id="stt-second">—</span></div><div class="ic">2️⃣</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">Courses</span><span class="value" id="stt-courses">—</span></div><div class="ic">📚</div></div>
-</div>
-
-<!-- Two panels: First + Second semester -->
-<div id="stt-content"></div>
 
 <script>
 (function () {
@@ -43,133 +138,75 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
 
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  let ALL = [];
-
-  function unwrap(r) {
-    const s = r.slot || r;
-    const crs = r.course || {};
-    let sem = String(s.semester || '').trim();
-    if (/^1$|first/i.test(sem)) sem = 'first';
-    else if (/^2$|second/i.test(sem)) sem = 'second';
-    return {
-      id: s.id,
-      day: s.dayOfWeek || '—',
-      startTime: s.startTime || '',
-      endTime: s.endTime || '',
-      courseCode: crs.code || '—',
-      courseTitle: crs.title || '',
-      venue: s.venue || '—',
-      level: crs.level || '—',
-      semester: sem,
-    };
-  }
-
-  function getTime(t) {
-    if (!t.startTime) return '—';
-    return t.endTime ? `${t.startTime} – ${t.endTime}` : t.startTime;
-  }
-
-  function sortSlots(list) {
-    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [d, i]));
-    return list.sort((a, b) => {
-      const d = (dayOrder[a.day] ?? 99) - (dayOrder[b.day] ?? 99);
-      return d || (a.startTime || '').localeCompare(b.startTime || '');
-    });
-  }
-
-  function renderTable(slots, title, badge) {
-    if (!slots.length) {
-      return `
-        <section class="panel">
-          <div class="panel-head"><h3>${esc(title)}</h3><span class="badge">0</span></div>
-          <div class="panel-body"><p class="muted" style="text-align:center;padding:1.5rem;">No classes scheduled for this semester.</p></div>
-        </section>`;
-    }
-
-    const rows = sortSlots(slots).map((t) => {
-      const lvl = String(t.level).toUpperCase();
-      const chipClass = 'chip-' + lvl.toLowerCase();
-      return `
-        <tr>
-          <td><strong>${esc(t.day)}</strong></td>
-          <td>${esc(getTime(t))}</td>
-          <td><strong>${esc(t.courseCode)}</strong>${t.courseTitle ? `<div class="muted small">${esc(t.courseTitle)}</div>` : ''}</td>
-          <td>${esc(t.venue)}</td>
-          <td><span class="chip ${chipClass}">${esc(lvl)}</span></td>
-        </tr>`;
-    }).join('');
-
-    return `
-      <section class="panel">
-        <div class="panel-head">
-          <h3>${esc(title)}</h3>
-          <span class="badge" style="background:${badge};">${slots.length}</span>
-        </div>
-        <div class="panel-body flush">
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr><th>Day</th><th>Time</th><th>Course</th><th>Venue</th><th>Level</th></tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>
-      </section>`;
-  }
+  let ALL_SLOTS = [];
+  let ALL_COURSES = new Set();
 
   function render() {
-    const semFilter = $('stt-semester')?.value || '';
-    const dayFilter = $('stt-day')?.value || '';
+    const day = $('filter-day').value;
 
-    let filtered = ALL.slice();
-    if (semFilter) filtered = filtered.filter((t) => t.semester === semFilter);
-    if (dayFilter) filtered = filtered.filter((t) => t.day === dayFilter);
+    const filtered = ALL_SLOTS.filter(s => {
+      if (day && s.dayOfWeek !== day) return false;
+      return true;
+    });
 
-    const first = filtered.filter((t) => t.semester === 'first');
-    const second = filtered.filter((t) => t.semester === 'second');
-    const other = filtered.filter((t) => t.semester !== 'first' && t.semester !== 'second');
+    const firstSem = filtered.filter(s => String(s.semester || '').toLowerCase() === 'first');
+    const secondSem = filtered.filter(s => String(s.semester || '').toLowerCase() === 'second');
+    const other = filtered.filter(s => !s.semester || (String(s.semester).toLowerCase() !== 'first' && String(s.semester).toLowerCase() !== 'second'));
 
-    const content = $('stt-content');
-    if (!content) return;
+    $('count-first').textContent = firstSem.length;
+    $('count-second').textContent = secondSem.length;
+    $('count-other').textContent = other.length;
 
-    let html = '';
-    if (first.length || !semFilter) html += renderTable(first, '📘 First Semester', '#065f46');
-    if (second.length || !semFilter) html += renderTable(second, '📗 Second Semester', '#f59e0b');
-    if (other.length) html += renderTable(other, '📅 Other Slots', '#64748b');
+    $('stat-first').textContent = firstSem.length;
+    $('stat-second').textContent = secondSem.length;
 
-    content.innerHTML = html || '<p class="muted" style="text-align:center;padding:2rem;">No classes found.</p>';
+    const buildRows = (slots) => {
+      if (!slots.length) {
+        return '<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">No classes scheduled.</td></tr>';
+      }
+      return slots.map(s => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.dayOfWeek || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.78rem;">${esc(s.startTime || '—')} – ${esc(s.endTime || '—')}</td>
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:700;color:#065f46;">${esc(s.courseCode || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(s.courseTitle || '')}</div>
+          </td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(s.venue || '—')}</td>
+        </tr>
+      `).join('');
+    };
 
-    // Stats
-    setText('stt-total', ALL.length);
-    setText('stt-first', ALL.filter((t) => t.semester === 'first').length);
-    setText('stt-second', ALL.filter((t) => t.semester === 'second').length);
-    setText('stt-courses', new Set(ALL.map((t) => t.courseCode).filter((c) => c && c !== '—')).size);
+    $('tbody-first').innerHTML = buildRows(firstSem);
+    $('tbody-second').innerHTML = buildRows(secondSem);
+    $('tbody-other').innerHTML = buildRows(other);
   }
 
   async function load() {
-    const content = $('stt-content');
-    if (content) content.innerHTML = '<div class="loading" style="text-align:center;padding:2rem;"><span class="spinner"></span> Loading…</div>';
     try {
       const res = await core.portalFetch('/api/student/timetable');
-      const raw = res.data || res || [];
-      ALL = raw.map(unwrap);
-      console.log('[student-timetable] Loaded', ALL.length, 'slots');
+      ALL_SLOTS = res.data || [];
+
+      ALL_COURSES = new Set(ALL_SLOTS.map(s => s.courseCode).filter(Boolean));
+
+      $('stat-total').textContent = ALL_SLOTS.length;
+      $('stat-courses').textContent = ALL_COURSES.size;
+
       render();
+
     } catch (err) {
-      console.warn('[student-timetable]', err.message);
-      ALL = [];
-      render();
+      console.error('[student/timetable] Error:', err);
+      const errMsg = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      $('tbody-first').innerHTML = errMsg;
+      $('tbody-second').innerHTML = errMsg;
+      $('tbody-other').innerHTML = errMsg;
     }
   }
 
-  $('stt-semester')?.addEventListener('change', render);
-  $('stt-day')?.addEventListener('change', render);
-  $('stt-refresh')?.addEventListener('click', load);
-  $('stt-print')?.addEventListener('click', () => window.print());
+  $('filter-day')?.addEventListener('change', render);
+  $('btn-refresh')?.addEventListener('click', load);
+  $('btn-print')?.addEventListener('click', () => window.print());
 
   load();
 })();

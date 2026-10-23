@@ -146,6 +146,7 @@
         return;
       }
 
+      // 1. Calculate CGPA
       let totalPoints = 0;
       let totalUnits = 0;
       results.forEach(r => {
@@ -156,15 +157,40 @@
       });
       const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
+      // 2. Determine Classification
+      let classification = '';
+      let classColor = '#065f46';
+      let classBg = '#ecfdf5';
+      let classBorder = '#bbf7d0';
+
+      const val = parseFloat(cgpa);
+      if (val >= 3.50) {
+        classification = 'Distinction';
+      } else if (val >= 3.00) {
+        classification = 'Upper Credit';
+      } else if (val >= 2.50) {
+        classification = 'Lower Credit';
+      } else if (val >= 2.00) {
+        classification = 'Pass';
+      } else if (val >= 1.00) {
+        classification = 'Probation';
+        classColor = '#991b1b'; classBg = '#fee2e2'; classBorder = '#fecaca';
+      } else {
+        classification = 'Fail';
+        classColor = '#991b1b'; classBg = '#fee2e2'; classBorder = '#fecaca';
+      }
+
+      // 3. Render
       body.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:1.25rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem;background:${classBg};border:1px solid ${classBorder};border-radius:8px;margin-bottom:1.25rem;">
           <div>
-            <div style="font-size:.75rem;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Cumulative GPA</div>
-            <div style="font-size:1.5rem;font-weight:800;color:#065f46;">${cgpa}</div>
+            <div style="font-size:.75rem;color:${classColor};font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Cumulative GPA</div>
+            <div style="font-size:1.5rem;font-weight:800;color:${classColor};">${cgpa}</div>
+            <div style="font-size:.75rem;font-weight:700;color:${classColor};margin-top:.2rem;">${classification}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:.75rem;color:#065f46;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Total Units</div>
-            <div style="font-size:1.5rem;font-weight:800;color:#065f46;">${totalUnits}</div>
+            <div style="font-size:.75rem;color:${classColor};font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Total Units</div>
+            <div style="font-size:1.5rem;font-weight:800;color:${classColor};">${totalUnits}</div>
           </div>
         </div>
 

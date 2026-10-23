@@ -11,13 +11,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// Cloudinary setup
+const { storage } = require('../../utils/cloudinary');
+const upload = multer({ storage });
+
 const userQueries    = require('../../db/queries/users');
 const courseQueries  = require('../../db/queries/courses');
-const regQueries     = require('../../db/queries/registrations');
 const resultQueries  = require('../../db/queries/results');
-const ttQueries      = require('../../db/queries/timetable');
-const attQueries     = require('../../db/queries/attendance');
-const libQueries     = require('../../db/queries/library');
 const notifQueries   = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const { db, schema } = require('../../db');
@@ -34,10 +34,6 @@ const {
 } = schema;
 
 const only = requireRole('lecturer', 'hod');
-
-const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-const upload = multer({ dest: UPLOAD_DIR });
 
 // ============================================================
 // GET /api/lecturer/dashboard
@@ -165,40 +161,25 @@ router.get('/courses', only, async (req, res, next) => {
 router.get('/students', only, async (req, res, next) => {
   try {
     const { courseId } = req.query;
-    if (!courseId) {
-      return res.status(400).json({ success: false, error: 'courseId is required.' });
-    }
+    if (!courseId) return res.status(400).json({ success: false, error: 'courseId is required.' });
 
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, Number(courseId))
-      ))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId))))
       .limit(1);
 
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
 
     const rows = await db
-      .select({
-        registration: courseRegistrations,
-        student: users,
-      })
+      .select({ registration: courseRegistrations, student: users })
       .from(courseRegistrations)
       .leftJoin(users, eq(courseRegistrations.studentId, users.id))
-      .where(and(
-        eq(courseRegistrations.courseId, Number(courseId)),
-        eq(courseRegistrations.status, 'approved')
-      ))
+      .where(and(eq(courseRegistrations.courseId, Number(courseId)), eq(courseRegistrations.status, 'approved')))
       .orderBy(users.lastName);
 
     return res.json({ success: true, data: rows });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -233,23 +214,16 @@ router.get('/attendance', only, async (req, res, next) => {
 router.post('/attendance/bulk', only, async (req, res, next) => {
   try {
     const { rows } = req.body || {};
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'rows[] is required.' });
-    }
+    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ success: false, error: 'rows[] is required.' });
 
     const courseId = Number(rows[0].courseId);
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, courseId)
-      ))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
       .limit(1);
 
-    if (!allocation.length) {
-      return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
-    }
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
 
     const insertData = rows.map(r => ({
       courseId: Number(r.courseId),
@@ -273,16 +247,9 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       savedCount++;
     }
 
-    await logAudit({
-      req,
-      action: 'lecturer.attendance_bulk',
-      after: { count: savedCount, courseId },
-    });
-
+    await logAudit({ req, action: 'lecturer.attendance_bulk', after: { count: savedCount, courseId } });
     return res.json({ success: true, saved: savedCount });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -317,9 +284,7 @@ router.get('/results', only, async (req, res, next) => {
 router.post('/results', only, async (req, res, next) => {
   try {
     const { studentId, courseId, score, semester } = req.body || {};
-    if (!studentId || !courseId || score === undefined) {
-      return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
-    }
+    if (!studentId || !courseId || score === undefined) return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
 
     const allocation = await db.select({ id: courseAllocations.id })
       .from(courseAllocations)
@@ -342,16 +307,31 @@ router.post('/results', only, async (req, res, next) => {
       status: 'draft',
     }).onConflictDoUpdate({
       target: [results.studentId, results.courseId, results.sessionId, results.semester],
-      set: {
-        score: String(numericScore),
-        grade: grade,
-        points: String(points),
-        status: 'draft',
-      }
+      set: { score: String(numericScore), grade, points: String(points), status: 'draft' }
     }).returning();
 
     return res.status(201).json({ success: true, data: row });
   } catch (err) { return next(err); }
+});
+
+// ============================================================
+// POST /api/lecturer/results/:id/submit
+// ============================================================
+router.post('/results/:id/submit', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    const [result] = await db.select({ id: results.id, courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.update(results).set({ status: 'submitted', submittedAt: new Date(), submittedBy: req.user.id }).where(eq(results.id, resultId));
+    return res.json({ success: true, message: 'Result submitted to HOD.' });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -391,10 +371,7 @@ router.post('/materials', only, upload.single('file'), async (req, res, next) =>
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
     if (req.file) {
-      const ext = path.extname(req.file.originalname) || '';
-      const newName = `material-${Date.now()}${ext}`;
-      fs.renameSync(req.file.path, path.join(UPLOAD_DIR, newName));
-      fileUrl = `/uploads/${newName}`;
+      fileUrl = req.file.path; // Cloudinary URL
     }
 
     const [row] = await db.insert(courseMaterials).values({
@@ -426,12 +403,8 @@ router.get('/assignments', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
-        id: assignments.id,
-        title: assignments.title,
-        description: assignments.description,
-        dueDate: assignments.dueDate,
-        maxScore: assignments.maxScore,
-        createdAt: assignments.createdAt,
+        id: assignments.id, title: assignments.title, description: assignments.description,
+        dueDate: assignments.dueDate, maxScore: assignments.maxScore, createdAt: assignments.createdAt,
         courseCode: courses.code,
       })
       .from(assignments)
@@ -439,17 +412,9 @@ router.get('/assignments', only, async (req, res, next) => {
       .where(eq(assignments.lecturerId, req.user.id))
       .orderBy(desc(assignments.createdAt));
 
-    const data = rows.map(r => ({
-      ...r,
-      courseCode: r.courseCode || '—',
-      title: r.title || 'Untitled',
-    }));
-
+    const data = rows.map(r => ({ ...r, courseCode: r.courseCode || '—', title: r.title || 'Untitled' }));
     return res.json({ success: true, data });
-  } catch (err) {
-    console.error('[lecturer/assignments] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
@@ -460,29 +425,17 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
     if (req.file) {
-      const ext = path.extname(req.file.originalname) || '';
-      const newName = `assignment-${Date.now()}${ext}`;
-      fs.renameSync(req.file.path, path.join(UPLOAD_DIR, newName));
-      attachmentUrl = `/uploads/${newName}`;
+      attachmentUrl = req.file.path; // Cloudinary URL
     }
 
     const [row] = await db.insert(assignments).values({
-      courseId: Number(courseId),
-      lecturerId: req.user.id,
-      sessionId: req.user.currentSessionId || 1,
-      semester: 'first',
-      title: title,
-      description: description || null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-      maxScore: maxScore ? Number(maxScore) : 100,
-      attachmentUrl: attachmentUrl,
+      courseId: Number(courseId), lecturerId: req.user.id, sessionId: req.user.currentSessionId || 1,
+      semester: 'first', title, description: description || null, dueDate: dueDate ? new Date(dueDate) : null,
+      maxScore: maxScore ? Number(maxScore) : 100, attachmentUrl,
     }).returning();
 
     return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/assignments] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 router.put('/assignments/:id', only, async (req, res, next) => {
@@ -506,19 +459,11 @@ router.delete('/assignments/:id', only, async (req, res, next) => {
 router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
-
-    const [assignment] = await db.select()
-      .from(assignments)
-      .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
-      .limit(1);
-
+    const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id))).limit(1);
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
     const rows = await db
-      .select({
-        submission: assignmentSubmissions,
-        student: users,
-      })
+      .select({ submission: assignmentSubmissions, student: users })
       .from(assignmentSubmissions)
       .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
       .where(eq(assignmentSubmissions.assignmentId, assignmentId))
@@ -536,10 +481,7 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
     }));
 
     return res.json({ success: true, data, assignment });
-  } catch (err) {
-    console.error('[lecturer/submissions] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 router.post('/submissions/:id/grade', only, async (req, res, next) => {
@@ -553,10 +495,7 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
       .returning();
 
     return res.json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/grade] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -570,22 +509,11 @@ router.get('/requests', only, async (req, res, next) => {
 router.post('/requests', only, async (req, res, next) => {
   try {
     const { subject, body, category } = req.body || {};
-    if (!subject || !body) {
-      return res.status(400).json({ success: false, error: 'Subject and Message are required.' });
-    }
+    if (!subject || !body) return res.status(400).json({ success: false, error: 'Subject and Message are required.' });
 
-    const row = await notifQueries.createComplaint({
-      userId: req.user.id,
-      subject,
-      body,
-      category: category || 'general',
-    });
-
+    const row = await notifQueries.createComplaint({ userId: req.user.id, subject, body, category: category || 'general' });
     return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    console.error('[lecturer/requests] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -597,45 +525,25 @@ router.get('/reports', only, async (req, res, next) => {
   
   try {
     const lecturerId = req.user.id;
-
-    const allocatedCourses = await db
-      .select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations)
-      .where(eq(courseAllocations.lecturerId, lecturerId));
-
+    const allocatedCourses = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, lecturerId));
     const courseIds = allocatedCourses.map(c => c.courseId).filter(Boolean);
     const coursesCount = courseIds.length;
 
     if (!coursesCount) {
-      return res.json({ 
-        success: true, 
-        data: { coursesCount: 0, totalStudents: 0, totalResults: 0, attendanceSessions: 0, stats: {}, gradeDist: {}, statusDist: {}, levelDist: {} } 
-      });
+      return res.json({ success: true, data: { coursesCount: 0, totalStudents: 0, totalResults: 0, attendanceSessions: 0, stats: {}, gradeDist: {}, statusDist: {}, levelDist: {} } });
     }
 
     const allResults = await db
-      .select({
-        score: results.score,
-        grade: results.grade,
-        status: results.status,
-        studentId: results.studentId,
-        level: users.level,
-      })
+      .select({ score: results.score, grade: results.grade, status: results.status, studentId: results.studentId, level: users.level })
       .from(results)
       .leftJoin(users, eq(results.studentId, users.id))
       .where(inArray(results.courseId, courseIds));
 
     const uniqueStudents = new Set(allResults.map(r => r.studentId)).size;
     const totalResults = allResults.length;
-    
-    let totalScore = 0;
-    let highest = -1;
-    let lowest = 101;
-    let passCount = 0;
+    let totalScore = 0, highest = -1, lowest = 101, passCount = 0;
 
-    const gradeDist = {};
-    const statusDist = {};
-    const levelDist = {}; 
+    const gradeDist = {}, statusDist = {}, levelDist = {};
 
     allResults.forEach(r => {
       const score = Number(r.score) || 0;
@@ -644,47 +552,26 @@ router.get('/reports', only, async (req, res, next) => {
       if (score < lowest) lowest = score;
       if (score >= 40) passCount++;
 
-      const grade = r.grade || 'N/A';
-      gradeDist[grade] = (gradeDist[grade] || 0) + 1;
-
-      const status = r.status || 'draft';
-      statusDist[status] = (statusDist[status] || 0) + 1;
-
-      const level = r.level || 'Unknown';
-      levelDist[level] = (levelDist[level] || 0) + 1;
+      gradeDist[r.grade || 'N/A'] = (gradeDist[r.grade || 'N/A'] || 0) + 1;
+      statusDist[r.status || 'draft'] = (statusDist[r.status || 'draft'] || 0) + 1;
+      levelDist[r.level || 'Unknown'] = (levelDist[r.level || 'Unknown'] || 0) + 1;
     });
 
     const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
     const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
 
-    const attRows = await db
-      .select({ id: attendance.id })
-      .from(attendance)
-      .where(inArray(attendance.courseId, courseIds));
+    const attRows = await db.select({ id: attendance.id }).from(attendance).where(inArray(attendance.courseId, courseIds));
     const attendanceSessions = attRows.length;
 
     return res.json({
       success: true,
       data: {
-        coursesCount,
-        totalStudents: uniqueStudents,
-        totalResults,
-        attendanceSessions,
-        stats: {
-          averageScore: avgScore,
-          highestScore: highest === -1 ? 0 : highest,
-          lowestScore: lowest === 101 ? 0 : lowest,
-          passRate,
-        },
-        gradeDist,
-        statusDist,
-        levelDist
+        coursesCount, totalStudents: uniqueStudents, totalResults, attendanceSessions,
+        stats: { averageScore: avgScore, highestScore: highest === -1 ? 0 : highest, lowestScore: lowest === 101 ? 0 : lowest, passRate },
+        gradeDist, statusDist, levelDist
       }
     });
-  } catch (err) {
-    console.error('[lecturer/reports] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
@@ -725,22 +612,15 @@ router.get('/security', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/exams
+// EXAMS
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {
   try {
-    const { examSchedules, courseAllocations, courses, departments } = schema;
-
     const rows = await db
       .select({
-        id: examSchedules.id,
-        examDate: examSchedules.examDate,
-        startTime: examSchedules.startTime,
-        endTime: examSchedules.endTime,
-        venue: examSchedules.venue,
-        courseCode: courses.code,
-        courseTitle: courses.title,
-        departmentName: departments.name,
+        id: examSchedules.id, examDate: examSchedules.examDate, startTime: examSchedules.startTime,
+        endTime: examSchedules.endTime, venue: examSchedules.venue,
+        courseCode: courses.code, courseTitle: courses.title, departmentName: departments.name,
       })
       .from(examSchedules)
       .innerJoin(courses, eq(examSchedules.courseId, courses.id))
@@ -750,45 +630,22 @@ router.get('/exams', only, async (req, res, next) => {
       .orderBy(examSchedules.examDate);
 
     return res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error('[lecturer/exams] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// GET /api/lecturer/exams/:id/students
-// ============================================================
 router.get('/exams/:id/students', only, async (req, res, next) => {
   try {
-    const { examSchedules, courseAllocations, courses, courseRegistrations, users } = schema;
     const examId = Number(req.params.id);
-
-    const [exam] = await db.select({
-      courseId: examSchedules.courseId,
-      courseCode: courses.code,
-      examDate: examSchedules.examDate,
-      startTime: examSchedules.startTime,
-      venue: examSchedules.venue,
-    })
-    .from(examSchedules)
-    .leftJoin(courses, eq(examSchedules.courseId, courses.id))
-    .where(eq(examSchedules.id, examId))
-    .limit(1);
-
+    const [exam] = await db.select({ courseId: examSchedules.courseId }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
     if (!exam) return res.status(404).json({ success: false, error: 'Exam not found.' });
 
-    const alloc = await db.select().from(courseAllocations)
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId)))
       .limit(1);
-      
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
     const students = await db.select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      matricNumber: users.matricNumber,
+      id: users.id, firstName: users.firstName, lastName: users.lastName, matricNumber: users.matricNumber,
     })
     .from(courseRegistrations)
     .leftJoin(users, eq(courseRegistrations.studentId, users.id))
@@ -796,107 +653,37 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
     .orderBy(users.lastName);
 
     return res.json({ success: true, data: students, exam });
-  } catch (err) {
-    console.error('[lecturer/exam-students] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 // ============================================================
-// POST /api/lecturer/allocations/:id/accept
+// ALLOCATIONS
 // ============================================================
 router.post('/allocations/:id/accept', only, async (req, res, next) => {
   try {
     const allocationId = Number(req.params.id);
-    
-    const [alloc] = await db.select()
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id)))
-      .limit(1);
-
+    const [alloc] = await db.select().from(courseAllocations)
+      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id))).limit(1);
     if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
 
-    await db.update(courseAllocations)
-      .set({ 
-        status: 'accepted', 
-        respondedAt: new Date() 
-      })
-      .where(eq(courseAllocations.id, allocationId));
-
+    await db.update(courseAllocations).set({ status: 'accepted', respondedAt: new Date() }).where(eq(courseAllocations.id, allocationId));
     await logAudit({ req, action: 'lecturer.accept_allocation', entity: 'course_allocations', entityId: allocationId });
-
     return res.json({ success: true, message: 'Course accepted.' });
-  } catch (err) {
-    console.error('[lecturer/accept-allocation] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================================
-// POST /api/lecturer/allocations/:id/flag
-// ============================================================
 router.post('/allocations/:id/flag', only, async (req, res, next) => {
   try {
     const allocationId = Number(req.params.id);
     const { reason } = req.body || {};
-
-    const [alloc] = await db.select()
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id)))
-      .limit(1);
-
+    const [alloc] = await db.select().from(courseAllocations)
+      .where(and(eq(courseAllocations.id, allocationId), eq(courseAllocations.lecturerId, req.user.id))).limit(1);
     if (!alloc) return res.status(404).json({ success: false, error: 'Allocation not found.' });
 
-    await db.update(courseAllocations)
-      .set({ 
-        status: 'flagged', 
-        flagReason: reason || 'Flagged by lecturer',
-        respondedAt: new Date() 
-      })
-      .where(eq(courseAllocations.id, allocationId));
-
+    await db.update(courseAllocations).set({ status: 'flagged', flagReason: reason || 'Flagged by lecturer', respondedAt: new Date() }).where(eq(courseAllocations.id, allocationId));
     await logAudit({ req, action: 'lecturer.flag_allocation', entity: 'course_allocations', entityId: allocationId, after: { reason } });
-
     return res.json({ success: true, message: 'Course flagged.' });
-  } catch (err) {
-    console.error('[lecturer/flag-allocation] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// POST /api/lecturer/results/:id/submit
-// ============================================================
-router.post('/results/:id/submit', only, async (req, res, next) => {
-  try {
-    const resultId = Number(req.params.id);
-    
-    const [result] = await db.select({
-      id: results.id,
-      courseId: results.courseId,
-    })
-    .from(results)
-    .where(eq(results.id, resultId))
-    .limit(1);
-
-    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
-
-    const alloc = await db.select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
-      .limit(1);
-
-    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
-
-    await db.update(results)
-      .set({ status: 'submitted', submittedAt: new Date(), submittedBy: req.user.id })
-      .where(eq(results.id, resultId));
-
-    return res.json({ success: true, message: 'Result submitted to HOD.' });
-  } catch (err) {
-    console.error('[lecturer/submit-result] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 module.exports = router;

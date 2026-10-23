@@ -661,12 +661,11 @@ router.get('/documents', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
 
-    // Query directly using raw SQL to be safe
     const result = await db.execute(sql`
-      SELECT id, type, title, status, created_at AS "createdAt", file_url AS "fileUrl"
+      SELECT id, type, title, status, requested_at AS "createdAt", file_url AS "fileUrl"
       FROM documents
-      WHERE student_id = ${studentId}
-      ORDER BY created_at DESC
+      WHERE user_id = ${studentId}
+      ORDER BY requested_at DESC
     `);
 
     return res.json({ success: true, data: result.rows || [] });
@@ -689,39 +688,12 @@ router.post('/documents/request', only, async (req, res, next) => {
     }
 
     const result = await db.execute(sql`
-      INSERT INTO documents (student_id, type, title, status, created_at)
+      INSERT INTO documents (user_id, type, title, status, requested_at)
       VALUES (${studentId}, ${type}, ${title}, 'pending', NOW())
-      RETURNING id, type, title, status, created_at AS "createdAt"
+      RETURNING id, type, title, status, requested_at AS "createdAt"
     `);
 
     return res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    console.error('[student/documents/request] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// POST /api/student/documents/request
-// ============================================================
-router.post('/documents/request', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const { type, title } = req.body || {};
-    const { documents } = schema;
-
-    if (!type || !title) {
-      return res.status(400).json({ success: false, error: 'Document type and title are required.' });
-    }
-
-    const [row] = await db.insert(documents).values({
-      studentId,
-      type,
-      title,
-      status: 'pending',
-    }).returning();
-
-    return res.status(201).json({ success: true, data: row });
   } catch (err) {
     console.error('[student/documents/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

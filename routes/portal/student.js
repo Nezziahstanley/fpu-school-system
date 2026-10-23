@@ -319,32 +319,72 @@ router.get('/materials', only, async (req, res, next) => {
 });
 
 // ============================================================
-// ASSIGNMENTS
+// ASSIGNMENTS (FULLY FIXED)
 // ============================================================
 router.get('/assignments', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = req.user.currentSessionId || 1;
 
-    const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
-      .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
+    // 1. Get registered course IDs
+    const regs = await db
+      .select({ courseId: courseRegistrations.courseId })
+      .from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ));
 
     const courseIds = regs.map(r => r.courseId);
     if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    const rows = await db
+    // 2. Fetch assignments with course details
+    const assignmentsList = await db
       .select({
-        id: assignments.id, title: assignments.title, description: assignments.description,
-        dueDate: assignments.dueDate, maxScore: assignments.maxScore,
-        attachmentUrl: assignments.attachmentUrl, courseCode: courses.code,
+        id: assignments.id,
+        title: assignments.title,
+        description: assignments.description,
+        dueDate: assignments.dueDate,
+        maxScore: assignments.maxScore,
+        attachmentUrl: assignments.attachmentUrl,
+        courseCode: courses.code,
+        courseTitle: courses.title,
       })
       .from(assignments)
       .innerJoin(courses, eq(assignments.courseId, courses.id))
       .where(inArray(assignments.courseId, courseIds))
       .orderBy(desc(assignments.createdAt));
 
-    return res.json({ success: true, data: rows });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+    // 3. Fetch submissions for this student
+    const submissions = await db
+      .select({
+        assignmentId: assignmentSubmissions.assignmentId,
+        submissionText: assignmentSubmissions.submissionText,
+        submissionUrl: assignmentSubmissions.submissionUrl,
+        score: assignmentSubmissions.score,
+        feedback: assignmentSubmissions.feedback,
+        submittedAt: assignmentSubmissions.submittedAt,
+        gradedAt: assignmentSubmissions.gradedAt,
+      })
+      .from(assignmentSubmissions)
+      .where(eq(assignmentSubmissions.studentId, studentId));
+
+    const submissionMap = {};
+    submissions.forEach(s => {
+      submissionMap[s.assignmentId] = s;
+    });
+
+    // 4. Merge assignment with submission info
+    const data = assignmentsList.map(a => ({
+      ...a,
+      submission: submissionMap[a.id] || null,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[student/assignments] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.post('/assignments/:id/submit', only, upload.single('file'), async (req, res, next) => {

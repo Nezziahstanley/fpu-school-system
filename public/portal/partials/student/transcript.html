@@ -1,42 +1,90 @@
 <!-- Portal → Student → Transcript -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">📄</div>
-    <div>
-      <h1>My Transcript</h1>
-      <div class="sub" id="st-matric">Academic record</div>
+<div style="padding:0;">
+
+  <!-- HEADER BANNER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📜</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">My Transcript</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Academic record</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:1.3rem;font-weight:800;" id="hdr-cgpa">—</div>
+      <div style="font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">CGPA</div>
     </div>
   </div>
-  <div class="meta">
-    <strong id="st-cgpa-badge">—</strong>
-    <span>CGPA</span>
+
+  <button id="tr-print" style="margin-bottom:1rem;padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Transcript</button>
+
+  <!-- STAT TILES -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📚</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-courses">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Courses</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🎯</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-units">0</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Total Units</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📊</div>
+      <div>
+        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-cgpa">0.00</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">CGPA</div>
+      </div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+      <div style="width:40px;height:40px;border-radius:10px;background:#f3e8ff;color:#6b21a8;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏆</div>
+      <div>
+        <div style="font-size:1.05rem;font-weight:800;color:#0f172a;line-height:1;" id="stat-classification">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Classification</div>
+      </div>
+    </div>
   </div>
-</section>
 
-<div class="filter-bar">
-  <button class="btn btn-primary btn-sm" id="st-print">🖨 Print Transcript</button>
-</div>
-
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Courses</span><span class="value" id="st-total">—</span></div><div class="ic">📚</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Total Units</span><span class="value" id="st-units">—</span></div><div class="ic">🎯</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">CGPA</span><span class="value" id="st-cgpa">—</span></div><div class="ic">📊</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">Classification</span><span class="value" id="st-class">—</span></div><div class="ic">🏆</div></div>
-</div>
-
-<section class="panel">
-  <div class="panel-head"><h3>Results by Course</h3><span class="badge" id="st-count">0</span></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead><tr><th>Code</th><th>Title</th><th>Units</th><th>Score</th><th>Grade</th><th>Points</th><th>Session</th></tr></thead>
-        <tbody id="st-tbody">
-          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
+  <!-- TRANSCRIPT TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Results by Course</div>
+      <span class="badge" id="count-results" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Code</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Units</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Score</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Grade</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Points</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Session</th>
+          </tr>
+        </thead>
+        <tbody id="tr-tbody">
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
+</div>
+
+<style>
+  .spinner {
+    display: inline-block; width: 20px; height: 20px;
+    border: 2px solid #e2e8f0; border-top-color: #065f46;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <script>
 (function () {
@@ -47,61 +95,41 @@
 
   async function load() {
     const tbody = $('tr-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading…</td></tr>';
+
     try {
       const res = await core.portalFetch('/api/student/transcript');
       const d = res.data || {};
-      const s = d.student || {};
       const rows = d.results || [];
 
-      // Header
-      $('tr-st-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
-      $('tr-st-matric').textContent = s.matricNumber || '—';
-      $('tr-st-programme').textContent = s.programmeName || '—';
-      $('tr-st-level').textContent = `Level ${s.level || '—'}`;
-
-      // Stats
-      $('tr-cgpa').textContent = d.cgpa || '0.00';
-      $('tr-units').textContent = d.totalUnits || 0;
-      $('tr-classification').textContent = d.classification || '—';
-      
-      // Header CGPA
+      // Update tiles
       $('hdr-cgpa').textContent = d.cgpa || '0.00';
+      $('stat-courses').textContent = rows.length;
+      $('stat-units').textContent = d.totalUnits || 0;
+      $('stat-cgpa').textContent = d.cgpa || '0.00';
+      $('stat-classification').textContent = d.classification || '—';
+      $('count-results').textContent = rows.length;
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">No published results found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">No transcript records yet.</td></tr>';
         return;
       }
 
-      let lastSession = '';
-      let lastSemester = '';
-
-      tbody.innerHTML = rows.map(r => {
-        const session = r.sessionName || '—';
-        const sem = (r.semester || '—').toString().replace(/^\w/, c => c.toUpperCase());
-        const showSession = session !== lastSession;
-        const showSem = showSession || sem !== lastSemester;
-        lastSession = session;
-        lastSemester = sem;
-
-        return `
-          ${showSession ? `<tr><td colspan="8" style="padding:.5rem .75rem;background:#f1f5f9;font-weight:800;font-size:.72rem;color:#475569;text-transform:uppercase;">📅 ${esc(session)}</td></tr>` : ''}
-          ${showSem ? `<tr><td colspan="8" style="padding:.35rem .75rem;background:#f8fafc;font-weight:700;font-size:.7rem;color:#64748b;font-style:italic;">${esc(sem)} Semester</td></tr>` : ''}
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;color:#475569;font-size:.75rem;">${esc(session)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;font-size:.75rem;">${esc(sem)}</td>
-            <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
-            <td style="padding:.65rem .75rem;">${esc(r.courseTitle)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.unit)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.points)}</td>
-          </tr>
-        `;
-      }).join('');
+      tbody.innerHTML = rows.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
+          <td style="padding:.65rem .75rem;">${esc(r.courseTitle)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${esc(r.unit)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${esc(r.points)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(r.semester)}</td>
+        </tr>
+      `).join('');
 
     } catch (err) {
       console.error('[student/transcript] Error:', err);
-      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 

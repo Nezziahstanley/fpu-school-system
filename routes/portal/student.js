@@ -679,4 +679,53 @@ router.delete('/drop-course/:id', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/exam-schedule
+// ============================================================
+router.get('/exam-schedule', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    // 1. Get course IDs the student is registered for
+    const regs = await db
+      .select({ courseId: courseRegistrations.courseId })
+      .from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.sessionId, sessionId)
+      ));
+
+    const courseIds = regs.map(r => r.courseId);
+    if (!courseIds.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 2. Fetch exam schedule for those courses
+    const rows = await db
+      .select({
+        id: examSchedules.id,
+        examDate: examSchedules.examDate,
+        startTime: examSchedules.startTime,
+        endTime: examSchedules.endTime,
+        venue: examSchedules.venue,
+        semester: examSchedules.semester,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+        sessionName: academicSessions.name,
+      })
+      .from(examSchedules)
+      .innerJoin(courses, eq(examSchedules.courseId, courses.id))
+      .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
+      .where(inArray(examSchedules.courseId, courseIds))
+      .orderBy(examSchedules.examDate, examSchedules.startTime);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[student/exam-schedule] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -110,10 +110,8 @@ const users = pgTable('users', {
   nationality: varchar('nationality', { length: 60 }).default('Nigerian'),
   address: text('address'),
 
-  photoUrl: text('photo_url'),
-  // Permanent photo used on the ID card — set once on first upload,
-  // never overwritten even if the student later changes their profile photo.
   idCardPhotoUrl: text('id_card_photo_url'),
+  photoUrl: text('photo_url'),
 
   matricNumber: varchar('matric_number', { length: 40 }).unique(),
   level: levelEnum('level'),

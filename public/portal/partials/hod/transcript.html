@@ -6,11 +6,19 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Department Transcript</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View student transcripts for your department</p>
     </div>
-    <div style="display:flex;gap:.5rem;">
-      <button id="tr-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    </div>
   </div>
 
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <input type="search" id="tr-search" placeholder="Search by name or matric no..." />
+    <select id="tr-programme">
+      <option value="">All Programmes</option>
+      <!-- Options loaded dynamically -->
+    </select>
+    <button class="btn btn-outline btn-sm" id="tr-refresh">↻ Refresh</button>
+  </div>
+
+  <!-- Table Container -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -28,13 +36,21 @@
         </tbody>
       </table>
     </div>
+    
+    <!-- Pagination Bar -->
+    <div id="tr-pagination" style="padding:.75rem 1rem;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+      <span id="tr-page-info" style="font-size:.78rem;color:#64748b;">Loading…</span>
+      <div style="display:flex;gap:.5rem;">
+        <button id="tr-prev" class="btn btn-outline btn-sm">Previous</button>
+        <button id="tr-next" class="btn btn-outline btn-sm">Next</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- Modal: View Transcript -->
+<!-- Modal (Same as before) -->
 <div id="tr-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <div>
         <h3 id="tr-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Student Transcript</h3>
@@ -42,7 +58,6 @@
       </div>
       <button id="tr-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
-
     <div style="padding:1.25rem;" id="tr-modal-body">
       <div style="padding:2rem;text-align:center;color:#94a3b8;">Loading results…</div>
     </div>
@@ -56,14 +71,41 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  let CURRENT_PAGE = 1;
+  let TOTAL_PAGES = 1;
+
   async function load() {
     const tbody = $('tr-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading…</td></tr>';
+
+    const search = $('tr-search').value.trim();
+    const programmeId = $('tr-programme').value;
+    
+    let url = `/api/hod/transcript?page=${CURRENT_PAGE}&limit=20`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (programmeId) url += `&programmeId=${programmeId}`;
+
     try {
-      const res = await core.portalFetch('/api/hod/transcript');
+      const res = await core.portalFetch(url);
       const students = res.data || [];
+      const pag = res.pagination || { total: 0, page: 1, totalPages: 1 };
+
+      TOTAL_PAGES = pag.totalPages;
+
+      // Populate Programmes Dropdown (only once)
+      if ($('tr-programme').options.length <= 1 && res.programmes) {
+        $('tr-programme').innerHTML = '<option value="">All Programmes</option>' + 
+          res.programmes.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+        $('tr-programme').value = programmeId; // restore selection
+      }
+
+      // Update Pagination Info
+      $('tr-page-info').textContent = `Showing ${students.length} of ${pag.total} students (Page ${pag.page} of ${pag.totalPages})`;
+      $('tr-prev').disabled = pag.page <= 1;
+      $('tr-next').disabled = pag.page >= pag.totalPages;
 
       if (!students.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No students found in your department.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No students found matching your search.</td></tr>`;
         return;
       }
 
@@ -94,7 +136,7 @@
     $('tr-modal-sub').textContent = matric;
     
     const body = $('tr-modal-body');
-    body.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;">Loading results…</div>';
+    body.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading results…</div>';
 
     try {
       const res = await core.portalFetch(`/api/hod/student-results/${studentId}`);
@@ -138,7 +180,19 @@
     $('tr-modal').style.display = 'none';
   }
 
-  $('tr-refresh')?.addEventListener('click', load);
+  // Pagination controls
+  $('tr-prev')?.addEventListener('click', () => { if (CURRENT_PAGE > 1) { CURRENT_PAGE--; load(); } });
+  $('tr-next')?.addEventListener('click', () => { if (CURRENT_PAGE < TOTAL_PAGES) { CURRENT_PAGE++; load(); } });
+
+  // Search & Filter
+  let searchTimeout;
+  $('tr-search')?.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => { CURRENT_PAGE = 1; load(); }, 300);
+  });
+  $('tr-programme')?.addEventListener('change', () => { CURRENT_PAGE = 1; load(); });
+
+  $('tr-refresh')?.addEventListener('click', () => { CURRENT_PAGE = 1; load(); });
   $('tr-modal-close')?.addEventListener('click', closeModal);
   $('tr-modal')?.addEventListener('click', (e) => { if (e.target.id === 'tr-modal') closeModal(); });
 

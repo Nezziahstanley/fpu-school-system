@@ -730,12 +730,36 @@ router.get('/exams', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/transcript
-// Get students in the HOD's department (for the transcript page)
 // ============================================================
 router.get('/transcript', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20; // Default 20 per page
+    const offset = (page - 1) * limit;
+    const search = req.query.search || '';
+    const programmeId = req.query.programmeId;
 
+    // Build Conditions
+    const conditions = [
+      eq(users.departmentId, departmentId),
+      eq(users.role, 'student')
+    ];
+
+    if (search) {
+      conditions.push(sql`(${users.firstName} ILIKE ${'%' + search + '%'} OR ${users.lastName} ILIKE ${'%' + search + '%'} OR ${users.matricNumber} ILIKE ${'%' + search + '%'})`);
+    }
+    if (programmeId) {
+      conditions.push(eq(users.programmeId, Number(programmeId)));
+    }
+
+    // Get total count for pagination
+    const [{ count }] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(users)
+      .where(and(...conditions));
+
+    // Get paginated students
     const students = await db
       .select({
         id: users.id,
@@ -743,22 +767,35 @@ router.get('/transcript', only, async (req, res, next) => {
         firstName: users.firstName,
         lastName: users.lastName,
         level: users.level,
+        programmeId: users.programmeId,
         programmeName: programmes.name,
       })
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .where(and(
-        eq(users.departmentId, departmentId),
-        eq(users.role, 'student')
-      ))
-      .orderBy(users.lastName);
+      .where(and(...conditions))
+      .orderBy(users.lastName)
+      .limit(limit)
+      .offset(offset);
 
+    // Clean matric numbers
     const data = students.map(s => ({
       ...s,
       matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim()
     }));
 
-    return res.json({ success: true, data });
+    // Get Programmes for the filter dropdown
+    const programmeList = await db
+      .select({ id: programmes.id, name: programmes.name })
+      .from(programmes)
+      .where(eq(programmes.departmentId, departmentId))
+      .orderBy(programmes.name);
+
+    return res.json({ 
+      success: true, 
+      data, 
+      pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) },
+      programmes: programmeList
+    });
   } catch (err) {
     console.error('[hod/transcript] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

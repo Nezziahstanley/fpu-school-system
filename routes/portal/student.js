@@ -700,4 +700,47 @@ router.post('/documents/request', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/student/id-card
+// ============================================================
+router.get('/id-card', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+
+    const [student] = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        matricNumber: users.matricNumber,
+        level: users.level,
+        photoUrl: users.photoUrl,
+        departmentName: departments.name,
+        programmeName: programmes.name,
+      })
+      .from(users)
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(eq(users.id, studentId))
+      .limit(1);
+
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // Get current session
+    const [session] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+
+    return res.json({
+      success: true,
+      data: {
+        ...student,
+        matricNumber: (student.matricNumber || '').replace(/SMT/gi, '').trim(),
+        sessionName: session?.name || '2026/2027',
+      }
+    });
+  } catch (err) {
+    console.error('[student/id-card] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -143,7 +143,13 @@
       <button id="ebook-close" style="padding:.45rem .9rem;font-size:.78rem;font-weight:700;background:#475569;color:#fff;border:none;border-radius:6px;cursor:pointer;">✕ Close</button>
     </div>
   </div>
-  <iframe id="ebook-frame" src="" style="flex:1;border:none;background:#fff;"></iframe>
+  <div style="flex:1;background:#1e293b;display:flex;align-items:center;justify-content:center;position:relative;">
+    <div id="ebook-loading" style="position:absolute;color:#94a3b8;font-size:.85rem;text-align:center;">
+      <div style="width:32px;height:32px;border:3px solid #475569;border-top-color:#10b981;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto .75rem;"></div>
+      Loading PDF…
+    </div>
+    <iframe id="ebook-frame" src="" style="flex:1;width:100%;height:100%;border:none;background:#fff;position:relative;z-index:2;"></iframe>
+  </div>
 </div>
 
 <!-- EXTERNAL SOURCE DISCLAIMER MODAL -->
@@ -176,6 +182,7 @@
   .lib-tab.active { background: #065f46; color: #fff; border-color: #065f46; }
   .lib-tab:hover:not(.active) { background: #f1f5f9; }
   .lib-action-btn { padding: .35rem .7rem; font-size: .72rem; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin-left: .25rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
 <script>
@@ -280,8 +287,26 @@
     $('ebook-modal').style.display = 'flex';
     $('ebook-title').textContent = book.title;
     $('ebook-author').textContent = book.author || '';
-    $('ebook-frame').src = book.ebookUrl;
-    $('ebook-download').href = book.ebookUrl;
+    
+    // Show loading spinner
+    $('ebook-loading').style.display = 'block';
+    $('ebook-frame').style.opacity = '0';
+    
+    // Use Google Docs Viewer to bypass iframe restrictions
+    const pdfUrl = book.ebookUrl;
+    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
+    
+    const iframe = $('ebook-frame');
+    iframe.onload = function() {
+      $('ebook-loading').style.display = 'none';
+      iframe.style.opacity = '1';
+      iframe.style.transition = 'opacity 0.3s';
+    };
+    iframe.src = viewerUrl;
+    
+    // Set download link
+    $('ebook-download').href = pdfUrl;
+    $('ebook-download').setAttribute('download', (book.title || 'ebook') + '.pdf');
   }
 
   function closeEbook() {

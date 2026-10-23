@@ -506,4 +506,67 @@ router.get('/exam-schedule', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ============================================================
+// GET /api/student/fees
+// ============================================================
+router.get('/fees', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // 1. Get fee structure for this student's programme + level + session
+    let totalDue = 0;
+    try {
+      const feeQueries = require('../../db/queries/payments');
+      const feeStructure = await feeQueries.findFeeStructureWithFallback({
+        programmeId: student.programmeId,
+        level: student.level || 'ND',
+        sessionId,
+      });
+      totalDue = Number(feeStructure?.total || 0);
+    } catch (e) {
+      console.warn('[student/fees] Fee structure lookup failed:', e.message);
+    }
+
+    // 2. Get payment history
+    let payments = [];
+    try {
+      const paymentQueries = require('../../db/queries/payments');
+      const rows = await paymentQueries.listForStudent(studentId, sessionId);
+      payments = (rows || []).map(p => ({
+        id: p.id,
+        date: p.paymentDate || p.createdAt,
+        reference: p.reference || '—',
+        amount: Number(p.amount || 0),
+        method: p.method || '—',
+        status: p.status || 'pending',
+      }));
+    } catch (e) {
+      console.warn('[student/fees] Payment history lookup failed:', e.message);
+    }
+
+    const totalPaid = payments
+      .filter(p => p.status === 'verified' || p.status === 'completed')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const balance = Math.max(0, totalDue - totalPaid);
+
+    return res.json({
+      success: true,
+      data: {
+        totalDue,
+        totalPaid,
+        balance,
+        payments,
+      }
+    });
+  } catch (err) {
+    console.error('[student/fees] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

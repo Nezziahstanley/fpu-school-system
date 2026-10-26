@@ -179,6 +179,8 @@ router.get('/students', only, async (req, res, next) => {
           semester: r.result?.semester,
         }))
       );
+      
+      // Attach the calculated CGPA to the student object
       data.push({ ...s, cgpa: summary.cgpa || 0 });
     }
 

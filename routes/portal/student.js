@@ -488,48 +488,65 @@ router.get('/exam-schedule', only, async (req, res, next) => {
 router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    // Join with the users table to get the student's name for the certificate
-    const rows = await db.execute(sql`
-      SELECT c.id, c.type, c.status, c.session_id AS "sessionId", c.created_at AS "createdAt",
-             u.firstName, u.lastName, u.matricNumber, u.level
-      FROM clearances c
-      JOIN users u ON c.student_id = u.id
-      WHERE c.student_id = ${studentId}
-      ORDER BY c.created_at DESC
+    // 1. Fetch clearances without the JOIN to prevent column ambiguity errors
+    const clearancesResult = await db.execute(sql`
+      SELECT id, type, status, session_id AS "sessionId", created_at AS "createdAt"
+      FROM clearances
+      WHERE student_id = ${studentId}
+      ORDER BY created_at DESC
     `);
-    return res.json({ success: true, data: rows.rows || [] });
+    
+    const clearances = clearancesResult.rows || [];
+
+    // 2. Fetch the student details separately (this guarantees it works)
+    const studentResult = await db.execute(sql`
+      SELECT first_name AS "firstName", last_name AS "lastName", matric_number AS "matricNumber", level
+      FROM users
+      WHERE id = ${studentId}
+      LIMIT 1
+    `);
+    
+    const student = studentResult.rows?.[0] || {};
+
+    // 3. Combine them for the frontend
+    const data = clearances.map(c => ({ ...c, ...student }));
+
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('[student/clearance] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.get('/clearance', only, async (req, res, next) => {
+router.post('/clearance/request', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    // Use EXACT column names and aliases to prevent SQL ambiguity errors
-    const rows = await db.execute(sql`
-      SELECT 
-        c.id AS "id", 
-        c.type AS "type", 
-        c.status AS "status", 
-        c.session_id AS "sessionId", 
-        c.created_at AS "createdAt",
-        u.first_name AS "firstName", 
-        u.last_name AS "lastName", 
-        u.matric_number AS "matricNumber", 
-        u.level AS "level"
-      FROM clearances c
-      JOIN users u ON c.student_id = u.id
-      WHERE c.student_id = ${studentId}
-      ORDER BY c.created_at DESC
+    const { type } = req.body || {};
+    const sessionId = req.user.currentSessionId || 1;
+
+    if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
+
+    // Check if they already requested this specific type for this session
+    const existing = await db.execute(sql`
+      SELECT id FROM clearances WHERE student_id = ${studentId} AND type = ${type} AND session_id = ${sessionId}
     `);
-    return res.json({ success: true, data: rows.rows || [] });
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, error: `You have already requested a ${type} for this session.` });
+    }
+
+    const row = await db.execute(sql`
+      INSERT INTO clearances (student_id, session_id, type, status, created_at)
+      VALUES (${studentId}, ${sessionId}, ${type}, 'pending', NOW())
+      RETURNING id, type, status, session_id AS "sessionId", created_at AS "createdAt"
+    `);
+
+    return res.status(201).json({ success: true, data: row.rows[0] });
   } catch (err) {
-    console.error('[student/clearance] Error:', err);
+    console.error('[student/clearance/request] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 // ============================================================
 // DOCUMENTS
 // ============================================================

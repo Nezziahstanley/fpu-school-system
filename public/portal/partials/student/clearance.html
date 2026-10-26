@@ -221,7 +221,6 @@
         badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Pending</span>';
       } else if (r.status === 'approved' || r.status === 'cleared') {
         badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Approved</span>';
-        // Add Print button if approved
         action = `<button class="print-btn" data-id="${r.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">🖨️ Print</button>`;
       } else if (r.status === 'rejected') {
         badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Rejected</span>';
@@ -239,7 +238,6 @@
       `;
     }).join('');
 
-    // Wire up print buttons
     tbody.querySelectorAll('.print-btn').forEach(btn => {
       btn.addEventListener('click', () => openCertificate(Number(btn.dataset.id)));
     });
@@ -260,7 +258,6 @@
     const c = ALL.find(x => x.id === id);
     if (!c) return;
 
-    // Populate the certificate modal
     $('cert-title').textContent = c.type.toUpperCase() + ' CERTIFICATE';
     $('cert-name').textContent = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Student Name';
     $('cert-matric').textContent = (c.matricNumber || '').replace(/SMT/gi, '').trim() || 'MATRIC';
@@ -273,7 +270,6 @@
     $('cert-modal').style.display = 'flex';
   }
 
-  // Modal controls
   function openModal() {
     $('clr-modal').style.display = 'flex';
     $('clr-type').value = '';

@@ -87,7 +87,7 @@
 
   let ALL = [];
   let FILTERED = [];
-  let SESSION_MAP = {};  // { 3: '2025/2026', ... }
+  let SESSION_MAP = {};
 
   // ---------------------------------------------------------
   // Extractors
@@ -97,7 +97,6 @@
     const stu = r.student || {};
     const crs = r.course || {};
 
-    // Session: prefer name, else look up from map by sessionId
     const sessionName =
       reg.sessionName ||
       reg.session_name ||
@@ -117,7 +116,7 @@
       semester,
       studentId: stu.id || reg.studentId,
       studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${reg.studentId || ''}`,
-      matric: stu.matricNumber || '—',
+      matric: stu.matricNumber || 'No Matric', // Changed from '—' to 'No Matric'
       courseCode: crs.code || reg.courseCode || `Course ${reg.courseId || ''}`,
       courseTitle: crs.title || reg.courseTitle || '',
       units: crs.unit || reg.units || 0,
@@ -140,10 +139,19 @@
       const badgeClass = r.status === 'approved' ? 'badge-active'
                        : r.status === 'rejected' ? 'badge-inactive'
                        : 'badge-warning';
-      const actions = r.status === 'pending'
-        ? `<button class="btn btn-primary btn-xs" data-act="approve" data-id="${r.id}">Approve</button>
-           <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}">Reject</button>`
-        : `<span class="muted small">—</span>`;
+                       
+      let actions = '';
+      if (r.status === 'pending') {
+        actions = `
+          <button class="btn btn-primary btn-xs" data-act="approve" data-id="${r.id}" style="margin-right:.25rem;">Approve</button>
+          <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}">Reject</button>
+        `;
+      } else if (r.status === 'approved') {
+        actions = `<a href="#registrar-student-profile?id=${r.studentId}" class="btn btn-outline btn-xs">👁 View Student</a>`;
+      } else {
+        actions = `<span class="muted small">—</span>`;
+      }
+
       return `
         <tr>
           <td>${esc(r.studentName)}</td>
@@ -158,12 +166,13 @@
         </tr>`;
     }).join('');
 
+    // Wire up actions
     $('rr-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = btn.dataset.id;
-        if (btn.dataset.act === 'approve') approveReg(id);
-        if (btn.dataset.act === 'reject') rejectReg(id);
+        if (btn.dataset.act === 'approve') updateStatus(id, 'approved');
+        if (btn.dataset.act === 'reject') updateStatus(id, 'rejected');
       });
     });
   }
@@ -217,11 +226,11 @@
   }
 
   // ---------------------------------------------------------
-  // Load sessions map (so we can resolve sessionId → name)
+  // Load sessions map
   // ---------------------------------------------------------
   async function loadSessionMap() {
     try {
-      const res = await core.portalFetch('/api/sessions');
+      const res = await core.portalFetch('/api/registrar/sessions');
       const payload = res.data || res || {};
       const list = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
       SESSION_MAP = {};
@@ -230,7 +239,6 @@
           SESSION_MAP[s.id] = s.name || s.sessionName || s.title || `Session ${s.id}`;
         }
       });
-      console.log('[registrations] Session map:', SESSION_MAP);
     } catch (err) {
       console.warn('[registrations] could not load sessions:', err.message);
     }
@@ -242,14 +250,11 @@
   async function load() {
     $('rr-tbody').innerHTML = '<tr><td colspan="9" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      // Fetch sessions map first so extraction has names
       await loadSessionMap();
-
       const res = await core.portalFetch('/api/registrar/registrations');
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
       ALL = raw.map(unwrap);
-      console.log('[registrar-registrations] Loaded', ALL.length);
       populateSessions();
       updateStats();
       applyFilter();
@@ -262,28 +267,20 @@
   // ---------------------------------------------------------
   // Actions
   // ---------------------------------------------------------
-  async function approveReg(id) {
-    if (!confirm('Approve this registration?')) return;
+  async function updateStatus(id, status) {
+    const actionName = status === 'approved' ? 'Approve' : 'Reject';
+    if (!confirm(`${actionName} this registration?`)) return;
+    
     try {
-      await core.portalFetch(`/api/registrations/${id}/approve`, { method: 'POST' });
-      core.showToast && core.showToast('Registration approved', 'success');
-      load();
-    } catch (err) {
-      core.showToast && core.showToast(err.message || 'Approval failed', 'error');
-    }
-  }
-
-  async function rejectReg(id) {
-    const reason = prompt('Reason for rejection (optional):') || '';
-    try {
-      await core.portalFetch(`/api/registrations/${id}/reject`, {
+      // FIXED: The correct route is /api/registrar/registrations/:id/status
+      await core.portalFetch(`/api/registrar/registrations/${id}/status`, { 
         method: 'POST',
-        body: { reason },
+        body: { status }
       });
-      core.showToast && core.showToast('Registration rejected', 'success');
+      core.showToast && core.showToast(`Registration ${status}`, 'success');
       load();
     } catch (err) {
-      core.showToast && core.showToast(err.message || 'Rejection failed', 'error');
+      core.showToast && core.showToast(err.message || 'Action failed', 'error');
     }
   }
 

@@ -202,6 +202,83 @@ router.get('/transcript', only, async (req, res, next) => {
 });
 
 // ============================================================
+// FEES & PAYMENTS
+// ============================================================
+router.get('/fees', only, async (req, res, next) => {
+  try {
+    const studentId = req.user.id;
+    const sessionId = req.user.currentSessionId || 1;
+
+    // 1. Get the Student's Programme and Level
+    const userResult = await db.execute(sql`
+      SELECT programme_id AS "programmeId", level 
+      FROM users 
+      WHERE id = ${studentId} 
+      LIMIT 1
+    `);
+    const student = userResult.rows?.[0];
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    // 2. Calculate Total Due from fee_structures
+    // (Adjust 'fee_structures' if your table is named differently)
+    let totalDue = 0;
+    try {
+      const feeResult = await db.execute(sql`
+        SELECT SUM(amount)::int AS total
+        FROM fee_structures
+        WHERE session_id = ${sessionId} 
+          AND (programme_id = ${student.programmeId} OR programme_id IS NULL)
+          AND (level = ${student.level} OR level IS NULL)
+      `);
+      totalDue = feeResult.rows?.[0]?.total || 0;
+    } catch (e) {
+      console.warn('[fees] Could not read fee_structures:', e.message);
+    }
+
+    // 3. Get Payments from the payments table
+    const paymentsResult = await db.execute(sql`
+      SELECT 
+        id, 
+        amount, 
+        reference, 
+        method, 
+        status, 
+        created_at AS "date"
+      FROM payments
+      WHERE student_id = ${studentId} AND session_id = ${sessionId}
+      ORDER BY created_at DESC
+    `);
+    
+    const payments = paymentsResult.rows || [];
+
+    // 4. Calculate Total Paid (only count verified/completed payments)
+    let totalPaid = 0;
+    payments.forEach(p => {
+      if (p.status === 'verified' || p.status === 'completed' || p.status === 'success') {
+        totalPaid += Number(p.amount || 0);
+      }
+    });
+
+    // 5. Calculate Balance
+    const balance = Math.max(0, totalDue - totalPaid);
+
+    return res.json({
+      success: true,
+      data: {
+        totalDue,
+        totalPaid,
+        balance,
+        payments
+      }
+    });
+
+  } catch (err) {
+    console.error('[student/fees] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // COURSES & REGISTRATION
 // ============================================================
 router.get('/courses', only, async (req, res, next) => {

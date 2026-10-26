@@ -114,6 +114,14 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  // 1. GLOBAL DESTROY: Wipe old charts if they exist from previous page visit
+  if (window.FPU_REG_CHARTS) {
+    Object.values(window.FPU_REG_CHARTS).forEach(chart => {
+      try { if (chart) chart.destroy(); } catch (e) {}
+    });
+  }
+  window.FPU_REG_CHARTS = {};
+
   function showError(msg) {
     const banner = $('reg-error-banner');
     const text = $('reg-error-text');
@@ -136,8 +144,12 @@
     cyan: '#06b6d4', slate: '#64748b',
   };
 
-  const charts = {};
-  function destroyChart(id) { if (charts[id]) { try { charts[id].destroy(); } catch {} delete charts[id]; } }
+  function destroyChart(id) { 
+    if (window.FPU_REG_CHARTS[id]) { 
+      try { window.FPU_REG_CHARTS[id].destroy(); } catch (e) {} 
+      delete window.FPU_REG_CHARTS[id]; 
+    } 
+  }
   
   function emptyChart(id, msg) {
     const el = $(id);
@@ -151,7 +163,7 @@
     const el = $(id); if (!el) return;
     destroyChart(id);
     try {
-      charts[id] = new Chart(el, {
+      window.FPU_REG_CHARTS[id] = new Chart(el, {
         type: 'bar',
         data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: opts.thickness || 22 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
@@ -163,7 +175,7 @@
     const el = $(id); if (!el) return;
     destroyChart(id);
     try {
-      charts[id] = new Chart(el, {
+      window.FPU_REG_CHARTS[id] = new Chart(el, {
         type: 'doughnut',
         data: { labels, datasets: [{ data, backgroundColor: colors || [COLORS.green, COLORS.blue, COLORS.gold], borderColor: '#fff', borderWidth: 3 }] },
         options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom' } } }
@@ -176,7 +188,7 @@
     const el = $(id); if (!el) return;
     destroyChart(id);
     try {
-      charts[id] = new Chart(el, {
+      window.FPU_REG_CHARTS[id] = new Chart(el, {
         type: 'line',
         data: { labels, datasets: [{ label: opts.label || 'Count', data, borderColor: opts.color || COLORS.green, backgroundColor: opts.fill || 'rgba(6,95,70,0.1)', tension: 0.4, fill: true, pointRadius: 4, borderWidth: 3 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
@@ -189,7 +201,7 @@
   // ============================================================
   async function loadAll() {
     $('reg-error-banner').style.display = 'none';
-    Object.keys(charts).forEach(destroyChart);
+    Object.keys(window.FPU_REG_CHARTS).forEach(destroyChart);
 
     // 1. Load Stats & Demographics
     try {

@@ -219,7 +219,7 @@ router.get('/fees', only, async (req, res, next) => {
     const student = userResult.rows?.[0];
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    // 2. Calculate Total Due from fee_structures
+    // 2. Calculate Total Due (Wrap in try/catch in case fee_structures table name differs)
     let totalDue = 0;
     try {
       const feeResult = await db.execute(sql`
@@ -231,20 +231,20 @@ router.get('/fees', only, async (req, res, next) => {
       `);
       totalDue = feeResult.rows?.[0]?.total || 0;
     } catch (e) {
-      console.warn('[fees] Could not read fee_structures:', e.message);
+      console.warn('[fees] fee_structures table error:', e.message);
     }
 
-    // 3. Get Payments from the payments table (Using user_id instead of student_id)
+    // 3. Get Payments (Using student_id and a safe date fallback)
     const paymentsResult = await db.execute(sql`
       SELECT 
         id, 
         amount, 
         reference, 
-        method, 
         status, 
-        created_at AS "date"
+        COALESCE(bank_name, 'Bank Transfer') AS "method",
+        COALESCE(created_at, NOW()) AS "date"
       FROM payments
-      WHERE user_id = ${studentId} AND session_id = ${sessionId}
+      WHERE student_id = ${studentId} AND session_id = ${sessionId}
       ORDER BY created_at DESC
     `);
     

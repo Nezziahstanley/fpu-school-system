@@ -882,9 +882,9 @@ router.get('/library/borrows', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const result = await db.execute(sql`
-      SELECT bb.id, bb.borrowed_at AS "borrowedAt", bb.due_at AS "dueAt",
+      SELECT bb.id, bb.book_id AS "bookId", bb.borrowed_at AS "borrowedAt", bb.due_at AS "dueAt",
              bb.returned_at AS "returnedAt", bb.status,
-             b.title, b.author, b.isbn
+             b.title, b.author, b.isbn, b.ebook_url AS "ebookUrl"
       FROM book_borrows bb
       INNER JOIN books b ON bb.book_id = b.id
       WHERE bb.user_id = ${studentId}

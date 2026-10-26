@@ -182,7 +182,7 @@
   .lib-tab { padding: .5rem 1rem; font-size: .82rem; font-weight: 700; background: #fff; color: #475569; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; }
   .lib-tab.active { background: #065f46; color: #fff; border-color: #065f46; }
   .lib-tab:hover:not(.active) { background: #f1f5f9; }
-  .lib-action-btn { padding: .35rem .7rem; font-size: .72rem; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin-left: .25rem; }
+  .lib-action-btn { padding: .35rem .7rem; font-size: .72rem; font-weight: 700; border: none; border-radius: 6px; cursor: pointer; margin-left: .25rem; display:inline-block; text-decoration:none; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
@@ -364,6 +364,8 @@
       $('books-tbody').innerHTML = BORROWS.map(b => {
         const returned = b.status === 'returned';
         const overdue = !returned && new Date(b.dueAt) < new Date();
+        const ebookUrl = b.ebookUrl || null;
+        
         let badge, action = '';
         if (returned) {
           badge = '<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;">Returned</span>';
@@ -376,19 +378,44 @@
           action = `<button class="lib-action-btn" data-return="${b.id}" style="background:#065f46;color:#fff;">Return</button>`;
         }
 
+        // Add Read/Download buttons if the book has an ebook
+        let ebookActions = '';
+        if (ebookUrl) {
+          ebookActions = `
+            <button class="lib-action-btn" data-act="read" data-id="${b.bookId}" data-url="${esc(ebookUrl)}" style="background:#065f46;color:#fff;">📖 Read</button>
+            <a href="${esc(ebookUrl)}" download="${esc(b.title)}.pdf" class="lib-action-btn" style="background:#1e40af;color:#fff;">⬇ Download</a>
+          `;
+        }
+
         return `
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(b.title)}</td>
             <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.borrowedAt)}</td>
             <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(b.dueAt)}</td>
             <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
-            <td style="padding:.65rem .75rem;text-align:right;">${action}</td>
+            <td style="padding:.65rem .75rem;text-align:right;white-space:nowrap;">${ebookActions} ${action}</td>
           </tr>
         `;
       }).join('');
 
       $('books-tbody').querySelectorAll('[data-return]').forEach(btn => {
         btn.addEventListener('click', () => returnBook(Number(btn.dataset.return)));
+      });
+
+      // Wire up the Read button in the My Books tab
+      $('books-tbody').querySelectorAll('[data-act="read"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const book = CATALOGUE.find(c => c.id === Number(btn.dataset.id));
+          if (book) {
+            openEbook(book);
+          } else {
+            // Fallback if the book isn't in the catalogue list for some reason
+            openEbook({ 
+                title: btn.closest('tr').querySelector('td').textContent, 
+                ebookUrl: btn.dataset.url 
+            });
+          }
+        });
       });
     } catch (err) {
       $('books-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;

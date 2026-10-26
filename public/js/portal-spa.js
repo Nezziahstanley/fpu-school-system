@@ -131,13 +131,12 @@
         'registrar-registrations'
       ];
       
-      // The pages we want under "Registry" (Custom Registrar pages + Shared pages)
-      const registryKeys = ['admin-admitted', 'admin-documents']; // Remove admin-graduations from here
+      const registryKeys = ['admin-admitted', 'admin-documents']; 
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      // Add custom registrar pages (applications, graduations) to the Registry group
-      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations'].includes(it.key));
+      // Add clearances and graduations here
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances'].includes(it.key));
       
       const registryItems = [
         ...customRegistry,
@@ -228,7 +227,8 @@
       { key: 'registrar-sessions',        label: 'Sessions',        icon: ICON.calendar },
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
-      { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, // <-- ADD THIS
+      { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
+      { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check }, // <-- ADD THIS
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [

@@ -572,16 +572,28 @@ router.post('/graduations/:id/mark', only, async (req, res, next) => {
   try {
     const studentId = Number(req.params.id);
     
+    // 1. Fetch the student to get their actual programme and level
+    const [student] = await db.select({
+      programmeId: users.programmeId,
+      level: users.level
+    }).from(users).where(eq(users.id, studentId)).limit(1);
+
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found.' });
+    }
+
+    // 2. Check if they are already marked
     const existing = await db.select().from(graduations).where(eq(graduations.studentId, studentId)).limit(1);
     if (existing.length) {
       return res.status(400).json({ success: false, error: 'Student already marked as graduated.' });
     }
 
+    // 3. Insert using their real data
     const [row] = await db.insert(graduations).values({
       studentId: studentId,
       sessionId: req.user.currentSessionId || 1,
-      programmeId: 1, 
-      level: 'ND', 
+      programmeId: student.programmeId, // Fixed: Uses actual programme
+      level: student.level,             // Fixed: Uses actual level (ND or HND)
       status: 'graduated',
       approvedBy: req.user.id,
       approvedAt: new Date()

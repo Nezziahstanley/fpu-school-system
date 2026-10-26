@@ -220,7 +220,6 @@ router.get('/fees', only, async (req, res, next) => {
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
     // 2. Calculate Total Due from fee_structures
-    // (Adjust 'fee_structures' if your table is named differently)
     let totalDue = 0;
     try {
       const feeResult = await db.execute(sql`
@@ -235,7 +234,7 @@ router.get('/fees', only, async (req, res, next) => {
       console.warn('[fees] Could not read fee_structures:', e.message);
     }
 
-    // 3. Get Payments from the payments table
+    // 3. Get Payments from the payments table (Using user_id instead of student_id)
     const paymentsResult = await db.execute(sql`
       SELECT 
         id, 
@@ -245,13 +244,13 @@ router.get('/fees', only, async (req, res, next) => {
         status, 
         created_at AS "date"
       FROM payments
-      WHERE student_id = ${studentId} AND session_id = ${sessionId}
+      WHERE user_id = ${studentId} AND session_id = ${sessionId}
       ORDER BY created_at DESC
     `);
     
     const payments = paymentsResult.rows || [];
 
-    // 4. Calculate Total Paid (only count verified/completed payments)
+    // 4. Calculate Total Paid
     let totalPaid = 0;
     payments.forEach(p => {
       if (p.status === 'verified' || p.status === 'completed' || p.status === 'success') {
@@ -264,12 +263,7 @@ router.get('/fees', only, async (req, res, next) => {
 
     return res.json({
       success: true,
-      data: {
-        totalDue,
-        totalPaid,
-        balance,
-        payments
-      }
+      data: { totalDue, totalPaid, balance, payments }
     });
 
   } catch (err) {

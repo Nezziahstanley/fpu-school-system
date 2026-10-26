@@ -504,35 +504,32 @@ router.get('/clearance', only, async (req, res, next) => {
   }
 });
 
-router.post('/clearance/request', only, async (req, res, next) => {
+router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const { type } = req.body || {};
-    const sessionId = req.user.currentSessionId || 1;
-
-    if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
-
-    // Check if they already requested this specific type for this session
-    const existing = await db.execute(sql`
-      SELECT id FROM clearances WHERE student_id = ${studentId} AND type = ${type} AND session_id = ${sessionId}
+    // Use EXACT column names and aliases to prevent SQL ambiguity errors
+    const rows = await db.execute(sql`
+      SELECT 
+        c.id AS "id", 
+        c.type AS "type", 
+        c.status AS "status", 
+        c.session_id AS "sessionId", 
+        c.created_at AS "createdAt",
+        u.first_name AS "firstName", 
+        u.last_name AS "lastName", 
+        u.matric_number AS "matricNumber", 
+        u.level AS "level"
+      FROM clearances c
+      JOIN users u ON c.student_id = u.id
+      WHERE c.student_id = ${studentId}
+      ORDER BY c.created_at DESC
     `);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ success: false, error: `You have already requested a ${type} for this session.` });
-    }
-
-    const row = await db.execute(sql`
-      INSERT INTO clearances (student_id, session_id, type, status, created_at)
-      VALUES (${studentId}, ${sessionId}, ${type}, 'pending', NOW())
-      RETURNING id, type, status, session_id AS "sessionId", created_at AS "createdAt"
-    `);
-
-    return res.status(201).json({ success: true, data: row.rows[0] });
+    return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
-    console.error('[student/clearance/request] Error:', err);
+    console.error('[student/clearance] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
-
 // ============================================================
 // DOCUMENTS
 // ============================================================

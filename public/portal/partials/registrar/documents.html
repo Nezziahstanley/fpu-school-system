@@ -8,11 +8,20 @@
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Issue transcripts, letters, and certificates to students</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="reg-doc-refresh" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-      ">↻ Refresh</button>
+      <button id="reg-doc-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+    <input type="search" id="doc-search" placeholder="Search student, matric, or type..." style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+    <select id="doc-filter-status" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+      <option value="">All Status</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="issued">Issued</option>
+      <option value="rejected">Rejected</option>
+    </select>
   </div>
 
   <!-- STATS -->
@@ -75,7 +84,7 @@
   #reg-doc-tbody tr { transition: background .1s; }
   #reg-doc-tbody tr:hover { background: #f8fafc; }
   .rd-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
-  .rd-btn-sm { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; transition:all .15s; }
+  .rd-btn-sm { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; transition:all .15s; text-decoration:none; display:inline-block; }
 </style>
 
 <script>
@@ -108,9 +117,7 @@
       const res = await core.portalFetch('/api/registrar/documents');
       ALL = Array.isArray(res.data) ? res.data : [];
       renderStats();
-      renderTable(ALL);
-      $('reg-doc-shown').textContent = ALL.length;
-      $('reg-doc-total').textContent = ALL.length;
+      applyFilters();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
@@ -137,6 +144,24 @@
       </div>`).join('');
   }
 
+  function applyFilters() {
+    const q = ($('doc-search').value || '').toLowerCase();
+    const status = $('doc-filter-status').value;
+
+    const filtered = ALL.filter(d => {
+      if (status && d.status !== status) return false;
+      if (q) {
+        const hay = `${d.studentName} ${d.matricNumber} ${d.type} ${d.title}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    renderTable(filtered);
+    $('reg-doc-shown').textContent = filtered.length;
+    $('reg-doc-total').textContent = ALL.length;
+  }
+
   function renderTable(rows) {
     const tbody = $('reg-doc-tbody');
     if (!rows.length) {
@@ -155,10 +180,10 @@
             <button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Issue</button>
           `;
         } else {
-          actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📄 Upload</button>`;
+          actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload</button>`;
         }
       } else if (d.status === 'issued' && d.fileUrl) {
-        actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#f1f5f9;color:#475569;text-decoration:none;">👁 View</a>`;
+        actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
       } else {
         actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;
       }
@@ -180,34 +205,22 @@
         </tr>`;
     }).join('');
 
-    // Wire Preview button
     tbody.querySelectorAll('[data-action="preview-transcript"]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const userId = btn.dataset.userid;
-        window.open(`/portal/partials/registrar/document-template.html?studentId=${userId}`, '_blank');
+        window.open(`/portal/partials/registrar/document-template.html?studentId=${btn.dataset.userid}`, '_blank');
       });
     });
 
-    // Wire Issue button
     tbody.querySelectorAll('[data-action="generate-transcript"]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const userId = btn.dataset.userid;
-        const docId = btn.dataset.id;
-        
-        // Open the template in a new tab
-        window.open(`/portal/partials/registrar/document-template.html?studentId=${userId}`, '_blank');
-        
-        // Mark as issued in the background
+        window.open(`/portal/partials/registrar/document-template.html?studentId=${btn.dataset.userid}`, '_blank');
         try {
-          await core.portalFetch(`/api/registrar/documents/${docId}/mark-issued`, { method: 'POST' });
-          load(); // Refresh the table
-        } catch (err) {
-          console.error('Failed to mark transcript as issued:', err);
-        }
+          await core.portalFetch(`/api/registrar/documents/${btn.dataset.id}/mark-issued`, { method: 'POST' });
+          load();
+        } catch (err) { console.error(err); }
       });
     });
 
-    // Wire Upload button
     tbody.querySelectorAll('[data-action="issue"]').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = Number(btn.dataset.id);
@@ -242,13 +255,10 @@
     formData.append('file', file);
 
     try {
-      await fetch(`/api/registrar/documents/${SELECTED_DOC.id}/issue`, {
+      await core.portalFetch(`/api/registrar/documents/${SELECTED_DOC.id}/issue`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('fpu_token')}` },
-        body: formData
-      }).then(async r => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || 'Upload failed');
+        body: formData,
+        isFormData: true // Crucial: ensures the token isn't manually set, letting the browser set the boundary
       });
 
       core.showToast && core.showToast('Document issued successfully!', 'success');
@@ -265,6 +275,8 @@
   $('reg-doc-modal-close')?.addEventListener('click', closeModal);
   $('reg-doc-cancel')?.addEventListener('click', closeModal);
   $('reg-doc-refresh')?.addEventListener('click', load);
+  $('doc-search').addEventListener('input', applyFilters);
+  $('doc-filter-status').addEventListener('change', applyFilters);
   $('reg-doc-modal')?.addEventListener('click', (e) => { if (e.target.id === 'reg-doc-modal') closeModal(); });
 
   load();

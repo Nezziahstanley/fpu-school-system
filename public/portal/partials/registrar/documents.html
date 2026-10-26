@@ -182,8 +182,14 @@
         } else {
           actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload</button>`;
         }
-      } else if (d.status === 'issued' && d.fileUrl) {
-        actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
+      } else if (d.status === 'issued') {
+        if (d.fileUrl) {
+          actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
+        } else if (d.type === 'Transcript') {
+          actions = `<button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#f1f5f9;color:#475569;">👁 View</button>`;
+        } else {
+          actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;
+        }
       } else {
         actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;
       }
@@ -258,7 +264,7 @@
       await core.portalFetch(`/api/registrar/documents/${SELECTED_DOC.id}/issue`, {
         method: 'POST',
         body: formData,
-        isFormData: true // Crucial: ensures the token isn't manually set, letting the browser set the boundary
+        isFormData: true 
       });
 
       core.showToast && core.showToast('Document issued successfully!', 'success');

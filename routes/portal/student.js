@@ -488,17 +488,20 @@ router.get('/exam-schedule', only, async (req, res, next) => {
 router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    // 1. Fetch clearances without the JOIN to prevent column ambiguity errors
+    
+    // 1. Fetch clearances and JOIN the academic_sessions table for the session name
     const clearancesResult = await db.execute(sql`
-      SELECT id, type, status, session_id AS "sessionId", created_at AS "createdAt"
-      FROM clearances
-      WHERE student_id = ${studentId}
-      ORDER BY created_at DESC
+      SELECT c.id, c.type, c.status, c.session_id AS "sessionId", 
+             s.name AS "sessionName", c.created_at AS "createdAt"
+      FROM clearances c
+      LEFT JOIN academic_sessions s ON c.session_id = s.id
+      WHERE c.student_id = ${studentId}
+      ORDER BY c.created_at DESC
     `);
     
     const clearances = clearancesResult.rows || [];
 
-    // 2. Fetch the student details separately (this guarantees it works)
+    // 2. Fetch the student details
     const studentResult = await db.execute(sql`
       SELECT first_name AS "firstName", last_name AS "lastName", matric_number AS "matricNumber", level
       FROM users
@@ -508,7 +511,7 @@ router.get('/clearance', only, async (req, res, next) => {
     
     const student = studentResult.rows?.[0] || {};
 
-    // 3. Combine them for the frontend
+    // 3. Combine them
     const data = clearances.map(c => ({ ...c, ...student }));
 
     return res.json({ success: true, data });

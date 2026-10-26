@@ -157,12 +157,12 @@
   }
 
   // ---------------------------------------------------------
-  // Load
+  // Load — FIXED: Now uses the correct Registrar endpoint
   // ---------------------------------------------------------
   async function load() {
     $('rp-tbody').innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
-      const res = await core.portalFetch('/api/programmes');
+      const res = await core.portalFetch('/api/registrar/programmes');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.programmes || []);
       console.log('[registrar-programmes] Loaded', ALL.length);

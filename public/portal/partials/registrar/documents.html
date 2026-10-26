@@ -125,7 +125,10 @@
 
   function renderStats() {
     const counts = { total: ALL.length, pending: 0, approved: 0, issued: 0, rejected: 0 };
-    ALL.forEach(d => { if (counts[d.status] !== undefined) counts[d.status]++; });
+    ALL.forEach(d => { 
+      const st = (d.status || '').toLowerCase();
+      if (counts[st] !== undefined) counts[st]++; 
+    });
 
     const tiles = [
       { label: 'Total Requests', value: counts.total,    bg: '#e0e7ff', fg: '#3730a3', icon: '📄' },
@@ -149,9 +152,11 @@
     const status = $('doc-filter-status').value;
 
     const filtered = ALL.filter(d => {
-      if (status && d.status !== status) return false;
+      const st = (d.status || '').toLowerCase();
+      if (status && st !== status) return false;
+      
       if (q) {
-        const hay = `${d.studentName} ${d.matricNumber} ${d.type} ${d.title}`.toLowerCase();
+        const hay = `${d.studentName || ''} ${d.matricNumber || ''} ${d.type || ''} ${d.title || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -170,11 +175,14 @@
     }
 
     tbody.innerHTML = rows.map(d => {
-      const meta = statusMeta(d.status);
+      const st = (d.status || '').toLowerCase();
+      const meta = statusMeta(st);
       
       let actions = '';
-      if (d.status === 'pending' || d.status === 'approved') {
-        if (d.type === 'Transcript') {
+      const docType = (d.type || '').toLowerCase();
+
+      if (st === 'pending' || st === 'approved') {
+        if (docType.includes('transcript')) {
           actions = `
             <button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#eff6ff;color:#1e40af;margin-right:.35rem;">👁 Preview</button>
             <button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Issue</button>
@@ -182,10 +190,10 @@
         } else {
           actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload</button>`;
         }
-      } else if (d.status === 'issued') {
+      } else if (st === 'issued') {
         if (d.fileUrl) {
           actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
-        } else if (d.type === 'Transcript') {
+        } else if (docType.includes('transcript')) {
           actions = `<button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#f1f5f9;color:#475569;">👁 View</button>`;
         } else {
           actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;

@@ -1,198 +1,81 @@
 <!-- Portal → Registrar → Student Profile -->
-<section class="greeting" id="sp-greeting">
-  <div class="who">
-    <div class="avatar" id="sp-avatar" style="width:72px;height:72px;overflow:hidden;">🎓</div>
-    <div>
-      <h1 id="sp-name">Loading…</h1>
-      <div class="sub" id="sp-sub">—</div>
+<div id="profile-loading" style="padding: 3rem; text-align: center; color: #94a3b8;">
+  <span class="spinner"></span> Loading student profile…
+</div>
+
+<div id="profile-error" style="display: none; padding: 2rem; text-align: center; color: #991b1b; background: #fee2e2; border-radius: 12px;"></div>
+
+<div id="profile-content" style="display: none;">
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div id="profile-avatar" style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;overflow:hidden;">
+        <!-- Avatar goes here -->
+      </div>
+      <div>
+        <div id="profile-name" style="font-size:1.4rem;font-weight:800;">Student Name</div>
+        <div id="profile-matric" style="font-size:.9rem;color:#d1fae5;margin-top:.25rem;">Matric No.</div>
+      </div>
     </div>
+    <a href="#registrar-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border-radius:8px;text-decoration:none;">← Back to Students</a>
   </div>
-  <div class="meta">
-    <strong id="sp-level-badge">—</strong>
-    <span>Level</span>
-  </div>
-</section>
 
-<!-- Back link -->
-<div style="margin-bottom:1rem;">
-  <a href="#registrar-students" class="btn btn-outline btn-sm">← Back to Students</a>
-</div>
-
-<!-- KPI tiles -->
-<div class="stat-grid">
-  <div class="stat">
-    <div class="meta"><span class="label">Current CGPA</span><span class="value" id="sp-cgpa">—</span></div>
-    <div class="ic">📊</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">Level</span><span class="value" id="sp-level">—</span></div>
-    <div class="ic">📘</div>
-  </div>
-  <div class="stat accent">
-    <div class="meta"><span class="label">Status</span><span class="value" id="sp-status">—</span></div>
-    <div class="ic">✅</div>
-  </div>
-  <div class="stat purple">
-    <div class="meta"><span class="label">Registrations</span><span class="value" id="sp-reg-count">—</span></div>
-    <div class="ic">📋</div>
-  </div>
-</div>
-
-<!-- Tabs -->
-<div class="filter-bar" style="padding:.5rem;gap:.25rem;">
-  <button class="btn btn-primary btn-sm" data-sp-tab="personal">👤 Personal</button>
-  <button class="btn btn-outline btn-sm" data-sp-tab="academic">🎓 Academic</button>
-  <button class="btn btn-outline btn-sm" data-sp-tab="registrations">📋 Registrations</button>
-  <button class="btn btn-outline btn-sm" data-sp-tab="actions">⚙️ Actions</button>
-</div>
-
-<!-- ============ TAB: PERSONAL ============ -->
-<section class="panel" id="sp-tab-personal">
-  <div class="panel-head"><h3>Personal Information</h3></div>
-  <div class="panel-body">
-    <form id="sp-personal-form" onsubmit="return false;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="form-group">
-          <label>First Name</label>
-          <input type="text" name="firstName" />
-        </div>
-        <div class="form-group">
-          <label>Last Name</label>
-          <input type="text" name="lastName" />
-        </div>
+  <!-- DETAILS GRID -->
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:1rem;margin-bottom:1.25rem;">
+    <!-- Personal Info -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;">
+      <h3 style="margin:0 0 1rem;font-size:.95rem;color:#0f172a;font-weight:800;">Personal Details</h3>
+      <div style="display:flex;flex-direction:column;gap:.75rem;font-size:.85rem;">
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Level</div><div id="profile-level" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Programme</div><div id="profile-programme" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Department</div><div id="profile-dept" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Email</div><div id="profile-email" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Phone</div><div id="profile-phone" style="font-weight:700;color:#0f172a;">—</div></div>
       </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="form-group">
-          <label>🔒 Email <span class="locked-hint">(cannot be changed here)</span></label>
-          <input type="email" name="email" disabled readonly />
-        </div>
-        <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" name="phone" />
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
-        <div class="form-group">
-          <label>Gender</label>
-          <select name="gender">
-            <option value="">— Select —</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Date of Birth</label>
-          <input type="date" name="dateOfBirth" />
-        </div>
-        <div class="form-group">
-          <label>Nationality</label>
-          <input type="text" name="nationality" />
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-        <div class="form-group">
-          <label>State of Origin</label>
-          <input type="text" name="stateOfOrigin" />
-        </div>
-        <div class="form-group">
-          <label>Matric Number</label>
-          <input type="text" name="matricNumber" />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Address</label>
-        <textarea name="address" rows="2"></textarea>
-      </div>
-
-      <div class="quick-actions" style="margin-top:1rem;">
-        <button class="btn btn-primary btn-sm" id="sp-save-btn">💾 Save Changes</button>
-        <button class="btn btn-outline btn-sm" id="sp-reload-btn">↺ Reload</button>
-      </div>
-    </form>
-  </div>
-</section>
-
-<!-- ============ TAB: ACADEMIC ============ -->
-<section class="panel" id="sp-tab-academic" style="display:none;">
-  <div class="panel-head"><h3>Academic Information</h3></div>
-  <div class="panel-body">
-    <div class="fees-breakdown">
-      <div class="fees-row"><span>Programme</span><strong id="sp-acad-programme">—</strong></div>
-      <div class="fees-row"><span>Department</span><strong id="sp-acad-dept">—</strong></div>
-      <div class="fees-row"><span>Level</span><strong id="sp-acad-level">—</strong></div>
-      <div class="fees-row"><span>Current Session</span><strong id="sp-acad-session">—</strong></div>
-      <div class="fees-row"><span>CGPA</span><strong id="sp-acad-cgpa">—</strong></div>
-      <div class="fees-row"><span>Admitted On</span><strong id="sp-acad-created">—</strong></div>
-      <div class="fees-row"><span>Account Status</span><strong id="sp-acad-status">—</strong></div>
     </div>
 
-    <div style="margin-top:1.5rem;">
-      <h4 style="margin:0 0 .75rem;font-size:.95rem;">Change Level</h4>
-      <div style="display:flex;gap:.5rem;align-items:center;">
-        <select id="sp-change-level" style="padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:8px;">
-          <option value="">— Select Level —</option>
-          <option value="ND1">ND1</option>
-          <option value="ND2">ND2</option>
-          <option value="HND1">HND1</option>
-          <option value="HND2">HND2</option>
-        </select>
-        <button class="btn btn-primary btn-sm" id="sp-change-level-btn">Update Level</button>
+    <!-- Academic Summary -->
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;">
+      <h3 style="margin:0 0 1rem;font-size:.95rem;color:#0f172a;font-weight:800;">Academic Summary</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:.7rem;color:#64748b;font-weight:700;text-transform:uppercase;">CGPA</div>
+          <div id="profile-cgpa" style="font-size:1.8rem;font-weight:800;color:#065f46;">—</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:.7rem;color:#64748b;font-weight:700;text-transform:uppercase;">Courses</div>
+          <div id="profile-courses-count" style="font-size:1.8rem;font-weight:800;color:#1e40af;">—</div>
+        </div>
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;text-align:center;">
+          <div style="font-size:.7rem;color:#64748b;font-weight:700;text-transform:uppercase;">Status</div>
+          <div id="profile-status" style="font-size:1rem;font-weight:800;color:#065f46;margin-top:.5rem;">—</div>
+        </div>
       </div>
     </div>
   </div>
-</section>
 
-<!-- ============ TAB: REGISTRATIONS ============ -->
-<section class="panel" id="sp-tab-registrations" style="display:none;">
-  <div class="panel-head">
-    <h3>Course Registrations</h3>
-    <span class="badge" id="sp-reg-badge">0</span>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
+  <!-- RESULTS TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:1rem;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:.95rem;color:#0f172a;">Academic Record</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
-          <tr>
-            <th>Course Code</th>
-            <th>Title</th>
-            <th>Units</th>
-            <th>Session</th>
-            <th>Semester</th>
-            <th>Status</th>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Units</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Score</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Grade</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Session</th>
           </tr>
         </thead>
-        <tbody id="sp-reg-tbody">
-          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        <tbody id="profile-results-tbody">
+          <tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
-</section>
-
-<!-- ============ TAB: ACTIONS ============ -->
-<section class="panel" id="sp-tab-actions" style="display:none;">
-  <div class="panel-head"><h3>Quick Actions</h3></div>
-  <div class="panel-body">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-      <button class="btn btn-outline" id="sp-action-reset-pw" style="justify-content:flex-start;padding:.85rem 1rem;">
-        🔑 <span style="margin-left:.5rem;">Reset Password</span>
-      </button>
-      <button class="btn btn-outline" id="sp-action-transcript" style="justify-content:flex-start;padding:.85rem 1rem;">
-        📄 <span style="margin-left:.5rem;">View Transcript</span>
-      </button>
-      <button class="btn btn-outline" id="sp-action-toggle" style="justify-content:flex-start;padding:.85rem 1rem;">
-        ⏸ <span style="margin-left:.5rem;" id="sp-toggle-label">Deactivate Account</span>
-      </button>
-      <button class="btn btn-outline" id="sp-action-print" style="justify-content:flex-start;padding:.85rem 1rem;">
-        🖨 <span style="margin-left:.5rem;">Print Profile</span>
-      </button>
-    </div>
-  </div>
-</section>
+</div>
 
 <script>
 (function () {
@@ -201,241 +84,92 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  let STUDENT = null;
-  let ORIGINAL = {};
-
-  // ---------------------------------------------------------
-  // Read ?id=X from URL
-  // ---------------------------------------------------------
+  // 1. Extract the ID from the URL hash (e.g. #registrar-student-profile?id=999)
   function getStudentId() {
-    // hash format: #registrar-student-profile?id=123
     const hash = window.location.hash || '';
-    const q = hash.split('?')[1] || '';
-    const params = new URLSearchParams(q);
-    return params.get('id');
+    const match = hash.match(/id=(\d+)/);
+    return match ? Number(match[1]) : null;
   }
 
-  // ---------------------------------------------------------
-  // Tab switching
-  // ---------------------------------------------------------
-  document.querySelectorAll('[data-sp-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.spTab;
-      document.querySelectorAll('[data-sp-tab]').forEach((b) => {
-        b.className = b.dataset.spTab === tab ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
-      });
-      ['personal', 'academic', 'registrations', 'actions'].forEach((t) => {
-        $('sp-tab-' + t).style.display = (t === tab) ? '' : 'none';
-      });
-    });
-  });
-
-  // ---------------------------------------------------------
-  // Fetch student
-  // ---------------------------------------------------------
-  async function loadStudent() {
-    const id = getStudentId();
-    if (!id) {
-      document.getElementById('page-view').innerHTML =
-        '<div class="panel"><div class="panel-body"><div class="alert alert-error">No student ID provided.</div></div></div>';
+  async function loadProfile() {
+    const studentId = getStudentId();
+    if (!studentId) {
+      $('profile-loading').style.display = 'none';
+      $('profile-error').style.display = 'block';
+      $('profile-error').textContent = 'No student ID provided in URL.';
       return;
     }
 
     try {
-      const res = await core.portalFetch('/api/students/' + id);
-      STUDENT = res.data || res;
-      console.log('[student-profile] Loaded', STUDENT);
-      fillProfile(STUDENT);
-      loadRegistrations(id);
-    } catch (err) {
-      console.error('[student-profile]', err);
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  }
+      // Fetch the transcript data (which includes student details, results, and CGPA summary)
+      const res = await core.portalFetch(`/api/registrar/transcript/${studentId}`);
+      const data = res;
+      
+      if (!data.student) throw new Error('Student data not found.');
 
-  // ---------------------------------------------------------
-  // Fill profile
-  // ---------------------------------------------------------
-  function fillProfile(s) {
-    // Header
-    $('sp-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Student';
-    $('sp-sub').textContent = `${s.matricNumber || '—'} · ${s.programmeName || ''}`;
-    $('sp-level-badge').textContent = s.level || '—';
+      const s = data.student;
+      const summary = data.summary || {};
+      const rows = data.rows || [];
 
-    // Avatar
-    if (s.photoUrl && window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
-      window.FPU_PHOTO.renderMyAvatar($('sp-avatar'), s);
-    } else {
-      $('sp-avatar').textContent = (s.firstName || 'S')[0].toUpperCase();
-    }
-
-    // KPI tiles
-    $('sp-cgpa').textContent = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
-    $('sp-level').textContent = s.level || '—';
-    $('sp-status').textContent = s.isActive ? 'Active' : 'Inactive';
-
-    // Personal form
-    const f = $('sp-personal-form');
-    f.firstName.value = s.firstName || '';
-    f.lastName.value = s.lastName || '';
-    f.email.value = s.email || '';
-    f.phone.value = s.phone || '';
-    f.gender.value = s.gender || '';
-    f.dateOfBirth.value = s.dateOfBirth ? String(s.dateOfBirth).slice(0, 10) : '';
-    f.nationality.value = s.nationality || '';
-    f.stateOfOrigin.value = s.stateOfOrigin || '';
-    f.matricNumber.value = s.matricNumber || '';
-    f.address.value = s.address || '';
-
-    // Snapshot for change detection
-    ORIGINAL = {
-      firstName: s.firstName || '',
-      lastName: s.lastName || '',
-      phone: s.phone || '',
-      gender: s.gender || '',
-      dateOfBirth: s.dateOfBirth ? String(s.dateOfBirth).slice(0, 10) : '',
-      nationality: s.nationality || '',
-      stateOfOrigin: s.stateOfOrigin || '',
-      matricNumber: s.matricNumber || '',
-      address: s.address || '',
-    };
-
-    // Academic tab
-    $('sp-acad-programme').textContent = s.programmeName || '—';
-    $('sp-acad-dept').textContent = s.departmentName || '—';
-    $('sp-acad-level').textContent = s.level || '—';
-    $('sp-acad-session').textContent = s.sessionName || '—';
-    $('sp-acad-cgpa').textContent = s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—';
-    $('sp-acad-created').textContent = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—';
-    $('sp-acad-status').textContent = s.isActive ? 'Active' : 'Inactive';
-
-    // Toggle label
-    $('sp-toggle-label').textContent = s.isActive ? 'Deactivate Account' : 'Activate Account';
-  }
-
-  // ---------------------------------------------------------
-  // Save personal edits
-  // ---------------------------------------------------------
-  $('sp-save-btn').addEventListener('click', async () => {
-    const f = $('sp-personal-form');
-    const patch = {};
-    ['firstName', 'lastName', 'phone', 'gender', 'dateOfBirth', 'nationality', 'stateOfOrigin', 'matricNumber', 'address'].forEach((k) => {
-      const v = f[k].value.trim();
-      if (v !== (ORIGINAL[k] || '')) patch[k] = v || null;
-    });
-    if (!Object.keys(patch).length) {
-      core.showToast && core.showToast('No changes to save', 'info');
-      return;
-    }
-    const btn = $('sp-save-btn');
-    btn.disabled = true; btn.textContent = 'Saving…';
-    try {
-      await core.portalFetch('/api/students/' + STUDENT.id, { method: 'PUT', body: patch });
-      core.showToast && core.showToast('Profile updated', 'success');
-      loadStudent();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.disabled = false; btn.textContent = '💾 Save Changes';
-    }
-  });
-
-  $('sp-reload-btn').addEventListener('click', loadStudent);
-
-  // ---------------------------------------------------------
-  // Change level
-  // ---------------------------------------------------------
-  $('sp-change-level-btn').addEventListener('click', async () => {
-    const lvl = $('sp-change-level').value;
-    if (!lvl) return core.showToast && core.showToast('Select a level', 'info');
-    try {
-      await core.portalFetch('/api/students/' + STUDENT.id, { method: 'PUT', body: { level: lvl } });
-      core.showToast && core.showToast('Level updated', 'success');
-      loadStudent();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  });
-
-  // ---------------------------------------------------------
-  // Load registrations
-  // ---------------------------------------------------------
-  async function loadRegistrations(studentId) {
-    const tbody = $('sp-reg-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-    try {
-      const res = await core.portalFetch('/api/registrations/with-student?studentId=' + studentId);
-      const payload = res.data || res || {};
-      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.registrations || []);
-      const rows = raw.map((r) => {
-        const reg = r.registration || r;
-        const crs = r.course || {};
-        return {
-          code: crs.code || '—',
-          title: crs.title || '',
-          unit: crs.unit || 0,
-          session: r.session?.name || reg.sessionName || '—',
-          semester: reg.semester || '—',
-          status: (reg.status || 'pending').toLowerCase(),
-        };
-      });
-      $('sp-reg-count').textContent = rows.length;
-      $('sp-reg-badge').textContent = rows.length;
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No course registrations.</td></tr>';
-        return;
+      // 2. Populate Header
+      $('profile-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown Name';
+      $('profile-matric').textContent = s.matricNumber ? s.matricNumber.replace(/SMT/gi, '').trim() : 'No Matric Number';
+      
+      // Avatar logic
+      const avatarEl = $('profile-avatar');
+      if (s.photoUrl) {
+        avatarEl.innerHTML = `<img src="${esc(s.photoUrl)}" style="width:100%;height:100%;object-fit:cover;" />`;
+      } else {
+        avatarEl.textContent = (s.firstName || 'U')[0].toUpperCase();
       }
-      tbody.innerHTML = rows.map((r) => `
-        <tr>
-          <td><strong>${esc(r.code)}</strong></td>
-          <td>${esc(r.title)}</td>
-          <td>${r.unit}</td>
-          <td>${esc(r.session)}</td>
-          <td>${esc(r.semester)}</td>
-          <td><span class="badge-status ${r.status === 'approved' ? 'badge-active' : 'badge-warning'}">${esc(r.status)}</span></td>
-        </tr>`).join('');
+
+      // 3. Populate Details Grid
+      $('profile-level').textContent = s.level || '—';
+      $('profile-programme').textContent = s.programme?.name || s.programmeName || '—';
+      $('profile-dept').textContent = s.department?.name || s.departmentName || '—';
+      $('profile-email').textContent = s.email || '—';
+      $('profile-phone').textContent = s.phone || '—';
+
+      // 4. Populate Summary Stats
+      $('profile-cgpa').textContent = summary.cgpa ? Number(summary.cgpa).toFixed(2) : '—';
+      $('profile-courses-count').textContent = rows.length;
+      
+      const isActive = s.isActive === true || s.isActive === 'true' || s.isActive === 1;
+      $('profile-status').textContent = isActive ? 'Active' : 'Inactive';
+      $('profile-status').style.color = isActive ? '#065f46' : '#991b1b';
+
+      // 5. Populate Results Table
+      if (!rows.length) {
+        $('profile-results-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No published results found for this student.</td></tr>';
+      } else {
+        $('profile-results-tbody').innerHTML = rows.map(r => {
+          const course = r.course || {};
+          const result = r.result || {};
+          return `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(course.code || '—')}</td>
+              <td style="padding:.65rem .75rem;color:#475569;">${esc(course.title || '—')}</td>
+              <td style="padding:.65rem .75rem;text-align:center;font-weight:700;color:#0f172a;">${course.unit || '—'}</td>
+              <td style="padding:.65rem .75rem;text-align:center;">${result.score || '—'}</td>
+              <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${result.grade === 'F' ? '#991b1b' : '#065f46'};">${esc(result.grade || '—')}</td>
+              <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#64748b;">${esc(result.sessionName || '—')}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Show Content
+      $('profile-loading').style.display = 'none';
+      $('profile-content').style.display = 'block';
+
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      console.error('[registrar-student-profile] Error:', err);
+      $('profile-loading').style.display = 'none';
+      $('profile-error').style.display = 'block';
+      $('profile-error').textContent = `Failed to load profile: ${err.message}`;
     }
   }
 
-  // ---------------------------------------------------------
-  // Action buttons
-  // ---------------------------------------------------------
-  $('sp-action-reset-pw').addEventListener('click', async () => {
-    if (!confirm('Reset this student\'s password to "Admin@12345"?')) return;
-    try {
-      await core.portalFetch(`/api/students/${STUDENT.id}/reset-password`, { method: 'POST' });
-      core.showToast && core.showToast('Password reset to Admin@12345', 'success');
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  });
-
-  $('sp-action-transcript').addEventListener('click', () => {
-    sessionStorage.setItem('transcript_student_id', STUDENT.id);
-    if (core.navigatePortal) core.navigatePortal('admin-transcript');
-  });
-
-  $('sp-action-toggle').addEventListener('click', async () => {
-    const msg = STUDENT.isActive ? 'Deactivate this account?' : 'Activate this account?';
-    if (!confirm(msg)) return;
-    try {
-      await core.portalFetch(`/api/students/${STUDENT.id}/toggle-active`, { method: 'POST' });
-      core.showToast && core.showToast('Account status changed', 'success');
-      loadStudent();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    }
-  });
-
-  $('sp-action-print').addEventListener('click', () => {
-    window.print();
-  });
-
-  // ---------------------------------------------------------
-  // Go
-  // ---------------------------------------------------------
-  loadStudent();
+  loadProfile();
 })();
 </script>

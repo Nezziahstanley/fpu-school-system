@@ -145,6 +145,9 @@ router.get('/trends', only, async (req, res, next) => {
 // ============================================================
 router.get('/students', only, async (req, res, next) => {
   try {
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA } = require('../../utils/gpa');
+
     const rows = await db
       .select({
         id: users.id,
@@ -164,8 +167,26 @@ router.get('/students', only, async (req, res, next) => {
       .where(eq(users.role, 'student'))
       .orderBy(desc(users.createdAt));
 
-    return res.json({ success: true, data: rows });
-  } catch (err) { return next(err); }
+    // Calculate CGPA for each student
+    const data = [];
+    for (const s of rows) {
+      const results = await resultQueries.publishedForStudent(s.id, {});
+      const summary = computeStudentCGPA(
+        results.map((r) => ({
+          unit: Number(r.course?.unit) || 0,
+          points: Number(r.result?.points) || 0,
+          sessionId: r.result?.sessionId,
+          semester: r.result?.semester,
+        }))
+      );
+      data.push({ ...s, cgpa: summary.cgpa || 0 });
+    }
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[registrar/students] Error:', err);
+    return next(err);
+  }
 });
 
 // ============================================================

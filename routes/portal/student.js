@@ -488,11 +488,14 @@ router.get('/exam-schedule', only, async (req, res, next) => {
 router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
+    // Join with the users table to get the student's name for the certificate
     const rows = await db.execute(sql`
-      SELECT id, type, status, session_id AS "sessionId", created_at AS "createdAt"
-      FROM clearances
-      WHERE student_id = ${studentId}
-      ORDER BY created_at DESC
+      SELECT c.id, c.type, c.status, c.session_id AS "sessionId", c.created_at AS "createdAt",
+             u.firstName, u.lastName, u.matricNumber, u.level
+      FROM clearances c
+      JOIN users u ON c.student_id = u.id
+      WHERE c.student_id = ${studentId}
+      ORDER BY c.created_at DESC
     `);
     return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
@@ -508,6 +511,14 @@ router.post('/clearance/request', only, async (req, res, next) => {
     const sessionId = req.user.currentSessionId || 1;
 
     if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
+
+    // Check if they already requested this specific type for this session
+    const existing = await db.execute(sql`
+      SELECT id FROM clearances WHERE student_id = ${studentId} AND type = ${type} AND session_id = ${sessionId}
+    `);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, error: `You have already requested a ${type} for this session.` });
+    }
 
     const row = await db.execute(sql`
       INSERT INTO clearances (student_id, session_id, type, status, created_at)

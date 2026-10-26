@@ -7,11 +7,37 @@
   <div class="panel-head"><h3>Change Password</h3></div>
   <div class="panel-body">
     <form id="sec-pwd-form">
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Current Password</label><input class="form-control" type="password" name="currentPassword" required /></div>
-        <div class="form-group"><label class="form-label">New Password</label><input class="form-control" type="password" name="newPassword" required /></div>
+      <div class="form-grid" style="grid-template-columns: repeat(3, 1fr);">
+        
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <div style="position:relative;">
+            <input class="form-control" type="password" name="currentPassword" id="pwd-current" required style="padding-right:2.5rem;" />
+            <span class="toggle-pwd" data-target="pwd-current" style="position:absolute;right:10px;top:10px;cursor:pointer;color:#64748b;">👁️</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <div style="position:relative;">
+            <input class="form-control" type="password" name="newPassword" id="pwd-new" required style="padding-right:2.5rem;" />
+            <span class="toggle-pwd" data-target="pwd-new" style="position:absolute;right:10px;top:10px;cursor:pointer;color:#64748b;">👁️</span>
+          </div>
+          <div style="font-size:.7rem;color:#64748b;margin-top:.25rem;">Must be at least 8 characters long.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <div style="position:relative;">
+            <input class="form-control" type="password" name="confirmPassword" id="pwd-confirm" required style="padding-right:2.5rem;" />
+            <span class="toggle-pwd" data-target="pwd-confirm" style="position:absolute;right:10px;top:10px;cursor:pointer;color:#64748b;">👁️</span>
+          </div>
+        </div>
+
       </div>
-      <div class="form-actions"><button type="submit" class="btn btn-primary">Update Password</button></div>
+      <div class="form-actions" style="margin-top:1rem;">
+        <button type="submit" class="btn btn-primary">Update Password</button>
+      </div>
     </form>
   </div>
 </div>
@@ -41,19 +67,58 @@
   (function () {
     const core = window.FPU_PORTAL;
 
+    // Handle Show/Hide Password Eye icons
+    document.querySelectorAll('.toggle-pwd').forEach(icon => {
+      icon.addEventListener('click', (e) => {
+        const input = document.getElementById(e.target.dataset.target);
+        if (input.type === 'password') {
+          input.type = 'text';
+          e.target.textContent = '🙈';
+        } else {
+          input.type = 'password';
+          e.target.textContent = '👁️';
+        }
+      });
+    });
+
     document.getElementById('sec-pwd-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd);
+
+      // Frontend validation before hitting the server
+      if (data.newPassword !== data.confirmPassword) {
+        return core.showToast('New passwords do not match.', 'error');
+      }
+      if (data.newPassword.length < 8) {
+        return core.showToast('Password must be at least 8 characters.', 'error');
+      }
+
       try {
-        await core.portalFetch('/api/portal/change-password', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Password updated.', 'success');
+        // FIXED: Pointing to the correct backend route
+        await core.portalFetch('/api/portal/profile/change-password', { 
+            method: 'POST', 
+            body: data 
+        });
+        core.showToast('Password updated successfully.', 'success');
         e.target.reset();
-      } catch (err) { core.showToast(err.message, 'error'); }
+        
+        // Reset eye icons back to closed state
+        document.querySelectorAll('.toggle-pwd').forEach(i => i.textContent = '👁️');
+        document.querySelectorAll('.toggle-pwd').forEach(i => {
+            document.getElementById(i.dataset.target).type = 'password';
+        });
+      } catch (err) { 
+        core.showToast(err.message, 'error'); 
+      }
     });
 
     document.getElementById('sec-revoke-all').addEventListener('click', async () => {
       if (!confirm('Sign out all other sessions?')) return;
-      try { await core.portalFetch('/api/portal/security/revoke-all', { method: 'POST' }); core.showToast('Other sessions signed out.', 'success'); }
+      try { 
+          await core.portalFetch('/api/portal/security/revoke-all', { method: 'POST' }); 
+          core.showToast('Other sessions signed out.', 'success'); 
+      }
       catch (err) { core.showToast(err.message, 'error'); }
     });
 
@@ -62,11 +127,11 @@
         const res = await core.portalFetch('/api/portal/security');
         const sessions = (res.sessions || []).concat(res.adminSessions || []);
         document.getElementById('sec-sessions').innerHTML = sessions.length ? sessions.map((s) => `
-          <div class="session-item">
-            <div class="meta"><strong>${core.escapeHtml((s.userAgent || 'Unknown device').slice(0, 60))}</strong>${s.ipAddress || ''}</div>
+          <div class="session-item" style="padding:.75rem;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center;">
+            <div class="meta"><strong>${core.escapeHtml((s.userAgent || 'Unknown device').slice(0, 60))}</strong><div class="small text-muted">${s.ipAddress || ''}</div></div>
             <div class="small muted">${core.formatDateTime(s.createdAt)}</div>
           </div>
-        `).join('') : '<p class="muted">No sessions.</p>';
+        `).join('') : '<p class="muted">No active sessions found.</p>';
 
         document.getElementById('sec-logins').innerHTML = (res.logins || []).map((l) => `
           <tr>
@@ -74,7 +139,7 @@
             <td>${core.escapeHtml(l.ipAddress || '')}</td>
             <td>${l.success ? '<span class="badge badge-success">Success</span>' : '<span class="badge badge-danger">Failed</span>'}</td>
           </tr>
-        `).join('') || '<tr><td colspan="3" class="empty">No logins.</td></tr>';
+        `).join('') || '<tr><td colspan="3" class="empty">No recent logins.</td></tr>';
       } catch (err) { core.showToast(err.message, 'error'); }
     })();
   })();

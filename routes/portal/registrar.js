@@ -603,4 +603,44 @@ router.post('/graduations/:id/mark', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/registrar/clearances
+// ============================================================
+router.get('/clearances', only, async (req, res, next) => {
+  try {
+    const rows = await db.execute(sql`
+      SELECT c.id, c.type, c.status, c.created_at AS "requestedAt",
+             u.firstName, u.lastName, u.matricNumber, u.level
+      FROM clearances c
+      JOIN users u ON c.student_id = u.id
+      ORDER BY 
+        CASE WHEN c.status = 'pending' THEN 1 ELSE 2 END,
+        c.created_at DESC
+    `);
+    return res.json({ success: true, data: rows.rows || [] });
+  } catch (err) {
+    console.error('[registrar/clearances] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/registrar/clearances/:id/status
+// ============================================================
+router.post('/clearances/:id/status', only, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['cleared', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status. Must be cleared or rejected.' });
+    }
+
+    const [updated] = await db.update(clearances)
+      .set({ status: status })
+      .where(eq(clearances.id, Number(req.params.id)))
+      .returning();
+
+    return res.json({ success: true, data: updated });
+  } catch (err) { return next(err); }
+});
+
 module.exports = router;

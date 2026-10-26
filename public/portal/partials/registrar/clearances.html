@@ -1,0 +1,173 @@
+<!-- Portal → Registrar → Clearances -->
+<div style="padding:0;">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">✅</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;">Clearance Requests</div>
+        <div style="font-size:.82rem;color:#d1fae5;">Review and approve student clearance requests</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+    <input type="search" id="clr-search" placeholder="Search student, matric, or type..." style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+    <select id="clr-filter-status" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+      <option value="">All Status</option>
+      <option value="pending">Pending</option>
+      <option value="cleared">Approved</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <button id="clr-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+  </div>
+
+  <!-- STATS -->
+  <div id="clr-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+
+  <!-- TABLE -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:.9rem;color:#0f172a;">Clearance Queue</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Type</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Requested</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="clr-tbody">
+          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  let ALL = [];
+
+  async function load() {
+    $('clr-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch('/api/registrar/clearances');
+      ALL = res.data || [];
+      renderStats();
+      renderTable();
+    } catch (err) {
+      $('clr-tbody').innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderStats() {
+    const pending = ALL.filter(c => c.status === 'pending').length;
+    const cleared = ALL.filter(c => c.status === 'cleared').length;
+    const rejected = ALL.filter(c => c.status === 'rejected').length;
+
+    $('clr-stats').innerHTML = `
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">⏳</div>
+        <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${pending}</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Pending</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✅</div>
+        <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${cleared}</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Approved</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">❌</div>
+        <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${rejected}</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.15rem;">Rejected</div></div>
+      </div>
+    `;
+  }
+
+  function renderTable() {
+    const q = ($('clr-search').value || '').toLowerCase();
+    const status = $('clr-filter-status').value;
+
+    const filtered = ALL.filter(c => {
+      if (status && c.status !== status) return false;
+      if (q) {
+        const hay = `${c.firstName} ${c.lastName} ${c.matricNumber} ${c.type}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      $('clr-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No clearance requests found.</td></tr>';
+      return;
+    }
+
+    $('clr-tbody').innerHTML = filtered.map(c => {
+      let badge = '';
+      let actions = '';
+
+      if (c.status === 'pending') {
+        badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Pending</span>';
+        actions = `
+          <button class="btn-approve" data-id="${c.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-right:.25rem;">Approve</button>
+          <button class="btn-reject" data-id="${c.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;">Reject</button>
+        `;
+      } else if (c.status === 'cleared') {
+        badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Approved</span>';
+        actions = '—';
+      } else {
+        badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Rejected</span>';
+        actions = '—';
+      }
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(c.firstName)} ${esc(c.lastName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(c.matricNumber || '—')}</code></td>
+          <td style="padding:.65rem .75rem;text-transform:capitalize;color:#475569;">${esc(c.type)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#64748b;">${fmtDate(c.requestedAt)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${badge}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">${actions}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire actions
+    document.querySelectorAll('.btn-approve').forEach(btn => {
+      btn.addEventListener('click', () => updateStatus(btn.dataset.id, 'cleared'));
+    });
+    document.querySelectorAll('.btn-reject').forEach(btn => {
+      btn.addEventListener('click', () => updateStatus(btn.dataset.id, 'rejected'));
+    });
+  }
+
+  async function updateStatus(id, status) {
+    if (!confirm(`Are you sure you want to mark this clearance as ${status}?`)) return;
+    try {
+      await core.portalFetch(`/api/registrar/clearances/${id}/status`, {
+        method: 'POST',
+        body: { status }
+      });
+      core.showToast(`Clearance ${status} successfully.`, 'success');
+      load();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  }
+
+  $('clr-search').addEventListener('input', renderTable);
+  $('clr-filter-status').addEventListener('change', renderTable);
+  $('clr-refresh').addEventListener('click', load);
+
+  load();
+})();
+</script>

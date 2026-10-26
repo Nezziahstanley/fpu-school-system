@@ -698,4 +698,29 @@ router.post('/clearances/:id/status', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/registrar/programmes
+// ============================================================
+router.get('/programmes', only, async (req, res, next) => {
+  try {
+    const rows = await db
+      .select({
+        id: programmes.id,
+        code: programmes.code,
+        name: programmes.name,
+        level: programmes.level,
+        departmentId: programmes.departmentId,
+        departmentName: departments.name, // <-- This fixes the "—"
+      })
+      .from(programmes)
+      .leftJoin(departments, eq(programmes.departmentId, departments.id))
+      .orderBy(programmes.name);
+
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[registrar/programmes] Error:', err);
+    return next(err);
+  }
+});
+
 module.exports = router;

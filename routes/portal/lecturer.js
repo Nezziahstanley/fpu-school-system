@@ -775,16 +775,13 @@ router.post('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
     
+    // Check lecturer is allocated to this course
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
       .limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
-
-    // Safe sessionId fallback
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || req.user.currentSessionId || 1;
 
     const { results } = req.body; 
     if (!Array.isArray(results)) return res.status(400).json({ success: false, error: 'Invalid results data.' });
@@ -795,6 +792,14 @@ router.post('/results/:courseId', only, async (req, res, next) => {
     const { calculateGrade } = require('../../utils/gpa');
 
     for (const r of results) {
+      // Look up the student's actual registration session
+      const regResult = await db.execute(sql`
+        SELECT session_id FROM course_registrations 
+        WHERE student_id = ${r.studentId} AND course_id = ${courseId} 
+        LIMIT 1
+      `);
+      const studentSessionId = regResult.rows[0]?.session_id || 1;
+
       const assign = Number(r.assignmentScore) || 0;
       const cw = Number(r.classworkScore) || 0;
       const exam = Number(r.examScore) || 0;
@@ -803,11 +808,9 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       const { grade, points } = calculateGrade(total, course.unit);
 
       await db.execute(sql`
-        INSERT INTO results (
-          student_id, course_id, session_id, semester, score, grade, points, status
-        )
+        INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status)
         VALUES (
-          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
+          ${r.studentId}, ${courseId}, ${studentSessionId}, ${course.semesterName || 'First'}, 
           ${total}, ${grade}, ${points}, 'draft'
         )
         ON CONFLICT (student_id, course_id, session_id) 

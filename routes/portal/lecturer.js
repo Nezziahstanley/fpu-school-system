@@ -183,7 +183,7 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
-// ATTENDANCE
+// GET /api/lecturer/attendance
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
   try {
@@ -208,6 +208,9 @@ router.get('/attendance', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ============================================================
+// POST /api/lecturer/attendance/bulk
+// ============================================================
 router.post('/attendance/bulk', only, async (req, res, next) => {
   try {
     const { rows } = req.body || {};
@@ -250,97 +253,95 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 });
 
 // ============================================================
-// RESULTS (BULK ENTRY)
+// GET /api/lecturer/results
 // ============================================================
-
-// GET: Fetch all students registered for a specific course
-router.get('/results/:courseId', only, async (req, res, next) => {
+router.get('/results', only, async (req, res, next) => {
   try {
-    const courseId = Number(req.params.courseId);
-    
-    // Check if lecturer is allocated to this course
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+    if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    const rows = await db
+      .select({
+        id: results.id, score: results.score, grade: results.grade, points: results.points, status: results.status,
+        studentFirstName: users.firstName, studentLastName: users.lastName, matricNumber: users.matricNumber,
+        courseCode: courses.code, courseTitle: courses.title,
+      })
+      .from(results)
+      .leftJoin(users, eq(results.studentId, users.id))
+      .leftJoin(courses, eq(results.courseId, courses.id))
+      .where(inArray(results.courseId, courseIds))
+      .orderBy(users.lastName, courses.code)
+      .limit(2000);
 
-    const rows = await db.execute(sql`
-      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
-             u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
-      FROM course_registrations cr
-      JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = ${sessionId}
-      WHERE cr.course_id = ${courseId} 
-        AND cr.session_id = ${sessionId}
-      ORDER BY u.last_name, u.first_name
-    `);
-
-    return res.json({ success: true, data: rows.rows || [] });
-  } catch (err) {
-    console.error('[lecturer/results] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+    return res.json({ success: true, data: rows });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// POST: Save all results at once
-router.post('/results/:courseId', only, async (req, res, next) => {
+// ============================================================
+// POST /api/lecturer/results
+// ============================================================
+router.post('/results', only, async (req, res, next) => {
   try {
-    const courseId = Number(req.params.courseId);
-    
-    // Check if lecturer is allocated to this course
-    const allocation = await db
-      .select({ id: courseAllocations.id })
+    const { studentId, courseId, score, semester } = req.body || {};
+    if (!studentId || !courseId || score === undefined) return res.status(400).json({ success: false, error: 'studentId, courseId, and score are required.' });
+
+    const allocation = await db.select({ id: courseAllocations.id })
       .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId))))
       .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    const numericScore = Number(score);
+    const scale = await getActiveGradeScale();
+    const { grade, points } = await scoreToGrade(numericScore, scale);
 
-    const { results } = req.body; 
-    if (!Array.isArray(results)) return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    const [row] = await db.insert(results).values({
+      studentId: Number(studentId),
+      courseId: Number(courseId),
+      sessionId: req.user.currentSessionId || 1,
+      semester: semester || 'first',
+      score: String(numericScore),
+      grade: grade,
+      points: String(points),
+      status: 'draft',
+    }).onConflictDoUpdate({
+      target: [results.studentId, results.courseId, results.sessionId, results.semester],
+      set: { score: String(numericScore), grade, points: String(points), status: 'draft' }
+    }).returning();
 
-    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
 
-    const { calculateGrade } = require('../../utils/gpa');
+// ============================================================
+// POST /api/lecturer/results/:id/submit
+// ============================================================
+router.post('/results/:id/submit', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    const [result] = await db.select({ id: results.id, courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
 
-    for (const r of results) {
-      const ca = Number(r.caScore) || 0;
-      const exam = Number(r.examScore) || 0;
-      const total = ca + exam;
-      
-      const { grade, points } = calculateGrade(total, course.unit);
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-      await db.execute(sql`
-        INSERT INTO results (
-          student_id, course_id, session_id, semester, score, grade, points, status
-        )
-        VALUES (
-          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
-          ${total}, ${grade}, ${points}, 'draft'
-        )
-        ON CONFLICT (student_id, course_id, session_id) 
-        DO UPDATE SET
-          score = EXCLUDED.score,
-          grade = EXCLUDED.grade,
-          points = EXCLUDED.points,
-          status = 'draft'
-      `);
-    }
+    await db.update(results).set({ status: 'submitted', submittedAt: new Date(), submittedBy: req.user.id }).where(eq(results.id, resultId));
+    return res.json({ success: true, message: 'Result submitted to HOD.' });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
 
-    return res.json({ success: true, message: 'Results saved as draft.' });
-  } catch (err) {
-    console.error('[lecturer/results/submit] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
+// ============================================================
+// DELETE /api/lecturer/results/:id
+// ============================================================
+router.delete('/results/:id', only, async (req, res, next) => {
+  try {
+    await db.delete(results).where(eq(results.id, Number(req.params.id)));
+    return res.json({ success: true });
+  } catch (err) { return next(err); }
 });
 
 // ============================================================

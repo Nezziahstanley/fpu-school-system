@@ -880,7 +880,7 @@ router.get('/lecturers', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/results/:courseId
-// (Fetch registered students to enter scores for)
+// (Fetch ALL registered students to enter scores for)
 // ============================================================
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
@@ -890,17 +890,16 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
     const sessionId = sessionResult.rows[0]?.id || 1;
 
-    // We use the single 'score' column. We also pull 'resultId' to know if a record exists.
+    // We removed the 'approved' filter so pending students also show up
     const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.status
+             r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = ${sessionId}
       WHERE cr.course_id = ${courseId} 
         AND cr.session_id = ${sessionId}
-        AND cr.status = 'approved'
       ORDER BY u.last_name, u.first_name
     `);
 
@@ -913,7 +912,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/:courseId
-// (Save the scores submitted by the lecturer)
+// (Save the scores submitted by the lecturer/HOD)
 // ============================================================
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
@@ -951,61 +950,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
         )
         ON CONFLICT (student_id, course_id, session_id) 
         DO UPDATE SET
-          score = EXCLUDED.score,
-          grade = EXCLUDED.grade,
-          points = EXCLUDED.points,
-          status = 'draft'
-      `);
-    }
-
-    return res.json({ success: true, message: 'Results saved as draft.' });
-  } catch (err) {
-    console.error('[hod/results/submit] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// POST /api/hod/results/:courseId
-// (Save the scores submitted by the lecturer)
-// ============================================================
-router.post('/results/:courseId', only, async (req, res, next) => {
-  try {
-    const courseId = Number(req.params.courseId);
-    const sessionId = req.user.currentSessionId || 1;
-    const { results } = req.body; // Array of { studentId, caScore, examScore }
-
-    if (!Array.isArray(results)) {
-      return res.status(400).json({ success: false, error: 'Invalid results data.' });
-    }
-
-    // Get the course details to compute grades
-    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
-
-    const { calculateGrade } = require('../../utils/gpa');
-
-    for (const r of results) {
-      const ca = Number(r.caScore) || 0;
-      const exam = Number(r.examScore) || 0;
-      const total = ca + exam;
-      
-      // Assume CA is max 30, Exam is max 70 (typical Nigerian polytechnic system)
-      const { grade, points } = calculateGrade(total, course.unit);
-
-      // Upsert (update if exists, insert if not)
-      await db.execute(sql`
-        INSERT INTO results (
-          student_id, course_id, session_id, semester, ca_score, exam_score, score, grade, points, status
-        )
-        VALUES (
-          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
-          ${ca}, ${exam}, ${total}, ${grade}, ${points}, 'draft'
-        )
-        ON CONFLICT (student_id, course_id, session_id) 
-        DO UPDATE SET
-          ca_score = EXCLUDED.ca_score,
-          exam_score = EXCLUDED.exam_score,
           score = EXCLUDED.score,
           grade = EXCLUDED.grade,
           points = EXCLUDED.points,

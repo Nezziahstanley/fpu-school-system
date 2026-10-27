@@ -7,6 +7,9 @@
       <div class="sub">All academic sessions and current status</div>
     </div>
   </div>
+  <div style="margin-top:1rem;">
+    <button id="btn-new-session" class="btn btn-primary btn-sm" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ New Session</button>
+  </div>
 </section>
 
 <!-- Filter bar -->
@@ -56,15 +59,50 @@
             <th>End Date</th>
             <th>Duration</th>
             <th>Status</th>
+            <th style="text-align:right;">Action</th>
           </tr>
         </thead>
         <tbody id="rs2-tbody">
-          <tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>
+          <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
+
+<!-- MODAL: New Session -->
+<div id="rs2-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:450px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Create Academic Session</h3>
+      <button id="rs2-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;margin-bottom:.3rem;">Session Name</label>
+        <input type="text" id="new-session-name" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g. 2027/2028" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;margin-bottom:.3rem;">Start Date</label>
+          <input type="date" id="new-session-start" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;margin-bottom:.3rem;">End Date</label>
+          <input type="date" id="new-session-end" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;color:#334155;margin-bottom:1.25rem;cursor:pointer;">
+        <input type="checkbox" id="new-session-current" style="width:16px;height:16px;" />
+        Set as Current Active Session
+      </label>
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;">
+        <button id="rs2-modal-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="rs2-modal-save" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Session</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -77,9 +115,6 @@
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // Extractors
-  // ---------------------------------------------------------
   function getName(s) { return s.name || s.sessionName || s.title || `Session ${s.id}`; }
   function getStart(s) { return s.startDate || s.start_date || s.startsAt || null; }
   function getEnd(s) { return s.endDate || s.end_date || s.endsAt || null; }
@@ -102,10 +137,10 @@
     return `${Math.round(months / 12)} years`;
   }
 
-  // ---------------------------------------------------------
-  // Status — pure date-based
-  // ---------------------------------------------------------
   function getStatus(s) {
+    // If it's explicitly set as current in the DB, respect that first.
+    if (isCurrent(s)) return 'current';
+
     const now = new Date();
     const startRaw = getStart(s);
     const endRaw = getEnd(s);
@@ -117,7 +152,7 @@
       if (now > end)   return 'past';
       return 'current';
     }
-    return isCurrent(s) ? 'current' : 'past';
+    return 'past';
   }
 
   function statusBadge(s) {
@@ -127,9 +162,6 @@
     return '<span class="badge-status badge-inactive">Past</span>';
   }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   function render() {
     const countEl = $('rs2-count');
     const tbody = $('rs2-tbody');
@@ -137,28 +169,46 @@
     if (!tbody) return;
 
     if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No sessions match your filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No sessions match your filters.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = FILTERED.map((s) => `
-      <tr>
-        <td><strong>${esc(getName(s))}</strong></td>
-        <td>${esc(fmtDate(getStart(s)))}</td>
-        <td>${esc(fmtDate(getEnd(s)))}</td>
-        <td>${esc(duration(getStart(s), getEnd(s)))}</td>
-        <td>${statusBadge(s)}</td>
-      </tr>`).join('');
+    tbody.innerHTML = FILTERED.map((s) => {
+      const status = getStatus(s);
+      const action = status !== 'current' 
+        ? `<button class="btn btn-outline btn-xs btn-activate" data-id="${s.id}">Activate</button>`
+        : `<span class="muted small">—</span>`;
+
+      return `
+        <tr>
+          <td><strong>${esc(getName(s))}</strong></td>
+          <td>${esc(fmtDate(getStart(s)))}</td>
+          <td>${esc(fmtDate(getEnd(s)))}</td>
+          <td>${esc(duration(getStart(s), getEnd(s)))}</td>
+          <td>${statusBadge(s)}</td>
+          <td class="row-actions" style="text-align:right;">${action}</td>
+        </tr>`;
+    }).join('');
+
+    tbody.querySelectorAll('.btn-activate').forEach(btn => {
+      btn.addEventListener('click', () => activateSession(btn.dataset.id));
+    });
   }
 
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
+  async function activateSession(id) {
+    if (!confirm('Make this the active session across the entire portal?')) return;
+    try {
+      await core.portalFetch(`/api/registrar/sessions/${id}/activate`, { method: 'POST' });
+      core.showToast('Session activated.', 'success');
+      load();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  }
+
   function applyFilter() {
-    const searchEl = $('rs2-search');
-    const statusEl = $('rs2-status');
-    const q = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
-    const st = statusEl ? statusEl.value : '';
+    const q = ($('rs2-search').value || '').trim().toLowerCase();
+    const st = $('rs2-status').value;
 
     FILTERED = ALL.filter((s) => {
       const hay = `${getName(s)} ${fmtDate(getStart(s))} ${fmtDate(getEnd(s))}`.toLowerCase();
@@ -169,9 +219,6 @@
     render();
   }
 
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
   function updateStats() {
     setText('rs2-total', ALL.length);
     setText('rs2-current', ALL.filter((s) => getStatus(s) === 'current').length);
@@ -179,9 +226,6 @@
     setText('rs2-upcoming', ALL.filter((s) => getStatus(s) === 'upcoming').length);
   }
 
-  // ---------------------------------------------------------
-  // Current session highlight panel
-  // ---------------------------------------------------------
   function renderCurrentPanel() {
     const cur = ALL.find((s) => getStatus(s) === 'current');
     const panel = $('rs2-current-panel');
@@ -198,30 +242,22 @@
     `;
   }
 
-  // ---------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------
   async function load() {
     const tbody = $('rs2-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>';
 
     try {
       const res = await core.portalFetch('/api/registrar/sessions');
       const payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.rows || payload.sessions || []);
-      console.log('[registrar-sessions] Loaded', ALL.length, 'sessions');
       updateStats();
       renderCurrentPanel();
       applyFilter();
     } catch (err) {
-      console.error('[registrar-sessions]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="empty">Error: ${esc(err.message)}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty">Error: ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
   function exportCsv() {
     const headers = ['Session', 'Start Date', 'End Date', 'Duration', 'Status'];
     const rows = FILTERED.map((s) => [
@@ -239,13 +275,53 @@
     URL.revokeObjectURL(a.href);
   }
 
-  // ---------------------------------------------------------
-  // Wire up (safe — only attach to existing elements)
-  // ---------------------------------------------------------
-  const searchEl = $('rs2-search'); if (searchEl) searchEl.addEventListener('input', applyFilter);
-  const statusEl = $('rs2-status'); if (statusEl) statusEl.addEventListener('change', applyFilter);
-  const refreshEl = $('rs2-refresh'); if (refreshEl) refreshEl.addEventListener('click', load);
-  const exportEl = $('rs2-export'); if (exportEl) exportEl.addEventListener('click', exportCsv);
+  // Modal Logic
+  function openModal() {
+    $('rs2-modal').style.display = 'flex';
+    $('new-session-name').value = '';
+    $('new-session-start').value = '';
+    $('new-session-end').value = '';
+    $('new-session-current').checked = false;
+  }
+  function closeModal() { $('rs2-modal').style.display = 'none'; }
+
+  $('btn-new-session').addEventListener('click', openModal);
+  $('rs2-modal-close').addEventListener('click', closeModal);
+  $('rs2-modal-cancel').addEventListener('click', closeModal);
+
+  $('rs2-modal-save').addEventListener('click', async () => {
+    const name = $('new-session-name').value.trim();
+    const startDate = $('new-session-start').value;
+    const endDate = $('new-session-end').value;
+    const isCurrent = $('new-session-current').checked;
+
+    if (!name) return core.showToast && core.showToast('Session name is required.', 'warning');
+
+    const btn = $('rs2-modal-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      await core.portalFetch('/api/registrar/sessions', {
+        method: 'POST',
+        body: { name, startDate, endDate, isCurrent }
+      });
+      core.showToast && core.showToast('Session created successfully.', 'success');
+      closeModal();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Session';
+    }
+  });
+
+  // Wiring
+  $('rs2-search').addEventListener('input', applyFilter);
+  $('rs2-status').addEventListener('change', applyFilter);
+  $('rs2-refresh').addEventListener('click', load);
+  $('rs2-export').addEventListener('click', exportCsv);
 
   load();
 })();

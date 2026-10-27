@@ -723,4 +723,51 @@ router.get('/programmes', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// POST /api/registrar/sessions
+// ============================================================
+router.post('/sessions', only, async (req, res, next) => {
+  try {
+    const { name, startDate, endDate, isCurrent } = req.body;
+    if (!name) return res.status(400).json({ success: false, error: 'Session name is required.' });
+
+    // If setting this as current, unset all others first
+    if (isCurrent) {
+      await db.update(academicSessions).set({ isCurrent: false });
+    }
+
+    const [row] = await db.insert(academicSessions).values({
+      name,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      isCurrent: !!isCurrent,
+    }).returning();
+
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) {
+    console.error('[registrar/sessions] POST Error:', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// POST /api/registrar/sessions/:id/activate
+// ============================================================
+router.post('/sessions/:id/activate', only, async (req, res, next) => {
+  try {
+    const sessionId = Number(req.params.id);
+    
+    // Unset all current sessions
+    await db.update(academicSessions).set({ isCurrent: false });
+    
+    // Set the new one
+    const [updated] = await db.update(academicSessions)
+      .set({ isCurrent: true })
+      .where(eq(academicSessions.id, sessionId))
+      .returning();
+
+    return res.json({ success: true, data: updated });
+  } catch (err) { return next(err); }
+});
+
 module.exports = router;

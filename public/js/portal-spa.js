@@ -208,6 +208,7 @@
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
       { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard },
+      { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart }, // <-- ADD THIS
       { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
     ],
     bursar: [

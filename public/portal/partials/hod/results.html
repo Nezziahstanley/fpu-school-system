@@ -1,0 +1,186 @@
+<!-- Portal → HOD → Results Entry -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📊</div>
+    <div>
+      <h1>Results Entry</h1>
+      <div class="sub">Upload CA and Exam scores for your courses</div>
+    </div>
+  </div>
+</section>
+
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1.25rem;">
+  <label style="display:block;font-size:.7rem;font-weight:700;color:#64748b;margin-bottom:.3rem;">Select Course</label>
+  <select id="course-select" style="width:100%;max-width:400px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+    <option value="">Loading courses…</option>
+  </select>
+</div>
+
+<div id="results-panel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+  <div class="panel-head" style="padding:1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+    <h3 id="course-title" style="margin:0;font-size:1rem;color:#0f172a;">Course Title</h3>
+    <button id="save-btn" class="btn btn-primary btn-sm" style="padding:.5rem 1rem;font-weight:700;">Save Draft</button>
+  </div>
+  <div class="table-wrap" style="overflow-x:auto;">
+    <table class="data-table" style="width:100%;border-collapse:collapse;font-size:.82rem;">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+          <th style="padding:.6rem .75rem;text-align:left;">Student</th>
+          <th style="padding:.6rem .75rem;text-align:left;">Matric No.</th>
+          <th style="padding:.6rem .75rem;text-align:center;">CA (30)</th>
+          <th style="padding:.6rem .75rem;text-align:center;">Exam (70)</th>
+          <th style="padding:.6rem .75rem;text-align:center;">Total</th>
+          <th style="padding:.6rem .75rem;text-align:center;">Grade</th>
+        </tr>
+      </thead>
+      <tbody id="results-tbody">
+        <!-- Rows injected here -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+
+  let STUDENTS = [];
+  let CURRENT_COURSE_ID = null;
+
+  // Grade logic (same as backend)
+  function calcGrade(total) {
+    if (total >= 70) return { grade: 'A', color: '#065f46' };
+    if (total >= 60) return { grade: 'B', color: '#065f46' };
+    if (total >= 50) return { grade: 'C', color: '#065f46' };
+    if (total >= 45) return { grade: 'D', color: '#92400e' };
+    if (total >= 40) return { grade: 'E', color: '#92400e' };
+    return { grade: 'F', color: '#991b1b' };
+  }
+
+  // Load courses for dropdown
+  async function loadCourses() {
+    try {
+      // Reusing the lecturer courses endpoint or HOD courses endpoint
+      const res = await core.portalFetch('/api/hod/courses'); 
+      const list = res.data || [];
+      
+      if (!list.length) {
+        $('course-select').innerHTML = '<option value="">No courses allocated</option>';
+        return;
+      }
+
+      $('course-select').innerHTML = '<option value="">— Select a course —</option>' + 
+        list.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  }
+
+  // Load students when a course is selected
+  $('course-select').addEventListener('change', async (e) => {
+    const courseId = e.target.value;
+    if (!courseId) {
+      $('results-panel').style.display = 'none';
+      return;
+    }
+
+    CURRENT_COURSE_ID = courseId;
+    $('results-panel').style.display = 'block';
+    $('results-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
+
+    try {
+      const res = await core.portalFetch(`/api/hod/results/${courseId}`);
+      STUDENTS = res.data || [];
+      renderTable();
+    } catch (err) {
+      $('results-tbody').innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">${esc(err.message)}</td></tr>`;
+    }
+  });
+
+  function renderTable() {
+    if (!STUDENTS.length) {
+      $('results-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No students registered for this course.</td></tr>';
+      return;
+    }
+
+    $('results-tbody').innerHTML = STUDENTS.map(s => {
+      const ca = s.caScore != null ? Number(s.caScore) : '';
+      const exam = s.examScore != null ? Number(s.examScore) : '';
+      const total = (Number(ca) || 0) + (Number(exam) || 0);
+      const { grade, color } = calcGrade(total);
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;">${esc(s.lastName)}, ${esc(s.firstName)}</td>
+          <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber || '—')}</code></td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <input type="number" class="score-input ca-input" data-id="${s.studentId}" min="0" max="30" value="${ca}" style="width:60px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <input type="number" class="score-input exam-input" data-id="${s.studentId}" min="0" max="70" value="${exam}" style="width:60px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;" class="total-cell">${total > 0 ? total : '—'}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${total > 0 ? color : '#94a3b8'};" class="grade-cell">${total > 0 ? grade : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Add live calculation on typing
+    document.querySelectorAll('.score-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const row = e.target.closest('tr');
+        const ca = Number(row.querySelector('.ca-input').value) || 0;
+        const exam = Number(row.querySelector('.exam-input').value) || 0;
+        const total = ca + exam;
+        const { grade, color } = calcGrade(total);
+
+        row.querySelector('.total-cell').textContent = total > 0 ? total : '—';
+        const gradeCell = row.querySelector('.grade-cell');
+        gradeCell.textContent = total > 0 ? grade : '—';
+        gradeCell.style.color = total > 0 ? color : '#94a3b8';
+      });
+    });
+  }
+
+  // Save Results
+  $('save-btn').addEventListener('click', async () => {
+    if (!CURRENT_COURSE_ID) return;
+    
+    const btn = $('save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const payload = [];
+    document.querySelectorAll('.ca-input').forEach(caInput => {
+      const studentId = caInput.dataset.id;
+      const row = caInput.closest('tr');
+      const examInput = row.querySelector('.exam-input');
+      
+      payload.push({
+        studentId: Number(studentId),
+        caScore: Number(caInput.value) || 0,
+        examScore: Number(examInput.value) || 0,
+      });
+    });
+
+    try {
+      await core.portalFetch(`/api/hod/results/${CURRENT_COURSE_ID}`, {
+        method: 'POST',
+        body: { results: payload }
+      });
+      core.showToast('Results saved as draft successfully.', 'success');
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Draft';
+    }
+  });
+
+  // Init
+  loadCourses();
+})();
+</script>

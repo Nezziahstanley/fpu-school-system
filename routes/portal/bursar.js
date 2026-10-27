@@ -18,7 +18,7 @@ const { eq, and, or, ilike, desc } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 
-const { payments, programmes, academicSessions, documents, users } = schema;
+const { payments, programmes, academicSessions, documents, users, departments } = schema;
 const only = requireRole('bursar', 'admin');
 
 const VALID_LEVELS = ['ND', 'HND'];

@@ -740,7 +740,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
     
-    // Check allocation
+    // Check if lecturer is allocated to this course
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
@@ -748,8 +748,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       .limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-    // Fetch students AND their existing results (if any)
-    // This removes the sessionId restriction so all registered students show up
+    // Fetch students (NO session restriction) and any existing results
     const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",

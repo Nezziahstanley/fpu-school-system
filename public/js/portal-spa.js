@@ -304,6 +304,15 @@
     const cleanKey = String(pageKey || '').split('?')[0];
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return null;
+    
+    // Custom mapping for registrar student profile
+    if (cleanKey === 'registrar-student-profile') {
+      return { 
+        url: '/portal/partials/registrar/student-profile.html', 
+        title: 'Student Profile' 
+      };
+    }
+
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 

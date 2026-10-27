@@ -65,8 +65,9 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const byGender = { Male: 0, Female: 0, Other: 0 };
     allStudents.forEach(s => {
-      if (s.gender === 'male') byGender.Male++;
-      else if (s.gender === 'female') byGender.Female++;
+      const g = String(s.gender || '').trim().toLowerCase();
+      if (g === 'male' || g === 'm') byGender.Male++;
+      else if (g === 'female' || g === 'f') byGender.Female++;
       else byGender.Other++;
     });
 

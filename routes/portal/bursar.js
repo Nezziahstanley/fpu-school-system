@@ -443,4 +443,55 @@ router.get('/security', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// ============================================================
+// GET /api/bursar/transcripts
+// (List students for the Bursar to view)
+// ============================================================
+router.get('/transcripts', only, async (req, res, next) => {
+  try {
+    const resultQueries = require('../../db/queries/results');
+    const { computeStudentCGPA } = require('../../utils/gpa');
+
+    const rows = await db
+      .select({
+        id: users.id,
+        matricNumber: users.matricNumber,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        level: users.level,
+        programmeName: programmes.name,
+        departmentId: departments.id,
+        departmentName: departments.name,
+      })
+      .from(users)
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(users.role, 'student'))
+      .orderBy(departments.name, users.lastName);
+
+    const data = [];
+    for (const s of rows) {
+      const results = await resultQueries.publishedForStudent(s.id, {});
+      const summary = computeStudentCGPA(
+        results.map((r) => ({
+          unit: Number(r.course?.unit) || 0,
+          points: Number(r.result?.points) || 0,
+          sessionId: r.result?.sessionId,
+          semester: r.result?.semester,
+        }))
+      );
+      
+      // THE FIX: Prevent NaN for students with no results
+      const safeCgpa = (summary.cgpa && !isNaN(summary.cgpa)) ? summary.cgpa : 0;
+      
+      data.push({ ...s, cgpa: safeCgpa });
+    }
+
+    return res.json({ success: true, data });
+  } catch (err) { 
+    console.error('[bursar/transcripts] Error:', err);
+    return next(err); 
+  }
+});
+
 module.exports = router;

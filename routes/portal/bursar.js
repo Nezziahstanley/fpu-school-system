@@ -393,36 +393,37 @@ router.get('/students', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/bursar/transcript/:studentId
-// Returns the full transcript for a student
 // ============================================================
 router.get('/transcript/:studentId', only, async (req, res, next) => {
   try {
     const userQueries = require('../../db/queries/users');
     const resultQueries = require('../../db/queries/results');
-    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
-
+    
     const studentId = Number(req.params.studentId);
     const student = await userQueries.findByIdWithRelations(studentId);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const rows = await resultQueries.publishedForStudent(studentId, {});
-    const summary = computeStudentCGPA(
-      rows.map((r) => ({
-        unit: Number(r.course?.unit) || 0,
-        points: Number(r.result?.points) || 0,
-        sessionId: r.result?.sessionId,
-        semester: r.result?.semester,
-      }))
-    );
+    const results = await resultQueries.publishedForStudent(studentId, {});
+    
+    let totalPoints = 0, totalUnits = 0;
+    results.forEach(r => {
+      const unit = Number(r.course?.unit) || 0;
+      const points = Number(r.result?.points) || 0;
+      totalPoints += (points * unit);
+      totalUnits += unit;
+    });
+    
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
 
     return res.json({
       success: true,
       student,
-      rows,
-      summary: { ...summary, classification: classifyDegree(summary.cgpa) },
+      rows: results,
+      summary: { cgpa, totalUnits },
     });
   } catch (err) {
-    return next(err);
+    console.error('[bursar/transcript] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -445,13 +446,10 @@ router.get('/security', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/bursar/transcripts
-// (List students for the Bursar to view)
 // ============================================================
 router.get('/transcripts', only, async (req, res, next) => {
   try {
-    const resultQueries = require('../../db/queries/results');
-    const { computeStudentCGPA } = require('../../utils/gpa');
-
+    // 1. Fetch all students
     const rows = await db
       .select({
         id: users.id,
@@ -460,7 +458,6 @@ router.get('/transcripts', only, async (req, res, next) => {
         lastName: users.lastName,
         level: users.level,
         programmeName: programmes.name,
-        departmentId: departments.id,
         departmentName: departments.name,
       })
       .from(users)
@@ -469,28 +466,40 @@ router.get('/transcripts', only, async (req, res, next) => {
       .where(eq(users.role, 'student'))
       .orderBy(departments.name, users.lastName);
 
-    const data = [];
-    for (const s of rows) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
+    // 2. Fetch ALL published results grouped by student
+    const resultsQuery = await db.execute(sql`
+      SELECT 
+        r.student_id AS "studentId",
+        SUM(c.unit * r.points) AS "totalPoints",
+        SUM(c.unit) AS "totalUnits"
+      FROM results r
+      JOIN courses c ON r.course_id = c.id
+      WHERE r.status = 'published'
+      GROUP BY r.student_id
+    `);
+    
+    const resultsMap = {};
+    resultsQuery.rows.forEach(r => { resultsMap[r.studentId] = r; });
+
+    // 3. Merge the CGPA into the student list
+    const data = rows.map(s => {
+      const stats = resultsMap[s.id];
+      let cgpa = 0;
       
-      // THE FIX: Prevent NaN for students with no results
-      const safeCgpa = (summary.cgpa && !isNaN(summary.cgpa)) ? summary.cgpa : 0;
-      
-      data.push({ ...s, cgpa: safeCgpa });
-    }
+      if (stats && Number(stats.totalUnits) > 0) {
+        cgpa = (Number(stats.totalPoints) / Number(stats.totalUnits)).toFixed(2);
+      }
+
+      return {
+        ...s,
+        cgpa: Number(cgpa) || 0, // Ensure it's a number, never NaN
+      };
+    });
 
     return res.json({ success: true, data });
-  } catch (err) { 
+  } catch (err) {
     console.error('[bursar/transcripts] Error:', err);
-    return next(err); 
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

@@ -885,14 +885,16 @@ router.get('/lecturers', only, async (req, res, next) => {
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    const sessionId = req.user.currentSessionId || 1;
+    
+    // Fetch the current session ID directly from the database
+    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
+    const sessionId = sessionResult.rows[0]?.id || 1;
 
-    // Get all students registered for this course
+    // We use the single 'score' column. We also pull 'resultId' to know if a record exists.
     const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.ca_score AS "caScore", r.exam_score AS "examScore", 
-             r.score, r.grade, r.status
+             r.id AS "resultId", r.score, r.grade, r.points, r.status
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = ${sessionId}
@@ -905,6 +907,60 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
     console.error('[hod/results] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/hod/results/:courseId
+// (Save the scores submitted by the lecturer)
+// ============================================================
+router.post('/results/:courseId', only, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    
+    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
+    const sessionId = sessionResult.rows[0]?.id || 1;
+
+    const { results } = req.body; 
+
+    if (!Array.isArray(results)) {
+      return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    }
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+
+    const { calculateGrade } = require('../../utils/gpa');
+
+    for (const r of results) {
+      // Combine CA and Exam into one total score
+      const ca = Number(r.caScore) || 0;
+      const exam = Number(r.examScore) || 0;
+      const total = ca + exam;
+      
+      const { grade, points } = calculateGrade(total, course.unit);
+
+      await db.execute(sql`
+        INSERT INTO results (
+          student_id, course_id, session_id, semester, score, grade, points, status
+        )
+        VALUES (
+          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
+          ${total}, ${grade}, ${points}, 'draft'
+        )
+        ON CONFLICT (student_id, course_id, session_id) 
+        DO UPDATE SET
+          score = EXCLUDED.score,
+          grade = EXCLUDED.grade,
+          points = EXCLUDED.points,
+          status = 'draft'
+      `);
+    }
+
+    return res.json({ success: true, message: 'Results saved as draft.' });
+  } catch (err) {
+    console.error('[hod/results/submit] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

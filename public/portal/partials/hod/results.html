@@ -63,7 +63,6 @@
   // Load courses for dropdown
   async function loadCourses() {
     try {
-      // Reusing the lecturer courses endpoint or HOD courses endpoint
       const res = await core.portalFetch('/api/hod/courses'); 
       const list = res.data || [];
       
@@ -107,8 +106,16 @@
     }
 
     $('results-tbody').innerHTML = STUDENTS.map(s => {
-      const ca = s.caScore != null ? Number(s.caScore) : '';
-      const exam = s.examScore != null ? Number(s.examScore) : '';
+      // Split the single score back into CA and Exam for UI display (assuming a 30/70 split)
+      const totalScore = s.score != null ? Number(s.score) : null;
+      let ca = '';
+      let exam = '';
+      
+      if (totalScore !== null) {
+        ca = Math.round(totalScore * 0.3); 
+        exam = totalScore - ca;
+      }
+
       const total = (Number(ca) || 0) + (Number(exam) || 0);
       const { grade, color } = calcGrade(total);
 
@@ -122,8 +129,8 @@
           <td style="padding:.65rem .75rem;text-align:center;">
             <input type="number" class="score-input exam-input" data-id="${s.studentId}" min="0" max="70" value="${exam}" style="width:60px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />
           </td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;" class="total-cell">${total > 0 ? total : '—'}</td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${total > 0 ? color : '#94a3b8'};" class="grade-cell">${total > 0 ? grade : '—'}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;" class="total-cell">${totalScore !== null ? total : '—'}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${totalScore !== null ? color : '#94a3b8'};" class="grade-cell">${totalScore !== null ? grade : '—'}</td>
         </tr>
       `;
     }).join('');

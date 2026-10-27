@@ -240,19 +240,44 @@ router.get('/transcripts', only, async (req, res, next) => {
 router.get('/transcript/:studentId', only, async (req, res, next) => {
   try {
     const userQueries = require('../../db/queries/users');
-    const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 
     const studentId = Number(req.params.studentId);
     const student = await userQueries.findByIdWithRelations(studentId);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const rows = await resultQueries.publishedForStudent(studentId, {});
+    // Fetch results WITH the session name joined
+    const results = await db.execute(sql`
+      SELECT 
+        r.id,
+        c.code AS "courseCode", 
+        c.title AS "courseTitle", 
+        c.unit AS "unit",
+        r.score, 
+        r.grade, 
+        r.points,
+        r.semester,
+        s.name AS "sessionName"
+      FROM results r
+      JOIN courses c ON r.course_id = c.id
+      LEFT JOIN academic_sessions s ON r.session_id = s.id
+      WHERE r.student_id = ${studentId} AND r.status = 'published'
+      ORDER BY s.name, r.semester, c.code
+    `);
+
+    const rows = results.rows || [];
+    
+    // Format rows to match the expected structure
+    const formattedRows = rows.map(r => ({
+      course: { code: r.courseCode, title: r.courseTitle, unit: r.unit },
+      result: { score: r.score, grade: r.grade, points: r.points, semester: r.semester, sessionName: r.sessionName }
+    }));
+
     const summary = computeStudentCGPA(
-      rows.map((r) => ({
+      formattedRows.map((r) => ({
         unit: Number(r.course?.unit) || 0,
         points: Number(r.result?.points) || 0,
-        sessionId: r.result?.sessionId,
+        sessionId: null, 
         semester: r.result?.semester,
       }))
     );
@@ -260,10 +285,13 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     return res.json({
       success: true,
       student,
-      rows,
+      rows: formattedRows,
       summary: { ...summary, classification: classifyDegree(summary.cgpa) },
     });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[registrar/transcript] Error:', err);
+    return next(err);
+  }
 });
 
 // ============================================================

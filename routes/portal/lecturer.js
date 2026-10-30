@@ -724,7 +724,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id
       WHERE cr.course_id = ${courseId}
       GROUP BY u.id, u.first_name, u.last_name, u.matric_number, r.id, r.score, r.grade, r.points, r.status
-      ORDER BY u.last_name, u.first_name
+      ORDER BY u.matric_number ASC
     `);
 
     return res.json({ success: true, data: rows.rows || [] });

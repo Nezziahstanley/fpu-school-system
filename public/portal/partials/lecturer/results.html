@@ -13,24 +13,30 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
+  <!-- STAT TILES (clickable filters) -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+    <div class="stat-tile" data-filter="" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .15s;">
       <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📋</div>
       <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-total">0</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Total Results</div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+    <div class="stat-tile" data-filter="draft" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .15s;">
       <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✏️</div>
       <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-drafts">0</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Drafts</div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+    <div class="stat-tile" data-filter="submitted" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .15s;">
       <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">📤</div>
       <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-submitted">0</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Submitted</div></div>
     </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
+    <div class="stat-tile" data-filter="published" style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:all .15s;">
       <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">✅</div>
       <div><div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="res-published">0</div><div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Published</div></div>
     </div>
+  </div>
+
+  <!-- Filter indicator -->
+  <div id="res-filter-label" style="display:none;margin-bottom:.75rem;padding:.5rem .85rem;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:.82rem;color:#92400e;">
+    Showing: <strong id="res-filter-text">All Results</strong>
+    <button id="res-clear-filter" style="margin-left:.5rem;padding:.15rem .5rem;background:#fff;border:1px solid #d97706;color:#92400e;border-radius:4px;font-size:.7rem;cursor:pointer;font-weight:700;">Clear ✕</button>
   </div>
 
   <!-- TABLE -->
@@ -42,13 +48,14 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Department</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Score</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Grade</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
           </tr>
         </thead>
         <tbody id="res-tbody">
-          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>
         </tbody>
       </table>
     </div>
@@ -99,6 +106,11 @@
   </div>
 </div>
 
+<style>
+  .stat-tile:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .stat-tile.active { border-color: #065f46 !important; box-shadow: 0 0 0 3px rgba(6,95,70,.15); }
+</style>
+
 <script>
 (function () {
   'use strict';
@@ -109,6 +121,8 @@
   let CURRENT_COURSE_ID = null;
   let STUDENTS = [];
   let ALL_COURSES = [];
+  let ALL_RESULTS = [];
+  let CURRENT_FILTER = '';
 
   function calcGrade(total) {
     if (total >= 70) return { grade: 'A', color: '#065f46' };
@@ -119,44 +133,116 @@
     return { grade: 'F', color: '#991b1b' };
   }
 
-  async function load() {
+  function statusBadge(status) {
+    const map = {
+      draft: { bg: '#fef3c7', fg: '#92400e', label: 'Draft' },
+      submitted: { bg: '#dbeafe', fg: '#1e40af', label: 'Submitted' },
+      hod_verified: { bg: '#e0e7ff', fg: '#3730a3', label: 'HOD Verified' },
+      approved: { bg: '#d1fae5', fg: '#065f46', label: 'Approved' },
+      published: { bg: '#d1fae5', fg: '#065f46', label: 'Published' },
+      hod_rejected: { bg: '#fee2e2', fg: '#991b1b', label: 'HOD Rejected' },
+      admin_rejected: { bg: '#fee2e2', fg: '#991b1b', label: 'Admin Rejected' },
+    };
+    const m = map[status] || { bg: '#f1f5f9', fg: '#475569', label: status };
+    return `<span style="background:${m.bg};color:${m.fg};padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;text-transform:capitalize;">${esc(m.label)}</span>`;
+  }
+
+  // Load ALL results for the main table
+  async function loadResults() {
     const tbody = $('res-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>';
+
     try {
       const res = await core.portalFetch('/api/lecturer/results');
-      const rows = res.data || [];
+      ALL_RESULTS = res.data || [];
 
+      // Update stat counts
       let drafts = 0, submitted = 0, published = 0;
-      rows.forEach(r => {
+      ALL_RESULTS.forEach(r => {
         if (r.status === 'draft') drafts++;
-        else if (r.status === 'submitted') submitted++;
-        else if (r.status === 'published') published++;
+        else if (r.status === 'submitted' || r.status === 'hod_verified') submitted++;
+        else if (r.status === 'published' || r.status === 'approved') published++;
       });
 
-      $('res-total').textContent = rows.length;
+      $('res-total').textContent = ALL_RESULTS.length;
       $('res-drafts').textContent = drafts;
       $('res-submitted').textContent = submitted;
       $('res-published').textContent = published;
 
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No results found.</td></tr>`;
-        return;
-      }
+      renderResultsTable();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
 
-      tbody.innerHTML = rows.map(r => `
+  function renderResultsTable() {
+    const tbody = $('res-tbody');
+    let rows = ALL_RESULTS;
+
+    // Apply filter
+    if (CURRENT_FILTER) {
+      rows = ALL_RESULTS.filter(r => {
+        if (CURRENT_FILTER === 'draft') return r.status === 'draft';
+        if (CURRENT_FILTER === 'submitted') return r.status === 'submitted' || r.status === 'hod_verified';
+        if (CURRENT_FILTER === 'published') return r.status === 'published' || r.status === 'approved';
+        return true;
+      });
+    }
+
+    // Update filter label
+    const label = $('res-filter-label');
+    const text = $('res-filter-text');
+    if (CURRENT_FILTER) {
+      label.style.display = 'block';
+      text.textContent = CURRENT_FILTER.charAt(0).toUpperCase() + CURRENT_FILTER.slice(1) + ' Results Only';
+    } else {
+      label.style.display = 'none';
+    }
+
+    // Highlight active tile
+    document.querySelectorAll('.stat-tile').forEach(t => {
+      t.classList.toggle('active', t.dataset.filter === CURRENT_FILTER);
+    });
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">No results found${CURRENT_FILTER ? ' with this status' : ''}.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      // Highlight department if cross-department (course dept ≠ lecturer's main dept)
+      const courseDept = r.courseDepartment || '—';
+
+      return `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentFirstName)} ${esc(r.studentLastName)}</td>
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber)}</code></td>
           <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
+          <td style="padding:.65rem .75rem;">
+            <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;">${esc(courseDept)}</span>
+          </td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${Number(r.score || 0).toFixed(2)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;font-size:.72rem;font-weight:700;">${esc(r.status)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${statusBadge(r.status)}</td>
         </tr>
-      `).join('');
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
-    }
+      `;
+    }).join('');
   }
+
+  // Click stat tiles to filter
+  document.querySelectorAll('.stat-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      CURRENT_FILTER = tile.dataset.filter;
+      renderResultsTable();
+    });
+  });
+
+  $('res-clear-filter')?.addEventListener('click', () => {
+    CURRENT_FILTER = '';
+    renderResultsTable();
+  });
+
+  $('res-refresh')?.addEventListener('click', loadResults);
 
   // Switch to Bulk View
   $('res-enter').addEventListener('click', async () => {
@@ -167,7 +253,6 @@
       const res = await core.portalFetch('/api/lecturer/courses');
       ALL_COURSES = res.data || [];
       $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
-        // KEY FIX: Use c.id (the actual course ID), not c.allocationId
         ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
     } catch (err) { core.showToast(err.message, 'error'); }
   });
@@ -178,7 +263,7 @@
     $('main-view').style.display = 'block';
     $('bulk-table-panel').style.display = 'none';
     $('bulk-course-select').value = '';
-    load();
+    loadResults();
   });
 
   // Load Students for selected course
@@ -294,6 +379,6 @@
   });
 
   // Init
-  load();
+  loadResults();
 })();
 </script>

@@ -250,9 +250,8 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 });
 
 // ============================================================
-// RESULTS
+// GET /api/lecturer/results (main table view)
 // ============================================================
-// GET: Fetch all saved results (for the main table view)
 router.get('/results', only, async (req, res, next) => {
   try {
     const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
@@ -261,13 +260,22 @@ router.get('/results', only, async (req, res, next) => {
 
     const rows = await db
       .select({
-        id: results.id, score: results.score, grade: results.grade, points: results.points, status: results.status,
-        studentFirstName: users.firstName, studentLastName: users.lastName, matricNumber: users.matricNumber,
-        courseCode: courses.code, courseTitle: courses.title,
+        id: results.id, 
+        score: results.score, 
+        grade: results.grade, 
+        points: results.points, 
+        status: results.status,
+        studentFirstName: users.firstName, 
+        studentLastName: users.lastName, 
+        matricNumber: users.matricNumber,
+        courseCode: courses.code, 
+        courseTitle: courses.title,
+        courseDepartment: departments.name, // NEW: department of the course
       })
       .from(results)
       .leftJoin(users, eq(results.studentId, users.id))
       .leftJoin(courses, eq(results.courseId, courses.id))
+      .leftJoin(departments, eq(courses.departmentId, departments.id))
       .where(inArray(results.courseId, courseIds))
       .orderBy(users.lastName, courses.code)
       .limit(2000);

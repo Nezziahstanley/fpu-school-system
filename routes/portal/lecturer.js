@@ -276,61 +276,6 @@ router.get('/results', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// POST: Save all results at once (Bulk Entry)
-router.post('/results/:courseId', only, async (req, res, next) => {
-  try {
-    const courseId = Number(req.params.courseId);
-    
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
-
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
-
-    const { results } = req.body; 
-    if (!Array.isArray(results)) return res.status(400).json({ success: false, error: 'Invalid results data.' });
-
-    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
-
-    const { calculateGrade } = require('../../utils/gpa');
-
-    for (const r of results) {
-      const assign = Number(r.assignmentScore) || 0;
-      const cw = Number(r.classworkScore) || 0;
-      const exam = Number(r.examScore) || 0;
-      const total = assign + cw + exam;
-      
-      const { grade, points } = calculateGrade(total, course.unit);
-
-      await db.execute(sql`
-        INSERT INTO results (
-          student_id, course_id, session_id, semester, score, grade, points, status
-        )
-        VALUES (
-          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
-          ${total}, ${grade}, ${points}, 'draft'
-        )
-        ON CONFLICT (student_id, course_id, session_id) 
-        DO UPDATE SET
-          score = EXCLUDED.score,
-          grade = EXCLUDED.grade,
-          points = EXCLUDED.points,
-          status = 'draft'
-      `);
-    }
-
-    return res.json({ success: true, message: 'Results saved successfully.' });
-  } catch (err) {
-    console.error('[lecturer/results/submit] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // POST: Submit a single result to HOD
 router.post('/results/:id/submit', only, async (req, res, next) => {
   try {

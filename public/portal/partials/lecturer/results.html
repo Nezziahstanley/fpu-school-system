@@ -110,7 +110,6 @@
   let STUDENTS = [];
   let ALL_COURSES = [];
 
-  // Grade Logic
   function calcGrade(total) {
     if (total >= 70) return { grade: 'A', color: '#065f46' };
     if (total >= 60) return { grade: 'B', color: '#065f46' };
@@ -120,7 +119,6 @@
     return { grade: 'F', color: '#991b1b' };
   }
 
-  // Load Results (Main View)
   async function load() {
     const tbody = $('res-tbody');
     try {
@@ -169,6 +167,7 @@
       const res = await core.portalFetch('/api/lecturer/courses');
       ALL_COURSES = res.data || [];
       $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
+        // KEY FIX: Use c.id (the actual course ID), not c.allocationId
         ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
     } catch (err) { core.showToast(err.message, 'error'); }
   });
@@ -207,7 +206,6 @@
         const totalScore = s.score != null ? Number(s.score) : null;
         let assign = '', cw = '', exam = '';
         
-        // Split the saved total back into the 3 boxes (10/20/70 ratio)
         if (totalScore !== null) {
           assign = Math.round(totalScore * 0.1);
           cw = Math.round(totalScore * 0.2);

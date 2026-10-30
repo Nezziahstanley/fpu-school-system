@@ -33,6 +33,12 @@
     </div>
   </div>
 
+  <!-- DEPARTMENT FILTER BUTTONS -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+    <button id="btn-my-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;transition:all .15s;">My Department Courses</button>
+    <button id="btn-other-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;transition:all .15s;">Other Department Courses</button>
+  </div>
+
   <!-- Filter indicator -->
   <div id="res-filter-label" style="display:none;margin-bottom:.75rem;padding:.5rem .85rem;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;font-size:.82rem;color:#92400e;">
     Showing: <strong id="res-filter-text">All Results</strong>
@@ -123,6 +129,8 @@
   let ALL_COURSES = [];
   let ALL_RESULTS = [];
   let CURRENT_FILTER = '';
+  let LECTURER_DEPT_ID = null;
+  let DEPT_FILTER = 'my';
 
   function calcGrade(total) {
     if (total >= 70) return { grade: 'A', color: '#065f46' };
@@ -155,6 +163,7 @@
     try {
       const res = await core.portalFetch('/api/lecturer/results');
       ALL_RESULTS = res.data || [];
+      LECTURER_DEPT_ID = res.lecturerDeptId;
 
       // Update stat counts
       let drafts = 0, submitted = 0, published = 0;
@@ -179,9 +188,16 @@
     const tbody = $('res-tbody');
     let rows = ALL_RESULTS;
 
-    // Apply filter
+    // 1. Apply Department Filter
+    if (DEPT_FILTER === 'my') {
+      rows = rows.filter(r => r.courseDeptId === LECTURER_DEPT_ID);
+    } else if (DEPT_FILTER === 'other') {
+      rows = rows.filter(r => r.courseDeptId !== LECTURER_DEPT_ID);
+    }
+
+    // 2. Apply Status Filter
     if (CURRENT_FILTER) {
-      rows = ALL_RESULTS.filter(r => {
+      rows = rows.filter(r => {
         if (CURRENT_FILTER === 'draft') return r.status === 'draft';
         if (CURRENT_FILTER === 'submitted') return r.status === 'submitted' || r.status === 'hod_verified';
         if (CURRENT_FILTER === 'published') return r.status === 'published' || r.status === 'approved';
@@ -205,12 +221,14 @@
     });
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">No results found${CURRENT_FILTER ? ' with this status' : ''}.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">No results found for this filter.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = rows.map(r => {
-      // Highlight department if cross-department (course dept ≠ lecturer's main dept)
+      // Highlight department if cross-department
+      const isOtherDept = r.courseDeptId !== LECTURER_DEPT_ID;
+      const deptStyle = isOtherDept ? 'background:#fef3c7;color:#92400e;border:1px solid #fde68a;' : 'background:#f1f5f9;color:#475569;';
       const courseDept = r.courseDepartment || '—';
 
       return `
@@ -219,7 +237,7 @@
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber)}</code></td>
           <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
           <td style="padding:.65rem .75rem;">
-            <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;background:#f1f5f9;color:#475569;">${esc(courseDept)}</span>
+            <span style="font-size:.72rem;padding:2px 6px;border-radius:4px;${deptStyle}">${esc(courseDept)}</span>
           </td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${Number(r.score || 0).toFixed(2)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
@@ -228,6 +246,29 @@
       `;
     }).join('');
   }
+
+  // Department filter buttons
+  $('btn-my-dept')?.addEventListener('click', () => {
+    DEPT_FILTER = 'my';
+    $('btn-my-dept').style.background = '#065f46';
+    $('btn-my-dept').style.color = '#fff';
+    $('btn-my-dept').style.borderColor = '#065f46';
+    $('btn-other-dept').style.background = '#fff';
+    $('btn-other-dept').style.color = '#475569';
+    $('btn-other-dept').style.borderColor = '#cbd5e1';
+    renderResultsTable();
+  });
+
+  $('btn-other-dept')?.addEventListener('click', () => {
+    DEPT_FILTER = 'other';
+    $('btn-other-dept').style.background = '#065f46';
+    $('btn-other-dept').style.color = '#fff';
+    $('btn-other-dept').style.borderColor = '#065f46';
+    $('btn-my-dept').style.background = '#fff';
+    $('btn-my-dept').style.color = '#475569';
+    $('btn-my-dept').style.borderColor = '#cbd5e1';
+    renderResultsTable();
+  });
 
   // Click stat tiles to filter
   document.querySelectorAll('.stat-tile').forEach(tile => {

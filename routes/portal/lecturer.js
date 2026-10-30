@@ -254,18 +254,22 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 router.get('/results', only, async (req, res, next) => {
   try {
-    // 1. Get ONLY the courses allocated to this lecturer
+    // 1. Get the lecturer's OWN department
+    const [lecturer] = await db.select({ departmentId: users.departmentId })
+      .from(users)
+      .where(eq(users.id, req.user.id))
+      .limit(1);
+
+    // 2. Get ONLY the courses allocated to this lecturer
     const allocations = await db.select({ courseId: courseAllocations.courseId })
       .from(courseAllocations)
       .where(eq(courseAllocations.lecturerId, req.user.id));
       
     const courseIds = allocations.map(a => a.courseId).filter(Boolean);
     
-    // If the lecturer has no courses, return empty immediately
-    if (!courseIds.length) return res.json({ success: true, data: [] });
+    if (!courseIds.length) return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
 
-    // 2. Fetch results ONLY for those courses.
-    // We use DISTINCT ON to prevent duplicate student rows if they have both a draft and a published result.
+    // 3. Fetch results, joining the course's department
     const rows = await db.execute(sql`
       SELECT DISTINCT ON (r.student_id, r.course_id) 
         r.id, 
@@ -278,18 +282,22 @@ router.get('/results', only, async (req, res, next) => {
         u.matric_number AS "matricNumber",
         c.code AS "courseCode", 
         c.title AS "courseTitle",
+        c.department_id AS "courseDeptId", -- Send the course's dept ID
         d.name AS "courseDepartment"
       FROM results r
       JOIN courses c ON r.course_id = c.id
       JOIN users u ON r.student_id = u.id
       LEFT JOIN departments d ON c.department_id = d.id
       WHERE r.course_id IN (${sql.join(courseIds, sql`, `)})
-      -- Order by student and course first for DISTINCT ON, then by newest result to get the latest status
       ORDER BY r.student_id, r.course_id, r.updated_at DESC, u.last_name, c.code
       LIMIT 2000
     `);
 
-    return res.json({ success: true, data: rows.rows || [] });
+    return res.json({ 
+      success: true, 
+      data: rows.rows || [],
+      lecturerDeptId: lecturer?.departmentId // Send this to the frontend
+    });
   } catch (err) { 
     console.error('[lecturer/results/get] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 

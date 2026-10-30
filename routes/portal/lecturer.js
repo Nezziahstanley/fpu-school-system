@@ -741,7 +741,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
     
-    // Check lecturer is allocated to this course
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
@@ -755,10 +754,10 @@ router.post('/results/:courseId', only, async (req, res, next) => {
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
 
-    const { calculateGrade } = require('../../utils/gpa');
+    // Fetch the grade scale once
+    const gradeScale = await getActiveGradeScale();
 
     for (const r of results) {
-      // Look up the student's actual registration session
       const regResult = await db.execute(sql`
         SELECT session_id FROM course_registrations 
         WHERE student_id = ${r.studentId} AND course_id = ${courseId} 
@@ -771,7 +770,8 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       const exam = Number(r.examScore) || 0;
       const total = assign + cw + exam;
       
-      const { grade, points } = calculateGrade(total, course.unit);
+      // Use scoreToGrade instead of calculateGrade
+      const { grade, points } = await scoreToGrade(total, gradeScale);
 
       await db.execute(sql`
         INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status)

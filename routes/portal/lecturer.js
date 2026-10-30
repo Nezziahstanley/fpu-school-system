@@ -276,40 +276,6 @@ router.get('/results', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// GET: Fetch all students registered for a specific course (for the bulk entry view)
-router.get('/results/:courseId', only, async (req, res, next) => {
-  try {
-    const courseId = Number(req.params.courseId);
-    
-    const allocation = await db
-      .select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
-
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
-
-    const rows = await db.execute(sql`
-      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
-             u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
-      FROM course_registrations cr
-      JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = ${sessionId}
-      WHERE cr.course_id = ${courseId} 
-        AND cr.session_id = ${sessionId}
-      ORDER BY u.last_name, u.first_name
-    `);
-
-    return res.json({ success: true, data: rows.rows || [] });
-  } catch (err) {
-    console.error('[lecturer/results] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // POST: Save all results at once (Bulk Entry)
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {

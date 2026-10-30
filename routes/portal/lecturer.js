@@ -721,7 +721,7 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       await db.execute(sql`
         INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status)
         VALUES (
-          ${r.studentId}, ${courseId}, ${studentSessionId}, ${course.semesterName || 'First'}, 
+          ${r.studentId}, ${courseId}, ${studentSessionId}, ${(course.semesterName || 'first').toLowerCase()}, 
           ${total}, ${grade}, ${points}, 'draft'
         )
         ON CONFLICT (student_id, course_id, session_id) 

@@ -250,38 +250,50 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/results (main table view)
+// GET: Fetch all results (main table view)
 // ============================================================
 router.get('/results', only, async (req, res, next) => {
   try {
-    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
+    // 1. Get ONLY the courses allocated to this lecturer
+    const allocations = await db.select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations)
+      .where(eq(courseAllocations.lecturerId, req.user.id));
+      
     const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+    
+    // If the lecturer has no courses, return empty immediately
     if (!courseIds.length) return res.json({ success: true, data: [] });
 
-    const rows = await db
-      .select({
-        id: results.id, 
-        score: results.score, 
-        grade: results.grade, 
-        points: results.points, 
-        status: results.status,
-        studentFirstName: users.firstName, 
-        studentLastName: users.lastName, 
-        matricNumber: users.matricNumber,
-        courseCode: courses.code, 
-        courseTitle: courses.title,
-        courseDepartment: departments.name, // NEW: department of the course
-      })
-      .from(results)
-      .leftJoin(users, eq(results.studentId, users.id))
-      .leftJoin(courses, eq(results.courseId, courses.id))
-      .leftJoin(departments, eq(courses.departmentId, departments.id))
-      .where(inArray(results.courseId, courseIds))
-      .orderBy(users.lastName, courses.code)
-      .limit(2000);
+    // 2. Fetch results ONLY for those courses.
+    // We use DISTINCT ON to prevent duplicate student rows if they have both a draft and a published result.
+    const rows = await db.execute(sql`
+      SELECT DISTINCT ON (r.student_id, r.course_id) 
+        r.id, 
+        r.score, 
+        r.grade, 
+        r.points, 
+        r.status,
+        u.first_name AS "studentFirstName", 
+        u.last_name AS "studentLastName", 
+        u.matric_number AS "matricNumber",
+        c.code AS "courseCode", 
+        c.title AS "courseTitle",
+        d.name AS "courseDepartment"
+      FROM results r
+      JOIN courses c ON r.course_id = c.id
+      JOIN users u ON r.student_id = u.id
+      LEFT JOIN departments d ON c.department_id = d.id
+      WHERE r.course_id IN (${sql.join(courseIds, sql`, `)})
+      -- Order by student and course first for DISTINCT ON, then by newest result to get the latest status
+      ORDER BY r.student_id, r.course_id, r.updated_at DESC, u.last_name, c.code
+      LIMIT 2000
+    `);
 
-    return res.json({ success: true, data: rows });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+    return res.json({ success: true, data: rows.rows || [] });
+  } catch (err) { 
+    console.error('[lecturer/results/get] Error:', err);
+    return res.status(500).json({ success: false, error: err.message }); 
+  }
 });
 
 // POST: Submit a single result to HOD

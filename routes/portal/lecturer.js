@@ -636,11 +636,20 @@ router.delete('/assignments/:id', only, async (req, res, next) => {
 router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
-    const [assignment] = await db.select().from(assignments).where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id))).limit(1);
+    
+    // Verify the assignment belongs to this lecturer
+    const [assignment] = await db.select().from(assignments)
+      .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
+      .limit(1);
+      
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
+    // Fetch the submissions with student details
     const rows = await db
-      .select({ submission: assignmentSubmissions, student: users })
+      .select({ 
+        submission: assignmentSubmissions, 
+        student: users 
+      })
       .from(assignmentSubmissions)
       .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
       .where(eq(assignmentSubmissions.assignmentId, assignmentId))
@@ -658,7 +667,10 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
     }));
 
     return res.json({ success: true, data, assignment });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) { 
+    console.error('[lecturer/submissions] Error:', err);
+    return res.status(500).json({ success: false, error: err.message }); 
+  }
 });
 
 router.post('/submissions/:id/grade', only, async (req, res, next) => {

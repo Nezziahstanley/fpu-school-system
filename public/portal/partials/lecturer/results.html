@@ -521,12 +521,12 @@
         const totalScore = s.score != null ? Number(s.score) : null;
         const autoAssign = s.assignmentScore != null ? Number(s.assignmentScore) : 0;
         
-        // We assume the stored score includes the assignment, so we try to guess the rest
         let cw = '', exam = '';
         if (totalScore !== null) {
-           const remainder = totalScore - autoAssign;
-           cw = Math.round(remainder * (20/60)); // Roughly guess CW based on 20 marks
-           exam = remainder - cw;
+           // Calculate the remainder, ensuring it's never negative
+           const remainder = Math.max(0, totalScore - autoAssign); 
+           cw = Math.round(remainder * (20/60)); 
+           exam = Math.max(0, remainder - cw); // Ensure exam is never negative
         }
 
         const total = (Number(autoAssign)||0) + (Number(cw)||0) + (Number(exam)||0);

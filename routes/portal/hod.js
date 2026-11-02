@@ -19,6 +19,7 @@ const { db, schema } = require('../../db');
 const { eq, and, sql, desc } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
+const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 
 const { 
   users, courses, courseRegistrations, results, staffProfiles, 
@@ -220,7 +221,6 @@ router.get('/pending-results', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const { semester, level } = req.query;
 
-    // We use raw SQL to GROUP BY course, preventing 17 rows for 17 students
     let sqlQuery = sql`
       SELECT 
         r.course_id AS "courseId",
@@ -246,7 +246,6 @@ router.get('/pending-results', only, async (req, res, next) => {
       sqlQuery = sql`${sqlQuery} AND c.level = ${level.toUpperCase()}`;
     }
 
-    // Group only by the course (and associated metadata)
     sqlQuery = sql`
       ${sqlQuery}
       GROUP BY r.course_id, c.code, c.title, c.level, c.semester_name, u.first_name, u.last_name, s.name
@@ -879,7 +878,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
     const sessionId = sessionResult.rows[0]?.id || 1;
 
-    // We removed the 'approved' filter so pending students also show up
+    // We REMOVED the 'approved' filter so pending students also show up
     const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",

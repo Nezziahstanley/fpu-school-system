@@ -254,35 +254,26 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 router.get('/results', only, async (req, res, next) => {
   try {
-    // 1. Get the lecturer's OWN department
     const [lecturer] = await db.select({ departmentId: users.departmentId })
-      .from(users)
-      .where(eq(users.id, req.user.id))
-      .limit(1);
+      .from(users).where(eq(users.id, req.user.id)).limit(1);
 
-    // 2. Get ONLY the courses allocated to this lecturer
     const allocations = await db.select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations)
-      .where(eq(courseAllocations.lecturerId, req.user.id));
+      .from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
       
     const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    
     if (!courseIds.length) return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
 
-    // 3. Fetch results, joining the course's department
     const rows = await db.execute(sql`
       SELECT DISTINCT ON (r.student_id, r.course_id) 
-        r.id, 
-        r.score, 
-        r.grade, 
-        r.points, 
-        r.status,
+        r.id, r.score, r.grade, r.points, r.status,
         u.first_name AS "studentFirstName", 
         u.last_name AS "studentLastName", 
         u.matric_number AS "matricNumber",
+        u.department_id AS "studentDeptId", -- NEW: Student's Department
+        c.id AS "courseId", -- NEW: Course ID
         c.code AS "courseCode", 
         c.title AS "courseTitle",
-        c.department_id AS "courseDeptId", -- Send the course's dept ID
+        c.department_id AS "courseDeptId", 
         d.name AS "courseDepartment"
       FROM results r
       JOIN courses c ON r.course_id = c.id
@@ -296,10 +287,9 @@ router.get('/results', only, async (req, res, next) => {
     return res.json({ 
       success: true, 
       data: rows.rows || [],
-      lecturerDeptId: lecturer?.departmentId // Send this to the frontend
+      lecturerDeptId: lecturer?.departmentId 
     });
   } catch (err) { 
-    console.error('[lecturer/results/get] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 
   }
 });

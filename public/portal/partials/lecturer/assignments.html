@@ -402,6 +402,9 @@
   $('form-modal-cancel')?.addEventListener('click', () => $('form-modal').style.display = 'none');
   $('modal-close')?.addEventListener('click', () => $('grade-modal').style.display = 'none');
   $('modal-close-btn')?.addEventListener('click', () => $('grade-modal').style.display = 'none');
+  $('view-submission-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'view-submission-modal') $('view-submission-modal').style.display = 'none';
+  });
   
   $('refresh-btn')?.addEventListener('click', loadData);
 

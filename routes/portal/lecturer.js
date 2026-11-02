@@ -676,8 +676,12 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
+    // Fetch the submissions with student details
     const rows = await db
-      .select({ submission: assignmentSubmissions, student: users })
+      .select({ 
+        submission: assignmentSubmissions, 
+        student: users 
+      })
       .from(assignmentSubmissions)
       .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
       .where(eq(assignmentSubmissions.assignmentId, assignmentId))
@@ -694,15 +698,17 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       submittedAt: r.submission.submittedAt,
     }));
 
+    // Also get the total students registered for this course
     const [regCount] = await db.execute(sql`
       SELECT COUNT(*)::int AS count 
       FROM course_registrations 
       WHERE course_id = ${assignment.courseId} AND status = 'approved'
     `);
     
+    // Attach totalStudents to the assignment object we return
     assignment.totalStudents = regCount.rows[0]?.count || 0;
 
-    return res.json({ success: true, data, assignment });
+    return res.json({ success: true, data: data || [], assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 

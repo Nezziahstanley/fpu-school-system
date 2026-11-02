@@ -525,11 +525,20 @@
         if (totalScore !== null) {
            // Calculate the remainder, ensuring it's never negative
            const remainder = Math.max(0, totalScore - autoAssign); 
-           cw = Math.round(remainder * (20/60)); 
-           exam = Math.max(0, remainder - cw); // Ensure exam is never negative
+           
+           // Standard NBTE split: CA is 20, Exam is 70. (Total 90).
+           // If the remainder is greater than 20, the rest is Exam.
+           if (remainder > 20) {
+               cw = 20;
+               exam = remainder - 20;
+           } else {
+               cw = remainder;
+               exam = 0;
+           }
         }
 
-        const total = (Number(autoAssign)||0) + (Number(cw)||0) + (Number(exam)||0);
+        // The total is exactly what the database says it is.
+        const total = totalScore !== null ? totalScore : 0;
         const { grade, color } = calcGrade(total);
 
         return `

@@ -381,16 +381,25 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       .limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
+    // We use DISTINCT ON to ensure we only get ONE row per student.
+    // It orders by student_id, then by updated_at DESC to get the NEWEST result.
     const rows = await db.execute(sql`
-      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
+      SELECT DISTINCT ON (u.id)
+             u.id AS "studentId", 
+             u.first_name AS "firstName", 
+             u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.assignment_score AS "assignmentScore", r.status AS "resultStatus"
+             r.id AS "resultId", 
+             r.score, 
+             r.grade, 
+             r.points, 
+             COALESCE(r.assignment_score, 0) AS "assignmentScore", 
+             r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id
       WHERE cr.course_id = ${courseId}
-      GROUP BY u.id, u.first_name, u.last_name, u.matric_number, r.id, r.score, r.grade, r.points, r.assignment_score, r.status
-      ORDER BY u.matric_number ASC
+      ORDER BY u.id, r.updated_at DESC
     `);
 
     return res.json({ success: true, data: rows.rows || [] });
@@ -685,6 +694,14 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       submittedAt: r.submission.submittedAt,
     }));
 
+    const [regCount] = await db.execute(sql`
+      SELECT COUNT(*)::int AS count 
+      FROM course_registrations 
+      WHERE course_id = ${assignment.courseId} AND status = 'approved'
+    `);
+    
+    assignment.totalStudents = regCount.rows[0]?.count || 0;
+
     return res.json({ success: true, data, assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);
@@ -699,7 +716,6 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
 
     const submissionId = Number(req.params.id);
 
-    // 1. Fetch the submission and the related assignment
     const [submission] = await db.select({
       id: assignmentSubmissions.id,
       studentId: assignmentSubmissions.studentId,
@@ -714,17 +730,13 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
 
     if (!submission) return res.status(404).json({ success: false, error: 'Submission not found.' });
 
-    // 2. Update the submission
     await db.update(assignmentSubmissions)
       .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
       .where(eq(assignmentSubmissions.id, submissionId));
 
-    // 3. Calculate the 10-mark conversion
-    // (Score / Max Score) * 10
     const maxScore = Number(submission.maxScore) || 100;
     const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
 
-    // 4. Upsert into the results table
     const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
     const sessionId = sessionResult.rows[0]?.id || 1;
 

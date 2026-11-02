@@ -43,39 +43,46 @@ router.get('/dashboard', only, async (req, res, next) => {
     const lecturerId = req.user.id;
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
+    // 1. Get UNIQUE allocated courses
     const allocatedCourses = await db
-      .select({ course: courses })
+      .select({ 
+        id: courses.id, 
+        code: courses.code, 
+        title: courses.title 
+      })
       .from(courseAllocations)
       .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
-      .where(eq(courseAllocations.lecturerId, lecturerId));
+      .where(eq(courseAllocations.lecturerId, lecturerId))
+      .groupBy(courses.id, courses.code, courses.title); // <--- FIX: Group by Course ID
 
-    const courseIds = allocatedCourses.map(c => c.course?.id).filter(Boolean);
+    const courseIds = allocatedCourses.map(c => c.id).filter(Boolean);
+    const coursesCount = courseIds.length; // This will now match the My Courses page
 
-    const courseStats = [];
+    // 2. Fetch stats based on UNIQUE course IDs
     let uniqueStudentIds = new Set();
     let totalRegistrations = 0;
+    const courseStats = [];
 
     for (const c of allocatedCourses) {
-      if (!c.course) continue;
+      if (!c.id) continue;
       const regs = await db
         .select({ studentId: courseRegistrations.studentId })
         .from(courseRegistrations)
-        .where(and(eq(courseRegistrations.courseId, c.course.id), eq(courseRegistrations.status, 'approved')));
+        .where(and(eq(courseRegistrations.courseId, c.id), eq(courseRegistrations.status, 'approved')));
       
       regs.forEach(r => uniqueStudentIds.add(r.studentId));
-      courseStats.push({ code: c.course.code, title: c.course.title, students: regs.length });
+      courseStats.push({ code: c.code, title: c.title, students: regs.length });
       totalRegistrations += regs.length;
     }
     const totalStudents = uniqueStudentIds.size;
 
-    let pendingResults = 0;
+    // 3. Count pending results, materials, assignments, attendance
+    let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
+    
     if (courseIds.length > 0) {
       const pend = await db.select({ count: sql`count(*)::int` }).from(results).where(and(inArray(results.courseId, courseIds), eq(results.status, 'draft')));
       pendingResults = pend[0]?.count || 0;
-    }
 
-    let materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
-    if (courseIds.length > 0) {
       const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));
       materialsCount = mats[0]?.count || 0;
 
@@ -91,10 +98,17 @@ router.get('/dashboard', only, async (req, res, next) => {
     return res.json({
       success: true,
       data: {
-        coursesCount: allocatedCourses.length, totalStudents, totalRegistrations, pendingResults,
+        coursesCount: coursesCount, // <--- Now correct (13)
+        totalStudents, 
+        totalRegistrations, 
+        pendingResults,
         attendanceCount,
-        activeSession: currentSession?.name || '—', materialsCount, assignmentsCount,
-        departmentName: dept?.name || '—', coursesList: allocatedCourses.map(c => c.course).filter(Boolean), courseStats
+        activeSession: currentSession?.name || '—', 
+        materialsCount, 
+        assignmentsCount,
+        departmentName: dept?.name || '—', 
+        coursesList: allocatedCourses, 
+        courseStats
       }
     });
   } catch (err) { return next(err); }

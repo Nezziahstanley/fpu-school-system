@@ -220,53 +220,42 @@ router.get('/pending-results', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const { semester, level } = req.query;
 
-    const conditions = [
-      eq(courses.departmentId, departmentId),
-      eq(results.status, 'submitted')
-    ];
+    // We use raw SQL to GROUP BY course, preventing 17 rows for 17 students
+    let sqlQuery = sql`
+      SELECT 
+        r.course_id AS "courseId",
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        c.level AS "level",
+        c.semester_name AS "semester",
+        COUNT(r.id) AS "studentCount",
+        MAX(r.submitted_at) AS "submittedAt",
+        u.first_name || ' ' || u.last_name AS "lecturerName",
+        s.name AS "sessionName"
+      FROM results r
+      INNER JOIN courses c ON r.course_id = c.id
+      LEFT JOIN users u ON r.submitted_by = u.id
+      LEFT JOIN academic_sessions s ON r.session_id = s.id
+      WHERE c.department_id = ${departmentId} AND r.status = 'submitted'
+    `;
 
     if (semester) {
-      conditions.push(eq(results.semester, semester.toLowerCase())); 
+      sqlQuery = sql`${sqlQuery} AND r.semester = ${semester.toLowerCase()}`;
     }
     if (level) {
-      conditions.push(eq(courses.level, level.toUpperCase()));
+      sqlQuery = sql`${sqlQuery} AND c.level = ${level.toUpperCase()}`;
     }
 
-    const rows = await db
-      .select({
-        id: results.id,
-        courseId: results.courseId,
-        courseCode: courses.code,
-        courseTitle: courses.title,
-        level: courses.level,
-        semester: results.semester,
-        status: results.status,
-        submittedAt: results.submittedAt,
-        lecturerName: sql`${users.firstName} || ' ' || ${users.lastName}`,
-        sessionName: academicSessions.name,
-      })
-      .from(results)
-      .innerJoin(courses, eq(results.courseId, courses.id))
-      .leftJoin(users, eq(results.submittedBy, users.id))
-      .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
-      .where(and(...conditions))
-      .orderBy(desc(results.submittedAt));
+    // Group only by the course (and associated metadata)
+    sqlQuery = sql`
+      ${sqlQuery}
+      GROUP BY r.course_id, c.code, c.title, c.level, c.semester_name, u.first_name, u.last_name, s.name
+      ORDER BY MAX(r.submitted_at) DESC
+    `;
 
-    const data = await Promise.all(rows.map(async (r) => {
-      const studs = await db.select({ count: sql`count(*)::int` })
-        .from(courseRegistrations)
-        .where(and(
-          eq(courseRegistrations.courseId, r.courseId),
-          eq(courseRegistrations.status, 'approved')
-        ));
-      
-      return {
-        ...r,
-        studentCount: studs[0]?.count || 0
-      };
-    }));
+    const rows = await db.execute(sqlQuery);
 
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
     console.error('[hod/pending-results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

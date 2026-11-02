@@ -872,22 +872,48 @@ router.get('/lecturers', only, async (req, res, next) => {
 // ============================================================
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
+    const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
-    
-    // Fetch the current session ID directly from the database
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
 
-    // We REMOVED the 'approved' filter so pending students also show up
+    // 1. Verify the course belongs to this HOD's department
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course not in your department.' });
+    }
+
+    // 2. Get the session_id from the registered students for this course
+    const sessResult = await db.execute(sql`
+      SELECT DISTINCT session_id 
+      FROM course_registrations 
+      WHERE course_id = ${courseId} 
+      LIMIT 1
+    `);
+    const sessionId = sessResult.rows[0]?.session_id;
+
+    if (!sessionId) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 3. Fetch students strictly from the HOD's department
     const rows = await db.execute(sql`
-      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
-             u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
+      SELECT 
+        u.id AS "studentId", 
+        u.first_name AS "firstName", 
+        u.last_name AS "lastName", 
+        u.matric_number AS "matricNumber",
+        r.id AS "resultId", 
+        r.score, 
+        r.grade, 
+        r.points, 
+        r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = ${sessionId}
+      LEFT JOIN results r ON r.student_id = u.id 
+                          AND r.course_id = cr.course_id 
+                          AND r.session_id = cr.session_id
       WHERE cr.course_id = ${courseId} 
         AND cr.session_id = ${sessionId}
+        AND u.department_id = ${departmentId}
       ORDER BY u.last_name, u.first_name
     `);
 
@@ -921,7 +947,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
     const { calculateGrade } = require('../../utils/gpa');
 
     for (const r of results) {
-      // Combine CA and Exam into one total score
       const ca = Number(r.caScore) || 0;
       const exam = Number(r.examScore) || 0;
       const total = ca + exam;

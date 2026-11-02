@@ -867,21 +867,60 @@ router.get('/lecturers', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/hod/results/ready-to-publish
+// (MUST be defined BEFORE /results/:courseId)
+// ============================================================
+router.get('/results/ready-to-publish', only, async (req, res, next) => {
+  try {
+    const departmentId = Number(deptId(req));
+    if (isNaN(departmentId)) {
+      return res.status(400).json({ success: false, error: 'Invalid department ID.' });
+    }
+
+    // Use native Drizzle to prevent NaN errors
+    const rows = await db
+      .select({
+        courseId: results.courseId,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+        studentCount: sql`count(${results.id})::int`,
+        verifiedAt: sql`max(${results.hodVerifiedAt})`,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(results.status, 'hod_verified')
+      ))
+      .groupBy(results.courseId, courses.code, courses.title, courses.level)
+      .orderBy(desc(sql`max(${results.hodVerifiedAt})`));
+
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('[hod/ready-to-publish] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
 // GET /api/hod/results/:courseId
-// (Fetch ALL registered students to enter scores for)
 // ============================================================
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
+    
+    // Safety check to prevent NaN
+    if (isNaN(courseId)) {
+      return res.status(400).json({ success: false, error: 'Invalid course ID.' });
+    }
 
-    // 1. Verify the course belongs to this HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
-    // 2. Get the session_id from the registered students for this course
     const sessResult = await db.execute(sql`
       SELECT DISTINCT session_id 
       FROM course_registrations 
@@ -890,43 +929,27 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     `);
     const sessionId = sessResult.rows[0]?.session_id;
 
-    if (!sessionId) {
-      return res.json({ success: true, data: [] });
-    }
+    if (!sessionId) return res.json({ success: true, data: [] });
 
-    // 3. Fetch students strictly from the HOD's department
     const rows = await db.execute(sql`
       SELECT 
-        u.id AS "studentId", 
-        u.first_name AS "firstName", 
-        u.last_name AS "lastName", 
-        u.matric_number AS "matricNumber",
-        r.id AS "resultId", 
-        r.score, 
-        r.grade, 
-        r.points, 
-        r.status AS "resultStatus"
+        u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
+        u.matric_number AS "matricNumber", r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id 
-                          AND r.course_id = cr.course_id 
-                          AND r.session_id = cr.session_id
-      WHERE cr.course_id = ${courseId} 
-        AND cr.session_id = ${sessionId}
-        AND u.department_id = ${departmentId}
+      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = cr.session_id
+      WHERE cr.course_id = ${courseId} AND cr.session_id = ${sessionId} AND u.department_id = ${departmentId}
       ORDER BY u.last_name, u.first_name
     `);
 
     return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
-    console.error('[hod/results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // ============================================================
 // POST /api/hod/results/:courseId
-// (Save the scores submitted by the lecturer/HOD as Draft)
 // ============================================================
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
@@ -979,7 +1002,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/:courseId/approve
-// (Save scores AND immediately mark as HOD Verified)
 // ============================================================
 router.post('/results/:courseId/approve', only, async (req, res, next) => {
   try {
@@ -1028,44 +1050,6 @@ router.post('/results/:courseId/approve', only, async (req, res, next) => {
     return res.json({ success: true, message: 'Results saved and approved successfully.' });
   } catch (err) {
     console.error('[hod/results/approve] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/hod/results/ready-to-publish
-// ============================================================
-router.get('/results/ready-to-publish', only, async (req, res, next) => {
-  try {
-    // Safely get the department ID directly from req.user
-    const departmentId = req.user?.departmentId;
-
-    // If no department is assigned, return an empty list instead of crashing
-    if (!departmentId || isNaN(Number(departmentId))) {
-      return res.json({ success: true, data: [] });
-    }
-
-    const rows = await db
-      .select({
-        courseId: results.courseId,
-        courseCode: courses.code,
-        courseTitle: courses.title,
-        level: courses.level,
-        studentCount: sql`count(${results.id})::int`,
-        verifiedAt: sql`max(${results.hodVerifiedAt})`,
-      })
-      .from(results)
-      .innerJoin(courses, eq(results.courseId, courses.id))
-      .where(and(
-        eq(courses.departmentId, Number(departmentId)),
-        eq(results.status, 'hod_verified')
-      ))
-      .groupBy(results.courseId, courses.code, courses.title, courses.level)
-      .orderBy(desc(sql`max(${results.hodVerifiedAt})`));
-
-    return res.json({ success: true, data: rows || [] });
-  } catch (err) {
-    console.error('[hod/ready-to-publish] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -7,15 +7,8 @@
     <button id="tab-verified" class="tab-btn" style="padding:.55rem 1rem;font-size:.85rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">✅ Verified (Ready to Publish)</button>
   </div>
 
-  <!-- TAB 1: Results Entry (Existing functionality) -->
+  <!-- TAB 1: Results Entry -->
   <div id="entry-panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-      <div>
-        <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Results Entry</h2>
-        <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Upload CA and Exam scores for your courses</p>
-      </div>
-    </div>
-
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;">
       <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">Select Course</label>
       <select id="course-select" style="width:100%;max-width:500px;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;">
@@ -44,7 +37,9 @@
               <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:80px;">Grade</th>
             </tr>
           </thead>
-          <tbody id="students-tbody"></tbody>
+          <tbody id="students-tbody">
+            <!-- Injected by JS -->
+          </tbody>
         </table>
       </div>
     </div>
@@ -114,7 +109,7 @@
     loadVerifiedResults();
   });
 
-  // --- TAB 1: RESULTS ENTRY (Existing) ---
+  // --- TAB 1: RESULTS ENTRY ---
   async function loadCourses() {
     try {
       const res = await core.portalFetch('/api/hod/courses');

@@ -43,7 +43,7 @@ router.get('/dashboard', only, async (req, res, next) => {
     const lecturerId = req.user.id;
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
-    // 1. Get UNIQUE allocated courses (fixes the 13 vs 18 discrepancy)
+    // 1. Get UNIQUE allocated courses
     const allocatedCourses = await db
       .select({ 
         id: courses.id, 
@@ -79,29 +79,41 @@ router.get('/dashboard', only, async (req, res, next) => {
     }
     const totalStudents = uniqueStudentIds.size;
 
-    // 3. Count pending results, materials, assignments, attendance using DISTINCT native Drizzle
+    // 3. Count pending results, materials, assignments, attendance
     let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
     
     if (courseIds.length > 0) {
-      const pend = await db.select({ count: sql`count(distinct ${results.id})::int` })
-        .from(results)
-        .where(and(inArray(results.courseId, courseIds), inArray(results.status, ['draft', 'submitted', 'hod_rejected'])));
-      pendingResults = pend[0]?.count || 0;
+      // Count Pending Results (Drafts, Submitted, Rejected)
+      const pend = await db.execute(sql`
+        SELECT COUNT(DISTINCT id)::int AS count 
+        FROM results 
+        WHERE course_id IN (${sql.join(courseIds, sql`, `)}) AND status IN ('draft', 'submitted', 'hod_rejected')
+      `);
+      pendingResults = pend.rows[0]?.count || 0;
 
-      const mats = await db.select({ count: sql`count(distinct ${courseMaterials.id})::int` })
-        .from(courseMaterials)
-        .where(inArray(courseMaterials.courseId, courseIds));
-      materialsCount = mats[0]?.count || 0;
+      // Count UNIQUE Materials by Lecturer (exactly like the Materials page)
+      const mats = await db.execute(sql`
+        SELECT COUNT(id)::int AS count 
+        FROM course_materials 
+        WHERE lecturer_id = ${req.user.id}
+      `);
+      materialsCount = mats.rows[0]?.count || 0;
 
-      const ass = await db.select({ count: sql`count(distinct ${assignments.id})::int` })
-        .from(assignments)
-        .where(inArray(assignments.courseId, courseIds));
-      assignmentsCount = ass[0]?.count || 0;
+      // Count UNIQUE Assignments by Lecturer (exactly like the Assignments page)
+      const ass = await db.execute(sql`
+        SELECT COUNT(id)::int AS count 
+        FROM assignments 
+        WHERE lecturer_id = ${req.user.id}
+      `);
+      assignmentsCount = ass.rows[0]?.count || 0;
 
-      const att = await db.select({ count: sql`count(distinct ${attendance.id})::int` })
-        .from(attendance)
-        .where(inArray(attendance.courseId, courseIds));
-      attendanceCount = att[0]?.count || 0;
+      // Count Attendance (Distinct)
+      const att = await db.execute(sql`
+        SELECT COUNT(DISTINCT id)::int AS count 
+        FROM attendance 
+        WHERE course_id IN (${sql.join(courseIds, sql`, `)})
+      `);
+      attendanceCount = att.rows[0]?.count || 0;
     }
 
     const [dept] = await db.select({ name: departments.name }).from(users).leftJoin(departments, eq(users.departmentId, departments.id)).where(eq(users.id, lecturerId)).limit(1);

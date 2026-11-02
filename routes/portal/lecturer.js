@@ -80,7 +80,13 @@ router.get('/dashboard', only, async (req, res, next) => {
     let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
     
     if (courseIds.length > 0) {
-      const pend = await db.select({ count: sql`count(*)::int` }).from(results).where(and(inArray(results.courseId, courseIds), eq(results.status, 'draft')));
+      // Count both drafts and submitted results as "Pending"
+      const pend = await db.select({ count: sql`count(*)::int` }).from(results).where(
+        and(
+          inArray(results.courseId, courseIds), 
+          inArray(results.status, ['draft', 'submitted', 'hod_rejected'])
+        )
+      );
       pendingResults = pend[0]?.count || 0;
 
       const mats = await db.select({ count: sql`count(*)::int` }).from(courseMaterials).where(inArray(courseMaterials.courseId, courseIds));

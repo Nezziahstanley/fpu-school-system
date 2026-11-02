@@ -43,7 +43,6 @@ router.get('/dashboard', only, async (req, res, next) => {
     const lecturerId = req.user.id;
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
-    // 1. Get UNIQUE allocated courses
     const allocatedCourses = await db
       .select({ 
         id: courses.id, 
@@ -61,7 +60,6 @@ router.get('/dashboard', only, async (req, res, next) => {
     const courseIds = allocatedCourses.map(c => c.id).filter(Boolean);
     const coursesCount = courseIds.length;
 
-    // 2. Fetch stats based on UNIQUE course IDs
     let uniqueStudentIds = new Set();
     let totalRegistrations = 0;
     const courseStats = [];
@@ -79,7 +77,6 @@ router.get('/dashboard', only, async (req, res, next) => {
     }
     const totalStudents = uniqueStudentIds.size;
 
-    // 3. Count pending results, materials, assignments, attendance using DISTINCT
     let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
     
     if (courseIds.length > 0) {
@@ -133,7 +130,6 @@ router.get('/dashboard', only, async (req, res, next) => {
 // ============================================================
 router.get('/students-list', only, async (req, res, next) => {
   try {
-    // Get lecturer's own department
     const [lecturer] = await db.select({ departmentId: users.departmentId })
       .from(users).where(eq(users.id, req.user.id)).limit(1);
 
@@ -298,7 +294,6 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 // RESULTS
 // ============================================================
-// GET: Fetch all results (main table view) — includes course department
 router.get('/results', only, async (req, res, next) => {
   try {
     const [lecturer] = await db.select({ departmentId: users.departmentId })
@@ -341,7 +336,6 @@ router.get('/results', only, async (req, res, next) => {
   }
 });
 
-// GET: Fetch pending (submitted) results for dashboard widget
 router.get('/results/pending', only, async (req, res, next) => {
   try {
     const allocations = await db.select({ courseId: courseAllocations.courseId })
@@ -369,7 +363,6 @@ router.get('/results/pending', only, async (req, res, next) => {
   }
 });
 
-// GET: Fetch all students registered for a specific course (bulk entry view)
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
@@ -382,15 +375,22 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
     const rows = await db.execute(sql`
-      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
+      SELECT DISTINCT ON (u.id)
+             u.id AS "studentId", 
+             u.first_name AS "firstName", 
+             u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.assignment_score AS "assignmentScore", r.status AS "resultStatus"
+             r.id AS "resultId", 
+             r.score, 
+             r.grade, 
+             r.points, 
+             COALESCE(r.assignment_score, 0) AS "assignmentScore", 
+             r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id
       WHERE cr.course_id = ${courseId}
-      GROUP BY u.id, u.first_name, u.last_name, u.matric_number, r.id, r.score, r.grade, r.points, r.assignment_score, r.status
-      ORDER BY u.matric_number ASC
+      ORDER BY u.id, r.updated_at DESC
     `);
 
     return res.json({ success: true, data: rows.rows || [] });
@@ -400,7 +400,6 @@ router.get('/results/:courseId', only, async (req, res, next) => {
   }
 });
 
-// POST: Save all results at once (Bulk Entry)
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
@@ -461,7 +460,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
   }
 });
 
-// UPDATE single result (Edit)
 router.put('/results/:id', only, async (req, res, next) => {
   try {
     const resultId = Number(req.params.id);
@@ -483,7 +481,6 @@ router.put('/results/:id', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// DELETE single result
 router.delete('/results/:id', only, async (req, res, next) => {
   try {
     const resultId = Number(req.params.id);
@@ -501,7 +498,6 @@ router.delete('/results/:id', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
-// SUBMIT ALL drafts for a course to HOD
 router.post('/results/:courseId/submit-all', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
@@ -611,7 +607,7 @@ router.get('/assignments', only, async (req, res, next) => {
       submissionCount: Number(r.submissionCount || 0)
     }));
 
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: data || [] });
   } catch (err) { 
     console.error('[lecturer/assignments] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 
@@ -667,39 +663,43 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // Fetch the submissions with student details
-    const rows = await db
-      .select({ 
-        submission: assignmentSubmissions, 
-        student: users 
-      })
-      .from(assignmentSubmissions)
-      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
-      .where(eq(assignmentSubmissions.assignmentId, assignmentId))
-      .orderBy(users.lastName);
+    const rows = await db.execute(sql`
+      SELECT 
+        s.id, 
+        s.submission_text AS "submissionText", 
+        s.submission_url AS "submissionUrl", 
+        s.score, 
+        s.feedback, 
+        s.submitted_at AS "submittedAt",
+        u.first_name AS "firstName", 
+        u.last_name AS "lastName", 
+        u.matric_number AS "matricNumber"
+      FROM assignment_submissions s
+      JOIN users u ON s.student_id = u.id
+      WHERE s.assignment_id = ${assignmentId}
+      ORDER BY u.last_name
+    `);
 
-    const data = rows.map(r => ({
-      id: r.submission.id,
-      studentName: `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim(),
-      matricNumber: r.student?.matricNumber || '—',
-      submissionText: r.submission.submissionText,
-      submissionUrl: r.submission.submissionUrl,
-      score: r.submission.score,
-      feedback: r.submission.feedback,
-      submittedAt: r.submission.submittedAt,
+    const data = rows.rows.map(r => ({
+      id: r.id,
+      studentName: `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Unknown Student',
+      matricNumber: r.matricNumber || '—',
+      submissionText: r.submissionText,
+      submissionUrl: r.submissionUrl,
+      score: r.score,
+      feedback: r.feedback,
+      submittedAt: r.submittedAt,
     }));
 
-    // Also get the total students registered for this course
     const [regCount] = await db.execute(sql`
       SELECT COUNT(*)::int AS count 
       FROM course_registrations 
       WHERE course_id = ${assignment.courseId} AND status = 'approved'
     `);
     
-    // Attach totalStudents to the assignment object we return
     assignment.totalStudents = regCount.rows[0]?.count || 0;
 
-    return res.json({ success: true, data, assignment });
+    return res.json({ success: true, data: data || [], assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 
@@ -713,7 +713,6 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
 
     const submissionId = Number(req.params.id);
 
-    // 1. Fetch the submission and the related assignment
     const [submission] = await db.select({
       id: assignmentSubmissions.id,
       studentId: assignmentSubmissions.studentId,
@@ -728,17 +727,13 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
 
     if (!submission) return res.status(404).json({ success: false, error: 'Submission not found.' });
 
-    // 2. Update the submission
     await db.update(assignmentSubmissions)
       .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
       .where(eq(assignmentSubmissions.id, submissionId));
 
-    // 3. Calculate the 10-mark conversion
-    // (Score / Max Score) * 10
     const maxScore = Number(submission.maxScore) || 100;
     const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
 
-    // 4. Upsert into the results table
     const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
     const sessionId = sessionResult.rows[0]?.id || 1;
 

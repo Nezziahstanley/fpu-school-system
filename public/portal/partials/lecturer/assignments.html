@@ -38,6 +38,54 @@
   </div>
 </div>
 
+<!-- ═══════ CREATE / EDIT ASSIGNMENT MODAL ═══════ -->
+<div id="form-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;" id="form-modal-title">New Assignment</h3>
+      <button id="form-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    
+    <div style="padding:1.25rem;">
+      <input type="hidden" id="form-id" value="" />
+      
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Course</label>
+        <select id="form-course" style="width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;">
+          <option value="">— Select Course —</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Title</label>
+        <input type="text" id="form-title" placeholder="e.g. Assignment 1 - Fundamentals" style="width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;" />
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Due Date</label>
+          <input type="date" id="form-due" style="width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Max Score</label>
+          <input type="number" id="form-max" value="10" style="width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Instructions (Optional)</label>
+        <textarea id="form-desc" rows="3" placeholder="Enter instructions for the students..." style="width:100%;padding:.55rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.85rem;"></textarea>
+      </div>
+    </div>
+
+    <div style="padding:1rem 1.4rem;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:.5rem;background:#f8fafc;border-radius:0 0 16px 16px;">
+      <button id="form-modal-cancel" style="padding:.55rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="form-modal-save" style="padding:.55rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Assignment</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════ GRADE SUBMISSIONS MODAL ═══════ -->
 <div id="grade-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
@@ -81,39 +129,129 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_ASSIGNMENTS = [];
-  let CURRENT_ASSIGNMENT = null;
+  let ALL_COURSES = [];
 
-  async function loadAssignments() {
+  // --- LOAD DATA ---
+  async function loadData() {
     const tbody = $('assignments-tbody');
-    tbody.innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">Loading assignments…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>';
 
     try {
-      const res = await core.portalFetch('/api/lecturer/assignments');
-      ALL_ASSIGNMENTS = res.data || [];
+      const [resAssignments, resCourses] = await Promise.all([
+        core.portalFetch('/api/lecturer/assignments'),
+        core.portalFetch('/api/lecturer/courses')
+      ]);
+      
+      ALL_ASSIGNMENTS = resAssignments.data || [];
+      ALL_COURSES = resCourses.data || [];
+
       $('stat-total').textContent = ALL_ASSIGNMENTS.length;
-
-      if (!ALL_ASSIGNMENTS.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments found.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = ALL_ASSIGNMENTS.map(a => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(a.title)}</td>
-          <td style="padding:.65rem .75rem;"><strong>${esc(a.courseCode)}</strong></td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}</td>
-          <td style="padding:.65rem .75rem;text-align:right;">
-            <button onclick="window.__openGradeModal(${a.id}, '${esc(a.title)}')" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;cursor:pointer;">Grade</button>
-          </td>
-        </tr>
-      `).join('');
+      renderTable();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
+  function renderTable() {
+    const tbody = $('assignments-tbody');
+    if (!ALL_ASSIGNMENTS.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No assignments found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ALL_ASSIGNMENTS.map(a => `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(a.title)}</td>
+        <td style="padding:.65rem .75rem;"><strong>${esc(a.courseCode)}</strong></td>
+        <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}</td>
+        <td style="padding:.65rem .75rem;text-align:right;">
+          <button onclick="window.__openGradeModal(${a.id}, '${esc(a.title)}')" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#dbeafe;color:#1e40af;border:none;border-radius:6px;cursor:pointer;margin-right:.25rem;">Grade</button>
+          <button onclick="window.__openEditForm(${a.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;margin-right:.25rem;">Edit</button>
+          <button onclick="window.__deleteAssignment(${a.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // --- CREATE / EDIT FORM ---
+  $('new-assignment-btn')?.addEventListener('click', () => {
+    $('form-modal-title').textContent = 'New Assignment';
+    $('form-id').value = '';
+    $('form-title').value = '';
+    $('form-due').value = '';
+    $('form-max').value = '10';
+    $('form-desc').value = '';
+    
+    $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
+      ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+      
+    $('form-modal').style.display = 'flex';
+  });
+
+  window.__openEditForm = function(id) {
+    const a = ALL_ASSIGNMENTS.find(x => x.id === id);
+    if (!a) return;
+
+    $('form-modal-title').textContent = 'Edit Assignment';
+    $('form-id').value = a.id;
+    $('form-title').value = a.title || '';
+    $('form-due').value = a.dueDate ? new Date(a.dueDate).toISOString().split('T')[0] : '';
+    $('form-max').value = a.maxScore || 10;
+    $('form-desc').value = a.description || '';
+    
+    $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
+      ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+      
+    // We need to find the course ID based on the courseCode
+    const matchedCourse = ALL_COURSES.find(c => c.code === a.courseCode);
+    if (matchedCourse) $('form-course').value = matchedCourse.id;
+
+    $('form-modal').style.display = 'flex';
+  };
+
+  $('form-modal-save')?.addEventListener('click', async () => {
+    const id = $('form-id').value;
+    const courseId = $('form-course').value;
+    const title = $('form-title').value.trim();
+    const dueDate = $('form-due').value;
+    const maxScore = $('form-max').value;
+    const description = $('form-desc').value.trim();
+
+    if (!courseId || !title) {
+      core.showToast('Course and Title are required.', 'error');
+      return;
+    }
+
+    const payload = { courseId, title, dueDate, maxScore, description };
+    
+    try {
+      if (id) {
+        await core.portalFetch(`/api/lecturer/assignments/${id}`, { method: 'PUT', body: payload });
+        core.showToast('Assignment updated.', 'success');
+      } else {
+        await core.portalFetch('/api/lecturer/assignments', { method: 'POST', body: payload });
+        core.showToast('Assignment created.', 'success');
+      }
+      $('form-modal').style.display = 'none';
+      loadData();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  });
+
+  window.__deleteAssignment = async function(id) {
+    if (!confirm('Are you sure you want to delete this assignment? All student submissions will be lost.')) return;
+    try {
+      await core.portalFetch(`/api/lecturer/assignments/${id}`, { method: 'DELETE' });
+      core.showToast('Assignment deleted.', 'success');
+      loadData();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  };
+
+  // --- GRADE MODAL ---
   window.__openGradeModal = async function(assignmentId, title) {
-    CURRENT_ASSIGNMENT = assignmentId;
     $('modal-assignment-title').textContent = `Grade: ${title}`;
     $('grade-modal').style.display = 'flex';
     
@@ -169,12 +307,15 @@
     }
   };
 
+  // --- MODAL CLOSE ---
+  $('form-modal-close')?.addEventListener('click', () => $('form-modal').style.display = 'none');
+  $('form-modal-cancel')?.addEventListener('click', () => $('form-modal').style.display = 'none');
   $('modal-close')?.addEventListener('click', () => $('grade-modal').style.display = 'none');
   $('modal-close-btn')?.addEventListener('click', () => $('grade-modal').style.display = 'none');
-  $('refresh-btn')?.addEventListener('click', loadAssignments);
-  $('new-assignment-btn')?.addEventListener('click', () => core.showToast('New assignment modal coming soon.', 'info'));
+  
+  $('refresh-btn')?.addEventListener('click', loadData);
 
   // Init
-  loadAssignments();
+  loadData();
 })();
 </script>

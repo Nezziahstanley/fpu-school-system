@@ -1037,28 +1037,31 @@ router.post('/results/:courseId/approve', only, async (req, res, next) => {
 // ============================================================
 router.get('/results/ready-to-publish', only, async (req, res, next) => {
   try {
-    // SAFETY CHECK: Ensure department ID is a valid number
     const departmentId = Number(deptId(req));
-    if (isNaN(departmentId) || !departmentId) {
-      return res.status(400).json({ success: false, error: 'Invalid or missing department ID.' });
+    if (isNaN(departmentId)) {
+      return res.status(400).json({ success: false, error: 'Invalid department ID.' });
     }
 
-    const rows = await db.execute(sql`
-      SELECT 
-        r.course_id AS "courseId",
-        c.code AS "courseCode",
-        c.title AS "courseTitle",
-        c.level AS "level",
-        COUNT(r.id) AS "studentCount",
-        MAX(r.hod_verified_at) AS "verifiedAt"
-      FROM results r
-      INNER JOIN courses c ON r.course_id = c.id
-      WHERE c.department_id = ${departmentId} AND r.status = 'hod_verified'
-      GROUP BY r.course_id, c.code, c.title, c.level
-      ORDER BY MAX(r.hod_verified_at) DESC
-    `);
+    // Use native Drizzle to fetch results
+    const rows = await db
+      .select({
+        courseId: results.courseId,
+        courseCode: courses.code,
+        courseTitle: courses.title,
+        level: courses.level,
+        studentCount: sql`count(${results.id})::int`,
+        verifiedAt: sql`max(${results.hodVerifiedAt})`,
+      })
+      .from(results)
+      .innerJoin(courses, eq(results.courseId, courses.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(results.status, 'hod_verified')
+      ))
+      .groupBy(results.courseId, courses.code, courses.title, courses.level)
+      .orderBy(desc(sql`max(${results.hodVerifiedAt})`));
 
-    return res.json({ success: true, data: rows.rows || [] });
+    return res.json({ success: true, data: rows || [] });
   } catch (err) {
     console.error('[hod/ready-to-publish] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

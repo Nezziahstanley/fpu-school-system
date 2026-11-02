@@ -317,7 +317,7 @@
     $('view-submission-modal').style.display = 'flex';
   };
 
-  // --- GRADE MODAL ---
+    // --- GRADE MODAL ---
   window.__openGradeModal = async function(assignmentId, title) {
     CURRENT_ASSIGNMENT_ID = assignmentId;
     CURRENT_ASSIGNMENT_TITLE = title;
@@ -330,13 +330,15 @@
 
     try {
       const res = await core.portalFetch(`/api/lecturer/assignments/${assignmentId}/submissions`);
-      CACHED_SUBMISSIONS = res.data || [];
+      
+      // SAFE FALLBACK: If res.data is missing, use an empty array
+      CACHED_SUBMISSIONS = Array.isArray(res.data) ? res.data : [];
       const assignment = res.assignment || {};
       
       const totalStudents = assignment.totalStudents || 0;
       $('modal-course-name').textContent = `${assignment.courseCode || ''} — ${CACHED_SUBMISSIONS.length} Submitted / ${totalStudents} Total Students`;
 
-      if (!CACHED_SUBMISSIONS.length) {
+      if (CACHED_SUBMISSIONS.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No submissions yet.</td></tr>';
         return;
       }
@@ -372,7 +374,8 @@
         `;
       }).join('');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      // If the fetch fails completely, show a clear message instead of crashing
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ No submissions found or could not load data.</td></tr>`;
     }
   };
 

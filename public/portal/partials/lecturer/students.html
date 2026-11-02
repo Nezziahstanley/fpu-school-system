@@ -1,5 +1,5 @@
 <!-- Portal → Lecturer → Students -->
-<div style="padding:0;">
+<div style="padding:0;" id="main-view">
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -7,60 +7,87 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">My Students</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Students enrolled in your courses</p>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <input type="search" id="lec-stu-search" placeholder="Search matric, name, or email…"
-             style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:260px;" />
-      <select id="lec-stu-level" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-        <option value="">All Levels</option>
-        <option value="ND">ND</option>
-        <option value="HND">HND</option>
-      </select>
-      <button id="lec-stu-refresh" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-      ">↻ Refresh</button>
+    <div style="display:flex;gap:.5rem;">
+      <input type="search" id="search-input" placeholder="Search matric, name, or email..." style="padding:.55rem .75rem;font-size:.82rem;border:1px solid #cbd5e1;border-radius:8px;min-width:250px;" />
+      <button id="refresh-btn" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
   </div>
 
   <!-- STAT TILES -->
-  <div id="lec-stu-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
-
-  <!-- TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
-      <div style="font-size:.82rem;font-weight:700;color:#334155;">
-        Showing <span id="lec-stu-shown">0</span> of <span id="lec-stu-total">0</span> students
-      </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;" id="stat-total">0</div>
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.25rem;">Total Students</div>
     </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;" id="stat-my-dept">0</div>
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.25rem;">My Dept Students</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;" id="stat-other">0</div>
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.25rem;">Other Dept Students</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;">
+      <div style="font-size:1.5rem;font-weight:800;color:#0f172a;" id="stat-active">0</div>
+      <div style="font-size:.65rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.25rem;">Active</div>
+    </div>
+  </div>
 
+  <!-- TABS -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+    <button id="tab-my-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;">My Dept Students</button>
+    <button id="tab-other-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Other Depts Students</button>
+  </div>
+
+  <!-- VIEW 1: MY DEPT STUDENTS -->
+  <div id="my-dept-view" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric No.</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric No.</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Level</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
           </tr>
         </thead>
-        <tbody id="lec-stu-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
-            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:stuSpin .8s linear infinite;"></div>
-            <div style="margin-top:.65rem;font-size:.82rem;">Loading students…</div>
-          </td></tr>
+        <tbody id="my-dept-tbody">
+          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- VIEW 2: OTHER DEPTS STUDENTS -->
+  <div id="other-dept-view" style="display:none;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:1rem;margin-bottom:1.5rem;" id="other-dept-cards"></div>
+    
+    <div id="other-dept-table-panel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="other-dept-title">Department Students</div>
+        <button onclick="document.getElementById('other-dept-table-panel').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-weight:700;">✕ Close</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric No.</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Level</th>
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Programme</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="other-dept-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
-  @keyframes stuSpin { to { transform: rotate(360deg); } }
-  #lec-stu-tbody tr { transition: background .1s; }
-  #lec-stu-tbody tr:hover { background: #f8fafc; }
-  .stu-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
+  .dept-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.05); border-color: #1e40af !important; }
 </style>
 
 <script>
@@ -70,109 +97,152 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  let ALL = [];
-  let FILTERED = [];
+  let ALL_STUDENTS = [];
+  let LECTURER_DEPT_ID = null;
+  let CURRENT_SEARCH = '';
 
-  async function load() {
-    const tbody = $('lec-stu-tbody');
-    tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
-      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:stuSpin .8s linear infinite;"></div>
-      <div style="margin-top:.65rem;font-size:.82rem;">Loading students…</div>
-    </td></tr>`;
-
+  async function loadStudents() {
+    $('my-dept-tbody').innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
+    
     try {
       const res = await core.portalFetch('/api/lecturer/students-list');
-      ALL = Array.isArray(res.data) ? res.data : [];
-      renderStats();
-      applyFilters();
+      ALL_STUDENTS = res.data || [];
+      LECTURER_DEPT_ID = res.lecturerDeptId;
+
+      updateStats();
+      renderMyDept();
+
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      core.showToast(err.message, 'error');
     }
   }
 
-  function renderStats() {
-    const total = ALL.length;
-    const nd = ALL.filter(s => s.level === 'ND').length;
-    const hnd = ALL.filter(s => s.level === 'HND').length;
-    const active = ALL.filter(s => s.isActive).length;
+  function updateStats() {
+    const myDept = ALL_STUDENTS.filter(s => s.departmentId === LECTURER_DEPT_ID);
+    const otherDept = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    const active = ALL_STUDENTS.filter(s => s.isActive);
 
-    const tiles = [
-      { label: 'Total Students', value: total,  bg: '#e0e7ff', fg: '#3730a3', icon: '🎓' },
-      { label: 'ND Students',    value: nd,     bg: '#dbeafe', fg: '#1e40af', icon: '📘' },
-      { label: 'HND Students',   value: hnd,    bg: '#fef3c7', fg: '#92400e', icon: '📗' },
-      { label: 'Active',         value: active, bg: '#d1fae5', fg: '#065f46', icon: '✅' },
-    ];
-
-    $('lec-stu-stats').innerHTML = tiles.map(t => `
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
-        <div style="min-width:0;">
-          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
-          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
-        </div>
-      </div>`).join('');
+    $('stat-total').textContent = ALL_STUDENTS.length;
+    $('stat-my-dept').textContent = myDept.length;
+    $('stat-other').textContent = otherDept.length;
+    $('stat-active').textContent = active.length;
   }
 
-  function applyFilters() {
-    const q = ($('lec-stu-search')?.value || '').trim().toLowerCase();
-    const level = $('lec-stu-level')?.value || '';
+  function renderMyDept() {
+    const tbody = $('my-dept-tbody');
+    let filtered = ALL_STUDENTS.filter(s => s.departmentId === LECTURER_DEPT_ID);
 
-    FILTERED = ALL.filter(s => {
-      if (level && s.level !== level) return false;
-      if (q) {
-        const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.matricNumber || ''} ${s.email || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
+    if (CURRENT_SEARCH) {
+      const q = CURRENT_SEARCH.toLowerCase();
+      filtered = filtered.filter(s => 
+        (s.firstName || '').toLowerCase().includes(q) || 
+        (s.lastName || '').toLowerCase().includes(q) || 
+        (s.matricNumber || '').toLowerCase().includes(q) ||
+        (s.email || '').toLowerCase().includes(q)
+      );
+    }
 
-    renderTable(FILTERED);
-    $('lec-stu-shown').textContent = FILTERED.length;
-    $('lec-stu-total').textContent = ALL.length;
-  }
-
-  function renderTable(rows) {
-    const tbody = $('lec-stu-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No students found.</td></tr>`;
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No students from your department found.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map(s => {
-      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      const initials = ((s.firstName || '?')[0] + (s.lastName || '?')[0]).toUpperCase();
-      
-      const statusHtml = s.isActive 
-        ? `<span class="stu-badge" style="background:#d1fae5;color:#065f46;">Active</span>`
-        : `<span class="stu-badge" style="background:#fee2e2;color:#991b1b;">Inactive</span>`;
-
-      return `
-        <tr>
-          <td style="padding:.65rem .75rem;">
-            <div style="display:flex;align-items:center;gap:.6rem;">
-              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#065f46,#047857);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;flex-shrink:0;">${initials}</div>
-              <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>
-            </div>
-          </td>
-          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
-          </td>
-          <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">${statusHtml}</td>
-        </tr>`;
-    }).join('');
+    tbody.innerHTML = filtered.map(s => `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.lastName)}, ${esc(s.firstName)}</td>
+        <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
+        <td style="padding:.65rem .75rem;text-align:center;">${esc(s.level || '—')}</td>
+        <td style="padding:.65rem .75rem;color:#475569;">${esc(s.programmeName || '—')}</td>
+        <td style="padding:.65rem .75rem;text-align:center;">
+          ${s.isActive 
+            ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:800;">Active</span>'
+            : '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:800;">Inactive</span>'
+          }
+        </td>
+      </tr>
+    `).join('');
   }
 
-  // Wiring
-  let searchTimer;
-  $('lec-stu-search')?.addEventListener('input', () => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(applyFilters, 200);
-  });
-  $('lec-stu-level')?.addEventListener('change', applyFilters);
-  $('lec-stu-refresh')?.addEventListener('click', load);
+  function renderOtherDepts() {
+    const otherStudents = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    
+    if (!otherStudents.length) {
+      $('other-dept-cards').innerHTML = '<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;">No students from other departments found.</div>';
+      return;
+    }
 
-  load();
+    // Group by department
+    const deptMap = {};
+    otherStudents.forEach(s => {
+      if (!deptMap[s.departmentId]) {
+        deptMap[s.departmentId] = { id: s.departmentId, name: s.departmentName, count: 0 };
+      }
+      deptMap[s.departmentId].count++;
+    });
+
+    const depts = Object.values(deptMap);
+
+    $('other-dept-cards').innerHTML = depts.map(d => `
+      <div class="dept-card" onclick="window.__viewOtherDept(${d.id})" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;cursor:pointer;transition:all .2s;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div style="width:40px;height:40px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">🏢</div>
+          <span style="font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:12px;background:#dbeafe;color:#1e40af;text-transform:uppercase;">External</span>
+        </div>
+        <h4 style="margin:0 0 .35rem;font-size:.95rem;font-weight:800;color:#0f172a;">${esc(d.name)}</h4>
+        <div style="font-size:.75rem;color:#64748b;margin-bottom:1rem;">Students taking your courses</div>
+        <div style="font-weight:800;color:#1e40af;font-size:1.1rem;">${d.count} <span style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;">Students</span></div>
+      </div>
+    `).join('');
+  }
+
+  window.__viewOtherDept = function(deptId) {
+    $('other-dept-table-panel').style.display = 'block';
+    
+    const students = ALL_STUDENTS.filter(s => s.departmentId === deptId);
+    const deptName = students[0]?.departmentName || 'Department';
+    $('other-dept-title').textContent = `${deptName} Students`;
+
+    $('other-dept-tbody').innerHTML = students.map(s => `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.lastName)}, ${esc(s.firstName)}</td>
+        <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
+        <td style="padding:.65rem .75rem;text-align:center;">${esc(s.level || '—')}</td>
+        <td style="padding:.65rem .75rem;color:#475569;">${esc(s.programmeName || '—')}</td>
+        <td style="padding:.65rem .75rem;text-align:center;">
+          ${s.isActive 
+            ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:800;">Active</span>'
+            : '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-size:.7rem;font-weight:800;">Inactive</span>'
+          }
+        </td>
+      </tr>
+    `).join('');
+  };
+
+  // --- TAB SWITCHING ---
+  $('tab-my-dept')?.addEventListener('click', () => {
+    $('tab-my-dept').style.background = '#065f46'; $('tab-my-dept').style.color = '#fff'; $('tab-my-dept').style.border = '1px solid #065f46';
+    $('tab-other-dept').style.background = '#fff'; $('tab-other-dept').style.color = '#475569'; $('tab-other-dept').style.border = '1px solid #cbd5e1';
+    $('my-dept-view').style.display = 'block';
+    $('other-dept-view').style.display = 'none';
+  });
+
+  $('tab-other-dept')?.addEventListener('click', () => {
+    $('tab-other-dept').style.background = '#065f46'; $('tab-other-dept').style.color = '#fff'; $('tab-other-dept').style.border = '1px solid #065f46';
+    $('tab-my-dept').style.background = '#fff'; $('tab-my-dept').style.color = '#475569'; $('tab-my-dept').style.border = '1px solid #cbd5e1';
+    $('my-dept-view').style.display = 'none';
+    $('other-dept-view').style.display = 'block';
+    renderOtherDepts();
+  });
+
+  // --- SEARCH ---
+  $('search-input')?.addEventListener('input', (e) => {
+    CURRENT_SEARCH = e.target.value;
+    renderMyDept();
+  });
+
+  $('refresh-btn')?.addEventListener('click', loadStudents);
+
+  // Init
+  loadStudents();
 })();
 </script>

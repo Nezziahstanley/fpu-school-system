@@ -374,8 +374,8 @@
         `;
       }).join('');
     } catch (err) {
-      // If the fetch fails completely, show a clear message instead of crashing
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ No submissions found or could not load data.</td></tr>`;
+      // Show the actual error message on screen so we can debug it
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
     }
   };
 

@@ -657,30 +657,41 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
     
+    // 1. Verify the assignment belongs to this lecturer
     const [assignment] = await db.select().from(assignments)
       .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
       .limit(1);
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    const rows = await db
-      .select({ submission: assignmentSubmissions, student: users })
+    // 2. Fetch the submissions. 
+    // We removed the join to see if that was causing the issue, and fetch students separately.
+    const submissions = await db.select()
       .from(assignmentSubmissions)
-      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
-      .where(eq(assignmentSubmissions.assignmentId, assignmentId))
-      .orderBy(users.lastName);
+      .where(eq(assignmentSubmissions.assignmentId, assignmentId));
 
-    const data = rows.map(r => ({
-      id: r.submission.id,
-      studentName: `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim(),
-      matricNumber: r.student?.matricNumber || '—',
-      submissionText: r.submission.submissionText,
-      submissionUrl: r.submission.submissionUrl,
-      score: r.submission.score,
-      feedback: r.submission.feedback,
-      submittedAt: r.submission.submittedAt,
-    }));
+    // 3. Manually fetch student details to avoid complex joins failing
+    const data = [];
+    for (const sub of submissions) {
+      const [student] = await db.select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+        matricNumber: users.matricNumber
+      }).from(users).where(eq(users.id, sub.studentId)).limit(1);
 
+      data.push({
+        id: sub.id,
+        studentName: student ? `${student.firstName} ${student.lastName}`.trim() : 'Unknown Student',
+        matricNumber: student?.matricNumber || '—',
+        submissionText: sub.submissionText,
+        submissionUrl: sub.submissionUrl,
+        score: sub.score,
+        feedback: sub.feedback,
+        submittedAt: sub.submittedAt,
+      });
+    }
+
+    // 4. Get the total students registered for this course
     const [regCount] = await db.execute(sql`
       SELECT COUNT(*)::int AS count 
       FROM course_registrations 
@@ -689,7 +700,7 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
     
     assignment.totalStudents = regCount.rows[0]?.count || 0;
 
-    return res.json({ success: true, data: data || [], assignment });
+    return res.json({ success: true, data: data, assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);
     return res.status(500).json({ success: false, error: err.message }); 

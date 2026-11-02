@@ -651,46 +651,46 @@ router.delete('/assignments/:id', only, async (req, res, next) => {
 });
 
 // ============================================================
-// ASSIGNMENT SUBMISSIONS
+// GET /api/lecturer/assignments/:id/submissions
 // ============================================================
 router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
     
+    // 1. Verify the assignment belongs to this lecturer
     const [assignment] = await db.select().from(assignments)
       .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
       .limit(1);
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    const rows = await db.execute(sql`
-      SELECT 
-        s.id, 
-        s.submission_text AS "submissionText", 
-        s.submission_url AS "submissionUrl", 
-        s.score, 
-        s.feedback, 
-        s.submitted_at AS "submittedAt",
-        u.first_name AS "firstName", 
-        u.last_name AS "lastName", 
-        u.matric_number AS "matricNumber"
-      FROM assignment_submissions s
-      JOIN users u ON s.student_id = u.id
-      WHERE s.assignment_id = ${assignmentId}
-      ORDER BY u.last_name
-    `);
+    // 2. Fetch the submissions
+    const submissions = await db.select()
+      .from(assignmentSubmissions)
+      .where(eq(assignmentSubmissions.assignmentId, assignmentId));
 
-    const data = rows.rows.map(r => ({
-      id: r.id,
-      studentName: `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Unknown Student',
-      matricNumber: r.matricNumber || '—',
-      submissionText: r.submissionText,
-      submissionUrl: r.submissionUrl,
-      score: r.score,
-      feedback: r.feedback,
-      submittedAt: r.submittedAt,
-    }));
+    // 3. Manually fetch student details
+    const data = [];
+    for (const sub of submissions) {
+      const [student] = await db.select({
+        firstName: users.firstName,
+        lastName: users.lastName,
+        matricNumber: users.matricNumber
+      }).from(users).where(eq(users.id, sub.studentId)).limit(1);
 
+      data.push({
+        id: sub.id,
+        studentName: student ? `${student.firstName} ${student.lastName}`.trim() : 'Unknown Student',
+        matricNumber: student?.matricNumber || '—',
+        submissionText: sub.submissionText,
+        submissionUrl: sub.submissionUrl,
+        score: sub.score,
+        feedback: sub.feedback,
+        submittedAt: sub.submittedAt,
+      });
+    }
+
+    // 4. Get the total students registered for this course
     const [regCount] = await db.execute(sql`
       SELECT COUNT(*)::int AS count 
       FROM course_registrations 

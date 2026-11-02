@@ -164,17 +164,22 @@
     }
 
     tbody.innerHTML = ALL_ASSIGNMENTS.map(a => {
-      // Since we don't have a dedicated count endpoint in this version, we'll just show "-"
-      // In a full implementation, the backend would return submissionCount and totalStudents here.
-      // For now, we'll show the submissions when they click "Grade".
-      
+      const isComplete = a.submissionCount >= a.totalStudents && a.totalStudents > 0;
+      const countColor = isComplete ? '#065f46' : '#1e40af';
+      const countBg = isComplete ? '#d1fae5' : '#dbeafe';
+
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(a.title)}</td>
           <td style="padding:.65rem .75rem;"><strong>${esc(a.courseCode)}</strong></td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">
-             <button onclick="window.__openGradeModal(${a.id}, '${esc(a.title)}')" style="font-size:.72rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:2px 8px;border-radius:4px;cursor:pointer;">View List</button>
+          
+          <!-- New Submissions Count Display -->
+          <td style="padding:.65rem .75rem;text-align:center;">
+            <span style="display:inline-block;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${countBg};color:${countColor};">
+              ${a.submissionCount} / ${a.totalStudents}
+            </span>
           </td>
+
           <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${a.dueDate ? new Date(a.dueDate).toLocaleDateString() : '—'}</td>
           <td style="padding:.65rem .75rem;text-align:right;">
             <button onclick="window.__openGradeModal(${a.id}, '${esc(a.title)}')" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#dbeafe;color:#1e40af;border:none;border-radius:6px;cursor:pointer;margin-right:.25rem;">Grade</button>

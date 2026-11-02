@@ -578,20 +578,44 @@ router.delete('/materials/:id', only, async (req, res, next) => {
 // ============================================================
 router.get('/assignments', only, async (req, res, next) => {
   try {
-    const rows = await db
-      .select({
-        id: assignments.id, title: assignments.title, description: assignments.description,
-        dueDate: assignments.dueDate, maxScore: assignments.maxScore, createdAt: assignments.createdAt,
-        courseCode: courses.code,
-      })
-      .from(assignments)
-      .leftJoin(courses, eq(assignments.courseId, courses.id))
-      .where(eq(assignments.lecturerId, req.user.id))
-      .orderBy(desc(assignments.createdAt));
+    const rows = await db.execute(sql`
+      SELECT 
+        a.id, 
+        a.title, 
+        a.description, 
+        a.due_date AS "dueDate", 
+        a.max_score AS "maxScore", 
+        a.created_at AS "createdAt",
+        c.id AS "courseId",
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        (SELECT COUNT(*) FROM course_registrations cr WHERE cr.course_id = a.course_id AND cr.status = 'approved') AS "totalStudents",
+        (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS "submissionCount"
+      FROM assignments a
+      LEFT JOIN courses c ON a.course_id = c.id
+      WHERE a.lecturer_id = ${req.user.id}
+      ORDER BY a.created_at DESC
+    `);
 
-    const data = rows.map(r => ({ ...r, courseCode: r.courseCode || '—', title: r.title || 'Untitled' }));
+    const data = rows.rows.map(r => ({
+      id: r.id,
+      title: r.title || 'Untitled',
+      description: r.description,
+      dueDate: r.dueDate,
+      maxScore: r.maxScore,
+      createdAt: r.createdAt,
+      courseId: r.courseId,
+      courseCode: r.courseCode || '—',
+      courseTitle: r.courseTitle,
+      totalStudents: Number(r.totalStudents || 0),
+      submissionCount: Number(r.submissionCount || 0)
+    }));
+
     return res.json({ success: true, data });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+  } catch (err) { 
+    console.error('[lecturer/assignments] Error:', err);
+    return res.status(500).json({ success: false, error: err.message }); 
+  }
 });
 
 router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
@@ -637,19 +661,14 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
   try {
     const assignmentId = Number(req.params.id);
     
-    // Verify the assignment belongs to this lecturer
     const [assignment] = await db.select().from(assignments)
       .where(and(eq(assignments.id, assignmentId), eq(assignments.lecturerId, req.user.id)))
       .limit(1);
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // Fetch the submissions with student details
     const rows = await db
-      .select({ 
-        submission: assignmentSubmissions, 
-        student: users 
-      })
+      .select({ submission: assignmentSubmissions, student: users })
       .from(assignmentSubmissions)
       .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
       .where(eq(assignmentSubmissions.assignmentId, assignmentId))

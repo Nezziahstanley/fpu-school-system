@@ -245,6 +245,11 @@
 
     try {
       const res = await core.portalFetch('/api/hod/results/ready-to-publish');
+      
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to load verified results');
+      }
+
       const data = res.data || [];
 
       if (!data.length) {

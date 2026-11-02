@@ -1034,11 +1034,14 @@ router.post('/results/:courseId/approve', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/results/ready-to-publish
-// (Fetch courses that are hod_verified but not yet published)
 // ============================================================
 router.get('/results/ready-to-publish', only, async (req, res, next) => {
   try {
-    const departmentId = deptId(req);
+    // SAFETY CHECK: Ensure department ID is a valid number
+    const departmentId = Number(deptId(req));
+    if (isNaN(departmentId) || !departmentId) {
+      return res.status(400).json({ success: false, error: 'Invalid or missing department ID.' });
+    }
 
     const rows = await db.execute(sql`
       SELECT 

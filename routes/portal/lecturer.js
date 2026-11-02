@@ -304,6 +304,74 @@ router.get('/results', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// UPDATE single result (Edit)
+// ============================================================
+router.put('/results/:id', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    const { score, grade, points } = req.body;
+
+    // Verify the lecturer owns this course
+    const [result] = await db.select({ courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+      
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.update(results)
+      .set({ score: String(score), grade, points, updatedAt: new Date() })
+      .where(eq(results.id, resultId));
+
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// DELETE single result
+// ============================================================
+router.delete('/results/:id', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    
+    const [result] = await db.select({ courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+      
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.delete(results).where(eq(results.id, resultId));
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// SUBMIT ALL drafts for a course to HOD
+// ============================================================
+router.post('/results/:courseId/submit-all', only, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    // Update all drafts for this course to submitted
+    await db.execute(sql`
+      UPDATE results 
+      SET status = 'submitted', submitted_at = NOW(), submitted_by = ${req.user.id}
+      WHERE course_id = ${courseId} AND status = 'draft'
+    `);
+
+    return res.json({ success: true, message: 'Results submitted to HOD successfully.' });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
 // POST: Submit a single result to HOD
 router.post('/results/:id/submit', only, async (req, res, next) => {
   try {
@@ -766,6 +834,74 @@ router.post('/results/:courseId', only, async (req, res, next) => {
     console.error('[lecturer/results/submit] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ============================================================
+// UPDATE single result (Edit)
+// ============================================================
+router.put('/results/:id', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    const { score, grade, points } = req.body;
+
+    // Verify the lecturer owns this course
+    const [result] = await db.select({ courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+      
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.update(results)
+      .set({ score: String(score), grade, points, updatedAt: new Date() })
+      .where(eq(results.id, resultId));
+
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// DELETE single result
+// ============================================================
+router.delete('/results/:id', only, async (req, res, next) => {
+  try {
+    const resultId = Number(req.params.id);
+    
+    const [result] = await db.select({ courseId: results.courseId })
+      .from(results).where(eq(results.id, resultId)).limit(1);
+      
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    await db.delete(results).where(eq(results.id, resultId));
+    return res.json({ success: true });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+});
+
+// ============================================================
+// SUBMIT ALL drafts for a course to HOD
+// ============================================================
+router.post('/results/:courseId/submit-all', only, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    
+    const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
+      .limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+
+    // Update all drafts for this course to submitted
+    await db.execute(sql`
+      UPDATE results 
+      SET status = 'submitted', submitted_at = NOW(), submitted_by = ${req.user.id}
+      WHERE course_id = ${courseId} AND status = 'draft'
+    `);
+
+    return res.json({ success: true, message: 'Results submitted to HOD successfully.' });
+  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
 module.exports = router;

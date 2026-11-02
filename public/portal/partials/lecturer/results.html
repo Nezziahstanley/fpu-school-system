@@ -50,6 +50,7 @@
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Score</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Grade</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Actions</th>
             </tr>
           </thead>
           <tbody id="res-tbody">
@@ -81,7 +82,10 @@
   <div id="bulk-table-panel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="bulk-course-title">Course</div>
-      <button id="bulk-save-btn" style="padding:.5rem 1.25rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">💾 Save All Draft</button>
+      <div style="display:flex;gap:.5rem;">
+        <button id="bulk-save-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">💾 Save Draft</button>
+        <button id="bulk-submit-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">📤 Submit to HOD</button>
+      </div>
     </div>
     
     <div style="overflow-x:auto;">
@@ -122,7 +126,6 @@
   let ALL_RESULTS = [];
   let LECTURER_DEPT_ID = null;
 
-  // State for Department view
   let DEPARTMENTS_DATA = [];
   let SELECTED_DEPT_ID = null;
   let CURRENT_STATUS_FILTER = '';
@@ -150,10 +153,9 @@
     return `<span style="background:${m.bg};color:${m.fg};padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;text-transform:capitalize;">${esc(m.label)}</span>`;
   }
 
-  // Load ALL results for the main table
   async function loadResults() {
     const tbody = $('res-tbody');
-    tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>';
 
     try {
       const res = await core.portalFetch('/api/lecturer/results');
@@ -162,26 +164,19 @@
 
       buildDepartmentsView();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  // Group results by Department
   function buildDepartmentsView() {
-    // 1. Group by department
     const deptMap = {};
     ALL_RESULTS.forEach(r => {
       if (!deptMap[r.courseDeptId]) {
         deptMap[r.courseDeptId] = {
-          id: r.courseDeptId,
-          name: r.courseDepartment || 'Unknown Department',
-          courses: new Set(),
-          totalResults: 0,
-          drafts: 0,
-          published: 0
+          id: r.courseDeptId, name: r.courseDepartment || 'Unknown',
+          courses: new Set(), totalResults: 0, drafts: 0, published: 0
         };
       }
-      
       const d = deptMap[r.courseDeptId];
       d.courses.add(r.courseCode);
       d.totalResults++;
@@ -191,14 +186,12 @@
 
     DEPARTMENTS_DATA = Object.values(deptMap);
 
-    // 2. Render Cards
     const container = $('dept-cards-container');
     if (!DEPARTMENTS_DATA.length) {
       container.innerHTML = `<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;background:#fff;border-radius:12px;border:1px solid #e5e7eb;">You currently have no assigned courses or results.</div>`;
       return;
     }
 
-    // Sort so the lecturer's own department is first
     DEPARTMENTS_DATA.sort((a, b) => {
       if (a.id === LECTURER_DEPT_ID) return -1;
       if (b.id === LECTURER_DEPT_ID) return 1;
@@ -240,7 +233,6 @@
     }).join('');
   }
 
-  // Called when a department card is clicked
   window.__openDept = function(deptId) {
     SELECTED_DEPT_ID = deptId;
     const dept = DEPARTMENTS_DATA.find(d => d.id === deptId);
@@ -250,7 +242,6 @@
     $('table-view').style.display = 'block';
     $('current-dept-title').textContent = dept.name;
     
-    // Reset status filter
     CURRENT_STATUS_FILTER = '';
     document.querySelectorAll('.status-btn').forEach(btn => {
       if (btn.dataset.status === '') {
@@ -267,32 +258,23 @@
     renderDeptResults();
   };
 
-  // Back to Departments view
   $('btn-back-dept')?.addEventListener('click', () => {
     $('table-view').style.display = 'none';
     $('dept-view').style.display = 'block';
     SELECTED_DEPT_ID = null;
   });
 
-  // Status Filter buttons
   document.querySelectorAll('.status-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       CURRENT_STATUS_FILTER = e.target.dataset.status;
-      
       document.querySelectorAll('.status-btn').forEach(b => {
-        b.style.background = '#fff';
-        b.style.color = '#475569';
-        b.style.borderColor = '#cbd5e1';
+        b.style.background = '#fff'; b.style.color = '#475569'; b.style.borderColor = '#cbd5e1';
       });
-      e.target.style.background = '#065f46';
-      e.target.style.color = '#fff';
-      e.target.style.borderColor = '#065f46';
-
+      e.target.style.background = '#065f46'; e.target.style.color = '#fff'; e.target.style.borderColor = '#065f46';
       renderDeptResults();
     });
   });
 
-  // Render the table for the selected department
   function renderDeptResults() {
     const tbody = $('res-tbody');
     let rows = ALL_RESULTS.filter(r => r.courseDeptId === SELECTED_DEPT_ID);
@@ -306,25 +288,74 @@
     }
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No results found for this filter.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">No results found for this filter.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = rows.map(r => `
-      <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentFirstName)} ${esc(r.studentLastName)}</td>
-        <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber)}</code></td>
-        <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
-        <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${Number(r.score || 0).toFixed(2)}</td>
-        <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
-        <td style="padding:.65rem .75rem;text-align:center;">${statusBadge(r.status)}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = rows.map(r => {
+      // Only show Edit/Delete if it's a Draft
+      const isDraft = r.status === 'draft';
+      const actions = isDraft 
+        ? `<div style="display:flex;gap:.35rem;justify-content:flex-end;">
+             <button onclick="window.__editResult(${r.id}, '${r.courseCode}')" style="padding:.25rem .5rem;font-size:.7rem;font-weight:700;background:#e0e7ff;color:#3730a3;border:none;border-radius:4px;cursor:pointer;">Edit</button>
+             <button onclick="window.__deleteResult(${r.id})" style="padding:.25rem .5rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:4px;cursor:pointer;">Delete</button>
+           </div>`
+        : `<div style="text-align:right;font-size:.75rem;color:#94a3b8;padding-right:.5rem;">Locked 🔒</div>`;
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentFirstName)} ${esc(r.studentLastName)}</td>
+          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber)}</code></td>
+          <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong></td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${Number(r.score || 0).toFixed(2)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;">${statusBadge(r.status)}</td>
+          <td style="padding:.65rem .75rem;">${actions}</td>
+        </tr>
+      `;
+    }).join('');
   }
+
+  // Handle Edit (Opens bulk view for that course)
+  window.__editResult = function(resultId, courseCode) {
+    // Find the course ID based on the code
+    const result = ALL_RESULTS.find(r => r.id === resultId);
+    if (!result) return;
+    
+    // Switch to bulk view and pre-select the course
+    $('main-view').style.display = 'none';
+    $('bulk-view').style.display = 'block';
+    
+    // Load courses then select the right one
+    core.portalFetch('/api/lecturer/courses').then(res => {
+      ALL_COURSES = res.data || [];
+      $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
+        ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+      
+      // Find course ID by code
+      const course = ALL_COURSES.find(c => c.code === courseCode);
+      if (course) {
+        $('bulk-course-select').value = course.id;
+        // Trigger change to load students
+        $('bulk-course-select').dispatchEvent(new Event('change'));
+      }
+    });
+  };
+
+  // Handle Delete
+  window.__deleteResult = async function(resultId) {
+    if (!confirm('Are you sure you want to delete this draft result? This cannot be undone.')) return;
+    try {
+      await core.portalFetch(`/api/lecturer/results/${resultId}`, { method: 'DELETE' });
+      core.showToast('Result deleted.', 'success');
+      loadResults(); // Refresh data
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  };
 
   $('res-refresh')?.addEventListener('click', loadResults);
 
-  // Switch to Bulk View
   $('res-enter').addEventListener('click', async () => {
     $('main-view').style.display = 'none';
     $('bulk-view').style.display = 'block';
@@ -337,7 +368,6 @@
     } catch (err) { core.showToast(err.message, 'error'); }
   });
 
-  // Back to Main View
   $('bulk-back').addEventListener('click', () => {
     $('bulk-view').style.display = 'none';
     $('main-view').style.display = 'block';
@@ -346,7 +376,6 @@
     loadResults();
   });
 
-  // Load Students for selected course
   $('bulk-course-select').addEventListener('change', async (e) => {
     const courseId = e.target.value;
     if (!courseId) { $('bulk-table-panel').style.display = 'none'; return; }
@@ -414,47 +443,66 @@
     }
   });
 
-  // Save All (Bulk)
-  $('bulk-save-btn').addEventListener('click', async () => {
-    if (!CURRENT_COURSE_ID) return;
-
-    const btn = $('bulk-save-btn');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
+  // Save Draft
+  function gatherPayload() {
     const payload = [];
     const studentMap = {};
-    
     document.querySelectorAll('.bulk-input').forEach(input => {
       const studentId = input.dataset.student;
       if (!studentMap[studentId]) studentMap[studentId] = { studentId, assign: 0, cw: 0, exam: 0 };
-      
       const val = Number(input.value) || 0;
       if (input.dataset.field === 'assign') studentMap[studentId].assign = val;
       if (input.dataset.field === 'cw') studentMap[studentId].cw = val;
       if (input.dataset.field === 'exam') studentMap[studentId].exam = val;
     });
-
     Object.values(studentMap).forEach(s => {
-      payload.push({
-        studentId: Number(s.studentId),
-        assignmentScore: s.assign,
-        classworkScore: s.cw,
-        examScore: s.exam
-      });
+      payload.push({ studentId: Number(s.studentId), assignmentScore: s.assign, classworkScore: s.cw, examScore: s.exam });
     });
+    return payload;
+  }
+
+  $('bulk-save-btn').addEventListener('click', async () => {
+    if (!CURRENT_COURSE_ID) return;
+    const btn = $('bulk-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
 
     try {
       await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}`, {
         method: 'POST',
-        body: { results: payload }
+        body: { results: gatherPayload() }
       });
-      core.showToast('All results saved successfully.', 'success');
+      core.showToast('All results saved as Draft.', 'success');
     } catch (err) {
       core.showToast(err.message, 'error');
     } finally {
-      btn.disabled = false;
-      btn.textContent = '💾 Save All Draft';
+      btn.disabled = false; btn.textContent = '💾 Save Draft';
+    }
+  });
+
+  // Submit to HOD
+  $('bulk-submit-btn').addEventListener('click', async () => {
+    if (!CURRENT_COURSE_ID) return;
+    if (!confirm('Are you sure? This will lock the drafts and send them to the HOD for approval.')) return;
+    
+    const btn = $('bulk-submit-btn');
+    btn.disabled = true; btn.textContent = 'Submitting...';
+
+    try {
+      // 1. Save current inputs first (in case they changed something)
+      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}`, {
+        method: 'POST',
+        body: { results: gatherPayload() }
+      });
+      
+      // 2. Submit to HOD
+      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}/submit-all`, { method: 'POST' });
+      
+      core.showToast('Results submitted to HOD successfully.', 'success');
+      $('bulk-back').click(); // Go back to main view
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '📤 Submit to HOD';
     }
   });
 

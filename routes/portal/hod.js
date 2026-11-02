@@ -1032,4 +1032,64 @@ router.post('/results/:courseId/approve', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/hod/results/ready-to-publish
+// (Fetch courses that are hod_verified but not yet published)
+// ============================================================
+router.get('/results/ready-to-publish', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+
+    const rows = await db.execute(sql`
+      SELECT 
+        r.course_id AS "courseId",
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        c.level AS "level",
+        COUNT(r.id) AS "studentCount",
+        MAX(r.hod_verified_at) AS "verifiedAt"
+      FROM results r
+      INNER JOIN courses c ON r.course_id = c.id
+      WHERE c.department_id = ${departmentId} AND r.status = 'hod_verified'
+      GROUP BY r.course_id, c.code, c.title, c.level
+      ORDER BY MAX(r.hod_verified_at) DESC
+    `);
+
+    return res.json({ success: true, data: rows.rows || [] });
+  } catch (err) {
+    console.error('[hod/ready-to-publish] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/hod/results/:courseId/publish
+// ============================================================
+router.post('/results/:courseId/publish', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const courseId = Number(req.params.courseId);
+
+    // Verify course is in this HOD's department
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Not in your department.' });
+    }
+
+    // Update all 'hod_verified' results for this course to 'published'
+    await db.execute(sql`
+      UPDATE results 
+      SET status = 'published', published_at = NOW()
+      WHERE course_id = ${courseId} AND status = 'hod_verified'
+    `);
+
+    await logAudit({ req, action: 'hod.publish_results', entity: 'course', entityId: courseId });
+
+    return res.json({ success: true, message: 'Results published successfully to students.' });
+  } catch (err) {
+    console.error('[hod/publish-results] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

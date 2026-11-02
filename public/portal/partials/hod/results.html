@@ -1,45 +1,81 @@
-<!-- Portal → HOD → Results Entry -->
+<!-- Portal → HOD → Results -->
 <div style="padding:0;" id="main-view">
   
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Results Entry</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Upload CA and Exam scores for your courses</p>
-    </div>
+  <!-- Tabs -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;border-bottom:1px solid #e5e7eb;padding-bottom:.5rem;">
+    <button id="tab-entry" class="tab-btn active" style="padding:.55rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">📝 Results Entry</button>
+    <button id="tab-verified" class="tab-btn" style="padding:.55rem 1rem;font-size:.85rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">✅ Verified (Ready to Publish)</button>
   </div>
 
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;">
-    <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">Select Course</label>
-    <select id="course-select" style="width:100%;max-width:500px;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;">
-      <option value="">— Select a course —</option>
-    </select>
-  </div>
-
-  <div id="table-panel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="course-title">Course</div>
-      <div style="display:flex;gap:.5rem;">
-        <button id="save-results-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">💾 Save Draft</button>
-        <button id="approve-results-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">✅ Save & Approve</button>
+  <!-- TAB 1: Results Entry (Existing functionality) -->
+  <div id="entry-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+      <div>
+        <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Results Entry</h2>
+        <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Upload CA and Exam scores for your courses</p>
       </div>
     </div>
-    
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
-            <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric No.</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">CA (30)</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">Exam (70)</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:80px;">Total</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:80px;">Grade</th>
-          </tr>
-        </thead>
-        <tbody id="students-tbody">
-          <!-- Injected by JS -->
-        </tbody>
-      </table>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;">
+      <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">Select Course</label>
+      <select id="course-select" style="width:100%;max-width:500px;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;">
+        <option value="">— Select a course —</option>
+      </select>
+    </div>
+
+    <div id="table-panel" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="course-title">Course</div>
+        <div style="display:flex;gap:.5rem;">
+          <button id="save-results-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">💾 Save Draft</button>
+          <button id="approve-results-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">✅ Save & Approve</button>
+        </div>
+      </div>
+      
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
+              <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric No.</th>
+              <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">CA (30)</th>
+              <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">Exam (70)</th>
+              <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:80px;">Total</th>
+              <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:80px;">Grade</th>
+            </tr>
+          </thead>
+          <tbody id="students-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Verified Results (Ready to Publish) -->
+  <div id="verified-panel" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+      <div>
+        <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Verified Results</h2>
+        <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Results approved by you and ready to be published to students</p>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+              <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Course</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Level</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Students</th>
+              <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Verified At</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="verified-tbody">
+            <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -62,6 +98,23 @@
     return { grade: 'F', color: '#991b1b' };
   }
 
+  // --- TAB SWITCHING ---
+  $('tab-entry')?.addEventListener('click', () => {
+    $('tab-entry').style.background = '#065f46'; $('tab-entry').style.color = '#fff'; $('tab-entry').style.border = 'none';
+    $('tab-verified').style.background = '#fff'; $('tab-verified').style.color = '#475569'; $('tab-verified').style.border = '1px solid #cbd5e1';
+    $('entry-panel').style.display = 'block';
+    $('verified-panel').style.display = 'none';
+  });
+
+  $('tab-verified')?.addEventListener('click', () => {
+    $('tab-verified').style.background = '#065f46'; $('tab-verified').style.color = '#fff'; $('tab-verified').style.border = 'none';
+    $('tab-entry').style.background = '#fff'; $('tab-entry').style.color = '#475569'; $('tab-entry').style.border = '1px solid #cbd5e1';
+    $('entry-panel').style.display = 'none';
+    $('verified-panel').style.display = 'block';
+    loadVerifiedResults();
+  });
+
+  // --- TAB 1: RESULTS ENTRY (Existing) ---
   async function loadCourses() {
     try {
       const res = await core.portalFetch('/api/hod/courses');
@@ -96,13 +149,10 @@
       $('students-tbody').innerHTML = students.map(s => {
         const totalScore = s.score != null ? Number(s.score) : null;
         let ca = '', exam = '';
-        
-        // Simple heuristic to split total into CA and Exam if we have an existing score
         if (totalScore !== null) {
           ca = Math.round((totalScore / 100) * 30); 
           exam = totalScore - ca;
         }
-
         const total = (Number(ca)||0) + (Number(exam)||0);
         const { grade, color } = calcGrade(total);
 
@@ -126,7 +176,6 @@
           const exam = Number(inputs[1].value) || 0;
           const total = ca + exam;
           const { grade, color } = calcGrade(total);
-
           row.querySelector('.total-cell').textContent = total;
           row.querySelector('.grade-cell').textContent = grade;
           row.querySelector('.grade-cell').style.color = color;
@@ -154,12 +203,10 @@
     return payload;
   }
 
-  // Save Draft Button
   $('save-results-btn')?.addEventListener('click', async () => {
     if (!CURRENT_COURSE_ID) return;
     const btn = $('save-results-btn');
     btn.disabled = true; btn.textContent = 'Saving...';
-
     try {
       await core.portalFetch(`/api/hod/results/${CURRENT_COURSE_ID}`, {
         method: 'POST',
@@ -173,14 +220,11 @@
     }
   });
 
-  // Save & Approve Button
   $('approve-results-btn')?.addEventListener('click', async () => {
     if (!CURRENT_COURSE_ID) return;
     if (!confirm('Are you sure? This will save the scores and mark them as verified. The lecturer will no longer be able to edit them.')) return;
-    
     const btn = $('approve-results-btn');
     btn.disabled = true; btn.textContent = 'Saving...';
-
     try {
       await core.portalFetch(`/api/hod/results/${CURRENT_COURSE_ID}/approve`, {
         method: 'POST',
@@ -193,6 +237,50 @@
       btn.disabled = false; btn.textContent = '✅ Save & Approve';
     }
   });
+
+  // --- TAB 2: VERIFIED RESULTS ---
+  async function loadVerifiedResults() {
+    const tbody = $('verified-tbody');
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>';
+
+    try {
+      const res = await core.portalFetch('/api/hod/results/ready-to-publish');
+      const data = res.data || [];
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No verified results ready to publish.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:800;color:#0f172a;">${esc(r.courseCode)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(r.courseTitle)}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;">${esc(r.level)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${r.studentCount}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.75rem;">${new Date(r.verifiedAt).toLocaleString()}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            <button onclick="window.__publishCourse(${r.courseId})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">🚀 Publish to Students</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  window.__publishCourse = async function(courseId) {
+    if (!confirm('Are you sure? This will make the results visible to students immediately.')) return;
+    try {
+      await core.portalFetch(`/api/hod/results/${courseId}/publish`, { method: 'POST' });
+      core.showToast('Results published successfully.', 'success');
+      loadVerifiedResults();
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    }
+  };
 
   // Init
   loadCourses();

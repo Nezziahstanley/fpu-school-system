@@ -105,12 +105,13 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Submission</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">Score</th>
             <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="modal-tbody">
-          <tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>
+          <tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>
         </tbody>
       </table>
     </div>
@@ -202,7 +203,6 @@
     $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
       ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
       
-    // We need to find the course ID based on the courseCode
     const matchedCourse = ALL_COURSES.find(c => c.code === a.courseCode);
     if (matchedCourse) $('form-course').value = matchedCourse.id;
 
@@ -256,34 +256,49 @@
     $('grade-modal').style.display = 'flex';
     
     const tbody = $('modal-tbody');
-    tbody.innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>';
 
     try {
       const res = await core.portalFetch(`/api/lecturer/assignments/${assignmentId}/submissions`);
       const submissions = res.data || [];
 
       if (!submissions.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No submissions yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No submissions yet.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = submissions.map(s => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
-          <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
-          <td style="padding:.65rem .75rem;color:#475569;font-size:.75rem;">
-            ${s.submissionUrl ? `<a href="${esc(s.submissionUrl)}" target="_blank" style="color:#1e40af;text-decoration:underline;">View File</a>` : 'Text Only'}
-          </td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <input type="number" id="score-${s.id}" value="${s.score || ''}" placeholder="Score" style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />
-          </td>
-          <td style="padding:.65rem .75rem;text-align:right;">
-            <button onclick="window.__saveGrade(${s.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Save</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = submissions.map(s => {
+        // Check if it's already graded
+        const isGraded = s.score != null && s.score !== '';
+        
+        // Setup the input and button based on graded status
+        const scoreInput = isGraded 
+          ? `<input type="number" id="score-${s.id}" value="${s.score}" disabled style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;background:#e2e8f0;color:#475569;font-weight:800;" />`
+          : `<input type="number" id="score-${s.id}" value="" placeholder="Score" style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />`;
+
+        const actionBtn = isGraded
+          ? `<span style="font-size:.7rem;font-weight:800;color:#065f46;">✓ Graded</span>`
+          : `<button onclick="window.__saveGrade(${s.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Save</button>`;
+
+        const statusBadge = isGraded
+          ? `<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;">Graded</span>`
+          : `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;">Pending</span>`;
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
+            <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
+            <td style="padding:.65rem .75rem;color:#475569;font-size:.75rem;">
+              ${s.submissionUrl ? `<a href="${esc(s.submissionUrl)}" target="_blank" style="color:#1e40af;text-decoration:underline;">View File</a>` : 'Text Only'}
+            </td>
+            <td style="padding:.65rem .75rem;text-align:center;">${statusBadge}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">${scoreInput}</td>
+            <td style="padding:.65rem .75rem;text-align:right;">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   };
 
@@ -302,9 +317,22 @@
         body: { score }
       });
       core.showToast('Grade saved successfully.', 'success');
+      // Refresh the modal to lock the input and update the status badge
+      window.__openGradeModal(CURRENT_ASSIGNMENT_ID, CURRENT_ASSIGNMENT_TITLE);
     } catch (err) {
       core.showToast(err.message, 'error');
     }
+  };
+
+  // Need to store these globally so we can refresh the modal after saving
+  let CURRENT_ASSIGNMENT_ID = null;
+  let CURRENT_ASSIGNMENT_TITLE = null;
+
+  const originalOpenGradeModal = window.__openGradeModal;
+  window.__openGradeModal = function(id, title) {
+    CURRENT_ASSIGNMENT_ID = id;
+    CURRENT_ASSIGNMENT_TITLE = title;
+    originalOpenGradeModal(id, title);
   };
 
   // --- MODAL CLOSE ---

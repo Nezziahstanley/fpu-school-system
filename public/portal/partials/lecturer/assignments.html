@@ -89,7 +89,7 @@
 
 <!-- ═══════ GRADE SUBMISSIONS MODAL ═══════ -->
 <div id="grade-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
       <div>
@@ -105,7 +105,7 @@
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Submission</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Response / Upload</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">Score</th>
             <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
@@ -123,6 +123,22 @@
   </div>
 </div>
 
+<!-- ═══════ VIEW SUBMISSION CONTENT MODAL ═══════ -->
+<div id="view-submission-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;max-height:80vh;">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;color:#0f172a;font-size:1rem;" id="view-sub-title">Student Submission</div>
+      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.5rem;overflow-y:auto;" id="view-sub-content">
+      <!-- Injected by JS -->
+    </div>
+    <div style="padding:1rem;border-top:1px solid #e5e7eb;text-align:right;background:#f8fafc;border-radius:0 0 16px 16px;">
+      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="padding:.5rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -134,6 +150,7 @@
   let ALL_COURSES = [];
   let CURRENT_ASSIGNMENT_ID = null;
   let CURRENT_ASSIGNMENT_TITLE = null;
+  let CACHED_SUBMISSIONS = []; // To avoid re-fetching when viewing text
 
   // --- LOAD DATA ---
   async function loadData() {
@@ -173,7 +190,6 @@
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(a.title)}</td>
           <td style="padding:.65rem .75rem;"><strong>${esc(a.courseCode)}</strong></td>
           
-          <!-- New Submissions Count Display -->
           <td style="padding:.65rem .75rem;text-align:center;">
             <span style="display:inline-block;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${countBg};color:${countColor};">
               ${a.submissionCount} / ${a.totalStudents}
@@ -267,6 +283,40 @@
     }
   };
 
+  // --- VIEW SUBMISSION MODAL ---
+  window.__viewSubmission = function(subId) {
+    const sub = CACHED_SUBMISSIONS.find(x => x.id === subId);
+    if (!sub) return;
+
+    $('view-sub-title').textContent = `${sub.studentName} — Response`;
+    
+    let html = '';
+    if (sub.submissionUrl) {
+      html += `
+        <div style="margin-bottom:1.5rem;">
+          <div style="font-size:.75rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.5rem;">Uploaded File</div>
+          <a href="${esc(sub.submissionUrl)}" target="_blank" style="display:inline-block;padding:.6rem 1rem;background:#1e40af;color:#fff;font-size:.85rem;font-weight:700;border-radius:8px;text-decoration:none;">📄 Open / Download File</a>
+        </div>
+      `;
+    }
+    
+    if (sub.submissionText) {
+      html += `
+        <div>
+          <div style="font-size:.75rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.5rem;">Typed Response</div>
+          <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:1rem;font-size:.85rem;color:#0f172a;white-space:pre-wrap;font-family:monospace;">${esc(sub.submissionText)}</div>
+        </div>
+      `;
+    }
+
+    if (!html) {
+      html = '<div style="text-align:center;color:#94a3b8;padding:2rem;">No text or file provided by student.</div>';
+    }
+
+    $('view-sub-content').innerHTML = html;
+    $('view-submission-modal').style.display = 'flex';
+  };
+
   // --- GRADE MODAL ---
   window.__openGradeModal = async function(assignmentId, title) {
     CURRENT_ASSIGNMENT_ID = assignmentId;
@@ -280,22 +330,20 @@
 
     try {
       const res = await core.portalFetch(`/api/lecturer/assignments/${assignmentId}/submissions`);
-      const submissions = res.data || [];
+      CACHED_SUBMISSIONS = res.data || [];
       const assignment = res.assignment || {};
       
       const totalStudents = assignment.totalStudents || 0;
-      $('modal-course-name').textContent = `${assignment.courseCode || ''} — ${submissions.length} Submitted / ${totalStudents} Total Students`;
+      $('modal-course-name').textContent = `${assignment.courseCode || ''} — ${CACHED_SUBMISSIONS.length} Submitted / ${totalStudents} Total Students`;
 
-      if (!submissions.length) {
+      if (!CACHED_SUBMISSIONS.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No submissions yet.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = submissions.map(s => {
-        // Check if it's already graded
+      tbody.innerHTML = CACHED_SUBMISSIONS.map(s => {
         const isGraded = s.score != null && s.score !== '';
         
-        // Setup the input and button based on graded status
         const scoreInput = isGraded 
           ? `<input type="number" id="score-${s.id}" value="${s.score}" disabled style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;background:#e2e8f0;color:#475569;font-weight:800;" />`
           : `<input type="number" id="score-${s.id}" value="" placeholder="Score" style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />`;
@@ -312,9 +360,11 @@
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
             <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
-            <td style="padding:.65rem .75rem;color:#475569;font-size:.75rem;">
-              ${s.submissionUrl ? `<a href="${esc(s.submissionUrl)}" target="_blank" style="color:#1e40af;text-decoration:underline;">View File</a>` : 'Text Only'}
+            
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <button onclick="window.__viewSubmission(${s.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;cursor:pointer;">View Response</button>
             </td>
+
             <td style="padding:.65rem .75rem;text-align:center;">${statusBadge}</td>
             <td style="padding:.65rem .75rem;text-align:center;">${scoreInput}</td>
             <td style="padding:.65rem .75rem;text-align:right;">${actionBtn}</td>
@@ -341,7 +391,6 @@
         body: { score }
       });
       core.showToast('Grade saved successfully.', 'success');
-      // Refresh the modal to lock the input and update the status badge
       window.__openGradeModal(CURRENT_ASSIGNMENT_ID, CURRENT_ASSIGNMENT_TITLE);
     } catch (err) {
       core.showToast(err.message, 'error');

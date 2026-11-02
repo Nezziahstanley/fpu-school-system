@@ -926,7 +926,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/:courseId
-// (Save the scores submitted by the lecturer/HOD)
+// (Save the scores submitted by the lecturer/HOD as Draft)
 // ============================================================
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
@@ -973,6 +973,61 @@ router.post('/results/:courseId', only, async (req, res, next) => {
     return res.json({ success: true, message: 'Results saved as draft.' });
   } catch (err) {
     console.error('[hod/results/submit] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/hod/results/:courseId/approve
+// (Save scores AND immediately mark as HOD Verified)
+// ============================================================
+router.post('/results/:courseId/approve', only, async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    
+    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
+    const sessionId = sessionResult.rows[0]?.id || 1;
+
+    const { results } = req.body; 
+
+    if (!Array.isArray(results)) {
+      return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    }
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+
+    const { calculateGrade } = require('../../utils/gpa');
+
+    for (const r of results) {
+      const ca = Number(r.caScore) || 0;
+      const exam = Number(r.examScore) || 0;
+      const total = ca + exam;
+      
+      const { grade, points } = calculateGrade(total, course.unit);
+
+      await db.execute(sql`
+        INSERT INTO results (
+          student_id, course_id, session_id, semester, score, grade, points, status, hod_verified_by, hod_verified_at
+        )
+        VALUES (
+          ${r.studentId}, ${courseId}, ${sessionId}, ${course.semesterName || 'First'}, 
+          ${total}, ${grade}, ${points}, 'hod_verified', ${req.user.id}, NOW()
+        )
+        ON CONFLICT (student_id, course_id, session_id) 
+        DO UPDATE SET
+          score = EXCLUDED.score,
+          grade = EXCLUDED.grade,
+          points = EXCLUDED.points,
+          status = 'hod_verified',
+          hod_verified_by = ${req.user.id},
+          hod_verified_at = NOW()
+      `);
+    }
+
+    return res.json({ success: true, message: 'Results saved and approved successfully.' });
+  } catch (err) {
+    console.error('[hod/results/approve] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

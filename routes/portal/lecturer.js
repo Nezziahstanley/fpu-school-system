@@ -751,6 +751,36 @@ router.post('/allocations/:id/flag', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET: Fetch pending (submitted) results for dashboard widget
+// ============================================================
+router.get('/results/pending', only, async (req, res, next) => {
+  try {
+    const allocations = await db.select({ courseId: courseAllocations.courseId })
+      .from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
+    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
+    if (!courseIds.length) return res.json({ success: true, data: [] });
+
+    const rows = await db.execute(sql`
+      SELECT 
+        r.course_id AS "courseId",
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        COUNT(r.id) AS "totalStudents",
+        MAX(r.submitted_at) AS "submittedAt"
+      FROM results r
+      JOIN courses c ON r.course_id = c.id
+      WHERE r.course_id IN (${sql.join(courseIds, sql`, `)}) AND r.status = 'submitted'
+      GROUP BY r.course_id, c.code, c.title
+      ORDER BY MAX(r.submitted_at) DESC
+    `);
+
+    return res.json({ success: true, data: rows.rows || [] });
+  } catch (err) { 
+    return res.status(500).json({ success: false, error: err.message }); 
+  }
+});
+
+// ============================================================
 // GET /api/lecturer/results/:courseId (Bulk Fetch)
 // ============================================================
 router.get('/results/:courseId', only, async (req, res, next) => {

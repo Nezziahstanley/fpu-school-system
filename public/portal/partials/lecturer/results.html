@@ -325,7 +325,17 @@
     $('current-student-course-dept').textContent = course ? course.courseDepartment : '';
 
     CURRENT_STUDENT_TAB = 'my';
-    $('btn-tab-my-students').style.click(); // Trigger the tab logic to default to "My Dept"
+    $('btn-tab-my-students').style.background = '#065f46';
+    $('btn-tab-my-students').style.color = '#fff';
+    $('btn-tab-my-students').style.borderColor = '#065f46';
+    $('btn-tab-other-students').style.background = '#fff';
+    $('btn-tab-other-students').style.color = '#475569';
+    $('btn-tab-other-students').style.borderColor = '#cbd5e1';
+
+    $('my-dept-table-view').style.display = 'block';
+    $('other-depts-cards-view').style.display = 'none';
+
+    renderMyDeptStudents();
   };
 
   $('btn-tab-my-students')?.addEventListener('click', () => {
@@ -371,7 +381,6 @@
   }
 
   function renderOtherDepts() {
-    // 1. Group "Other" students by their department ID
     const otherResults = ALL_RESULTS.filter(r => r.courseId === CURRENT_COURSE_ID && r.studentDeptId !== LECTURER_DEPT_ID);
     
     if (!otherResults.length) {
@@ -379,12 +388,10 @@
       return;
     }
 
-    // Since we didn't fetch the `other dept name` directly in the query, we'll construct it from Matric prefix for now, or just use "Dept X"
-    // Note: We can add a join to get the actual name later, but for now we'll group by ID.
     const deptMap = {};
     otherResults.forEach(r => {
       if (!deptMap[r.studentDeptId]) {
-        deptMap[r.studentDeptId] = { id: r.studentDeptId, count: 0, matricPrefix: r.matricNumber.split('/')[2] }; // e.g. "CEN", "ACC"
+        deptMap[r.studentDeptId] = { id: r.studentDeptId, count: 0, matricPrefix: r.matricNumber.split('/')[2] };
       }
       deptMap[r.studentDeptId].count++;
     });
@@ -408,7 +415,6 @@
     $('other-dept-table-panel').style.display = 'block';
     const otherResults = ALL_RESULTS.filter(r => r.courseId === CURRENT_COURSE_ID && r.studentDeptId === deptId);
     
-    // Find the prefix for the title
     const prefix = otherResults[0]?.matricNumber.split('/')[2] || 'Dept';
     $('other-dept-title').textContent = `Students from Dept ${prefix}`;
 
@@ -629,5 +635,19 @@
 
   // Init
   loadResults();
+
+  // Check if we were redirected from the dashboard to view a specific course
+  const autoOpenCourseId = sessionStorage.getItem('autoOpenCourse');
+  if (autoOpenCourseId) {
+    sessionStorage.removeItem('autoOpenCourse');
+    // Wait for results to load, then open the course
+    setTimeout(() => {
+      const course = ALL_RESULTS.find(r => r.courseId === Number(autoOpenCourseId));
+      if (course) {
+        window.__openDept(course.courseDeptId);
+        setTimeout(() => window.__openCourse(course.courseId), 100);
+      }
+    }, 1000);
+  }
 })();
 </script>

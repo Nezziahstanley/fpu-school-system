@@ -150,14 +150,26 @@
     </div>
   </div>
 
-  <!-- PENDING RESULTS -->
+  <!-- PENDING RESULTS TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📝 Pending Result Submissions</div>
       <a href="#lecturer-results" style="font-size:.75rem;color:#065f46;text-decoration:none;font-weight:700;">Enter results →</a>
     </div>
-    <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;" id="lec-pending-results">
-      Could not load results.
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead>
+          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Students</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Submitted At</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="lec-pending-tbody">
+          <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -177,6 +189,40 @@
     canvas.__chart = new Chart(canvas, config);
   }
 
+  async function loadPendingSubmissions() {
+    const tbody = $('lec-pending-tbody');
+    try {
+      const res = await core.portalFetch('/api/lecturer/results/pending');
+      const data = res.data || [];
+      
+      if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">You have no pending result submissions.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:.65rem .75rem;">
+            <div style="font-weight:800;color:#0f172a;">${esc(r.courseCode)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(r.courseTitle)}</div>
+          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${r.totalStudents}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.75rem;">${new Date(r.submittedAt).toLocaleString()}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            <button onclick="window.__viewSubmittedCourse(${r.courseId})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#dbeafe;color:#1e40af;border:none;border-radius:6px;cursor:pointer;">View Results</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  window.__viewSubmittedCourse = function(courseId) {
+    window.location.hash = '#lecturer-results';
+    sessionStorage.setItem('autoOpenCourse', courseId);
+  };
+
   async function load() {
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
@@ -193,7 +239,7 @@
       $('lec-registrations').textContent = d.totalRegistrations ?? 0;
       $('lec-results').textContent = d.pendingResults ?? 0;
       $('lec-session').textContent = d.activeSession || '—';
-      $('lec-attendance').textContent = d.attendanceCount ?? 0; // <-- FIXED
+      $('lec-attendance').textContent = d.attendanceCount ?? 0;
       $('lec-materials').textContent = d.materialsCount ?? 0;
       $('lec-assignments').textContent = d.assignmentsCount ?? 0;
 
@@ -269,12 +315,8 @@
         options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
       });
 
-      // Pending Results text
-      if (d.pendingResults > 0) {
-        $('lec-pending-results').innerHTML = `<span style="color:#065f46;font-weight:700;">You have ${d.pendingResults} pending result submissions.</span>`;
-      } else {
-        $('lec-pending-results').textContent = 'No pending results.';
-      }
+      // Load the new list
+      loadPendingSubmissions();
       
     } catch (err) {
       core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');

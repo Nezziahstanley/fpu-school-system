@@ -868,20 +868,17 @@ router.get('/lecturers', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/results/:courseId
-// (Fetch ALL registered students to enter scores for)
 // ============================================================
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
 
-    // 1. Verify the course belongs to this HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
-    // 2. Get the session_id from the registered students for this course
     const sessResult = await db.execute(sql`
       SELECT DISTINCT session_id 
       FROM course_registrations 
@@ -894,7 +891,6 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       return res.json({ success: true, data: [] });
     }
 
-    // 3. Fetch students strictly from the HOD's department
     const rows = await db.execute(sql`
       SELECT 
         u.id AS "studentId", 
@@ -926,7 +922,6 @@ router.get('/results/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/:courseId
-// (Save the scores submitted by the lecturer/HOD as Draft)
 // ============================================================
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
@@ -979,7 +974,6 @@ router.post('/results/:courseId', only, async (req, res, next) => {
 
 // ============================================================
 // POST /api/hod/results/:courseId/approve
-// (Save scores AND immediately mark as HOD Verified)
 // ============================================================
 router.post('/results/:courseId/approve', only, async (req, res, next) => {
   try {
@@ -1042,7 +1036,7 @@ router.get('/results/ready-to-publish', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Invalid department ID.' });
     }
 
-    // Use native Drizzle to fetch results
+    // Use native Drizzle to prevent NaN errors
     const rows = await db
       .select({
         courseId: results.courseId,
@@ -1076,13 +1070,11 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
 
-    // Verify course is in this HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    // Update all 'hod_verified' results for this course to 'published'
     await db.execute(sql`
       UPDATE results 
       SET status = 'published', published_at = NOW()

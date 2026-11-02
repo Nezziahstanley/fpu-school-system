@@ -312,7 +312,7 @@ router.get('/results', only, async (req, res, next) => {
 
     const rows = await db.execute(sql`
       SELECT DISTINCT ON (r.student_id, r.course_id) 
-        r.id, r.score, r.grade, r.points, r.status,
+        r.id, r.score, r.grade, r.points, r.status, r.assignment_score AS "assignmentScore",
         u.first_name AS "studentFirstName", 
         u.last_name AS "studentLastName", 
         u.matric_number AS "matricNumber",
@@ -384,12 +384,12 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName", 
              u.matric_number AS "matricNumber",
-             r.id AS "resultId", r.score, r.grade, r.points, r.status AS "resultStatus"
+             r.id AS "resultId", r.score, r.grade, r.points, r.assignment_score AS "assignmentScore", r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id
       WHERE cr.course_id = ${courseId}
-      GROUP BY u.id, u.first_name, u.last_name, u.matric_number, r.id, r.score, r.grade, r.points, r.status
+      GROUP BY u.id, u.first_name, u.last_name, u.matric_number, r.id, r.score, r.grade, r.points, r.assignment_score, r.status
       ORDER BY u.matric_number ASC
     `);
 
@@ -438,16 +438,17 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       const semesterValue = (course.semesterName || 'first').toLowerCase();
 
       await db.execute(sql`
-        INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status)
+        INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status, assignment_score)
         VALUES (
           ${r.studentId}, ${courseId}, ${studentSessionId}, ${semesterValue}, 
-          ${total}, ${grade}, ${points}, 'draft'
+          ${total}, ${grade}, ${points}, 'draft', ${assign}
         )
         ON CONFLICT (student_id, course_id, session_id) 
         DO UPDATE SET
           score = EXCLUDED.score,
           grade = EXCLUDED.grade,
           points = EXCLUDED.points,
+          assignment_score = EXCLUDED.assignment_score,
           status = 'draft',
           updated_at = NOW()
       `);
@@ -665,12 +666,52 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     const { score, feedback } = req.body || {};
     if (score === undefined) return res.status(400).json({ success: false, error: 'Score is required.' });
 
-    const [row] = await db.update(assignmentSubmissions)
-      .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
-      .where(eq(assignmentSubmissions.id, Number(req.params.id)))
-      .returning();
+    const submissionId = Number(req.params.id);
 
-    return res.json({ success: true, data: row });
+    // 1. Fetch the submission and the related assignment
+    const [submission] = await db.select({
+      id: assignmentSubmissions.id,
+      studentId: assignmentSubmissions.studentId,
+      assignmentId: assignmentSubmissions.assignmentId,
+      courseId: assignments.courseId,
+      maxScore: assignments.maxScore
+    })
+    .from(assignmentSubmissions)
+    .innerJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
+    .where(eq(assignmentSubmissions.id, submissionId))
+    .limit(1);
+
+    if (!submission) return res.status(404).json({ success: false, error: 'Submission not found.' });
+
+    // 2. Update the submission
+    await db.update(assignmentSubmissions)
+      .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
+      .where(eq(assignmentSubmissions.id, submissionId));
+
+    // 3. Calculate the 10-mark conversion
+    // (Score / Max Score) * 10
+    const maxScore = Number(submission.maxScore) || 100;
+    const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
+
+    // 4. Upsert into the results table
+    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
+    const sessionId = sessionResult.rows[0]?.id || 1;
+
+    const [course] = await db.select().from(courses).where(eq(courses.id, submission.courseId)).limit(1);
+
+    await db.execute(sql`
+      INSERT INTO results (student_id, course_id, session_id, semester, assignment_score, status)
+      VALUES (
+        ${submission.studentId}, ${submission.courseId}, ${sessionId}, ${(course?.semesterName || 'first').toLowerCase()}, 
+        ${calculated10Marks}, 'draft'
+      )
+      ON CONFLICT (student_id, course_id, session_id) 
+      DO UPDATE SET
+        assignment_score = EXCLUDED.assignment_score,
+        updated_at = NOW()
+    `);
+
+    return res.json({ success: true, data: { score, calculated10Marks } });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 

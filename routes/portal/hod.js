@@ -16,7 +16,7 @@ const ttQueries      = require('../../db/queries/timetable');
 const notifQueries   = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const { db, schema } = require('../../db');
-const { eq, and, sql, desc } = require('drizzle-orm');
+const { eq, and, sql, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
@@ -887,7 +887,6 @@ router.get('/lecturers', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/results/ready-to-publish
-// (MUST be defined BEFORE /results/:courseId)
 // ============================================================
 router.get('/results/ready-to-publish', only, async (req, res, next) => {
   try {
@@ -896,7 +895,6 @@ router.get('/results/ready-to-publish', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Invalid department ID.' });
     }
 
-    // Use native Drizzle to prevent NaN errors
     const rows = await db
       .select({
         courseId: results.courseId,
@@ -930,7 +928,6 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const courseId = Number(req.params.courseId);
     
-    // Safety check to prevent NaN
     if (isNaN(courseId)) {
       return res.status(400).json({ success: false, error: 'Invalid course ID.' });
     }
@@ -1102,61 +1099,8 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/hod/student-transcript/:studentId
-// ============================================================
-router.get('/student-transcript/:studentId', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-    const studentId = Number(req.params.studentId);
-
-    // 1. Verify the student belongs to this HOD's department
-    const [student] = await db.select()
-      .from(users)
-      .where(and(eq(users.id, studentId), eq(users.departmentId, departmentId)))
-      .limit(1);
-
-    if (!student) return res.status(403).json({ success: false, error: 'Student not in your department.' });
-
-    // 2. Fetch all results for this student, grouped by session and semester
-    const rows = await db.execute(sql`
-      SELECT 
-        r.id,
-        r.session_id AS "sessionId",
-        r.semester,
-        c.code AS "courseCode",
-        c.title AS "courseTitle",
-        c.unit,
-        r.score,
-        r.grade,
-        r.points,
-        r.status,
-        s.name AS "sessionName"
-      FROM results r
-      JOIN courses c ON r.course_id = c.id
-      LEFT JOIN academic_sessions s ON r.session_id = s.id
-      WHERE r.student_id = ${studentId}
-        AND r.status IN ('published', 'hod_verified')
-      ORDER BY r.session_id ASC, r.semester ASC, c.code ASC
-    `);
-
-    return res.json({ 
-      success: true, 
-      data: rows.rows || [],
-      student: {
-        firstName: student.firstName,
-        lastName: student.lastName,
-        matricNumber: student.matricNumber,
-        level: student.level
-      }
-    });
-  } catch (err) {
-    console.error('[hod/student-transcript] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
 // GET /api/hod/broad-sheet
+// FIXED: level=ND 1 is split into level=ND + year=1
 // ============================================================
 router.get('/broad-sheet', only, async (req, res, next) => {
   try {
@@ -1167,133 +1111,20 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'level and semester are required.' });
     }
 
-    // 1. Get the department info
+    // Split "ND 1" into baseLevel = "ND" and year = "1"
+    const parts = String(level).split(' ');
+    const baseLevel = parts[0] || 'ND';
+    const yearNum = parts[1] || null;
+
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // 2. Get ALL students in this department and level
-    const students = await db.select({
-      id: users.id,
-      matricNumber: users.matricNumber,
-      firstName: users.firstName,
-      lastName: users.lastName,
-    })
-    .from(users)
-    .where(and(
-      eq(users.departmentId, departmentId),
-      eq(users.role, 'student'),
-      eq(users.level, level)
-    ))
-    .orderBy(users.matricNumber);
-
-    if (!students.length) {
-      return res.json({ success: true, data: [], department: dept?.name, courses: [] });
-    }
-
-    // 3. Get the unique courses for this level + semester
-    const courseList = await db.select({
-      id: courses.id,
-      code: courses.code,
-      title: courses.title,
-      unit: courses.unit,
-    })
-    .from(courses)
-    .where(and(
-      eq(courses.departmentId, departmentId),
-      eq(courses.level, level),
-      eq(courses.semesterName, semester)
-    ))
-    .orderBy(courses.code);
-
-    // 4. Get ALL results for these students
-    const studentIds = students.map(s => s.id);
-    const resultList = await db
-      .select({
-        studentId: results.studentId,
-        courseId: results.courseId,
-        score: results.score,
-        grade: results.grade,
-        points: results.points,
-      })
-      .from(results)
-      .where(inArray(results.studentId, studentIds));
-
-    // 5. Build the matrix
-    const data = students.map(s => {
-      const studentResults = resultList.filter(r => r.studentId === s.id);
-      
-      let tci = 0; // Total Credit Units
-      let tgp = 0; // Total Grade Points
-      
-      const courseGrades = {};
-      courseList.forEach(c => {
-        const r = studentResults.find(x => x.courseId === c.id);
-        if (r) {
-          courseGrades[c.code] = { grade: r.grade, score: r.score, points: r.points };
-          if (r.grade && r.grade !== 'F') {
-            tci += Number(c.unit);
-            tgp += (Number(r.points) * Number(c.unit));
-          }
-        } else {
-          courseGrades[c.code] = { grade: '-', score: '-', points: 0 };
-        }
-      });
-
-      const gpa = tci > 0 ? (tgp / tci).toFixed(2) : '0.00';
-      
-      let remark = 'PASS';
-      if (Number(gpa) >= 3.50) remark = 'DISTINCTION';
-      else if (Number(gpa) >= 3.00) remark = 'UPPER CREDIT';
-      else if (Number(gpa) >= 2.50) remark = 'LOWER CREDIT';
-      else if (Number(gpa) >= 2.00) remark = 'PASS';
-      else remark = 'FAIL';
-
-      return {
-        id: s.id,
-        matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim(),
-        name: `${s.lastName}, ${s.firstName}`,
-        courseGrades,
-        tci,
-        tgp,
-        gpa,
-        remark
-      };
-    });
-
-    return res.json({
-      success: true,
-      department: dept?.name || 'Department',
-      courses: courseList,
-      data
-    });
-
-  } catch (err) {
-    console.error('[hod/broad-sheet] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// GET /api/hod/broad-sheet
-// ============================================================
-router.get('/broad-sheet', only, async (req, res, next) => {
-  try {
-    const departmentId = deptId(req);
-    const { level, semester } = req.query;
-
-    if (!level || !semester) {
-      return res.status(400).json({ success: false, error: 'level and semester are required.' });
-    }
-
-    // 1. Get the department info
-    const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
-
-    // 2. Fetch students - use raw SQL to bypass enum issues
+    // Fetch students in this base level
     const studentsResult = await db.execute(sql`
-      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName"
+      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName", level
       FROM users 
       WHERE department_id = ${departmentId} 
         AND role = 'student' 
-        AND level = ${level}
+        AND level = ${baseLevel}
       ORDER BY matric_number
     `);
     const students = studentsResult.rows || [];
@@ -1302,18 +1133,18 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       return res.json({ success: true, data: [], department: dept?.name, courses: [] });
     }
 
-    // 3. Get unique courses for this level + semester
+    // Fetch courses for this base level + semester
     const coursesResult = await db.execute(sql`
       SELECT id, code, title, unit
       FROM courses 
       WHERE department_id = ${departmentId} 
-        AND level = ${level} 
+        AND level = ${baseLevel} 
         AND semester_name = ${semester}
       ORDER BY code
     `);
     const courseList = coursesResult.rows || [];
 
-    // 4. Get all results for these students
+    // Fetch results for these students
     const studentIds = students.map(s => s.id);
     let resultList = [];
     if (studentIds.length && courseList.length) {
@@ -1325,7 +1156,7 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       resultList = resultsResult.rows || [];
     }
 
-    // 5. Build the matrix
+    // Build the matrix
     const data = students.map(s => {
       const studentResults = resultList.filter(r => r.studentId === s.id);
       
@@ -1370,6 +1201,7 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     return res.json({
       success: true,
       department: dept?.name || 'Department',
+      levelLabel: level,
       courses: courseList,
       data
     });
@@ -1379,4 +1211,5 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
+
 module.exports = router;

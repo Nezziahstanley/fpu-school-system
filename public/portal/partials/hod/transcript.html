@@ -13,8 +13,10 @@
     <div>
       <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Level</label>
       <select id="bs-level" style="padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;min-width:120px;">
-        <option value="ND">ND</option>
-        <option value="HND">HND</option>
+        <option value="ND 1">ND 1</option>
+        <option value="ND 2">ND 2</option>
+        <option value="HND 1">HND 1</option>
+        <option value="HND 2">HND 2</option>
       </select>
     </div>
     <div>
@@ -114,6 +116,7 @@
       const d = res.data || [];
       const courses = res.courses || [];
       const department = res.department || 'Department';
+      const levelLabel = res.levelLabel || level;
 
       if (!d.length) {
         container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No students found for this level.</div>';
@@ -161,7 +164,7 @@
 
         <div class="bs-meta">
           <div><strong>Department:</strong> ${esc(department)}</div>
-          <div><strong>Level:</strong> ${esc(level)}</div>
+          <div><strong>Level:</strong> ${esc(levelLabel)}</div>
           <div><strong>Semester:</strong> ${semLabel}</div>
         </div>
 
@@ -212,7 +215,6 @@
         return;
       }
 
-      // Group by session + semester
       const grouped = {};
       results.forEach(r => {
         const key = `${r.sessionName || 'Session'} — ${r.semester || 'Semester'}`;

@@ -1082,4 +1082,58 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/hod/student-transcript/:studentId
+// ============================================================
+router.get('/student-transcript/:studentId', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const studentId = Number(req.params.studentId);
+
+    // 1. Verify the student belongs to this HOD's department
+    const [student] = await db.select()
+      .from(users)
+      .where(and(eq(users.id, studentId), eq(users.departmentId, departmentId)))
+      .limit(1);
+
+    if (!student) return res.status(403).json({ success: false, error: 'Student not in your department.' });
+
+    // 2. Fetch all results for this student, grouped by session and semester
+    const rows = await db.execute(sql`
+      SELECT 
+        r.id,
+        r.session_id AS "sessionId",
+        r.semester,
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        c.unit,
+        r.score,
+        r.grade,
+        r.points,
+        r.status,
+        s.name AS "sessionName"
+      FROM results r
+      JOIN courses c ON r.course_id = c.id
+      LEFT JOIN academic_sessions s ON r.session_id = s.id
+      WHERE r.student_id = ${studentId}
+        AND r.status IN ('published', 'hod_verified')
+      ORDER BY r.session_id ASC, r.semester ASC, c.code ASC
+    `);
+
+    return res.json({ 
+      success: true, 
+      data: rows.rows || [],
+      student: {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        matricNumber: student.matricNumber,
+        level: student.level
+      }
+    });
+  } catch (err) {
+    console.error('[hod/student-transcript] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -219,7 +219,7 @@ router.get('/fees', only, async (req, res, next) => {
     const student = userResult.rows?.[0];
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    // 2. Calculate Total Due (Wrap in try/catch in case fee_structures table name differs)
+    // 2. Calculate Total Due
     let totalDue = 0;
     try {
       const feeResult = await db.execute(sql`
@@ -234,7 +234,7 @@ router.get('/fees', only, async (req, res, next) => {
       console.warn('[fees] fee_structures table error:', e.message);
     }
 
-    // 3. Get Payments (Using student_id and a safe date fallback)
+    // 3. Get Payments
     const paymentsResult = await db.execute(sql`
       SELECT 
         id, 
@@ -560,7 +560,6 @@ router.get('/clearance', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     
-    // 1. Fetch clearances and JOIN the academic_sessions table for the session name
     const clearancesResult = await db.execute(sql`
       SELECT c.id, c.type, c.status, c.session_id AS "sessionId", 
              s.name AS "sessionName", c.created_at AS "createdAt"
@@ -572,7 +571,6 @@ router.get('/clearance', only, async (req, res, next) => {
     
     const clearances = clearancesResult.rows || [];
 
-    // 2. Fetch the student details
     const studentResult = await db.execute(sql`
       SELECT first_name AS "firstName", last_name AS "lastName", matric_number AS "matricNumber", level
       FROM users
@@ -582,7 +580,6 @@ router.get('/clearance', only, async (req, res, next) => {
     
     const student = studentResult.rows?.[0] || {};
 
-    // 3. Combine them
     const data = clearances.map(c => ({ ...c, ...student }));
 
     return res.json({ success: true, data });
@@ -600,7 +597,6 @@ router.post('/clearance/request', only, async (req, res, next) => {
 
     if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
 
-    // Check if they already requested this specific type for this session
     const existing = await db.execute(sql`
       SELECT id FROM clearances WHERE student_id = ${studentId} AND type = ${type} AND session_id = ${sessionId}
     `);
@@ -765,7 +761,6 @@ router.get('/graduation', only, async (req, res, next) => {
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    // Existing graduation record
     const existingResult = await db.execute(sql`
       SELECT id, session_id AS "sessionId", level, cgpa, classification, status, approved_at AS "approvedAt"
       FROM graduations
@@ -775,7 +770,6 @@ router.get('/graduation', only, async (req, res, next) => {
     `);
     const existing = existingResult.rows?.[0] || null;
 
-    // CGPA
     const resultsRows = await db
       .select({ unit: courses.unit, points: results.points })
       .from(results)
@@ -791,7 +785,6 @@ router.get('/graduation', only, async (req, res, next) => {
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
     const cgpaNum = parseFloat(cgpa);
 
-    // Fees check
     let feesCleared = false;
     try {
       const paymentQueries = require('../../db/queries/payments');
@@ -804,7 +797,6 @@ router.get('/graduation', only, async (req, res, next) => {
       feesCleared = totalDue === 0 || totalPaid >= totalDue;
     } catch (e) { console.warn('[graduation/fees]', e.message); }
 
-    // Clearances check
     let clearancesOk = false;
     try {
       const clrResult = await db.execute(sql`SELECT status FROM clearances WHERE student_id = ${studentId}`);
@@ -813,7 +805,6 @@ router.get('/graduation', only, async (req, res, next) => {
       clearancesOk = clrRows.length === 0 || approved === clrRows.length;
     } catch (e) { console.warn('[graduation/clearances]', e.message); }
 
-    // Classification
     let classification = 'Fail';
     if (cgpaNum >= 3.50) classification = 'Distinction';
     else if (cgpaNum >= 3.00) classification = 'Upper Credit';
@@ -854,58 +845,6 @@ router.post('/graduation/apply', only, async (req, res, next) => {
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const existingResult = await db.execute(sql`SELECT id FROM graduations WHERE student_id = ${studentId} LIMIT 1`);
-    if (existingResult.rows && existingResult.rows.length) {
-      return res.status(400).json({ success: false, error: 'You have already applied for graduation.' });
-    }
-
-    const resultsRows = await db
-      .select({ unit: courses.unit, points: results.points })
-      .from(results)
-      .innerJoin(courses, eq(results.courseId, courses.id))
-      .where(and(eq(results.studentId, studentId), eq(results.status, 'published')));
-
-    let totalPoints = 0, totalUnits = 0;
-    resultsRows.forEach(r => {
-      const unit = Number(r.unit) || 0;
-      totalPoints += ((Number(r.points) || 0) * unit);
-      totalUnits += unit;
-    });
-    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
-    const cgpaNum = parseFloat(cgpa);
-    if (cgpaNum < 2.00) return res.status(400).json({ success: false, error: 'Minimum CGPA of 2.00 required.' });
-
-    let classification = 'Fail';
-    if (cgpaNum >= 3.50) classification = 'Distinction';
-    else if (cgpaNum >= 3.00) classification = 'Upper Credit';
-    else if (cgpaNum >= 2.50) classification = 'Lower Credit';
-    else if (cgpaNum >= 2.00) classification = 'Pass';
-
-    const inserted = await db.execute(sql`
-      INSERT INTO graduations (student_id, session_id, programme_id, level, cgpa, classification, status)
-      VALUES (${studentId}, ${sessionId}, ${student.programmeId || null}, ${student.level}, ${cgpa}, ${classification}, 'pending')
-      RETURNING id, status
-    `);
-
-    return res.status(201).json({ success: true, data: inserted.rows?.[0] || {} });
-  } catch (err) {
-    console.error('[student/graduation/apply] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================================
-// POST /api/student/graduation/apply
-// ============================================================
-router.post('/graduation/apply', only, async (req, res, next) => {
-  try {
-    const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
-
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
-
-    // Check no existing application
     const existing = await db.execute(sql`
       SELECT id FROM graduations WHERE student_id = ${studentId} LIMIT 1
     `);
@@ -913,7 +852,6 @@ router.post('/graduation/apply', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'You have already applied for graduation.' });
     }
 
-    // Calculate CGPA and classification
     const results = await db
       .select({ unit: courses.unit, points: results.points })
       .from(results)
@@ -939,7 +877,6 @@ router.post('/graduation/apply', only, async (req, res, next) => {
     else if (cgpaNum >= 2.50) classification = 'Lower Credit';
     else if (cgpaNum >= 2.00) classification = 'Pass';
 
-    // Insert graduation record
     const row = await db.execute(sql`
       INSERT INTO graduations (student_id, session_id, programme_id, level, cgpa, classification, status)
       VALUES (${studentId}, ${sessionId}, ${student.programmeId || null}, ${student.level}, ${cgpa}, ${classification}, 'pending')

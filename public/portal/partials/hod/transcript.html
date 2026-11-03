@@ -55,29 +55,169 @@
 </div>
 
 <style>
-  #bs-container { font-family: 'Times New Roman', Times, serif; color: #000; }
-  .bs-logo { width: 70px; height: 70px; object-fit: contain; margin: 0 auto .5rem; display: block; }
-  .bs-header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 1rem; margin-bottom: 1rem; }
-  .bs-header h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
-  .bs-header h2 { margin: .25rem 0 0; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; font-style: italic; }
-  .bs-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: .78rem; margin-bottom: 1rem; border-bottom: 2px solid #000; padding-bottom: .5rem; }
-  .bs-meta div strong { font-weight: 800; text-transform: uppercase; }
-  .bs-table { width: 100%; border-collapse: collapse; font-size: 10px; font-family: 'Times New Roman', Times, serif; }
-  .bs-table th, .bs-table td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; }
-  .bs-table th { background: #f0f0f0; font-weight: 800; text-transform: uppercase; font-size: 8px; line-height: 1.1; }
-  .bs-table td.left { text-align: left; padding-left: 6px; }
-  .bs-table td.name { text-align: left; font-weight: 600; white-space: nowrap; }
-  .bs-table .f { background: #fee2e2; color: #991b1b; font-weight: 800; }
-  .bs-table .remark { font-weight: 800; text-transform: uppercase; font-size: 8px; }
-  .bs-row-hover:hover { background: #ecfdf5; cursor: pointer; }
-  .bs-sig { display: flex; justify-content: space-between; margin-top: 2rem; font-size: 11px; }
-  .bs-sig div { text-align: center; width: 30%; border-top: 1px solid #000; padding-top: .25rem; font-weight: 600; }
+  /* === Print + Watermark Styles === */
+  #bs-container {
+    font-family: 'Times New Roman', Times, serif;
+    color: #000;
+    position: relative;
+  }
+
+  .bs-watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.05; /* Very faint watermark */
+    z-index: 0;
+    pointer-events: none; /* Don't block clicks */
+  }
+
+  .bs-watermark img {
+    width: 50%;
+    max-width: 500px;
+    object-fit: contain;
+  }
+
+  .bs-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .bs-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    border-bottom: 3px solid #000;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .bs-logo {
+    width: 70px;
+    height: 70px;
+    object-fit: contain;
+  }
+
+  .bs-title h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .bs-title h2 {
+    margin: .25rem 0 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-style: italic;
+  }
+
+  .bs-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    font-size: .78rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #000;
+    padding-bottom: .5rem;
+  }
+
+  .bs-meta div strong {
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .bs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    font-family: 'Times New Roman', Times, serif;
+  }
+
+  .bs-table th, .bs-table td {
+    border: 1px solid #000;
+    padding: 3px 4px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .bs-table th {
+    background: #f0f0f0;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 8px;
+    line-height: 1.1;
+  }
+
+  .bs-table td.left {
+    text-align: left;
+    padding-left: 6px;
+  }
+
+  .bs-table td.name {
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .bs-table .f {
+    background: #fee2e2;
+    color: #991b1b;
+    font-weight: 800;
+  }
+
+  .bs-table .remark {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 8px;
+  }
+
+  .bs-row-hover:hover {
+    background: #ecfdf5;
+    cursor: pointer;
+  }
+
+  .bs-sig {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    font-size: 11px;
+  }
+
+  .bs-sig div {
+    text-align: center;
+    width: 30%;
+    border-top: 1px solid #000;
+    padding-top: .25rem;
+    font-weight: 600;
+  }
 
   @media print {
-    @page { size: A3 landscape; margin: 10mm; }
+    @page {
+      size: A3 landscape;
+      margin: 10mm;
+    }
     body * { visibility: hidden; }
     #bs-container, #bs-container * { visibility: visible; }
-    #bs-container { position: absolute; left: 0; top: 0; width: 100%; padding: 0; border: none; }
+    #bs-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 0;
+      border: none;
+    }
+    /* Force the watermark to show when printing */
+    .bs-watermark {
+      opacity: 0.08 !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     #student-drawer { display: none !important; }
     .no-print { display: none !important; }
     .bs-table { font-size: 8px; }
@@ -91,7 +231,6 @@ console.log('[Broad Sheet] Script loaded.');
 
 (function () {
   'use strict';
-
   const core = window.FPU_PORTAL || {};
 
   function whenReady(fn) {
@@ -103,8 +242,6 @@ console.log('[Broad Sheet] Script loaded.');
   }
 
   whenReady(function () {
-    console.log('[Broad Sheet] DOM ready.');
-
     const levelSel  = document.getElementById('bs-level');
     const semSel    = document.getElementById('bs-semester');
     const genBtn    = document.getElementById('bs-generate');
@@ -116,19 +253,16 @@ console.log('[Broad Sheet] Script loaded.');
       return;
     }
 
-    // === Generate ===
     genBtn.addEventListener('click', async function (e) {
       e.preventDefault();
       
-      const fullLevel = levelSel.value; // e.g. "HND 1"
-      const semester = semSel.value;    // e.g. "first"
+      const fullLevel = levelSel.value;
+      const semester = semSel.value;
 
       // Split "HND 1" into level="HND" and year="1"
       const parts = String(fullLevel).split(' ');
       const baseLevel = parts[0] || 'ND';
       const yearNum = parts[1] || '1';
-
-      console.log('[Broad Sheet] Requesting:', { baseLevel, yearNum, semester });
 
       container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Generating broad sheet…</div>';
 
@@ -136,7 +270,6 @@ console.log('[Broad Sheet] Script loaded.');
         const res = await core.portalFetch(
           `/api/hod/broad-sheet?level=${encodeURIComponent(baseLevel)}&year=${encodeURIComponent(yearNum)}&semester=${encodeURIComponent(semester)}`
         );
-        console.log('[Broad Sheet] Response:', res);
 
         const d = res.data || [];
         const courses = res.courses || [];
@@ -178,39 +311,51 @@ console.log('[Broad Sheet] Script loaded.');
           `;
         }).join('');
 
-        const semLabel = semester === 'first' ? 'FIRST' : 'SECOND';
+        const semLabel = semester === 'first' ? 'FIRST SEMESTER' : 'SECOND SEMESTER';
 
         container.innerHTML = `
-          <div class="bs-header">
-            <img src="/assets/fpu-logo.png" alt="FPU Logo" class="bs-logo" onerror="this.style.display='none'"/>
-            <h1>Federal Polytechnic Ugep</h1>
-            <h2>Result Sheet (Stream B)</h2>
+          <!-- Faint background watermark -->
+          <div class="bs-watermark">
+            <img src="/assets/fpu-logo.png" alt="Watermark" onerror="this.style.display='none'"/>
           </div>
-          <div class="bs-meta">
-            <div><strong>Department:</strong> ${department}</div>
-            <div><strong>Level:</strong> ${levelLabel}</div>
-            <div><strong>Semester:</strong> ${semLabel}</div>
-          </div>
-          <table class="bs-table">
-            <thead>
-              <tr>
-                <th rowspan="2">S/N</th>
-                <th rowspan="2" style="min-width:110px;">Matric No.</th>
-                <th rowspan="2" style="min-width:150px;">Student Name</th>
-                <th colspan="${courses.length}" style="background:#e0e7ff;">Course Grades</th>
-                <th rowspan="2" style="min-width:30px;">TCI</th>
-                <th rowspan="2" style="min-width:30px;">TGP</th>
-                <th rowspan="2" style="min-width:35px;">GPA</th>
-                <th rowspan="2" style="min-width:70px;">Remark</th>
-              </tr>
-              <tr>${courseHeaders}</tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <div class="bs-sig">
-            <div>HOD, ${department}</div>
-            <div>Dean of School</div>
-            <div>Exams Officer</div>
+
+          <div class="bs-content">
+            <div class="bs-header">
+              <img src="/assets/fpu-logo.png" alt="FPU Logo" class="bs-logo" onerror="this.style.display='none'"/>
+              <div class="bs-title">
+                <h1>Federal Polytechnic Ugep</h1>
+                <h2>${semLabel} RESULT SHEET</h2>
+              </div>
+            </div>
+
+            <div class="bs-meta">
+              <div><strong>Department:</strong> ${department}</div>
+              <div><strong>Level:</strong> ${levelLabel}</div>
+              <div><strong>Semester:</strong> ${semLabel}</div>
+            </div>
+
+            <table class="bs-table">
+              <thead>
+                <tr>
+                  <th rowspan="2">S/N</th>
+                  <th rowspan="2" style="min-width:110px;">Matric No.</th>
+                  <th rowspan="2" style="min-width:150px;">Student Name</th>
+                  <th colspan="${courses.length}" style="background:#e0e7ff;">Course Grades</th>
+                  <th rowspan="2" style="min-width:30px;">TCI</th>
+                  <th rowspan="2" style="min-width:30px;">TGP</th>
+                  <th rowspan="2" style="min-width:35px;">GPA</th>
+                  <th rowspan="2" style="min-width:70px;">Remark</th>
+                </tr>
+                <tr>${courseHeaders}</tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+
+            <div class="bs-sig">
+              <div>HOD, ${department}</div>
+              <div>Dean of School</div>
+              <div>Exams Officer</div>
+            </div>
           </div>
         `;
 
@@ -220,12 +365,10 @@ console.log('[Broad Sheet] Script loaded.');
       }
     });
 
-    // === Print ===
     printBtn.addEventListener('click', function () {
       window.print();
     });
 
-    // === Student Drawer ===
     window.__bsViewStudent = async function (studentId, name, matric) {
       const drawer = document.getElementById('student-drawer');
       const title  = document.getElementById('drawer-title');
@@ -336,7 +479,6 @@ console.log('[Broad Sheet] Script loaded.');
       }
     };
 
-    // === Drawer Close / Print ===
     const drawerClose = document.getElementById('drawer-close');
     const drawerPrint = document.getElementById('drawer-print');
     const drawerElem  = document.getElementById('student-drawer');
@@ -348,8 +490,6 @@ console.log('[Broad Sheet] Script loaded.');
         if (e.target.id === 'student-drawer') drawerElem.style.display = 'none';
       });
     }
-
-    console.log('[Broad Sheet] All listeners wired.');
   });
 })();
 </script>

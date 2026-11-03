@@ -286,11 +286,13 @@ router.post('/pending-results/:id/verify', only, async (req, res, next) => {
     // Notify the lecturer who submitted this result
     if (result.submittedBy) {
       await db.execute(sql`
-        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
         VALUES (
           ${result.submittedBy},
           'Result Approved',
           ${'Your ' + (course.code || 'course') + ' result was approved by the HOD.'},
+          'result_approved',
+          '/portal/app.html#lecturer-results',
           false,
           NOW()
         )
@@ -322,11 +324,13 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
     // Notify the lecturer
     if (result.submittedBy) {
       await db.execute(sql`
-        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
         VALUES (
           ${result.submittedBy},
           'Result Rejected',
           ${'Your ' + (course.code || 'course') + ' result was rejected. Reason: ' + reason},
+          'result_rejected',
+          '/portal/app.html#lecturer-results',
           false,
           NOW()
         )
@@ -431,11 +435,13 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
     const lecturerIds = [...new Set(allResults.map(r => r.submittedBy).filter(Boolean))];
     for (const lecturerId of lecturerIds) {
       await db.execute(sql`
-        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
         VALUES (
           ${lecturerId},
           'Results Approved',
           'Your submitted results have been approved by the HOD.',
+          'results_approved',
+          '/portal/app.html#lecturer-results',
           false,
           NOW()
         )
@@ -1344,11 +1350,13 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
     // Notify lecturer
     if (submittedBy) {
       await db.execute(sql`
-        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
         VALUES (
           ${submittedBy},
           'Result Rejected',
           ${'Your ' + courseCode + ' result was rejected. Reason: ' + reason},
+          'result_rejected',
+          '/portal/app.html#lecturer-results',
           false,
           NOW()
         )
@@ -1394,11 +1402,13 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
     // Notify lecturer
     if (submittedBy) {
       await db.execute(sql`
-        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
         VALUES (
           ${submittedBy},
           'Result Deleted',
           ${'Your ' + courseCode + ' result was deleted by the HOD. Contact the department office to resubmit.'},
+          'result_deleted',
+          '/portal/app.html#lecturer-results',
           false,
           NOW()
         )

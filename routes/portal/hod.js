@@ -1136,4 +1136,121 @@ router.get('/student-transcript/:studentId', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// GET /api/hod/broad-sheet
+// ============================================================
+router.get('/broad-sheet', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const { level, semester } = req.query;
+
+    if (!level || !semester) {
+      return res.status(400).json({ success: false, error: 'level and semester are required.' });
+    }
+
+    // 1. Get the department info
+    const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
+
+    // 2. Get ALL students in this department and level
+    const students = await db.select({
+      id: users.id,
+      matricNumber: users.matricNumber,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+    .from(users)
+    .where(and(
+      eq(users.departmentId, departmentId),
+      eq(users.role, 'student'),
+      eq(users.level, level)
+    ))
+    .orderBy(users.matricNumber);
+
+    if (!students.length) {
+      return res.json({ success: true, data: [], department: dept?.name, courses: [] });
+    }
+
+    // 3. Get the unique courses for this level + semester
+    const courseList = await db.select({
+      id: courses.id,
+      code: courses.code,
+      title: courses.title,
+      unit: courses.unit,
+    })
+    .from(courses)
+    .where(and(
+      eq(courses.departmentId, departmentId),
+      eq(courses.level, level),
+      eq(courses.semesterName, semester)
+    ))
+    .orderBy(courses.code);
+
+    // 4. Get ALL results for these students
+    const studentIds = students.map(s => s.id);
+    const resultList = await db
+      .select({
+        studentId: results.studentId,
+        courseId: results.courseId,
+        score: results.score,
+        grade: results.grade,
+        points: results.points,
+      })
+      .from(results)
+      .where(inArray(results.studentId, studentIds));
+
+    // 5. Build the matrix
+    const data = students.map(s => {
+      const studentResults = resultList.filter(r => r.studentId === s.id);
+      
+      let tci = 0; // Total Credit Units
+      let tgp = 0; // Total Grade Points
+      
+      const courseGrades = {};
+      courseList.forEach(c => {
+        const r = studentResults.find(x => x.courseId === c.id);
+        if (r) {
+          courseGrades[c.code] = { grade: r.grade, score: r.score, points: r.points };
+          if (r.grade && r.grade !== 'F') {
+            tci += Number(c.unit);
+            tgp += (Number(r.points) * Number(c.unit));
+          }
+        } else {
+          courseGrades[c.code] = { grade: '-', score: '-', points: 0 };
+        }
+      });
+
+      const gpa = tci > 0 ? (tgp / tci).toFixed(2) : '0.00';
+      
+      let remark = 'PASS';
+      if (Number(gpa) >= 3.50) remark = 'DISTINCTION';
+      else if (Number(gpa) >= 3.00) remark = 'UPPER CREDIT';
+      else if (Number(gpa) >= 2.50) remark = 'LOWER CREDIT';
+      else if (Number(gpa) >= 2.00) remark = 'PASS';
+      else remark = 'FAIL';
+
+      return {
+        id: s.id,
+        matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim(),
+        name: `${s.lastName}, ${s.firstName}`,
+        courseGrades,
+        tci,
+        tgp,
+        gpa,
+        remark
+      };
+    });
+
+    return res.json({
+      success: true,
+      department: dept?.name || 'Department',
+      courses: courseList,
+      data
+    });
+
+  } catch (err) {
+    console.error('[hod/broad-sheet] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

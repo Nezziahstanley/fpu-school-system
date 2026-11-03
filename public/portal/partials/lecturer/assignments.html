@@ -317,7 +317,7 @@
     $('view-submission-modal').style.display = 'flex';
   };
 
-    // --- GRADE MODAL ---
+  // --- GRADE MODAL ---
   window.__openGradeModal = async function(assignmentId, title) {
     CURRENT_ASSIGNMENT_ID = assignmentId;
     CURRENT_ASSIGNMENT_TITLE = title;
@@ -333,6 +333,7 @@
       
       // SAFE FALLBACK: Ensure data is always an array
       const submissions = Array.isArray(res.data) ? res.data : [];
+      CACHED_SUBMISSIONS = submissions; // Cache it for viewing
       const assignment = res.assignment || {};
       
       const totalStudents = assignment.totalStudents || 0;
@@ -374,12 +375,9 @@
         `;
       }).join('');
     } catch (err) {
-      // Catch the syntax error specifically
-      if (err.message.includes('intermediate value')) {
-         tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No students have submitted this assignment yet.</td></tr>';
-      } else {
-         tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
-      }
+      // Fallback safe display if fetch fails completely
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ Error loading submissions. Please try again.</td></tr>`;
+      console.error(err);
     }
   };
 

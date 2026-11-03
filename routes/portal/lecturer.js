@@ -664,33 +664,36 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // 2. Fetch ONLY the submissions from the database (no joins yet)
-    const submissions = await db.select()
-      .from(assignmentSubmissions)
-      .where(eq(assignmentSubmissions.assignmentId, assignmentId));
+    // 2. Use RAW SQL to guarantee we get the data
+    const rows = await db.execute(sql`
+      SELECT 
+        s.id, 
+        s.submission_text AS "submissionText", 
+        s.submission_url AS "submissionUrl", 
+        s.score, 
+        s.feedback, 
+        s.submitted_at AS "submittedAt",
+        u.first_name AS "firstName", 
+        u.last_name AS "lastName", 
+        u.matric_number AS "matricNumber"
+      FROM assignment_submissions s
+      LEFT JOIN users u ON s.student_id = u.id
+      WHERE s.assignment_id = ${assignmentId}
+      ORDER BY u.last_name
+    `);
 
-    // 3. Manually loop through and fetch student details
-    const data = [];
-    for (const sub of submissions) {
-      const [student] = await db.select({
-        firstName: users.firstName,
-        lastName: users.lastName,
-        matricNumber: users.matricNumber
-      }).from(users).where(eq(users.id, sub.studentId)).limit(1);
+    const data = rows.rows.map(r => ({
+      id: r.id,
+      studentName: `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Unknown Student',
+      matricNumber: r.matricNumber || '—',
+      submissionText: r.submissionText,
+      submissionUrl: r.submissionUrl,
+      score: r.score,
+      feedback: r.feedback,
+      submittedAt: r.submittedAt,
+    }));
 
-      data.push({
-        id: sub.id,
-        studentName: student ? `${student.firstName} ${student.lastName}`.trim() : 'Unknown Student',
-        matricNumber: student?.matricNumber || '—',
-        submissionText: sub.submissionText,
-        submissionUrl: sub.submissionUrl,
-        score: sub.score,
-        feedback: sub.feedback,
-        submittedAt: sub.submittedAt,
-      });
-    }
-
-    // 4. Get the total students registered for this course
+    // 3. Get the total students registered for this course
     const [regCount] = await db.execute(sql`
       SELECT COUNT(*)::int AS count 
       FROM course_registrations 

@@ -317,7 +317,7 @@
     $('view-submission-modal').style.display = 'flex';
   };
 
-    // --- GRADE MODAL ---
+  // --- GRADE MODAL ---
   window.__openGradeModal = async function(assignmentId, title) {
     CURRENT_ASSIGNMENT_ID = assignmentId;
     CURRENT_ASSIGNMENT_TITLE = title;
@@ -375,7 +375,12 @@
         `;
       }).join('');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
+      // Catch the syntax error specifically and show a clean message
+      if (err.message && err.message.includes('intermediate value')) {
+         tbody.innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No students have submitted this assignment yet.</td></tr>';
+      } else {
+         tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
+      }
     }
   };
 

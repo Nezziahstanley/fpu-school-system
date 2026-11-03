@@ -664,12 +664,12 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // 2. Fetch the submissions
+    // 2. Fetch ONLY the submissions from the database (no joins yet)
     const submissions = await db.select()
       .from(assignmentSubmissions)
       .where(eq(assignmentSubmissions.assignmentId, assignmentId));
 
-    // 3. Manually fetch student details
+    // 3. Manually loop through and fetch student details
     const data = [];
     for (const sub of submissions) {
       const [student] = await db.select({

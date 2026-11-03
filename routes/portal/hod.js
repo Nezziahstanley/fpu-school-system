@@ -332,7 +332,7 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
       INNER JOIN users u ON r.student_id = u.id
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.course_id = ${courseId} 
-        AND r.status = 'submitted'
+        AND r.status IN ('submitted', 'draft', 'hod_rejected')
       ORDER BY u.last_name
     `);
 

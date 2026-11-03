@@ -79,7 +79,7 @@
 
 <!-- MODAL: VIEW, APPROVE, REJECT, DELETE -->
 <div id="results-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
+  <div style="background:#fff;border-radius:16px;max-width:950px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <div>
@@ -92,7 +92,7 @@
     <div style="padding:1.25rem;flex:1;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
         <label style="display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:.85rem;cursor:pointer;">
-          <input type="checkbox" id="rm-select-all" style="width:16px;height:16px;" /> Select All Students
+          <input type="checkbox" id="rm-select-all" style="width:16px;height:16px;" /> Select All Submitted Students
         </label>
         <button id="rm-bulk-approve" class="btn btn-primary btn-sm" style="background:#065f46;color:#fff;border:none;border-radius:6px;padding:.4rem .8rem;font-size:.75rem;font-weight:700;cursor:pointer;">Approve Selected</button>
       </div>
@@ -106,7 +106,7 @@
               <th style="padding:.5rem .75rem;text-align:left;">Matric No</th>
               <th style="padding:.5rem .75rem;text-align:center;">Score</th>
               <th style="padding:.5rem .75rem;text-align:center;">Grade</th>
-              <th style="padding:.5rem .75rem;text-align:right;width:180px;">Actions</th>
+              <th style="padding:.5rem .75rem;text-align:right;width:200px;">Actions</th>
             </tr>
           </thead>
           <tbody id="rm-tbody">
@@ -250,26 +250,51 @@
       const students = res.data || [];
 
       if (!students.length) {
-        $('rm-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No submitted results found.</td></tr>';
+        $('rm-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No results found for this course.</td></tr>';
         return;
       }
 
-      $('rm-tbody').innerHTML = students.map(s => `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <input type="checkbox" class="rm-checkbox" value="${s.id}" style="width:16px;height:16px;" />
-          </td>
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
-          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber)}</code></td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(s.score)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(s.grade)}</td>
-          <td style="padding:.65rem .75rem;text-align:right;">
+      $('rm-tbody').innerHTML = students.map(s => {
+        const isSubmitted = s.status === 'submitted';
+        const isDraft = s.status === 'draft';
+        const isRejected = s.status === 'hod_rejected';
+        
+        // Build status badge
+        let badge = '';
+        if (isSubmitted) badge = '<span style="background:#dbeafe;color:#1e40af;padding:2px 6px;border-radius:4px;font-size:.6rem;font-weight:800;margin-left:.4rem;">SUBMITTED</span>';
+        else if (isDraft) badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;font-size:.6rem;font-weight:800;margin-left:.4rem;">DRAFT</span>';
+        else if (isRejected) badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;font-size:.6rem;font-weight:800;margin-left:.4rem;">REJECTED</span>';
+
+        // Build action buttons based on status
+        let actions = '';
+        if (isSubmitted) {
+          actions = `
             <button onclick="window.__approveOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Approve</button>
             <button onclick="window.__rejectOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Reject</button>
             <button onclick="window.__deleteOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;cursor:pointer;">Delete</button>
-          </td>
-        </tr>
-      `).join('');
+          `;
+        } else {
+          actions = `
+            <button onclick="window.__rejectOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Reject</button>
+            <button onclick="window.__deleteOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;cursor:pointer;">Delete</button>
+          `;
+        }
+
+        return `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:.65rem .75rem;text-align:center;">
+              ${isSubmitted ? `<input type="checkbox" class="rm-checkbox" value="${s.id}" style="width:16px;height:16px;" />` : ''}
+            </td>
+            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">
+              ${esc(s.studentName)} ${badge}
+            </td>
+            <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber)}</code></td>
+            <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(s.score)}</td>
+            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(s.grade)}</td>
+            <td style="padding:.65rem .75rem;text-align:right;">${actions}</td>
+          </tr>
+        `;
+      }).join('');
 
     } catch (err) {
       $('rm-tbody').innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;

@@ -83,15 +83,19 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     let pendingResults = 0, verifiedResults = 0, publishedResults = 0;
     if (courseIds.length > 0) {
-      const resRows = await db.select({ status: results.status })
-        .from(results)
-        .where(sql`${results.courseId} IN ${courseIds}`);
+      const resRows = await db.execute(sql`
+        SELECT status, COUNT(*)::int AS count
+        FROM results
+        WHERE course_id IN (${sql.join(courseIds, sql`, `)})
+          AND deleted_at IS NULL
+        GROUP BY status
+      `);
       
-      resRows.forEach(r => {
-        if (r.status === 'submitted') pendingResults++;
-        else if (r.status === 'hod_verified') verifiedResults++;
-        else if (r.status === 'published') publishedResults++;
-        // drafts and hod_rejected are NOT counted as pending
+      resRows.rows.forEach(r => {
+        // Only 'submitted' counts as pending (drafts/rejected are not waiting for HOD)
+        if (r.status === 'submitted') pendingResults += Number(r.count);
+        else if (r.status === 'hod_verified') verifiedResults += Number(r.count);
+        else if (r.status === 'published') publishedResults += Number(r.count);
       });
     }
 
@@ -222,6 +226,7 @@ router.get('/pending-results', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const { semester, level } = req.query;
 
+    // We ONLY fetch 'submitted' and 'draft'. Rejected and deleted are hidden.
     let sqlQuery = sql`
       SELECT 
         r.course_id AS "courseId",
@@ -237,7 +242,9 @@ router.get('/pending-results', only, async (req, res, next) => {
       INNER JOIN courses c ON r.course_id = c.id
       LEFT JOIN users u ON r.submitted_by = u.id
       LEFT JOIN academic_sessions s ON r.session_id = s.id
-      WHERE c.department_id = ${departmentId} AND r.status IN ('submitted', 'draft', 'hod_rejected')
+      WHERE c.department_id = ${departmentId} 
+        AND r.status IN ('submitted', 'draft')
+        AND r.deleted_at IS NULL
     `;
 
     if (semester) {
@@ -327,6 +334,7 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
         r.points,
         r.status,
         r.rejection_reason AS "rejectionReason",
+        r.deleted_at AS "deletedAt",
         r.session_id AS "sessionId",
         r.semester
       FROM results r
@@ -500,7 +508,8 @@ router.get('/verified-results', only, async (req, res, next) => {
       .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
       .where(and(
         eq(courses.departmentId, departmentId),
-        eq(results.status, 'hod_verified')
+        eq(results.status, 'hod_verified'),
+        sql`${results.deletedAt} IS NULL`
       ))
       .orderBy(users.lastName);
 
@@ -919,7 +928,8 @@ router.get('/results/ready-to-publish', only, async (req, res, next) => {
       .innerJoin(courses, eq(results.courseId, courses.id))
       .where(and(
         eq(courses.departmentId, departmentId),
-        eq(results.status, 'hod_verified')
+        eq(results.status, 'hod_verified'),
+        sql`${results.deletedAt} IS NULL`
       ))
       .groupBy(results.courseId, courses.code, courses.title, courses.level)
       .orderBy(desc(sql`max(${results.hodVerifiedAt})`));
@@ -1111,7 +1121,6 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/broad-sheet
-// Supports: semester='first' | 'second' | 'both'
 // ============================================================
 router.get('/broad-sheet', only, async (req, res, next) => {
   try {
@@ -1141,7 +1150,7 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     const students = studentsResult.rows || [];
 
     if (!students.length) {
-      return res.json({ success: true, data: [], courses: { first: [], second: [] }, department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
+      return res.json({ success: true, data: [], coursesFirst: [], coursesSecond: [], department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
     }
 
     // 2. Fetch courses — either one semester or both
@@ -1174,15 +1183,16 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     }
 
     if (!coursesFirst.length && !coursesSecond.length) {
-      return res.json({ success: true, data: [], courses: { first: [], second: [] }, department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
+      return res.json({ success: true, data: [], coursesFirst: [], coursesSecond: [], department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
     }
 
-    // 3. Fetch ALL results for these students
+    // 3. Fetch ALL results for these students (including soft-deleted to exclude them)
     const studentIds = students.map(s => s.id);
     const resultsResult = await db.execute(sql`
       SELECT student_id AS "studentId", course_id AS "courseId", score, grade, points
       FROM results 
       WHERE student_id IN (${sql.join(studentIds, sql`, `)})
+        AND deleted_at IS NULL
     `);
     const allResults = resultsResult.rows || [];
 
@@ -1212,7 +1222,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       const first = computeSem(coursesFirst);
       const second = computeSem(coursesSecond);
 
-      // Overall CGPA across both
       const tciTotal = first.tci + second.tci;
       const tgpTotal = first.tgp + second.tgp;
       const cgpa = tciTotal > 0 ? (tgpTotal / tciTotal).toFixed(2) : '0.00';
@@ -1269,7 +1278,6 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Rejection reason is required.' });
     }
 
-    // Verify result belongs to this department
     const check = await db.execute(sql`
       SELECT r.id
       FROM results r
@@ -1282,7 +1290,6 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Result not found in your department.' });
     }
 
-    // Update the result — mark as rejected
     await db.execute(sql`
       UPDATE results 
       SET status = 'hod_rejected', 
@@ -1290,45 +1297,45 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       WHERE id = ${resultId}
     `);
 
-    await logAudit({ 
-      req, 
-      action: 'hod.reject_single_result', 
-      entity: 'result', 
-      entityId: resultId, 
-      after: { reason } 
-    });
-
+    await logAudit({ req, action: 'hod.reject_single_result', entity: 'result', entityId: resultId, after: { reason } });
     return res.json({ success: true, message: 'Result rejected.' });
   } catch (err) {
     console.error('[hod/reject-result] Error:', err);
-    return res.status(500).json({ 
-      success: false, 
-      error: err.message || 'Failed to reject result',
-      detail: err.cause?.message 
-    });
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 
 // ============================================================
-// DELETE /api/hod/results/:resultId
+// DELETE /api/hod/results/:resultId (soft delete)
 // ============================================================
 router.delete('/results/:resultId', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const resultId = Number(req.params.resultId);
 
-    const [row] = await db.execute(sql`
+    const check = await db.execute(sql`
       SELECT r.id
       FROM results r
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
+      LIMIT 1
     `);
-    if (!row.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!check.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
 
-    await db.execute(sql`DELETE FROM results WHERE id = ${resultId}`);
+    await db.execute(sql`
+      UPDATE results 
+      SET status = 'hod_rejected',
+          rejection_reason = 'Deleted by HOD',
+          deleted_at = NOW()
+      WHERE id = ${resultId}
+    `);
+
     await logAudit({ req, action: 'hod.delete_result', entity: 'result', entityId: resultId });
     return res.json({ success: true, message: 'Result deleted.' });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[hod/delete-result] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 module.exports = router;

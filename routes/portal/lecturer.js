@@ -664,7 +664,8 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // 2. Use RAW SQL to guarantee we get the data
+    // 2. Fetch the submissions using raw SQL
+    // Note: If your table is named differently (e.g., 'submissions' instead of 'assignment_submissions'), change it here.
     const rows = await db.execute(sql`
       SELECT 
         s.id, 
@@ -702,6 +703,7 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
     
     assignment.totalStudents = regCount.rows[0]?.count || 0;
 
+    // 4. ALWAYS return an array
     return res.json({ success: true, data: data || [], assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);

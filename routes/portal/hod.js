@@ -314,26 +314,29 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    const rows = await db
-      .select({
-        id: results.id,
-        studentId: users.id,
-        studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
-        matricNumber: users.matricNumber,
-        score: results.score,
-        grade: results.grade,
-        status: results.status,
-        semester: results.semester,
-      })
-      .from(results)
-      .innerJoin(users, eq(results.studentId, users.id))
-      .where(and(
-        eq(results.courseId, courseId),
-        eq(results.status, 'submitted')
-      ))
-      .orderBy(users.lastName);
+    // Fetch submitted results, showing students regardless of department
+    const rows = await db.execute(sql`
+      SELECT 
+        r.id, 
+        r.student_id AS "studentId",
+        u.first_name || ' ' || u.last_name AS "studentName",
+        u.matric_number AS "matricNumber",
+        c.unit,
+        r.score, 
+        r.grade, 
+        r.points,
+        r.status,
+        r.session_id AS "sessionId",
+        r.semester
+      FROM results r
+      INNER JOIN users u ON r.student_id = u.id
+      INNER JOIN courses c ON r.course_id = c.id
+      WHERE r.course_id = ${courseId} 
+        AND r.status = 'submitted'
+      ORDER BY u.last_name
+    `);
 
-    return res.json({ success: true, data: rows, course });
+    return res.json({ success: true, data: rows.rows || [], course });
   } catch (err) {
     console.error('[hod/results-course] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
@@ -1240,6 +1243,60 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     console.error('[hod/broad-sheet] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ============================================================
+// POST /api/hod/results/:resultId/reject
+// ============================================================
+router.post('/results/:resultId/reject', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const resultId = Number(req.params.resultId);
+    const { reason } = req.body || {};
+
+    // Verify result belongs to this department
+    const [row] = await db.execute(sql`
+      SELECT r.id, r.course_id AS "courseId"
+      FROM results r
+      INNER JOIN courses c ON r.course_id = c.id
+      WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
+    `);
+    if (!row.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    await db.execute(sql`
+      UPDATE results 
+      SET status = 'hod_rejected', 
+          rejection_reason = ${reason || 'Rejected by HOD'},
+          hod_verified_by = ${req.user.id},
+          hod_verified_at = NOW()
+      WHERE id = ${resultId}
+    `);
+
+    await logAudit({ req, action: 'hod.reject_single_result', entity: 'result', entityId: resultId, after: { reason } });
+    return res.json({ success: true, message: 'Result rejected and sent back to lecturer.' });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// DELETE /api/hod/results/:resultId
+// ============================================================
+router.delete('/results/:resultId', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const resultId = Number(req.params.resultId);
+
+    const [row] = await db.execute(sql`
+      SELECT r.id
+      FROM results r
+      INNER JOIN courses c ON r.course_id = c.id
+      WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
+    `);
+    if (!row.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    await db.execute(sql`DELETE FROM results WHERE id = ${resultId}`);
+    await logAudit({ req, action: 'hod.delete_result', entity: 'result', entityId: resultId });
+    return res.json({ success: true, message: 'Result deleted.' });
+  } catch (err) { return next(err); }
 });
 
 module.exports = router;

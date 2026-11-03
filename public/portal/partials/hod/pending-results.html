@@ -77,9 +77,9 @@
   </div>
 </section>
 
-<!-- MODAL: VIEW & BULK APPROVE RESULTS -->
+<!-- MODAL: VIEW, APPROVE, REJECT, DELETE -->
 <div id="results-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
+  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <div>
@@ -106,6 +106,7 @@
               <th style="padding:.5rem .75rem;text-align:left;">Matric No</th>
               <th style="padding:.5rem .75rem;text-align:center;">Score</th>
               <th style="padding:.5rem .75rem;text-align:center;">Grade</th>
+              <th style="padding:.5rem .75rem;text-align:right;width:180px;">Actions</th>
             </tr>
           </thead>
           <tbody id="rm-tbody">
@@ -183,11 +184,9 @@
     FILTERED = ALL.filter((r) => {
       const hay = `${getCourseCode(r)} ${getCourseTitle(r)} ${getLecturerName(r)} ${getSessionName(r)}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
-      
       if (ses && getSessionName(r).toLowerCase() !== ses) return false;
       if (sem && getSemester(r).toLowerCase() !== sem) return false;
       if (lvl && getLevel(r).toUpperCase() !== lvl) return false;
-      
       return true;
     });
 
@@ -244,14 +243,14 @@
     $('rm-course-code').textContent = `${courseRow.courseCode} — ${courseRow.level} — ${courseRow.sessionName}`;
     
     $('rm-select-all').checked = false;
-    $('rm-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
+    $('rm-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
 
     try {
       const res = await core.portalFetch(`/api/hod/results/course/${courseRow.courseId}`);
       const students = res.data || [];
 
       if (!students.length) {
-        $('rm-tbody').innerHTML = '<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">No submitted results found.</td></tr>';
+        $('rm-tbody').innerHTML = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#94a3b8;">No submitted results found.</td></tr>';
         return;
       }
 
@@ -264,11 +263,16 @@
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber)}</code></td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(s.score)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(s.grade)}</td>
+          <td style="padding:.65rem .75rem;text-align:right;">
+            <button onclick="window.__approveOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Approve</button>
+            <button onclick="window.__rejectOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Reject</button>
+            <button onclick="window.__deleteOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;cursor:pointer;">Delete</button>
+          </td>
         </tr>
       `).join('');
 
     } catch (err) {
-      $('rm-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      $('rm-tbody').innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -308,6 +312,37 @@
     }
   });
 
+  // --- Per-row actions ---
+  window.__approveOne = async function (resultId) {
+    try {
+      await core.portalFetch(`/api/hod/pending-results/${resultId}/verify`, { method: 'POST' });
+      core.showToast('Result approved.', 'success');
+      closeResultsModal();
+      load();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__rejectOne = async function (resultId) {
+    const reason = prompt('Reason for rejection (shown to the lecturer):');
+    if (!reason) return;
+    try {
+      await core.portalFetch(`/api/hod/results/${resultId}/reject`, { method: 'POST', body: { reason } });
+      core.showToast('Result rejected.', 'success');
+      closeResultsModal();
+      load();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
+  window.__deleteOne = async function (resultId) {
+    if (!confirm('Permanently delete this result? This cannot be undone.')) return;
+    try {
+      await core.portalFetch(`/api/hod/results/${resultId}`, { method: 'DELETE' });
+      core.showToast('Result deleted.', 'success');
+      closeResultsModal();
+      load();
+    } catch (err) { core.showToast(err.message, 'error'); }
+  };
+
   $('rm-close')?.addEventListener('click', closeResultsModal);
   $('results-modal')?.addEventListener('click', (e) => { if (e.target.id === 'results-modal') closeResultsModal(); });
 
@@ -317,7 +352,6 @@
   $('pr-level').addEventListener('change', load);
   $('pr-refresh').addEventListener('click', load);
   $('pr-export').addEventListener('click', function() {
-    // Simple export logic
     alert('Export functionality not implemented yet.');
   });
 

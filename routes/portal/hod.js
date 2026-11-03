@@ -88,7 +88,7 @@ router.get('/dashboard', only, async (req, res, next) => {
         .where(sql`${results.courseId} IN ${courseIds}`);
       
       resRows.forEach(r => {
-        if (r.status === 'draft' || r.status === 'submitted') pendingResults++;
+        if (r.status === 'submitted') pendingResults++;
         else if (r.status === 'hod_verified') verifiedResults++;
         else if (r.status === 'published') publishedResults++;
       });
@@ -236,7 +236,7 @@ router.get('/pending-results', only, async (req, res, next) => {
       INNER JOIN courses c ON r.course_id = c.id
       LEFT JOIN users u ON r.submitted_by = u.id
       LEFT JOIN academic_sessions s ON r.session_id = s.id
-      WHERE c.department_id = ${departmentId} AND r.status = 'submitted'
+      WHERE c.department_id = ${departmentId} AND r.status IN ('submitted', 'draft', 'hod_rejected')
     `;
 
     if (semester) {

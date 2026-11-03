@@ -664,50 +664,52 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       
     if (!assignment) return res.status(403).json({ success: false, error: 'Assignment not found or not yours.' });
 
-    // 2. Fetch the submissions using raw SQL
-    // Note: If your table is named differently (e.g., 'submissions' instead of 'assignment_submissions'), change it here.
-    const rows = await db.execute(sql`
-      SELECT 
-        s.id, 
-        s.submission_text AS "submissionText", 
-        s.submission_url AS "submissionUrl", 
-        s.score, 
-        s.feedback, 
-        s.submitted_at AS "submittedAt",
-        u.first_name AS "firstName", 
-        u.last_name AS "lastName", 
-        u.matric_number AS "matricNumber"
-      FROM assignment_submissions s
-      LEFT JOIN users u ON s.student_id = u.id
-      WHERE s.assignment_id = ${assignmentId}
-      ORDER BY u.last_name
-    `);
+    // 2. Use Drizzle select (No manual SQL)
+    // If the table name is different, check your schema. It should be 'assignmentSubmissions'.
+    const submissions = await db
+      .select({
+        id: assignmentSubmissions.id,
+        submissionText: assignmentSubmissions.submissionText,
+        submissionUrl: assignmentSubmissions.submissionUrl,
+        score: assignmentSubmissions.score,
+        feedback: assignmentSubmissions.feedback,
+        submittedAt: assignmentSubmissions.submittedAt,
+        // Join student details
+        firstName: users.firstName,
+        lastName: users.lastName,
+        matricNumber: users.matricNumber,
+      })
+      .from(assignmentSubmissions)
+      .leftJoin(users, eq(assignmentSubmissions.studentId, users.id))
+      .where(eq(assignmentSubmissions.assignmentId, assignmentId))
+      .orderBy(users.lastName);
 
-    const data = rows.rows.map(r => ({
-      id: r.id,
-      studentName: `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Unknown Student',
-      matricNumber: r.matricNumber || '—',
-      submissionText: r.submissionText,
-      submissionUrl: r.submissionUrl,
-      score: r.score,
-      feedback: r.feedback,
-      submittedAt: r.submittedAt,
+    const data = submissions.map(s => ({
+      id: s.id,
+      studentName: `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown Student',
+      matricNumber: s.matricNumber || '—',
+      submissionText: s.submissionText,
+      submissionUrl: s.submissionUrl,
+      score: s.score,
+      feedback: s.feedback,
+      submittedAt: s.submittedAt,
     }));
 
-    // 3. Get the total students registered for this course
-    const [regCount] = await db.execute(sql`
-      SELECT COUNT(*)::int AS count 
-      FROM course_registrations 
-      WHERE course_id = ${assignment.courseId} AND status = 'approved'
-    `);
+    // 3. Get total registered students
+    const [regCount] = await db.select({ count: sql`count(*)::int` })
+      .from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.courseId, assignment.courseId),
+        eq(courseRegistrations.status, 'approved')
+      ));
     
-    assignment.totalStudents = regCount.rows[0]?.count || 0;
+    assignment.totalStudents = regCount?.count || 0;
 
-    // 4. ALWAYS return an array
     return res.json({ success: true, data: data || [], assignment });
   } catch (err) { 
     console.error('[lecturer/submissions] Error:', err);
-    return res.status(500).json({ success: false, error: err.message }); 
+    // Send the exact error message to the frontend for debugging
+    return res.status(500).json({ success: false, error: err.message || 'Database error' }); 
   }
 });
 

@@ -132,6 +132,20 @@
   </div>
 </div>
 
+<!-- ═══════ VIEW SUBMISSION CONTENT MODAL ═══════ -->
+<div id="view-submission-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;max-height:80vh;">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-weight:800;color:#0f172a;font-size:1rem;" id="view-sub-title">Student Submission</div>
+      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.5rem;overflow-y:auto;" id="view-sub-content"></div>
+    <div style="padding:1rem;border-top:1px solid #e5e7eb;text-align:right;background:#f8fafc;border-radius:0 0 16px 16px;">
+      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="padding:.5rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -163,8 +177,6 @@
       
       const totalSubs = ALL_ASSIGNMENTS.reduce((sum, a) => sum + (a.submissionCount || 0), 0);
       $('stat-submissions').textContent = totalSubs;
-      
-      // Count pending by assuming submissions - graded (we'll just use total submissions for now)
       $('stat-pending').textContent = totalSubs;
       
       renderTable();
@@ -221,6 +233,7 @@
     try {
       const res = await core.portalFetch(`/api/lecturer/assignments/${assignmentId}/submissions`);
       
+      // SAFE FALLBACK: Ensure data is always an array
       const submissions = Array.isArray(res.data) ? res.data : [];
       CACHED_SUBMISSIONS = submissions;
       const assignment = res.assignment || {};
@@ -264,6 +277,7 @@
         `;
       }).join('');
     } catch (err) {
+      // Fallback safe display if fetch fails completely
       $('grading-tbody').innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
     }
   };
@@ -324,14 +338,13 @@
         body: { score }
       });
       core.showToast('Grade saved successfully.', 'success');
-      // Reload the grading view to show updated status
       window.__openGradingView(CURRENT_ASSIGNMENT_ID, CURRENT_ASSIGNMENT_TITLE);
     } catch (err) {
       core.showToast(err.message, 'error');
     }
   };
 
-  // --- CREATE / EDIT FORM (For New/Edit buttons) ---
+  // --- CREATE / EDIT FORM ---
   $('new-assignment-btn')?.addEventListener('click', () => {
     $('form-modal-title').textContent = 'New Assignment';
     $('form-id').value = '';
@@ -420,17 +433,3 @@
   loadData();
 })();
 </script>
-
-<!-- ═══════ VIEW SUBMISSION CONTENT MODAL (Outside main view) ═══════ -->
-<div id="view-submission-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);backdrop-filter:blur(4px);z-index:10000;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:600px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;max-height:80vh;">
-    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-      <div style="font-weight:800;color:#0f172a;font-size:1rem;" id="view-sub-title">Student Submission</div>
-      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#64748b;">✕</button>
-    </div>
-    <div style="padding:1.5rem;overflow-y:auto;" id="view-sub-content"></div>
-    <div style="padding:1rem;border-top:1px solid #e5e7eb;text-align:right;background:#f8fafc;border-radius:0 0 16px 16px;">
-      <button onclick="document.getElementById('view-submission-modal').style.display='none'" style="padding:.5rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
-    </div>
-  </div>
-</div>

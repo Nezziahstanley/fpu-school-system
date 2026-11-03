@@ -92,7 +92,6 @@ router.get('/dashboard', only, async (req, res, next) => {
       `);
       
       resRows.rows.forEach(r => {
-        // Only 'submitted' counts as pending (drafts/rejected are not waiting for HOD)
         if (r.status === 'submitted') pendingResults += Number(r.count);
         else if (r.status === 'hod_verified') verifiedResults += Number(r.count);
         else if (r.status === 'published') publishedResults += Number(r.count);
@@ -226,7 +225,6 @@ router.get('/pending-results', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const { semester, level } = req.query;
 
-    // We ONLY fetch 'submitted' and 'draft'. Rejected and deleted are hidden.
     let sqlQuery = sql`
       SELECT 
         r.course_id AS "courseId",
@@ -284,6 +282,21 @@ router.post('/pending-results/:id/verify', only, async (req, res, next) => {
     }
 
     const row = await resultQueries.hodVerify(result.id, req.user.id);
+
+    // Notify the lecturer who submitted this result
+    if (result.submittedBy) {
+      await db.execute(sql`
+        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        VALUES (
+          ${result.submittedBy},
+          'Result Approved',
+          ${'Your ' + (course.code || 'course') + ' result was approved by the HOD.'},
+          false,
+          NOW()
+        )
+      `);
+    }
+
     await logAudit({ req, action: 'hod.result_verify', entity: 'result', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -303,7 +316,23 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    const row = await resultQueries.hodReject(result.id, req.user.id, req.body?.reason);
+    const reason = req.body?.reason || 'Rejected by HOD';
+    const row = await resultQueries.hodReject(result.id, req.user.id, reason);
+
+    // Notify the lecturer
+    if (result.submittedBy) {
+      await db.execute(sql`
+        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        VALUES (
+          ${result.submittedBy},
+          'Result Rejected',
+          ${'Your ' + (course.code || 'course') + ' result was rejected. Reason: ' + reason},
+          false,
+          NOW()
+        )
+      `);
+    }
+
     await logAudit({ req, action: 'hod.result_reject', entity: 'result', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -374,6 +403,7 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
     const allResults = await db.select({
       id: results.id,
       courseId: results.courseId,
+      submittedBy: results.submittedBy,
     }).from(results).where(sql`${results.id} IN ${resultIds}`);
 
     if (allResults.length !== resultIds.length) {
@@ -396,6 +426,21 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
         hodVerifiedBy: req.user.id 
       })
       .where(sql`${results.id} IN ${resultIds}`);
+
+    // Notify each lecturer who submitted the approved results
+    const lecturerIds = [...new Set(allResults.map(r => r.submittedBy).filter(Boolean))];
+    for (const lecturerId of lecturerIds) {
+      await db.execute(sql`
+        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        VALUES (
+          ${lecturerId},
+          'Results Approved',
+          'Your submitted results have been approved by the HOD.',
+          false,
+          NOW()
+        )
+      `);
+    }
 
     await logAudit({ 
       req, 
@@ -812,7 +857,6 @@ router.get('/student-results/:id', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const studentId = Number(req.params.id);
 
-    // Verify the student belongs to this HOD's department
     const [student] = await db.select()
       .from(users)
       .where(and(eq(users.id, studentId), eq(users.departmentId, departmentId)))
@@ -837,6 +881,7 @@ router.get('/student-results/:id', only, async (req, res, next) => {
       LEFT JOIN academic_sessions s ON r.session_id = s.id
       WHERE r.student_id = ${studentId}
         AND r.status IN ('hod_verified', 'published')
+        AND r.deleted_at IS NULL
       ORDER BY r.session_id ASC, r.semester ASC, c.code ASC
     `);
 
@@ -1137,7 +1182,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // 1. Fetch students
     const studentsResult = await db.execute(sql`
       SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName"
       FROM users 
@@ -1153,7 +1197,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       return res.json({ success: true, data: [], coursesFirst: [], coursesSecond: [], department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
     }
 
-    // 2. Fetch courses — either one semester or both
     let coursesFirst = [], coursesSecond = [];
 
     if (isBoth) {
@@ -1186,7 +1229,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       return res.json({ success: true, data: [], coursesFirst: [], coursesSecond: [], department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
     }
 
-    // 3. Fetch ALL results for these students (including soft-deleted to exclude them)
     const studentIds = students.map(s => s.id);
     const resultsResult = await db.execute(sql`
       SELECT student_id AS "studentId", course_id AS "courseId", score, grade, points
@@ -1196,7 +1238,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     `);
     const allResults = resultsResult.rows || [];
 
-    // 4. Build each student's row
     const data = students.map(s => {
       const myResults = allResults.filter(r => r.studentId === s.id);
 
@@ -1279,7 +1320,7 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
     }
 
     const check = await db.execute(sql`
-      SELECT r.id
+      SELECT r.id, r.submitted_by AS "submittedBy", c.code AS "courseCode"
       FROM results r
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
@@ -1290,12 +1331,29 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Result not found in your department.' });
     }
 
+    const submittedBy = check.rows[0].submittedBy;
+    const courseCode = check.rows[0].courseCode || 'a course';
+
     await db.execute(sql`
       UPDATE results 
       SET status = 'hod_rejected', 
           rejection_reason = ${reason}
       WHERE id = ${resultId}
     `);
+
+    // Notify lecturer
+    if (submittedBy) {
+      await db.execute(sql`
+        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        VALUES (
+          ${submittedBy},
+          'Result Rejected',
+          ${'Your ' + courseCode + ' result was rejected. Reason: ' + reason},
+          false,
+          NOW()
+        )
+      `);
+    }
 
     await logAudit({ req, action: 'hod.reject_single_result', entity: 'result', entityId: resultId, after: { reason } });
     return res.json({ success: true, message: 'Result rejected.' });
@@ -1314,13 +1372,16 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
     const resultId = Number(req.params.resultId);
 
     const check = await db.execute(sql`
-      SELECT r.id
+      SELECT r.id, r.submitted_by AS "submittedBy", c.code AS "courseCode"
       FROM results r
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
       LIMIT 1
     `);
     if (!check.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    const submittedBy = check.rows[0].submittedBy;
+    const courseCode = check.rows[0].courseCode || 'a course';
 
     await db.execute(sql`
       UPDATE results 
@@ -1329,6 +1390,20 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
           deleted_at = NOW()
       WHERE id = ${resultId}
     `);
+
+    // Notify lecturer
+    if (submittedBy) {
+      await db.execute(sql`
+        INSERT INTO notifications (user_id, title, message, is_read, created_at)
+        VALUES (
+          ${submittedBy},
+          'Result Deleted',
+          ${'Your ' + courseCode + ' result was deleted by the HOD. Contact the department office to resubmit.'},
+          false,
+          NOW()
+        )
+      `);
+    }
 
     await logAudit({ req, action: 'hod.delete_result', entity: 'result', entityId: resultId });
     return res.json({ success: true, message: 'Result deleted.' });

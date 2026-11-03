@@ -22,41 +22,39 @@
       padding: 60px 20px;
       position: relative;
       overflow: hidden;
-      background: linear-gradient(135deg, #0f766e, #065f46, #064e3b);
-      background-size: 400% 400%;
-      animation: bgShift 18s ease infinite;
-    }
-    @keyframes bgShift {
-      0%,100% { background-position: 0% 50%; }
-      50%     { background-position: 100% 50%; }
+      background: #065f46;
     }
 
-    /* Background video — YouTube iframe */
-    .bg-video {
+    /* ===== IMAGE SLIDESHOW BACKGROUND ===== */
+    .bg-slideshow {
       position: absolute;
       inset: 0;
       z-index: 0;
-      overflow: hidden;
     }
-    .bg-video iframe {
+    .bg-slide {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100vw;
-      height: 56.25vw;
-      min-height: 100vh;
-      min-width: 177.78vh;
-      border: 0;
-      pointer-events: none;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1.5s ease-in-out;
+      animation: slowZoom 12s ease-in-out infinite alternate;
     }
-    /* Light overlay so video shows through but text stays readable */
-    .bg-video::after {
+    .bg-slide.active {
+      opacity: 1;
+    }
+    @keyframes slowZoom {
+      from { transform: scale(1); }
+      to   { transform: scale(1.08); }
+    }
+    /* Overlay so text is readable over the images */
+    .bg-slideshow::after {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(6,95,70,0.55), rgba(5,150,105,0.45));
+      background: linear-gradient(135deg, rgba(6,95,70,0.75), rgba(5,150,105,0.65));
       pointer-events: none;
+      z-index: 1;
     }
 
     /* Floating particles */
@@ -141,7 +139,6 @@
       margin: 0 0 6px;
       animation: fadeSlide 0.7s ease 0.4s both;
     }
-    /* ===== WRITEUP / TAGLINE ===== */
     .tagline {
       text-align: center;
       font-size: 12.5px;
@@ -156,14 +153,12 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Staggered fields */
     .form-group {
       animation: fadeSlide 0.6s ease both;
     }
     .form-group:nth-of-type(1) { animation-delay: 0.55s; }
     .form-group:nth-of-type(2) { animation-delay: 0.65s; }
 
-    /* Inputs */
     .form-group label {
       display: block;
       font-size: 12px;
@@ -194,7 +189,6 @@
       background: #fef2f2;
     }
 
-    /* Password toggle */
     .password-wrap { position: relative; }
     .password-wrap input { padding-right: 44px; }
     .toggle-password {
@@ -216,7 +210,6 @@
       background: #f1f5f9;
     }
 
-    /* Error / Caps */
     .error-msg, .caps-warning {
       display: none;
       font-size: 12.5px;
@@ -227,7 +220,6 @@
     .caps-warning { color: #d97706; }
     .error-msg.show, .caps-warning.show { display: block; }
 
-    /* Sign In button — animated gradient */
     #loginBtn {
       position: relative;
       width: 100%;
@@ -314,15 +306,9 @@
 
   <div class="login-page-wrap">
 
-    <!-- Background video (YouTube) -->
-    <div class="bg-video">
-      <iframe
-        src="https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1&loop=1&playlist=ScMzIvxBSi4&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0"
-        title="Background video"
-        allow="autoplay; encrypted-media"
-        allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin">
-      </iframe>
+    <!-- ===== IMAGE SLIDESHOW BACKGROUND ===== -->
+    <div class="bg-slideshow" id="slideshow">
+      <!-- Slides will be injected here by JS -->
     </div>
 
     <!-- Floating particles -->
@@ -382,7 +368,45 @@
   (function () {
     'use strict';
 
-    // ===== Floating particles =====
+    // ===== 1. CONFIGURE YOUR IMAGES HERE (Direct Unsplash URLs) =====
+    // These are high-quality images of campuses, libraries, and students.
+    // They load directly from Unsplash's CDN, no download needed.
+    const SLIDES = [
+      'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80&fit=crop', // University campus
+      'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1920&q=80&fit=crop', // Library interior
+      'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1920&q=80&fit=crop', // Students studying
+      'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1920&q=80&fit=crop', // Campus building
+      'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80&fit=crop', // Library shelves
+      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1920&q=80&fit=crop', // Students collaborating
+      'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=1920&q=80&fit=crop', // University architecture
+      'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=1920&q=80&fit=crop', // Library reading area
+      'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=1920&q=80&fit=crop', // Graduation
+      'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=1920&q=80&fit=crop'  // Students walking on campus
+    ];
+
+    // ===== 2. BUILD THE SLIDESHOW =====
+    const slideshowContainer = document.getElementById('slideshow');
+    const slideElements = [];
+
+    SLIDES.forEach((src, index) => {
+      const div = document.createElement('div');
+      div.className = 'bg-slide' + (index === 0 ? ' active' : '');
+      div.style.backgroundImage = `url('${src}')`;
+      slideshowContainer.appendChild(div);
+      slideElements.push(div);
+    });
+
+    // Cycle through the slides every 6 seconds
+    let currentSlide = 0;
+    if (slideElements.length > 1) {
+      setInterval(() => {
+        slideElements[currentSlide].classList.remove('active');
+        currentSlide = (currentSlide + 1) % slideElements.length;
+        slideElements[currentSlide].classList.add('active');
+      }, 6000);
+    }
+
+    // ===== 3. FLOATING PARTICLES =====
     const particlesBox = document.getElementById('particles');
     for (let i = 0; i < 25; i++) {
       const s = document.createElement('span');
@@ -394,6 +418,7 @@
       particlesBox.appendChild(s);
     }
 
+    // ===== 4. LOGIN LOGIC (Same as before) =====
     const loginCard   = document.getElementById('loginCard');
     const passwordField = document.getElementById('password-field');
     const toggleBtn   = document.getElementById('togglePassword');
@@ -401,7 +426,6 @@
     const emailError  = document.getElementById('email-error');
     const passwordError = document.getElementById('password-error');
 
-    // ===== Password toggle =====
     toggleBtn.addEventListener('click', function () {
       if (passwordField.type === 'password') {
         passwordField.type = 'text';
@@ -415,13 +439,11 @@
       passwordField.focus();
     });
 
-    // ===== Caps Lock =====
     passwordField.addEventListener('keyup', function (e) {
       const isCaps = e.getModifierState && e.getModifierState('CapsLock');
       capsWarning.classList.toggle('show', isCaps);
     });
 
-    // ===== Clear errors =====
     document.querySelector('input[name="email"]').addEventListener('input', function () {
       this.classList.remove('invalid');
       emailError.classList.remove('show');
@@ -431,7 +453,6 @@
       passwordError.classList.remove('show');
     });
 
-    // ===== Login =====
     window.handleLogin = async function (event) {
       event.preventDefault();
       const form = event.target;
@@ -442,7 +463,6 @@
       const email = form.email.value.trim();
       const password = form.password.value;
 
-      // Validate
       let valid = true;
       const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRe.test(email)) {
@@ -461,7 +481,6 @@
         return;
       }
 
-      // Loading state
       btn.disabled = true;
       btn.classList.add('loading');
       btnText.textContent = 'Signing in…';
@@ -484,7 +503,6 @@
           return;
         }
 
-        // Save session tokens
         const token = json.token;
         const user = json.user;
         localStorage.setItem('portal_token', token);
@@ -493,7 +511,6 @@
         localStorage.setItem('fpu_admin_user', JSON.stringify(user));
 
         const role = String(user?.role || '').toLowerCase();
-
         const ROLE_ROUTES = {
           student:           '/portal/app.html',
           applicant:         '/apply-status.html',

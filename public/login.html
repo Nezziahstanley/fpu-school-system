@@ -20,25 +20,32 @@
       padding: 1rem;
     }
 
-    /* Background video */
+    /* Background video (YouTube iframe covering viewport) */
     .bg-video {
       position: fixed;
       inset: 0;
       z-index: 0;
       overflow: hidden;
+      background: #065f46;
     }
-    .bg-video video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.35;
-      filter: blur(1px) saturate(0.8);
+    .bg-video iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100vw;
+      height: 56.25vw; /* 16:9 of viewport width */
+      min-height: 100vh;
+      min-width: 177.78vh; /* 16:9 of viewport height */
+      border: 0;
+      pointer-events: none;
     }
     .bg-video::after {
       content: '';
       position: absolute;
       inset: 0;
       background: linear-gradient(135deg, rgba(6,95,70,0.75), rgba(5,150,105,0.65));
+      pointer-events: none;
     }
 
     /* Login card */
@@ -255,11 +262,15 @@
 </head>
 <body>
 
-  <!-- Background video (reliable Google sample) -->
+  <!-- Background video (YouTube) -->
   <div class="bg-video">
-    <video autoplay muted loop playsinline poster="/images/logo.png">
-      <source src="https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
-    </video>
+    <iframe 
+      src="https://www.youtube.com/embed/ScMzIvxBSi4?autoplay=1&mute=1&loop=1&playlist=ScMzIvxBSi4&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0" 
+      title="Background video"
+      allow="autoplay; encrypted-media"
+      allowfullscreen
+      referrerpolicy="strict-origin-when-cross-origin">
+    </iframe>
   </div>
 
   <!-- Login card -->
@@ -395,7 +406,8 @@
       signInBtn.querySelector('span:last-child').textContent = 'Signing in…';
 
       try {
-        const res = await fetch('/api/auth/login', {
+        // ✅ Correct endpoint from your server.js: /api/login
+        const res = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),

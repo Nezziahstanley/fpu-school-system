@@ -35,6 +35,7 @@
   </div>
 </div>
 
+<!-- ═══════ INDIVIDUAL STUDENT DRAWER ═══════ -->
 <div id="student-drawer" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;justify-content:flex-end;">
   <div style="background:#fff;width:100%;max-width:650px;height:100vh;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);">
     <div class="no-print" style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
@@ -93,7 +94,6 @@ console.log('[Broad Sheet] Script loaded.');
 
   const core = window.FPU_PORTAL || {};
 
-  // Wait for the DOM to be ready (the SPA swaps HTML in)
   function whenReady(fn) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', fn);
@@ -103,7 +103,7 @@ console.log('[Broad Sheet] Script loaded.');
   }
 
   whenReady(function () {
-    console.log('[Broad Sheet] DOM ready. Looking for elements...');
+    console.log('[Broad Sheet] DOM ready.');
 
     const levelSel  = document.getElementById('bs-level');
     const semSel    = document.getElementById('bs-semester');
@@ -111,46 +111,45 @@ console.log('[Broad Sheet] Script loaded.');
     const printBtn  = document.getElementById('bs-print');
     const container = document.getElementById('bs-container');
 
-    console.log('[Broad Sheet] Elements:', {
-      level: !!levelSel,
-      semester: !!semSel,
-      generate: !!genBtn,
-      print: !!printBtn,
-      container: !!container
-    });
-
     if (!genBtn || !container) {
-      console.error('[Broad Sheet] CRITICAL: Button or container missing from DOM.');
+      console.error('[Broad Sheet] CRITICAL: Button or container missing.');
       return;
     }
 
     // === Generate ===
     genBtn.addEventListener('click', async function (e) {
       e.preventDefault();
-      console.log('[Broad Sheet] Generate button clicked.');
+      
+      const fullLevel = levelSel.value; // e.g. "HND 1"
+      const semester = semSel.value;    // e.g. "first"
 
-      const level = levelSel.value;
-      const semester = semSel.value;
-      console.log('[Broad Sheet] Level:', level, 'Semester:', semester);
+      // Split "HND 1" into level="HND" and year="1"
+      const parts = String(fullLevel).split(' ');
+      const baseLevel = parts[0] || 'ND';
+      const yearNum = parts[1] || '1';
+
+      console.log('[Broad Sheet] Requesting:', { baseLevel, yearNum, semester });
 
       container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Generating broad sheet…</div>';
 
       try {
-        const res = await core.portalFetch(`/api/hod/broad-sheet?level=${encodeURIComponent(level)}&semester=${encodeURIComponent(semester)}`);
+        const res = await core.portalFetch(
+          `/api/hod/broad-sheet?level=${encodeURIComponent(baseLevel)}&year=${encodeURIComponent(yearNum)}&semester=${encodeURIComponent(semester)}`
+        );
         console.log('[Broad Sheet] Response:', res);
 
         const d = res.data || [];
         const courses = res.courses || [];
         const department = res.department || 'Department';
-        const levelLabel = res.levelLabel || level;
+        const levelLabel = res.levelLabel || fullLevel;
 
         if (!d.length) {
-          container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No students found for this level.</div>';
+          container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No students found for this level and year.</div>';
           return;
         }
 
         if (!courses.length) {
-          container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No courses found for this level and semester.</div>';
+          container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No courses found for this level, year and semester.</div>';
           return;
         }
 
@@ -215,23 +214,19 @@ console.log('[Broad Sheet] Script loaded.');
           </div>
         `;
 
-        console.log('[Broad Sheet] Rendered successfully.');
       } catch (err) {
-        console.error('[Broad Sheet] Fetch error:', err);
+        console.error('[Broad Sheet] Error:', err);
         container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${err.message || 'Error loading data'}</div>`;
       }
     });
 
     // === Print ===
     printBtn.addEventListener('click', function () {
-      console.log('[Broad Sheet] Print clicked.');
       window.print();
     });
 
     // === Student Drawer ===
     window.__bsViewStudent = async function (studentId, name, matric) {
-      console.log('[Broad Sheet] Row clicked:', studentId, name, matric);
-
       const drawer = document.getElementById('student-drawer');
       const title  = document.getElementById('drawer-title');
       const sub    = document.getElementById('drawer-sub');
@@ -354,7 +349,7 @@ console.log('[Broad Sheet] Script loaded.');
       });
     }
 
-    console.log('[Broad Sheet] All listeners wired successfully.');
+    console.log('[Broad Sheet] All listeners wired.');
   });
 })();
 </script>

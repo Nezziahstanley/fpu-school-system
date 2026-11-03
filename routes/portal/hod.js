@@ -1100,54 +1100,69 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/broad-sheet
-// FIXED: level=ND 1 is split into level=ND + year=1
 // ============================================================
 router.get('/broad-sheet', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const { level, semester } = req.query;
+    const { level, semester, year } = req.query;
 
-    if (!level || !semester) {
-      return res.status(400).json({ success: false, error: 'level and semester are required.' });
+    if (!level || !semester || !year) {
+      return res.status(400).json({ success: false, error: 'level, semester, and year are required.' });
     }
 
-    // Split "ND 1" into baseLevel = "ND" and year = "1"
-    const parts = String(level).split(' ');
-    const baseLevel = parts[0] || 'ND';
-    const yearNum = parts[1] || null;
+    const baseLevel = String(level).toUpperCase(); // 'ND' or 'HND'
+    const yearNum = Number(year); // 1 or 2
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // Fetch students in this base level
+    // 1. Fetch students in this level and year
     const studentsResult = await db.execute(sql`
-      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName", level
+      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName", level, year_of_study
       FROM users 
       WHERE department_id = ${departmentId} 
         AND role = 'student' 
         AND level = ${baseLevel}
+        AND (year_of_study = ${yearNum} OR year_of_study IS NULL)
       ORDER BY matric_number
     `);
     const students = studentsResult.rows || [];
 
     if (!students.length) {
-      return res.json({ success: true, data: [], department: dept?.name, courses: [] });
+      return res.json({ 
+        success: true, 
+        data: [], 
+        courses: [], 
+        department: dept?.name, 
+        levelLabel: `${baseLevel} ${yearNum}` 
+      });
     }
 
-    // Fetch courses for this base level + semester
+    // 2. Fetch courses for this level, year, and semester
     const coursesResult = await db.execute(sql`
       SELECT id, code, title, unit
       FROM courses 
       WHERE department_id = ${departmentId} 
-        AND level = ${baseLevel} 
-        AND semester_name = ${semester}
+        AND level = ${baseLevel}
+        AND year_of_study = ${yearNum}
+        AND LOWER(semester_name) LIKE ${'%' + semester.toLowerCase() + '%'}
       ORDER BY code
     `);
     const courseList = coursesResult.rows || [];
 
-    // Fetch results for these students
+    if (!courseList.length) {
+      return res.json({ 
+        success: true, 
+        data: [], 
+        courses: [], 
+        department: dept?.name, 
+        levelLabel: `${baseLevel} ${yearNum}` 
+      });
+    }
+
+    // 3. Fetch results for these students
     const studentIds = students.map(s => s.id);
     let resultList = [];
-    if (studentIds.length && courseList.length) {
+    if (studentIds.length) {
       const resultsResult = await db.execute(sql`
         SELECT student_id AS "studentId", course_id AS "courseId", score, grade, points
         FROM results 
@@ -1156,7 +1171,7 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       resultList = resultsResult.rows || [];
     }
 
-    // Build the matrix
+    // 4. Build the matrix
     const data = students.map(s => {
       const studentResults = resultList.filter(r => r.studentId === s.id);
       
@@ -1201,7 +1216,7 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     return res.json({
       success: true,
       department: dept?.name || 'Department',
-      levelLabel: level,
+      levelLabel: `${baseLevel} ${yearNum}`,
       courses: courseList,
       data
     });

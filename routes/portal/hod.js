@@ -91,6 +91,7 @@ router.get('/dashboard', only, async (req, res, next) => {
         if (r.status === 'submitted') pendingResults++;
         else if (r.status === 'hod_verified') verifiedResults++;
         else if (r.status === 'published') publishedResults++;
+        // drafts and hod_rejected are NOT counted as pending
       });
     }
 
@@ -1248,33 +1249,63 @@ router.get('/broad-sheet', only, async (req, res, next) => {
 // ============================================================
 // POST /api/hod/results/:resultId/reject
 // ============================================================
+// ============================================================
+// POST /api/hod/results/:resultId/reject
+// ============================================================
 router.post('/results/:resultId/reject', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
     const resultId = Number(req.params.resultId);
-    const { reason } = req.body || {};
+    const reason = (req.body && req.body.reason) ? String(req.body.reason).trim() : null;
+
+    if (!resultId || isNaN(resultId)) {
+      return res.status(400).json({ success: false, error: 'Invalid result ID.' });
+    }
+
+    if (!reason) {
+      return res.status(400).json({ success: false, error: 'Rejection reason is required.' });
+    }
 
     // Verify result belongs to this department
-    const [row] = await db.execute(sql`
+    const check = await db.execute(sql`
       SELECT r.id, r.course_id AS "courseId"
       FROM results r
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
+      LIMIT 1
     `);
-    if (!row.rows.length) return res.status(404).json({ success: false, error: 'Result not found.' });
+    
+    if (!check.rows || !check.rows.length) {
+      return res.status(404).json({ success: false, error: 'Result not found or not in your department.' });
+    }
 
+    // Update the result
     await db.execute(sql`
       UPDATE results 
       SET status = 'hod_rejected', 
-          rejection_reason = ${reason || 'Rejected by HOD'},
+          rejection_reason = ${reason},
           hod_verified_by = ${req.user.id},
           hod_verified_at = NOW()
       WHERE id = ${resultId}
     `);
 
-    await logAudit({ req, action: 'hod.reject_single_result', entity: 'result', entityId: resultId, after: { reason } });
+    await logAudit({ 
+      req, 
+      action: 'hod.reject_single_result', 
+      entity: 'result', 
+      entityId: resultId, 
+      after: { reason } 
+    });
+
     return res.json({ success: true, message: 'Result rejected and sent back to lecturer.' });
-  } catch (err) { return next(err); }
+  } catch (err) {
+    console.error('[hod/reject-result] Error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message || 'Failed to reject result',
+      detail: err.cause?.message || err.stack
+    });
+  }
 });
 
 // ============================================================

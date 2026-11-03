@@ -38,7 +38,7 @@
 
 <!-- ═══════ INDIVIDUAL STUDENT DRAWER ═══════ -->
 <div id="student-drawer" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;justify-content:flex-end;">
-  <div id="student-drawer-inner" style="background:#fff;width:100%;max-width:650px;height:100vh;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);">
+  <div style="background:#fff;width:100%;max-width:650px;height:100vh;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);">
     <div class="no-print" style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <div>
         <h3 style="margin:0;font-size:1rem;font-weight:800;color:#0f172a;" id="drawer-title">Student Transcript</h3>
@@ -46,7 +46,7 @@
       </div>
       <div style="display:flex;gap:.5rem;">
         <button onclick="window.print()" style="background:#065f46;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer;">🖨 Print</button>
-        <button onclick="document.getElementById('student-drawer').style.display='none'" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+        <button id="drawer-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
       </div>
     </div>
     <div style="padding:1.25rem;" id="drawer-body">
@@ -86,9 +86,8 @@
   @media print {
     @page { size: A3 landscape; margin: 10mm; }
     body * { visibility: hidden; }
-    #bs-container, #bs-container *,
-    #student-drawer, #student-drawer * { visibility: hidden; }
-    #bs-container { visibility: visible; position: absolute; left: 0; top: 0; width: 100%; padding: 0; border: none; }
+    #bs-container, #bs-container * { visibility: visible; }
+    #bs-container { position: absolute; left: 0; top: 0; width: 100%; padding: 0; border: none; }
     #student-drawer { display: none !important; }
     .no-print { display: none !important; }
     .bs-table { font-size: 8px; }
@@ -108,6 +107,11 @@
     const level = $('bs-level').value;
     const semester = $('bs-semester').value;
     const container = $('bs-container');
+
+    if (!container) {
+      alert('Broad sheet container not found on the page.');
+      return;
+    }
 
     container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Generating broad sheet…</div>';
 
@@ -198,7 +202,10 @@
   }
 
   window.__viewStudent = async function(studentId, name, matric) {
-    $('student-drawer').style.display = 'flex';
+    const drawer = $('student-drawer');
+    if (!drawer) return;
+
+    drawer.style.display = 'flex';
     $('drawer-title').textContent = name;
     $('drawer-sub').textContent = matric;
     
@@ -303,10 +310,24 @@
     }
   };
 
-  $('bs-generate')?.addEventListener('click', generateSheet);
-  $('bs-print')?.addEventListener('click', () => window.print());
-  $('student-drawer')?.addEventListener('click', (e) => {
-    if (e.target.id === 'student-drawer') $('student-drawer').style.display = 'none';
+  // Wire up buttons
+  document.addEventListener('DOMContentLoaded', () => {
+    const genBtn = $('bs-generate');
+    if (genBtn) genBtn.addEventListener('click', generateSheet);
+
+    const printBtn = $('bs-print');
+    if (printBtn) printBtn.addEventListener('click', () => window.print());
+
+    const drawer = $('student-drawer');
+    const drawerClose = $('drawer-close');
+    if (drawerClose) {
+      drawerClose.addEventListener('click', () => { drawer.style.display = 'none'; });
+    }
+    if (drawer) {
+      drawer.addEventListener('click', (e) => {
+        if (e.target.id === 'student-drawer') drawer.style.display = 'none';
+      });
+    }
   });
 })();
 </script>

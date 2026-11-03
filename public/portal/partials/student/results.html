@@ -1,5 +1,5 @@
 <!-- Portal → Student → Results -->
-<div style="padding:0;">
+<div style="padding:0;" id="main-view">
 
   <!-- HEADER BANNER -->
   <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
@@ -17,7 +17,7 @@
   </div>
 
   <!-- FILTERS -->
-  <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
+  <div class="no-print" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center;">
     <select id="filter-session" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;">
       <option value="">All Sessions</option>
     </select>
@@ -65,7 +65,7 @@
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:1.5rem;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Results</div>
-      <span class="badge" id="count-results" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
+      <span id="count-results" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
     </div>
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -81,14 +81,14 @@
           </tr>
         </thead>
         <tbody id="results-tbody">
-          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading results…</td></tr>
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
   <!-- GRADE SCALE REFERENCE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+  <div class="no-print" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;font-weight:800;font-size:.9rem;color:#0f172a;">Grade Scale Reference</div>
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -111,6 +111,18 @@
   </div>
 </div>
 
+<style>
+  @media print {
+    /* Hide everything except the main-view */
+    body * { visibility: hidden; }
+    #main-view, #main-view * { visibility: visible; }
+    #main-view { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; }
+    .no-print, button { display: none !important; }
+    table { font-size: 11px !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+
 <script>
 (function () {
   'use strict';
@@ -119,24 +131,20 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_RESULTS = [];
-  let CGPA = '0.00';
-  let CLASSIFICATION = '—';
 
   async function load() {
     const tbody = $('results-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading results…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading results…</td></tr>';
 
     try {
       const res = await core.portalFetch('/api/student/results');
       const d = res.data || {};
       ALL_RESULTS = d.results || [];
-      CGPA = d.cgpa || '0.00';
-      CLASSIFICATION = d.classification || '—';
 
-      $('hdr-cgpa').textContent = CGPA;
-      $('stat-gpa').textContent = d.currentGpa || CGPA;
-      $('stat-cgpa').textContent = CGPA;
-      $('stat-classification').textContent = CLASSIFICATION;
+      $('hdr-cgpa').textContent = d.cgpa || '0.00';
+      $('stat-gpa').textContent = d.currentGpa || d.cgpa || '—';
+      $('stat-cgpa').textContent = d.cgpa || '—';
+      $('stat-classification').textContent = d.classification || '—';
       $('stat-total').textContent = ALL_RESULTS.length;
 
       // Populate session filter

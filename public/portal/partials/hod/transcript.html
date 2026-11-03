@@ -3,8 +3,8 @@
 
   <div class="no-print" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Broad Sheet</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Generate the official Result Sheet for a class</p>
+      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Broad Sheet & Transcripts</h2>
+      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Generate official result sheets and view individual transcripts</p>
     </div>
   </div>
 
@@ -13,10 +13,8 @@
     <div>
       <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Level</label>
       <select id="bs-level" style="padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;min-width:120px;">
-        <option value="ND 1">ND 1</option>
-        <option value="ND 2">ND 2</option>
-        <option value="HND 1">HND 1</option>
-        <option value="HND 2">HND 2</option>
+        <option value="ND">ND</option>
+        <option value="HND">HND</option>
       </select>
     </div>
     <div>
@@ -36,132 +34,60 @@
   </div>
 </div>
 
+<!-- ═══════ INDIVIDUAL STUDENT DRAWER ═══════ -->
+<div id="student-drawer" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;justify-content:flex-end;">
+  <div id="student-drawer-inner" style="background:#fff;width:100%;max-width:650px;height:100vh;overflow-y:auto;box-shadow:-10px 0 40px rgba(0,0,0,.3);">
+    <div class="no-print" style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
+      <div>
+        <h3 style="margin:0;font-size:1rem;font-weight:800;color:#0f172a;" id="drawer-title">Student Transcript</h3>
+        <div style="font-size:.75rem;color:#64748b;" id="drawer-sub"></div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button onclick="window.print()" style="background:#065f46;color:#fff;border:none;padding:.4rem .8rem;border-radius:6px;font-size:.75rem;font-weight:700;cursor:pointer;">🖨 Print</button>
+        <button onclick="document.getElementById('student-drawer').style.display='none'" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+      </div>
+    </div>
+    <div style="padding:1.25rem;" id="drawer-body">
+      <div style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</div>
+    </div>
+  </div>
+</div>
+
 <style>
-  /* === The Broad Sheet Print Style === */
   #bs-container {
     font-family: 'Times New Roman', Times, serif;
     color: #000;
   }
 
-  .bs-logo {
-    width: 70px;
-    height: 70px;
-    object-fit: contain;
-    margin: 0 auto .5rem;
-    display: block;
-  }
+  .bs-logo { width: 70px; height: 70px; object-fit: contain; margin: 0 auto .5rem; display: block; }
 
-  .bs-header {
-    text-align: center;
-    border-bottom: 3px solid #000;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-  }
+  .bs-header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 1rem; margin-bottom: 1rem; }
+  .bs-header h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+  .bs-header h2 { margin: .25rem 0 0; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; font-style: italic; }
 
-  .bs-header h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    font-weight: 900;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-  }
-
-  .bs-header h2 {
-    margin: .25rem 0 0;
-    font-size: 1.1rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-style: italic;
-  }
-
-  .bs-meta {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    font-size: .78rem;
-    margin-bottom: 1rem;
-    border-bottom: 2px solid #000;
-    padding-bottom: .5rem;
-  }
-
+  .bs-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: .78rem; margin-bottom: 1rem; border-bottom: 2px solid #000; padding-bottom: .5rem; }
   .bs-meta div strong { font-weight: 800; text-transform: uppercase; }
 
-  .bs-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 10px;
-    font-family: 'Times New Roman', Times, serif;
-  }
+  .bs-table { width: 100%; border-collapse: collapse; font-size: 10px; font-family: 'Times New Roman', Times, serif; }
+  .bs-table th, .bs-table td { border: 1px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; }
+  .bs-table th { background: #f0f0f0; font-weight: 800; text-transform: uppercase; font-size: 8px; line-height: 1.1; }
+  .bs-table td.left { text-align: left; padding-left: 6px; }
+  .bs-table td.name { text-align: left; font-weight: 600; white-space: nowrap; }
+  .bs-table .f { background: #fee2e2; color: #991b1b; font-weight: 800; }
+  .bs-table .remark { font-weight: 800; text-transform: uppercase; font-size: 8px; }
 
-  .bs-table th, .bs-table td {
-    border: 1px solid #000;
-    padding: 3px 4px;
-    text-align: center;
-    vertical-align: middle;
-  }
+  .bs-row-hover:hover { background: #ecfdf5; cursor: pointer; }
 
-  .bs-table th {
-    background: #f0f0f0;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-size: 8px;
-    line-height: 1.1;
-  }
-
-  .bs-table td.left {
-    text-align: left;
-    padding-left: 6px;
-  }
-
-  .bs-table td.name {
-    text-align: left;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .bs-table .f {
-    background: #fee2e2;
-    color: #991b1b;
-    font-weight: 800;
-  }
-
-  .bs-table .remark {
-    font-weight: 800;
-    text-transform: uppercase;
-    font-size: 8px;
-  }
-
-  .bs-sig {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 2rem;
-    font-size: 11px;
-  }
-
-  .bs-sig div {
-    text-align: center;
-    width: 30%;
-    border-top: 1px solid #000;
-    padding-top: .25rem;
-    font-weight: 600;
-  }
+  .bs-sig { display: flex; justify-content: space-between; margin-top: 2rem; font-size: 11px; }
+  .bs-sig div { text-align: center; width: 30%; border-top: 1px solid #000; padding-top: .25rem; font-weight: 600; }
 
   @media print {
-    @page {
-      size: A3 landscape;
-      margin: 10mm;
-    }
+    @page { size: A3 landscape; margin: 10mm; }
     body * { visibility: hidden; }
-    #bs-container, #bs-container * { visibility: visible; }
-    #bs-container {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      padding: 0;
-      border: none;
-      box-shadow: none;
-    }
+    #bs-container, #bs-container *,
+    #student-drawer, #student-drawer * { visibility: hidden; }
+    #bs-container { visibility: visible; position: absolute; left: 0; top: 0; width: 100%; padding: 0; border: none; }
+    #student-drawer { display: none !important; }
     .no-print { display: none !important; }
     .bs-table { font-size: 8px; }
     .bs-table th { font-size: 6px; }
@@ -199,12 +125,10 @@
         return;
       }
 
-      // Build the course header row
       const courseHeaders = courses.map(c => 
         `<th style="min-width:28px;">${esc(c.code)}</th>`
       ).join('');
 
-      // Build the student rows
       const rows = d.map((s, i) => {
         const courseCells = courses.map(c => {
           const grade = s.courseGrades[c.code]?.grade || '-';
@@ -213,7 +137,7 @@
         }).join('');
 
         return `
-          <tr>
+          <tr class="bs-row-hover" onclick="window.__viewStudent(${s.id}, '${esc(s.name).replace(/'/g, "\\'")}', '${esc(s.matricNumber)}')">
             <td>${i + 1}</td>
             <td class="left name">${esc(s.matricNumber)}</td>
             <td class="left name">${esc(s.name)}</td>
@@ -253,13 +177,9 @@
               <th rowspan="2" style="min-width:35px;">GPA</th>
               <th rowspan="2" style="min-width:70px;">Remark</th>
             </tr>
-            <tr>
-              ${courseHeaders}
-            </tr>
+            <tr>${courseHeaders}</tr>
           </thead>
-          <tbody>
-            ${rows}
-          </tbody>
+          <tbody>${rows}</tbody>
         </table>
 
         <div class="bs-sig">
@@ -274,7 +194,117 @@
     }
   }
 
+  window.__viewStudent = async function(studentId, name, matric) {
+    $('student-drawer').style.display = 'flex';
+    $('drawer-title').textContent = name;
+    $('drawer-sub').textContent = matric;
+    
+    const body = $('drawer-body');
+    body.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;">Loading transcript…</div>';
+
+    try {
+      const res = await core.portalFetch(`/api/hod/student-results/${studentId}`);
+      const results = res.data || [];
+      const student = res.student || {};
+
+      if (!results.length) {
+        body.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;">No results found for this student yet.</div>';
+        return;
+      }
+
+      // Group by session + semester
+      const grouped = {};
+      results.forEach(r => {
+        const key = `${r.sessionName || 'Session'} — ${r.semester || 'Semester'}`;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(r);
+      });
+
+      let totalAllUnits = 0, totalAllPoints = 0;
+      let html = `
+        <div style="text-align:center;margin-bottom:1.5rem;">
+          <h2 style="margin:0;font-size:1.15rem;font-weight:800;color:#0f172a;">Federal Polytechnic Ugep</h2>
+          <p style="margin:.15rem 0 0;color:#64748b;font-size:.78rem;">Official Academic Transcript</p>
+          <div style="margin-top:.75rem;padding:.75rem;background:#f8fafc;border-radius:8px;display:inline-block;text-align:left;">
+            <div style="font-size:.82rem;"><strong>Name:</strong> ${esc(student.firstName || '')} ${esc(student.lastName || '')}</div>
+            <div style="font-size:.82rem;"><strong>Matric:</strong> ${esc(student.matricNumber || '')}</div>
+            <div style="font-size:.82rem;"><strong>Level:</strong> ${esc(student.level || '')}</div>
+          </div>
+        </div>
+      `;
+
+      for (const [title, rows] of Object.entries(grouped)) {
+        let totalUnits = 0, totalPoints = 0;
+
+        const rowsHtml = rows.map(r => {
+          const unit = Number(r.unit) || 0;
+          const points = Number(r.points) || 0;
+          totalUnits += unit;
+          totalPoints += (unit * points);
+
+          return `
+            <tr>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseCode)}</td>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseTitle)}</td>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${unit}</td>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${r.score != null ? Number(r.score).toFixed(1) : '—'}</td>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade || '—')}</td>
+              <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${points}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const gpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+        totalAllUnits += totalUnits;
+        totalAllPoints += totalPoints;
+
+        html += `
+          <div style="margin-bottom:1.5rem;">
+            <h3 style="margin:0 0 .5rem;font-size:.95rem;font-weight:800;color:#0f172a;border-bottom:2px solid #065f46;padding-bottom:.35rem;">${esc(title)}</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+              <thead>
+                <tr style="background:#f8fafc;">
+                  <th style="padding:.5rem .75rem;text-align:left;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Code</th>
+                  <th style="padding:.5rem .75rem;text-align:left;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Course Title</th>
+                  <th style="padding:.5rem .75rem;text-align:center;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Units</th>
+                  <th style="padding:.5rem .75rem;text-align:center;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Score</th>
+                  <th style="padding:.5rem .75rem;text-align:center;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Grade</th>
+                  <th style="padding:.5rem .75rem;text-align:center;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#64748b;">Points</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr style="background:#f8fafc;">
+                  <td colspan="2" style="padding:.5rem .75rem;font-weight:800;text-align:right;">Total</td>
+                  <td style="padding:.5rem .75rem;font-weight:800;text-align:center;">${totalUnits}</td>
+                  <td colspan="2" style="padding:.5rem .75rem;font-weight:800;text-align:right;">GPA:</td>
+                  <td style="padding:.5rem .75rem;font-weight:800;text-align:center;color:#065f46;">${gpa}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `;
+      }
+
+      const cgpa = totalAllUnits > 0 ? (totalAllPoints / totalAllUnits).toFixed(2) : '0.00';
+
+      html += `
+        <div style="margin-top:1.5rem;padding:1rem;background:#d1fae5;border-radius:8px;text-align:center;">
+          <div style="font-size:.75rem;font-weight:800;color:#065f46;text-transform:uppercase;">Cumulative GPA (CGPA)</div>
+          <div style="font-size:2rem;font-weight:900;color:#065f46;">${cgpa}</div>
+        </div>
+      `;
+
+      body.innerHTML = html;
+    } catch (err) {
+      body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
+    }
+  };
+
   $('bs-generate')?.addEventListener('click', generateSheet);
   $('bs-print')?.addEventListener('click', () => window.print());
+  $('student-drawer')?.addEventListener('click', (e) => {
+    if (e.target.id === 'student-drawer') $('student-drawer').style.display = 'none';
+  });
 })();
 </script>

@@ -1100,6 +1100,7 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
 
 // ============================================================
 // GET /api/hod/broad-sheet
+// Supports: semester='first' | 'second' | 'both'
 // ============================================================
 router.get('/broad-sheet', only, async (req, res, next) => {
   try {
@@ -1110,14 +1111,15 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'level, semester, and year are required.' });
     }
 
-    const baseLevel = String(level).toUpperCase(); // 'ND' or 'HND'
-    const yearNum = Number(year); // 1 or 2
+    const baseLevel = String(level).toUpperCase();
+    const yearNum = Number(year);
+    const isBoth = semester === 'both';
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
-    // 1. Fetch students in this level and year
+    // 1. Fetch students
     const studentsResult = await db.execute(sql`
-      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName", level, year_of_study
+      SELECT id, matric_number AS "matricNumber", first_name AS "firstName", last_name AS "lastName"
       FROM users 
       WHERE department_id = ${departmentId} 
         AND role = 'student' 
@@ -1128,87 +1130,98 @@ router.get('/broad-sheet', only, async (req, res, next) => {
     const students = studentsResult.rows || [];
 
     if (!students.length) {
-      return res.json({ 
-        success: true, 
-        data: [], 
-        courses: [], 
-        department: dept?.name, 
-        levelLabel: `${baseLevel} ${yearNum}` 
-      });
+      return res.json({ success: true, data: [], courses: { first: [], second: [] }, department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
     }
 
-    // 2. Fetch courses for this level, year, and semester
-    const coursesResult = await db.execute(sql`
-      SELECT id, code, title, unit
-      FROM courses 
-      WHERE department_id = ${departmentId} 
-        AND level = ${baseLevel}
-        AND year_of_study = ${yearNum}
-        AND LOWER(semester_name) LIKE ${'%' + semester.toLowerCase() + '%'}
-      ORDER BY code
-    `);
-    const courseList = coursesResult.rows || [];
+    // 2. Fetch courses — either one semester or both
+    let coursesFirst = [], coursesSecond = [];
 
-    if (!courseList.length) {
-      return res.json({ 
-        success: true, 
-        data: [], 
-        courses: [], 
-        department: dept?.name, 
-        levelLabel: `${baseLevel} ${yearNum}` 
-      });
-    }
-
-    // 3. Fetch results for these students
-    const studentIds = students.map(s => s.id);
-    let resultList = [];
-    if (studentIds.length) {
-      const resultsResult = await db.execute(sql`
-        SELECT student_id AS "studentId", course_id AS "courseId", score, grade, points
-        FROM results 
-        WHERE student_id IN (${sql.join(studentIds, sql`, `)})
+    if (isBoth) {
+      const cRes = await db.execute(sql`
+        SELECT id, code, title, unit, semester_name
+        FROM courses 
+        WHERE department_id = ${departmentId} 
+          AND level = ${baseLevel}
+          AND year_of_study = ${yearNum}
+        ORDER BY semester_name, code
       `);
-      resultList = resultsResult.rows || [];
+      const all = cRes.rows || [];
+      coursesFirst  = all.filter(c => String(c.semester_name).toLowerCase() === 'first');
+      coursesSecond = all.filter(c => String(c.semester_name).toLowerCase() === 'second');
+    } else {
+      const cRes = await db.execute(sql`
+        SELECT id, code, title, unit, semester_name
+        FROM courses 
+        WHERE department_id = ${departmentId} 
+          AND level = ${baseLevel}
+          AND year_of_study = ${yearNum}
+          AND LOWER(semester_name) LIKE ${'%' + semester.toLowerCase() + '%'}
+        ORDER BY code
+      `);
+      if (semester === 'first') coursesFirst = cRes.rows || [];
+      else coursesSecond = cRes.rows || [];
     }
 
-    // 4. Build the matrix
-    const data = students.map(s => {
-      const studentResults = resultList.filter(r => r.studentId === s.id);
-      
-      let tci = 0;
-      let tgp = 0;
-      
-      const courseGrades = {};
-      courseList.forEach(c => {
-        const r = studentResults.find(x => x.courseId === c.id);
-        if (r) {
-          courseGrades[c.code] = { grade: r.grade, score: r.score, points: r.points };
-          if (r.grade && r.grade !== 'F') {
-            tci += Number(c.unit);
-            tgp += (Number(r.points) * Number(c.unit));
-          }
-        } else {
-          courseGrades[c.code] = { grade: '-', score: '-', points: 0 };
-        }
-      });
+    if (!coursesFirst.length && !coursesSecond.length) {
+      return res.json({ success: true, data: [], courses: { first: [], second: [] }, department: dept?.name, levelLabel: `${baseLevel} ${yearNum}` });
+    }
 
-      const gpa = tci > 0 ? (tgp / tci).toFixed(2) : '0.00';
-      
+    // 3. Fetch ALL results for these students
+    const studentIds = students.map(s => s.id);
+    const resultsResult = await db.execute(sql`
+      SELECT student_id AS "studentId", course_id AS "courseId", score, grade, points
+      FROM results 
+      WHERE student_id IN (${sql.join(studentIds, sql`, `)})
+    `);
+    const allResults = resultsResult.rows || [];
+
+    // 4. Build each student's row
+    const data = students.map(s => {
+      const myResults = allResults.filter(r => r.studentId === s.id);
+
+      const computeSem = (courses) => {
+        let tci = 0, tgp = 0;
+        const grades = {};
+        courses.forEach(c => {
+          const r = myResults.find(x => x.courseId === c.id);
+          if (r) {
+            grades[c.code] = { grade: r.grade, score: r.score, points: r.points };
+            if (r.grade && r.grade !== 'F') {
+              tci += Number(c.unit);
+              tgp += (Number(r.points) * Number(c.unit));
+            }
+          } else {
+            grades[c.code] = { grade: '-', score: '-', points: 0 };
+          }
+        });
+        const gpa = tci > 0 ? (tgp / tci).toFixed(2) : '0.00';
+        return { grades, tci, tgp, gpa };
+      };
+
+      const first = computeSem(coursesFirst);
+      const second = computeSem(coursesSecond);
+
+      // Overall CGPA across both
+      const tciTotal = first.tci + second.tci;
+      const tgpTotal = first.tgp + second.tgp;
+      const cgpa = tciTotal > 0 ? (tgpTotal / tciTotal).toFixed(2) : '0.00';
+
       let remark = 'PASS';
-      if (Number(gpa) >= 3.50) remark = 'DISTINCTION';
-      else if (Number(gpa) >= 3.00) remark = 'UPPER CREDIT';
-      else if (Number(gpa) >= 2.50) remark = 'LOWER CREDIT';
-      else if (Number(gpa) >= 2.00) remark = 'PASS';
+      if (Number(cgpa) >= 3.50) remark = 'DISTINCTION';
+      else if (Number(cgpa) >= 3.00) remark = 'UPPER CREDIT';
+      else if (Number(cgpa) >= 2.50) remark = 'LOWER CREDIT';
+      else if (Number(cgpa) >= 2.00) remark = 'PASS';
       else remark = 'FAIL';
 
       return {
         id: s.id,
         matricNumber: (s.matricNumber || '').replace(/SMT/gi, '').trim(),
         name: `${s.lastName}, ${s.firstName}`,
-        courseGrades,
-        tci,
-        tgp,
-        gpa,
+        first,
+        second,
+        cgpa,
+        tciTotal,
+        tgpTotal,
         remark
       };
     });
@@ -1217,7 +1230,9 @@ router.get('/broad-sheet', only, async (req, res, next) => {
       success: true,
       department: dept?.name || 'Department',
       levelLabel: `${baseLevel} ${yearNum}`,
-      courses: courseList,
+      semester,
+      coursesFirst,
+      coursesSecond,
       data
     });
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Login — Federal Polytechnic Ugep</title>
   <link rel="icon" href="/images/logo.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,9 +13,91 @@
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
 
+    /* ===== MOBILE NAVIGATION ===== */
+    .mobile-nav {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 14px 18px;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(6, 95, 70, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .mobile-nav .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .mobile-nav .brand img { height: 30px; width: 30px; object-fit: contain; }
+    
+    .burger-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      z-index: 11;
+    }
+    .burger-btn span {
+      display: block;
+      width: 24px;
+      height: 2.5px;
+      background: #fff;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .burger-btn.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+    .burger-btn.open span:nth-child(2) { opacity: 0; }
+    .burger-btn.open span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+    .mobile-menu {
+      position: absolute;
+      top: 62px;
+      left: 0;
+      right: 0;
+      z-index: 9;
+      background: rgba(6, 95, 70, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 0;
+      transform: translateY(-100%);
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+    }
+    .mobile-menu.open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .mobile-menu a {
+      display: block;
+      padding: 12px 24px;
+      color: #d1fae5;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .mobile-menu a:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    /* ===== PAGE LAYOUT ===== */
     .login-page-wrap {
       min-height: 100vh;
+      min-height: 100dvh; /* dynamic viewport height for mobile */
       display: flex;
       align-items: center;
       justify-content: center;
@@ -25,63 +107,38 @@
       background: #065f46;
     }
 
-    /* ===== IMAGE SLIDESHOW BACKGROUND ===== */
-    .bg-slideshow {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-    }
+    /* Slideshow */
+    .bg-slideshow { position: absolute; inset: 0; z-index: 0; }
     .bg-slide {
-      position: absolute;
-      inset: 0;
-      background-size: cover;
-      background-position: center;
-      opacity: 0;
-      transition: opacity 1.5s ease-in-out;
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      opacity: 0; transition: opacity 1.5s ease-in-out;
       animation: slowZoom 12s ease-in-out infinite alternate;
     }
-    .bg-slide.active {
-      opacity: 1;
-    }
-    @keyframes slowZoom {
-      from { transform: scale(1); }
-      to   { transform: scale(1.08); }
-    }
-    /* Overlay so text is readable over the images */
+    .bg-slide.active { opacity: 1; }
+    @keyframes slowZoom { from { transform: scale(1); } to { transform: scale(1.08); } }
     .bg-slideshow::after {
-      content: '';
-      position: absolute;
-      inset: 0;
+      content: ''; position: absolute; inset: 0;
       background: linear-gradient(135deg, rgba(6,95,70,0.75), rgba(5,150,105,0.65));
-      pointer-events: none;
-      z-index: 1;
+      pointer-events: none; z-index: 1;
     }
 
-    /* Floating particles */
     .particles {
-      position: absolute;
-      inset: 0;
-      z-index: 1;
-      overflow: hidden;
-      pointer-events: none;
+      position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none;
     }
     .particles span {
-      position: absolute;
-      display: block;
-      width: 6px;
-      height: 6px;
-      background: rgba(255,255,255,0.5);
-      border-radius: 50%;
+      position: absolute; display: block; width: 6px; height: 6px;
+      background: rgba(255,255,255,0.5); border-radius: 50%;
       animation: floatUp linear infinite;
     }
     @keyframes floatUp {
-      0%   { transform: translateY(110vh) scale(0.4); opacity: 0; }
-      10%  { opacity: 1; }
-      90%  { opacity: 1; }
+      0% { transform: translateY(110vh) scale(0.4); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
       100% { transform: translateY(-10vh) scale(1); opacity: 0; }
     }
 
-    /* ===== CARD ===== */
+    /* ===== LOGIN CARD ===== */
     .login-card-public {
       position: relative;
       z-index: 2;
@@ -97,30 +154,22 @@
     }
     @keyframes cardSlideUp {
       from { opacity: 0; transform: translateY(60px) scale(0.92); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
-    .login-card-public.shake {
-      animation: shake 0.5s;
-    }
+    .login-card-public.shake { animation: shake 0.5s; }
     @keyframes shake {
       0%, 100% { transform: translateX(0); }
-      25%      { transform: translateX(-8px); }
-      75%      { transform: translateX(8px); }
-    }
-
-    @media (max-width: 480px) {
-      .login-card-public { padding: 32px 22px; }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
     }
 
     .login-logo {
-      display: block;
-      height: 66px;
-      margin: 0 auto 12px;
+      display: block; height: 66px; margin: 0 auto 12px;
       animation: logoPop 1s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
     }
     @keyframes logoPop {
-      0%   { opacity: 0; transform: scale(0.4) rotate(-15deg); }
-      60%  { transform: scale(1.1) rotate(5deg); }
+      0% { opacity: 0; transform: scale(0.4) rotate(-15deg); }
+      60% { transform: scale(1.1) rotate(5deg); }
       100% { opacity: 1; transform: scale(1) rotate(0); }
     }
 
@@ -133,183 +182,188 @@
       animation: fadeSlide 0.7s ease 0.3s both;
     }
     .login-card-public .sub {
-      text-align: center;
-      color: #64748b;
-      font-size: 14px;
-      margin: 0 0 6px;
+      text-align: center; color: #64748b; font-size: 14px; margin: 0 0 6px;
       animation: fadeSlide 0.7s ease 0.4s both;
     }
     .tagline {
-      text-align: center;
-      font-size: 12.5px;
-      color: #94a3b8;
-      font-style: italic;
-      margin: 0 0 26px;
-      padding: 0 20px;
+      text-align: center; font-size: 12.5px; color: #94a3b8; font-style: italic;
+      margin: 0 0 26px; padding: 0 20px;
       animation: fadeSlide 0.7s ease 0.5s both;
     }
     @keyframes fadeSlide {
       from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    .form-group {
-      animation: fadeSlide 0.6s ease both;
-    }
+    .form-group { animation: fadeSlide 0.6s ease both; }
     .form-group:nth-of-type(1) { animation-delay: 0.55s; }
     .form-group:nth-of-type(2) { animation-delay: 0.65s; }
 
     .form-group label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
+      display: block; font-size: 12px; font-weight: 600; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
     }
     .form-group input {
-      width: 100%;
-      padding: 11px 14px;
-      font-size: 14.5px;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 8px;
-      background: #f8fafc;
-      transition: all 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 11px 14px; font-size: 16px; /* 16px prevents iOS zoom */
+      border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc;
+      transition: all 0.2s; font-family: inherit;
     }
     .form-group input:focus {
-      outline: none;
-      border-color: #059669;
-      background: #fff;
+      outline: none; border-color: #059669; background: #fff;
       box-shadow: 0 0 0 3px rgba(5,150,105,0.18);
     }
-    .form-group input.invalid {
-      border-color: #dc2626;
-      background: #fef2f2;
-    }
+    .form-group input.invalid { border-color: #dc2626; background: #fef2f2; }
 
     .password-wrap { position: relative; }
     .password-wrap input { padding-right: 44px; }
     .toggle-password {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      color: #64748b;
-      padding: 6px;
-      border-radius: 4px;
-      transition: all 0.15s;
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 16px;
+      color: #64748b; padding: 6px; border-radius: 4px; transition: all 0.15s;
     }
-    .toggle-password:hover {
-      color: #065f46;
-      background: #f1f5f9;
-    }
+    .toggle-password:hover { color: #065f46; background: #f1f5f9; }
 
     .error-msg, .caps-warning {
-      display: none;
-      font-size: 12.5px;
-      margin-top: 5px;
-      font-weight: 600;
+      display: none; font-size: 12.5px; margin-top: 5px; font-weight: 600;
     }
     .error-msg { color: #dc2626; }
     .caps-warning { color: #d97706; }
     .error-msg.show, .caps-warning.show { display: block; }
 
     #loginBtn {
-      position: relative;
-      width: 100%;
-      padding: 13px;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      position: relative; width: 100%; padding: 13px; font-size: 15px;
+      font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
       background: linear-gradient(90deg, #f59e0b, #d97706, #f59e0b);
-      background-size: 200% 100%;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      overflow: hidden;
-      transition: all 0.25s;
+      background-size: 200% 100%; color: #fff; border: none; border-radius: 10px;
+      cursor: pointer; overflow: hidden; transition: all 0.25s;
       animation: fadeSlide 0.6s ease 0.75s both, gradientShift 3s ease infinite;
+      -webkit-tap-highlight-color: transparent;
     }
     #loginBtn:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(245,158,11,0.5);
+      transform: translateY(-2px); box-shadow: 0 10px 25px rgba(245,158,11,0.5);
     }
-    #loginBtn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+    #loginBtn:disabled { opacity: 0.7; cursor: not-allowed; }
     @keyframes gradientShift {
       0%, 100% { background-position: 0% 50%; }
-      50%      { background-position: 100% 50%; }
+      50% { background-position: 100% 50%; }
     }
 
     .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      margin-right: 8px;
-      vertical-align: middle;
-      visibility: hidden;
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin-right: 8px; vertical-align: middle; visibility: hidden;
     }
     #loginBtn.loading .spinner { visibility: visible; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .role-hint {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
-      font-size: 12.5px;
-      color: #64748b;
+      display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 20px; font-size: 12.5px; color: #64748b;
       animation: fadeSlide 0.6s ease 0.85s both;
     }
     .role-hint strong { color: #065f46; }
 
-    .footer-links {
-      text-align: center;
-      animation: fadeSlide 0.6s ease 0.95s both;
-    }
-    .footer-links p {
-      font-size: 13.5px;
-      color: #64748b;
-      margin: 22px 0 0;
-    }
-    .footer-links a {
-      color: #065f46;
-      font-weight: 700;
-      text-decoration: none;
-    }
+    .footer-links { text-align: center; animation: fadeSlide 0.6s ease 0.95s both; }
+    .footer-links p { font-size: 13.5px; color: #64748b; margin: 22px 0 0; }
+    .footer-links a { color: #065f46; font-weight: 700; text-decoration: none; }
     .footer-links a:hover { text-decoration: underline; }
 
     .divider-line {
-      height: 1px;
-      background: #e2e8f0;
-      margin: 20px 0 12px;
+      height: 1px; background: #e2e8f0; margin: 20px 0 12px;
       animation: fadeSlide 0.6s ease 0.9s both;
+    }
+
+    /* ===== RESPONSIVE BREAKPOINTS ===== */
+
+    /* Tablets (768px and below) */
+    @media (max-width: 768px) {
+      .mobile-nav { display: flex; }
+      .login-page-wrap {
+        padding: 90px 24px 40px; /* space for mobile nav */
+        align-items: flex-start;
+      }
+      .login-card-public {
+        max-width: 480px;
+        padding: 36px 32px;
+        margin-top: 20px;
+      }
+      .login-card-public h1 { font-size: 1.35rem; }
+    }
+
+    /* Small tablets / large phones (600px and below) */
+    @media (max-width: 600px) {
+      .login-page-wrap { padding: 86px 16px 32px; }
+      .login-card-public {
+        padding: 32px 24px;
+        border-radius: 16px;
+        max-width: 100%;
+      }
+      .login-card-public h1 { font-size: 1.25rem; }
+      .login-logo { height: 56px; }
+      .tagline { font-size: 12px; padding: 0 10px; margin-bottom: 22px; }
+      .form-group input { padding: 12px 14px; font-size: 16px; }
+      .role-hint { gap: 8px; font-size: 12px; }
+      .footer-links p { font-size: 13px; }
+    }
+
+    /* Phones (400px and below) */
+    @media (max-width: 400px) {
+      .login-page-wrap { padding: 80px 12px 24px; }
+      .login-card-public { padding: 26px 18px; border-top-width: 5px; }
+      .login-card-public h1 { font-size: 1.15rem; }
+      .login-card-public .sub { font-size: 13px; }
+      .login-logo { height: 50px; margin-bottom: 10px; }
+      .tagline { font-size: 11.5px; }
+      #loginBtn { padding: 12px; font-size: 14px; }
+      .mobile-nav .brand { font-size: 14px; }
+    }
+
+    /* Landscape phones — squeeze card so it fits */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .login-page-wrap { padding: 20px 16px; align-items: center; }
+      .login-card-public { padding: 20px 24px; max-width: 520px; }
+      .login-logo { height: 40px; margin-bottom: 6px; }
+      .login-card-public h1 { font-size: 1.1rem; margin-bottom: 2px; }
+      .login-card-public .sub { font-size: 12px; margin-bottom: 4px; }
+      .tagline { display: none; }
+      .form-group { margin-bottom: 8px; }
+      .role-hint, .footer-links { display: none; }
+    }
+
+    /* Very wide screens (desktops) */
+    @media (min-width: 1200px) {
+      .login-card-public { max-width: 460px; }
     }
   </style>
 </head>
 <body>
 
+  <!-- Mobile Navigation Bar (only visible on small screens) -->
+  <div class="mobile-nav">
+    <div class="brand">
+      <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
+      <span>FPU Portal</span>
+    </div>
+    <button class="burger-btn" id="burgerBtn" aria-label="Toggle menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+
+  <!-- Mobile slide-down menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="/">🏠 Homepage</a>
+    <a href="/apply.html">📝 Apply for Admission</a>
+    <a href="/forgot-password.html">🔑 Forgot Password</a>
+    <a href="/portal/app.html">🎓 Portal Home</a>
+  </div>
+
   <div class="login-page-wrap">
 
-    <!-- ===== IMAGE SLIDESHOW BACKGROUND ===== -->
-    <div class="bg-slideshow" id="slideshow">
-      <!-- Slides will be injected here by JS -->
-    </div>
+    <!-- Background slideshow -->
+    <div class="bg-slideshow" id="slideshow"></div>
 
     <!-- Floating particles -->
     <div class="particles" id="particles"></div>
@@ -368,45 +422,71 @@
   (function () {
     'use strict';
 
-    // ===== 1. CONFIGURE YOUR IMAGES HERE (Direct Unsplash URLs) =====
-    // These are high-quality images of campuses, libraries, and students.
-    // They load directly from Unsplash's CDN, no download needed.
+    // ===== MOBILE MENU =====
+    const burgerBtn = document.getElementById('burgerBtn');
+    const mobileMenu = document.getElementById('mobileMenu');
+
+    if (burgerBtn && mobileMenu) {
+      burgerBtn.addEventListener('click', function () {
+        const isOpen = mobileMenu.classList.toggle('open');
+        burgerBtn.classList.toggle('open', isOpen);
+        burgerBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+
+      // Close menu when clicking outside
+      document.addEventListener('click', function (e) {
+        if (!mobileMenu.contains(e.target) && !burgerBtn.contains(e.target)) {
+          mobileMenu.classList.remove('open');
+          burgerBtn.classList.remove('open');
+          burgerBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Close menu when clicking a link
+      mobileMenu.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          mobileMenu.classList.remove('open');
+          burgerBtn.classList.remove('open');
+          burgerBtn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+
+    // ===== IMAGE SLIDESHOW =====
     const SLIDES = [
-      'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80&fit=crop', // University campus
-      'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1920&q=80&fit=crop', // Library interior
-      'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1920&q=80&fit=crop', // Students studying
-      'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1920&q=80&fit=crop', // Campus building
-      'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80&fit=crop', // Library shelves
-      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1920&q=80&fit=crop', // Students collaborating
-      'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=1920&q=80&fit=crop', // University architecture
-      'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=1920&q=80&fit=crop', // Library reading area
-      'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=1920&q=80&fit=crop', // Graduation
-      'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=1920&q=80&fit=crop'  // Students walking on campus
+      'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1562774053-701939374585?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1519452635265-7b1fbfd1e4e0?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=1920&q=80&fit=crop',
+      'https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=1920&q=80&fit=crop'
     ];
 
-    // ===== 2. BUILD THE SLIDESHOW =====
     const slideshowContainer = document.getElementById('slideshow');
     const slideElements = [];
 
-    SLIDES.forEach((src, index) => {
+    SLIDES.forEach(function (src, index) {
       const div = document.createElement('div');
       div.className = 'bg-slide' + (index === 0 ? ' active' : '');
-      div.style.backgroundImage = `url('${src}')`;
+      div.style.backgroundImage = 'url(\'' + src + '\')';
       slideshowContainer.appendChild(div);
       slideElements.push(div);
     });
 
-    // Cycle through the slides every 6 seconds
     let currentSlide = 0;
     if (slideElements.length > 1) {
-      setInterval(() => {
+      setInterval(function () {
         slideElements[currentSlide].classList.remove('active');
         currentSlide = (currentSlide + 1) % slideElements.length;
         slideElements[currentSlide].classList.add('active');
       }, 6000);
     }
 
-    // ===== 3. FLOATING PARTICLES =====
+    // ===== PARTICLES =====
     const particlesBox = document.getElementById('particles');
     for (let i = 0; i < 25; i++) {
       const s = document.createElement('span');
@@ -418,12 +498,12 @@
       particlesBox.appendChild(s);
     }
 
-    // ===== 4. LOGIN LOGIC (Same as before) =====
-    const loginCard   = document.getElementById('loginCard');
+    // ===== LOGIN LOGIC =====
+    const loginCard = document.getElementById('loginCard');
     const passwordField = document.getElementById('password-field');
-    const toggleBtn   = document.getElementById('togglePassword');
+    const toggleBtn = document.getElementById('togglePassword');
     const capsWarning = document.getElementById('capsWarning');
-    const emailError  = document.getElementById('email-error');
+    const emailError = document.getElementById('email-error');
     const passwordError = document.getElementById('password-error');
 
     toggleBtn.addEventListener('click', function () {
@@ -477,7 +557,7 @@
       }
       if (!valid) {
         loginCard.classList.add('shake');
-        setTimeout(() => loginCard.classList.remove('shake'), 500);
+        setTimeout(function () { loginCard.classList.remove('shake'); }, 500);
         return;
       }
 
@@ -491,7 +571,7 @@
         const res = await fetch('/api/admin/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email: email, password: password })
         });
         const json = await res.json();
 
@@ -499,7 +579,7 @@
           alertBox.className = 'alert alert-error';
           alertBox.textContent = '❌ ' + (json.error || json.message || 'Invalid credentials.');
           loginCard.classList.add('shake');
-          setTimeout(() => loginCard.classList.remove('shake'), 500);
+          setTimeout(function () { loginCard.classList.remove('shake'); }, 500);
           return;
         }
 
@@ -510,30 +590,30 @@
         localStorage.setItem('fpu_admin_token', token);
         localStorage.setItem('fpu_admin_user', JSON.stringify(user));
 
-        const role = String(user?.role || '').toLowerCase();
+        const role = String(user && user.role ? user.role : '').toLowerCase();
         const ROLE_ROUTES = {
-          student:           '/portal/app.html',
-          applicant:         '/apply-status.html',
-          lecturer:          '/portal/app.html',
-          hod:               '/portal/app.html',
-          bursar:            '/portal/app.html',
-          rector:            '/portal/app.html',
-          registrar:         '/portal/app.html',
-          librarian:         '/portal/app.html',
-          exam_officer:      '/portal/app.html',
-          academic_officer:  '/portal/app.html',
+          student: '/portal/app.html',
+          applicant: '/apply-status.html',
+          lecturer: '/portal/app.html',
+          hod: '/portal/app.html',
+          bursar: '/portal/app.html',
+          rector: '/portal/app.html',
+          registrar: '/portal/app.html',
+          librarian: '/portal/app.html',
+          exam_officer: '/portal/app.html',
+          academic_officer: '/portal/app.html',
           admission_officer: '/portal/app.html',
-          admin:             '/portal/app.html',
-          superadmin:        '/portal/app.html',
+          admin: '/portal/app.html',
+          superadmin: '/portal/app.html'
         };
 
         const destination = ROLE_ROUTES[role] || '/portal/app.html';
-        const message = `✅ Welcome! Taking you to your ${role || 'portal'} dashboard…`;
+        const message = '✅ Welcome! Taking you to your ' + (role || 'portal') + ' dashboard…';
 
         alertBox.className = 'alert alert-success';
         alertBox.textContent = message;
 
-        setTimeout(() => {
+        setTimeout(function () {
           window.location.href = destination;
         }, 800);
 
@@ -542,7 +622,7 @@
         alertBox.className = 'alert alert-error';
         alertBox.textContent = '❌ Connection error. Please try again.';
         loginCard.classList.add('shake');
-        setTimeout(() => loginCard.classList.remove('shake'), 500);
+        setTimeout(function () { loginCard.classList.remove('shake'); }, 500);
       } finally {
         btn.disabled = false;
         btn.classList.remove('loading');

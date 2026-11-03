@@ -315,7 +315,6 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    // Fetch submitted results, showing students regardless of department
     const rows = await db.execute(sql`
       SELECT 
         r.id, 
@@ -327,6 +326,7 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
         r.grade, 
         r.points,
         r.status,
+        r.rejection_reason AS "rejectionReason",
         r.session_id AS "sessionId",
         r.semester
       FROM results r
@@ -334,7 +334,14 @@ router.get('/results/course/:courseId', only, async (req, res, next) => {
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.course_id = ${courseId} 
         AND r.status IN ('submitted', 'draft', 'hod_rejected')
-      ORDER BY u.last_name
+      ORDER BY 
+        CASE r.status 
+          WHEN 'submitted' THEN 1 
+          WHEN 'draft' THEN 2 
+          WHEN 'hod_rejected' THEN 3 
+          ELSE 4 
+        END,
+        u.last_name
     `);
 
     return res.json({ success: true, data: rows.rows || [], course });
@@ -1249,9 +1256,6 @@ router.get('/broad-sheet', only, async (req, res, next) => {
 // ============================================================
 // POST /api/hod/results/:resultId/reject
 // ============================================================
-// ============================================================
-// POST /api/hod/results/:resultId/reject
-// ============================================================
 router.post('/results/:resultId/reject', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
@@ -1261,31 +1265,28 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
     if (!resultId || isNaN(resultId)) {
       return res.status(400).json({ success: false, error: 'Invalid result ID.' });
     }
-
     if (!reason) {
       return res.status(400).json({ success: false, error: 'Rejection reason is required.' });
     }
 
     // Verify result belongs to this department
     const check = await db.execute(sql`
-      SELECT r.id, r.course_id AS "courseId"
+      SELECT r.id
       FROM results r
       INNER JOIN courses c ON r.course_id = c.id
       WHERE r.id = ${resultId} AND c.department_id = ${departmentId}
       LIMIT 1
     `);
-    
+
     if (!check.rows || !check.rows.length) {
-      return res.status(404).json({ success: false, error: 'Result not found or not in your department.' });
+      return res.status(404).json({ success: false, error: 'Result not found in your department.' });
     }
 
-    // Update the result
+    // Update the result — mark as rejected
     await db.execute(sql`
       UPDATE results 
       SET status = 'hod_rejected', 
-          rejection_reason = ${reason},
-          hod_verified_by = ${req.user.id},
-          hod_verified_at = NOW()
+          rejection_reason = ${reason}
       WHERE id = ${resultId}
     `);
 
@@ -1297,13 +1298,13 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       after: { reason } 
     });
 
-    return res.json({ success: true, message: 'Result rejected and sent back to lecturer.' });
+    return res.json({ success: true, message: 'Result rejected.' });
   } catch (err) {
     console.error('[hod/reject-result] Error:', err);
     return res.status(500).json({ 
       success: false, 
       error: err.message || 'Failed to reject result',
-      detail: err.cause?.message || err.stack
+      detail: err.cause?.message 
     });
   }
 });

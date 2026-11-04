@@ -108,80 +108,146 @@ router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
 });
 
 // GET /api/admin/documents/:id/preview
-// Returns HTML rendering of the document for the admin to preview
 router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
   try {
     const [row] = await db
-      .select({ document: documents, user: users })
+      .select({
+        document: documents,
+        user: users,
+        department: schema.departments,
+        programme: schema.programmes,
+      })
       .from(documents)
       .leftJoin(users, eq(documents.userId, users.id))
+      .leftJoin(schema.departments, eq(users.departmentId, schema.departments.id))
+      .leftJoin(schema.programmes, eq(users.programmeId, schema.programmes.id))
       .where(eq(documents.id, Number(req.params.id)));
 
     if (!row) return res.status(404).json({ success: false, error: 'Document not found.' });
 
     const doc = row.document;
     const stu = row.user || {};
+    const dept = row.department || {};
+    const prog = row.programme || {};
+
     const studentName = `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || 'Student';
     const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     const docType = (doc.type || 'document').toUpperCase();
+    const photoUrl = stu.photoUrl || stu.idCardPhotoUrl || null;
 
-    // Document-type-specific HTML
     let bodyHtml = '';
 
     if (doc.type === 'id-card') {
       bodyHtml = `
-        <div style="width: 340px; margin: 0 auto; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.15); background: #fff;">
-          <div style="background: linear-gradient(135deg, #065f46, #047857); color: #fff; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <div style="width: 360px; margin: 0 auto; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.15); background: #fff; font-family: 'Inter', sans-serif;">
+          
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #065f46, #047857); color: #fff; padding: 1rem 1.2rem; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <div style="font-size: .65rem; text-transform: uppercase; letter-spacing: 1px; color: #a7f3d0;">Federal Polytechnic Ugep</div>
-              <div style="font-weight: 800; font-size: .95rem;">STUDENT ID CARD</div>
+              <div style="font-size: .62rem; text-transform: uppercase; letter-spacing: 1px; color: #a7f3d0; font-weight: 700;">Federal Polytechnic Ugep</div>
+              <div style="font-weight: 800; font-size: 1rem; letter-spacing: .02em;">STUDENT ID CARD</div>
             </div>
-            <div style="width: 40px; height: 40px; background: #f59e0b; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.1rem; color: #065f46;">F</div>
+            <div style="width: 44px; height: 44px; background: #f59e0b; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; color: #065f46;">F</div>
           </div>
-          <div style="padding: 1rem; display: flex; gap: 1rem;">
-            <div style="width: 90px; height: 110px; border-radius: 8px; background: ${stu.photoUrl ? 'url(' + stu.photoUrl + ') center/cover' : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 1.6rem; flex-shrink: 0;">
-              ${stu.photoUrl ? '' : (stu.firstName || 'S')[0].toUpperCase()}
+
+          <!-- Body -->
+          <div style="padding: 1.2rem; display: flex; gap: 1rem;">
+            <!-- Photo -->
+            <div style="width: 100px; height: 120px; border-radius: 10px; background: ${photoUrl ? `url('${photoUrl}') center/cover` : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 2rem; flex-shrink: 0; border: 2px solid #f1f5f9;">
+              ${photoUrl ? '' : (stu.firstName || 'S')[0].toUpperCase()}
             </div>
-            <div style="flex: 1; font-size: .78rem;">
-              <div style="font-weight: 800; color: #065f46; font-size: 1rem; margin-bottom: .4rem;">${studentName}</div>
-              <div style="display: flex; justify-content: space-between; padding: .2rem 0; border-bottom: 1px dashed #e5e7eb;"><span style="color:#64748b;">Matric No</span><strong>${stu.matricNumber || '—'}</strong></div>
-              <div style="display: flex; justify-content: space-between; padding: .2rem 0; border-bottom: 1px dashed #e5e7eb;"><span style="color:#64748b;">Level</span><strong>${stu.level || '—'}</strong></div>
-              <div style="display: flex; justify-content: space-between; padding: .2rem 0;"><span style="color:#64748b;">Dept</span><strong>${stu.departmentName || '—'}</strong></div>
+            
+            <!-- Info -->
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 800; color: #065f46; font-size: 1.05rem; margin-bottom: .5rem; line-height: 1.2;">${studentName}</div>
+              
+              <div style="font-size: .78rem; color: #475569; display: flex; flex-direction: column; gap: .35rem;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
+                  <span style="color: #64748b;">Matric</span>
+                  <strong style="color: #0f172a;">${stu.matricNumber || '—'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
+                  <span style="color: #64748b;">Level</span>
+                  <strong style="color: #0f172a;">${stu.level || '—'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
+                  <span style="color: #64748b;">Programme</span>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${prog.name || '—'}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: #64748b;">Dept</span>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${dept.name || '—'}</strong>
+                </div>
+              </div>
             </div>
           </div>
-          <div style="padding: .55rem 1rem; background: #f9fafb; text-align: center; font-size: .65rem; letter-spacing: 1.5px; color: #6b7280; border-top: 1px solid #e5e7eb;">
-            VALID UNTIL GRADUATION · ${today}
+
+          <!-- Footer -->
+          <div style="padding: .55rem 1rem; background: #f9fafb; text-align: center; font-size: .6rem; letter-spacing: 1.5px; color: #6b7280; text-transform: uppercase; border-top: 1px solid #e5e7eb;">
+            Valid Until Graduation · ${today}
           </div>
         </div>
       `;
     } else {
-      // Default letter / transcript / certificate layout
+      // Default: transcript, certificate, attestation, letter
       bodyHtml = `
-        <div style="max-width: 600px; margin: 0 auto; padding: 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;">
-          <div style="text-align: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #065f46;">
-            <h1 style="margin: 0; color: #065f46; font-family: serif; font-size: 1.4rem;">FEDERAL POLYTECHNIC UGEP</h1>
+        <div style="max-width: 650px; margin: 0 auto; padding: 2.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; font-family: 'Times New Roman', serif;">
+          
+          <!-- Letterhead -->
+          <div style="text-align: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 3px double #065f46;">
+            <div style="width: 60px; height: 60px; background: #065f46; color: #f59e0b; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.6rem; margin-bottom: .5rem;">F</div>
+            <h1 style="margin: 0; color: #065f46; font-size: 1.5rem; letter-spacing: .03em;">FEDERAL POLYTECHNIC UGEP</h1>
             <p style="margin: .3rem 0 0; color: #64748b; font-size: .8rem;">P.M.B. 1038, Ugep, Cross River State, Nigeria</p>
           </div>
-          <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: .95rem; letter-spacing: 1px; margin-bottom: 1.5rem;">${docType}</h2>
-          <p style="color: #0f172a; line-height: 1.8; font-size: .88rem;">
-            This is to certify that <strong>${studentName}</strong> (Matric No: <strong>${stu.matricNumber || '—'}</strong>) 
-            is a bona fide student of Federal Polytechnic Ugep with the following details:
+
+          <!-- Title -->
+          <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${docType}</h2>
+
+          <!-- Body text -->
+          <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
+            This is to certify that <strong>${studentName}</strong> with Matric Number <strong>${stu.matricNumber || '—'}</strong> 
+            is a bona fide student of Federal Polytechnic Ugep, currently enrolled in the following programme:
           </p>
-          <table style="width: 100%; margin: 1rem 0; font-size: .85rem; border-collapse: collapse;">
-            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: .5rem 0; color: #64748b;">Programme</td><td style="padding: .5rem 0; text-align: right; font-weight: 700;">${stu.programmeName || '—'}</td></tr>
-            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: .5rem 0; color: #64748b;">Department</td><td style="padding: .5rem 0; text-align: right; font-weight: 700;">${stu.departmentName || '—'}</td></tr>
-            <tr style="border-bottom: 1px solid #e5e7eb;"><td style="padding: .5rem 0; color: #64748b;">Level</td><td style="padding: .5rem 0; text-align: right; font-weight: 700;">${stu.level || '—'}</td></tr>
-            <tr><td style="padding: .5rem 0; color: #64748b;">Session</td><td style="padding: .5rem 0; text-align: right; font-weight: 700;">2025/2026</td></tr>
+
+          <table style="width: 100%; margin: 1.5rem 0; font-size: .9rem; border-collapse: collapse;">
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: .6rem 0; color: #64748b; width: 40%;">Programme</td>
+              <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${prog.name || '—'}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: .6rem 0; color: #64748b;">Department</td>
+              <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${dept.name || '—'}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+              <td style="padding: .6rem 0; color: #64748b;">Level</td>
+              <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${stu.level || '—'}</td>
+            </tr>
+            <tr>
+              <td style="padding: .6rem 0; color: #64748b;">Session</td>
+              <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">2025/2026</td>
+            </tr>
           </table>
-          <p style="color: #0f172a; line-height: 1.8; font-size: .88rem;">
-            ${doc.remarks ? doc.remarks : `This document is issued at the request of the student for official use.`}
+
+          <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
+            ${doc.remarks || `This document is issued at the request of the student for official purposes.`}
           </p>
-          <p style="margin-top: 2rem; color: #64748b; font-size: .78rem;">Date Issued: ${today}</p>
-          <div style="margin-top: 3rem; text-align: right;">
-            <div style="display: inline-block; border-top: 1px solid #0f172a; padding-top: .3rem; min-width: 150px; text-align: center;">
-              <div style="font-weight: 800; font-size: .85rem;">REGISTRAR</div>
-              <div style="font-size: .7rem; color: #64748b;">Signature / Stamp</div>
+
+          <!-- Signature -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 3.5rem;">
+            <div style="color: #64748b; font-size: .78rem;">
+              <div>Date: ${today}</div>
             </div>
+            <div style="text-align: center;">
+              <div style="border-top: 1px solid #0f172a; padding-top: .4rem; min-width: 180px;">
+                <div style="font-weight: 800; font-size: .85rem;">REGISTRAR</div>
+                <div style="font-size: .7rem; color: #64748b;">Signature / Stamp</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; text-align: center; font-size: .68rem; color: #94a3b8;">
+            This is a computer-generated document and is valid without a physical signature.
           </div>
         </div>
       `;

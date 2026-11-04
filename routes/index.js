@@ -12,7 +12,6 @@ const router = express.Router();
 // ------------------------------------------------------------
 router.use('/', require('./health'));
 router.use('/admin/auth', require('./adminAuth'));
-router.use('/admin',      require('./adminAuth'));
 router.use('/admin/seed', require('./adminSeed'));
 router.use('/', require('./public'));
 

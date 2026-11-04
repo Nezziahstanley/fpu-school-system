@@ -1,0 +1,2154 @@
+﻿=== FPU SNAPSHOT 2026-11-04 11:44:15 ===
+
+===== FOLDER TREE (depth 3) =====
+.\backups
+.\config
+.\db
+.\middleware
+.\migrations
+.\node_modules
+.\public
+.\routes
+.\scripts
+.\utils
+.\_deploy_backup_20261007-123938
+.\backups\admission-workflow-20261011-173354
+.\backups\admissions-fix-20261011-182712
+.\backups\batch1-2026-10-07T00-46-09-480Z
+.\backups\batch1-20261007-014440
+.\backups\batch2-2026-10-07T00-51-45-026Z
+.\backups\batch2-2026-10-07T00-51-50-114Z
+.\backups\batch2a-2026-10-07T00-47-26-247Z
+.\backups\batch3-2026-10-07T01-03-33-431Z
+.\backups\batch3a-2026-10-07T01-01-13-387Z
+.\backups\batch4-2026-10-07T01-11-27-571Z
+.\backups\batch5-2026-10-07T01-19-17-696Z
+.\backups\batch5-fix-2026-10-07T01-21-03-549Z
+.\backups\batch5-html-2026-10-07T01-22-20-973Z
+.\backups\batch6-2026-10-07T01-32-26-468Z
+.\backups\batch7-2026-10-07T01-44-30-589Z
+.\backups\batch7b-2026-10-07T01-45-37-812Z
+.\backups\batch8-2026-10-07T01-50-41-151Z
+.\backups\batch8-v2-2026-10-07T01-51-57-819Z
+.\backups\css-modern-20261007-115112
+.\backups\css-revert-20261007-115236
+.\backups\fix-courses-20261007-115915
+.\backups\fix-courses-semester-20261007-115825
+.\backups\fix-endpoints-20261007-115626
+.\backups\fix-queries-20261011-153428
+.\backups\header-v2-20261009-230615
+.\backups\letters-rewrite-20261011-175823
+.\backups\public-js-fix-20261011-154559
+.\backups\stepper-fix-20261011-170308
+.\backups\wizard-fix-20261011-164803
+.\db\queries
+.\public\admin
+.\public\css
+.\public\images
+.\public\js
+.\public\pdfjs
+.\public\portal
+.\public\uploads
+.\public\admin\partials
+.\public\admin\partials\academics
+.\public\admin\partials\allocations
+.\public\admin\partials\announcements
+.\public\admin\partials\applications
+.\public\admin\partials\attendance
+.\public\admin\partials\audit
+.\public\admin\partials\clearances
+.\public\admin\partials\complaints
+.\public\admin\partials\courses
+.\public\admin\partials\dashboard
+.\public\admin\partials\departments
+.\public\admin\partials\documents
+.\public\admin\partials\exams
+.\public\admin\partials\fees
+.\public\admin\partials\graduations
+.\public\admin\partials\hods
+.\public\admin\partials\lecturers
+.\public\admin\partials\library
+.\public\admin\partials\notifications
+.\public\admin\partials\payments
+.\public\admin\partials\programmes
+.\public\admin\partials\registrations
+.\public\admin\partials\reports
+.\public\admin\partials\results
+.\public\admin\partials\schools
+.\public\admin\partials\security
+.\public\admin\partials\sessions
+.\public\admin\partials\settings
+.\public\admin\partials\staff
+.\public\admin\partials\students
+.\public\admin\partials\timetable
+.\public\admin\partials\transcript
+.\public\admin\partials\users
+.\public\pdfjs\build
+.\public\pdfjs\web
+.\public\pdfjs\web\cmaps
+.\public\pdfjs\web\images
+.\public\pdfjs\web\locale
+.\public\pdfjs\web\standard_fonts
+.\public\portal\partials
+.\public\portal\partials\academic-officer
+.\public\portal\partials\admission-officer
+.\public\portal\partials\bursar
+.\public\portal\partials\exam-officer
+.\public\portal\partials\hod
+.\public\portal\partials\lecturer
+.\public\portal\partials\librarian
+.\public\portal\partials\rector
+.\public\portal\partials\registrar
+.\public\portal\partials\shared
+.\public\portal\partials\student
+.\public\portal\partials\superadmin
+.\routes\portal
+
+===== FILE LISTING =====
+
+Path                                                                                              Length
+----                                                                                              ------
+.\.dockerignore                                                                                        0
+.\.env                                                                                              3963
+.\.env.bak-20261010-124642                                                                          3831
+.\.env.example                                                                                      2982
+.\.gitignore                                                                                        3043
+.\.node-version                                                                                        7
+.\_comms-audit.txt                                                                                 63345
+.\_dashboards-dump.txt                                                                             53765
+.\_deploy_backup_20261007-123938\.env                                                               3828
+.\_deploy_backup_20261007-123938\.env.example                                                       3828
+.\_deploy_backup_20261007-123938\db__index.js                                                       3260
+.\_deploy_backup_20261007-123938\package.json                                                       1216
+.\_review_snapshot.txt                                                                              3401
+.\apply-batch1.js                                                                                  16067
+.\apply-batch1.ps1                                                                                 11320
+.\apply-batch2.js                                                                                  28041
+.\apply-batch2a.js                                                                                  7951
+.\apply-batch3.js                                                                                  41099
+.\apply-batch3a.js                                                                                 15004
+.\apply-batch4.js                                                                                   6977
+.\apply-batch5.js                                                                                  27079
+.\apply-batch5-fix.js                                                                               9268
+.\apply-batch5-html.js                                                                              7568
+.\apply-batch6.js                                                                                  18294
+.\apply-batch7.js                                                                                  30537
+.\apply-batch7b.js                                                                                 24794
+.\apply-batch8.js                                                                                  25914
+.\backups\admissions-fix-20261011-182712\admissionOfficer.js                                       16887
+.\backups\admissions-fix-20261011-182712\applications.js                                           16109
+.\backups\admissions-fix-20261011-182712\dashboard.html                                            22476
+.\backups\admission-workflow-20261011-173354\admissionOfficer.js.bak                               10562
+.\backups\admission-workflow-20261011-173354\applications.html.bak                                 34698
+.\backups\admission-workflow-20261011-173354\applications.js.bak                                   15057
+.\backups\admission-workflow-20261011-173354\letters.html.bak                                      20740
+.\backups\admission-workflow-20261011-173354\schema.js.bak                                         40593
+.\backups\batch1-20261007-014440\admin.css.bak                                                     52467
+.\backups\batch1-20261007-014440\admin.js.bak                                                     384997
+.\backups\batch1-2026-10-07T00-46-09-480Z\admin.css                                                54215
+.\backups\batch1-2026-10-07T00-46-09-480Z\admin.js                                                384997
+.\backups\batch2-2026-10-07T00-51-45-026Z\public__admin__partials__notifications__index.html        5626
+.\backups\batch2-2026-10-07T00-51-45-026Z\public__js__admin.js                                    391287
+.\backups\batch2-2026-10-07T00-51-50-114Z\public__admin__partials__notifications__index.html        5626
+.\backups\batch2-2026-10-07T00-51-50-114Z\public__js__admin.js                                    391287
+.\backups\batch2a-2026-10-07T00-47-26-247Z\allocations__form.html                                  10514
+.\backups\batch2a-2026-10-07T00-47-26-247Z\announcements__form.html                                 9871
+.\backups\batch2a-2026-10-07T00-47-26-247Z\attendance__by-course.html                               4992
+.\backups\batch2a-2026-10-07T00-47-26-247Z\attendance__by-student.html                              4971
+.\backups\batch2a-2026-10-07T00-47-26-247Z\courses__form.html                                      15100
+.\backups\batch2a-2026-10-07T00-47-26-247Z\departments__form.html                                   8142
+.\backups\batch2a-2026-10-07T00-47-26-247Z\documents__new.html                                      3874
+.\backups\batch2a-2026-10-07T00-47-26-247Z\exams__form.html                                        10379
+.\backups\batch2a-2026-10-07T00-47-26-247Z\exams__index.html                                        8404
+.\backups\batch2a-2026-10-07T00-47-26-247Z\fees__form.html                                         11500
+.\backups\batch2a-2026-10-07T00-47-26-247Z\fees__list.html                                          7191
+.\backups\batch2a-2026-10-07T00-47-26-247Z\library__book-form.html                                  7251
+.\backups\batch2a-2026-10-07T00-47-26-247Z\notifications__compose.html                              5002
+.\backups\batch2a-2026-10-07T00-47-26-247Z\payments__by-student.html                                4445
+.\backups\batch2a-2026-10-07T00-47-26-247Z\payments__detail.html                                    3045
+.\backups\batch2a-2026-10-07T00-47-26-247Z\results__edit.html                                       6487
+.\backups\batch2a-2026-10-07T00-47-26-247Z\results__grade-scales.html                              11853
+.\backups\batch2a-2026-10-07T00-47-26-247Z\results__result-detail.html                              4812
+.\backups\batch2a-2026-10-07T00-47-26-247Z\schools__form.html                                       6221
+.\backups\batch2a-2026-10-07T00-47-26-247Z\security__ip-rules.html                                  3389
+.\backups\batch2a-2026-10-07T00-47-26-247Z\staff__form.html                                        10628
+.\backups\batch2a-2026-10-07T00-47-26-247Z\staff__profile.html                                      5991
+.\backups\batch2a-2026-10-07T00-47-26-247Z\staff__workload.html                                     1729
+.\backups\batch2a-2026-10-07T00-47-26-247Z\timetable__form.html                                    12691
+.\backups\batch2a-2026-10-07T00-47-26-247Z\users__form.html                                        15506
+.\backups\batch2a-2026-10-07T00-47-26-247Z\users__profile.html                                      9999
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__admin__partials__payments__by-department.html     3800
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__admin__partials__payments__detail.html            3084
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__admin__partials__settings__index.html             2030
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__admin__partials__students__by-department.html     4018
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__admin__partials__students__form.html              3579
+.\backups\batch3-2026-10-07T01-03-33-431Z\public__js__admin.js                                    407508
+.\backups\batch3-2026-10-07T01-03-33-431Z\routes__index.js                                          4513
+.\backups\batch3-2026-10-07T01-03-33-431Z\routes__students.js                                       8140
+.\backups\batch3a-2026-10-07T01-01-13-387Z\public__js__admin.js                                   405577
+.\backups\batch3a-2026-10-07T01-01-13-387Z\public__js__admin-spa.js                                36051
+.\backups\batch4-2026-10-07T01-11-27-571Z\admin.js                                                409446
+.\backups\batch4-2026-10-07T01-11-27-571Z\admin-spa.js                                             36060
+.\backups\batch5-2026-10-07T01-19-17-696Z\admin.css                                                54215
+.\backups\batch5-2026-10-07T01-19-17-696Z\admin.js                                                409936
+.\backups\batch5-fix-2026-10-07T01-21-03-549Z\admin.js                                            409936
+.\backups\batch5-html-2026-10-07T01-22-20-973Z\admins.html                                          2417
+.\backups\batch5-html-2026-10-07T01-22-20-973Z\form.html                                           15578
+.\backups\batch6-2026-10-07T01-32-26-468Z\admin.js                                                414720
+.\backups\batch6-2026-10-07T01-32-26-468Z\admin-spa.js                                             36059
+.\backups\batch6-2026-10-07T01-32-26-468Z\institution.html                                          3761
+.\backups\batch7-2026-10-07T01-44-30-589Z\admin.js                                                421769
+.\backups\batch7-2026-10-07T01-44-30-589Z\finance.html                                              3063
+.\backups\batch7-2026-10-07T01-44-30-589Z\index.html                                                2107
+.\backups\batch7b-2026-10-07T01-45-37-812Z\admin.js                                               421769
+.\backups\batch7b-2026-10-07T01-45-37-812Z\finance.html                                             7515
+.\backups\batch8-2026-10-07T01-50-41-151Z\admin.js                                                427043
+.\backups\batch8-2026-10-07T01-50-41-151Z\admin-spa.js                                             37608
+.\backups\batch8-v2-2026-10-07T01-51-57-819Z\admin.css                                             63648
+.\backups\batch8-v2-2026-10-07T01-51-57-819Z\admin.js                                             428156
+.\backups\batch8-v2-2026-10-07T01-51-57-819Z\admin-spa.js                                          37608
+.\backups\css-modern-20261007-115112\admin.css                                                     69008
+.\backups\css-revert-20261007-115236\admin.css                                                     81294
+.\backups\fix-courses-20261007-115915\adminLookups.js                                              10361
+.\backups\fix-courses-20261007-115915\lookups.js                                                    9009
+.\backups\fix-endpoints-20261007-115626\attendance.js                                               3471
+.\backups\fix-queries-20261011-153428\clearances.js                                                 4641
+.\backups\fix-queries-20261011-153428\registrations.js                                              7005
+.\backups\fix-queries-20261011-153428\results.js                                                   13490
+.\backups\fix-queries-20261011-153428\timetable.js                                                  7521
+.\backups\header-v2-20261009-230615\about.html                                                     24773
+.\backups\header-v2-20261009-230615\administration.html                                            10557
+.\backups\header-v2-20261009-230615\announcements.html                                             18409
+.\backups\header-v2-20261009-230615\apply.html                                                     23347
+.\backups\header-v2-20261009-230615\apply-hnd.html                                                 28016
+.\backups\header-v2-20261009-230615\apply-status.html                                              28488
+.\backups\header-v2-20261009-230615\bursar.html                                                     6923
+.\backups\header-v2-20261009-230615\calendar.html                                                  10709
+.\backups\header-v2-20261009-230615\contact.html                                                    9222
+.\backups\header-v2-20261009-230615\faq.html                                                       12692
+.\backups\header-v2-20261009-230615\hnd.html                                                       13733
+.\backups\header-v2-20261009-230615\index.html                                                     46289
+.\backups\header-v2-20261009-230615\librarian.html                                                  7765
+.\backups\header-v2-20261009-230615\nd.html                                                        13851
+.\backups\header-v2-20261009-230615\programmes.html                                                15485
+.\backups\header-v2-20261009-230615\rector.html                                                     8846
+.\backups\header-v2-20261009-230615\registrar.html                                                  7415
+.\backups\letters-rewrite-20261011-175823\letters.html.bak                                         31729
+.\backups\public-js-fix-20261011-154559\public.js                                                  19373
+.\backups\stepper-fix-20261011-170308\apply.html                                                   22863
+.\backups\stepper-fix-20261011-170308\apply-hnd.html                                               24557
+.\backups\stepper-fix-20261011-170308\wizard.js                                                    12899
+.\backups\wizard-fix-20261011-164803\wizard.js                                                     12422
+.\batch1-to-add.js                                                                                  6489
+.\check-auth.js                                                                                      197
+.\check-db.js                                                                                        585
+.\check-michael.js                                                                                  1936
+.\check-routes.js                                                                                    388
+.\config\departments.js                                                                            11439
+.\config\geo.js                                                                                    11547
+.\db\index.js                                                                                       1013
+.\db\migrate.js                                                                                     9630
+.\db\queries\applications.js                                                                       16109
+.\db\queries\attendance.js                                                                          4826
+.\db\queries\audit.js                                                                               6893
+.\db\queries\clearances.js                                                                          4641
+.\db\queries\courses.js                                                                            18409
+.\db\queries\exams.js                                                                              11527
+.\db\queries\library.js                                                                            12449
+.\db\queries\notifications.js                                                                      10666
+.\db\queries\payments.js                                                                           14905
+.\db\queries\registrations.js                                                                       7005
+.\db\queries\results.js                                                                            13490
+.\db\queries\sessions.js                                                                            7542
+.\db\queries\settings.js                                                                            6257
+.\db\queries\timetable.js                                                                           7521
+.\db\queries\users.js                                                                              16430
+.\db\schema.js                                                                                     41031
+.\docker-compose.yml                                                                                1439
+.\Dockerfile                                                                                         865
+.\drizzle.config.js                                                                                 1498
+.\dump.txt                                                                                        265750
+.\ecosystem.config.js                                                                               1198
+.\endpoint-report-20261007-115452.csv                                                               2835
+.\fix-schema.js                                                                                     1627
+.\HANDOFF_PROMPT.txt                                                                                2779
+.\middleware\auth.js                                                                                6655
+.\middleware\errorHandler.js                                                                        4178
+.\middleware\ipGuard.js                                                                             2684
+.\middleware\rateLimits.js                                                                          2489
+.\migrations\0000_initial.sql                                                                      36633
+.\migrations\0002_add_applications_geo.sql                                                           542
+.\migrations\0003_courses_year_of_study.sql                                                         1620
+.\migrations\0004_admission_workflow.sql                                                            1233
+.\migrations\0005_add_signature.sql                                                                  321
+.\package.json                                                                                      1666
+.\package-lock.json                                                                               131288
+.\project_dump.txt                                                                              11089358
+.\public\404.html                                                                                   1009
+.\public\about.html                                                                                25766
+.\public\admin\app.html                                                                            12055
+.\public\admin\login.html                                                                            444
+.\public\admin\partials\academics\programme-form.html                                               1706
+.\public\admin\partials\academics\programmes.html                                                    850
+.\public\admin\partials\academics\session-form.html                                                 1364
+.\public\admin\partials\academics\sessions.html                                                      877
+.\public\admin\partials\admission-letters.html                                                      4012
+.\public\admin\partials\allocation-form.html                                                        2141
+.\public\admin\partials\allocations\bulk.html                                                       8678
+.\public\admin\partials\allocations\by-department.html                                              4952
+.\public\admin\partials\allocations\form.html                                                      10598
+.\public\admin\partials\allocations\list.html                                                       6315
+.\public\admin\partials\announcements\detail.html                                                   6740
+.\public\admin\partials\announcements\form.html                                                     9959
+.\public\admin\partials\announcements\list.html                                                     6422
+.\public\admin\partials\applications\admitted.html                                                  3539
+.\public\admin\partials\applications\form.html                                                     10246
+.\public\admin\partials\applications\list.html                                                      4583
+.\public\admin\partials\applications\view.html                                                     10394
+.\public\admin\partials\attendance\by-course.html                                                   5033
+.\public\admin\partials\attendance\by-department.html                                               6522
+.\public\admin\partials\attendance\by-student.html                                                  5012
+.\public\admin\partials\attendance\index.html                                                       6676
+.\public\admin\partials\audit\index.html                                                            4163
+.\public\admin\partials\clearances\by-department.html                                               3672
+.\public\admin\partials\clearances\index.html                                                       1142
+.\public\admin\partials\clearances\list.html                                                        6336
+.\public\admin\partials\complaints\list.html                                                        4274
+.\public\admin\partials\complaints\view.html                                                        9278
+.\public\admin\partials\courses\by-department.html                                                  5765
+.\public\admin\partials\courses\departments.html                                                    5899
+.\public\admin\partials\courses\form.html                                                          15176
+.\public\admin\partials\courses\list.html                                                           7512
+.\public\admin\partials\dashboard\index.html                                                       56702
+.\public\admin\partials\departments\detail.html                                                    10236
+.\public\admin\partials\departments\form.html                                                       8226
+.\public\admin\partials\departments\list.html                                                       6323
+.\public\admin\partials\documents\detail.html                                                       2525
+.\public\admin\partials\documents\index.html                                                        6659
+.\public\admin\partials\documents\new.html                                                          3914
+.\public\admin\partials\exams\form.html                                                            10451
+.\public\admin\partials\exams\index.html                                                            8440
+.\public\admin\partials\exams\list.html                                                              826
+.\public\admin\partials\exams\sheet.html                                                            6396
+.\public\admin\partials\fees\by-department.html                                                     4938
+.\public\admin\partials\fees\form.html                                                             11570
+.\public\admin\partials\fees\list.html                                                              7226
+.\public\admin\partials\graduations\form.html                                                       4221
+.\public\admin\partials\graduations\list.html                                                       5017
+.\public\admin\partials\graduations\queue.html                                                      5017
+.\public\admin\partials\hods\list.html                                                              5244
+.\public\admin\partials\lecturers\list.html                                                         6157
+.\public\admin\partials\library\book-detail.html                                                    4875
+.\public\admin\partials\library\book-form.html                                                      7327
+.\public\admin\partials\library\books.html                                                          6531
+.\public\admin\partials\library\borrows.html                                                        4515
+.\public\admin\partials\library\fines.html                                                          2689
+.\public\admin\partials\library\issue.html                                                          4841
+.\public\admin\partials\library\reservations.html                                                   2736
+.\public\admin\partials\notifications\compose.html                                                  5090
+.\public\admin\partials\notifications\detail.html                                                   4914
+.\public\admin\partials\notifications\index.html                                                    5534
+.\public\admin\partials\payments\by-department.html                                                 6115
+.\public\admin\partials\payments\by-student.html                                                    4484
+.\public\admin\partials\payments\detail.html                                                        4810
+.\public\admin\partials\payments\form.html                                                          2278
+.\public\admin\partials\payments\list.html                                                          6666
+.\public\admin\partials\programme-form.html                                                         2121
+.\public\admin\partials\programmes\programme-form.html                                              5759
+.\public\admin\partials\programmes\programmes.html                                                  2977
+.\public\admin\partials\registrations\by-course.html                                                4588
+.\public\admin\partials\registrations\by-student.html                                               3702
+.\public\admin\partials\registrations\list.html                                                     7358
+.\public\admin\partials\reports\index.html                                                          3993
+.\public\admin\partials\results\by-department.html                                                  6253
+.\public\admin\partials\results\edit.html                                                           6563
+.\public\admin\partials\results\grade-scales.html                                                  11929
+.\public\admin\partials\results\list.html                                                           7254
+.\public\admin\partials\results\result-detail.html                                                  4850
+.\public\admin\partials\schools\detail.html                                                        13851
+.\public\admin\partials\schools\form.html                                                           6297
+.\public\admin\partials\schools\list.html                                                           5335
+.\public\admin\partials\security\backups.html                                                       2647
+.\public\admin\partials\security\compliance.html                                                    2784
+.\public\admin\partials\security\dashboard.html                                                     7357
+.\public\admin\partials\security\events.html                                                        3186
+.\public\admin\partials\security\index.html                                                          992
+.\public\admin\partials\security\ip-rules.html                                                      3428
+.\public\admin\partials\security\login-attempts.html                                                3058
+.\public\admin\partials\security\password-policy.html                                               4509
+.\public\admin\partials\security\permissions.html                                                   2244
+.\public\admin\partials\security\sessions.html                                                      3120
+.\public\admin\partials\security\two-factor.html                                                    4278
+.\public\admin\partials\sessions\session-form.html                                                  5007
+.\public\admin\partials\sessions\sessions.html                                                      2760
+.\public\admin\partials\settings\_tabs\academic.html                                                3279
+.\public\admin\partials\settings\_tabs\account.html                                                 4413
+.\public\admin\partials\settings\_tabs\advanced.html                                                1185
+.\public\admin\partials\settings\_tabs\attendance.html                                              4598
+.\public\admin\partials\settings\_tabs\email.html                                                   2823
+.\public\admin\partials\settings\_tabs\features.html                                                3577
+.\public\admin\partials\settings\_tabs\finance.html                                                11935
+.\public\admin\partials\settings\_tabs\institution.html                                             4550
+.\public\admin\partials\settings\_tabs\library.html                                                 6733
+.\public\admin\partials\settings\_tabs\localisation.html                                            5230
+.\public\admin\partials\settings\_tabs\maintenance.html                                             1718
+.\public\admin\partials\settings\_tabs\registrations.html                                           5912
+.\public\admin\partials\settings\_tabs\sms.html                                                     7161
+.\public\admin\partials\settings\_tabs\system.html                                                  7044
+.\public\admin\partials\settings\index.html                                                         2182
+.\public\admin\partials\staff\form.html                                                            10700
+.\public\admin\partials\staff\list.html                                                             7632
+.\public\admin\partials\staff\profile.html                                                          6027
+.\public\admin\partials\staff\workload.html                                                         1765
+.\public\admin\partials\students\by-department.html                                                 6488
+.\public\admin\partials\students\form.html                                                          8533
+.\public\admin\partials\students\list.html                                                          5272
+.\public\admin\partials\students\profile.html                                                       8479
+.\public\admin\partials\timetable\form.html                                                        12771
+.\public\admin\partials\timetable\index.html                                                        5948
+.\public\admin\partials\timetable\list.html                                                          822
+.\public\admin\partials\timetable\semester.html                                                     6058
+.\public\admin\partials\transcript\by-student.html                                                  7187
+.\public\admin\partials\transcript\index.html                                                       2245
+.\public\admin\partials\users\admins.html                                                           4687
+.\public\admin\partials\users\all.html                                                              4220
+.\public\admin\partials\users\form.html                                                            16858
+.\public\admin\partials\users\list.html                                                             5175
+.\public\admin\partials\users\login-history.html                                                     745
+.\public\admin\partials\users\profile.html                                                         10035
+.\public\admin\partials\users\with-photos.html                                                       568
+.\public\administration.html                                                                       11696
+.\public\announcements.html                                                                        19466
+.\public\apply.html                                                                                22863
+.\public\apply-hnd.html                                                                            24557
+.\public\apply-status.html                                                                         29545
+.\public\bursar.html                                                                                8062
+.\public\calendar.html                                                                             11848
+.\public\contact.html                                                                              10342
+.\public\css\admin.css                                                                             69010
+.\public\css\portal.css                                                                            53147
+.\public\css\portal.css.bak-20261009-235620                                                        24393
+.\public\css\portal.css.bak-mobile-20261010-003829                                                 30762
+.\public\css\portal.css.bak-portal-mobile-20261010-005314                                          44157
+.\public\css\style.css                                                                             98045
+.\public\css\style.css.bak-20261009-231224                                                         61437
+.\public\css\style.css.bak-20261010-002147                                                         69594
+.\public\css\style.css.bak-navfix-20261010-002600                                                  79152
+.\public\faq.html                                                                                  13831
+.\public\forgot-password.html                                                                       7072
+.\public\hnd.html                                                                                  14853
+.\public\id-lookup.html                                                                             6684
+.\public\images\logo.png                                                                           11630
+.\public\index.html                                                                                48223
+.\public\js\admin.js                                                                              428765
+.\public\js\admin-forms.js                                                                          6607
+.\public\js\admin-lookups.js                                                                        5801
+.\public\js\admin-spa.js                                                                           36059
+.\public\js\main.js                                                                                 5742
+.\public\js\pagination.js                                                                           4293
+.\public\js\partials-loader.js                                                                      1690
+.\public\js\portal-core.js                                                                          8496
+.\public\js\portal-photo-helper.js                                                                  3024
+.\public\js\portal-spa.js                                                                          28412
+.\public\js\portal-spa.js.bak                                                                      25899
+.\public\js\portal-spa.js.bak-spa-fix-20261010-020438                                              27393
+.\public\js\portal-spa.js.broken                                                                   28232
+.\public\js\wizard.js                                                                              12899
+.\public\librarian.html                                                                             8904
+.\public\login.html                                                                                23927
+.\public\nd.html                                                                                   14975
+.\public\pdfjs\build\pdf.mjs                                                                      590488
+.\public\pdfjs\build\pdf.mjs.map                                                                 1424662
+.\public\pdfjs\build\pdf.sandbox.mjs                                                              627569
+.\public\pdfjs\build\pdf.sandbox.mjs.map                                                          552408
+.\public\pdfjs\build\pdf.worker.mjs                                                              1875780
+.\public\pdfjs\build\pdf.worker.mjs.map                                                          4953220
+.\public\pdfjs\LICENSE                                                                             10174
+.\public\pdfjs\web\cmaps\78-EUC-H.bcmap                                                             2404
+.\public\pdfjs\web\cmaps\78-EUC-V.bcmap                                                              173
+.\public\pdfjs\web\cmaps\78-H.bcmap                                                                 2379
+.\public\pdfjs\web\cmaps\78ms-RKSJ-H.bcmap                                                          2651
+.\public\pdfjs\web\cmaps\78ms-RKSJ-V.bcmap                                                           290
+.\public\pdfjs\web\cmaps\78-RKSJ-H.bcmap                                                            2398
+.\public\pdfjs\web\cmaps\78-RKSJ-V.bcmap                                                             173
+.\public\pdfjs\web\cmaps\78-V.bcmap                                                                  169
+.\public\pdfjs\web\cmaps\83pv-RKSJ-H.bcmap                                                           905
+.\public\pdfjs\web\cmaps\90msp-RKSJ-H.bcmap                                                          715
+.\public\pdfjs\web\cmaps\90msp-RKSJ-V.bcmap                                                          291
+.\public\pdfjs\web\cmaps\90ms-RKSJ-H.bcmap                                                           721
+.\public\pdfjs\web\cmaps\90ms-RKSJ-V.bcmap                                                           290
+.\public\pdfjs\web\cmaps\90pv-RKSJ-H.bcmap                                                           982
+.\public\pdfjs\web\cmaps\90pv-RKSJ-V.bcmap                                                           260
+.\public\pdfjs\web\cmaps\Add-H.bcmap                                                                2419
+.\public\pdfjs\web\cmaps\Add-RKSJ-H.bcmap                                                           2413
+.\public\pdfjs\web\cmaps\Add-RKSJ-V.bcmap                                                            287
+.\public\pdfjs\web\cmaps\Add-V.bcmap                                                                 282
+.\public\pdfjs\web\cmaps\Adobe-CNS1-0.bcmap                                                          317
+.\public\pdfjs\web\cmaps\Adobe-CNS1-1.bcmap                                                          371
+.\public\pdfjs\web\cmaps\Adobe-CNS1-2.bcmap                                                          376
+.\public\pdfjs\web\cmaps\Adobe-CNS1-3.bcmap                                                          401
+.\public\pdfjs\web\cmaps\Adobe-CNS1-4.bcmap                                                          405
+.\public\pdfjs\web\cmaps\Adobe-CNS1-5.bcmap                                                          406
+.\public\pdfjs\web\cmaps\Adobe-CNS1-6.bcmap                                                          406
+.\public\pdfjs\web\cmaps\Adobe-CNS1-UCS2.bcmap                                                     41193
+.\public\pdfjs\web\cmaps\Adobe-GB1-0.bcmap                                                           217
+.\public\pdfjs\web\cmaps\Adobe-GB1-1.bcmap                                                           250
+.\public\pdfjs\web\cmaps\Adobe-GB1-2.bcmap                                                           465
+.\public\pdfjs\web\cmaps\Adobe-GB1-3.bcmap                                                           470
+.\public\pdfjs\web\cmaps\Adobe-GB1-4.bcmap                                                           601
+.\public\pdfjs\web\cmaps\Adobe-GB1-5.bcmap                                                           625
+.\public\pdfjs\web\cmaps\Adobe-GB1-UCS2.bcmap                                                      33974
+.\public\pdfjs\web\cmaps\Adobe-Japan1-0.bcmap                                                        225
+.\public\pdfjs\web\cmaps\Adobe-Japan1-1.bcmap                                                        226
+.\public\pdfjs\web\cmaps\Adobe-Japan1-2.bcmap                                                        233
+.\public\pdfjs\web\cmaps\Adobe-Japan1-3.bcmap                                                        242
+.\public\pdfjs\web\cmaps\Adobe-Japan1-4.bcmap                                                        337
+.\public\pdfjs\web\cmaps\Adobe-Japan1-5.bcmap                                                        430
+.\public\pdfjs\web\cmaps\Adobe-Japan1-6.bcmap                                                        485
+.\public\pdfjs\web\cmaps\Adobe-Japan1-UCS2.bcmap                                                   40951
+.\public\pdfjs\web\cmaps\Adobe-Korea1-0.bcmap                                                        241
+.\public\pdfjs\web\cmaps\Adobe-Korea1-1.bcmap                                                        386
+.\public\pdfjs\web\cmaps\Adobe-Korea1-2.bcmap                                                        391
+.\public\pdfjs\web\cmaps\Adobe-Korea1-UCS2.bcmap                                                   23293
+.\public\pdfjs\web\cmaps\B5-H.bcmap                                                                 1086
+.\public\pdfjs\web\cmaps\B5pc-H.bcmap                                                               1099
+.\public\pdfjs\web\cmaps\B5pc-V.bcmap                                                                144
+.\public\pdfjs\web\cmaps\B5-V.bcmap                                                                  142
+.\public\pdfjs\web\cmaps\CNS1-H.bcmap                                                                706
+.\public\pdfjs\web\cmaps\CNS1-V.bcmap                                                                143
+.\public\pdfjs\web\cmaps\CNS2-H.bcmap                                                                504
+.\public\pdfjs\web\cmaps\CNS2-V.bcmap                                                                 93
+.\public\pdfjs\web\cmaps\CNS-EUC-H.bcmap                                                            1780
+.\public\pdfjs\web\cmaps\CNS-EUC-V.bcmap                                                            1920
+.\public\pdfjs\web\cmaps\ETen-B5-H.bcmap                                                            1125
+.\public\pdfjs\web\cmaps\ETen-B5-V.bcmap                                                             158
+.\public\pdfjs\web\cmaps\ETenms-B5-H.bcmap                                                           101
+.\public\pdfjs\web\cmaps\ETenms-B5-V.bcmap                                                           172
+.\public\pdfjs\web\cmaps\ETHK-B5-H.bcmap                                                            4426
+.\public\pdfjs\web\cmaps\ETHK-B5-V.bcmap                                                             158
+.\public\pdfjs\web\cmaps\EUC-H.bcmap                                                                 578
+.\public\pdfjs\web\cmaps\EUC-V.bcmap                                                                 170
+.\public\pdfjs\web\cmaps\Ext-H.bcmap                                                                2536
+.\public\pdfjs\web\cmaps\Ext-RKSJ-H.bcmap                                                           2542
+.\public\pdfjs\web\cmaps\Ext-RKSJ-V.bcmap                                                            218
+.\public\pdfjs\web\cmaps\Ext-V.bcmap                                                                 215
+.\public\pdfjs\web\cmaps\GB-EUC-H.bcmap                                                              549
+.\public\pdfjs\web\cmaps\GB-EUC-V.bcmap                                                              179
+.\public\pdfjs\web\cmaps\GB-H.bcmap                                                                  528
+.\public\pdfjs\web\cmaps\GBK2K-H.bcmap                                                             19662
+.\public\pdfjs\web\cmaps\GBK2K-V.bcmap                                                               219
+.\public\pdfjs\web\cmaps\GBK-EUC-H.bcmap                                                           14692
+.\public\pdfjs\web\cmaps\GBK-EUC-V.bcmap                                                             180
+.\public\pdfjs\web\cmaps\GBKp-EUC-H.bcmap                                                          14686
+.\public\pdfjs\web\cmaps\GBKp-EUC-V.bcmap                                                            181
+.\public\pdfjs\web\cmaps\GBpc-EUC-H.bcmap                                                            557
+.\public\pdfjs\web\cmaps\GBpc-EUC-V.bcmap                                                            181
+.\public\pdfjs\web\cmaps\GBT-EUC-H.bcmap                                                            7290
+.\public\pdfjs\web\cmaps\GBT-EUC-V.bcmap                                                             180
+.\public\pdfjs\web\cmaps\GBT-H.bcmap                                                                7269
+.\public\pdfjs\web\cmaps\GBTpc-EUC-H.bcmap                                                          7298
+.\public\pdfjs\web\cmaps\GBTpc-EUC-V.bcmap                                                           182
+.\public\pdfjs\web\cmaps\GBT-V.bcmap                                                                 176
+.\public\pdfjs\web\cmaps\GB-V.bcmap                                                                  175
+.\public\pdfjs\web\cmaps\H.bcmap                                                                     553
+.\public\pdfjs\web\cmaps\Hankaku.bcmap                                                               132
+.\public\pdfjs\web\cmaps\Hiragana.bcmap                                                              124
+.\public\pdfjs\web\cmaps\HKdla-B5-H.bcmap                                                           2654
+.\public\pdfjs\web\cmaps\HKdla-B5-V.bcmap                                                            148
+.\public\pdfjs\web\cmaps\HKdlb-B5-H.bcmap                                                           2414
+.\public\pdfjs\web\cmaps\HKdlb-B5-V.bcmap                                                            148
+.\public\pdfjs\web\cmaps\HKgccs-B5-H.bcmap                                                          2292
+.\public\pdfjs\web\cmaps\HKgccs-B5-V.bcmap                                                           149
+.\public\pdfjs\web\cmaps\HKm314-B5-H.bcmap                                                          1772
+.\public\pdfjs\web\cmaps\HKm314-B5-V.bcmap                                                           149
+.\public\pdfjs\web\cmaps\HKm471-B5-H.bcmap                                                          2171
+.\public\pdfjs\web\cmaps\HKm471-B5-V.bcmap                                                           149
+.\public\pdfjs\web\cmaps\HKscs-B5-H.bcmap                                                           4437
+.\public\pdfjs\web\cmaps\HKscs-B5-V.bcmap                                                            159
+.\public\pdfjs\web\cmaps\Katakana.bcmap                                                              100
+.\public\pdfjs\web\cmaps\KSC-EUC-H.bcmap                                                            1848
+.\public\pdfjs\web\cmaps\KSC-EUC-V.bcmap                                                             164
+.\public\pdfjs\web\cmaps\KSC-H.bcmap                                                                1831
+.\public\pdfjs\web\cmaps\KSC-Johab-H.bcmap                                                         16791
+.\public\pdfjs\web\cmaps\KSC-Johab-V.bcmap                                                           166
+.\public\pdfjs\web\cmaps\KSCms-UHC-H.bcmap                                                          2787
+.\public\pdfjs\web\cmaps\KSCms-UHC-HW-H.bcmap                                                       2789
+.\public\pdfjs\web\cmaps\KSCms-UHC-HW-V.bcmap                                                        169
+.\public\pdfjs\web\cmaps\KSCms-UHC-V.bcmap                                                           166
+.\public\pdfjs\web\cmaps\KSCpc-EUC-H.bcmap                                                          2024
+.\public\pdfjs\web\cmaps\KSCpc-EUC-V.bcmap                                                           166
+.\public\pdfjs\web\cmaps\KSC-V.bcmap                                                                 160
+.\public\pdfjs\web\cmaps\LICENSE                                                                    2080
+.\public\pdfjs\web\cmaps\NWP-H.bcmap                                                                2765
+.\public\pdfjs\web\cmaps\NWP-V.bcmap                                                                 252
+.\public\pdfjs\web\cmaps\RKSJ-H.bcmap                                                                534
+.\public\pdfjs\web\cmaps\RKSJ-V.bcmap                                                                170
+.\public\pdfjs\web\cmaps\Roman.bcmap                                                                  96
+.\public\pdfjs\web\cmaps\UniCNS-UCS2-H.bcmap                                                       48280
+.\public\pdfjs\web\cmaps\UniCNS-UCS2-V.bcmap                                                         156
+.\public\pdfjs\web\cmaps\UniCNS-UTF16-H.bcmap                                                      50419
+.\public\pdfjs\web\cmaps\UniCNS-UTF16-V.bcmap                                                        156
+.\public\pdfjs\web\cmaps\UniCNS-UTF32-H.bcmap                                                      52679
+.\public\pdfjs\web\cmaps\UniCNS-UTF32-V.bcmap                                                        160
+.\public\pdfjs\web\cmaps\UniCNS-UTF8-H.bcmap                                                       53629
+.\public\pdfjs\web\cmaps\UniCNS-UTF8-V.bcmap                                                         157
+.\public\pdfjs\web\cmaps\UniGB-UCS2-H.bcmap                                                        43366
+.\public\pdfjs\web\cmaps\UniGB-UCS2-V.bcmap                                                          193
+.\public\pdfjs\web\cmaps\UniGB-UTF16-H.bcmap                                                       44086
+.\public\pdfjs\web\cmaps\UniGB-UTF16-V.bcmap                                                         178
+.\public\pdfjs\web\cmaps\UniGB-UTF32-H.bcmap                                                       45738
+.\public\pdfjs\web\cmaps\UniGB-UTF32-V.bcmap                                                         182
+.\public\pdfjs\web\cmaps\UniGB-UTF8-H.bcmap                                                        46837
+.\public\pdfjs\web\cmaps\UniGB-UTF8-V.bcmap                                                          181
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF16-H.bcmap                                                  39534
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF16-V.bcmap                                                    647
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF32-H.bcmap                                                  40630
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF32-V.bcmap                                                    681
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF8-H.bcmap                                                   41779
+.\public\pdfjs\web\cmaps\UniJIS2004-UTF8-V.bcmap                                                     682
+.\public\pdfjs\web\cmaps\UniJISPro-UCS2-HW-V.bcmap                                                   705
+.\public\pdfjs\web\cmaps\UniJISPro-UCS2-V.bcmap                                                      689
+.\public\pdfjs\web\cmaps\UniJISPro-UTF8-V.bcmap                                                      726
+.\public\pdfjs\web\cmaps\UniJIS-UCS2-H.bcmap                                                       25439
+.\public\pdfjs\web\cmaps\UniJIS-UCS2-HW-H.bcmap                                                      119
+.\public\pdfjs\web\cmaps\UniJIS-UCS2-HW-V.bcmap                                                      680
+.\public\pdfjs\web\cmaps\UniJIS-UCS2-V.bcmap                                                         664
+.\public\pdfjs\web\cmaps\UniJIS-UTF16-H.bcmap                                                      39443
+.\public\pdfjs\web\cmaps\UniJIS-UTF16-V.bcmap                                                        643
+.\public\pdfjs\web\cmaps\UniJIS-UTF32-H.bcmap                                                      40539
+.\public\pdfjs\web\cmaps\UniJIS-UTF32-V.bcmap                                                        677
+.\public\pdfjs\web\cmaps\UniJIS-UTF8-H.bcmap                                                       41695
+.\public\pdfjs\web\cmaps\UniJIS-UTF8-V.bcmap                                                         678
+.\public\pdfjs\web\cmaps\UniJISX02132004-UTF32-H.bcmap                                             40608
+.\public\pdfjs\web\cmaps\UniJISX02132004-UTF32-V.bcmap                                               688
+.\public\pdfjs\web\cmaps\UniJISX0213-UTF32-H.bcmap                                                 40517
+.\public\pdfjs\web\cmaps\UniJISX0213-UTF32-V.bcmap                                                   684
+.\public\pdfjs\web\cmaps\UniKS-UCS2-H.bcmap                                                        25783
+.\public\pdfjs\web\cmaps\UniKS-UCS2-V.bcmap                                                          178
+.\public\pdfjs\web\cmaps\UniKS-UTF16-H.bcmap                                                       26327
+.\public\pdfjs\web\cmaps\UniKS-UTF16-V.bcmap                                                         164
+.\public\pdfjs\web\cmaps\UniKS-UTF32-H.bcmap                                                       26451
+.\public\pdfjs\web\cmaps\UniKS-UTF32-V.bcmap                                                         168
+.\public\pdfjs\web\cmaps\UniKS-UTF8-H.bcmap                                                        27790
+.\public\pdfjs\web\cmaps\UniKS-UTF8-V.bcmap                                                          169
+.\public\pdfjs\web\cmaps\V.bcmap                                                                     166
+.\public\pdfjs\web\cmaps\WP-Symbol.bcmap                                                             179
+.\public\pdfjs\web\compressed.tracemonkey-pldi-09.pdf                                            1016315
+.\public\pdfjs\web\debugger.css                                                                     2414
+.\public\pdfjs\web\debugger.mjs                                                                    18003
+.\public\pdfjs\web\images\altText_add.svg                                                            920
+.\public\pdfjs\web\images\altText_done.svg                                                          1087
+.\public\pdfjs\web\images\annotation-check.svg                                                       415
+.\public\pdfjs\web\images\annotation-comment.svg                                                     883
+.\public\pdfjs\web\images\annotation-help.svg                                                       2168
+.\public\pdfjs\web\images\annotation-insert.svg                                                      408
+.\public\pdfjs\web\images\annotation-key.svg                                                        1452
+.\public\pdfjs\web\images\annotation-newparagraph.svg                                                426
+.\public\pdfjs\web\images\annotation-noicon.svg                                                      158
+.\public\pdfjs\web\images\annotation-note.svg                                                       1041
+.\public\pdfjs\web\images\annotation-paperclip.svg                                                   552
+.\public\pdfjs\web\images\annotation-paragraph.svg                                                  1143
+.\public\pdfjs\web\images\annotation-pushpin.svg                                                    1375
+.\public\pdfjs\web\images\cursor-editorFreeText.svg                                                 1452
+.\public\pdfjs\web\images\cursor-editorInk.svg                                                      1323
+.\public\pdfjs\web\images\editor-toolbar-delete.svg                                                  909
+.\public\pdfjs\web\images\findbarButton-next.svg                                                     578
+.\public\pdfjs\web\images\findbarButton-previous.svg                                                 578
+.\public\pdfjs\web\images\gv-toolbarButton-download.svg                                              782
+.\public\pdfjs\web\images\gv-toolbarButton-openinapp.svg                                             573
+.\public\pdfjs\web\images\loading.svg                                                               1559
+.\public\pdfjs\web\images\loading-icon.gif                                                          2545
+.\public\pdfjs\web\images\secondaryToolbarButton-documentProperties.svg                              417
+.\public\pdfjs\web\images\secondaryToolbarButton-firstPage.svg                                       260
+.\public\pdfjs\web\images\secondaryToolbarButton-handTool.svg                                       1344
+.\public\pdfjs\web\images\secondaryToolbarButton-lastPage.svg                                        257
+.\public\pdfjs\web\images\secondaryToolbarButton-rotateCcw.svg                                       596
+.\public\pdfjs\web\images\secondaryToolbarButton-rotateCw.svg                                        576
+.\public\pdfjs\web\images\secondaryToolbarButton-scrollHorizontal.svg                                971
+.\public\pdfjs\web\images\secondaryToolbarButton-scrollPage.svg                                      731
+.\public\pdfjs\web\images\secondaryToolbarButton-scrollVertical.svg                                  969
+.\public\pdfjs\web\images\secondaryToolbarButton-scrollWrapped.svg                                  1228
+.\public\pdfjs\web\images\secondaryToolbarButton-selectTool.svg                                     1085
+.\public\pdfjs\web\images\secondaryToolbarButton-spreadEven.svg                                      775
+.\public\pdfjs\web\images\secondaryToolbarButton-spreadNone.svg                                      395
+.\public\pdfjs\web\images\secondaryToolbarButton-spreadOdd.svg                                       711
+.\public\pdfjs\web\images\toolbarButton-bookmark.svg                                                 861
+.\public\pdfjs\web\images\toolbarButton-currentOutlineItem.svg                                       607
+.\public\pdfjs\web\images\toolbarButton-download.svg                                                1036
+.\public\pdfjs\web\images\toolbarButton-editorFreeText.svg                                           915
+.\public\pdfjs\web\images\toolbarButton-editorHighlight.svg                                          910
+.\public\pdfjs\web\images\toolbarButton-editorInk.svg                                               1189
+.\public\pdfjs\web\images\toolbarButton-editorStamp.svg                                              777
+.\public\pdfjs\web\images\toolbarButton-menuArrow.svg                                                681
+.\public\pdfjs\web\images\toolbarButton-openFile.svg                                                1400
+.\public\pdfjs\web\images\toolbarButton-pageDown.svg                                                 701
+.\public\pdfjs\web\images\toolbarButton-pageUp.svg                                                   682
+.\public\pdfjs\web\images\toolbarButton-presentationMode.svg                                         681
+.\public\pdfjs\web\images\toolbarButton-print.svg                                                    927
+.\public\pdfjs\web\images\toolbarButton-search.svg                                                  1234
+.\public\pdfjs\web\images\toolbarButton-secondaryToolbarToggle.svg                                  1080
+.\public\pdfjs\web\images\toolbarButton-sidebarToggle.svg                                           1560
+.\public\pdfjs\web\images\toolbarButton-viewAttachments.svg                                          570
+.\public\pdfjs\web\images\toolbarButton-viewLayers.svg                                               671
+.\public\pdfjs\web\images\toolbarButton-viewOutline.svg                                              332
+.\public\pdfjs\web\images\toolbarButton-viewThumbnail.svg                                           1396
+.\public\pdfjs\web\images\toolbarButton-zoomIn.svg                                                   958
+.\public\pdfjs\web\images\toolbarButton-zoomOut.svg                                                  472
+.\public\pdfjs\web\images\treeitem-collapsed.svg                                                      93
+.\public\pdfjs\web\images\treeitem-expanded.svg                                                       94
+.\public\pdfjs\web\locale\ach\viewer.ftl                                                            7983
+.\public\pdfjs\web\locale\af\viewer.ftl                                                             7365
+.\public\pdfjs\web\locale\an\viewer.ftl                                                            10101
+.\public\pdfjs\web\locale\ar\viewer.ftl                                                            11335
+.\public\pdfjs\web\locale\ast\viewer.ftl                                                            7246
+.\public\pdfjs\web\locale\az\viewer.ftl                                                            10136
+.\public\pdfjs\web\locale\be\viewer.ftl                                                            18716
+.\public\pdfjs\web\locale\bg\viewer.ftl                                                            11627
+.\public\pdfjs\web\locale\bn\viewer.ftl                                                            12486
+.\public\pdfjs\web\locale\bo\viewer.ftl                                                             9120
+.\public\pdfjs\web\locale\br\viewer.ftl                                                            11201
+.\public\pdfjs\web\locale\brx\viewer.ftl                                                           10555
+.\public\pdfjs\web\locale\bs\viewer.ftl                                                             8299
+.\public\pdfjs\web\locale\ca\viewer.ftl                                                            11724
+.\public\pdfjs\web\locale\cak\viewer.ftl                                                           11480
+.\public\pdfjs\web\locale\ckb\viewer.ftl                                                           10564
+.\public\pdfjs\web\locale\cs\viewer.ftl                                                            15562
+.\public\pdfjs\web\locale\cy\viewer.ftl                                                            15389
+.\public\pdfjs\web\locale\da\viewer.ftl                                                            14403
+.\public\pdfjs\web\locale\de\viewer.ftl                                                            15476
+.\public\pdfjs\web\locale\dsb\viewer.ftl                                                           15739
+.\public\pdfjs\web\locale\el\viewer.ftl                                                            19246
+.\public\pdfjs\web\locale\en-CA\viewer.ftl                                                         11564
+.\public\pdfjs\web\locale\en-GB\viewer.ftl                                                         14523
+.\public\pdfjs\web\locale\en-US\viewer.ftl                                                         14602
+.\public\pdfjs\web\locale\eo\viewer.ftl                                                            14272
+.\public\pdfjs\web\locale\es-AR\viewer.ftl                                                         15391
+.\public\pdfjs\web\locale\es-CL\viewer.ftl                                                         15566
+.\public\pdfjs\web\locale\es-ES\viewer.ftl                                                         15551
+.\public\pdfjs\web\locale\es-MX\viewer.ftl                                                         11638
+.\public\pdfjs\web\locale\et\viewer.ftl                                                            10270
+.\public\pdfjs\web\locale\eu\viewer.ftl                                                            14415
+.\public\pdfjs\web\locale\fa\viewer.ftl                                                            10211
+.\public\pdfjs\web\locale\ff\viewer.ftl                                                             9192
+.\public\pdfjs\web\locale\fi\viewer.ftl                                                            15119
+.\public\pdfjs\web\locale\fr\viewer.ftl                                                            15758
+.\public\pdfjs\web\locale\fur\viewer.ftl                                                           14908
+.\public\pdfjs\web\locale\fy-NL\viewer.ftl                                                         15072
+.\public\pdfjs\web\locale\ga-IE\viewer.ftl                                                          7833
+.\public\pdfjs\web\locale\gd\viewer.ftl                                                            12039
+.\public\pdfjs\web\locale\gl\viewer.ftl                                                            14337
+.\public\pdfjs\web\locale\gn\viewer.ftl                                                            15659
+.\public\pdfjs\web\locale\gu-IN\viewer.ftl                                                         12479
+.\public\pdfjs\web\locale\he\viewer.ftl                                                            16522
+.\public\pdfjs\web\locale\hi-IN\viewer.ftl                                                         12614
+.\public\pdfjs\web\locale\hr\viewer.ftl                                                            10824
+.\public\pdfjs\web\locale\hsb\viewer.ftl                                                           15738
+.\public\pdfjs\web\locale\hu\viewer.ftl                                                            15739
+.\public\pdfjs\web\locale\hy-AM\viewer.ftl                                                         11360
+.\public\pdfjs\web\locale\hye\viewer.ftl                                                           12628
+.\public\pdfjs\web\locale\ia\viewer.ftl                                                            15403
+.\public\pdfjs\web\locale\id\viewer.ftl                                                            11055
+.\public\pdfjs\web\locale\is\viewer.ftl                                                            15068
+.\public\pdfjs\web\locale\it\viewer.ftl                                                            15639
+.\public\pdfjs\web\locale\ja\viewer.ftl                                                            15834
+.\public\pdfjs\web\locale\ka\viewer.ftl                                                            20273
+.\public\pdfjs\web\locale\kab\viewer.ftl                                                           13066
+.\public\pdfjs\web\locale\kk\viewer.ftl                                                            18431
+.\public\pdfjs\web\locale\km\viewer.ftl                                                            11385
+.\public\pdfjs\web\locale\kn\viewer.ftl                                                            10661
+.\public\pdfjs\web\locale\ko\viewer.ftl                                                            15329
+.\public\pdfjs\web\locale\lij\viewer.ftl                                                            9467
+.\public\pdfjs\web\locale\lo\viewer.ftl                                                            15113
+.\public\pdfjs\web\locale\locale.json                                                               2498
+.\public\pdfjs\web\locale\lt\viewer.ftl                                                            10633
+.\public\pdfjs\web\locale\ltg\viewer.ftl                                                            9311
+.\public\pdfjs\web\locale\lv\viewer.ftl                                                             9383
+.\public\pdfjs\web\locale\meh\viewer.ftl                                                            2260
+.\public\pdfjs\web\locale\mk\viewer.ftl                                                             9659
+.\public\pdfjs\web\locale\mr\viewer.ftl                                                            11774
+.\public\pdfjs\web\locale\ms\viewer.ftl                                                             9194
+.\public\pdfjs\web\locale\my\viewer.ftl                                                            10184
+.\public\pdfjs\web\locale\nb-NO\viewer.ftl                                                         14873
+.\public\pdfjs\web\locale\ne-NP\viewer.ftl                                                         12084
+.\public\pdfjs\web\locale\nl\viewer.ftl                                                            15340
+.\public\pdfjs\web\locale\nn-NO\viewer.ftl                                                         13393
+.\public\pdfjs\web\locale\oc\viewer.ftl                                                            12882
+.\public\pdfjs\web\locale\pa-IN\viewer.ftl                                                         18685
+.\public\pdfjs\web\locale\pl\viewer.ftl                                                            15594
+.\public\pdfjs\web\locale\pt-BR\viewer.ftl                                                         15351
+.\public\pdfjs\web\locale\pt-PT\viewer.ftl                                                         14596
+.\public\pdfjs\web\locale\rm\viewer.ftl                                                            15701
+.\public\pdfjs\web\locale\ro\viewer.ftl                                                             9862
+.\public\pdfjs\web\locale\ru\viewer.ftl                                                            18969
+.\public\pdfjs\web\locale\sat\viewer.ftl                                                           16483
+.\public\pdfjs\web\locale\sc\viewer.ftl                                                            11569
+.\public\pdfjs\web\locale\scn\viewer.ftl                                                            1593
+.\public\pdfjs\web\locale\sco\viewer.ftl                                                            9776
+.\public\pdfjs\web\locale\si\viewer.ftl                                                            12008
+.\public\pdfjs\web\locale\sk\viewer.ftl                                                            15765
+.\public\pdfjs\web\locale\skr\viewer.ftl                                                           13326
+.\public\pdfjs\web\locale\sl\viewer.ftl                                                            15265
+.\public\pdfjs\web\locale\son\viewer.ftl                                                            7026
+.\public\pdfjs\web\locale\sq\viewer.ftl                                                            15106
+.\public\pdfjs\web\locale\sr\viewer.ftl                                                            13848
+.\public\pdfjs\web\locale\sv-SE\viewer.ftl                                                         14899
+.\public\pdfjs\web\locale\szl\viewer.ftl                                                            9898
+.\public\pdfjs\web\locale\ta\viewer.ftl                                                            11748
+.\public\pdfjs\web\locale\te\viewer.ftl                                                            11843
+.\public\pdfjs\web\locale\tg\viewer.ftl                                                            19168
+.\public\pdfjs\web\locale\th\viewer.ftl                                                            18766
+.\public\pdfjs\web\locale\tl\viewer.ftl                                                            10011
+.\public\pdfjs\web\locale\tr\viewer.ftl                                                            15207
+.\public\pdfjs\web\locale\trs\viewer.ftl                                                            7141
+.\public\pdfjs\web\locale\uk\viewer.ftl                                                            18701
+.\public\pdfjs\web\locale\ur\viewer.ftl                                                            10357
+.\public\pdfjs\web\locale\uz\viewer.ftl                                                             6557
+.\public\pdfjs\web\locale\vi\viewer.ftl                                                            15912
+.\public\pdfjs\web\locale\wo\viewer.ftl                                                             3505
+.\public\pdfjs\web\locale\xh\viewer.ftl                                                             7776
+.\public\pdfjs\web\locale\zh-CN\viewer.ftl                                                         14248
+.\public\pdfjs\web\locale\zh-TW\viewer.ftl                                                         14412
+.\public\pdfjs\web\standard_fonts\FoxitDingbats.pfb                                                29513
+.\public\pdfjs\web\standard_fonts\FoxitFixed.pfb                                                   17597
+.\public\pdfjs\web\standard_fonts\FoxitFixedBold.pfb                                               18055
+.\public\pdfjs\web\standard_fonts\FoxitFixedBoldItalic.pfb                                         19151
+.\public\pdfjs\web\standard_fonts\FoxitFixedItalic.pfb                                             18746
+.\public\pdfjs\web\standard_fonts\FoxitSerif.pfb                                                   19469
+.\public\pdfjs\web\standard_fonts\FoxitSerifBold.pfb                                               19395
+.\public\pdfjs\web\standard_fonts\FoxitSerifBoldItalic.pfb                                         20733
+.\public\pdfjs\web\standard_fonts\FoxitSerifItalic.pfb                                             21227
+.\public\pdfjs\web\standard_fonts\FoxitSymbol.pfb                                                  16729
+.\public\pdfjs\web\standard_fonts\LiberationSans-Bold.ttf                                         137052
+.\public\pdfjs\web\standard_fonts\LiberationSans-BoldItalic.ttf                                   135124
+.\public\pdfjs\web\standard_fonts\LiberationSans-Italic.ttf                                       162036
+.\public\pdfjs\web\standard_fonts\LiberationSans-Regular.ttf                                      139512
+.\public\pdfjs\web\standard_fonts\LICENSE_FOXIT                                                     1553
+.\public\pdfjs\web\standard_fonts\LICENSE_LIBERATION                                                4414
+.\public\pdfjs\web\viewer.css                                                                     105990
+.\public\pdfjs\web\viewer.html                                                                     30841
+.\public\pdfjs\web\viewer.mjs                                                                     522845
+.\public\pdfjs\web\viewer.mjs.map                                                                1182939
+.\public\portal\app.html                                                                           18446
+.\public\portal\login.html                                                                          4814
+.\public\portal\partials\academic-officer\dashboard.html                                           18892
+.\public\portal\partials\admission-officer\admission-officer-applications.html                     36227
+.\public\portal\partials\admission-officer\admitted.html                                           30399
+.\public\portal\partials\admission-officer\dashboard.html                                          23759
+.\public\portal\partials\admission-officer\letters.html                                            45297
+.\public\portal\partials\admission-officer\letter-templates\acceptance.html                        10695
+.\public\portal\partials\admission-officer\letter-templates\matriculation.html                     10531
+.\public\portal\partials\admission-officer\letter-templates\provisional.html                       11320
+.\public\portal\partials\admission-officer\letter-templates\rejection.html                          9023
+.\public\portal\partials\bursar\clearances.html                                                    14375
+.\public\portal\partials\bursar\dashboard.html                                                      7722
+.\public\portal\partials\bursar\fees.html                                                          22318
+.\public\portal\partials\bursar\payments.html                                                       9886
+.\public\portal\partials\bursar\reports.html                                                       15587
+.\public\portal\partials\exam-officer\attendance.html                                              33132
+.\public\portal\partials\exam-officer\dashboard.html                                               20251
+.\public\portal\partials\exam-officer\eligibility.html                                             20257
+.\public\portal\partials\exam-officer\publish.html                                                 16888
+.\public\portal\partials\hod\allocations.html                                                       9257
+.\public\portal\partials\hod\courses.html                                                          10616
+.\public\portal\partials\hod\dashboard.html                                                         6145
+.\public\portal\partials\hod\exams.html                                                            11233
+.\public\portal\partials\hod\history.html                                                           9724
+.\public\portal\partials\hod\pending-results.html                                                  21068
+.\public\portal\partials\hod\results.html                                                          15119
+.\public\portal\partials\hod\staff.html                                                             5390
+.\public\portal\partials\hod\students.html                                                          6141
+.\public\portal\partials\hod\transcript.html                                                       24478
+.\public\portal\partials\lecturer\assessments.html                                                  4046
+.\public\portal\partials\lecturer\assignments.html                                                 23723
+.\public\portal\partials\lecturer\attendance.html                                                  21305
+.\public\portal\partials\lecturer\courses.html                                                     12387
+.\public\portal\partials\lecturer\dashboard.html                                                   19166
+.\public\portal\partials\lecturer\exams.html                                                        6818
+.\public\portal\partials\lecturer\materials.html                                                   16159
+.\public\portal\partials\lecturer\messages.html                                                     3751
+.\public\portal\partials\lecturer\reports.html                                                     12235
+.\public\portal\partials\lecturer\requests.html                                                    13659
+.\public\portal\partials\lecturer\results.html                                                     35204
+.\public\portal\partials\lecturer\students.html                                                    13622
+.\public\portal\partials\lecturer\timetable.html                                                    9263
+.\public\portal\partials\librarian\books.html                                                      16882
+.\public\portal\partials\librarian\borrows.html                                                     4700
+.\public\portal\partials\librarian\dashboard.html                                                  10610
+.\public\portal\partials\librarian\fines.html                                                       4585
+.\public\portal\partials\librarian\reservations.html                                                4765
+.\public\portal\partials\rector\dashboard.html                                                     30771
+.\public\portal\partials\rector\reports.html                                                       11803
+.\public\portal\partials\registrar\applications.html                                               17340
+.\public\portal\partials\registrar\clearances.html                                                 14822
+.\public\portal\partials\registrar\dashboard.html                                                  14027
+.\public\portal\partials\registrar\documents.html                                                  15634
+.\public\portal\partials\registrar\document-template.html                                           7827
+.\public\portal\partials\registrar\graduations.html                                                12697
+.\public\portal\partials\registrar\programmes.html                                                  7638
+.\public\portal\partials\registrar\registrations.html                                              11933
+.\public\portal\partials\registrar\sessions.html                                                   13905
+.\public\portal\partials\registrar\student-profile.html                                            10322
+.\public\portal\partials\registrar\students.html                                                    8897
+.\public\portal\partials\shared\admin-admitted.html                                                12282
+.\public\portal\partials\shared\admin-applications-list.html                                        1344
+.\public\portal\partials\shared\admin-application-view.html                                        34660
+.\public\portal\partials\shared\admin-audit.html                                                    1341
+.\public\portal\partials\shared\admin-borrows.html                                                 11948
+.\public\portal\partials\shared\admin-courses.html                                                 14747
+.\public\portal\partials\shared\admin-documents.html                                               11390
+.\public\portal\partials\shared\admin-exams.html                                                   17274
+.\public\portal\partials\shared\admin-graduations.html                                             13985
+.\public\portal\partials\shared\admin-library.html                                                 19758
+.\public\portal\partials\shared\admin-programmes.html                                              13666
+.\public\portal\partials\shared\admin-sessions.html                                                 1404
+.\public\portal\partials\shared\admin-settings.html                                                 1705
+.\public\portal\partials\shared\admin-transcript.html                                              18018
+.\public\portal\partials\shared\admin-users.html                                                    1213
+.\public\portal\partials\shared\announcements.html                                                 16619
+.\public\portal\partials\shared\complaints.html                                                    19118
+.\public\portal\partials\shared\forbidden.html                                                       661
+.\public\portal\partials\shared\messages.html                                                      20244
+.\public\portal\partials\shared\notifications.html                                                  5065
+.\public\portal\partials\shared\photo.html                                                         11713
+.\public\portal\partials\shared\profile.html                                                       19562
+.\public\portal\partials\shared\security.html                                                       6484
+.\public\portal\partials\shared\security-center.html                                                1203
+.\public\portal\partials\student\announcements.html                                                 1345
+.\public\portal\partials\student\assignments.html                                                  13819
+.\public\portal\partials\student\attendance.html                                                    9965
+.\public\portal\partials\student\clearance.html                                                    17086
+.\public\portal\partials\student\complaints.html                                                   13217
+.\public\portal\partials\student\dashboard.html                                                    11570
+.\public\portal\partials\student\documents.html                                                    10180
+.\public\portal\partials\student\exams.html                                                         9965
+.\public\portal\partials\student\fees.html                                                         16288
+.\public\portal\partials\student\graduation.html                                                   10669
+.\public\portal\partials\student\id-card.html                                                      13624
+.\public\portal\partials\student\library.html                                                      30046
+.\public\portal\partials\student\materials.html                                                    12365
+.\public\portal\partials\student\notifications.html                                                 1700
+.\public\portal\partials\student\profile.html                                                       2151
+.\public\portal\partials\student\registration.html                                                 12109
+.\public\portal\partials\student\results.html                                                      13166
+.\public\portal\partials\student\security.html                                                      7884
+.\public\portal\partials\student\timetable.html                                                    13046
+.\public\portal\partials\student\transcript.html                                                    8473
+.\public\portal\partials\superadmin\dashboard.html                                                  2695
+.\public\portal\staff-login.html                                                                     405
+.\public\portal\verify.html                                                                         8177
+.\public\privacy.html                                                                               3173
+.\public\programmes.html                                                                           16605
+.\public\rector.html                                                                                9985
+.\public\register.html                                                                              1642
+.\public\registrar.html                                                                             8554
+.\public\robots.txt                                                                                  486
+.\public\sitemap.xml                                                                                1833
+.\public\uploads\walkin-app-1791318728177-382788.jpeg                                             276485
+.\README.md                                                                                          693
+.\render.yaml                                                                                        855
+.\routes\_devtag.js                                                                                 4217
+.\routes\adminAuth.js                                                                               5688
+.\routes\adminLookups.js                                                                           10374
+.\routes\adminSeed.js                                                                               2359
+.\routes\adminUsers.js                                                                              5654
+.\routes\allocations.js                                                                             4455
+.\routes\announcements.js                                                                           3107
+.\routes\applications.js                                                                           16190
+.\routes\attendance.js                                                                              3861
+.\routes\audit.js                                                                                    963
+.\routes\clearances.js                                                                              3203
+.\routes\complaints.js                                                                              3171
+.\routes\courses.js                                                                                 4671
+.\routes\departments.js                                                                             2947
+.\routes\documents.js                                                                               4295
+.\routes\exams.js                                                                                   5286
+.\routes\fees.js                                                                                    3216
+.\routes\geo.js                                                                                     2528
+.\routes\gradeScales.js                                                                             3356
+.\routes\graduation.js                                                                              7860
+.\routes\health.js                                                                                  1328
+.\routes\hods.js                                                                                    2394
+.\routes\idLookup.js                                                                                3835
+.\routes\index.js                                                                                   5349
+.\routes\index.js.bak                                                                               4553
+.\routes\lecturers.js                                                                               1577
+.\routes\library.js                                                                                 8750
+.\routes\loginHistory.js                                                                            1686
+.\routes\lookups.js                                                                                 9022
+.\routes\notifications.js                                                                           3189
+.\routes\payments.js                                                                                4738
+.\routes\portal\academicOfficer.js                                                                 14796
+.\routes\portal\admissionOfficer.js                                                                24583
+.\routes\portal\bursar.js                                                                          19778
+.\routes\portal\examOfficer.js                                                                     14999
+.\routes\portal\hod.js                                                                             50940
+.\routes\portal\lecturer.js                                                                        39449
+.\routes\portal\librarian.js                                                                       17347
+.\routes\portal\profile.js                                                                          6847
+.\routes\portal\rector.js                                                                          21493
+.\routes\portal\registrar.js                                                                       28909
+.\routes\portal\shared.js                                                                          19736
+.\routes\portal\student.js                                                                         44587
+.\routes\programmes.js                                                                              9282
+.\routes\public.js                                                                                 20444
+.\routes\registrations.js                                                                           3624
+.\routes\reports.js                                                                                11990
+.\routes\results.js                                                                                 9579
+.\routes\schools.js                                                                                 2801
+.\routes\security.js                                                                               19118
+.\routes\sessions.js                                                                                7252
+.\routes\settings.js                                                                                3228
+.\routes\staff.js                                                                                   7306
+.\routes\students.js                                                                                9329
+.\routes\timetable.js                                                                               3519
+.\routes\transcript.js                                                                              2125
+.\routes\users.js                                                                                  14087
+.\scripts\check-hod-dept.js                                                                          597
+.\scripts\check-users-columns.js                                                                     443
+.\scripts\create-admin.js                                                                           1697
+.\scripts\migrate.js                                                                                1289
+.\scripts\reset-staff-passwords.js                                                                  2150
+.\scripts\seed-applications.js                                                                      4670
+.\scripts\seed-bank-details.js                                                                      1477
+.\scripts\seed-department-hods.js                                                                   3663
+.\scripts\seed-fpu-drizzle.js                                                                      37499
+.\scripts\seed-massive.js                                                                          65646
+.\scripts\tag-library-books.js                                                                      6843
+.\server.js                                                                                         6833
+.\tree_only.txt                                                                                    39702
+.\utils\audit.js                                                                                    3251
+.\utils\cloudinary.js                                                                               1409
+.\utils\emailService.js                                                                            10884
+.\utils\gpa.js                                                                                      4553
+.\utils\gradeScale.js                                                                               4239
+.\utils\matricHelper.js                                                                             3187
+.\utils\password.js                                                                                 2810
+.\utils\time.js                                                                                     2917
+
+
+
+===== package.json =====
+{
+    "name": "fpu-school-system",
+    "version": "1.0.0",
+    "description": "Federal Polytechnic Ugep — School Management System (PostgreSQL + Drizzle + Express 5)",
+    "main": "server.js",
+    "type": "commonjs",
+    "engines": {
+        "node": "20.x"
+    },
+    "scripts": {
+        "start": "node server.js",
+        "start:prod": "node db/migrate.js && node server.js",
+        "dev": "node --watch server.js",
+        "migrate": "node db/migrate.js",
+        "migrate:cli": "node scripts/migrate.js",
+        "seed": "node scripts/seed-massive.js",
+        "seed:bank": "node scripts/seed-bank-details.js",
+        "reset:staff": "node scripts/reset-staff-passwords.js",
+        "drizzle:generate": "drizzle-kit generate",
+        "drizzle:push": "drizzle-kit push",
+        "drizzle:studio": "drizzle-kit studio",
+        "seed:hods": "node scripts/seed-department-hods.js"
+    },
+    "keywords": [
+        "fpu",
+        "fedpolyugep",
+        "school-management",
+        "postgresql",
+        "drizzle",
+        "express"
+    ],
+    "author": "Federal Polytechnic Ugep",
+    "license": "ISC",
+    "dependencies": {
+        "bcryptjs": "^3.0.3",
+        "cloudinary": "^1.41.3",
+        "cors": "^2.8.6",
+        "dotenv": "^18.0.5",
+        "drizzle-orm": "^0.45.3",
+        "express": "^5.2.1",
+        "express-rate-limit": "^8.7.0",
+        "helmet": "^8.3.0",
+        "multer": "^2.4.0",
+        "multer-storage-cloudinary": "^4.0.0",
+        "nodemailer": "^10.0.15",
+        "pg": "^8.23.1",
+        "qrcode": "^1.5.4"
+    },
+    "devDependencies": {
+        "drizzle-kit": "^0.31.11"
+    }
+}
+
+
+===== public\portal\app.html =====
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portal — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" />
+  <link rel="stylesheet" href="/css/portal.css" />
+<style id="notif-css">
+  .notif-wrap { position: relative; }
+  .notif-badge {
+    position: absolute; top: 2px; right: 2px;
+    min-width: 16px; height: 16px;
+    background: #dc2626; color: #fff;
+    border-radius: 99px; font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; line-height: 1;
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .notif-badge[hidden] { display: none !important; }
+  .notif-panel {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    width: 360px; max-width: calc(100vw - 20px);
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(15,23,42,.18), 0 0 0 1px rgba(15,23,42,.06);
+    z-index: 5000; overflow: hidden;
+  }
+  .notif-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-weight: 700; font-size: .85rem; color: #0f172a;
+  }
+  .notif-mark-all {
+    background: none; border: none; cursor: pointer;
+    color: #065f46; font-size: .75rem; font-weight: 600;
+    padding: 0;
+  }
+  .notif-mark-all:hover { text-decoration: underline; }
+  .notif-list { max-height: 380px; overflow-y: auto; }
+  .notif-item {
+    display: block; width: 100%; text-align: left;
+    padding: .75rem 1rem;
+    border: none; background: transparent;
+    border-bottom: 1px solid #f8fafc;
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .notif-item:hover { background: #f8fafc; }
+  .notif-item.unread { background: #f0fdf4; }
+  .notif-item.unread:hover { background: #dcfce7; }
+  .notif-item-top {
+    display: flex; justify-content: space-between; gap: .5rem;
+    align-items: baseline;
+  }
+  .notif-item-title {
+    font-weight: 700; color: #0f172a; font-size: .82rem;
+    display: flex; align-items: center; gap: .35rem;
+  }
+  .notif-dot { width: 6px; height: 6px; background: #10b981; border-radius: 50%; flex-shrink: 0; }
+  .notif-item-time { font-size: .68rem; color: #94a3b8; white-space: nowrap; }
+  .notif-item-body {
+    color: #475569; font-size: .75rem; margin-top: .2rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .notif-empty { padding: 2rem 1rem; text-align: center; color: #94a3b8; font-size: .82rem; }
+  .notif-loading { padding: 1.5rem; text-align: center; color: #94a3b8; font-size: .82rem; }
+  .notif-foot {
+    padding: .6rem 1rem;
+    border-top: 1px solid #f1f5f9;
+    text-align: center;
+  }
+  .notif-view-all {
+    background: none; border: none; cursor: pointer;
+    color: #065f46; font-size: .78rem; font-weight: 700;
+    padding: 0;
+  }
+  .notif-view-all:hover { text-decoration: underline; }
+  @media (max-width: 640px) {
+    .notif-panel { width: calc(100vw - 20px); right: -8px; }
+  }
+</style>
+</head>
+<body class="portal-app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="/images/logo.png" alt="FPU" />
+      <span>FPU Portal</span>
+    </div>
+    <nav id="sidebar-nav">
+      <div class="loading" style="color:#a7f3d0;padding:1rem;"><span class="spinner"></span> Loading…</div>
+    </nav>
+    <div class="sidebar-footer">
+      <span>&copy; <span id="sb-year"></span> FPU</span>
+      <span style="font-size:.68rem;">v1.0</span>
+    </div>
+  </aside>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div>
+        <h1 id="topbar-title">Dashboard</h1>
+        <div class="subtitle" id="page-subtitle"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" title="Notifications" onclick="FPU_SPA.navigatePortal('portal-notifications')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+      </button>
+      <button class="icon-btn" title="Messages" onclick="FPU_SPA.navigatePortal('portal-messages')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+      </button>
+      <div class="user-chip-wrap" id="topbar-user-wrap">
+        <button class="user-chip" id="topbar-user-chip" type="button" aria-haspopup="menu" aria-expanded="false">
+          <div class="avatar" id="topbar-avatar">U</div>
+          <div>
+            <div class="name" id="topbar-name">User</div>
+            <div class="role" id="topbar-role">student</div>
+          </div>
+          <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="user-menu" id="topbar-user-menu" role="menu" hidden>
+          <div class="user-menu-header">
+            <div class="avatar" id="user-menu-avatar">U</div>
+            <div>
+              <div class="name" id="user-menu-name">User</div>
+              <div class="email" id="user-menu-email">user@example.com</div>
+            </div>
+          </div>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item" role="menuitem" data-menu="profile">👤 My Profile</button>
+          <button class="user-menu-item" role="menuitem" data-menu="photo">📷 My Photo</button>
+          <button class="user-menu-item" role="menuitem" data-menu="password">🔒 Change Password</button>
+          <button class="user-menu-item" role="menuitem" data-menu="notifications">🔔 Notifications</button>
+          <div class="user-menu-divider" role="separator"></div>
+          <button class="user-menu-item user-menu-danger" role="menuitem" data-menu="logout">🚪 Sign Out</button>
+        </div>
+      </div>
+      <button class="icon-btn" title="Sign out" id="topbar-logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main" id="main">
+    <div id="page-view">
+      <div class="loading"><span class="spinner"></span> Loading portal…</div>
+    </div>
+  </main>
+
+  <div id="toast-wrap" class="toast-wrap"></div>
+
+  <script src="/js/portal-core.js"></script>
+  <script src="/js/portal-photo-helper.js"></script>
+  <script src="/js/portal-spa.js"></script>
+  <script>
+    document.getElementById('sb-year').textContent = new Date().getFullYear();
+  </script>
+<!-- PORTAL MOBILE FALLBACK START -->
+<style id="portal-mobile-fallback">
+@media (max-width: 980px) {
+  html, body.portal-app { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
+
+  body.portal-app #sidebar {
+    position: fixed !important; top:0 !important; bottom:0 !important; left:0 !important;
+    width: 280px !important; max-width: 84vw !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;
+    transition: transform .25s ease-out !important;
+    z-index: 1100 !important; overflow-y: auto !important;
+  }
+  body.portal-app.sidebar-open #sidebar,
+  body.portal-app #sidebar.open {
+    transform: translateX(0) !important;
+    visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;
+  }
+  body.portal-app.sidebar-open::after {
+    content:'' !important; position:fixed !important; inset:0 !important;
+    background: rgba(15,23,42,.5) !important; z-index: 1090 !important;
+  }
+
+  body.portal-app .layout,
+  body.portal-app .app-layout,
+  body.portal-app .app-shell,
+  body.portal-app .portal-layout,
+  body.portal-app .portal-shell,
+  body.portal-app > * {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  main.main {
+    width: 100% !important; max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+  main.main > *, main.main > * > * {
+    width: 100% !important; max-width: 100% !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .topbar, .portal-topbar, .app-topbar, header.topbar {
+    width: 100% !important; max-width: 100% !important;
+    left: 0 !important; right: 0 !important;
+    padding-left: .75rem !important; padding-right: .75rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .panel, .card, .tile, .greeting, .filters, .filter-bar {
+    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+  }
+
+  .greeting { flex-direction: column !important; align-items: flex-start !important; gap: .75rem !important; }
+  .greeting .meta { text-align: left !important; width: 100% !important; padding-top: .75rem !important; border-top: 1px solid rgba(255,255,255,.18) !important; }
+
+  .tile-grid, .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
+  }
+
+  .grid, .row, .cols, .chart-grid, [class*="grid-"], [class*="cols-"] {
+    display: block !important; grid-template-columns: 1fr !important; gap: .75rem !important;
+  }
+
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+
+  main.main [style*="max-width"] { max-width: 100% !important; }
+}
+@media (max-width: 640px) {
+  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
+  .tile-grid, .stat-grid { grid-template-columns: 1fr !important; }
+  main.main { padding-left: .5rem !important; padding-right: .5rem !important; }
+}
+@media (max-width: 400px) {
+  body.portal-app #sidebar { width: 240px !important; max-width: 90vw !important; }
+}
+</style>
+<script>
+/* Portal mobile — sidebar toggle fallback */
+(function () {
+  function bind() {
+    var toggle = document.getElementById('sidebar-toggle');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) return;
+    if (toggle.dataset.bound === '1') return;
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      var open = document.body.classList.toggle('sidebar-open');
+      sb.classList.toggle('open', open);
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      document.body.classList.remove('sidebar-open');
+      sb.classList.remove('open');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
+        document.body.classList.remove('sidebar-open');
+        sb.classList.remove('open');
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+</script>
+<!-- PORTAL MOBILE FALLBACK END -->
+<!-- PORTAL SIDEBAR TOGGLE FIX START -->
+<script>
+(function () {
+  'use strict';
+  function openSidebar() {
+    document.body.classList.add('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.add('open');
+  }
+  function closeSidebar() {
+    document.body.classList.remove('sidebar-open');
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.remove('open');
+  }
+  function toggleSidebar() {
+    if (document.body.classList.contains('sidebar-open')) closeSidebar();
+    else openSidebar();
+  }
+  function bind() {
+    var toggle =
+      document.getElementById('sidebar-toggle') ||
+      document.querySelector('.topbar .toggle') ||
+      document.querySelector('button[aria-label*="sidebar" i]') ||
+      document.querySelector('button[aria-label*="menu" i]');
+    var sb = document.getElementById('sidebar');
+    if (!toggle || !sb) { console.warn('[sidebar] elements missing'); return; }
+    if (toggle.dataset.sbBound === '1') return;
+    toggle.dataset.sbBound = '1';
+    toggle.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSidebar();
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.classList.contains('sidebar-open')) return;
+      if (sb.contains(e.target) || toggle.contains(e.target)) return;
+      closeSidebar();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSidebar();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bind);
+  } else {
+    bind();
+  }
+})();
+</script>
+<!-- PORTAL SIDEBAR TOGGLE FIX END -->
+
+<script id="notif-bell-js">
+(function () {
+  'use strict';
+  var core = window.FPU_PORTAL || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+  var POLL_MS = 30000;
+  var panel, bell, badge, list;
+  var timer = null;
+  var bound = false;
+
+  function renderList(rows) {
+    if (!rows.length) {
+      list.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
+      return;
+    }
+    list.innerHTML = rows.slice(0, 10).map(function (n) {
+      var unread = n.isRead === false || n.isRead === undefined;
+      return '<button type="button" class="notif-item ' + (unread ? 'unread' : '') + '" data-id="' + esc(n.id) + '" data-link="' + esc(n.link || '') + '">'
+        + '<div class="notif-item-top">'
+        +   '<span class="notif-item-title">' + (unread ? '<span class="notif-dot"></span>' : '') + esc(n.title || 'Notification') + '</span>'
+        +   '<span class="notif-item-time">' + esc(timeAgo(n.createdAt) || '') + '</span>'
+        + '</div>'
+        + (n.body ? '<div class="notif-item-body">' + esc(n.body) + '</div>' : '')
+        + '</button>';
+    }).join('');
+    list.querySelectorAll('.notif-item').forEach(function (el) {
+      el.addEventListener('click', function () { openItem(el); });
+    });
+  }
+
+  async function openItem(el) {
+    var id = el.dataset.id;
+    var link = el.dataset.link || '';
+    try { await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' }); }
+    catch (e) { /* silent */ }
+    closePanel();
+    refresh();
+    if (link) {
+      var hash = link.split('#').pop();
+      if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && /^[a-z-]+$/.test(hash)) {
+        window.FPU_SPA.navigatePortal(hash);
+        return;
+      }
+      window.location.href = link;
+    } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+      window.FPU_SPA.navigatePortal('portal-notifications');
+    }
+  }
+
+  async function refresh() {
+    try {
+      var res = await core.portalFetch('/api/portal/notifications?limit=10');
+      var rows = (res && res.data) || [];
+      var unread = (res && res.unread) || 0;
+      if (badge) {
+        if (unread > 0) { badge.hidden = false; badge.textContent = unread > 99 ? '99+' : String(unread); }
+        else { badge.hidden = true; }
+      }
+      if (list) renderList(rows);
+    } catch (err) { /* silent */ }
+  }
+
+  function openPanel() {
+    if (!panel) return;
+    panel.hidden = false;
+    if (bell) bell.setAttribute('aria-expanded', 'true');
+    refresh();
+  }
+  function closePanel() {
+    if (!panel) return;
+    panel.hidden = true;
+    if (bell) bell.setAttribute('aria-expanded', 'false');
+  }
+
+  async function markAllRead() {
+    try {
+      await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
+      if (core.showToast) core.showToast('All marked as read.', 'success');
+      refresh();
+    } catch (err) { if (core.showToast) core.showToast(err.message, 'error'); }
+  }
+
+  function goToNotifications() {
+    closePanel();
+    if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+      window.FPU_SPA.navigatePortal('portal-notifications');
+    } else {
+      window.location.hash = 'portal-notifications';
+    }
+  }
+
+  function bind() {
+    if (bound) return;
+    panel = $('notif-panel');
+    bell = $('notif-bell');
+    badge = $('notif-badge');
+    list = $('notif-list');
+    if (!panel || !bell || !list) return false;
+    bound = true;
+
+    bell.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (panel.hidden) openPanel(); else closePanel();
+    });
+    var markAll = $('notif-mark-all');
+    if (markAll) markAll.addEventListener('click', function (e) { e.stopPropagation(); markAllRead(); });
+    var viewAll = $('notif-view-all');
+    if (viewAll) viewAll.addEventListener('click', function (e) { e.stopPropagation(); goToNotifications(); });
+
+    document.addEventListener('click', function (e) {
+      if (!panel || panel.hidden) return;
+      if (panel.contains(e.target) || bell.contains(e.target)) return;
+      closePanel();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel && !panel.hidden) closePanel();
+    });
+
+    refresh();
+    if (timer) clearInterval(timer);
+    timer = setInterval(refresh, POLL_MS);
+    window.addEventListener('hashchange', refresh);
+    return true;
+  }
+
+  // Retry loop: keep trying every 100ms until the bell exists
+  function init() {
+    if (bind()) return;
+    var attempts = 0;
+    var retry = setInterval(function () {
+      attempts++;
+      if (bind() || attempts > 50) clearInterval(retry);
+    }, 100);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
+
+
+
+
+
+===== public\css\style.css (first 400 lines) =====
+/* ============================================================
+   FEDERAL POLYTECHNIC UGEP — Public Website Stylesheet
+   Full stylesheet — v5 (Complete with marquee)
+   ============================================================ */
+
+/* ---------- 1. RESET + ROOT VARIABLES ---------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --fpu-primary:        #065f46;
+  --fpu-primary-dark:   #054d38;
+  --fpu-primary-light:  #ecfdf5;
+  --fpu-accent:         #f59e0b;
+  --fpu-accent-dark:    #d97706;
+  --fpu-accent-light:   #fef3c7;
+  --fpu-teal:           #0ea5e9;
+  --fpu-bone:           #f8faf8;
+  --fpu-ink:            #1f2937;
+  --fpu-muted:          #6b7280;
+  --fpu-border:         #e5e7eb;
+  --fpu-radius-sm:      8px;
+  --fpu-radius:         14px;
+  --fpu-radius-lg:      20px;
+  --fpu-shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.04);
+  --fpu-shadow:         0 6px 20px rgba(15, 23, 42, 0.08);
+  --fpu-shadow-lg:      0 20px 40px rgba(15, 23, 42, 0.12);
+  --font-heading:       "Poppins", "Source Sans Pro", system-ui, sans-serif;
+  --font-body:          "Inter", "Open Sans", system-ui, Arial, sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: #ffffff;
+  color: var(--fpu-ink);
+  line-height: 1.7;
+  font-size: 14.5px;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+img, svg, video { max-width: 100%; height: auto; display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+ul, ol { padding-left: 1.25rem; }
+
+/* ---------- 2. TYPOGRAPHY ---------- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--fpu-ink);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: clamp(1.85rem, 4vw, 3rem); }
+h2 { font-size: clamp(1.45rem, 3vw, 2rem); }
+h3 { font-size: 1.15rem; }
+
+p { margin: 0 0 1rem; }
+p:last-child { margin-bottom: 0; }
+
+.eyebrow {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.lead { font-size: 1.1rem; color: var(--fpu-muted); line-height: 1.8; }
+.muted { color: var(--fpu-muted); }
+.small { font-size: 13px; }
+
+/* ---------- 3. LAYOUT ---------- */
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.text-center { text-align: center; }
+.text-right  { text-align: right; }
+
+.mb-2 { margin-bottom: 10px; }
+.mb-3 { margin-bottom: 16px; }
+.mb-4 { margin-bottom: 24px; }
+.mt-2 { margin-top: 10px; }
+.mt-3 { margin-top: 16px; }
+.mt-4 { margin-top: 24px; }
+
+.hidden, [hidden] { display: none !important; }
+
+/* ---------- 4. NAVBAR ---------- */
+.navbar {
+  background: var(--fpu-accent);
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 76px;
+  gap: 15px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.site-logo {
+  height: 54px;
+  width: auto;
+  display: block;
+}
+
+.nav-links {
+  display: flex;
+  align-items: stretch;
+  height: 76px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-links > li {
+  list-style: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-links > li > a {
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: 0.4px;
+  padding: 28px 15px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.2s;
+  text-decoration: none;
+}
+
+.nav-links > li > a:hover,
+.nav-links > li > a.active {
+  color: var(--fpu-primary-dark);
+}
+
+.nav-links > li.has-dropdown > a::after {
+  content: "▾";
+  font-size: 10px;
+  margin-left: 4px;
+  transition: transform 0.25s;
+  display: inline-block;
+}
+
+.nav-links > li.has-dropdown:hover > a::after { transform: rotate(180deg); }
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--fpu-primary);
+  min-width: 230px;
+  padding: 12px 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.25s ease;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+.nav-links > li.has-dropdown:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-menu li { margin: 0; padding: 0; }
+
+.dropdown-menu li a {
+  display: block;
+  color: #ffffff;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 11px 22px;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.3px;
+}
+
+.dropdown-menu li a:hover {
+  color: var(--fpu-accent);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-auth {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.7rem;
+  cursor: pointer;
+  color: #ffffff;
+  padding: 0;
+  line-height: 1;
+}
+
+/* ---------- 5. BUTTONS ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 50px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--fpu-primary);
+  color: #ffffff;
+  border-color: var(--fpu-primary);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--fpu-primary-dark);
+  border-color: var(--fpu-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(6, 95, 70, 0.28);
+}
+
+.btn-accent {
+  background: var(--fpu-accent);
+  color: #1f2937;
+  border-color: var(--fpu-accent);
+}
+.btn-accent:hover:not(:disabled) {
+  background: var(--fpu-accent-dark);
+  border-color: var(--fpu-accent-dark);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(217, 119, 6, 0.28);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--fpu-primary);
+  border-color: var(--fpu-primary);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--fpu-primary);
+  color: #ffffff;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: #ffffff;
+  color: var(--fpu-accent);
+}
+
+.btn-white {
+  background: #ffffff;
+  color: var(--fpu-primary);
+  border-color: #ffffff;
+}
+.btn-white:hover:not(:disabled) {
+  background: #f0f0f0;
+  transform: translateY(-1px);
+}
+
+.btn-outline-white {
+  background: transparent;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+.btn-outline-white:hover:not(:disabled) {
+  background: #ffffff;
+  color: var(--fpu-primary);
+}
+
+.btn-lg { padding: 15px 32px; font-size: 14px; }
+.btn-sm { padding: 8px 16px; font-size: 12px; }
+.btn-block { display: flex; width: 100%; }
+
+/* ---------- 6. HERO SLIDER (full-bleed images) ---------- */
+.hero-slider {
+  position: relative;
+  height: 640px;
+  overflow: hidden;
+  background: var(--fpu-primary-dark);
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.hero-slide.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hero-slide-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.05);
+  transition: transform 8s ease-out;
+  z-index: 0;
+}
+
+.hero-slide.active .hero-slide-bg {
+  transform: scale(1.15);
+}
+
+.hero-slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 90, 26, 0.9) 0%,
+    rgba(5, 90, 26, 0.72) 45%,
+    rgba(5, 90, 26, 0.15) 100%
+  );
+  z-index: 1;
+}
+
+.hero-slide .container {
+  position: relative;
+  z-index: 2;
+}
+
+.hero-slide-content {
+  max-width: 720px;
+  color: #ffffff;
+}
+
+.hero-slide-content .badge-motto {
+  display: inline-block;
+  background: var(--fpu-accent);
+  border-radius: 999px;
+  color: #1f2937;
+  padding: 8px 22px;
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  margin-bottom: 22px;
+  opacity: 0;
+  transform: translateY(16px);
+
+===== OTHER PORTAL HTML FILES (first 80 lines each) =====
+----- login.html -----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff Login — Federal Polytechnic Ugep</title>
+  <link rel="icon" href="/images/logo.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .login-page-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--fpu-primary) 0%, var(--fpu-primary-dark) 100%);
+      padding: 60px 20px;
+    }
+    .login-card-public {
+      background: #fff;
+      border-radius: 20px;
+      padding: 44px 40px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+      border-top: 6px solid var(--fpu-accent);
+    }
+    @media (max-width: 480px) { .login-card-public { padding: 32px 22px; } }
+    .login-card-public h1 {
+      font-family: Poppins, sans-serif;
+      font-size: 1.4rem;
+      color: var(--fpu-primary);
+      text-align: center;
+      margin: 0 0 6px;
+    }
+    .login-card-public .sub {
+      text-align: center;
+      color: var(--fpu-muted);
+      font-size: 14px;
+      margin: 0 0 26px;
+    }
+    .login-logo { display: block; height: 60px; margin: 0 auto 16px; }
+  </style>
+</head>
+<body>
+
+  <div class="login-page-wrap">
+    <div class="login-card-public">
+      <img src="/images/logo.png" alt="FPU" class="login-logo" />
+      <h1>Staff Portal Login</h1>
+      <p class="sub">Federal Polytechnic Ugep — Staff Access Only</p>
+
+      <div id="form-alert"></div>
+
+      <form id="staff-login-form" onsubmit="handleStaffLogin(event)">
+        <div class="form-group">
+          <label>Staff Email</label>
+          <input type="email" name="email" required placeholder="you@fedpolyugep.edu.ng" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" required placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;" id="staffLoginBtn">Sign In to Staff Portal</button>
+      </form>
+
+      <p style="text-align:center;font-size:13.5px;color:var(--fpu-muted);margin:22px 0 0;">
+        Are you a student? <a href="/login.html" style="color:var(--fpu-primary);font-weight:700;">Student login →</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    async function handleStaffLogin(event) {
+      event.preventDefault();
+      const form = event.target;
+      const alertBox = document.getElementById('form-alert');
+      const btn = document.getElementById('staffLoginBtn');
+
+----- staff-login.html -----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="refresh" content="0; url=/login.html" />
+  <title>Redirecting…</title>
+  <script>window.location.replace('/login.html');</script>
+</head>
+<body>
+  <p style="font-family: system-ui; padding: 40px; text-align: center;">
+    Redirecting to <a href="/login.html">the login page</a>…
+  </p>
+</body>
+</html>
+
+----- verify.html -----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Verification — Federal Polytechnic Ugep</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #065f46 0%, #059669 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .card { background: #fff; border-radius: 20px; max-width: 480px; width: 100%; padding: 32px; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
+    .header { text-align: center; margin-bottom: 24px; }
+    .logo { width: 60px; height: 60px; background: #065f46; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fbbf24; font-weight: 900; font-size: 24px; margin-bottom: 12px; }
+    .school-name { font-size: 18px; font-weight: 800; color: #065f46; }
+    .school-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .verified-banner { background: #ecfdf5; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+    .verified-banner .icon { width: 32px; height: 32px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px; flex-shrink: 0; }
+    .verified-banner .text { font-size: 13px; color: #065f46; font-weight: 700; }
+    .verified-banner .sub { font-size: 11px; color: #047857; font-weight: 400; }
+    .photo { width: 100px; height: 120px; background: #f1f5f9; border-radius: 10px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 3px solid #065f46; }
+    .photo img { width: 100%; height: 100%; object-fit: cover; }
+    .photo .initials { font-size: 36px; font-weight: 800; color: #065f46; }
+    .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+    .info-value { font-size: 14px; color: #0f172a; font-weight: 700; text-align: right; max-width: 60%; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-inactive { background: #fee2e2; color: #991b1b; }
+    .footer { text-align: center; margin-top: 24px; font-size: 11px; color: #94a3b8; }
+    .error { text-align: center; padding: 40px 20px; }
+    .error .icon { font-size: 48px; margin-bottom: 12px; }
+    .error .title { font-size: 18px; font-weight: 800; color: #991b1b; margin-bottom: 8px; }
+    .error .msg { font-size: 14px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card" id="result">
+    <div class="header">
+      <div class="logo">F</div>
+      <div class="school-name">Federal Polytechnic Ugep</div>
+      <div class="school-sub">Student Verification Portal</div>
+    </div>
+    <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+      <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #e2e8f0; border-top-color: #065f46; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+      <div style="margin-top: 12px; font-size: 14px;">Verifying student…</div>
+    </div>
+  </div>
+
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
+  <script>
+    (async function() {
+      const params = new URLSearchParams(window.location.search);
+      const matric = params.get('matric');
+      const result = document.getElementById('result');
+
+      if (!matric) {
+        result.innerHTML = `
+          <div class="header">
+            <div class="logo">F</div>
+            <div class="school-name">Federal Polytechnic Ugep</div>
+            <div class="school-sub">Student Verification Portal</div>
+          </div>
+          <div class="error">
+            <div class="icon">❌</div>
+            <div class="title">Invalid Link</div>
+            <div class="msg">No matric number provided in the verification link.</div>
+          </div>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/student/verify/student/${encodeURIComponent(matric)}`);
+        const json = await res.json();
+
+        if (!json.success || !json.data) {
+          result.innerHTML = `
+            <div class="header">
+              <div class="logo">F</div>
+              <div class="school-name">Federal Polytechnic Ugep</div>
+

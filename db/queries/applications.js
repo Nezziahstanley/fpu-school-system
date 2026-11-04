@@ -55,7 +55,7 @@ async function list({
     .select()
     .from(applications)
     .where(where)
-    .orderBy(desc(applications.createdAt))
+    .orderBy(desc(applications.createdAt)) // Make sure this exactly matches your db/schema.js
     .limit(Number(limit))
     .offset(Number(offset));
 }

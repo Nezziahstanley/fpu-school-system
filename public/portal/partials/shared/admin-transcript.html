@@ -1,5 +1,5 @@
 ﻿<!-- Portal → Shared → Transcript Viewer -->
-<div style="padding:0;">
+<div style="padding: 1rem 0 0 0;">
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -10,11 +10,34 @@
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <input type="search" id="tr-search" placeholder="Search matric no. or student name…"
              style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:260px;" />
+      <select id="tr-filter-dept" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+        <option value="">All Departments</option>
+      </select>
       <select id="tr-level" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
         <option value="">All Levels</option>
         <option value="ND">ND</option>
         <option value="HND">HND</option>
       </select>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #065f46;border-radius:10px;padding:1rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Total Students</div>
+      <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;" id="tr-stat-total">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;border-radius:10px;padding:1rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">With Results</div>
+      <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;" id="tr-stat-with-results">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;border-radius:10px;padding:1rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Avg CGPA</div>
+      <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;" id="tr-stat-avg-cgpa">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #3b82f6;border-radius:10px;padding:1rem;">
+      <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#64748b;">Departments</div>
+      <div style="font-size:1.6rem;font-weight:800;color:#0f172a;margin-top:.25rem;" id="tr-stat-depts">—</div>
     </div>
   </div>
 
@@ -49,18 +72,14 @@
   </div>
 </div>
 
-<!-- ═══════ MODAL ═══════ -->
+<!-- MODAL -->
 <div id="tr-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <h3 id="tr-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Transcript</h3>
       <button id="tr-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
-
-    <div id="tr-modal-body" style="padding:1.5rem;">
-      <!-- Content injected here -->
-    </div>
+    <div id="tr-modal-body" style="padding:1.5rem;"></div>
   </div>
 </div>
 
@@ -80,7 +99,15 @@
 
   let ALL = [];
   let FILTERED = [];
-  let CURRENT_DEPT = 'all';
+
+  function getCgpaClass(cgpa) {
+    if (cgpa == null) return { bg: '#f1f5f9', color: '#64748b' };
+    if (cgpa >= 3.5) return { bg: '#d1fae5', color: '#065f46' };
+    if (cgpa >= 3.0) return { bg: '#dbeafe', color: '#1e40af' };
+    if (cgpa >= 2.5) return { bg: '#fef3c7', color: '#92400e' };
+    if (cgpa >= 2.0) return { bg: '#fed7aa', color: '#9a3412' };
+    return { bg: '#fee2e2', color: '#991b1b' };
+  }
 
   async function load() {
     const tbody = $('tr-tbody');
@@ -90,54 +117,42 @@
     </td></tr>`;
 
     try {
-      const user = core.getPortalUser ? core.getPortalUser() : {};
-      const role = user.role;
-      
-      // ROUTING FIX: Handle each role explicitly
-      let endpoint = '/api/registrar/transcripts';
-      if (role === 'bursar') endpoint = '/api/bursar/transcripts';
-      else if (role === 'registrar') endpoint = '/api/registrar/transcripts';
-      else if (role === 'rector') endpoint = '/api/rector/transcripts';
-      else if (role === 'admin' || role === 'superadmin') endpoint = '/api/admin/students';
-        
-      const res = await core.portalFetch(endpoint);
+      const res = await core.portalFetch('/api/admin/transcript/students');
       ALL = Array.isArray(res.data) ? res.data : [];
-      
-      buildDeptFilter();
+
+      // Populate department filter from real data
+      const deptNames = [...new Set(ALL.map(s => s.departmentName).filter(Boolean))].sort();
+      const deptSelect = $('tr-filter-dept');
+      deptSelect.innerHTML = '<option value="">All Departments</option>' +
+        deptNames.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+
+      renderStats();
       applyFilters();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
-  function buildDeptFilter() {
-    if ($('tr-filter-dept')) return;
+  function renderStats() {
+    const total = ALL.length;
+    const withResults = ALL.filter(s => s.cgpa != null && s.cgpa > 0).length;
+    const cgpas = ALL.filter(s => s.cgpa != null && s.cgpa > 0).map(s => s.cgpa);
+    const avg = cgpas.length ? (cgpas.reduce((a, b) => a + b, 0) / cgpas.length) : 0;
+    const depts = new Set(ALL.map(s => s.departmentName).filter(Boolean)).size;
 
-    const headerActions = document.querySelector('#tr-search')?.parentElement;
-    if (!headerActions) return;
-
-    const deptNames = [...new Set(ALL.map(s => s.departmentName).filter(Boolean))].sort();
-    
-    const select = document.createElement('select');
-    select.id = 'tr-filter-dept';
-    select.style = "padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;";
-    select.innerHTML = `<option value="all">All Departments</option>` + 
-      deptNames.map(d => `<option value="${d}">${d}</option>`).join('');
-
-    select.addEventListener('change', (e) => {
-      CURRENT_DEPT = e.target.value;
-      applyFilters();
-    });
-
-    headerActions.insertBefore(select, headerActions.children[1]);
+    $('tr-stat-total').textContent = total;
+    $('tr-stat-with-results').textContent = withResults;
+    $('tr-stat-avg-cgpa').textContent = avg > 0 ? avg.toFixed(2) : '—';
+    $('tr-stat-depts').textContent = depts;
   }
 
   function applyFilters() {
     const q = ($('tr-search')?.value || '').trim().toLowerCase();
+    const dept = $('tr-filter-dept')?.value || '';
     const level = $('tr-level')?.value || '';
 
     FILTERED = ALL.filter(s => {
-      if (CURRENT_DEPT !== 'all' && s.departmentName !== CURRENT_DEPT) return false;
+      if (dept && s.departmentName !== dept) return false;
       if (level && s.level !== level) return false;
       if (q) {
         const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.matricNumber || ''}`.toLowerCase();
@@ -153,65 +168,50 @@
   function renderTable(rows) {
     const tbody = $('tr-tbody');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No students found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">
+        <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📄</div>
+        <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No students found</div>
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
+      </td></tr>`;
       return;
     }
 
-    if (CURRENT_DEPT === 'all') {
-      const groups = {};
-      rows.forEach(s => {
-        const d = s.departmentName || 'Unassigned';
-        if (!groups[d]) groups[d] = [];
-        groups[d].push(s);
-      });
+    // Group by department
+    const groups = {};
+    rows.forEach(s => {
+      const d = s.departmentName || 'Unassigned';
+      if (!groups[d]) groups[d] = [];
+      groups[d].push(s);
+    });
 
-      const sortedDepts = Object.keys(groups).sort();
+    const sortedDepts = Object.keys(groups).sort();
+    let html = '';
 
-      let html = '';
-      sortedDepts.forEach(dept => {
-        const students = groups[dept];
-        const avgCgpa = (students.reduce((sum, s) => sum + (Number(s.cgpa) || 0), 0) / students.length).toFixed(2);
-        
-        html += `
-          <tr style="background:#f0fdf4;border-top:2px solid #bbf7d0;">
-            <td colspan="6" style="padding:.75rem;font-weight:800;color:#065f46;font-size:.85rem;">
-              🏛️ ${esc(dept)} 
-              <span style="font-weight:600;color:#059669;font-size:.75rem;margin-left:.5rem;">
-                ${students.length} students · Avg CGPA: ${avgCgpa}
-              </span>
-            </td>
-          </tr>
-        `;
+    sortedDepts.forEach(dept => {
+      const students = groups[dept];
+      const withResults = students.filter(s => s.cgpa != null && s.cgpa > 0);
+      const avgCgpa = withResults.length
+        ? (withResults.reduce((sum, s) => sum + s.cgpa, 0) / withResults.length).toFixed(2)
+        : '—';
 
-        students.forEach(s => {
-          const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-          // FIX: Handle NaN gracefully
-          const cgpaDisplay = (s.cgpa && !isNaN(s.cgpa)) ? Number(s.cgpa).toFixed(2) : '0.00';
-          html += `
-            <tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
-              <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
-              <td style="padding:.65rem .75rem;text-align:center;">
-                <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
-              </td>
-              <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
-              <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${cgpaDisplay}</td>
-              <td style="padding:.65rem .75rem;text-align:right;">
-                <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
-              </td>
-            </tr>
-          `;
-        });
-      });
-      
-      tbody.innerHTML = html;
-      
-    } else {
-      tbody.innerHTML = rows.map(s => {
+      html += `
+        <tr style="background:#f0fdf4;border-top:2px solid #bbf7d0;">
+          <td colspan="6" style="padding:.75rem;font-weight:800;color:#065f46;font-size:.85rem;">
+            🏛️ ${esc(dept)}
+            <span style="font-weight:600;color:#059669;font-size:.75rem;margin-left:.5rem;">
+              ${students.length} student${students.length === 1 ? '' : 's'} · Avg CGPA: ${avgCgpa}
+            </span>
+          </td>
+        </tr>
+      `;
+
+      students.forEach(s => {
         const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-        // FIX: Handle NaN gracefully
-        const cgpaDisplay = (s.cgpa && !isNaN(s.cgpa)) ? Number(s.cgpa).toFixed(2) : '0.00';
-        return `
+        const cgpa = s.cgpa != null && s.cgpa > 0 ? Number(s.cgpa) : null;
+        const cgpaColor = getCgpaClass(cgpa);
+        const cgpaDisplay = cgpa != null ? cgpa.toFixed(2) : '—';
+
+        html += `
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
             <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
@@ -219,18 +219,21 @@
               <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
             </td>
             <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${cgpaDisplay}</td>
+            <td style="padding:.65rem .75rem;text-align:center;">
+              <span style="display:inline-block;padding:3px 10px;font-size:.72rem;font-weight:800;border-radius:6px;background:${cgpaColor.bg};color:${cgpaColor.color};">${cgpaDisplay}</span>
+            </td>
             <td style="padding:.65rem .75rem;text-align:right;">
               <button class="tr-btn tr-view-btn" data-id="${s.id}" style="background:#eff6ff;color:#1e40af;">👁 View</button>
             </td>
-          </tr>`;
-      }).join('');
-    }
+          </tr>
+        `;
+      });
+    });
+
+    tbody.innerHTML = html;
 
     tbody.querySelectorAll('.tr-view-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        viewTranscript(btn.dataset.id);
-      });
+      btn.addEventListener('click', () => viewTranscript(btn.dataset.id));
     });
   }
 
@@ -247,22 +250,12 @@
     </div>`;
 
     try {
-      const user = core.getPortalUser ? core.getPortalUser() : {};
-      const role = user.role;
-      
-      let endpoint = `/api/registrar/transcript/${studentId}`;
-      if (role === 'bursar') {
-        endpoint = `/api/bursar/transcript/${studentId}`;
-      } else if (role === 'admin' || role === 'superadmin') {
-        endpoint = `/api/admin/transcript/${studentId}`; 
-      }
+      const res = await core.portalFetch(`/api/admin/transcript/${studentId}`);
 
-      const res = await core.portalFetch(endpoint);
-      const data = res.data || res;
-      
-      const s = data.student || {};
-      const rows = data.rows || [];
-      const summary = data.summary || {};
+      // ✅ Backend returns { success, student, summary, rows }
+      const s = res.student || {};
+      const rows = res.rows || [];
+      const summary = res.summary || {};
 
       title.textContent = `Transcript — ${s.firstName} ${s.lastName}`;
 
@@ -282,21 +275,25 @@
         `).join('');
       }
 
-      // FIX: Handle NaN in modal CGPA too
-      const modalCgpa = (summary.cgpa && !isNaN(summary.cgpa)) ? Number(summary.cgpa).toFixed(2) : '0.00';
+      const cgpa = summary.cgpa != null && !isNaN(summary.cgpa) ? Number(summary.cgpa).toFixed(2) : '0.00';
+      const cgpaColor = getCgpaClass(summary.cgpa != null ? Number(summary.cgpa) : null);
 
       body.innerHTML = `
-        <div style="margin-bottom:1.5rem;display:flex;justify-content:space-between;">
+        <div style="margin-bottom:1.5rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
           <div>
             <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Matric No.</div>
             <div style="font-weight:800;color:#0f172a;">${esc(s.matricNumber || '—')}</div>
+          </div>
+          <div>
+            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Department</div>
+            <div style="font-weight:800;color:#0f172a;">${esc(s.departmentName || '—')}</div>
           </div>
           <div style="text-align:right;">
             <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Programme</div>
             <div style="font-weight:800;color:#0f172a;">${esc(s.programmeName || '—')}</div>
           </div>
         </div>
-        
+
         <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">
           <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
             <thead>
@@ -320,16 +317,16 @@
           </div>
           <div style="text-align:right;">
             <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">CGPA</div>
-            <div style="font-size:1.3rem;font-weight:800;color:#065f46;">${modalCgpa}</div>
+            <div style="font-size:1.3rem;font-weight:800;color:${cgpaColor.color};">${cgpa}</div>
             <div style="font-size:.75rem;color:#64748b;margin-top:.2rem;">${esc(summary.classification || '—')}</div>
           </div>
         </div>
-        
+
         <div style="margin-top:1.5rem;text-align:right;">
           <button onclick="window.print()" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">🖨 Print</button>
         </div>
       `;
-      
+
     } catch (err) {
       body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
     }
@@ -341,8 +338,9 @@
     clearTimeout(searchTimer);
     searchTimer = setTimeout(applyFilters, 200);
   });
+  $('tr-filter-dept')?.addEventListener('change', applyFilters);
   $('tr-level')?.addEventListener('change', applyFilters);
-  
+
   $('tr-modal-close')?.addEventListener('click', () => {
     $('tr-modal').style.display = 'none';
   });

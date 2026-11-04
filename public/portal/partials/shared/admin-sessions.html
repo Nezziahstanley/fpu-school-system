@@ -1,35 +1,328 @@
-<!-- Portal → Shared → (borrowed) Sessions management -->
-<section class="page-head">
-  <div><h2>Sessions</h2><p class="muted small">Academic sessions (read-only for most roles)</p></div>
-</section>
+<!-- Portal → Shared → Sessions management -->
+<div style="padding: 1rem 0 0 0;">
 
-<div class="panel">
-  <div class="panel-head"><h3>Sessions</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Name</th><th>Start</th><th>End</th><th>Current</th></tr></thead>
-        <tbody id="shared-sessions-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
-      </table>
+  <!-- HEADER -->
+  <div class="page-head">
+    <div>
+      <h2>Sessions</h2>
+      <p class="muted small">Academic sessions — create, edit, and switch the current session</p>
+    </div>
+    <div class="actions">
+      <button id="ses-new" class="btn btn-primary btn-sm">+ New Session</button>
+      <button id="ses-refresh" class="btn btn-outline btn-sm">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <div class="form-group" style="flex:2 1 260px;">
+      <label class="form-label">Search</label>
+      <input class="form-control" id="ses-search" placeholder="Search session name (e.g. 2026/2027)…" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Filter</label>
+      <select class="form-select" id="ses-filter">
+        <option value="">All sessions</option>
+        <option value="current">Current only</option>
+        <option value="past">Past sessions</option>
+        <option value="future">Future sessions</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="panel">
+    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">All sessions</h3>
+      <span class="muted small" id="ses-count">—</span>
+    </div>
+    <div class="panel-body flush">
+      <div class="table-wrap">
+        <table class="table-admin">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Students</th>
+              <th>Status</th>
+              <th style="text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ses-tbody">
+            <tr><td colspan="6" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- FORM MODAL -->
+<div id="ses-form-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;" id="ses-form-title">New Session</h3>
+      <button type="button" id="ses-form-close" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <form id="ses-form" style="padding:1.25rem;">
+      <input type="hidden" name="id" />
+
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Session Name *</label>
+        <input type="text" name="name" required placeholder="e.g. 2027/2028" pattern="\d{4}/\d{4}" title="Format: YYYY/YYYY"
+               style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;">
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Start Date</label>
+          <input type="date" name="startDate"
+                 style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">End Date</label>
+          <input type="date" name="endDate"
+                 style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+        </div>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:#334155;margin-bottom:1rem;">
+        <input type="checkbox" name="isCurrent" />
+        Set as current session
+      </label>
+
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="ses-form-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="submit" id="ses-form-submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .ses-badge {
+    display:inline-flex; align-items:center; gap:.3rem;
+    padding:3px 9px; border-radius:99px; font-size:.65rem; font-weight:800;
+    letter-spacing:.05em; text-transform:uppercase;
+  }
+  .ses-badge.current  { background:#d1fae5; color:#065f46; }
+  .ses-badge.future   { background:#dbeafe; color:#1e40af; }
+  .ses-badge.past     { background:#f1f5f9; color:#64748b; }
+</style>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-sessions-tbody');
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  let ALL = [];
+  let FILTERED = [];
+  let EDITING_ID = null;
+
+  async function load() {
+    const tbody = $('ses-tbody');
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Loading…</td></tr>`;
+
     try {
       const res = await core.portalFetch('/api/admin/sessions');
-      const rows = res.data || [];
-      box.innerHTML = rows.map((s) => `
+      ALL = Array.isArray(res.data) ? res.data : [];
+      // Sort by name desc (latest first)
+      ALL.sort((a, b) => String(b.name).localeCompare(String(a.name)));
+      applyFilters();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#ef4444;">${esc(err.message)}</td></tr>`;
+    }
+  }
+
+  function getStatus(s) {
+    if (s.isCurrent) return 'current';
+    const now = new Date();
+    if (s.startDate && new Date(s.startDate) > now) return 'future';
+    if (s.endDate && new Date(s.endDate) < now) return 'past';
+    return 'past';
+  }
+
+  function statusBadge(status) {
+    const labels = { current: 'Current', future: 'Future', past: 'Past' };
+    return `<span class="ses-badge ${status}">${labels[status]}</span>`;
+  }
+
+  function applyFilters() {
+    const q = ($('ses-search')?.value || '').trim().toLowerCase();
+    const filter = $('ses-filter')?.value || '';
+
+    FILTERED = ALL.filter(s => {
+      const status = getStatus(s);
+      if (filter === 'current' && status !== 'current') return false;
+      if (filter === 'past' && status !== 'past') return false;
+      if (filter === 'future' && status !== 'future') return false;
+      if (q && !String(s.name || '').toLowerCase().includes(q)) return false;
+      return true;
+    });
+
+    render();
+  }
+
+  function render() {
+    const tbody = $('ses-tbody');
+    $('ses-count').textContent = `${FILTERED.length} of ${ALL.length} session${ALL.length === 1 ? '' : 's'}`;
+
+    if (!FILTERED.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">
+        <div style="font-size:2rem;margin-bottom:.4rem;opacity:.6;">📅</div>
+        <div style="font-weight:700;color:#0f172a;">No sessions found</div>
+        <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters, or create a new session.</div>
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = FILTERED.map(s => {
+      const status = getStatus(s);
+      const isCurrent = status === 'current';
+
+      let actions = `
+        <button class="btn btn-sm btn-outline" data-act="edit" data-id="${s.id}" style="margin-right:4px;padding:4px 10px;font-size:.72rem;">Edit</button>
+      `;
+      if (!isCurrent) {
+        actions += `<button class="btn btn-sm" data-act="set-current" data-id="${s.id}" style="background:#065f46;color:#fff;border:none;padding:4px 10px;font-size:.72rem;border-radius:4px;cursor:pointer;margin-right:4px;">Set as Current</button>`;
+        actions += `<button class="btn btn-sm" data-act="delete" data-id="${s.id}" data-name="${esc(s.name)}" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:4px 10px;font-size:.72rem;border-radius:4px;cursor:pointer;">Delete</button>`;
+      } else {
+        actions += `<span class="muted small">—</span>`;
+      }
+
+      return `
         <tr>
-          <td>${core.escapeHtml(s.name)}</td>
-          <td>${core.formatDate(s.startDate)}</td>
-          <td>${core.formatDate(s.endDate)}</td>
-          <td>${s.isCurrent ? '<span class="badge badge-success">Current</span>' : ''}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="4" class="empty">No sessions.</td></tr>';
-    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
-  })();
+          <td style="font-weight:700;color:#0f172a;">${esc(s.name || '—')}</td>
+          <td style="color:#475569;font-size:.82rem;">${fmtDate(s.startDate)}</td>
+          <td style="color:#475569;font-size:.82rem;">${fmtDate(s.endDate)}</td>
+          <td style="color:#475569;font-size:.82rem;">
+            <strong>${Number(s.studentsCount || 0).toLocaleString()}</strong>
+          </td>
+          <td>${statusBadge(status)}</td>
+          <td style="text-align:right;white-space:nowrap;">${actions}</td>
+        </tr>`;
+    }).join('');
+
+    // Wire action buttons
+    tbody.querySelectorAll('button[data-act]').forEach(btn => {
+      const act = btn.dataset.act;
+      const id = Number(btn.dataset.id);
+      if (act === 'edit') {
+        btn.addEventListener('click', () => {
+          const session = ALL.find(s => Number(s.id) === id);
+          if (session) openForm(session);
+        });
+      } else if (act === 'set-current') {
+        btn.addEventListener('click', () => setCurrent(id));
+      } else if (act === 'delete') {
+        btn.addEventListener('click', () => deleteSession(id, btn.dataset.name));
+      }
+    });
+  }
+
+  // ---- Form modal ----
+  function openForm(session) {
+    const form = $('ses-form');
+    form.reset();
+    EDITING_ID = null;
+
+    if (session) {
+      EDITING_ID = session.id;
+      $('ses-form-title').textContent = 'Edit Session';
+      form.querySelector('[name="id"]').value = session.id;
+      form.querySelector('[name="name"]').value = session.name || '';
+      form.querySelector('[name="startDate"]').value = session.startDate ? session.startDate.split('T')[0] : '';
+      form.querySelector('[name="endDate"]').value = session.endDate ? session.endDate.split('T')[0] : '';
+      form.querySelector('[name="isCurrent"]').checked = !!session.isCurrent;
+    } else {
+      $('ses-form-title').textContent = 'New Session';
+      form.querySelector('[name="id"]').value = '';
+      form.querySelector('[name="isCurrent"]').checked = false;
+    }
+    $('ses-form-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeForm() {
+    EDITING_ID = null;
+    $('ses-form-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function submitForm(e) {
+    e.preventDefault();
+    const form = $('ses-form');
+    const fd = new FormData(form);
+    const body = {};
+    fd.forEach((v, k) => { body[k] = v; });
+    body.isCurrent = form.querySelector('[name="isCurrent"]').checked;
+
+    const btn = $('ses-form-submit');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      if (EDITING_ID) {
+        await core.portalFetch('/api/admin/sessions/' + EDITING_ID, { method: 'PUT', body });
+        core.showToast && core.showToast('Session updated.', 'success');
+      } else {
+        await core.portalFetch('/api/admin/sessions', { method: 'POST', body });
+        core.showToast && core.showToast('Session created.', 'success');
+      }
+      closeForm();
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
+  }
+
+  async function setCurrent(id) {
+    const ok = core.confirm
+      ? await core.confirm('Set this as the CURRENT session? The previously current session will become past.', 'Set Current Session')
+      : confirm('Set as current?');
+    if (!ok) return;
+    try {
+      await core.portalFetch('/api/admin/sessions/' + id + '/set-current', { method: 'POST' });
+      core.showToast && core.showToast('Current session updated.', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  async function deleteSession(id, name) {
+    const ok = core.confirm
+      ? await core.confirm('Delete session "' + name + '"? This cannot be undone.', 'Delete Session')
+      : confirm('Delete "' + name + '"?');
+    if (!ok) return;
+    try {
+      await core.portalFetch('/api/admin/sessions/' + id, { method: 'DELETE' });
+      core.showToast && core.showToast('Session deleted.', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    }
+  }
+
+  // Wire
+  $('ses-refresh')?.addEventListener('click', load);
+  $('ses-new')?.addEventListener('click', () => openForm(null));
+  $('ses-search')?.addEventListener('input', applyFilters);
+  $('ses-filter')?.addEventListener('change', applyFilters);
+  $('ses-form-close')?.addEventListener('click', closeForm);
+  $('ses-form-cancel')?.addEventListener('click', closeForm);
+  $('ses-form')?.addEventListener('submit', submitForm);
+  $('ses-form-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'ses-form-modal') closeForm();
+  });
+
+  load();
+})();
 </script>

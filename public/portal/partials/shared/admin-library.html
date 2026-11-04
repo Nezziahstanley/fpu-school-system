@@ -1,4 +1,6 @@
 ﻿<!-- Portal → Shared → Library catalogue (staff CRUD + browse) -->
+<div style="padding: 1rem 0 0 0;">
+
 <section class="page-head">
   <div>
     <h2 id="lib-title">Library</h2>
@@ -43,6 +45,8 @@
     </div>
     <div id="lib-list" style="display:none;"></div>
   </div>
+</div>
+
 </div>
 
 <!-- ===================== BOOK FORM MODAL ===================== -->
@@ -111,9 +115,22 @@
   </div>
 </div>
 
+<!-- ===================== BOOK DETAIL MODAL ===================== -->
+<div id="lib-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:620px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;" id="lib-detail-title">Book Details</h3>
+      <button type="button" id="lib-detail-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;line-height:1;">✕</button>
+    </div>
+    <div id="lib-detail-body" style="padding:1.25rem;"></div>
+  </div>
+</div>
+
 <style>
   .lib-card-body { display: flex; flex-direction: column; gap: .35rem; }
   .lib-card-actions { display: flex; gap: .35rem; margin-top: .65rem; flex-wrap: wrap; }
+  .lib-card-click { cursor: pointer; transition: all .15s; }
+  .lib-card-click:hover { border-color: #065f46; box-shadow: 0 4px 14px rgba(6,95,70,.10); }
   .lib-badge {
     display: inline-block; padding: 3px 9px; border-radius: 99px;
     font-size: .62rem; font-weight: 800; text-transform: uppercase;
@@ -131,6 +148,7 @@
   .lib-tbl td { padding: .65rem .5rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
   .lib-tbl tr:last-child td { border-bottom: none; }
   .lib-tbl .lib-copies { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .lib-tbl tbody tr:hover { background: #f8fafc; cursor: pointer; }
 </style>
 
 <script>
@@ -145,12 +163,10 @@
   var ROLE = String(me.role || '').toLowerCase();
   var CAN_EDIT = ['librarian', 'admin', 'superadmin'].indexOf(ROLE) >= 0;
 
-  // URL strategy: staff use role-scoped librarian router; admin uses admin router.
   var LIST_URL = CAN_EDIT && ROLE === 'librarian' ? '/api/librarian/books' : '/api/admin/library/books';
-  // (Librarian: /api/librarian/books. Admin/superadmin: /api/admin/library/books.)
 
   var ALL = [];
-  var VIEW = 'grid';   // 'grid' | 'list'
+  var VIEW = 'grid';
   var EDITING_ID = null;
 
   // ---- UI header tweaks per role ----
@@ -160,7 +176,6 @@
     $('lib-subtitle').textContent = 'Browse the book catalogue';
   }
 
-  // ---- Extractors ----
   function stockBadge(b) {
     var a = Number(b.copiesAvailable || 0);
     var t = Number(b.copiesTotal || 0);
@@ -178,14 +193,14 @@
     }
     grid.innerHTML = ALL.map(function (b) {
       var actions = CAN_EDIT
-        ? '<div class="lib-card-actions">'
+        ? '<div class="lib-card-actions" onclick="event.stopPropagation();">'
         +   '<button class="btn btn-sm btn-outline" data-act="edit" data-id="' + esc(b.id) + '">Edit</button>'
         +   '<button class="btn btn-sm btn-outline" data-act="plus" data-id="' + esc(b.id) + '" title="+1 copy">+1</button>'
         +   '<button class="btn btn-sm btn-outline" data-act="minus" data-id="' + esc(b.id) + '" title="-1 copy">−1</button>'
         +   '<button class="btn btn-sm btn-ghost" data-act="del" data-id="' + esc(b.id) + '" style="color:#dc2626;">Delete</button>'
         + '</div>'
         : '';
-      return '<div class="card"><div class="card-body lib-card-body">'
+      return '<div class="card lib-card-click" data-book-id="' + esc(b.id) + '"><div class="card-body lib-card-body">'
         + '<h4 style="margin:0 0 .25rem;">' + esc(b.title) + '</h4>'
         + '<p class="small muted" style="margin:0;">' + esc(b.author || '—') + (b.year ? ' · ' + esc(b.year) : '') + '</p>'
         + '<p class="small" style="margin:.35rem 0 0;">' + stockBadge(b) + ' <span class="muted">·</span> <strong>' + Number(b.copiesAvailable || 0) + '</strong> / ' + Number(b.copiesTotal || 0) + ' available</p>'
@@ -194,6 +209,15 @@
         + actions
         + '</div></div>';
     }).join('');
+
+    // Click card → detail modal
+    grid.querySelectorAll('.lib-card-click').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var id = Number(card.dataset.bookId);
+        var book = ALL.find(function (x) { return Number(x.id) === id; });
+        if (book) openDetail(book);
+      });
+    });
   }
 
   // ---- Render: list ----
@@ -215,18 +239,27 @@
         + '<button class="btn btn-sm btn-outline" data-act="minus" data-id="' + esc(b.id) + '">−1</button> '
         + '<button class="btn btn-sm btn-ghost" data-act="del" data-id="' + esc(b.id) + '" style="color:#dc2626;">Delete</button>'
         : '<span class="muted small">—</span>';
-      tbl += '<tr>'
+      tbl += '<tr data-book-id="' + esc(b.id) + '">'
         + '<td><strong>' + esc(b.title) + '</strong></td>'
         + '<td>' + esc(b.author || '—') + '</td>'
         + '<td>' + esc(b.category || '—') + '</td>'
         + '<td style="font-family:ui-monospace,monospace;font-size:.78rem;color:#64748b;">' + esc(b.isbn || '—') + '</td>'
         + '<td class="lib-copies" style="text-align:right;">' + Number(b.copiesAvailable || 0) + ' / ' + Number(b.copiesTotal || 0) + '</td>'
         + '<td>' + stockBadge(b) + '</td>'
-        + (CAN_EDIT ? '<td>' + actions + '</td>' : '')
+        + (CAN_EDIT ? '<td onclick="event.stopPropagation();">' + actions + '</td>' : '')
         + '</tr>';
     });
     tbl += '</tbody></table>';
     list.innerHTML = tbl;
+
+    // Click row → detail modal
+    list.querySelectorAll('tbody tr').forEach(function (tr) {
+      tr.addEventListener('click', function () {
+        var id = Number(tr.dataset.bookId);
+        var book = ALL.find(function (x) { return Number(x.id) === id; });
+        if (book) openDetail(book);
+      });
+    });
   }
 
   function render() {
@@ -245,7 +278,8 @@
 
   function wireActions() {
     document.querySelectorAll('button[data-act]').forEach(function (b) {
-      b.addEventListener('click', function () {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
         var act = b.dataset.act;
         var id = b.dataset.id;
         var book = ALL.find(function (x) { return String(x.id) === String(id); });
@@ -255,6 +289,41 @@
         if (act === 'minus') adjust(id, -1);
       });
     });
+  }
+
+  // ---- Book Detail Modal ----
+  function openDetail(book) {
+    $('lib-detail-title').textContent = book.title || 'Book Details';
+    var total = Number(book.copiesTotal || 0);
+    var avail = Number(book.copiesAvailable || 0);
+    var borrowed = total - avail;
+
+    $('lib-detail-body').innerHTML =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Author</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;">' + esc(book.author || '—') + '</div></div>'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Year</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;">' + esc(book.year || '—') + '</div></div>'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Category</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;">' + esc(book.category || '—') + '</div></div>'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">ISBN</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;font-family:ui-monospace,monospace;font-size:.82rem;">' + esc(book.isbn || '—') + '</div></div>'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Publisher</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;">' + esc(book.publisher || '—') + '</div></div>'
+      + '<div><div style="font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Shelf</div><div style="font-weight:700;color:#0f172a;margin-top:.15rem;">' + esc(book.shelf || '—') + '</div></div>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;padding:1rem;background:#f8fafc;border-radius:10px;margin-bottom:1.25rem;">'
+      + '<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#0f172a;">' + total + '</div><div style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Copies</div></div>'
+      + '<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#065f46;">' + avail + '</div><div style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Available</div></div>'
+      + '<div style="text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:' + (borrowed > 0 ? '#dc2626' : '#64748b') + ';">' + borrowed + '</div><div style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-top:.2rem;">Borrowed</div></div>'
+      + '</div>'
+      + '<div style="text-align:right;display:flex;gap:.5rem;justify-content:flex-end;">'
+      + '<button type="button" onclick="document.getElementById(\'lib-detail-modal\').style.display=\'none\'" class="btn btn-outline btn-sm">Close</button>'
+      + (CAN_EDIT ? '<button type="button" onclick="document.getElementById(\'lib-detail-modal\').style.display=\'none\'; document.querySelector(\'button[data-act=edit][data-id=' + book.id + ']\').click();" class="btn btn-primary btn-sm">Edit Book</button>' : '')
+      + '</div>';
+
+    $('lib-detail-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDetail() {
+    $('lib-detail-modal').style.display = 'none';
+    document.body.style.overflow = '';
   }
 
   // ---- Load ----
@@ -275,7 +344,6 @@
       var res = await core.portalFetch(LIST_URL + '?' + qs.toString());
       var payload = res.data || res || {};
       ALL = Array.isArray(payload) ? payload : (payload.books || payload.rows || []);
-      // Populate category dropdown from the data
       populateCategories();
       render();
     } catch (err) {
@@ -293,7 +361,6 @@
       return '<option value="' + esc(k) + '">' + esc(k) + '</option>';
     }).join('');
     sel.value = cur;
-    // Also fill the form's datalist
     var dl = $('lib-category-list');
     if (dl) dl.innerHTML = keys.map(function (k) { return '<option value="' + esc(k) + '"></option>'; }).join('');
   }
@@ -416,7 +483,15 @@
     });
   }
 
+  // Detail modal wiring (always)
+  $('lib-detail-close').addEventListener('click', closeDetail);
+  $('lib-detail-modal').addEventListener('click', function (e) {
+    if (e.target.id === 'lib-detail-modal') closeDetail();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('lib-detail-modal').style.display === 'flex') closeDetail();
+  });
+
   load();
 })();
 </script>
-

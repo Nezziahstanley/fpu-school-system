@@ -116,14 +116,18 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 // ------------------------------------------------------------
 // POST /api/admin/auth/logout
 // ------------------------------------------------------------
-router.post('/logout', async (req, res, next) => {
+// FIX: Added requireUser so req.user and req.authToken are populated
+router.post('/logout', requireUser, async (req, res, next) => {
   try {
     const token = req.authToken;
     if (token) {
       await sessionQueries.revokeAdminSession(token);
       await sessionQueries.revokeUserSession(token);
     }
-    await logAudit({ req, userId: req.user?.id, action: 'admin.logout' });
+    
+    // Now req.user is populated, so the audit log will capture who logged out
+    await logAudit({ req, userId: req.user?.id, action: 'admin.logout', entity: 'user', entityId: req.user?.id });
+    
     return res.json({ success: true });
   } catch (err) {
     return next(err);

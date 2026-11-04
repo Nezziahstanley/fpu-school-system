@@ -13,14 +13,87 @@
   </div>
 </section>
 
+<!-- STATS ROW 1: PEOPLE -->
 <div class="tile-grid">
-  <div class="tile"><div class="tile-label">Students</div><div class="tile-value" id="sa-t-students">—</div></div>
-  <div class="tile tile-blue"><div class="tile-label">Lecturers</div><div class="tile-value" id="sa-t-lecturers">—</div></div>
-  <div class="tile tile-accent"><div class="tile-label">Pending Applications</div><div class="tile-value" id="sa-t-apps">—</div></div>
-  <div class="tile tile-purple"><div class="tile-label">Pending Results</div><div class="tile-value" id="sa-t-results">—</div></div>
+  <div class="tile">
+    <div class="tile-label">Students</div>
+    <div class="tile-value" id="sa-t-students">—</div>
+  </div>
+  <div class="tile tile-blue">
+    <div class="tile-label">Lecturers</div>
+    <div class="tile-value" id="sa-t-lecturers">—</div>
+  </div>
+  <div class="tile tile-accent">
+    <div class="tile-label">Pending Applications</div>
+    <div class="tile-value" id="sa-t-apps">—</div>
+  </div>
+  <div class="tile tile-purple">
+    <div class="tile-label">Pending Results</div>
+    <div class="tile-value" id="sa-t-results">—</div>
+  </div>
 </div>
 
-<div class="panel">
+<!-- STATS ROW 2: OPERATIONS -->
+<div class="tile-grid" style="margin-top:1rem;">
+  <div class="tile" style="border-left-color:#10b981;">
+    <div class="tile-label">💰 Total Revenue</div>
+    <div class="tile-value" id="sa-t-revenue" style="font-size:1.35rem;">—</div>
+    <div class="tile-sub" id="sa-t-revenue-sub" style="font-size:.7rem;color:#64748b;margin-top:.2rem;">This session</div>
+  </div>
+  <div class="tile" style="border-left-color:#f59e0b;">
+    <div class="tile-label">Pending Payments</div>
+    <div class="tile-value" id="sa-t-pending-payments">—</div>
+  </div>
+  <div class="tile" style="border-left-color:#3b82f6;">
+    <div class="tile-label">Active Borrows</div>
+    <div class="tile-value" id="sa-t-borrows">—</div>
+  </div>
+  <div class="tile" style="border-left-color:#ef4444;">
+    <div class="tile-label">Overdue Books</div>
+    <div class="tile-value" id="sa-t-overdue">—</div>
+  </div>
+</div>
+
+<!-- TWO-COLUMN: ACTIVITY + QUICK ACTIONS -->
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-top:1rem;">
+
+  <!-- RECENT ACTIVITY -->
+  <div class="panel">
+    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;">📊 Recent Activity</h3>
+      <button id="sa-refresh-activity" style="background:none;border:none;font-size:.75rem;font-weight:700;color:#065f46;cursor:pointer;">↻ Refresh</button>
+    </div>
+    <div class="panel-body flush">
+      <div id="sa-activity-feed" style="max-height:400px;overflow-y:auto;">
+        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading activity…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div class="panel">
+    <div class="panel-head"><h3 style="margin:0;">⚡ Quick Actions</h3></div>
+    <div class="panel-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+        <a href="#admin-applications-list" class="sa-quick-btn">📋 Applications</a>
+        <a href="#admin-admitted" class="sa-quick-btn">✅ Admitted</a>
+        <a href="#admin-users" class="sa-quick-btn">👥 Users</a>
+        <a href="#admin-audit" class="sa-quick-btn">🔍 Audit Log</a>
+        <a href="#admin-documents" class="sa-quick-btn">📄 Documents</a>
+        <a href="#admin-transcript" class="sa-quick-btn">🎓 Transcripts</a>
+        <a href="#admin-sessions" class="sa-quick-btn">📅 Sessions</a>
+        <a href="#admin-settings" class="sa-quick-btn">⚙️ Settings</a>
+        <a href="#admin-graduations" class="sa-quick-btn">🎉 Graduations</a>
+        <a href="#admin-library" class="sa-quick-btn">📚 Library</a>
+        <a href="#admin-borrows" class="sa-quick-btn">↩️ Borrows</a>
+        <a href="#admin-programmes" class="sa-quick-btn">📖 Programmes</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FULL ADMIN PANEL CTA -->
+<div class="panel" style="margin-top:1rem;">
   <div class="panel-head"><h3>Go to Full Admin Panel</h3></div>
   <div class="panel-body">
     <p class="muted small">The admin role has a dedicated SPA with ~60 partials covering every part of the system.</p>
@@ -28,55 +101,154 @@
   </div>
 </div>
 
-<div class="panel">
-  <div class="panel-head"><h3>Quick Links</h3></div>
-  <div class="panel-body">
-    <div style="display:flex;flex-wrap:wrap;gap:.5rem;">
-      <a class="btn btn-outline btn-sm" href="/admin/app.html#users">Users</a>
-      <a class="btn btn-outline btn-sm" href="/admin/app.html#settings">Settings</a>
-      <a class="btn btn-outline btn-sm" href="/admin/app.html#security">Security</a>
-      <a class="btn btn-outline btn-sm" href="/admin/app.html#audit">Audit</a>
-    </div>
-  </div>
-</div>
+<style>
+  .sa-quick-btn {
+    display:flex;align-items:center;gap:.5rem;
+    padding:.65rem .75rem;
+    background:#f8fafc;
+    border:1px solid #e5e7eb;
+    border-radius:8px;
+    font-size:.78rem;
+    font-weight:600;
+    color:#0f172a;
+    text-decoration:none;
+    transition:all .15s;
+  }
+  .sa-quick-btn:hover {
+    background:#ecfdf5;
+    border-color:#065f46;
+    color:#065f46;
+    transform:translateY(-1px);
+  }
+  .sa-activity-item {
+    display:flex;
+    gap:.75rem;
+    padding:.75rem 1rem;
+    border-bottom:1px solid #f1f5f9;
+    align-items:flex-start;
+  }
+  .sa-activity-item:last-child { border-bottom:none; }
+  .sa-activity-icon {
+    width:32px;height:32px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;font-size:1rem;
+    background:#ecfdf5;color:#065f46;
+  }
+  .sa-activity-icon.warning { background:#fef3c7;color:#92400e; }
+  .sa-activity-icon.success { background:#d1fae5;color:#065f46; }
+  .sa-activity-icon.danger { background:#fee2e2;color:#991b1b; }
+</style>
 
 <script>
-  (async function () {
-    // 1. Give the SPA a tiny moment to attach the core library
-    setTimeout(async () => {
-      const core = window.FPU_PORTAL;
-      const photo = window.FPU_PHOTO;
-      
-      if (!core) {
-        console.error('FPU_PORTAL core is missing!');
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL;
+  const photo = window.FPU_PHOTO;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+  // Load greeting + stats
+  (async function loadStats() {
+    try {
+      const user = core.getPortalUser && core.getPortalUser();
+      if (user) {
+        $('sa-dash-name').textContent = user.firstName || 'Administrator';
+        if (photo) photo.renderMyAvatar($('sa-dash-avatar'), user);
+      }
+
+      const res = await core.portalFetch('/api/admin/reports/overview');
+      const d = (res && res.data) || {};
+
+      // Row 1: People
+      $('sa-t-students').textContent = d.students ?? 0;
+      $('sa-t-lecturers').textContent = d.lecturers ?? 0;
+      $('sa-t-apps').textContent = d.pendingApplications ?? 0;
+      $('sa-t-results').textContent = d.pendingResults ?? 0;
+
+      // Row 2: Operations
+      const revenue = Number(d.totalRevenue || 0);
+      $('sa-t-revenue').textContent = revenue > 0 ? '₦' + revenue.toLocaleString() : '₦0';
+      $('sa-t-pending-payments').textContent = d.pendingPayments ?? 0;
+      $('sa-t-borrows').textContent = d.activeBorrows ?? 0;
+      $('sa-t-overdue').textContent = d.unpaidFines ?? 0;
+
+    } catch (err) {
+      console.error('[dashboard] stats error:', err);
+      if (core.showToast) core.showToast(err.message, 'error');
+    }
+  })();
+
+  // Load recent activity feed
+  async function loadActivity() {
+    const feed = $('sa-activity-feed');
+    feed.innerHTML = `<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">Loading…</div>`;
+
+    try {
+      const res = await core.portalFetch('/api/admin/audit?limit=15&withRelations=true');
+      const logs = Array.isArray(res.data) ? res.data : [];
+
+      if (!logs.length) {
+        feed.innerHTML = `<div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">No recent activity.</div>`;
         return;
       }
 
-      try {
-        // 2. Load User Info
-        const user = core.getPortalUser && core.getPortalUser();
-        if (user) {
-          document.getElementById('sa-dash-name').textContent = user.firstName || 'Administrator';
-          if (photo) photo.renderMyAvatar(document.getElementById('sa-dash-avatar'), user);
-        }
-
-        // 3. Fetch the REAL stats from your reports.js API
-        const res = await core.portalFetch('/api/admin/reports/overview');
-        const d = (res && res.data) || {};
+      feed.innerHTML = logs.slice(0, 15).map(entry => {
+        const log = entry.log || entry;
+        const user = entry.user || {};
+        const userName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user.email || 'System');
+        const action = log.action || 'unknown';
         
-        // 4. Update the DOM
-        document.getElementById('sa-t-students').textContent = d.students ?? 0;
-        document.getElementById('sa-t-lecturers').textContent = d.lecturers ?? 0;
-        document.getElementById('sa-t-apps').textContent = d.pendingApplications ?? 0;
-        document.getElementById('sa-t-results').textContent = d.pendingResults ?? 0;
+        // Icon + color by action type
+        let icon = '•';
+        let cls = '';
+        if (action.includes('login')) { icon = '🔑'; cls = 'success'; }
+        else if (action.includes('logout')) { icon = '🚪'; }
+        else if (action.includes('approve')) { icon = '✅'; cls = 'success'; }
+        else if (action.includes('reject')) { icon = '❌'; cls = 'danger'; }
+        else if (action.includes('register')) { icon = '🎓'; cls = 'success'; }
+        else if (action.includes('delete')) { icon = '🗑️'; cls = 'danger'; }
+        else if (action.includes('create')) { icon = '➕'; cls = 'success'; }
+        else if (action.includes('update')) { icon = '✏️'; cls = 'warning'; }
+        else if (action.includes('graduate')) { icon = '🎉'; cls = 'success'; }
+        else { icon = '📝'; }
 
-      } catch (err) {
-        console.error('Dashboard stats error:', err);
-        if (core.showToast) core.showToast('Failed to load real data: ' + err.message, 'error');
-        
-        // Show a dash instead of a spinner if it fails
-        document.getElementById('sa-t-students').textContent = '—';
-      }
-    }, 150); // 150ms delay allows the SPA to mount
-  })();
+        const timeAgo = log.createdAt ? getTimeAgo(new Date(log.createdAt)) : '';
+
+        return `
+          <div class="sa-activity-item">
+            <div class="sa-activity-icon ${cls}">${icon}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.82rem;color:#0f172a;font-weight:600;">
+                ${esc(action.replace(/\./g, ' · '))}
+              </div>
+              <div style="font-size:.72rem;color:#64748b;margin-top:.15rem;">
+                <strong>${esc(userName)}</strong> · ${esc(timeAgo)}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    } catch (err) {
+      console.error('[dashboard] activity error:', err);
+      feed.innerHTML = `<div style="padding:2rem;text-align:center;color:#ef4444;font-size:.82rem;">⚠️ ${esc(err.message)}</div>`;
+    }
+  }
+
+  function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+    if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+    if (seconds < 604800) return Math.floor(seconds / 86400) + 'd ago';
+    return fmtDate(date);
+  }
+
+  $('sa-refresh-activity')?.addEventListener('click', loadActivity);
+
+  loadActivity();
+  // Auto-refresh activity every 30s
+  setInterval(loadActivity, 30000);
+})();
 </script>

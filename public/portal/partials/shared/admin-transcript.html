@@ -75,7 +75,7 @@
 <!-- MODAL -->
 <div id="tr-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:800px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
+    <div class="tr-modal-header" style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <h3 id="tr-modal-title" style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Transcript</h3>
       <button id="tr-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
@@ -88,6 +88,185 @@
   #tr-tbody tr { transition: background .1s; }
   #tr-tbody tr:hover { background: #f8fafc; }
   .tr-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; }
+
+  /* ============================================================
+     PRINT STYLES
+     When printing from the transcript modal, only print the
+     transcript content, with school logo + watermark.
+     ============================================================ */
+  @media print {
+    /* Hide everything except the transcript modal */
+    body * { visibility: hidden !important; }
+    #tr-modal,
+    #tr-modal * { visibility: visible !important; }
+
+    /* Reset the modal for printing */
+    #tr-modal {
+      position: static !important;
+      display: block !important;
+      background: transparent !important;
+      inset: auto !important;
+      padding: 0 !important;
+      backdrop-filter: none !important;
+    }
+    #tr-modal > div {
+      background: #fff !important;
+      box-shadow: none !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      border-radius: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    #tr-modal-body {
+      padding: 0 !important;
+    }
+    .tr-modal-header {
+      display: none !important;
+    }
+    .tr-print-hide {
+      display: none !important;
+    }
+
+    /* Print-friendly transcript */
+    .tr-printable {
+      position: relative;
+      padding: 20mm 15mm;
+      font-family: 'Times New Roman', 'Georgia', serif;
+      color: #000;
+    }
+    .tr-printable .tr-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-20deg);
+      width: 380px;
+      height: 380px;
+      opacity: 0.08;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .tr-printable .tr-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Letterhead */
+    .tr-letterhead {
+      text-align: center;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+      border-bottom: 3px double #065f46;
+    }
+    .tr-letterhead img { height: 70px; margin-bottom: 8px; }
+    .tr-letterhead h1 {
+      font-size: 22px;
+      margin: 0;
+      color: #065f46;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .tr-letterhead p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: #555;
+    }
+
+    /* Title */
+    .tr-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 20px 0;
+    }
+
+    /* Student info grid */
+    .tr-info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    .tr-info-grid > div > span {
+      display: block;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 9px;
+      color: #666;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .tr-info-grid > div > strong {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    /* Results table */
+    .tr-results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-bottom: 20px;
+    }
+    .tr-results-table th {
+      background: #f0fdf4;
+      padding: 8px;
+      border: 1px solid #000;
+      text-align: left;
+      text-transform: uppercase;
+      font-size: 9px;
+      letter-spacing: 0.5px;
+    }
+    .tr-results-table td {
+      padding: 6px 8px;
+      border: 1px solid #333;
+    }
+    .tr-results-table td.center {
+      text-align: center;
+    }
+
+    /* Summary block */
+    .tr-summary {
+      display: flex;
+      justify-content: flex-end;
+      gap: 40px;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 2px solid #065f46;
+      font-size: 12px;
+    }
+    .tr-summary .tr-cgpa-big {
+      font-size: 22px;
+      font-weight: 800;
+      color: #065f46;
+    }
+
+    /* Footer */
+    .tr-footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #999;
+      font-size: 10px;
+      text-align: center;
+      color: #666;
+    }
+    .tr-signature {
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+    .tr-signature .tr-sign-block {
+      border-top: 1px solid #000;
+      padding-top: 5px;
+      min-width: 180px;
+      text-align: center;
+    }
+  }
 </style>
 
 <script>
@@ -98,7 +277,6 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL = [];
-  let FILTERED = [];
 
   function getCgpaClass(cgpa) {
     if (cgpa == null) return { bg: '#f1f5f9', color: '#64748b' };
@@ -120,7 +298,7 @@
       const res = await core.portalFetch('/api/admin/transcript/students');
       ALL = Array.isArray(res.data) ? res.data : [];
 
-      // Populate department filter from real data
+      // Populate department filter
       const deptNames = [...new Set(ALL.map(s => s.departmentName).filter(Boolean))].sort();
       const deptSelect = $('tr-filter-dept');
       deptSelect.innerHTML = '<option value="">All Departments</option>' +
@@ -151,7 +329,7 @@
     const dept = $('tr-filter-dept')?.value || '';
     const level = $('tr-level')?.value || '';
 
-    FILTERED = ALL.filter(s => {
+    const FILTERED = ALL.filter(s => {
       if (dept && s.departmentName !== dept) return false;
       if (level && s.level !== level) return false;
       if (q) {
@@ -168,11 +346,7 @@
   function renderTable(rows) {
     const tbody = $('tr-tbody');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">
-        <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">📄</div>
-        <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No students found</div>
-        <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
-      </td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No students found.</td></tr>`;
       return;
     }
 
@@ -231,7 +405,6 @@
     });
 
     tbody.innerHTML = html;
-
     tbody.querySelectorAll('.tr-view-btn').forEach(btn => {
       btn.addEventListener('click', () => viewTranscript(btn.dataset.id));
     });
@@ -251,79 +424,127 @@
 
     try {
       const res = await core.portalFetch(`/api/admin/transcript/${studentId}`);
-
-      // ✅ Backend returns { success, student, summary, rows }
       const s = res.student || {};
       const rows = res.rows || [];
       const summary = res.summary || {};
 
       title.textContent = `Transcript — ${s.firstName} ${s.lastName}`;
 
-      let tableRows = '';
+      const cgpa = summary.cgpa != null && !isNaN(summary.cgpa) ? Number(summary.cgpa).toFixed(2) : '0.00';
+      const cgpaColor = getCgpaClass(summary.cgpa != null ? Number(summary.cgpa) : null);
+
+      // Build results table rows
+      let resultRows = '';
       if (!rows.length) {
-        tableRows = '<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">No published results found.</td></tr>';
+        resultRows = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#991b1b;">No published results found.</td></tr>';
       } else {
-        tableRows = rows.map(r => `
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.course?.code || '—')}</td>
-            <td style="padding:.65rem .75rem;color:#475569;">${esc(r.course?.title || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.course?.unit || '0')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.result?.score || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.result?.grade || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(r.result?.points || '—')}</td>
+        resultRows = rows.map(r => `
+          <tr>
+            <td style="font-weight:700;">${esc(r.course?.code || '—')}</td>
+            <td>${esc(r.course?.title || '—')}</td>
+            <td class="center">${esc(r.course?.unit || '0')}</td>
+            <td class="center">${esc(r.result?.score || '—')}</td>
+            <td class="center" style="font-weight:800;color:#065f46;">${esc(r.result?.grade || '—')}</td>
+            <td class="center">${esc(r.result?.points || '—')}</td>
           </tr>
         `).join('');
       }
 
-      const cgpa = summary.cgpa != null && !isNaN(summary.cgpa) ? Number(summary.cgpa).toFixed(2) : '0.00';
-      const cgpaColor = getCgpaClass(summary.cgpa != null ? Number(summary.cgpa) : null);
+      const logoUrl = '/images/logo.png';
 
+      // ============================================================
+      // RENDER: Printable transcript (matches print styles above)
+      // ============================================================
       body.innerHTML = `
-        <div style="margin-bottom:1.5rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
-          <div>
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Matric No.</div>
-            <div style="font-weight:800;color:#0f172a;">${esc(s.matricNumber || '—')}</div>
-          </div>
-          <div>
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Department</div>
-            <div style="font-weight:800;color:#0f172a;">${esc(s.departmentName || '—')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Programme</div>
-            <div style="font-weight:800;color:#0f172a;">${esc(s.programmeName || '—')}</div>
+        <div class="tr-printable">
+          <!-- Watermark -->
+          <img src="${logoUrl}" class="tr-watermark" alt="" onerror="this.style.display='none'" />
+
+          <div class="tr-content">
+            <!-- Letterhead -->
+            <div class="tr-letterhead">
+              <img src="${logoUrl}" alt="FPU Logo" onerror="this.style.display='none'" />
+              <h1>Federal Polytechnic Ugep</h1>
+              <p>P.M.B. 1038, Ugep, Cross River State, Nigeria</p>
+            </div>
+
+            <div class="tr-title">Official Transcript</div>
+
+            <!-- Student info -->
+            <div class="tr-info-grid">
+              <div>
+                <span>Matric No.</span>
+                <strong>${esc(s.matricNumber || '—')}</strong>
+              </div>
+              <div>
+                <span>Student Name</span>
+                <strong>${esc(s.firstName || '')} ${esc(s.lastName || '')}</strong>
+              </div>
+              <div>
+                <span>Level</span>
+                <strong>${esc(s.level || '—')}</strong>
+              </div>
+              <div>
+                <span>Department</span>
+                <strong>${esc(s.departmentName || '—')}</strong>
+              </div>
+              <div>
+                <span>Programme</span>
+                <strong>${esc(s.programmeName || '—')}</strong>
+              </div>
+              <div>
+                <span>Date Issued</span>
+                <strong>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+              </div>
+            </div>
+
+            <!-- Results table -->
+            <table class="tr-results-table">
+              <thead>
+                <tr>
+                  <th style="width:10%;">Code</th>
+                  <th style="width:50%;">Course Title</th>
+                  <th style="width:8%; text-align:center;">Units</th>
+                  <th style="width:10%; text-align:center;">Score</th>
+                  <th style="width:10%; text-align:center;">Grade</th>
+                  <th style="width:12%; text-align:center;">Points</th>
+                </tr>
+              </thead>
+              <tbody>${resultRows}</tbody>
+            </table>
+
+            <!-- Summary -->
+            <div class="tr-summary">
+              <div>
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;">Total Units</div>
+                <div style="font-size:18px;font-weight:800;">${esc(summary.totalUnits || '0')}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;">Cumulative GPA</div>
+                <div class="tr-cgpa-big">${cgpa}</div>
+                <div style="font-size:12px;font-weight:600;">${esc(summary.classification || '—')}</div>
+              </div>
+            </div>
+
+            <!-- Signature -->
+            <div class="tr-signature">
+              <div>Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div class="tr-sign-block">
+                <div style="font-weight:800;">REGISTRAR</div>
+                <div style="font-size:10px;color:#666;">Signature / Stamp</div>
+              </div>
+            </div>
+
+            <div class="tr-footer">
+              This is a computer-generated transcript and is valid without a physical signature.
+            </div>
           </div>
         </div>
 
-        <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px;">
-          <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-            <thead>
-              <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-                <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Code</th>
-                <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Course Title</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Units</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Score</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Grade</th>
-                <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;">Points</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-        </div>
-
-        <div style="margin-top:1.5rem;display:flex;justify-content:space-between;padding-top:1rem;border-top:2px solid #065f46;">
-          <div>
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Total Units</div>
-            <div style="font-size:1.1rem;font-weight:800;color:#0f172a;">${esc(summary.totalUnits || '0')}</div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">CGPA</div>
-            <div style="font-size:1.3rem;font-weight:800;color:${cgpaColor.color};">${cgpa}</div>
-            <div style="font-size:.75rem;color:#64748b;margin-top:.2rem;">${esc(summary.classification || '—')}</div>
-          </div>
-        </div>
-
-        <div style="margin-top:1.5rem;text-align:right;">
-          <button onclick="window.print()" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">🖨 Print</button>
+        <!-- On-screen only: Print + Close -->
+        <div class="tr-print-hide" style="margin-top:1.5rem;display:flex;justify-content:flex-end;gap:.5rem;">
+          <button onclick="window.print()" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print / Save as PDF</button>
+          <button onclick="document.getElementById('tr-modal').style.display='none'" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
         </div>
       `;
 
@@ -340,7 +561,6 @@
   });
   $('tr-filter-dept')?.addEventListener('change', applyFilters);
   $('tr-level')?.addEventListener('change', applyFilters);
-
   $('tr-modal-close')?.addEventListener('click', () => {
     $('tr-modal').style.display = 'none';
   });

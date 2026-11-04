@@ -100,18 +100,15 @@
       </td></tr>`;
 
     try {
-      // Dynamic routing based on user role
-      const user = core.getPortalUser ? core.getPortalUser() : {};
-      const isRegistrar = user.role === 'registrar';
+      // FIX: Fetch all applications from the single admin endpoint, then filter on frontend
+      const res = await core.portalFetch('/api/admin/applications?limit=500');
       
-      const endpoint = isRegistrar 
-        ? '/api/registrar/admitted' 
-        : '/api/admin/applications?status=approved,registered,matriculated';
-
-      const res = await core.portalFetch(endpoint);
+      const allApps = Array.isArray(res.data) ? res.data : [];
       
-      // Both endpoints return { success: true, data: [...] }
-      ALL = Array.isArray(res.data) ? res.data : [];
+      // Filter only for admitted students
+      ALL = allApps.filter(app => 
+        ['approved', 'registered', 'matriculated'].includes(app.status)
+      );
       
       renderStats();
       applyFilters();

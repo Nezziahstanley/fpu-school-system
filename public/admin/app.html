@@ -2,15 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Admin — Federal Polytechnic Ugep</title>
   <link rel="icon" href="/images/logo.png" />
   <link rel="stylesheet" href="/css/admin.css" />
 </head>
 <body class="admin-app">
   <script>
-    // Guard: only admin / superadmin may use the full admin panel.
-    // Everyone else is bounced back to their proper portal dashboard.
     (function () {
       try {
         const keys = ['fpu_portal_user', 'portal_user', 'fpu_admin_user'];
@@ -19,7 +17,7 @@
           const v = localStorage.getItem(k);
           if (v) { try { user = JSON.parse(v); break; } catch {} }
         }
-        if (!user) return; // let admin-spa.js handle login redirect
+        if (!user) return;
         const role = String(user.role || '').toLowerCase();
         const allowed = ['admin', 'superadmin'];
         if (!allowed.includes(role)) {
@@ -35,6 +33,9 @@
       <p>The FPU Admin Panel requires JavaScript to run. Please enable it in your browser settings and reload this page.</p>
     </div>
   </noscript>
+
+  <!-- SIDEBAR SCRIM (mobile) -->
+  <div class="admin-sidebar-scrim" id="admin-sidebar-scrim"></div>
 
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
@@ -56,7 +57,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar-left">
-      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
           <path d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
@@ -68,7 +69,6 @@
     </div>
 
     <div class="topbar-right">
-      <!-- Notifications -->
       <button class="icon-btn" title="Notifications" id="topbar-notifications">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/>
@@ -77,7 +77,6 @@
         <span class="dot" id="pending-badge" style="display:none;">0</span>
       </button>
 
-      <!-- Profile dropdown -->
       <div class="user-chip-wrap">
         <div class="user-chip" id="topbar-user-chip" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false">
           <div class="avatar" id="topbar-avatar">A</div>
@@ -108,7 +107,6 @@
         </div>
       </div>
 
-      <!-- Quick sign-out icon (kept for convenience) -->
       <button class="icon-btn" title="Sign out" id="topbar-logout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -128,8 +126,155 @@
     </div>
   </main>
 
-  <!-- Toast host -->
   <div id="toast-wrap" class="toast-wrap"></div>
+
+  <!-- ============================================================
+       ADMIN MOBILE STYLES (injected inline so it works without CSS edit)
+       ============================================================ -->
+  <style id="admin-mobile-styles">
+    /* ---------- DESKTOP: hide scrim, burger works normally ---------- */
+    @media (min-width: 1025px) {
+      .admin-sidebar-scrim { display: none !important; }
+    }
+
+    /* ---------- TABLET & MOBILE ---------- */
+    @media (max-width: 1024px) {
+      html, body.admin-app {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+
+      /* Scrim */
+      .admin-sidebar-scrim {
+        position: fixed; inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        z-index: 1090; opacity: 0;
+        pointer-events: none;
+        transition: opacity .22s ease;
+      }
+      body.admin-sidebar-open .admin-sidebar-scrim {
+        opacity: 1; pointer-events: auto;
+      }
+      body.admin-sidebar-open { overflow: hidden !important; }
+
+      /* Sidebar → off-canvas drawer */
+      body.admin-app aside.sidebar,
+      body.admin-app #sidebar {
+        position: fixed !important;
+        top: 0 !important; bottom: 0 !important; left: 0 !important;
+        height: 100vh !important; height: 100dvh !important;
+        width: 280px !important; max-width: 84vw !important;
+        transform: translateX(-105%) !important;
+        transition: transform .25s ease !important;
+        z-index: 1100 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 6px 0 28px rgba(15, 23, 42, 0.28);
+      }
+      body.admin-sidebar-open aside.sidebar,
+      body.admin-sidebar-open #sidebar {
+        transform: translateX(0) !important;
+      }
+
+      /* Burger visible & styled */
+      body.admin-app #sidebar-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        -webkit-tap-highlight-color: transparent;
+        transition: background .15s;
+      }
+      body.admin-app #sidebar-toggle:active {
+        background: rgba(0, 0, 0, 0.08);
+      }
+      body.admin-app #sidebar-toggle svg {
+        transition: transform .25s ease;
+      }
+      body.admin-sidebar-open #sidebar-toggle svg {
+        transform: rotate(90deg);
+      }
+
+      /* Main content full width */
+      body.admin-app main.main,
+      body.admin-app .main {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding-left: .75rem !important;
+        padding-right: .75rem !important;
+      }
+
+      /* Topbar full width */
+      body.admin-app header.topbar,
+      body.admin-app .topbar {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: .75rem !important;
+        padding-right: .75rem !important;
+      }
+
+      /* Grids collapse to single column */
+      body.admin-app .tile-grid,
+      body.admin-app .stat-grid,
+      body.admin-app .grid {
+        grid-template-columns: 1fr !important;
+        gap: .75rem !important;
+      }
+      body.admin-app .chart-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      /* Tables scroll */
+      body.admin-app .table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      body.admin-app table {
+        min-width: 560px;
+      }
+
+      /* iOS zoom prevention */
+      body.admin-app input,
+      body.admin-app select,
+      body.admin-app textarea {
+        font-size: 16px !important;
+      }
+
+      /* User menu shouldn't overflow */
+      body.admin-app #topbar-user-menu {
+        right: -6px !important;
+        max-width: calc(100vw - 16px) !important;
+      }
+    }
+
+    /* ---------- SMALL PHONES ---------- */
+    @media (max-width: 640px) {
+      body.admin-app aside.sidebar,
+      body.admin-app #sidebar {
+        width: 260px !important;
+        max-width: 86vw !important;
+      }
+      body.admin-app main.main {
+        padding-left: .5rem !important;
+        padding-right: .5rem !important;
+      }
+    }
+
+    /* ---------- LANDSCAPE PHONES ---------- */
+    @media (max-height: 500px) and (orientation: landscape) {
+      body.admin-app aside.sidebar,
+      body.admin-app #sidebar {
+        width: 230px !important;
+      }
+      body.admin-app main.main {
+        padding: .5rem .6rem !important;
+      }
+    }
+  </style>
 
   <!-- SCRIPTS -->
   <script src="/js/partials-loader.js"></script>
@@ -143,18 +288,14 @@
     (function () {
       'use strict';
 
-      // ---- Footer year ----
       document.getElementById('sb-year').textContent = new Date().getFullYear();
 
-      // ---- AUTH GUARD ----
       function getToken() {
-        return localStorage.getItem('fpu_admin_token')
-          || localStorage.getItem('portal_token');
+        return localStorage.getItem('fpu_admin_token') || localStorage.getItem('portal_token');
       }
       function getUser() {
         try {
-          const raw = localStorage.getItem('fpu_admin_user')
-            || localStorage.getItem('portal_user');
+          const raw = localStorage.getItem('fpu_admin_user') || localStorage.getItem('portal_user');
           return raw ? JSON.parse(raw) : null;
         } catch { return null; }
       }
@@ -170,7 +311,6 @@
         return;
       }
 
-      // ---- POPULATE USER INFO ----
       const user = getUser();
       if (user) {
         const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Admin';
@@ -200,18 +340,71 @@
         });
       }
 
-      // ---- SIDEBAR TOGGLE ----
+      // ============================================================
+      // SIDEBAR TOGGLE (mobile drawer + desktop collapse)
+      // ============================================================
       const sidebarToggle = document.getElementById('sidebar-toggle');
+      const scrim = document.getElementById('admin-sidebar-scrim');
+      const sidebar = document.getElementById('sidebar');
+
+      function isMobile() {
+        return window.innerWidth <= 1024;
+      }
+      function isOpen() {
+        return document.body.classList.contains('admin-sidebar-open');
+      }
+      function openSidebar() {
+        document.body.classList.add('admin-sidebar-open');
+        if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'true');
+      }
+      function closeSidebar() {
+        document.body.classList.remove('admin-sidebar-open');
+        if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+      }
+
       if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function () {
-          document.body.classList.toggle('sidebar-collapsed');
-          if (window.matchMedia('(max-width: 900px)').matches) {
-            document.body.classList.toggle('sidebar-open');
+        sidebarToggle.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          if (isMobile()) {
+            // Mobile: toggle drawer
+            isOpen() ? closeSidebar() : openSidebar();
+          } else {
+            // Desktop: toggle collapse
+            document.body.classList.toggle('sidebar-collapsed');
           }
         });
       }
 
-      // ---- LOGOUT ----
+      // Close drawer when clicking the scrim
+      if (scrim) {
+        scrim.addEventListener('click', closeSidebar);
+      }
+
+      // Close drawer when clicking a nav link
+      if (sidebar) {
+        sidebar.addEventListener('click', function (e) {
+          if (!isMobile()) return;
+          if (e.target.closest('a') || e.target.closest('[data-page]') || e.target.closest('[data-nav]')) {
+            setTimeout(closeSidebar, 100);
+          }
+        });
+      }
+
+      // Close drawer on Escape
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen()) closeSidebar();
+      });
+
+      // Auto-close drawer when resizing to desktop
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 1024 && isOpen()) closeSidebar();
+      });
+
+      // ============================================================
+      // LOGOUT
+      // ============================================================
       async function doLogout() {
         if (!confirm('Log out of the admin panel?')) return;
         const token = getToken();
@@ -221,7 +414,7 @@
               method: 'POST',
               headers: { Authorization: 'Bearer ' + token },
             });
-          } catch { /* ignore network errors */ }
+          } catch { /* ignore */ }
         }
         clearSession();
         window.location.href = '/login.html';
@@ -230,7 +423,9 @@
       const logoutBtn = document.getElementById('topbar-logout');
       if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
 
-      // ---- PROFILE DROPDOWN ----
+      // ============================================================
+      // PROFILE DROPDOWN
+      // ============================================================
       const chip = document.getElementById('topbar-user-chip');
       const menu = document.getElementById('topbar-user-menu');
 
@@ -241,13 +436,11 @@
         const firstItem = menu.querySelector('.user-menu-item');
         if (firstItem) firstItem.focus();
       }
-
       function closeMenu() {
         if (!menu) return;
         menu.hidden = true;
         chip.setAttribute('aria-expanded', 'false');
       }
-
       function toggleMenu() {
         if (!menu) return;
         menu.hidden ? openMenu() : closeMenu();
@@ -268,19 +461,16 @@
           }
         });
 
-        // Close on outside click
         document.addEventListener('click', (e) => {
           if (!menu.hidden && !menu.contains(e.target) && !chip.contains(e.target)) {
             closeMenu();
           }
         });
 
-        // Close on Escape from anywhere
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape' && !menu.hidden) closeMenu();
         });
 
-        // Menu item clicks
         menu.querySelectorAll('[data-action]').forEach((item) => {
           item.addEventListener('click', async (e) => {
             e.preventDefault();
@@ -291,7 +481,6 @@
               case 'profile':
                 if (window.FPU_ADMIN_SPA) window.FPU_ADMIN_SPA.navigateTo('settings');
                 break;
-
               case 'password':
                 if (window.FPU_ADMIN_SPA) window.FPU_ADMIN_SPA.navigateTo('settings');
                 setTimeout(() => {
@@ -299,15 +488,12 @@
                   if (pwd) pwd.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }, 400);
                 break;
-
               case 'settings':
                 if (window.FPU_ADMIN_SPA) window.FPU_ADMIN_SPA.navigateTo('settings');
                 break;
-
               case 'login-history':
                 if (window.FPU_ADMIN_SPA) window.FPU_ADMIN_SPA.navigateTo('login-history');
                 break;
-
               case 'logout':
                 await doLogout();
                 break;
@@ -316,7 +502,9 @@
         });
       }
 
-      // ---- NOTIFICATIONS ----
+      // ============================================================
+      // NOTIFICATIONS
+      // ============================================================
       const notifBtn = document.getElementById('topbar-notifications');
       if (notifBtn) {
         notifBtn.addEventListener('click', function () {
@@ -325,6 +513,8 @@
           }
         });
       }
+
+      console.log('[admin-app] Burger menu ready. Test on mobile: tap ☰');
     })();
   </script>
 </body>

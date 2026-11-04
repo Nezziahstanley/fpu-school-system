@@ -2860,3 +2860,134 @@ tr.row-clickable:hover td:first-child {
   }
   .fee-card { break-inside: avoid; box-shadow: none !important; }
 }
+/* ============================================================
+   FPU ADMIN — MOBILE RESPONSIVE (burger menu, drawer, safe areas)
+   ============================================================ */
+
+/* ---------- DESKTOP (>= 1025px): hide burger, sidebar always visible ---------- */
+@media (min-width: 1025px) {
+  #admin-burger,
+  .admin-burger-btn {
+    display: none !important;
+  }
+  .admin-sidebar-scrim { display: none !important; }
+}
+
+/* ---------- TABLET & MOBILE (<= 1024px) ---------- */
+@media (max-width: 1024px) {
+  html, body { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
+
+  /* Scrim */
+  .admin-sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 1090;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease;
+  }
+  body.admin-sidebar-open .admin-sidebar-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Sidebar off-canvas */
+  body.admin-sidebar-open { overflow: hidden !important; }
+
+  .admin-sidebar,
+  #admin-sidebar,
+  aside.sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 280px !important;
+    max-width: 84vw !important;
+    transform: translateX(-105%) !important;
+    transition: transform .25s ease !important;
+    z-index: 1100 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 6px 0 28px rgba(15, 23, 42, 0.28);
+  }
+  body.admin-sidebar-open .admin-sidebar,
+  body.admin-sidebar-open #admin-sidebar {
+    transform: translateX(0) !important;
+  }
+
+  /* Burger button visible */
+  #admin-burger,
+  .admin-burger-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #065f46;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #admin-burger:active { background: rgba(0, 0, 0, 0.08); }
+  #admin-burger svg { transition: transform .25s ease; }
+  body.admin-sidebar-open #admin-burger svg { transform: rotate(90deg); }
+
+  /* Main content full width */
+  main, .main, .content, .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+  }
+
+  /* Topbar full width */
+  .topbar, .admin-topbar, header.topbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+  }
+
+  /* Grids collapse */
+  .tile-grid, .stat-grid, .grid {
+    grid-template-columns: 1fr !important;
+  }
+  .chart-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables scroll */
+  .table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  table { min-width: 560px; }
+
+  /* iOS zoom prevention */
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* ---------- SMALL PHONES (<= 640px) ---------- */
+@media (max-width: 640px) {
+  .admin-sidebar, #admin-sidebar {
+    width: 260px !important;
+    max-width: 86vw !important;
+  }
+  main, .main, .content, .main-content {
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
+  }
+  .tile-value { font-size: 1.25rem !important; }
+}
+
+/* ---------- LANDSCAPE PHONES ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .admin-sidebar, #admin-sidebar { width: 230px !important; }
+  main, .main { padding: .5rem .6rem !important; }
+}

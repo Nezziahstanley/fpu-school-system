@@ -240,3 +240,75 @@
     copyToClipboard,
   };
 })();
+
+// ============================================================
+// FPU Global Modals (Confirm & Toast)
+// ============================================================
+(function() {
+  // Inject styles
+  if (!document.getElementById('fpu-modal-styles')) {
+    const style = document.createElement('style');
+    style.id = 'fpu-modal-styles';
+    style.textContent = $modalCSS;
+    document.head.appendChild(style);
+  }
+
+  // Create modal DOM structure
+  if (!document.getElementById('fpu-modal-container')) {
+    const modalHTML = 
+      <div class="fpu-modal-overlay" id="fpu-modal-container">
+        <div class="fpu-modal-box">
+          <div class="fpu-modal-title" id="fpu-modal-title">Confirm</div>
+          <div class="fpu-modal-text" id="fpu-modal-text"></div>
+          <div class="fpu-modal-actions">
+            <button class="fpu-modal-btn fpu-modal-btn-cancel" id="fpu-modal-cancel">Cancel</button>
+            <button class="fpu-modal-btn fpu-modal-btn-confirm" id="fpu-modal-ok">OK</button>
+          </div>
+        </div>
+      </div>
+    ;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  }
+
+  const overlay = document.getElementById('fpu-modal-container');
+  const titleEl = document.getElementById('fpu-modal-title');
+  const textEl = document.getElementById('fpu-modal-text');
+  const btnCancel = document.getElementById('fpu-modal-cancel');
+  const btnOk = document.getElementById('fpu-modal-ok');
+
+  let resolver = null;
+
+  // Confirm Dialog
+  window.FPU_CONFIRM = function(message, title = 'Please Confirm', isDanger = false) {
+    return new Promise((resolve) => {
+      resolver = resolve;
+      titleEl.textContent = title;
+      textEl.innerHTML = message;
+      
+      btnOk.className = 'fpu-modal-btn ' + (isDanger ? 'fpu-modal-btn-danger' : 'fpu-modal-btn-confirm');
+      btnOk.textContent = isDanger ? 'Delete' : 'Confirm';
+
+      overlay.classList.add('show');
+    });
+  };
+
+  // Close handler
+  function close(result) {
+    overlay.classList.remove('show');
+    if (resolver) {
+      resolver(result);
+      resolver = null;
+    }
+  }
+
+  btnCancel.addEventListener('click', () => close(false));
+  btnOk.addEventListener('click', () => close(true));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close(false);
+  });
+
+  // Append to global core object
+  if (window.FPU_PORTAL) {
+    window.FPU_PORTAL.confirm = window.FPU_CONFIRM;
+  }
+})();

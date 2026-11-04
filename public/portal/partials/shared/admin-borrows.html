@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Borrows (staff: all borrows; student: my borrows) -->
+﻿<!-- Portal → Shared → Borrows (staff: all borrows; student: my borrows) -->
 <section class="page-head">
   <div>
     <h2 id="bor-title">Borrows</h2>
@@ -266,7 +266,7 @@
 
   // ---- Mark returned ----
   async function markReturned(id, btn) {
-    if (!confirm('Mark this book as returned?')) return;
+    if (!(await core.confirm('Mark this book as returned?', 'Return Book'))) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
     try {
       await core.portalFetch(RETURN_URL(id), { method: 'POST' });

@@ -1,7 +1,5 @@
 // ============================================================
 // FPU — Query helper: applications
-// Used by: routes/public (POST /apply), routes/portal/admissionOfficer,
-//          routes/applications (admin), routes/portal/student
 // ============================================================
 
 'use strict';
@@ -23,7 +21,6 @@ async function list({
 } = {}) {
   const conds = [];
 
-  // Fix: Only apply filters if they are present and not empty strings
   if (status && status !== '') {
     Array.isArray(status)
       ? conds.push(inArray(applications.status, status))
@@ -61,15 +58,35 @@ async function list({
       .limit(Number(limit))
       .offset(Number(offset));
   } catch (err) {
-    // THIS WILL PRINT THE EXACT REASON TO RENDER LOGS
     console.error("🔥 DB ERROR IN applications.list:", err.message);
     throw err;
   }
 }
 
 // ------------------------------------------------------------
+// count — used by routes to get total
+// ------------------------------------------------------------
+async function count({ status, type } = {}) {
+  const conds = [];
+  if (status && status !== '') {
+    Array.isArray(status)
+      ? conds.push(inArray(applications.status, status))
+      : conds.push(eq(applications.status, status));
+  }
+  if (type && type !== '') conds.push(eq(applications.type, type));
+
+  const where = conds.length ? and(...conds) : undefined;
+
+  const [row] = await db
+    .select({ c: sql`count(*)::int` })
+    .from(applications)
+    .where(where);
+
+  return row?.c || 0;
+}
+
+// ------------------------------------------------------------
 // listWithRelations — joins programme / dept / school for views
-// Accepts the same filters as list()
 // ------------------------------------------------------------
 async function listWithRelations(opts = {}) {
   const conds = [];
@@ -122,30 +139,18 @@ async function listWithRelations(opts = {}) {
 }
 
 // ------------------------------------------------------------
-// findById
+// findById, findByNumber, findByEmail (kept from original)
 // ------------------------------------------------------------
 async function findById(id) {
   if (!id) return null;
-  const [row] = await db
-    .select()
-    .from(applications)
-    .where(eq(applications.id, Number(id)))
-    .limit(1);
+  const [row] = await db.select().from(applications).where(eq(applications.id, Number(id))).limit(1);
   return row || null;
 }
 
-// ------------------------------------------------------------
-// findByIdWithRelations — same but joined
-// ------------------------------------------------------------
 async function findByIdWithRelations(id) {
   if (!id) return null;
   const rows = await db
-    .select({
-      application: applications,
-      programme: programmes,
-      department: departments,
-      school: schools,
-    })
+    .select({ application: applications, programme: programmes, department: departments, school: schools })
     .from(applications)
     .leftJoin(programmes, eq(applications.programmeId, programmes.id))
     .leftJoin(departments, eq(applications.departmentId, departments.id))
@@ -163,42 +168,22 @@ async function findByIdWithRelations(id) {
   };
 }
 
-// ------------------------------------------------------------
-// findByNumber — for /api/apply-status lookup
-// ------------------------------------------------------------
 async function findByNumber(applicationNumber) {
   if (!applicationNumber) return null;
-  const [row] = await db
-    .select()
-    .from(applications)
-    .where(eq(applications.applicationNumber, String(applicationNumber).trim()))
-    .limit(1);
+  const [row] = await db.select().from(applications).where(eq(applications.applicationNumber, String(applicationNumber).trim())).limit(1);
   return row || null;
 }
 
-// ------------------------------------------------------------
-// findByEmail — used to check duplicate submissions
-// ------------------------------------------------------------
 async function findByEmail(email, { type } = {}) {
   if (!email) return null;
   const conds = [eq(applications.email, String(email).toLowerCase().trim())];
   if (type) conds.push(eq(applications.type, type));
-  const rows = await db
-    .select()
-    .from(applications)
-    .where(and(...conds))
-    .orderBy(desc(applications.createdAt))
-    .limit(1);
+  const rows = await db.select().from(applications).where(and(...conds)).orderBy(desc(applications.createdAt)).limit(1);
   return rows[0] || null;
 }
 
-// ------------------------------------------------------------
-// create — called by POST /api/apply and /api/apply-hnd
-// ------------------------------------------------------------
 async function create(data) {
-  const [row] = await db
-    .insert(applications)
-    .values({
+  const [row] = await db.insert(applications).values({
       applicationNumber: data.applicationNumber,
       type: data.type,
       firstName: data.firstName,
@@ -222,17 +207,12 @@ async function create(data) {
       jambRegNo: data.jambRegNo || null,
       passportUrl: data.passportUrl || null,
       status: data.status || 'pending',
-    })
-    .returning();
+    }).returning();
   return row;
 }
 
-// ------------------------------------------------------------
-// setStatus — generic status transition
-// ------------------------------------------------------------
 async function setStatus(id, status, extras = {}) {
   const patch = { status };
-
   if (status === 'under_review' && !extras.reviewedAt) {
     patch.reviewedBy = extras.reviewedBy ?? null;
     patch.reviewedAt = new Date();
@@ -259,50 +239,22 @@ async function setStatus(id, status, extras = {}) {
   }
   if (extras.notes !== undefined) patch.notes = extras.notes;
 
-  const [row] = await db
-    .update(applications)
-    .set(patch)
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set(patch).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// markRegistered — legacy helper (kept for backwards compat)
-// ------------------------------------------------------------
 async function markRegistered(id, { userId, matricNumber } = {}) {
-  const patch = {
-    status: 'registered',
-    letter2SentAt: new Date(),
-  };
+  const patch = { status: 'registered', letter2SentAt: new Date() };
   if (matricNumber) patch.matricNumber = matricNumber;
-  const [row] = await db
-    .update(applications)
-    .set(patch)
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set(patch).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// verifyDocuments — records who verified & when
-// ------------------------------------------------------------
 async function verifyDocuments(id, userId) {
-  const [row] = await db
-    .update(applications)
-    .set({
-      documentsVerifiedAt: new Date(),
-      documentsVerifiedBy: Number(userId),
-    })
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set({ documentsVerifiedAt: new Date(), documentsVerifiedBy: Number(userId) }).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// markLetterSent — sets the appropriate *_sent_at column
-//   which = 1 | 2 | 3
-// ------------------------------------------------------------
 async function markLetterSent(id, which) {
   const patch = {};
   if (which === 1) patch.letter1SentAt = new Date();
@@ -310,97 +262,38 @@ async function markLetterSent(id, which) {
   if (which === 3) patch.letter3SentAt = new Date();
   if (!Object.keys(patch).length) return null;
 
-  const [row] = await db
-    .update(applications)
-    .set(patch)
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set(patch).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// setMatricNumber — writes matric + transitions to matriculated
-// ------------------------------------------------------------
 async function setMatricNumber(id, matricNumber) {
-  const [row] = await db
-    .update(applications)
-    .set({
-      matricNumber,
-      status: 'matriculated',
-      matriculatedAt: new Date(),
-      letter3SentAt: new Date(),
-    })
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set({ matricNumber, status: 'matriculated', matriculatedAt: new Date(), letter3SentAt: new Date() }).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// setNotes — free-text internal notes
-// ------------------------------------------------------------
 async function setNotes(id, notes) {
-  const [row] = await db
-    .update(applications)
-    .set({ notes: notes || null })
-    .where(eq(applications.id, Number(id)))
-    .returning();
+  const [row] = await db.update(applications).set({ notes: notes || null }).where(eq(applications.id, Number(id))).returning();
   return row || null;
 }
 
-// ------------------------------------------------------------
-// countByStatus — dashboard tiles
-//   opts: { type?: 'ND'|'HND', sessionId?: number }
-// ------------------------------------------------------------
 async function countByStatus(opts = {}) {
   const conds = [];
   if (opts.type) conds.push(eq(applications.type, opts.type));
   if (opts.sessionId) conds.push(eq(applications.sessionId, Number(opts.sessionId)));
   const where = conds.length ? and(...conds) : undefined;
-
-  const rows = await db
-    .select({
-      status: applications.status,
-      c: sql`count(*)::int`,
-    })
-    .from(applications)
-    .where(where)
-    .groupBy(applications.status);
-
-  return rows;
+  return db.select({ status: applications.status, c: sql`count(*)::int` }).from(applications).where(where).groupBy(applications.status);
 }
 
-// ------------------------------------------------------------
-// countByDepartment — for quota tracker / reports
-// ------------------------------------------------------------
 async function countByDepartment({ sessionId } = {}) {
   const conds = [eq(applications.status, 'approved')];
   if (sessionId) conds.push(eq(applications.sessionId, Number(sessionId)));
-
-  return db
-    .select({
-      departmentId: applications.departmentId,
-      c: sql`count(*)::int`,
-    })
-    .from(applications)
-    .where(and(...conds))
-    .groupBy(applications.departmentId);
+  return db.select({ departmentId: applications.departmentId, c: sql`count(*)::int` }).from(applications).where(and(...conds)).groupBy(applications.departmentId);
 }
 
-// ------------------------------------------------------------
-// generateApplicationNumber — sequential per type per year
-//   Format:  FPU/APP/2026/00001
-// ------------------------------------------------------------
 async function generateApplicationNumber(type = 'ND') {
   const year = new Date().getFullYear();
   const prefix = `FPU/APP/${year}/`;
-
-  const rows = await db
-    .select({ applicationNumber: applications.applicationNumber })
-    .from(applications)
-    .where(ilike(applications.applicationNumber, `${prefix}%`))
-    .orderBy(desc(applications.applicationNumber))
-    .limit(1);
-
+  const rows = await db.select({ applicationNumber: applications.applicationNumber }).from(applications).where(ilike(applications.applicationNumber, `${prefix}%`)).orderBy(desc(applications.applicationNumber)).limit(1);
   let next = 1;
   if (rows.length) {
     const last = rows[0].applicationNumber || '';
@@ -408,43 +301,24 @@ async function generateApplicationNumber(type = 'ND') {
     const n = parseInt(tail, 10);
     if (!Number.isNaN(n)) next = n + 1;
   }
-
   return `${prefix}${String(next).padStart(5, '0')}`;
 }
 
-// ------------------------------------------------------------
-// listPendingForOfficer — pending + under_review
-// ------------------------------------------------------------
 async function listPendingForOfficer({ type, limit = 500 } = {}) {
   const conds = [inArray(applications.status, ['pending', 'under_review'])];
   if (type) conds.push(eq(applications.type, type));
-  return db
-    .select()
-    .from(applications)
-    .where(and(...conds))
-    .orderBy(asc(applications.createdAt))
-    .limit(Number(limit));
+  return db.select().from(applications).where(and(...conds)).orderBy(asc(applications.createdAt)).limit(Number(limit));
 }
 
-// ------------------------------------------------------------
-// listAdmitted — approved + registered + matriculated
-// ------------------------------------------------------------
 async function listAdmitted({ type, limit = 500 } = {}) {
   const conds = [inArray(applications.status, ['approved', 'registered', 'matriculated'])];
   if (type) conds.push(eq(applications.type, type));
-  return db
-    .select()
-    .from(applications)
-    .where(and(...conds))
-    .orderBy(desc(applications.admittedAt))
-    .limit(Number(limit));
+  return db.select().from(applications).where(and(...conds)).orderBy(desc(applications.admittedAt)).limit(Number(limit));
 }
 
-// ------------------------------------------------------------
-// EXPORTS
-// ------------------------------------------------------------
 module.exports = {
   list,
+  count, // <-- EXPORTED HERE
   listWithRelations,
   findById,
   findByIdWithRelations,

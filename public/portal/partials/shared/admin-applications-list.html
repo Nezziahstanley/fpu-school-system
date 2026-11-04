@@ -36,9 +36,9 @@
         if (app.status === 'rejected') statusColor = '#ef4444';
         if (app.status === 'registered') statusColor = '#3b82f6';
 
-        const dateVal = app.createdAt || app.submittedAt || app.date; 
-        const submittedDate = dateVal 
-          ? new Date(dateVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) 
+        // Safely map createdAt (Drizzle will output createdAt based on schema)
+        const submittedDate = app.createdAt 
+          ? new Date(app.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) 
           : '—';
 
         return `
@@ -53,7 +53,6 @@
 
     } catch (err) {
       console.error('Applications load error:', err);
-      // Show a cleaner error message instead of just "Internal server error"
       tbody.innerHTML = `
         <tr>
           <td colspan="4" class="empty-cell" style="color:#ef4444;">

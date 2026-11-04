@@ -34,7 +34,7 @@
     </div>
   </noscript>
 
-  <!-- SIDEBAR SCRIM (mobile) -->
+  <!-- SIDEBAR SCRIM -->
   <div class="admin-sidebar-scrim" id="admin-sidebar-scrim"></div>
 
   <!-- SIDEBAR -->
@@ -129,15 +129,13 @@
   <div id="toast-wrap" class="toast-wrap"></div>
 
   <!-- ============================================================
-       ADMIN MOBILE STYLES (injected inline so it works without CSS edit)
+       MOBILE STYLES
        ============================================================ -->
   <style id="admin-mobile-styles">
-    /* ---------- DESKTOP: hide scrim, burger works normally ---------- */
     @media (min-width: 1025px) {
       .admin-sidebar-scrim { display: none !important; }
     }
 
-    /* ---------- TABLET & MOBILE ---------- */
     @media (max-width: 1024px) {
       html, body.admin-app {
         overflow-x: hidden !important;
@@ -145,7 +143,6 @@
         max-width: 100% !important;
       }
 
-      /* Scrim */
       .admin-sidebar-scrim {
         position: fixed; inset: 0;
         background: rgba(15, 23, 42, 0.55);
@@ -158,7 +155,6 @@
       }
       body.admin-sidebar-open { overflow: hidden !important; }
 
-      /* Sidebar → off-canvas drawer */
       body.admin-app aside.sidebar,
       body.admin-app #sidebar {
         position: fixed !important;
@@ -177,7 +173,6 @@
         transform: translateX(0) !important;
       }
 
-      /* Burger visible & styled */
       body.admin-app #sidebar-toggle {
         display: inline-flex !important;
         align-items: center;
@@ -198,7 +193,6 @@
         transform: rotate(90deg);
       }
 
-      /* Main content full width */
       body.admin-app main.main,
       body.admin-app .main {
         width: 100% !important;
@@ -208,7 +202,6 @@
         padding-right: .75rem !important;
       }
 
-      /* Topbar full width */
       body.admin-app header.topbar,
       body.admin-app .topbar {
         width: 100% !important;
@@ -217,7 +210,6 @@
         padding-right: .75rem !important;
       }
 
-      /* Grids collapse to single column */
       body.admin-app .tile-grid,
       body.admin-app .stat-grid,
       body.admin-app .grid {
@@ -228,30 +220,22 @@
         grid-template-columns: 1fr !important;
       }
 
-      /* Tables scroll */
       body.admin-app .table-wrap {
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
       }
-      body.admin-app table {
-        min-width: 560px;
-      }
+      body.admin-app table { min-width: 560px; }
 
-      /* iOS zoom prevention */
       body.admin-app input,
       body.admin-app select,
-      body.admin-app textarea {
-        font-size: 16px !important;
-      }
+      body.admin-app textarea { font-size: 16px !important; }
 
-      /* User menu shouldn't overflow */
       body.admin-app #topbar-user-menu {
         right: -6px !important;
         max-width: calc(100vw - 16px) !important;
       }
     }
 
-    /* ---------- SMALL PHONES ---------- */
     @media (max-width: 640px) {
       body.admin-app aside.sidebar,
       body.admin-app #sidebar {
@@ -264,15 +248,10 @@
       }
     }
 
-    /* ---------- LANDSCAPE PHONES ---------- */
     @media (max-height: 500px) and (orientation: landscape) {
       body.admin-app aside.sidebar,
-      body.admin-app #sidebar {
-        width: 230px !important;
-      }
-      body.admin-app main.main {
-        padding: .5rem .6rem !important;
-      }
+      body.admin-app #sidebar { width: 230px !important; }
+      body.admin-app main.main { padding: .5rem .6rem !important; }
     }
   </style>
 
@@ -341,18 +320,15 @@
       }
 
       // ============================================================
-      // SIDEBAR TOGGLE (mobile drawer + desktop collapse)
+      // SIDEBAR TOGGLE — works as a drawer on mobile
+      // Tapping ☰ toggles open/closed. Tapping outside closes.
       // ============================================================
       const sidebarToggle = document.getElementById('sidebar-toggle');
       const scrim = document.getElementById('admin-sidebar-scrim');
       const sidebar = document.getElementById('sidebar');
 
-      function isMobile() {
-        return window.innerWidth <= 1024;
-      }
-      function isOpen() {
-        return document.body.classList.contains('admin-sidebar-open');
-      }
+      function isMobile() { return window.innerWidth <= 1024; }
+      function isOpen() { return document.body.classList.contains('admin-sidebar-open'); }
       function openSidebar() {
         document.body.classList.add('admin-sidebar-open');
         if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'true');
@@ -361,6 +337,9 @@
         document.body.classList.remove('admin-sidebar-open');
         if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
       }
+      function toggleSidebar() {
+        isOpen() ? closeSidebar() : openSidebar();
+      }
 
       if (sidebarToggle) {
         sidebarToggle.addEventListener('click', function (e) {
@@ -368,21 +347,34 @@
           e.stopPropagation();
 
           if (isMobile()) {
-            // Mobile: toggle drawer
-            isOpen() ? closeSidebar() : openSidebar();
+            // On mobile: tap to open, tap again to close
+            toggleSidebar();
           } else {
-            // Desktop: toggle collapse
+            // On desktop: toggle collapse
             document.body.classList.toggle('sidebar-collapsed');
           }
         });
       }
 
-      // Close drawer when clicking the scrim
+      // Tap the scrim → close
       if (scrim) {
-        scrim.addEventListener('click', closeSidebar);
+        scrim.addEventListener('click', function (e) {
+          e.preventDefault();
+          closeSidebar();
+        });
       }
 
-      // Close drawer when clicking a nav link
+      // Tap anywhere outside the sidebar (on mobile) → close
+      document.addEventListener('click', function (e) {
+        if (!isMobile() || !isOpen()) return;
+        // Ignore clicks inside the sidebar
+        if (sidebar && sidebar.contains(e.target)) return;
+        // Ignore clicks on the toggle (handled above)
+        if (sidebarToggle && sidebarToggle.contains(e.target)) return;
+        closeSidebar();
+      });
+
+      // Tap a nav link → close
       if (sidebar) {
         sidebar.addEventListener('click', function (e) {
           if (!isMobile()) return;
@@ -392,12 +384,12 @@
         });
       }
 
-      // Close drawer on Escape
+      // Press Escape → close
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && isOpen()) closeSidebar();
       });
 
-      // Auto-close drawer when resizing to desktop
+      // Resize to desktop → close
       window.addEventListener('resize', function () {
         if (window.innerWidth > 1024 && isOpen()) closeSidebar();
       });
@@ -513,8 +505,6 @@
           }
         });
       }
-
-      console.log('[admin-app] Burger menu ready. Test on mobile: tap ☰');
     })();
   </script>
 </body>

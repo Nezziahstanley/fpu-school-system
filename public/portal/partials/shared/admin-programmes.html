@@ -1,5 +1,5 @@
 <!-- Portal → Shared → Programmes (department-first) -->
-<div style="padding:0;">
+<div style="padding: 1rem 0 0 0;">
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -16,20 +16,13 @@
         <option value="HND">HND</option>
         <option value="CERT">Certificate</option>
       </select>
-      <button id="pr-refresh" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-      ">↻ Refresh</button>
+      <button id="pr-add-new" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ New Programme</button>
+      <button id="pr-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
   </div>
 
   <!-- SUMMARY STRIP -->
-  <div id="pr-summary" style="
-    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-    padding:.75rem 1rem;margin-bottom:1rem;
-    display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;
-    font-size:.82rem;color:#475569;
-  ">
+  <div id="pr-summary" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;font-size:.82rem;color:#475569;">
     <div><strong style="color:#0f172a;" id="pr-total-depts">—</strong> departments</div>
     <div><strong style="color:#0f172a;" id="pr-total-progs">—</strong> total programmes</div>
     <div><strong style="color:#065f46;" id="pr-total-nd">—</strong> ND</div>
@@ -38,22 +31,12 @@
 
   <!-- BACK -->
   <div id="pr-back-bar" style="display:none;margin-bottom:1rem;">
-    <button id="pr-back" style="
-      display:inline-flex;align-items:center;gap:.4rem;
-      padding:.5rem .9rem;font-size:.82rem;font-weight:700;
-      background:#fff;color:#065f46;border:1px solid #bbf7d0;
-      border-radius:8px;cursor:pointer;
-    ">← All Departments</button>
-    <span id="pr-current-dept" style="
-      margin-left:.75rem;font-size:.85rem;font-weight:800;color:#0f172a;
-    "></span>
+    <button id="pr-back" style="display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">← All Departments</button>
+    <span id="pr-current-dept" style="margin-left:.75rem;font-size:.85rem;font-weight:800;color:#0f172a;"></span>
   </div>
 
   <!-- DEPARTMENT GRID -->
-  <div id="pr-dept-grid" style="
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-    gap:.75rem;
-  "></div>
+  <div id="pr-dept-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;"></div>
 
   <!-- PROGRAMMES OF PICKED DEPARTMENT -->
   <div id="pr-progs-panel" style="display:none;">
@@ -66,10 +49,11 @@
               <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
               <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Duration</th>
+              <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Actions</th>
             </tr>
           </thead>
           <tbody id="pr-progs-tbody">
-            <tr><td colspan="4" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+            <tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -78,38 +62,70 @@
 
 </div>
 
+<!-- FORM MODAL -->
+<div id="pr-form-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;" id="pr-form-title">New Programme</h3>
+      <button type="button" id="pr-form-close" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <form id="pr-form" style="padding:1.25rem;">
+      <input type="hidden" name="id" />
+
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Department *</label>
+        <select name="departmentId" id="pr-form-dept" required
+                style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;background:#fff;">
+          <option value="">Select department…</option>
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;">
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Code *</label>
+          <input type="text" name="code" required maxlength="20" placeholder="e.g. CSC"
+                 style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+        </div>
+        <div>
+          <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Level *</label>
+          <select name="level" required
+                  style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;background:#fff;">
+            <option value="ND">ND</option>
+            <option value="HND">HND</option>
+            <option value="CERT">Certificate</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:.75rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Programme Name *</label>
+        <input type="text" name="name" required maxlength="200" placeholder="e.g. Computer Science"
+               style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;">Duration (years)</label>
+        <input type="number" name="durationYears" min="1" max="6" value="2"
+               style="width:100%;padding:.6rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      </div>
+
+      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+        <button type="button" id="pr-form-cancel" class="btn btn-outline btn-sm">Cancel</button>
+        <button type="submit" id="pr-form-submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <style>
   @keyframes prSpin { to { transform: rotate(360deg); } }
-  .pr-dept-card {
-    background:#fff;
-    border:1px solid #e5e7eb;
-    border-radius:12px;
-    padding:1rem 1.1rem;
-    cursor:pointer;
-    transition:all .15s;
-    display:flex;align-items:center;gap:.85rem;
-  }
-  .pr-dept-card:hover {
-    border-color:#065f46;
-    box-shadow:0 6px 18px rgba(6,95,70,.10);
-    transform:translateY(-2px);
-  }
-  .pr-dept-icon {
-    width:46px;height:46px;border-radius:12px;
-    display:flex;align-items:center;justify-content:center;
-    color:#fff;font-weight:800;font-size:.72rem;flex-shrink:0;
-    letter-spacing:.03em;
-  }
+  .pr-dept-card { background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.85rem; }
+  .pr-dept-card:hover { border-color:#065f46;box-shadow:0 6px 18px rgba(6,95,70,.10);transform:translateY(-2px); }
+  .pr-dept-icon { width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.72rem;flex-shrink:0;letter-spacing:.03em; }
   .pr-dept-body { min-width:0;flex:1; }
-  .pr-dept-name {
-    font-weight:800;color:#0f172a;font-size:.9rem;line-height:1.2;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .pr-dept-count {
-    font-size:.72rem;color:#64748b;margin-top:.25rem;font-weight:600;
-  }
+  .pr-dept-name { font-weight:800;color:#0f172a;font-size:.9rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .pr-dept-count { font-size:.72rem;color:#64748b;margin-top:.25rem;font-weight:600; }
   .pr-dept-arrow { color:#94a3b8;font-size:1.2rem;flex-shrink:0; }
-
   #pr-progs-tbody tr { transition: background .1s; }
   #pr-progs-tbody tr:hover { background: #f8fafc; }
 </style>
@@ -124,46 +140,37 @@
   let DEPARTMENTS = [];
   let PROGRAMMES = [];
   let SELECTED_DEPT = null;
+  let EDITING_ID = null;
 
-  const PALETTE = [
-    { bg: '#065f46' }, { bg: '#0891b2' }, { bg: '#7c3aed' }, { bg: '#dc2626' },
-    { bg: '#ea580c' }, { bg: '#0d9488' }, { bg: '#db2777' }, { bg: '#4f46e5' },
-    { bg: '#059669' }, { bg: '#d97706' }, { bg: '#0369a1' }, { bg: '#9333ea' },
-  ];
-  function pickColor(i) { return PALETTE[i % PALETTE.length].bg; }
+  const PALETTE = ['#065f46','#0891b2','#7c3aed','#dc2626','#ea580c','#0d9488','#db2777','#4f46e5','#059669','#d97706','#0369a1','#9333ea'];
+  function pickColor(i) { return PALETTE[i % PALETTE.length]; }
   function initials(name) {
-    return String(name || '')
-      .split(/\s+/).filter(Boolean).slice(0, 2)
-      .map((w) => w[0].toUpperCase())
-      .join('').slice(0, 3);
+    return String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('').slice(0, 3);
   }
 
-  // ============================================================
-  // LOAD — everything from the single lookups endpoint
-  // ============================================================
   async function load() {
     const grid = $('pr-dept-grid');
-    grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
-        <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:prSpin .8s linear infinite;"></div>
-        <div style="margin-top:.65rem;">Loading programmes…</div>
-      </div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:prSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;">Loading programmes…</div>
+    </div>`;
 
     try {
       const res = await core.portalFetch('/api/exam-officer/lookups');
-
       DEPARTMENTS = Array.isArray(res.departments) ? res.departments : [];
-      // Programmes live in `programmes` on the lookups response
-      PROGRAMMES = Array.isArray(res.programmes)
-        ? res.programmes
-        : Array.isArray(res.data) ? res.data : [];
+      PROGRAMMES = Array.isArray(res.programmes) ? res.programmes : (Array.isArray(res.data) ? res.data : []);
 
-      // Count programmes per department + level totals
+      // Populate form department dropdown
+      const formDept = $('pr-form-dept');
+      formDept.innerHTML = '<option value="">Select department…</option>' +
+        DEPARTMENTS.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          .map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
+
+      // Compute stats
       const counts = {};
       let nd = 0, hnd = 0;
-      PROGRAMMES.forEach((p) => {
-        const d = p.departmentId;
-        if (d) counts[d] = (counts[d] || 0) + 1;
+      PROGRAMMES.forEach(p => {
+        if (p.departmentId) counts[p.departmentId] = (counts[p.departmentId] || 0) + 1;
         if (p.level === 'ND') nd++;
         else if (p.level === 'HND') hnd++;
       });
@@ -175,42 +182,32 @@
 
       renderDepartmentGrid(counts);
     } catch (err) {
-      grid.innerHTML = `
-        <div style="grid-column:1/-1;padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">
-          ⚠️ ${esc(err.message)}
-        </div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">⚠️ ${esc(err.message)}</div>`;
     }
   }
 
-  // ============================================================
-  // DEPARTMENT GRID
-  // ============================================================
   function renderDepartmentGrid(counts) {
     const grid = $('pr-dept-grid');
     const query = ($('pr-search')?.value || '').trim().toLowerCase();
     const levelFilter = $('pr-level')?.value || '';
 
-    // Only show departments that have programmes
-    const withProgrammes = DEPARTMENTS.filter((d) => (counts[d.id] || 0) > 0);
+    const withProgrammes = DEPARTMENTS.filter(d => (counts[d.id] || 0) > 0);
     let filtered = withProgrammes;
 
     if (query) {
       const matchedDeptIds = new Set();
-      PROGRAMMES.forEach((p) => {
+      PROGRAMMES.forEach(p => {
         const hay = `${p.code || ''} ${p.name || ''}`.toLowerCase();
         if (hay.includes(query) && p.departmentId) matchedDeptIds.add(p.departmentId);
       });
-      filtered = filtered.filter((d) =>
-        `${d.code || ''} ${d.name || ''}`.toLowerCase().includes(query) ||
-        matchedDeptIds.has(d.id)
+      filtered = filtered.filter(d =>
+        `${d.code || ''} ${d.name || ''}`.toLowerCase().includes(query) || matchedDeptIds.has(d.id)
       );
     }
 
     if (levelFilter) {
-      const deptWithLevel = new Set(
-        PROGRAMMES.filter((p) => p.level === levelFilter).map((p) => p.departmentId)
-      );
-      filtered = filtered.filter((d) => deptWithLevel.has(d.id));
+      const deptWithLevel = new Set(PROGRAMMES.filter(p => p.level === levelFilter).map(p => p.departmentId));
+      filtered = filtered.filter(d => deptWithLevel.has(d.id));
     }
 
     const sorted = [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -233,10 +230,10 @@
         </div>`;
     }).join('');
 
-    grid.querySelectorAll('.pr-dept-card').forEach((card) => {
+    grid.querySelectorAll('.pr-dept-card').forEach(card => {
       card.addEventListener('click', () => {
         const deptId = Number(card.dataset.deptId);
-        const dept = DEPARTMENTS.find((d) => d.id === deptId);
+        const dept = DEPARTMENTS.find(d => d.id === deptId);
         if (dept) selectDepartment(dept);
       });
     });
@@ -256,39 +253,124 @@
     const query = ($('pr-search')?.value || '').trim().toLowerCase();
     const levelFilter = $('pr-level')?.value || '';
 
-    let rows = PROGRAMMES.filter((p) => Number(p.departmentId) === Number(SELECTED_DEPT.id));
-    if (levelFilter) rows = rows.filter((p) => p.level === levelFilter);
-    if (query) {
-      rows = rows.filter((p) =>
-        `${p.code || ''} ${p.name || ''}`.toLowerCase().includes(query)
-      );
-    }
+    let rows = PROGRAMMES.filter(p => Number(p.departmentId) === Number(SELECTED_DEPT.id));
+    if (levelFilter) rows = rows.filter(p => p.level === levelFilter);
+    if (query) rows = rows.filter(p => `${p.code || ''} ${p.name || ''}`.toLowerCase().includes(query));
 
     rows.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No programmes match.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        No programmes match. ${!query && !levelFilter ? 'Use the "+ New Programme" button to add one.' : ''}
+      </td></tr>`;
       return;
     }
 
-    tbody.innerHTML = rows.map((p) => `
+    tbody.innerHTML = rows.map(p => `
       <tr style="border-bottom:1px solid #f1f5f9;">
         <td style="padding:.65rem .75rem;">
-          <code style="font-size:.75rem;font-weight:700;color:#065f46;background:#ecfdf5;padding:2px 7px;border-radius:5px;">
-            ${esc(p.code || '—')}
-          </code>
+          <code style="font-size:.75rem;font-weight:700;color:#065f46;background:#ecfdf5;padding:2px 7px;border-radius:5px;">${esc(p.code || '—')}</code>
         </td>
         <td style="padding:.65rem .75rem;color:#0f172a;font-weight:600;">${esc(p.name || '—')}</td>
         <td style="padding:.65rem .75rem;text-align:center;">
-          <span style="
-            display:inline-block;padding:2px 9px;font-size:.68rem;font-weight:800;border-radius:5px;
-            ${p.level === 'HND' ? 'background:#dbeafe;color:#1e40af;' : 'background:#d1fae5;color:#065f46;'}
-          ">${esc(p.level || '—')}</span>
+          <span style="display:inline-block;padding:2px 9px;font-size:.68rem;font-weight:800;border-radius:5px;${p.level === 'HND' ? 'background:#dbeafe;color:#1e40af;' : 'background:#d1fae5;color:#065f46;'}">${esc(p.level || '—')}</span>
         </td>
         <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.78rem;">
           ${p.durationYears ? esc(p.durationYears) + ' year' + (p.durationYears > 1 ? 's' : '') : '—'}
         </td>
+        <td style="padding:.65rem .75rem;text-align:right;white-space:nowrap;">
+          <button class="pr-btn-edit" data-id="${p.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;border-radius:6px;border:1px solid #d1d5db;background:#fff;color:#065f46;cursor:pointer;margin-right:4px;">Edit</button>
+          <button class="pr-btn-delete" data-id="${p.id}" data-name="${esc(p.name)}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;border-radius:6px;border:1px solid #fecaca;background:#fff;color:#dc2626;cursor:pointer;">Delete</button>
+        </td>
       </tr>`).join('');
+
+    tbody.querySelectorAll('.pr-btn-edit').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = PROGRAMMES.find(x => Number(x.id) === Number(btn.dataset.id));
+        if (p) openForm(p);
+      });
+    });
+
+    tbody.querySelectorAll('.pr-btn-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name;
+        const ok = core.confirm
+          ? await core.confirm(`Delete programme "${name}"? This will remove all related data.`, 'Delete Programme')
+          : confirm(`Delete "${name}"?`);
+        if (!ok) return;
+        try {
+          await core.portalFetch(`/api/admin/programmes/${btn.dataset.id}`, { method: 'DELETE' });
+          core.showToast && core.showToast('Programme deleted.', 'success');
+          const d = SELECTED_DEPT;
+          await load();
+          if (d) selectDepartment(d);
+        } catch (err) {
+          core.showToast && core.showToast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  function openForm(prog) {
+    const form = $('pr-form');
+    form.reset();
+    EDITING_ID = null;
+
+    if (prog) {
+      EDITING_ID = prog.id;
+      $('pr-form-title').textContent = 'Edit Programme';
+      form.querySelector('[name="id"]').value = prog.id;
+      form.querySelector('[name="departmentId"]').value = prog.departmentId || '';
+      form.querySelector('[name="code"]').value = prog.code || '';
+      form.querySelector('[name="level"]').value = prog.level || 'ND';
+      form.querySelector('[name="name"]').value = prog.name || '';
+      form.querySelector('[name="durationYears"]').value = prog.durationYears || 2;
+    } else {
+      $('pr-form-title').textContent = 'New Programme';
+      form.querySelector('[name="id"]').value = '';
+      if (SELECTED_DEPT) form.querySelector('[name="departmentId"]').value = SELECTED_DEPT.id;
+    }
+    $('pr-form-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeForm() {
+    EDITING_ID = null;
+    $('pr-form-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  async function submitForm(e) {
+    e.preventDefault();
+    const form = $('pr-form');
+    const fd = new FormData(form);
+    const body = {};
+    fd.forEach((v, k) => { body[k] = v; });
+    body.departmentId = Number(body.departmentId);
+    body.durationYears = Number(body.durationYears || 2);
+
+    const btn = $('pr-form-submit');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      if (EDITING_ID) {
+        await core.portalFetch(`/api/admin/programmes/${EDITING_ID}`, { method: 'PUT', body });
+        core.showToast && core.showToast('Programme updated.', 'success');
+      } else {
+        await core.portalFetch('/api/admin/programmes', { method: 'POST', body });
+        core.showToast && core.showToast('Programme created.', 'success');
+      }
+      closeForm();
+      const d = SELECTED_DEPT;
+      await load();
+      if (d) selectDepartment(d);
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+    }
   }
 
   function backToDepartments() {
@@ -305,24 +387,29 @@
       if (SELECTED_DEPT) renderProgrammes();
       else {
         const counts = {};
-        PROGRAMMES.forEach((p) => { if (p.departmentId) counts[p.departmentId] = (counts[p.departmentId] || 0) + 1; });
+        PROGRAMMES.forEach(p => { if (p.departmentId) counts[p.departmentId] = (counts[p.departmentId] || 0) + 1; });
         renderDepartmentGrid(counts);
       }
     }, 200);
   });
+
   $('pr-level')?.addEventListener('change', () => {
     if (SELECTED_DEPT) renderProgrammes();
     else {
       const counts = {};
-      PROGRAMMES.forEach((p) => { if (p.departmentId) counts[p.departmentId] = (counts[p.departmentId] || 0) + 1; });
+      PROGRAMMES.forEach(p => { if (p.departmentId) counts[p.departmentId] = (counts[p.departmentId] || 0) + 1; });
       renderDepartmentGrid(counts);
     }
   });
 
   $('pr-back')?.addEventListener('click', backToDepartments);
-  $('pr-refresh')?.addEventListener('click', () => {
-    backToDepartments();
-    load();
+  $('pr-refresh')?.addEventListener('click', () => { backToDepartments(); load(); });
+  $('pr-add-new')?.addEventListener('click', () => openForm(null));
+  $('pr-form-close')?.addEventListener('click', closeForm);
+  $('pr-form-cancel')?.addEventListener('click', closeForm);
+  $('pr-form')?.addEventListener('submit', submitForm);
+  $('pr-form-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'pr-form-modal') closeForm();
   });
 
   const st = document.createElement('style');

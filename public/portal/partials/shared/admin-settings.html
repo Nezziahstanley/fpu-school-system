@@ -1,39 +1,345 @@
 <!-- Portal → Shared → Settings (admins only) -->
-<section class="page-head">
-  <div><h2>System Settings</h2></div>
-</section>
+<div style="padding: 1rem 0 0 0;">
 
-<div class="panel">
-  <div class="panel-head"><h3>Settings</h3></div>
-  <div class="panel-body" id="shared-settings-box">
-    <div class="loading"><span class="spinner"></span> Loading…</div>
+  <!-- HEADER -->
+  <div class="page-head">
+    <div>
+      <h2>System Settings</h2>
+      <p class="muted small">Manage institution, academic, and system-wide configuration</p>
+    </div>
+    <div class="actions">
+      <button id="set-refresh" class="btn btn-outline btn-sm">↻ Refresh</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS CONTAINER -->
+  <div id="shared-settings-box">
+    <div class="loading" style="padding:3rem;text-align:center;">
+      <span class="spinner"></span> Loading settings…
+    </div>
+  </div>
+
+  <!-- STICKY SAVE BAR -->
+  <div id="set-save-bar" style="display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:900;background:#fff;border:1px solid #e5e7eb;border-radius:99px;padding:.6rem .8rem .6rem 1rem;box-shadow:0 8px 24px rgba(0,0,0,.15);display:flex;align-items:center;gap:.75rem;min-width:280px;">
+    <span style="font-size:.85rem;color:#475569;" id="set-save-msg">Unsaved changes</span>
+    <button id="set-save-btn" class="btn btn-primary btn-sm" style="border-radius:99px;">Save Changes</button>
   </div>
 </div>
 
+<style>
+  .set-group {
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    margin-bottom:1rem;
+    overflow:hidden;
+  }
+  .set-group-header {
+    padding:.85rem 1.1rem;
+    background:#f8fafc;
+    border-bottom:1px solid #f1f5f9;
+    display:flex; align-items:center; gap:.6rem;
+  }
+  .set-group-header .set-icon {
+    width:32px;height:32px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:1rem;
+    background:#ecfdf5; color:#065f46;
+  }
+  .set-group-header h3 { margin:0; font-size:.95rem; color:#0f172a; font-weight:800; }
+  .set-group-header .set-count { font-size:.72rem; color:#64748b; font-weight:600; margin-left:.25rem; }
+  .set-group-body { padding:1rem 1.1rem; }
+  .set-row { margin-bottom:1rem; }
+  .set-row:last-child { margin-bottom:0; }
+  .set-label { display:block; font-size:.78rem; font-weight:700; color:#334155; margin-bottom:.35rem; text-transform:capitalize; }
+  .set-label .set-hint { font-weight:400; color:#94a3b8; font-size:.72rem; margin-left:.35rem; text-transform:none; }
+  .set-input {
+    width:100%; padding:.6rem .75rem; font-size:.88rem;
+    border:1px solid #d1d5db; border-radius:8px; box-sizing:border-box;
+    font-family: inherit;
+  }
+  .set-input:focus { outline:none; border-color:#065f46; box-shadow:0 0 0 3px rgba(6,95,70,.1); }
+  .set-bank-group {
+    background:#f8fafc;
+    border:1px dashed #e5e7eb;
+    border-radius:8px;
+    padding:.75rem;
+  }
+  .set-bank-group .set-row { margin-bottom:.5rem; }
+  .set-bank-group .set-row:last-child { margin-bottom:0; }
+</style>
+
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-settings-box');
+(function () {
+  'use strict';
+  const core = window.FPU_PORTAL || {};
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const hasChanges = { value: false };
+
+  // Category display names and icons
+  const CATEGORY_META = {
+    institution: { label: 'Institution Info', icon: '🏛️' },
+    academic:    { label: 'Academic Config', icon: '🎓' },
+    auth:        { label: 'Authentication & Security', icon: '🔒' },
+    bank:        { label: 'Bank Accounts', icon: '💳' },
+    finance:     { label: 'Finance', icon: '💰' },
+    email:       { label: 'Email / SMTP', icon: '📧' },
+    system:      { label: 'System', icon: '⚙️' },
+    other:       { label: 'Other', icon: '📌' },
+  };
+
+  // Friendly labels for known keys
+  const KEY_LABELS = {
+    'current_session': 'Current Academic Session',
+    'current_semester': 'Current Semester',
+    'institution_name': 'Institution Name',
+    'institution_address': 'Address',
+    'institution_country': 'Country',
+    'institution_email': 'Contact Email',
+    'institution_phone': 'Contact Phone',
+    'matric_prefix': 'Matric Number Prefix',
+    'bcrypt_rounds': 'Password Hash Rounds',
+    'bank_account_1': 'Primary Bank Account',
+    'bank_account_2': 'Secondary Bank Account',
+    'bank_account_3': 'Tertiary Bank Account',
+    'school_fees': 'School Fees (Default)',
+    'acceptance_fee': 'Acceptance Fee',
+  };
+
+  // Known enum dropdowns
+  const SELECTS = {
+    'current_semester': [
+      { value: 'first', label: 'First Semester' },
+      { value: 'second', label: 'Second Semester' },
+    ],
+  };
+
+  let ALL_SETTINGS = [];
+
+  async function load() {
+    const box = $('shared-settings-box');
+    box.innerHTML = '<div class="loading" style="padding:3rem;text-align:center;"><span class="spinner"></span> Loading settings…</div>';
+
     try {
       const res = await core.portalFetch('/api/admin/settings');
-      const rows = res.data || [];
-      box.innerHTML = rows.map((s) => `
-        <div class="form-group">
-          <label class="form-label">${core.escapeHtml(s.key)} <span class="small muted">(${core.escapeHtml(s.category || '')})</span></label>
-          <input class="form-control" data-key="${core.escapeHtml(s.key)}" value="${core.escapeHtml(s.value || '')}" />
-        </div>
-      `).join('') + `
-        <div class="form-actions"><button class="btn btn-primary" id="sh-save-settings">Save</button></div>
-      `;
+      ALL_SETTINGS = Array.isArray(res.data) ? res.data : [];
+      render();
+    } catch (err) {
+      box.innerHTML = `<div class="alert alert-danger" style="margin:1rem;">${esc(err.message)}</div>`;
+    }
+  }
 
-      document.getElementById('sh-save-settings').addEventListener('click', async () => {
-        const settings = {};
-        box.querySelectorAll('[data-key]').forEach((i) => { settings[i.dataset.key] = i.value; });
-        try {
-          await core.portalFetch('/api/admin/settings/bulk', { method: 'POST', body: { settings } });
-          core.showToast('Settings saved.', 'success');
-        } catch (err) { core.showToast(err.message, 'error'); }
-      });
-    } catch (err) { box.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
-  })();
+  function render() {
+    const box = $('shared-settings-box');
+
+    // Group by category
+    const grouped = {};
+    ALL_SETTINGS.forEach(s => {
+      const cat = s.category || 'other';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(s);
+    });
+
+    // Order categories
+    const order = ['institution', 'academic', 'auth', 'bank', 'finance', 'email', 'system', 'other'];
+    const sortedCats = Object.keys(grouped).sort((a, b) => {
+      const ai = order.indexOf(a); const bi = order.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    if (!sortedCats.length) {
+      box.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;">No settings found.</div>';
+      return;
+    }
+
+    box.innerHTML = sortedCats.map(cat => {
+      const meta = CATEGORY_META[cat] || { label: cat, icon: '📌' };
+      const items = grouped[cat];
+      return `
+        <div class="set-group">
+          <div class="set-group-header">
+            <div class="set-icon">${meta.icon}</div>
+            <h3>${meta.label} <span class="set-count">(${items.length})</span></h3>
+          </div>
+          <div class="set-group-body">
+            ${items.map(s => renderSettingRow(s)).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    wireInputs();
+  }
+
+  function renderSettingRow(s) {
+    const label = KEY_LABELS[s.key] || s.key.replace(/_/g, ' ');
+    const value = s.value != null ? String(s.value) : '';
+
+    // Detect JSON values (bank accounts)
+    if (value.trim().startsWith('{') && value.trim().endsWith('}')) {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed.bank !== undefined && parsed.accountNumber !== undefined) {
+          return renderBankAccount(s, parsed, label);
+        }
+      } catch (e) {
+        // fall through to normal input
+      }
+    }
+
+    // Known enum → render as select
+    if (SELECTS[s.key]) {
+      return `
+        <div class="set-row">
+          <label class="set-label">${esc(label)} <span class="set-hint">(${esc(s.key)})</span></label>
+          <select class="set-input" data-key="${esc(s.key)}" data-type="select">
+            ${SELECTS[s.key].map(opt => `
+              <option value="${esc(opt.value)}" ${value === opt.value ? 'selected' : ''}>${esc(opt.label)}</option>
+            `).join('')}
+          </select>
+        </div>
+      `;
+    }
+
+    // Special: current_session → fetch sessions and render dropdown
+    if (s.key === 'current_session') {
+      return `
+        <div class="set-row">
+          <label class="set-label">${esc(label)} <span class="set-hint">(${esc(s.key)})</span></label>
+          <select class="set-input" data-key="${esc(s.key)}" data-type="session" id="set-session-select">
+            <option value="${esc(value)}">${esc(value)} (current)</option>
+          </select>
+        </div>
+      `;
+    }
+
+    // Default: text input
+    return `
+      <div class="set-row">
+        <label class="set-label">${esc(label)} <span class="set-hint">(${esc(s.key)})</span></label>
+        <input type="text" class="set-input" data-key="${esc(s.key)}" value="${esc(value)}" />
+      </div>
+    `;
+  }
+
+  function renderBankAccount(s, parsed, label) {
+    return `
+      <div class="set-row">
+        <label class="set-label">${esc(label)} <span class="set-hint">(${esc(s.key)})</span></label>
+        <div class="set-bank-group">
+          <div class="set-row">
+            <label class="set-label">Bank Name</label>
+            <input type="text" class="set-input" data-bank-key="${esc(s.key)}" data-bank-field="bank" value="${esc(parsed.bank || '')}" />
+          </div>
+          <div class="set-row">
+            <label class="set-label">Account Name</label>
+            <input type="text" class="set-input" data-bank-key="${esc(s.key)}" data-bank-field="accountName" value="${esc(parsed.accountName || '')}" />
+          </div>
+          <div class="set-row">
+            <label class="set-label">Account Number</label>
+            <input type="text" class="set-input" data-bank-key="${esc(s.key)}" data-bank-field="accountNumber" value="${esc(parsed.accountNumber || '')}" />
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireInputs() {
+    // Mark unsaved on any input change
+    document.querySelectorAll('.set-input').forEach(input => {
+      input.addEventListener('input', () => setDirty(true));
+      input.addEventListener('change', () => setDirty(true));
+    });
+
+    // Load sessions for current_session dropdown
+    loadSessionOptions();
+  }
+
+  async function loadSessionOptions() {
+    const select = $('set-session-select');
+    if (!select) return;
+    try {
+      const res = await core.portalFetch('/api/admin/lookups/sessions');
+      const sessions = Array.isArray(res.data) ? res.data : [];
+      const currentValue = select.value;
+      select.innerHTML = sessions.map(s =>
+        `<option value="${esc(s.name)}" ${s.name === currentValue ? 'selected' : ''}>${esc(s.name)}${s.isCurrent ? ' (active)' : ''}</option>`
+      ).join('');
+    } catch (e) {
+      // ignore — keep the existing option
+    }
+  }
+
+  function setDirty(dirty) {
+    hasChanges.value = dirty;
+    const bar = $('set-save-bar');
+    const msg = $('set-save-msg');
+    if (dirty) {
+      bar.style.display = 'flex';
+      msg.textContent = 'Unsaved changes';
+      msg.style.color = '#d97706';
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  async function save() {
+    const btn = $('set-save-btn');
+    const msg = $('set-save-msg');
+    btn.disabled = true;
+    msg.textContent = 'Saving…';
+    msg.style.color = '#64748b';
+
+    // Collect regular values
+    const settings = {};
+    document.querySelectorAll('.set-input[data-key]').forEach(input => {
+      settings[input.dataset.key] = input.value;
+    });
+
+    // Reconstruct bank account JSON values
+    const bankFields = {}; // { 'bank_account_1': { bank: '', accountName: '', accountNumber: '' } }
+    document.querySelectorAll('[data-bank-key]').forEach(input => {
+      const key = input.dataset.bankKey;
+      const field = input.dataset.bankField;
+      if (!bankFields[key]) bankFields[key] = {};
+      bankFields[key][field] = input.value;
+    });
+    Object.keys(bankFields).forEach(key => {
+      settings[key] = JSON.stringify(bankFields[key]);
+    });
+
+    try {
+      await core.portalFetch('/api/admin/settings/bulk', { method: 'POST', body: { settings } });
+      core.showToast && core.showToast('Settings saved successfully.', 'success');
+      setDirty(false);
+      // Reload to reflect the saved state
+      setTimeout(load, 400);
+    } catch (err) {
+      msg.textContent = 'Save failed';
+      msg.style.color = '#dc2626';
+      core.showToast && core.showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // Wire
+  $('set-refresh')?.addEventListener('click', () => {
+    if (hasChanges.value && !confirm('Discard unsaved changes?')) return;
+    setDirty(false);
+    load();
+  });
+  $('set-save-btn')?.addEventListener('click', save);
+
+  // Warn on navigation with unsaved changes
+  window.addEventListener('beforeunload', (e) => {
+    if (hasChanges.value) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  load();
+})();
 </script>

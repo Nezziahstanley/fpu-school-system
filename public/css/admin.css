@@ -3032,5 +3032,96 @@ tr.row-clickable:hover td:first-child {
 }
 
 /* ============================================================
+   FINAL FIX — Text labels visible in mobile drawer
+   When sidebar is OPEN on mobile, force labels to display
+   ============================================================ */
+@media (max-width: 1024px) {
+  /* Force sidebar to use full width, NOT collapsed width, on mobile */
+  body.admin-sidebar-open aside.sidebar,
+  body.admin-sidebar-open #sidebar,
+  body.admin-app.admin-sidebar-open aside.sidebar,
+  body.admin-app.admin-sidebar-open #sidebar {
+    width: 280px !important;
+    max-width: 84vw !important;
+    transform: translateX(0) !important;
+  }
+
+  /* Force brand text visible */
+  body.admin-sidebar-open .sidebar .brand,
+  body.admin-sidebar-open aside.sidebar .brand {
+    justify-content: flex-start !important;
+    padding: 0 20px !important;
+  }
+  body.admin-sidebar-open .sidebar .brand span,
+  body.admin-sidebar-open aside.sidebar .brand span {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Force nav item text visible */
+  body.admin-sidebar-open .sidebar .nav-item,
+  body.admin-sidebar-open aside.sidebar .nav-item {
+    justify-content: flex-start !important;
+    padding: 10px 14px !important;
+    text-align: left !important;
+  }
+  body.admin-sidebar-open .sidebar .nav-item .label,
+  body.admin-sidebar-open aside.sidebar .nav-item .label {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* Force nav item badges visible */
+  body.admin-sidebar-open .sidebar .nav-item .badge-dot,
+  body.admin-sidebar-open aside.sidebar .nav-item .badge-dot {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Force section titles visible */
+  body.admin-sidebar-open .sidebar .section-title,
+  body.admin-sidebar-open aside.sidebar .section-title {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Force sidebar footer text visible */
+  body.admin-sidebar-open .sidebar-footer,
+  body.admin-sidebar-open aside.sidebar .sidebar-footer {
+    justify-content: space-between !important;
+    padding: 14px 20px !important;
+  }
+  body.admin-sidebar-open .sidebar-footer span,
+  body.admin-sidebar-open aside.sidebar .sidebar-footer span {
+    display: inline !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Kill the collapsed state on mobile — it should never apply */
+  body.admin-app.sidebar-collapsed aside.sidebar,
+  body.admin-app.sidebar-collapsed #sidebar {
+    width: 280px !important;
+    max-width: 84vw !important;
+  }
+  body.admin-app.sidebar-collapsed .sidebar .nav-item .label,
+  body.admin-app.sidebar-collapsed .sidebar .brand span,
+  body.admin-app.sidebar-collapsed .sidebar .section-title,
+  body.admin-app.sidebar-collapsed .sidebar .badge-dot {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
+/* ============================================================
    END
    ============================================================ */

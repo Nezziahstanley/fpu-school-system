@@ -18,6 +18,7 @@
     <option value="attestation">Attestation</option>
     <option value="reference">Reference Letter</option>
     <option value="certificate">Certificate</option>
+    <option value="id-card">ID Card</option>
     <option value="other">Other</option>
   </select>
   <select id="dc-status">
@@ -68,7 +69,7 @@
             <th>Title / Notes</th>
             <th>Requested</th>
             <th>Status</th>
-            <th>Action</th>
+            <th style="width:180px;">Action</th>
           </tr>
         </thead>
         <tbody id="dc-tbody">
@@ -78,6 +79,21 @@
     </div>
   </div>
 </section>
+
+<!-- ✅ NEW: Preview Modal -->
+<div id="dc-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+  <div style="background:#fff; border-radius:12px; max-width:800px; width:100%; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e5e7eb; background:#f8fafc;">
+      <h3 style="margin:0; font-size:1.05rem;">Document Preview</h3>
+      <button onclick="document.getElementById('dc-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; line-height:1; color:#64748b;">×</button>
+    </div>
+    <div id="dc-modal-body" style="flex:1; overflow-y:auto; padding:1.5rem; background:#f8fafc;">
+      <div style="text-align:center; padding:3rem; color:#94a3b8;">
+        <span class="spinner" style="display:inline-block; margin-right:8px;"></span> Generating preview…
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -89,14 +105,7 @@
   let ALL = [];
   let FILTERED = [];
 
-  // ---------------------------------------------------------
-  // API base — role-aware so bursar + admin + registrar + others
-  // all reach a router that allows their role.
-  //   - admin / superadmin / registrar / rector / academic_officer
-  //     / lecturer / hod → /api/admin/documents  (allow-listed in
-  //     routes/documents.js via requireRole(STAFF)).
-  //   - bursar           → /api/bursar/documents (role-scoped).
-  // ---------------------------------------------------------
+  // API base — role-aware
   function apiBase() {
     const me = (core.getPortalUser && core.getPortalUser()) || {};
     const role = String(me.role || '').toLowerCase();
@@ -105,13 +114,8 @@
     return '/api/bursar/documents';
   }
 
-  // ---------------------------------------------------------
-  // Extractors — API returns { document: {...}, user: {...} } or flat
-  // ---------------------------------------------------------
   function unwrap(r) {
     const doc = r.document || r;
-    // Both /api/admin/documents and /api/bursar/documents join
-    // the requester into `user` (not `student`).
     const stu = r.user || r.student || {};
     return {
       id: doc.id,
@@ -135,9 +139,6 @@
     return `<span class="badge-status ${map[s.status] || 'badge-inactive'}">${esc(s.status)}</span>`;
   }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   function render() {
     $('dc-count').textContent = FILTERED.length;
 
@@ -148,14 +149,19 @@
     }
 
     $('dc-tbody').innerHTML = FILTERED.map((d) => {
-      let actions = '<span class="muted small">—</span>';
+      let actions = '';
+      
+      // Every row gets a Preview button
+      actions += `<button class="btn btn-outline btn-xs" data-act="preview" data-id="${d.id}" style="margin-right:4px;">👁 Preview</button>`;
+
       if (d.status === 'pending') {
-        actions = `
-          <button class="btn btn-primary btn-xs" data-act="approve" data-id="${d.id}">Approve</button>
+        actions += `
+          <button class="btn btn-primary btn-xs" data-act="approve" data-id="${d.id}" style="margin-right:4px;">Approve</button>
           <button class="btn btn-outline btn-xs" data-act="reject" data-id="${d.id}">Reject</button>`;
       } else if (d.status === 'approved') {
-        actions = `<button class="btn btn-primary btn-xs" data-act="issue" data-id="${d.id}">Mark Issued</button>`;
+        actions += `<button class="btn btn-primary btn-xs" data-act="issue" data-id="${d.id}">Mark Issued</button>`;
       }
+
       return `
         <tr>
           <td>${esc(d.studentName)}</td>
@@ -164,7 +170,7 @@
           <td>${esc(d.title || d.notes || '—')}</td>
           <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
           <td>${statusBadge(d)}</td>
-          <td class="row-actions">${actions}</td>
+          <td class="row-actions" style="white-space:nowrap;">${actions}</td>
         </tr>`;
     }).join('');
 
@@ -173,6 +179,7 @@
         e.stopPropagation();
         const id = btn.dataset.id;
         const act = btn.dataset.act;
+        if (act === 'preview') previewDoc(id);
         if (act === 'approve') approveDoc(id);
         if (act === 'reject')  rejectDoc(id);
         if (act === 'issue')   issueDoc(id);
@@ -180,9 +187,6 @@
     });
   }
 
-  // ---------------------------------------------------------
-  // Filters
-  // ---------------------------------------------------------
   function applyFilter() {
     const q = ($('dc-search').value || '').trim().toLowerCase();
     const type = $('dc-type').value;
@@ -199,9 +203,6 @@
     render();
   }
 
-  // ---------------------------------------------------------
-  // Stats
-  // ---------------------------------------------------------
   function updateStats() {
     const total = ALL.length;
     const pending = ALL.filter((d) => d.status === 'pending').length;
@@ -214,9 +215,6 @@
     $('dc-issued').textContent = issued;
   }
 
-  // ---------------------------------------------------------
-  // Load
-  // ---------------------------------------------------------
   async function load() {
     $('dc-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
@@ -224,7 +222,6 @@
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
       ALL = raw.map(unwrap);
-      console.log('[documents] Loaded', ALL.length, 'from', apiBase());
       updateStats();
       applyFilter();
     } catch (err) {
@@ -233,11 +230,35 @@
     }
   }
 
-  // ---------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------
+  // ============================================================
+  // ✅ PREVIEW — generate and show the document HTML
+  // ============================================================
+  async function previewDoc(id) {
+    const modal = $('dc-modal');
+    const body = $('dc-modal-body');
+    body.innerHTML = `<div style="text-align:center; padding:3rem; color:#94a3b8;"><span class="spinner" style="display:inline-block; margin-right:8px;"></span> Generating preview…</div>`;
+    modal.style.display = 'flex';
+
+    try {
+      // Use the correct base (admin or bursar)
+      const base = apiBase();
+      const res = await core.portalFetch(`${base}/${id}/preview`);
+      if (res.success && res.html) {
+        body.innerHTML = res.html;
+      } else {
+        body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+      }
+    } catch (err) {
+      body.innerHTML = `<div style="padding:2rem; color:#ef4444;">⚠️ Failed to load preview: ${esc(err.message)}</div>`;
+    }
+  }
+
+  // ============================================================
+  // ACTIONS
+  // ============================================================
   async function approveDoc(id) {
-    if (!confirm('Approve this document request?')) return;
+    const ok = core.confirm ? await core.confirm('Approve this document request?', 'Approve Document') : confirm('Approve this document request?');
+    if (!ok) return;
     try {
       await core.portalFetch(`${apiBase()}/${id}/approve`, { method: 'POST' });
       core.showToast && core.showToast('Approved', 'success');
@@ -248,7 +269,6 @@
   async function rejectDoc(id) {
     const reason = prompt('Rejection reason (optional):') || '';
     try {
-      // Backend expects `remarks`, not `reason`
       await core.portalFetch(`${apiBase()}/${id}/reject`, {
         method: 'POST',
         body: { remarks: reason },
@@ -259,17 +279,20 @@
   }
 
   async function issueDoc(id) {
-    if (!confirm('Mark this document as issued?')) return;
+    const ok = core.confirm ? await core.confirm('Mark this document as issued?', 'Issue Document') : confirm('Mark as issued?');
+    if (!ok) return;
     try {
       await core.portalFetch(`${apiBase()}/${id}/issue`, { method: 'POST' });
-      core.showToast && core.showToast('Issued', 'success');
+      core.showToast && core.showToast('Issued! You can now download it.', 'success');
       load();
+      // Automatically open the preview so admin can view/download
+      setTimeout(() => previewDoc(id), 400);
     } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
   }
 
-  // ---------------------------------------------------------
-  // Export CSV
-  // ---------------------------------------------------------
+  // ============================================================
+  // EXPORT CSV
+  // ============================================================
   function exportCsv() {
     const headers = ['Student', 'Matric', 'Type', 'Title', 'Requested', 'Status'];
     const rows = FILTERED.map((d) => [
@@ -297,4 +320,3 @@
   load();
 })();
 </script>
-

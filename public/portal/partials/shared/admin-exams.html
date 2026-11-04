@@ -1,5 +1,5 @@
 <!-- Portal → Shared → Exams (department-first) -->
-<div style="padding:0;">
+<div style="padding: 1rem 0 0 0;">
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
@@ -86,19 +86,29 @@
 
   async function load() {
     const grid = $('ex-dept-grid');
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;"><div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div><div style="margin-top:.65rem;">Loading departments…</div></div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
+      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:exSpin .8s linear infinite;"></div>
+      <div style="margin-top:.65rem;">Loading departments…</div>
+    </div>`;
 
     try {
-      // ✅ CORRECTED API ENDPOINTS
+      // ✅ Fetch departments + courses + exam schedules in parallel
       const [lookupRes, coursesRes, schedRes] = await Promise.all([
         core.portalFetch('/api/admin/lookups/departments'),
         core.portalFetch('/api/courses?limit=1000'),
-        core.portalFetch('/api/admin/exams/schedules'),
+        core.portalFetch('/api/admin/exams'),
       ]);
 
       DEPARTMENTS = Array.isArray(lookupRes.data) ? lookupRes.data : [];
       COURSES = Array.isArray(coursesRes.data) ? coursesRes.data : [];
       SCHEDULES = Array.isArray(schedRes.data) ? schedRes.data : [];
+
+      console.log('[exams] Loaded:', {
+        departments: DEPARTMENTS.length,
+        courses: COURSES.length,
+        schedules: SCHEDULES.length,
+        sampleSchedule: SCHEDULES[0]
+      });
 
       const courseDeptMap = {};
       COURSES.forEach((c) => { if (c.id && c.departmentId) courseDeptMap[c.id] = c.departmentId; });
@@ -124,7 +134,11 @@
 
       renderDepartmentGrid(counts, courseDeptMap);
     } catch (err) {
-      grid.innerHTML = `<div style="grid-column:1/-1;padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">⚠️ ${esc(err.message)}</div>`;
+      console.error('[exams] load error:', err);
+      grid.innerHTML = `<div style="grid-column:1/-1;padding:1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;color:#991b1b;font-size:.85rem;">
+        ⚠️ ${esc(err.message)}<br/>
+        <span style="font-size:.75rem;opacity:.7;">Open DevTools Console to see the full error.</span>
+      </div>`;
     }
   }
 
@@ -161,7 +175,9 @@
     const sorted = [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     if (!sorted.length) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">No departments match your search.</div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
+        No departments with exams found. ${SCHEDULES.length === 0 ? '(No exams in the database yet.)' : 'Try a different search.'}
+      </div>`;
       return;
     }
 
@@ -170,7 +186,7 @@
       const upcoming = upcomingCounts[d.id] || 0;
       const upcomingBadge = upcoming > 0
         ? `<div style="margin-top:.35rem;padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:4px;font-size:.65rem;font-weight:800;display:inline-block;">📅 ${upcoming} upcoming</div>`
-        : `<div style="margin-top:.35rem;font-size:.65rem;color:#94a3b8;font-weight:600;">All past</div>`;
+        : (count > 0 ? `<div style="margin-top:.35rem;font-size:.65rem;color:#94a3b8;font-weight:600;">All past</div>` : '');
       return `
         <div class="ex-dept-card" data-dept-id="${d.id}">
           <div class="ex-dept-icon" style="background:${pickColor(i)};">${esc(initials(d.name || d.code))}</div>
@@ -212,7 +228,9 @@
     const tbody = $('ex-exams-tbody');
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">No exams scheduled for this department yet.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+        No exams scheduled for this department yet.
+      </td></tr>`;
       return;
     }
 

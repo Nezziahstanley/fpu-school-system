@@ -9,10 +9,17 @@
   </div>
 
   <!-- FILTERS -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:2fr 1fr 1fr auto auto;gap:.6rem;align-items:end;">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto auto;gap:.6rem;align-items:end;">
     <div>
       <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Search</label>
-      <input type="search" id="grad-search" placeholder="Search matric, name, or programme…" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      <input type="search" id="grad-search" placeholder="Search matric, name…"
+             style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Department</label>
+      <select id="grad-filter-dept" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">All Departments</option>
+      </select>
     </div>
     <div>
       <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
@@ -43,6 +50,21 @@
     <div class="stat"><div class="meta"><span class="label">Graduated</span><span class="value" id="grad-stat-graduated">—</span></div></div>
   </div>
 
+  <!-- BULK ACTION BAR (hidden until selection) -->
+  <div id="grad-bulk-bar" style="display:none; background:#065f46; color:#fff; border-radius:10px; padding:.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+    <div style="font-size:.88rem; font-weight:600;">
+      <span id="grad-selected-count">0</span> selected
+    </div>
+    <div style="display:flex; gap:.5rem;">
+      <button id="grad-bulk-graduate" style="padding:.45rem .9rem; font-size:.8rem; font-weight:700; background:#f59e0b; color:#fff; border:none; border-radius:6px; cursor:pointer;">
+        🎓 Mark Selected Graduated
+      </button>
+      <button id="grad-bulk-clear" style="padding:.45rem .9rem; font-size:.8rem; font-weight:700; background:transparent; color:#fff; border:1px solid rgba(255,255,255,.4); border-radius:6px; cursor:pointer;">
+        Clear
+      </button>
+    </div>
+  </div>
+
   <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
@@ -54,6 +76,9 @@
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+            <th style="padding:.6rem .75rem;text-align:center;width:40px;">
+              <input type="checkbox" id="grad-select-all" style="cursor:pointer;width:16px;height:16px;" title="Select all" />
+            </th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
@@ -65,7 +90,7 @@
           </tr>
         </thead>
         <tbody id="grad-tbody">
-          <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+          <tr><td colspan="9" style="padding:3rem;text-align:center;color:#94a3b8;">
             <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:gradSpin .8s linear infinite;"></div>
             <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
           </td></tr>
@@ -79,6 +104,7 @@
   @keyframes gradSpin { to { transform: rotate(360deg); } }
   #grad-tbody tr { transition: background .1s; }
   #grad-tbody tr:hover { background: #f8fafc; }
+  #grad-tbody tr.selected { background: #f0fdf4; }
   .grad-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
   .grad-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; transition:all .15s; }
 </style>
@@ -92,8 +118,10 @@
 
   let ALL = [];
   let FILTERED = [];
+  let SELECTED = new Set();
+  let DEPARTMENTS = [];
 
-  // ✅ Flatten nested response into simple fields
+  // Flatten nested row
   function flattenRow(row) {
     const g = row.graduation || {};
     const stu = row.student || {};
@@ -106,26 +134,35 @@
     return {
       id: g.id,
       studentId: g.studentId,
-      sessionId: g.sessionId,
-      status: g.status || 'pending',
-      // Student fields
+      status: (g.status || 'pending').toLowerCase(),
       firstName: stu.firstName || '',
       lastName: stu.lastName || '',
       matricNumber: stu.matricNumber || '',
       level: g.level || stu.level || '',
-      photoUrl: stu.photoUrl || null,
-      // Programme / session
+      departmentId: stu.departmentId || null,
+      departmentName: stu.departmentName || '',
       programmeName: prog.name || '',
-      sessionName: sess.name || '',
-      // CGPA + classification
       cgpa: cgpaNum,
       classification: row.classification || g.classification || null,
     };
   }
 
+  async function loadDepartments() {
+    try {
+      const res = await core.portalFetch('/api/admin/lookups/departments');
+      DEPARTMENTS = Array.isArray(res.data) ? res.data : [];
+      const select = $('grad-filter-dept');
+      select.innerHTML = '<option value="">All Departments</option>' +
+        DEPARTMENTS
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          .map(d => `<option value="${d.id}">${esc(d.name)}</option>`)
+          .join('');
+    } catch (e) { console.warn('[graduations] departments load failed:', e.message); }
+  }
+
   async function load() {
     const tbody = $('grad-tbody');
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">
+    tbody.innerHTML = `<tr><td colspan="9" style="padding:3rem;text-align:center;color:#94a3b8;">
       <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:gradSpin .8s linear infinite;"></div>
       <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
     </td></tr>`;
@@ -138,19 +175,20 @@
       const res = await core.portalFetch(endpoint);
       const raw = Array.isArray(res.data) ? res.data : [];
       ALL = raw.map(flattenRow);
+      SELECTED.clear();
 
       renderStats();
       applyFilters();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
   function renderStats() {
     const total = ALL.length;
-    const eligible = ALL.filter(s => s.cgpa != null && s.cgpa >= 2.0 && s.status !== 'graduated' && s.status !== 'Graduated').length;
+    const eligible = ALL.filter(s => s.cgpa != null && s.cgpa >= 2.0 && s.status !== 'graduated').length;
     const notEligible = ALL.filter(s => s.cgpa != null && s.cgpa < 2.0).length;
-    const graduated = ALL.filter(s => (s.status || '').toLowerCase() === 'graduated').length;
+    const graduated = ALL.filter(s => s.status === 'graduated').length;
 
     $('grad-stat-total').textContent = total;
     $('grad-stat-eligible').textContent = eligible;
@@ -160,17 +198,17 @@
 
   function applyFilters() {
     const q = ($('grad-search')?.value || '').trim().toLowerCase();
+    const dept = $('grad-filter-dept')?.value || '';
     const level = $('grad-filter-level')?.value || '';
     const status = $('grad-filter-status')?.value || '';
 
     FILTERED = ALL.filter(s => {
-      const statusLower = (s.status || '').toLowerCase();
-
+      if (dept && String(s.departmentId) !== String(dept)) return false;
       if (level && String(s.level).toUpperCase() !== level) return false;
       if (status) {
-        if (status === 'Eligible' && (s.cgpa == null || s.cgpa < 2.0 || statusLower === 'graduated')) return false;
+        if (status === 'Eligible' && (s.cgpa == null || s.cgpa < 2.0 || s.status === 'graduated')) return false;
         if (status === 'Not Eligible' && (s.cgpa == null || s.cgpa >= 2.0)) return false;
-        if (status === 'Graduated' && statusLower !== 'graduated') return false;
+        if (status === 'Graduated' && s.status !== 'graduated') return false;
       }
       if (q) {
         const hay = `${s.firstName} ${s.lastName} ${s.matricNumber} ${s.programmeName}`.toLowerCase();
@@ -187,7 +225,7 @@
   function renderTable(rows) {
     const tbody = $('grad-tbody');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">
+      tbody.innerHTML = `<tr><td colspan="9" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">
         <div style="font-size:2.5rem;margin-bottom:.6rem;opacity:.6;">🎓</div>
         <div style="font-weight:700;color:#0f172a;font-size:.9rem;">No candidates found</div>
         <div style="font-size:.78rem;color:#94a3b8;margin-top:.25rem;">Try adjusting your filters.</div>
@@ -196,9 +234,9 @@
     }
 
     tbody.innerHTML = rows.map(s => {
-      const statusLower = (s.status || '').toLowerCase();
-      const isGraduated = statusLower === 'graduated';
+      const isGraduated = s.status === 'graduated';
       const isEligible = s.cgpa != null && s.cgpa >= 2.0;
+      const isSelected = SELECTED.has(s.id);
 
       let statusHtml;
       if (isGraduated) statusHtml = `<span class="grad-badge" style="background:#e0e7ff;color:#3730a3;">Graduated</span>`;
@@ -212,8 +250,14 @@
       const cgpaDisplay = s.cgpa != null ? s.cgpa.toFixed(2) : '—';
       const cgpaColor = s.cgpa == null ? '#64748b' : (isEligible ? '#065f46' : '#dc2626');
 
+      // Only eligible (not graduated) rows can be selected
+      const checkbox = (!isGraduated && isEligible)
+        ? `<input type="checkbox" class="grad-select-row" data-id="${s.id}" ${isSelected ? 'checked' : ''} style="cursor:pointer;width:16px;height:16px;" />`
+        : `<span style="color:#cbd5e1;">—</span>`;
+
       return `
-        <tr style="border-bottom:1px solid #f1f5f9;">
+        <tr class="${isSelected ? 'selected' : ''}" data-row-id="${s.id}">
+          <td style="padding:.65rem .75rem;text-align:center;">${checkbox}</td>
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.firstName)} ${esc(s.lastName)}</td>
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(s.matricNumber || '—')}</code></td>
           <td style="padding:.65rem .75rem;font-size:.8rem;color:#475569;">${esc(s.programmeName || '—')}</td>
@@ -227,39 +271,148 @@
         </tr>`;
     }).join('');
 
-    tbody.querySelectorAll('.btn-mark-grad').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        if (!confirm('Mark this student as graduated?')) return;
-        btn.disabled = true;
-        btn.textContent = 'Marking...';
-        try {
-          const user = core.getPortalUser ? core.getPortalUser() : {};
-          const isRegistrar = user.role === 'registrar';
-          const url = isRegistrar
-            ? `/api/registrar/graduations/${id}/mark`
-            : `/api/admin/graduation/${id}/graduate`;
-          await core.portalFetch(url, { method: 'POST' });
-          core.showToast && core.showToast('Student marked as graduated.', 'success');
-          load();
-        } catch (err) {
-          core.showToast && core.showToast(err.message, 'error');
-          btn.disabled = false;
-          btn.textContent = 'Mark Graduated';
-        }
+    // Wire individual checkboxes
+    tbody.querySelectorAll('.grad-select-row').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const id = Number(cb.dataset.id);
+        if (cb.checked) SELECTED.add(id);
+        else SELECTED.delete(id);
+        cb.closest('tr').classList.toggle('selected', cb.checked);
+        updateBulkBar();
+        updateSelectAll();
       });
     });
+
+    // Wire individual Mark Graduated buttons
+    tbody.querySelectorAll('.btn-mark-grad').forEach(btn => {
+      btn.addEventListener('click', () => markGraduated(Number(btn.dataset.id), btn));
+    });
+
+    updateBulkBar();
+    updateSelectAll();
   }
 
+  function updateBulkBar() {
+    const bar = $('grad-bulk-bar');
+    const countEl = $('grad-selected-count');
+    const count = SELECTED.size;
+    countEl.textContent = count;
+    bar.style.display = count > 0 ? 'flex' : 'none';
+  }
+
+  function updateSelectAll() {
+    const selectAll = $('grad-select-all');
+    const eligibleCheckboxes = document.querySelectorAll('.grad-select-row');
+    if (eligibleCheckboxes.length === 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+      return;
+    }
+    const allChecked = Array.from(eligibleCheckboxes).every(cb => cb.checked);
+    const someChecked = Array.from(eligibleCheckboxes).some(cb => cb.checked);
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = someChecked && !allChecked;
+  }
+
+  async function markGraduated(id, btn) {
+    const ok = core.confirm
+      ? await core.confirm('Mark this student as graduated?', 'Graduation')
+      : confirm('Mark this student as graduated?');
+    if (!ok) return;
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Marking...'; }
+    try {
+      const user = core.getPortalUser ? core.getPortalUser() : {};
+      const isRegistrar = user.role === 'registrar';
+      const url = isRegistrar
+        ? `/api/registrar/graduations/${id}/mark`
+        : `/api/admin/graduation/${id}/graduate`;
+      await core.portalFetch(url, { method: 'POST' });
+      core.showToast && core.showToast('Student marked as graduated.', 'success');
+      load();
+    } catch (err) {
+      core.showToast && core.showToast(err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark Graduated'; }
+    }
+  }
+
+  async function bulkGraduate() {
+    if (!SELECTED.size) return;
+    const count = SELECTED.size;
+    const ok = core.confirm
+      ? await core.confirm(`Mark ${count} selected student${count === 1 ? '' : 's'} as graduated?`, 'Bulk Graduation')
+      : confirm(`Mark ${count} students as graduated?`);
+    if (!ok) return;
+
+    const btn = $('grad-bulk-graduate');
+    btn.disabled = true;
+    btn.textContent = 'Marking…';
+
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    const isRegistrar = user.role === 'registrar';
+    const baseUrl = isRegistrar
+      ? '/api/registrar/graduations'
+      : '/api/admin/graduation';
+    const actionPath = isRegistrar ? '/mark' : '/graduate';
+
+    let success = 0, failed = 0;
+    for (const id of SELECTED) {
+      try {
+        await core.portalFetch(`${baseUrl}/${id}${actionPath}`, { method: 'POST' });
+        success++;
+      } catch (err) {
+        console.error(`Failed to graduate student #${id}:`, err.message);
+        failed++;
+      }
+    }
+
+    btn.disabled = false;
+    btn.textContent = '🎓 Mark Selected Graduated';
+
+    if (success > 0) core.showToast && core.showToast(`${success} student${success === 1 ? '' : 's'} graduated.`, 'success');
+    if (failed > 0) core.showToast && core.showToast(`${failed} failed. Check console.`, 'error');
+
+    SELECTED.clear();
+    load();
+  }
+
+  // Wiring
   let searchTimer;
   $('grad-search')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(applyFilters, 200);
   });
+  $('grad-filter-dept')?.addEventListener('change', applyFilters);
   $('grad-filter-level')?.addEventListener('change', applyFilters);
   $('grad-filter-status')?.addEventListener('change', applyFilters);
   $('grad-refresh')?.addEventListener('click', load);
 
+  // Select All checkbox
+  $('grad-select-all')?.addEventListener('change', (e) => {
+    const checked = e.target.checked;
+    document.querySelectorAll('.grad-select-row').forEach(cb => {
+      cb.checked = checked;
+      const id = Number(cb.dataset.id);
+      if (checked) SELECTED.add(id);
+      else SELECTED.delete(id);
+      cb.closest('tr').classList.toggle('selected', checked);
+    });
+    updateBulkBar();
+  });
+
+  // Bulk actions
+  $('grad-bulk-graduate')?.addEventListener('click', bulkGraduate);
+  $('grad-bulk-clear')?.addEventListener('click', () => {
+    SELECTED.clear();
+    document.querySelectorAll('.grad-select-row').forEach(cb => {
+      cb.checked = false;
+      cb.closest('tr').classList.remove('selected');
+    });
+    updateBulkBar();
+    updateSelectAll();
+  });
+
+  // Export
   $('grad-export')?.addEventListener('click', () => {
     if (!FILTERED.length) return core.showToast && core.showToast('No rows to export.', 'warning');
     const headers = ['Matric', 'Name', 'Programme', 'Level', 'CGPA', 'Classification', 'Status'];
@@ -274,6 +427,7 @@
     link.href = url; link.download = 'graduations.csv'; link.click(); URL.revokeObjectURL(url);
   });
 
+  loadDepartments();
   load();
 })();
 </script>

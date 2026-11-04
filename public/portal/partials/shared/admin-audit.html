@@ -1,17 +1,45 @@
 <!-- Portal → Shared → Audit (admins only) -->
 <section class="page-head">
-  <div><h2>Audit Log</h2></div>
+  <div>
+    <h2>Audit Log</h2>
+    <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">System activity and security events</p>
+  </div>
 </section>
 
 <div class="panel">
-  <div class="panel-head"><h3>Recent Activity</h3></div>
+  <div class="panel-head">
+    <h3>Recent Activity</h3>
+  </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>Action</th><th>User</th><th>Entity</th><th>Time</th></tr></thead>
-        <tbody id="shared-audit-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="table-admin data-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>User</th>
+            <th>Entity</th>
+            <th>IP Address</th>
+            <th>Severity</th>
+            <th>Time</th>
+            <th style="text-align: right;">Details</th>
+          </tr>
+        </thead>
+        <tbody id="shared-audit-tbody">
+          <tr><td colspan="7" class="empty" style="text-align: center; padding: 2rem;">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<!-- Modal for viewing before/after JSON -->
+<div id="audit-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:12px; padding:1.5rem; max-width:700px; width:90%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h3 style="margin:0;">Audit Details</h3>
+      <button onclick="document.getElementById('audit-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+    </div>
+    <div id="audit-modal-body"></div>
   </div>
 </div>
 
@@ -19,16 +47,71 @@
   (async function () {
     const core = window.FPU_PORTAL;
     const box = document.getElementById('shared-audit-tbody');
+
     try {
-      const res = await core.portalFetch('/api/admin/audit?limit=100');
-      box.innerHTML = (res.data || []).map((r) => `
-        <tr>
-          <td>${core.escapeHtml(r.log.action)}</td>
-          <td>${r.user ? core.escapeHtml(r.user.firstName + ' ' + r.user.lastName) : '—'}</td>
-          <td>${core.escapeHtml(r.log.entity || '')}</td>
-          <td>${core.formatDateTime(r.log.createdAt)}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="4" class="empty">No audit entries.</td></tr>';
-    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+      // Fetch joined audit data with related user
+      const res = await core.portalFetch('/api/admin/audit?limit=100&withRelations=true');
+      const rows = res.data || [];
+
+      if (!rows.length) {
+        box.innerHTML = '<tr><td colspan="7" class="empty" style="text-align: center; padding: 2rem;">No audit entries.</td></tr>';
+        return;
+      }
+
+      box.innerHTML = rows.map((r) => {
+        // Safely extract user details
+        const userName = r.user 
+          ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email 
+          : (r.log.userId ? `User #${r.log.userId}` : '—');
+        
+        // Severity badge
+        const sev = r.log.severity || 'info';
+        const sevColor = sev === 'critical' ? '#ef4444' : sev === 'warning' ? '#f59e0b' : '#10b981';
+        const sevBg = sev === 'critical' ? '#fee2e2' : sev === 'warning' ? '#fef3c7' : '#d1fae5';
+
+        return `
+          <tr>
+            <td><code style="font-size:.75rem; color:#0f172a;">${core.escapeHtml(r.log.action || '')}</code></td>
+            <td>${core.escapeHtml(userName)}</td>
+            <td>${core.escapeHtml(r.log.entity || '—')}</td>
+            <td><code style="font-size:.7rem; color:#64748b;">${core.escapeHtml(r.log.ipAddress || '—')}</code></td>
+            <td>
+              <span style="background:${sevBg}; color:${sevColor}; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase;">
+                ${sev}
+              </span>
+            </td>
+            <td style="font-size:.78rem; color:#475569;">${core.formatDateTime(r.log.createdAt)}</td>
+            <td style="text-align: right;">
+              ${(r.log.before || r.log.after) 
+                ? `<button class="btn btn-sm btn-outline" style="padding:2px 8px; font-size:11px;" onclick='viewAuditDetails(${JSON.stringify(r.log).replace(/'/g, "&#39;")})'>👁 View</button>` 
+                : '<span style="color:#94a3b8; font-size:.75rem;">—</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) { 
+      box.innerHTML = `<tr><td colspan="7" class="empty" style="text-align: center; color:#ef4444;">${core.escapeHtml(err.message)}</td></tr>`; 
+    }
   })();
+
+  // Global function for the View button
+  window.viewAuditDetails = function(log) {
+    const modal = document.getElementById('audit-modal');
+    const body = document.getElementById('audit-modal-body');
+    
+    let html = `<div style="margin-bottom:.75rem;"><strong>Action:</strong> <code>${log.action}</code></div>`;
+    
+    if (log.before) {
+      html += `<div style="margin-bottom:.75rem;"><strong style="color:#dc2626;">Before:</strong><pre style="background:#fef2f2; padding:1rem; border-radius:8px; overflow-x:auto; font-size:.75rem;">${JSON.stringify(log.before, null, 2)}</pre></div>`;
+    }
+    if (log.after) {
+      html += `<div><strong style="color:#16a34a;">After:</strong><pre style="background:#f0fdf4; padding:1rem; border-radius:8px; overflow-x:auto; font-size:.75rem;">${JSON.stringify(log.after, null, 2)}</pre></div>`;
+    }
+    if (!log.before && !log.after) {
+      html += `<p style="color:#64748b;">No detailed changes recorded for this action.</p>`;
+    }
+
+    body.innerHTML = html;
+    modal.style.display = 'flex';
+  };
 </script>

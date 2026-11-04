@@ -123,7 +123,6 @@
   function bookTitle(r) {
     var b = r.book || {};
     var br = getBorrow(r);
-    // Try joined relation, then flat field, then fallback
     return b.title || br.bookTitle || ('Book #' + (br.bookId || ''));
   }
   function studentName(r) {
@@ -195,10 +194,12 @@
           + '</td></tr>';
       }
 
-      // Actions: staff can mark returned
+      // Actions
       var actions = '<span class="muted small">—</span>';
       if (!IS_STUDENT && (br.status === 'borrowed' || br.status === 'overdue' || overdue)) {
         actions = '<button class="btn btn-sm btn-primary" data-act="return" data-id="' + esc(id) + '">Mark Returned</button>';
+      } else if (br.status === 'returned') {
+        actions = '<button class="btn btn-sm btn-outline" data-act="details" data-id="' + esc(id) + '">View</button>';
       }
 
       return '<tr class="' + (overdue ? 'bor-row-overdue' : '') + '">'
@@ -226,9 +227,13 @@
       });
     });
 
-    // Wire return
-    tbody.querySelectorAll('button[data-act="return"]').forEach(function (b) {
-      b.addEventListener('click', function () { markReturned(b.dataset.id, b); });
+    // Wire return & details
+    tbody.querySelectorAll('button[data-act]').forEach(function (b) {
+      if (b.dataset.act === 'return') {
+        b.addEventListener('click', function () { markReturned(b.dataset.id, b); });
+      } else if (b.dataset.act === 'details') {
+        b.addEventListener('click', function () { viewDetails(b.dataset.id, r); });
+      }
     });
   }
 
@@ -244,7 +249,6 @@
     if (status) qs.set('status', status);
 
     try {
-      // ✅ FIXED: Add ?withRelations=true so backend joins books and users
       var res = await core.portalFetch(LIST_URL + (qs.toString() ? '?' + qs : ''));
       var rows = res.data || res.borrows || [];
       if (!Array.isArray(rows)) rows = [];
@@ -264,9 +268,15 @@
     }
   }
 
-  // ---- Mark returned ----
+  // ---- Mark returned (USES STYLED MODAL) ----
   async function markReturned(id, btn) {
-    if (!(confirm('Mark this book as returned?', 'Return Book'))) return;
+    // Use styled modal if available, fallback to native confirm
+    var confirmed = core.confirm 
+      ? await core.confirm('Mark this book as returned?', 'Return Book')
+      : confirm('Mark this book as returned?');
+      
+    if (!confirmed) return;
+
     if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
     try {
       await core.portalFetch(RETURN_URL(id), { method: 'POST' });
@@ -276,6 +286,20 @@
       if (core.showToast) core.showToast(err.message, 'error');
       if (btn) { btn.disabled = false; btn.textContent = 'Mark Returned'; }
     }
+  }
+
+  // ---- View Details ----
+  function viewDetails(id, row) {
+    if (!row) return;
+    var br = getBorrow(row);
+    var msg = 'Book: ' + bookTitle(row) + '\n' +
+              'Student: ' + studentName(row) + '\n' +
+              'Borrowed: ' + (br.borrowedAt ? dateFmt(br.borrowedAt) : '—') + '\n' +
+              'Due: ' + (br.dueAt || br.dueDate ? dateFmt(br.dueAt || br.dueDate) : '—') + '\n' +
+              'Returned: ' + (br.returnedAt ? dateFmt(br.returnedAt) : '—');
+    // Use styled alert if available, fallback
+    if (core.toast) core.toast(msg, 'info');
+    else alert(msg);
   }
 
   // ---- Wire chrome ----
@@ -291,6 +315,3 @@
   load();
 })();
 </script>
-
-
-

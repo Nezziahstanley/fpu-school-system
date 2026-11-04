@@ -1531,3 +1531,32 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
   #sidebar { width: 230px !important; }
   main.main { padding: .5rem .6rem 1rem !important; }
 }
+
+/* ============================================================
+   FPU CUSTOM MODAL (Replaces browser confirm/alert)
+   ============================================================ */
+.fpu-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6);
+  z-index: 99999; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+.fpu-modal-overlay.show { opacity: 1; pointer-events: auto; }
+.fpu-modal-box {
+  background: #fff; border-radius: 12px; padding: 1.5rem;
+  max-width: 400px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  transform: translateY(20px); transition: transform 0.2s ease;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.fpu-modal-overlay.show .fpu-modal-box { transform: translateY(0); }
+.fpu-modal-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem; }
+.fpu-modal-text { font-size: 0.9rem; color: #475569; margin-bottom: 1.5rem; line-height: 1.5; }
+.fpu-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.fpu-modal-btn {
+  padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem;
+  cursor: pointer; border: none; transition: background 0.15s;
+}
+.fpu-modal-btn-cancel { background: #f1f5f9; color: #475569; }
+.fpu-modal-btn-cancel:hover { background: #e2e8f0; }
+.fpu-modal-btn-confirm { background: #065f46; color: #fff; }
+.fpu-modal-btn-confirm:hover { background: #054d38; }

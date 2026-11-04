@@ -335,7 +335,7 @@
   }
 
   async function delAnnouncement(id) {
-    if (!await FPU_PORTAL.confirm('Delete this announcement? This cannot be undone.')) return;
+    if (!confirm('Delete this announcement? This cannot be undone.')) return;
     try {
       await core.portalFetch('/api/portal/announcements/' + id, { method: 'DELETE' });
       core.showToast && core.showToast('Deleted.', 'warning');
@@ -367,4 +367,5 @@
   load();
 })();
 </script>
+
 

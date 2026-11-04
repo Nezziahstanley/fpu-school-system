@@ -123,7 +123,7 @@
       });
       tbody.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!await FPU_PORTAL.confirm('Delete this exam?')) return;
+          if (!confirm('Delete this exam?')) return;
           try {
             await core.portalFetch(`/api/hod/exams/${btn.dataset.id}`, { method: 'DELETE' });
             core.showToast('Exam deleted', 'success');
@@ -207,3 +207,4 @@
   load();
 })();
 </script>
+

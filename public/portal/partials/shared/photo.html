@@ -297,7 +297,7 @@
   // Remove photo
   // ---------------------------------------------------------
   async function removePhoto() {
-    if (!await FPU_PORTAL.confirm('Remove your profile photo?')) return;
+    if (!confirm('Remove your profile photo?')) return;
     try {
       await core.portalFetch('/api/portal/profile/photo', { method: 'DELETE' });
       showPhoto(null);
@@ -354,3 +354,4 @@
   refreshAvatars(user);
 })();
 </script>
+

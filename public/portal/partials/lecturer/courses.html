@@ -206,7 +206,7 @@
   }
 
   async function accept(c) {
-    if (!await FPU_PORTAL.confirm('Accept the assignment for ' + c.code + '?')) return;
+    if (!confirm('Accept the assignment for ' + c.code + '?')) return;
     try {
       await core.portalFetch('/api/lecturer/allocations/' + c.allocationId + '/accept', { method: 'POST' });
       core.showToast && core.showToast('Accepted.', 'success');
@@ -280,3 +280,4 @@
   load();
 })();
 </script>
+

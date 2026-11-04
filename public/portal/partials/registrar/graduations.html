@@ -207,7 +207,7 @@
     tbody.querySelectorAll('.btn-mark-grad').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
-        if (!await FPU_PORTAL.confirm('Are you sure you want to mark this student as graduated?')) return;
+        if (!confirm('Are you sure you want to mark this student as graduated?')) return;
         
         btn.disabled = true;
         btn.textContent = 'Marking...';
@@ -238,3 +238,4 @@
   load();
 })();
 </script>
+

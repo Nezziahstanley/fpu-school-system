@@ -237,7 +237,7 @@
   // Actions
   // ---------------------------------------------------------
   async function approveDoc(id) {
-    if (!await FPU_PORTAL.confirm('Approve this document request?')) return;
+    if (!confirm('Approve this document request?')) return;
     try {
       await core.portalFetch(`${apiBase()}/${id}/approve`, { method: 'POST' });
       core.showToast && core.showToast('Approved', 'success');
@@ -259,7 +259,7 @@
   }
 
   async function issueDoc(id) {
-    if (!await FPU_PORTAL.confirm('Mark this document as issued?')) return;
+    if (!confirm('Mark this document as issued?')) return;
     try {
       await core.portalFetch(`${apiBase()}/${id}/issue`, { method: 'POST' });
       core.showToast && core.showToast('Issued', 'success');
@@ -297,3 +297,4 @@
   load();
 })();
 </script>
+

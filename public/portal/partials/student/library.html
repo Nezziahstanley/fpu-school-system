@@ -423,7 +423,7 @@
   }
 
   async function returnBook(id) {
-    if (!await FPU_PORTAL.confirm('Return this book?')) return;
+    if (!confirm('Return this book?')) return;
     try {
       const res = await core.portalFetch(`/api/student/library/return/${id}`, { method: 'POST' });
       if (res.fine) {
@@ -482,7 +482,7 @@
   }
 
   async function cancelReservation(id) {
-    if (!await FPU_PORTAL.confirm('Cancel this reservation?')) return;
+    if (!confirm('Cancel this reservation?')) return;
     try {
       await core.portalFetch(`/api/student/library/reserve/${id}`, { method: 'DELETE' });
       core.showToast && core.showToast('Reservation cancelled.', 'success');
@@ -552,3 +552,4 @@
   loadFines();
 })();
 </script>
+

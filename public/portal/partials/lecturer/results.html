@@ -464,7 +464,7 @@
   };
 
   window.__deleteResult = async function(resultId) {
-    if (!await FPU_PORTAL.confirm('Are you sure you want to delete this draft result? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to delete this draft result? This cannot be undone.')) return;
     try {
       await core.portalFetch(`/api/lecturer/results/${resultId}`, { method: 'DELETE' });
       core.showToast('Result deleted.', 'success');
@@ -617,7 +617,7 @@
 
   $('bulk-submit-btn').addEventListener('click', async () => {
     if (!CURRENT_COURSE_ID) return;
-    if (!await FPU_PORTAL.confirm('Are you sure? This will lock the drafts and send them to the HOD for approval.')) return;
+    if (!confirm('Are you sure? This will lock the drafts and send them to the HOD for approval.')) return;
     
     const btn = $('bulk-submit-btn');
     btn.disabled = true; btn.textContent = 'Submitting...';
@@ -656,3 +656,4 @@
   }
 })();
 </script>
+

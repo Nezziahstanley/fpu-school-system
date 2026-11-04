@@ -429,7 +429,7 @@
   };
 
   window.__deleteOne = async function (resultId) {
-    if (!await FPU_PORTAL.confirm('Mark this result as deleted? This cannot be undone.')) return;
+    if (!confirm('Mark this result as deleted? This cannot be undone.')) return;
     try {
       await core.portalFetch(`/api/hod/results/${resultId}`, { method: 'DELETE' });
       core.showToast('Result deleted.', 'success');
@@ -454,3 +454,4 @@
   load();
 })();
 </script>
+

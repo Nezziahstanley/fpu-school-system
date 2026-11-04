@@ -266,7 +266,7 @@
 
   // ---- Mark returned ----
   async function markReturned(id, btn) {
-    if (!(await core.await FPU_PORTAL.confirm('Mark this book as returned?', 'Return Book'))) return;
+    if (!(confirm('Mark this book as returned?', 'Return Book'))) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Processing…'; }
     try {
       await core.portalFetch(RETURN_URL(id), { method: 'POST' });
@@ -291,4 +291,6 @@
   load();
 })();
 </script>
+
+
 

@@ -109,7 +109,7 @@
   // ==========================================
 
   window.approveApp = async function(id) {
-    if (!await FPU_PORTAL.confirm('Are you sure you want to APPROVE this application?')) return;
+    if (!confirm('Are you sure you want to APPROVE this application?')) return;
     try {
       await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
       window.FPU_PORTAL.showToast('Application approved successfully!', 'success');
@@ -138,7 +138,7 @@
   };
 
   window.registerApp = async function(id) {
-    if (!await FPU_PORTAL.confirm('This will create a Student Portal account and generate a Matric Number. Proceed?')) return;
+    if (!confirm('This will create a Student Portal account and generate a Matric Number. Proceed?')) return;
     try {
       await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
       window.FPU_PORTAL.showToast('Student registered and Matric Number generated!', 'success');
@@ -158,3 +158,4 @@
     }
   };
 </script>
+

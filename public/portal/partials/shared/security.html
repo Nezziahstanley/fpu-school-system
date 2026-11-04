@@ -114,7 +114,7 @@
     });
 
     document.getElementById('sec-revoke-all').addEventListener('click', async () => {
-      if (!await FPU_PORTAL.confirm('Sign out all other sessions?')) return;
+      if (!confirm('Sign out all other sessions?')) return;
       try { 
           await core.portalFetch('/api/portal/security/revoke-all', { method: 'POST' }); 
           core.showToast('Other sessions signed out.', 'success'); 
@@ -144,3 +144,4 @@
     })();
   })();
 </script>
+

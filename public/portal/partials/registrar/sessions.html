@@ -173,7 +173,7 @@
   }
 
   async function activateSession(id) {
-    if (!await FPU_PORTAL.confirm('Set this as the current active session? This will affect all portal activity.')) return;
+    if (!confirm('Set this as the current active session? This will affect all portal activity.')) return;
     try {
       await core.portalFetch(`/api/registrar/sessions/${id}/activate`, { method: 'POST' });
       core.showToast('Session activated.', 'success');
@@ -233,3 +233,4 @@
   load();
 })();
 </script>
+

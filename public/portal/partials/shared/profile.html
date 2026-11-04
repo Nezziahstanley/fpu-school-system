@@ -416,7 +416,7 @@
   });
 
   $('pf-photo-remove').addEventListener('click', async () => {
-    if (!await FPU_PORTAL.confirm('Remove your profile photo?')) return;
+    if (!confirm('Remove your profile photo?')) return;
     try {
       await core.portalFetch('/api/portal/profile/photo', { method: 'DELETE' });
       USER.photoUrl = null;
@@ -524,3 +524,4 @@
   loadProfile();
 })();
 </script> 
+

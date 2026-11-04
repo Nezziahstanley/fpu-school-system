@@ -16,19 +16,48 @@
 </div>
 
 <script>
-  (async function () {
+  (async function loadApplications() {
     const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-apps-tbody');
+    const tbody = document.querySelector('.data-table tbody') || document.querySelector('table tbody'); 
+    // ^ Make sure this matches the actual <tbody> in your HTML
+
+    if (!tbody) return;
+
     try {
-      const res = await core.portalFetch('/api/admin/applications?limit=200');
-      box.innerHTML = (res.data || []).map((a) => `
-        <tr>
-          <td>${core.escapeHtml(a.applicationNumber)}</td>
-          <td>${core.escapeHtml(a.firstName)} ${core.escapeHtml(a.lastName)}</td>
-          <td>${core.escapeHtml(a.status)}</td>
-          <td>${core.formatDate(a.createdAt)}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="4" class="empty">No applications.</td></tr>';
-    } catch (err) { box.innerHTML = `<tr><td colspan="4" class="empty">${core.escapeHtml(err.message)}</td></tr>`; }
+      // 1. Call the correct backend route
+      const res = await core.portalFetch('/api/admin/applications?limit=100');
+      
+      // 2. Handle empty state
+      if (!res.success || !res.data || res.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">No applications found.</td></tr>`;
+        return;
+      }
+
+      // 3. Render rows
+      tbody.innerHTML = res.data.map(app => {
+        // Map status colors (optional but looks nice)
+        let statusColor = '#f59e0b'; // default amber
+        if (app.status === 'approved') statusColor = '#10b981'; // green
+        if (app.status === 'rejected') statusColor = '#ef4444'; // red
+        if (app.status === 'registered') statusColor = '#3b82f6'; // blue
+
+        const submittedDate = app.createdAt 
+          ? new Date(app.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) 
+          : '—';
+
+        return `
+          <tr>
+            <td><strong>${app.applicationNumber || '—'}</strong></td>
+            <td>${app.firstName} ${app.lastName}</td>
+            <td><span class="badge" style="background:${statusColor}; color:white; padding:2px 8px; border-radius:4px; font-size:11px;">${(app.status || 'pending').toUpperCase()}</span></td>
+            <td>${submittedDate}</td>
+          </tr>
+        `;
+      }).join('');
+
+    } catch (err) {
+      console.error('Applications load error:', err);
+      tbody.innerHTML = `<tr><td colspan="4" class="empty-cell" style="color:#ef4444;">Error: ${err.message}</td></tr>`;
+    }
   })();
 </script>

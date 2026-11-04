@@ -42,18 +42,41 @@
 
 <script>
   (async function () {
-    const core = window.FPU_PORTAL;
-    const photo = window.FPU_PHOTO;
-    try {
-      document.getElementById('sa-dash-name').textContent = core.getPortalUser()?.firstName || 'Administrator';
-      if (photo) photo.renderMyAvatar(document.getElementById('sa-dash-avatar'), core.getPortalUser());
+    // 1. Give the SPA a tiny moment to attach the core library
+    setTimeout(async () => {
+      const core = window.FPU_PORTAL;
+      const photo = window.FPU_PHOTO;
+      
+      if (!core) {
+        console.error('FPU_PORTAL core is missing!');
+        return;
+      }
 
-      const res = await core.portalFetch('/api/admin/reports/overview');
-      const d = res.data || {};
-      document.getElementById('sa-t-students').textContent = d.students ?? 0;
-      document.getElementById('sa-t-lecturers').textContent = d.lecturers ?? 0;
-      document.getElementById('sa-t-apps').textContent = d.pendingApplications ?? 0;
-      document.getElementById('sa-t-results').textContent = d.pendingResults ?? 0;
-    } catch (err) { core.showToast(err.message, 'error'); }
+      try {
+        // 2. Load User Info
+        const user = core.getPortalUser && core.getPortalUser();
+        if (user) {
+          document.getElementById('sa-dash-name').textContent = user.firstName || 'Administrator';
+          if (photo) photo.renderMyAvatar(document.getElementById('sa-dash-avatar'), user);
+        }
+
+        // 3. Fetch the REAL stats from your reports.js API
+        const res = await core.portalFetch('/api/admin/reports/overview');
+        const d = (res && res.data) || {};
+        
+        // 4. Update the DOM
+        document.getElementById('sa-t-students').textContent = d.students ?? 0;
+        document.getElementById('sa-t-lecturers').textContent = d.lecturers ?? 0;
+        document.getElementById('sa-t-apps').textContent = d.pendingApplications ?? 0;
+        document.getElementById('sa-t-results').textContent = d.pendingResults ?? 0;
+
+      } catch (err) {
+        console.error('Dashboard stats error:', err);
+        if (core.showToast) core.showToast('Failed to load real data: ' + err.message, 'error');
+        
+        // Show a dash instead of a spinner if it fails
+        document.getElementById('sa-t-students').textContent = '—';
+      }
+    }, 150); // 150ms delay allows the SPA to mount
   })();
 </script>

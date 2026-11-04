@@ -14,7 +14,7 @@ const express = require('express');
 const router = express.Router();
 
 const { db, schema } = require('../../db');
-const { eq, and, desc } = require('drizzle-orm');
+const { eq, and, desc, count, sql } = require('drizzle-orm');
 
 const notifQueries = require('../../db/queries/notifications');
 const userQueries = require('../../db/queries/users');
@@ -560,5 +560,47 @@ router.get('/library/books', requireUser, async (req, res, next) => {
   }
 });
 
-module.exports = router;
+// ============================================================
+// DASHBOARD STATS — Superadmin / Admin
+// ============================================================
+router.get('/superadmin/dashboard-stats', requireUser, async (req, res, next) => {
+  try {
+    const role = String(req.user.role || '').toLowerCase();
+    if (!['superadmin', 'admin'].includes(role)) {
+      return res.status(403).json({ success: false, error: 'Access denied.' });
+    }
 
+    // 1. Total Students
+    const [studentsRes] = await db.select({ value: count() }).from(users).where(eq(users.role, 'student'));
+    
+    // 2. Total Lecturers
+    const [lecturersRes] = await db.select({ value: count() }).from(users).where(eq(users.role, 'lecturer'));
+
+    // 3. Pending Applications
+    // Note: Assuming your schema has 'applications' and it has a 'status' column
+    const [appsRes] = await db.select({ value: count() })
+      .from(schema.applications)
+      .where(eq(schema.applications.status, 'pending'));
+
+    // 4. Pending Results
+    // Note: Assuming your schema has 'results' and it has a 'status' column
+    const [resultsRes] = await db.select({ value: count() })
+      .from(schema.results)
+      .where(eq(schema.results.status, 'pending'));
+
+    return res.json({
+      success: true,
+      data: {
+        students: studentsRes.value,
+        lecturers: lecturersRes.value,
+        pendingApplications: appsRes.value,
+        pendingResults: resultsRes.value
+      }
+    });
+  } catch (err) {
+    console.error('[Dashboard Stats]', err);
+    return next(err);
+  }
+});
+
+module.exports = router;

@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    FEDERAL POLYTECHNIC UGEP — Admin Panel Stylesheet
-   Full stylesheet — v5 (Complete with Users module + Security)
+   Full stylesheet — v6 (with mobile burger menu fix)
    ============================================================ */
 
 /* ============================================================
@@ -780,7 +780,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   font-style: italic;
 }
 
-/* .table-admin — alias of .data-table for admin partials */
 .table-admin {
   width: 100%;
   border-collapse: collapse;
@@ -863,9 +862,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 
 .tag-pill.gold { background: var(--fpu-accent-light); color: var(--fpu-accent-dark); }
 
-/* ============================================================
-   13b. ROLE BADGES (used on Users pages)
-   ============================================================ */
 .badge.role-student   { background: #dbeafe; color: #1e40af; }
 .badge.role-lecturer  { background: #d1fae5; color: #065f46; }
 .badge.role-hod       { background: #ede9fe; color: #6d28d9; }
@@ -1148,7 +1144,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Skeleton loaders */
 .skeleton {
   background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 200% 100%;
@@ -1187,7 +1182,7 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 }
 
 /* ============================================================
-   21. CHART CARDS (DASHBOARD)
+   21. CHART CARDS
    ============================================================ */
 .chart-grid {
   display: grid;
@@ -1252,12 +1247,11 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 }
 
 /* ============================================================
-   22. PROGRESS LIST ITEMS
+   22. PROGRESS LIST
    ============================================================ */
 .progress-list-item {
   margin-bottom: 16px;
 }
-
 .progress-list-item:last-child { margin-bottom: 0; }
 
 .progress-header {
@@ -1531,7 +1525,7 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 }
 
 /* ============================================================
-   PROFILE DROPDOWN (topbar)
+   PROFILE DROPDOWN
    ============================================================ */
 .user-chip-wrap {
   position: relative;
@@ -1680,8 +1674,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 /* ============================================================
    APPLICATIONS MODULE
    ============================================================ */
-
-/* ---------- Inline stats ---------- */
 .stats-inline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1721,7 +1713,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 .stat-inline-success  { border-left-color: #10b981; }
 .stat-inline-primary  { border-left-color: #065f46; }
 
-/* ---------- Bulk action bar ---------- */
 .bulk-bar {
   display: flex;
   justify-content: space-between;
@@ -1741,7 +1732,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   flex-wrap: wrap;
 }
 
-/* ---------- Applicant cell (avatar + name + email) ---------- */
 .applicant-cell {
   display: flex;
   align-items: center;
@@ -1794,7 +1784,6 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   max-width: 220px;
 }
 
-/* ---------- Clickable rows ---------- */
 tr.row-clickable {
   cursor: pointer;
   transition: background 0.12s ease;
@@ -1806,7 +1795,6 @@ tr.row-clickable:hover td:first-child {
   background: #f1f5f9;
 }
 
-/* ---------- Selection checkbox ---------- */
 .app-check,
 #apps-select-all {
   width: 16px;
@@ -1815,7 +1803,6 @@ tr.row-clickable:hover td:first-child {
   cursor: pointer;
 }
 
-/* ---------- Mobile tweaks ---------- */
 @media (max-width: 640px) {
   .applicant-name,
   .applicant-meta { max-width: 140px; }
@@ -1825,7 +1812,7 @@ tr.row-clickable:hover td:first-child {
 }
 
 /* ============================================================
-   TIMETABLE A4 SHEET — print-friendly
+   TIMETABLE A4 SHEET
    ============================================================ */
 .tt-sheet {
   width: 210mm;
@@ -2097,7 +2084,7 @@ tr.row-clickable:hover td:first-child {
 }
 
 /* ============================================================
-   USERS HUB JUMP CARDS (users/list.html)
+   USERS HUB JUMP CARDS
    ============================================================ */
 .us-jump-grid {
   display: grid;
@@ -2164,9 +2151,8 @@ tr.row-clickable:hover td:first-child {
 }
 
 /* ============================================================
-   END
+   NOTIFICATION DROPDOWN
    ============================================================ */
-/* ==== FPU Batch 1 — notification dropdown ==== */
 .notif-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -2238,11 +2224,9 @@ tr.row-clickable:hover td:first-child {
 }
 .topbar-right { position: relative; }
 
-/* ==== FPU Batch 5 — pill tabs, settings cards, security action cards ==== */
-
-/* ------------------------------------------------------------
-   PILL-STYLE ROLE TABS (Announcements, Books, Staff, etc.)
-   ------------------------------------------------------------ */
+/* ============================================================
+   PILL TABS + SETTINGS + SECURITY
+   ============================================================ */
 .staff-role-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -2304,7 +2288,6 @@ tr.row-clickable:hover td:first-child {
   color: #ffffff;
 }
 
-/* Colored variants by audience */
 .staff-role-tab[data-role="student"].active,
 .staff-role-tab[data-audience="student"].active,
 .staff-role-tab[data-status="pending"]:not([data-tab="audit"]).active {
@@ -2366,9 +2349,6 @@ tr.row-clickable:hover td:first-child {
   box-shadow: 0 4px 12px rgba(14, 116, 144, 0.25);
 }
 
-/* ------------------------------------------------------------
-   SETTINGS GRID — icon cards instead of flat tabs
-   ------------------------------------------------------------ */
 #settings-tabs {
   display: grid !important;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -2420,9 +2400,6 @@ tr.row-clickable:hover td:first-child {
   color: #065f46;
 }
 
-/* ------------------------------------------------------------
-   SECURITY ACTION CARDS — more visual
-   ------------------------------------------------------------ */
 .sec-actions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -2499,9 +2476,6 @@ tr.row-clickable:hover td:first-child {
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
-/* ------------------------------------------------------------
-   ADMIN AVATAR UPLOADER
-   ------------------------------------------------------------ */
 .admin-avatar-uploader {
   display: flex;
   flex-direction: column;
@@ -2564,9 +2538,6 @@ tr.row-clickable:hover td:first-child {
   font-family: var(--font-heading);
 }
 
-/* ------------------------------------------------------------
-   NOTIFICATION DROPDOWN — polish
-   ------------------------------------------------------------ */
 .notif-dropdown {
   min-width: 360px;
   max-width: 440px;
@@ -2625,9 +2596,9 @@ tr.row-clickable:hover td:first-child {
   justify-content: center;
 }
 
-/* ==== FPU Batch 8 — fees bucket styling ==== */
-
-/* Fees bucket section header */
+/* ============================================================
+   FEES BUCKET STYLING
+   ============================================================ */
 .fees-bucket-head {
   grid-column: 1 / -1;
   display: flex;
@@ -2685,7 +2656,6 @@ tr.row-clickable:hover td:first-child {
   font-size: 13px;
 }
 
-/* Bucket container */
 .fees-bucket-grid {
   grid-column: 1 / -1;
   display: grid;
@@ -2706,7 +2676,6 @@ tr.row-clickable:hover td:first-child {
   font-style: italic;
 }
 
-/* Fee card — refined */
 .fee-card {
   background: #ffffff;
   border: 1px solid var(--fpu-border);
@@ -2837,7 +2806,6 @@ tr.row-clickable:hover td:first-child {
   font-family: 'Poppins', sans-serif;
 }
 
-/* Session pill on card */
 .fee-card .fc-session {
   font-size: 10.5px;
   color: #94a3b8;
@@ -2846,7 +2814,6 @@ tr.row-clickable:hover td:first-child {
   letter-spacing: 0.5px;
 }
 
-/* Print styles */
 @media print {
   .fees-bucket-head {
     background: #f1f5f9 !important;
@@ -2860,44 +2827,44 @@ tr.row-clickable:hover td:first-child {
   }
   .fee-card { break-inside: avoid; box-shadow: none !important; }
 }
+
 /* ============================================================
-   FPU ADMIN — MOBILE RESPONSIVE (burger menu, drawer, safe areas)
+   FINAL MOBILE FIX — Burger menu on phones
+   Targets the actual button ID (#sidebar-toggle)
    ============================================================ */
 
 /* ---------- DESKTOP (>= 1025px): hide burger, sidebar always visible ---------- */
 @media (min-width: 1025px) {
-  #admin-burger,
-  .admin-burger-btn {
+  body.admin-app #sidebar-toggle,
+  body.admin-app .topbar-left .toggle {
     display: none !important;
   }
-  .admin-sidebar-scrim { display: none !important; }
+  .admin-sidebar-scrim {
+    display: none !important;
+  }
+  /* Desktop: sidebar is always visible, no drawer */
+  body.admin-app aside.sidebar,
+  body.admin-app #sidebar {
+    transform: translateX(0) !important;
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    z-index: 900 !important;
+  }
 }
 
 /* ---------- TABLET & MOBILE (<= 1024px) ---------- */
 @media (max-width: 1024px) {
-  html, body { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
-
-  /* Scrim */
-  .admin-sidebar-scrim {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.55);
-    z-index: 1090;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .22s ease;
-  }
-  body.admin-sidebar-open .admin-sidebar-scrim {
-    opacity: 1;
-    pointer-events: auto;
+  html, body.admin-app {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
-  /* Sidebar off-canvas */
-  body.admin-sidebar-open { overflow: hidden !important; }
-
-  .admin-sidebar,
-  #admin-sidebar,
-  aside.sidebar {
+  /* Sidebar: CLOSED BY DEFAULT — hidden off-screen left */
+  body.admin-app aside.sidebar,
+  body.admin-app #sidebar {
     position: fixed !important;
     top: 0 !important;
     bottom: 0 !important;
@@ -2912,100 +2879,33 @@ tr.row-clickable:hover td:first-child {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     box-shadow: 6px 0 28px rgba(15, 23, 42, 0.28);
+    margin-left: 0 !important;
   }
-  body.admin-sidebar-open .admin-sidebar,
-  body.admin-sidebar-open #admin-sidebar {
+
+  /* Sidebar OPEN */
+  body.admin-sidebar-open aside.sidebar,
+  body.admin-sidebar-open #sidebar {
     transform: translateX(0) !important;
   }
 
-  /* Burger button visible */
-  #admin-burger,
-  .admin-burger-btn {
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    color: #065f46;
-    -webkit-tap-highlight-color: transparent;
+  /* Scrim */
+  .admin-sidebar-scrim {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15, 23, 42, 0.55) !important;
+    z-index: 1090 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity .22s ease !important;
+    display: block !important;
   }
-  #admin-burger:active { background: rgba(0, 0, 0, 0.08); }
-  #admin-burger svg { transition: transform .25s ease; }
-  body.admin-sidebar-open #admin-burger svg { transform: rotate(90deg); }
-
-  /* Main content full width */
-  main, .main, .content, .main-content {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
+  body.admin-sidebar-open .admin-sidebar-scrim {
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
+  body.admin-sidebar-open { overflow: hidden !important; }
 
-  /* Topbar full width */
-  .topbar, .admin-topbar, header.topbar {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-  }
-
-  /* Grids collapse */
-  .tile-grid, .stat-grid, .grid {
-    grid-template-columns: 1fr !important;
-  }
-  .chart-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Tables scroll */
-  .table-wrap {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  table { min-width: 560px; }
-
-  /* iOS zoom prevention */
-  input, select, textarea { font-size: 16px !important; }
-}
-
-/* ---------- SMALL PHONES (<= 640px) ---------- */
-@media (max-width: 640px) {
-  .admin-sidebar, #admin-sidebar {
-    width: 260px !important;
-    max-width: 86vw !important;
-  }
-  main, .main, .content, .main-content {
-    padding-left: .5rem !important;
-    padding-right: .5rem !important;
-  }
-  .tile-value { font-size: 1.25rem !important; }
-}
-
-/* ---------- LANDSCAPE PHONES ---------- */
-@media (max-height: 500px) and (orientation: landscape) {
-  .admin-sidebar, #admin-sidebar { width: 230px !important; }
-  main, .main { padding: .5rem .6rem !important; }
-}
-/* ============================================================
-   FIX: Force the real sidebar toggle to work as a burger on mobile
-   The button is #sidebar-toggle with class .toggle
-   ============================================================ */
-
-/* Desktop (>= 1025px): sidebar toggle is visible but only collapses */
-@media (min-width: 1025px) {
-  body.admin-app #sidebar-toggle,
-  body.admin-app .topbar-left .toggle {
-    display: inline-flex !important;
-  }
-}
-
-/* Mobile / Tablet (<= 1024px): sidebar toggle becomes the burger */
-@media (max-width: 1024px) {
+  /* BURGER BUTTON — force visible */
   body.admin-app #sidebar-toggle,
   body.admin-app .topbar-left .toggle {
     display: inline-flex !important;
@@ -3017,19 +2917,23 @@ tr.row-clickable:hover td:first-child {
     height: 40px !important;
     min-width: 40px !important;
     padding: 0 !important;
+    margin-right: 10px !important;
     border-radius: 8px !important;
     background: transparent !important;
     border: none !important;
     cursor: pointer !important;
     color: #065f46 !important;
     -webkit-tap-highlight-color: transparent;
-    z-index: 1101 !important;
     position: relative !important;
+    z-index: 1200 !important;
+    flex-shrink: 0 !important;
   }
-  body.admin-app #sidebar-toggle:active {
+  body.admin-app #sidebar-toggle:active,
+  body.admin-app .topbar-left .toggle:active {
     background: rgba(0, 0, 0, 0.08) !important;
   }
-  body.admin-app #sidebar-toggle svg {
+  body.admin-app #sidebar-toggle svg,
+  body.admin-app .topbar-left .toggle svg {
     display: block !important;
     width: 22px !important;
     height: 22px !important;
@@ -3038,4 +2942,95 @@ tr.row-clickable:hover td:first-child {
   body.admin-sidebar-open #sidebar-toggle svg {
     transform: rotate(90deg);
   }
+
+  /* Topbar — sticky, full width, over content */
+  body.admin-app header.topbar,
+  body.admin-app .topbar {
+    position: sticky !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+    z-index: 1000 !important;
+  }
+
+  /* Main — full width, no left offset */
+  body.admin-app main.main,
+  body.admin-app .main {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: .75rem !important;
+    padding-right: .75rem !important;
+    padding-top: .75rem !important;
+  }
+
+  /* Grids collapse */
+  body.admin-app .tile-grid,
+  body.admin-app .stat-grid,
+  body.admin-app .grid {
+    grid-template-columns: 1fr !important;
+    gap: .75rem !important;
+  }
+  body.admin-app .chart-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tables scroll horizontally */
+  body.admin-app .table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.admin-app table {
+    min-width: 560px;
+  }
+
+  /* iOS zoom prevention */
+  body.admin-app input,
+  body.admin-app select,
+  body.admin-app textarea {
+    font-size: 16px !important;
+  }
+
+  /* User dropdown doesn't overflow screen */
+  body.admin-app #topbar-user-menu {
+    right: -6px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
 }
+
+/* ---------- SMALL PHONES (<= 640px) ---------- */
+@media (max-width: 640px) {
+  body.admin-app aside.sidebar,
+  body.admin-app #sidebar {
+    width: 260px !important;
+    max-width: 86vw !important;
+  }
+  body.admin-app main.main {
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
+  }
+  body.admin-app .tile-value {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* ---------- LANDSCAPE PHONES (short height) ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  body.admin-app aside.sidebar,
+  body.admin-app #sidebar {
+    width: 230px !important;
+  }
+  body.admin-app main.main {
+    padding: .5rem .6rem !important;
+  }
+}
+
+/* ============================================================
+   END
+   ============================================================ */

@@ -166,8 +166,7 @@
   </script>
 
   <!-- ============================================================
-       FPU PORTAL — Sidebar toggle (single binding, no duplicates)
-       Replaces all prior mobile scripts in this file.
+       FPU PORTAL — Sidebar toggle (closes on outside click or toggle)
        ============================================================ -->
   <script id="sidebar-toggle-js">
   (function () {
@@ -195,25 +194,32 @@
         toggle.setAttribute('aria-expanded', 'false');
       }
 
+      // 1. Toggle on hamburger click
       toggle.addEventListener('click', function (e) {
         e.preventDefault();
-        e.stopPropagation();
+        e.stopPropagation(); // Stops the outside-click listener from firing immediately
         isOpen() ? close() : open();
       });
 
-      scrim.addEventListener('click', close);
+      // 2. Close on outside click (anywhere on screen that isn't inside the sidebar)
+      document.addEventListener('click', function (e) {
+        if (!isOpen()) return;
+        if (sidebar.contains(e.target)) return; // Clicked inside sidebar
+        if (toggle.contains(e.target)) return;  // Clicked the hamburger
+        close();
+      });
 
-      // Close on nav link click (allow nav to proceed)
+      // 3. Close on nav link click (allow nav to proceed)
       sidebar.addEventListener('click', function (e) {
         if (e.target.closest('a')) setTimeout(close, 80);
       });
 
-      // ESC closes
+      // 4. ESC closes
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && isOpen()) close();
       });
 
-      // Auto-close when resized to desktop
+      // 5. Auto-close when resized to desktop
       window.addEventListener('resize', function () {
         if (window.innerWidth > 1024 && isOpen()) close();
       });
@@ -224,7 +230,6 @@
       var sidebar = document.getElementById('sidebar');
       if (toggle && sidebar) { bind(toggle, sidebar); return; }
 
-      // SPA partials may render late — retry briefly
       var tries = 0;
       var timer = setInterval(function () {
         tries++;
@@ -244,7 +249,7 @@
   </script>
 
   <!-- ============================================================
-       Notifications bell (unchanged from your existing version)
+       Notifications bell
        ============================================================ -->
   <script id="notif-bell-js">
   (function () {

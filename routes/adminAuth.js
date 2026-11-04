@@ -49,9 +49,6 @@ router.post('/login', loginLimiter, async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Invalid email or password.' });
     }
 
-    // Any authenticated user can log in through this endpoint:
-    //   - Staff → /admin/app.html or /portal/app.html
-    //   - Student → /portal/app.html (student SPA)
     const ALLOWED_ROLES = [
       'admin', 'rector', 'registrar', 'bursar', 'librarian',
       'exam_officer', 'academic_officer', 'admission_officer',
@@ -82,9 +79,17 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     await userQueries.touchLogin(user.id);
 
     await logLogin({ req, userId: user.id, email, success: true });
-    await logAudit({ req, userId: user.id, action: 'admin.login', entity: 'user', entityId: user.id });
 
-    // Fetch user again with joins so department/programme names are populated
+    // ✅ FIX: Save the user details so the audit log has 'before'/'after' data
+    await logAudit({ 
+      req, 
+      userId: user.id, 
+      action: 'admin.login', 
+      entity: 'user', 
+      entityId: user.id,
+      after: { email: user.email, role: user.role, ip: ctx.ipAddress }
+    });
+
     const fullUser = await userQueries.findById(user.id);
 
     return res.json({
@@ -116,17 +121,26 @@ router.post('/login', loginLimiter, async (req, res, next) => {
 // ------------------------------------------------------------
 // POST /api/admin/auth/logout
 // ------------------------------------------------------------
-// FIX: Added requireUser so req.user and req.authToken are populated
 router.post('/logout', requireUser, async (req, res, next) => {
   try {
     const token = req.authToken;
+    const userEmail = req.user?.email;
+    const userId = req.user?.id;
+
     if (token) {
       await sessionQueries.revokeAdminSession(token);
       await sessionQueries.revokeUserSession(token);
     }
     
-    // Now req.user is populated, so the audit log will capture who logged out
-    await logAudit({ req, userId: req.user?.id, action: 'admin.logout', entity: 'user', entityId: req.user?.id });
+    // ✅ FIX: Save the user details so the audit log has 'before'/'after' data
+    await logAudit({ 
+      req, 
+      userId: userId, 
+      action: 'admin.logout', 
+      entity: 'user', 
+      entityId: userId,
+      after: { email: userEmail }
+    });
     
     return res.json({ success: true });
   } catch (err) {

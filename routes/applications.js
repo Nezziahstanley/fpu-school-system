@@ -74,7 +74,6 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
       limit = 200, offset = 0,
     } = req.query;
 
-    // If frontend asks for relations, use the joined query
     if (withRelations === 'true') {
       const rows = await applications.listWithRelations({
         status, type, search, programmeId, departmentId, schoolId,
@@ -82,7 +81,6 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
         limit: Number(limit), offset: Number(offset),
       });
       
-      // Flatten the joined result for the frontend
       const flattened = rows.map(r => ({
         ...r.application,
         programmeName: r.programme?.name || null,
@@ -94,7 +92,6 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
       return res.json({ success: true, data: flattened, total });
     }
 
-    // Default: basic query
     const rows = await applications.list({
       status, type, search, programmeId, departmentId, schoolId,
       country, state,
@@ -264,7 +261,7 @@ router.post('/:id/review', requireRole(STAFF), async (req, res, next) => {
     if (!app) return res.status(404).json({ success: false, error: 'Application not found.' });
 
     const updated = await applications.setStatus(app.id, 'under_review', { reviewedBy: req.user.id });
-    await logAudit({ req, action: 'application.review', entity: 'application', entityId: app.id });
+    await logAudit({ req, action: 'application.review', entity: 'application', entityId: app.id, after: { status: 'under_review' } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
@@ -282,7 +279,8 @@ router.post('/:id/approve', requireRole(STAFF), async (req, res, next) => {
 
     const updated = await applications.setStatus(app.id, 'approved', { reviewedBy: req.user.id });
     await sendApplicationApproved(updated).catch(() => {});
-    await logAudit({ req, action: 'application.approve', entity: 'application', entityId: app.id });
+    // ✅ Added after payload
+    await logAudit({ req, action: 'application.approve', entity: 'application', entityId: app.id, after: { status: 'approved', applicationNumber: app.applicationNumber } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
@@ -301,7 +299,7 @@ router.post('/:id/reject', requireRole(STAFF), async (req, res, next) => {
       rejectionReason: reason || 'Application did not meet requirements.',
     });
     await sendApplicationRejected(updated, reason).catch(() => {});
-    await logAudit({ req, action: 'application.reject', entity: 'application', entityId: app.id, after: { reason } });
+    await logAudit({ req, action: 'application.reject', entity: 'application', entityId: app.id, after: { reason, status: 'rejected' } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

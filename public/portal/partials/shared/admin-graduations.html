@@ -1,7 +1,6 @@
 ﻿<!-- Portal → Registrar/Admin → Graduations -->
 <div style="padding:0;">
 
-  <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
     <div>
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Graduation Candidates</h2>
@@ -10,15 +9,10 @@
   </div>
 
   <!-- FILTERS -->
-  <div style="
-    background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-    padding:1rem;margin-bottom:1rem;
-    display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.6rem;align-items:end;
-  ">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:2fr 1fr 1fr auto auto;gap:.6rem;align-items:end;">
     <div>
       <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Search</label>
-      <input type="search" id="grad-search" placeholder="Search matric, name, or programme…"
-             style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
+      <input type="search" id="grad-search" placeholder="Search matric, name, or programme…" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;" />
     </div>
     <div>
       <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
@@ -37,18 +31,11 @@
         <option value="Graduated">Graduated</option>
       </select>
     </div>
-    <button id="grad-refresh" style="
-      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-      background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-    ">↻ Refresh</button>
-    <button id="grad-export" style="
-      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-      background:#fff;color:#065f46;border:1px solid #bbf7d0;
-      border-radius:8px;cursor:pointer;
-    ">📥 Export CSV</button>
+    <button id="grad-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    <button id="grad-export" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">📥 Export</button>
   </div>
 
-  <!-- STAT TILES -->
+  <!-- STATS -->
   <div id="grad-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
     <div class="stat"><div class="meta"><span class="label">Total Candidates</span><span class="value" id="grad-stat-total">—</span></div></div>
     <div class="stat"><div class="meta"><span class="label">Eligible (CGPA ≥ 2.0)</span><span class="value" id="grad-stat-eligible">—</span></div></div>
@@ -63,7 +50,6 @@
         Showing <span id="grad-shown">0</span> of <span id="grad-total">0</span> candidates
       </div>
     </div>
-
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
         <thead>
@@ -103,10 +89,39 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   let ALL = [];
   let FILTERED = [];
+
+  // ✅ Flatten nested response into simple fields
+  function flattenRow(row) {
+    const g = row.graduation || {};
+    const stu = row.student || {};
+    const prog = row.programme || {};
+    const sess = row.session || {};
+
+    const rawCgpa = row.cgpa != null ? row.cgpa : g.cgpa;
+    const cgpaNum = rawCgpa != null && !isNaN(Number(rawCgpa)) ? Number(rawCgpa) : null;
+
+    return {
+      id: g.id,
+      studentId: g.studentId,
+      sessionId: g.sessionId,
+      status: g.status || 'pending',
+      // Student fields
+      firstName: stu.firstName || '',
+      lastName: stu.lastName || '',
+      matricNumber: stu.matricNumber || '',
+      level: g.level || stu.level || '',
+      photoUrl: stu.photoUrl || null,
+      // Programme / session
+      programmeName: prog.name || '',
+      sessionName: sess.name || '',
+      // CGPA + classification
+      cgpa: cgpaNum,
+      classification: row.classification || g.classification || null,
+    };
+  }
 
   async function load() {
     const tbody = $('grad-tbody');
@@ -121,8 +136,9 @@
       const endpoint = isRegistrar ? '/api/registrar/graduations' : '/api/admin/graduation';
 
       const res = await core.portalFetch(endpoint);
-      ALL = Array.isArray(res.data) ? res.data : [];
-      
+      const raw = Array.isArray(res.data) ? res.data : [];
+      ALL = raw.map(flattenRow);
+
       renderStats();
       applyFilters();
     } catch (err) {
@@ -132,9 +148,9 @@
 
   function renderStats() {
     const total = ALL.length;
-    const eligible = ALL.filter(s => s.cgpa >= 2.0 && s.status !== 'Graduated').length;
-    const notEligible = ALL.filter(s => s.cgpa < 2.0).length;
-    const graduated = ALL.filter(s => s.status === 'Graduated').length;
+    const eligible = ALL.filter(s => s.cgpa != null && s.cgpa >= 2.0 && s.status !== 'graduated' && s.status !== 'Graduated').length;
+    const notEligible = ALL.filter(s => s.cgpa != null && s.cgpa < 2.0).length;
+    const graduated = ALL.filter(s => (s.status || '').toLowerCase() === 'graduated').length;
 
     $('grad-stat-total').textContent = total;
     $('grad-stat-eligible').textContent = eligible;
@@ -148,14 +164,16 @@
     const status = $('grad-filter-status')?.value || '';
 
     FILTERED = ALL.filter(s => {
-      if (level && s.level !== level) return false;
+      const statusLower = (s.status || '').toLowerCase();
+
+      if (level && String(s.level).toUpperCase() !== level) return false;
       if (status) {
-        if (status === 'Eligible' && (s.cgpa < 2.0 || s.status === 'Graduated')) return false;
-        if (status === 'Not Eligible' && s.cgpa >= 2.0) return false;
-        if (status === 'Graduated' && s.status !== 'Graduated') return false;
+        if (status === 'Eligible' && (s.cgpa == null || s.cgpa < 2.0 || statusLower === 'graduated')) return false;
+        if (status === 'Not Eligible' && (s.cgpa == null || s.cgpa >= 2.0)) return false;
+        if (status === 'Graduated' && statusLower !== 'graduated') return false;
       }
       if (q) {
-        const hay = `${s.firstName || ''} ${s.lastName || ''} ${s.matricNumber || ''} ${s.programmeName || ''}`.toLowerCase();
+        const hay = `${s.firstName} ${s.lastName} ${s.matricNumber} ${s.programmeName}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -178,21 +196,21 @@
     }
 
     tbody.innerHTML = rows.map(s => {
-      const isEligible = s.cgpa >= 2.0;
-      const isGraduated = s.status === 'Graduated';
-      
-      let statusHtml = '';
-      if (isGraduated) {
-        statusHtml = `<span class="grad-badge" style="background:#e0e7ff;color:#3730a3;">Graduated</span>`;
-      } else if (isEligible) {
-        statusHtml = `<span class="grad-badge" style="background:#d1fae5;color:#065f46;">Eligible</span>`;
-      } else {
-        statusHtml = `<span class="grad-badge" style="background:#fee2e2;color:#991b1b;">Not Eligible</span>`;
-      }
+      const statusLower = (s.status || '').toLowerCase();
+      const isGraduated = statusLower === 'graduated';
+      const isEligible = s.cgpa != null && s.cgpa >= 2.0;
 
-      const actionHtml = (!isGraduated && isEligible) 
+      let statusHtml;
+      if (isGraduated) statusHtml = `<span class="grad-badge" style="background:#e0e7ff;color:#3730a3;">Graduated</span>`;
+      else if (isEligible) statusHtml = `<span class="grad-badge" style="background:#d1fae5;color:#065f46;">Eligible</span>`;
+      else statusHtml = `<span class="grad-badge" style="background:#fee2e2;color:#991b1b;">Not Eligible</span>`;
+
+      const actionHtml = (!isGraduated && isEligible)
         ? `<button class="grad-btn btn-mark-grad" data-id="${s.id}" style="background:#065f46;color:#fff;">Mark Graduated</button>`
         : (isGraduated ? `<span style="font-size:.72rem;color:#94a3b8;">—</span>` : `<span style="font-size:.72rem;color:#dc2626;font-weight:700;">Ineligible</span>`);
+
+      const cgpaDisplay = s.cgpa != null ? s.cgpa.toFixed(2) : '—';
+      const cgpaColor = s.cgpa == null ? '#64748b' : (isEligible ? '#065f46' : '#dc2626');
 
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
@@ -202,12 +220,8 @@
           <td style="padding:.65rem .75rem;text-align:center;">
             <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level || '—')}</span>
           </td>
-          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${isEligible ? '#065f46' : '#dc2626'};">
-            ${Number(s.cgpa).toFixed(2)}
-          </td>
-          <td style="padding:.65rem .75rem;text-align:center;font-size:.78rem;color:#64748b;">
-            ${esc(s.classification || '—')}
-          </td>
+          <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:${cgpaColor};">${cgpaDisplay}</td>
+          <td style="padding:.65rem .75rem;text-align:center;font-size:.78rem;color:#64748b;">${esc(s.classification || '—')}</td>
           <td style="padding:.65rem .75rem;text-align:center;">${statusHtml}</td>
           <td style="padding:.65rem .75rem;text-align:right;">${actionHtml}</td>
         </tr>`;
@@ -216,15 +230,18 @@
     tbody.querySelectorAll('.btn-mark-grad').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
-        if (!confirm('Are you sure you want to mark this student as graduated?')) return;
-        
+        if (!confirm('Mark this student as graduated?')) return;
         btn.disabled = true;
         btn.textContent = 'Marking...';
-        
         try {
-          await core.portalFetch(`/api/registrar/graduations/${id}/mark`, { method: 'POST' });
+          const user = core.getPortalUser ? core.getPortalUser() : {};
+          const isRegistrar = user.role === 'registrar';
+          const url = isRegistrar
+            ? `/api/registrar/graduations/${id}/mark`
+            : `/api/admin/graduation/${id}/graduate`;
+          await core.portalFetch(url, { method: 'POST' });
           core.showToast && core.showToast('Student marked as graduated.', 'success');
-          load(); // Reload table
+          load();
         } catch (err) {
           core.showToast && core.showToast(err.message, 'error');
           btn.disabled = false;
@@ -234,7 +251,6 @@
     });
   }
 
-  // Wiring
   let searchTimer;
   $('grad-search')?.addEventListener('input', () => {
     clearTimeout(searchTimer);
@@ -243,10 +259,14 @@
   $('grad-filter-level')?.addEventListener('change', applyFilters);
   $('grad-filter-status')?.addEventListener('change', applyFilters);
   $('grad-refresh')?.addEventListener('click', load);
+
   $('grad-export')?.addEventListener('click', () => {
     if (!FILTERED.length) return core.showToast && core.showToast('No rows to export.', 'warning');
     const headers = ['Matric', 'Name', 'Programme', 'Level', 'CGPA', 'Classification', 'Status'];
-    const rows = FILTERED.map(s => [s.matricNumber, `${s.firstName} ${s.lastName}`, s.programmeName, s.level, s.cgpa, s.classification, s.status]);
+    const rows = FILTERED.map(s => [
+      s.matricNumber, `${s.firstName} ${s.lastName}`, s.programmeName, s.level,
+      s.cgpa != null ? s.cgpa.toFixed(2) : '', s.classification || '', s.status,
+    ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -254,8 +274,6 @@
     link.href = url; link.download = 'graduations.csv'; link.click(); URL.revokeObjectURL(url);
   });
 
-  // Kick off
   load();
 })();
 </script>
-

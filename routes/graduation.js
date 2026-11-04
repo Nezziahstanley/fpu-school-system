@@ -24,6 +24,7 @@ const STAFF = ['admin', 'registrar', 'rector', 'academic_officer'];
 // ============================================================
 // GET /api/admin/graduation
 // List all graduation records with student + programme.
+// Includes on-the-fly CGPA computation if missing.
 // ============================================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -50,7 +51,38 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
       .limit(Number(limit))
       .offset(Number(offset));
 
-    return res.json({ success: true, data: rows });
+    // ✅ Ensure CGPA and classification exist on every row
+    const enriched = await Promise.all(rows.map(async (row) => {
+      const g = row.graduation || {};
+      const stu = row.student || {};
+
+      let cgpa = g.cgpa != null ? Number(g.cgpa) : null;
+      let classification = g.classification || null;
+
+      // If CGPA is missing, compute it from published results
+      if ((cgpa === null || isNaN(cgpa)) && stu.id) {
+        try {
+          const resultRows = await resultQueries.publishedForStudent(stu.id, {});
+          const cgpaRows = resultRows.map((r) => ({
+            unit: Number(r.course?.unit) || 0,
+            points: Number(r.result?.points) || 0,
+            sessionId: r.result?.sessionId,
+            semester: r.result?.semester,
+          }));
+          if (cgpaRows.length > 0) {
+            const computed = computeStudentCGPA(cgpaRows);
+            cgpa = computed.cgpa;
+            classification = classifyDegree(cgpa);
+          }
+        } catch (e) {
+          cgpa = null;
+        }
+      }
+
+      return { ...row, cgpa, classification };
+    }));
+
+    return res.json({ success: true, data: enriched });
   } catch (err) { return next(err); }
 });
 

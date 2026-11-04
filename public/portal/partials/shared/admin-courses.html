@@ -134,7 +134,7 @@
   }
 
   // ============================================================
-  // LOAD — fetch departments + courses in parallel
+  // LOAD — fetch departments + courses in parallel from lookups
   // ============================================================
   async function load() {
     const grid = $('co-dept-grid');
@@ -145,20 +145,14 @@
       </div>`;
 
     try {
-      // Determine which endpoint to call based on the logged-in user's role
-      const user = core.getPortalUser ? core.getPortalUser() : {};
-      const role = user.role || 'admin';
+      // ✅ Fetch from the correct lookups endpoints
+      const [deptRes, courseRes] = await Promise.all([
+        core.portalFetch('/api/admin/lookups/departments'),
+        core.portalFetch('/api/admin/lookups/courses')
+      ]);
       
-      let apiPrefix = 'admin';
-      if (role === 'academic_officer') apiPrefix = 'academic-officer';
-      else if (role === 'exam_officer') apiPrefix = 'exam-officer';
-      else if (role === 'admission_officer') apiPrefix = 'admission-officer';
-      else if (role === 'registrar') apiPrefix = 'registrar';
-      else if (role === 'bursar') apiPrefix = 'bursar';
-      
-      const res = await core.portalFetch(`/api/${apiPrefix}/lookups`);
-      DEPARTMENTS = res.departments || [];
-      COURSES = res.courses || [];
+      DEPARTMENTS = deptRes.data || [];
+      COURSES = courseRes.data || [];
 
       // Count courses per department
       const counts = {};

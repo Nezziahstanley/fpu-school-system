@@ -23,12 +23,13 @@ async function list({
 } = {}) {
   const conds = [];
 
-  if (status) {
+  // Fix: Only apply filters if they are present and not empty strings
+  if (status && status !== '') {
     Array.isArray(status)
       ? conds.push(inArray(applications.status, status))
       : conds.push(eq(applications.status, status));
   }
-  if (type)         conds.push(eq(applications.type, type));
+  if (type && type !== '')         conds.push(eq(applications.type, type));
   if (programmeId)  conds.push(eq(applications.programmeId, Number(programmeId)));
   if (departmentId) conds.push(eq(applications.departmentId, Number(departmentId)));
   if (schoolId)     conds.push(eq(applications.schoolId, Number(schoolId)));
@@ -51,13 +52,19 @@ async function list({
 
   const where = conds.length ? and(...conds) : undefined;
 
-  return db
-    .select()
-    .from(applications)
-    .where(where)
-    .orderBy(desc(applications.createdAt)) // Make sure this exactly matches your db/schema.js
-    .limit(Number(limit))
-    .offset(Number(offset));
+  try {
+    return await db
+      .select()
+      .from(applications)
+      .where(where)
+      .orderBy(desc(applications.createdAt))
+      .limit(Number(limit))
+      .offset(Number(offset));
+  } catch (err) {
+    // THIS WILL PRINT THE EXACT REASON TO RENDER LOGS
+    console.error("🔥 DB ERROR IN applications.list:", err.message);
+    throw err;
+  }
 }
 
 // ------------------------------------------------------------

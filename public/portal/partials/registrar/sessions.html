@@ -1,4 +1,4 @@
-<!-- Portal → Registrar → Sessions -->
+﻿<!-- Portal → Registrar → Sessions -->
 <style>
   .reg-badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px; font-size:.65rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
   .reg-btn-sm { padding:.35rem .7rem; font-size:.72rem; font-weight:700; border-radius:6px; border:none; cursor:pointer; text-decoration:none; display:inline-block; transition:all .15s; }
@@ -173,7 +173,7 @@
   }
 
   async function activateSession(id) {
-    if (!confirm('Set this as the current active session? This will affect all portal activity.')) return;
+    if (!await FPU_PORTAL.confirm('Set this as the current active session? This will affect all portal activity.')) return;
     try {
       await core.portalFetch(`/api/registrar/sessions/${id}/activate`, { method: 'POST' });
       core.showToast('Session activated.', 'success');

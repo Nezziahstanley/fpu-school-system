@@ -394,7 +394,7 @@
   window.__confirmReject = async function () {
     const reason = $('reject-reason').value.trim();
     if (!reason) {
-      alert('Please enter a reason for rejection.');
+      FPU_PORTAL.showToast('Please enter a reason for rejection.', 'info');
       $('reject-reason').focus();
       return;
     }
@@ -429,7 +429,7 @@
   };
 
   window.__deleteOne = async function (resultId) {
-    if (!confirm('Mark this result as deleted? This cannot be undone.')) return;
+    if (!await FPU_PORTAL.confirm('Mark this result as deleted? This cannot be undone.')) return;
     try {
       await core.portalFetch(`/api/hod/results/${resultId}`, { method: 'DELETE' });
       core.showToast('Result deleted.', 'success');
@@ -448,7 +448,7 @@
   $('pr-level').addEventListener('change', load);
   $('pr-refresh').addEventListener('click', load);
   $('pr-export').addEventListener('click', function() {
-    alert('Export functionality not implemented yet.');
+    FPU_PORTAL.showToast('Export functionality not implemented yet.', 'info');
   });
 
   load();

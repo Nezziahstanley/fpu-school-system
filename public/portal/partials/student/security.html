@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Security -->
+﻿<!-- Portal → Shared → Security -->
 <section class="page-head">
   <div><h2>Security</h2><p class="muted small">Manage your password and active sessions</p></div>
 </section>
@@ -106,7 +106,7 @@
   // Sign out everywhere else
   // ------------------------------------------------------------
   $('sec-revoke-all')?.addEventListener('click', async () => {
-    if (!confirm('Sign out all other sessions? Your current session will remain active.')) return;
+    if (!await FPU_PORTAL.confirm('Sign out all other sessions? Your current session will remain active.')) return;
     try {
       await core.portalFetch('/api/portal/security/revoke-all', { method: 'POST' });
       core.showToast && core.showToast('Other sessions signed out.', 'success');

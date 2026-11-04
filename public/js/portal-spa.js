@@ -528,7 +528,7 @@
           }, 400);
         }
         if (action === 'logout') {
-          if (confirm('Sign out of your account?')) core.portalLogout && core.portalLogout();
+          if (await FPU_PORTAL.confirm('Sign out of your account?')) core.portalLogout && core.portalLogout();
         }
       });
     });

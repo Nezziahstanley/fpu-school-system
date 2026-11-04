@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Library catalogue (staff CRUD + browse) -->
+﻿<!-- Portal → Shared → Library catalogue (staff CRUD + browse) -->
 <section class="page-head">
   <div>
     <h2 id="lib-title">Library</h2>
@@ -363,7 +363,7 @@
 
   async function deleteBook(id, book) {
     var title = book && book.title ? book.title : 'this book';
-    if (!confirm('Delete "' + title + '"?\n\nIf it has borrow history, the delete will fail and you should set copies to 0 instead.')) return;
+    if (!await FPU_PORTAL.confirm('Delete "' + title + '"?\n\nIf it has borrow history, the delete will fail and you should set copies to 0 instead.')) return;
     try {
       var base = ROLE === 'librarian' ? '/api/librarian/books' : '/api/admin/library/books';
       await core.portalFetch(base + '/' + id, { method: 'DELETE' });

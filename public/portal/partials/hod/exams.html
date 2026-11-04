@@ -1,4 +1,4 @@
-<!-- Portal → HOD → Exams -->
+﻿<!-- Portal → HOD → Exams -->
 <div style="padding:0;">
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -123,7 +123,7 @@
       });
       tbody.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!confirm('Delete this exam?')) return;
+          if (!await FPU_PORTAL.confirm('Delete this exam?')) return;
           try {
             await core.portalFetch(`/api/hod/exams/${btn.dataset.id}`, { method: 'DELETE' });
             core.showToast('Exam deleted', 'success');

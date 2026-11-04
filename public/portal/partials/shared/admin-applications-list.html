@@ -1,4 +1,4 @@
-<!-- Portal → Shared → Admin Applications List -->
+﻿<!-- Portal → Shared → Admin Applications List -->
 <div class="page-head">
   <div>
     <h2>Applications</h2>
@@ -109,7 +109,7 @@
   // ==========================================
 
   window.approveApp = async function(id) {
-    if (!confirm('Are you sure you want to APPROVE this application?')) return;
+    if (!await FPU_PORTAL.confirm('Are you sure you want to APPROVE this application?')) return;
     try {
       await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
       window.FPU_PORTAL.showToast('Application approved successfully!', 'success');
@@ -122,7 +122,7 @@
   window.rejectApp = async function(id) {
     const reason = prompt('Enter the reason for rejection:');
     if (reason === null) return; // User cancelled
-    if (!reason.trim()) return alert('Rejection reason is required.');
+    if (!reason.trim()) return FPU_PORTAL.showToast('Rejection reason is required.', 'info');
     
     try {
       await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/reject`, { 
@@ -138,7 +138,7 @@
   };
 
   window.registerApp = async function(id) {
-    if (!confirm('This will create a Student Portal account and generate a Matric Number. Proceed?')) return;
+    if (!await FPU_PORTAL.confirm('This will create a Student Portal account and generate a Matric Number. Proceed?')) return;
     try {
       await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
       window.FPU_PORTAL.showToast('Student registered and Matric Number generated!', 'success');

@@ -1,4 +1,4 @@
-<!-- Portal → Student → Graduation -->
+﻿<!-- Portal → Student → Graduation -->
 <div style="padding:0;">
 
   <!-- HEADER BANNER -->
@@ -150,7 +150,7 @@
 
       // Wire apply button
       $('grad-apply')?.addEventListener('click', async () => {
-        if (!confirm('Submit your graduation application? This will be reviewed by the Registrar.')) return;
+        if (!await FPU_PORTAL.confirm('Submit your graduation application? This will be reviewed by the Registrar.')) return;
 
         const btn = $('grad-apply');
         btn.disabled = true;

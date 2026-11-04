@@ -1,4 +1,4 @@
-<!-- Portal → Librarian → Books -->
+﻿<!-- Portal → Librarian → Books -->
 <div style="padding:0;">
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -272,7 +272,7 @@
     } catch (err) {
       console.error('[books/save] Failed:', err);
       core.showToast && core.showToast(err.message || 'Save failed', 'error');
-      alert('Save failed: ' + (err.message || 'Unknown error'));
+      FPU_PORTAL.showToast('Save failed: ' + (err.message || 'Unknown error', 'info'));
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save Book';

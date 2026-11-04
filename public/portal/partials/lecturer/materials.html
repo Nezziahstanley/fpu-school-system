@@ -169,7 +169,7 @@
           const item = ALL_MATERIALS.find(a => a.id === id);
 
           if (action === 'delete') {
-            if (confirm('Delete this material?')) {
+            if (await FPU_PORTAL.confirm('Delete this material?')) {
               core.portalFetch(`/api/lecturer/materials/${id}`, { method: 'DELETE' })
                 .then(() => { core.showToast('Deleted', 'success'); load(); })
                 .catch(e => core.showToast(e.message, 'error'));
@@ -324,3 +324,4 @@
   load();
 })();
 </script>
+

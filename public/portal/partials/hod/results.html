@@ -1,4 +1,4 @@
-<!-- Portal → HOD → Results -->
+﻿<!-- Portal → HOD → Results -->
 <div style="padding:0;" id="main-view">
   
   <!-- Tabs -->
@@ -217,7 +217,7 @@
 
   $('approve-results-btn')?.addEventListener('click', async () => {
     if (!CURRENT_COURSE_ID) return;
-    if (!confirm('Are you sure? This will save the scores and mark them as verified. The lecturer will no longer be able to edit them.')) return;
+    if (!await FPU_PORTAL.confirm('Are you sure? This will save the scores and mark them as verified. The lecturer will no longer be able to edit them.')) return;
     const btn = $('approve-results-btn');
     btn.disabled = true; btn.textContent = 'Saving...';
     try {
@@ -272,7 +272,7 @@
   }
 
   window.__publishCourse = async function(courseId) {
-    if (!confirm('Are you sure? This will make the results visible to students immediately.')) return;
+    if (!await FPU_PORTAL.confirm('Are you sure? This will make the results visible to students immediately.')) return;
     try {
       await core.portalFetch(`/api/hod/results/${courseId}/publish`, { method: 'POST' });
       core.showToast('Results published successfully.', 'success');

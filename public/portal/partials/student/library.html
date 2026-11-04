@@ -1,4 +1,4 @@
-<!-- Portal → Student → Library -->
+﻿<!-- Portal → Student → Library -->
 <div style="padding:0;">
 
   <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;">
@@ -423,7 +423,7 @@
   }
 
   async function returnBook(id) {
-    if (!confirm('Return this book?')) return;
+    if (!await FPU_PORTAL.confirm('Return this book?')) return;
     try {
       const res = await core.portalFetch(`/api/student/library/return/${id}`, { method: 'POST' });
       if (res.fine) {
@@ -482,7 +482,7 @@
   }
 
   async function cancelReservation(id) {
-    if (!confirm('Cancel this reservation?')) return;
+    if (!await FPU_PORTAL.confirm('Cancel this reservation?')) return;
     try {
       await core.portalFetch(`/api/student/library/reserve/${id}`, { method: 'DELETE' });
       core.showToast && core.showToast('Reservation cancelled.', 'success');

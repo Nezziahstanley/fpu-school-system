@@ -122,7 +122,7 @@
 
   let DEPARTMENTS = [];
   let COURSES = [];
-  let SCHEDULES = [];      // raw list from /api/exam-officer/schedules
+  let SCHEDULES = [];
   let SELECTED_DEPT = null;
 
   const PALETTE = [
@@ -139,7 +139,7 @@
   }
 
   // ============================================================
-  // LOAD — departments + courses + schedules in parallel
+  // LOAD
   // ============================================================
   async function load() {
     const grid = $('ex-dept-grid');
@@ -195,11 +195,22 @@
   }
 
   // ============================================================
-  // DEPARTMENT GRID
+  // DEPARTMENT GRID (with upcoming badges)
   // ============================================================
   function renderDepartmentGrid(counts, courseDeptMap) {
     const grid = $('ex-dept-grid');
     const query = ($('ex-search')?.value || '').trim().toLowerCase();
+    const now = new Date();
+
+    // Compute upcoming count per department
+    const upcomingCounts = {};
+    SCHEDULES.forEach((s) => {
+      const e = s.exam || s;
+      if (e.examDate && new Date(e.examDate) >= now) {
+        const deptId = courseDeptMap[e.courseId];
+        if (deptId) upcomingCounts[deptId] = (upcomingCounts[deptId] || 0) + 1;
+      }
+    });
 
     // Only show departments that have exams (default) — or all if searching
     const withExams = DEPARTMENTS.filter((d) => (counts[d.id] || 0) > 0);
@@ -207,7 +218,6 @@
     let filtered = query ? DEPARTMENTS : withExams;
 
     if (query) {
-      // When searching, also match by course code/title inside that dept
       const matchedDeptIds = new Set();
       SCHEDULES.forEach((s) => {
         const e = s.exam || s;
@@ -233,12 +243,20 @@
 
     grid.innerHTML = sorted.map((d, i) => {
       const count = counts[d.id] || 0;
+      const upcoming = upcomingCounts[d.id] || 0;
+      
+      // ✅ Upcoming badge (green pill) or "All past" hint
+      const upcomingBadge = upcoming > 0 
+        ? `<div style="margin-top:.35rem; padding:2px 8px; background:#d1fae5; color:#065f46; border-radius:4px; font-size:.65rem; font-weight:800; display:inline-block;">📅 ${upcoming} upcoming</div>`
+        : `<div style="margin-top:.35rem; font-size:.65rem; color:#94a3b8; font-weight:600;">All past</div>`;
+
       return `
         <div class="ex-dept-card" data-dept-id="${d.id}">
           <div class="ex-dept-icon" style="background:${pickColor(i)};">${esc(initials(d.name || d.code))}</div>
           <div class="ex-dept-body">
             <div class="ex-dept-name" title="${esc(d.name)}">${esc(d.name || '—')}</div>
             <div class="ex-dept-count">${esc(d.code || '')} · ${count} exam${count === 1 ? '' : 's'}</div>
+            ${upcomingBadge}
           </div>
           <div class="ex-dept-arrow">›</div>
         </div>`;
@@ -254,7 +272,7 @@
   }
 
   // ============================================================
-  // SELECT DEPARTMENT → show its exams
+  // SELECT DEPARTMENT
   // ============================================================
   function selectDepartment(dept) {
     SELECTED_DEPT = dept;
@@ -264,7 +282,6 @@
     $('ex-back-bar').style.display = 'block';
     $('ex-current-dept').textContent = `${dept.code || ''} · ${dept.name || ''}`;
 
-    // Build dept course set
     const deptCourseIds = new Set(
       COURSES.filter((c) => Number(c.departmentId) === Number(dept.id)).map((c) => c.id)
     );
@@ -290,7 +307,6 @@
       return;
     }
 
-    // Sort upcoming first, then by date
     const now = new Date();
     const sorted = [...rows].sort((a, b) => {
       const ea = a.exam || a; const eb = b.exam || b;
@@ -356,7 +372,6 @@
       const q = ($('ex-search').value || '').trim().toLowerCase();
 
       if (SELECTED_DEPT) {
-        // Inside a department: filter its exams
         const deptCourseIds = new Set(
           COURSES.filter((c) => Number(c.departmentId) === Number(SELECTED_DEPT.id)).map((c) => c.id)
         );
@@ -370,7 +385,6 @@
           });
         renderExamsTable(rows);
       } else {
-        // On the grid: filter by dept name or by matching exams
         const courseDeptMap = {};
         COURSES.forEach((c) => { if (c.id && c.departmentId) courseDeptMap[c.id] = c.departmentId; });
         const counts = {};
@@ -393,7 +407,6 @@
     load();
   });
 
-  // Spin keyframes
   const st = document.createElement('style');
   st.textContent = '@keyframes exSpin { to { transform: rotate(360deg); } }';
   document.head.appendChild(st);

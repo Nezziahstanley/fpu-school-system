@@ -90,17 +90,138 @@
   .tr-btn { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; }
 
   /* ============================================================
-     PRINT STYLES
-     When printing from the transcript modal, only print the
-     transcript content, with school logo + watermark.
+     SCREEN STYLES (default) — the transcript preview on-screen
+     ============================================================ */
+  .tr-printable {
+    position: relative;
+    padding: 2rem;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #0f172a;
+  }
+  .tr-printable .tr-watermark {
+    display: none; /* Only shown when printing */
+  }
+  .tr-printable .tr-content {
+    position: relative;
+    z-index: 1;
+  }
+  .tr-letterhead {
+    text-align: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 2px solid #065f46;
+  }
+  .tr-letterhead img { height: 60px; margin-bottom: .5rem; }
+  .tr-letterhead h1 {
+    font-size: 1.2rem;
+    margin: 0;
+    color: #065f46;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+  }
+  .tr-letterhead p {
+    margin: .25rem 0 0;
+    font-size: .78rem;
+    color: #64748b;
+  }
+  .tr-title {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: underline;
+    margin: 1rem 0;
+    color: #0f172a;
+  }
+  .tr-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+    font-size: .82rem;
+  }
+  .tr-info-grid > div > span {
+    display: block;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: .65rem;
+    color: #64748b;
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+  }
+  .tr-info-grid > div > strong {
+    font-weight: 700;
+    font-size: .85rem;
+    color: #0f172a;
+  }
+  .tr-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+    margin-bottom: 1rem;
+  }
+  .tr-results-table th {
+    background: #f0fdf4;
+    padding: .55rem .75rem;
+    border-bottom: 2px solid #065f46;
+    text-align: left;
+    text-transform: uppercase;
+    font-size: .65rem;
+    letter-spacing: .05em;
+    color: #065f46;
+    font-weight: 800;
+  }
+  .tr-results-table td {
+    padding: .55rem .75rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .tr-results-table td.center { text-align: center; }
+  .tr-summary {
+    display: flex;
+    justify-content: flex-end;
+    gap: 2rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid #065f46;
+    font-size: .85rem;
+  }
+  .tr-summary .tr-cgpa-big {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #065f46;
+  }
+  .tr-footer {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: .72rem;
+    text-align: center;
+    color: #94a3b8;
+  }
+  .tr-signature {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: space-between;
+    font-size: .78rem;
+  }
+  .tr-signature .tr-sign-block {
+    border-top: 1px solid #0f172a;
+    padding-top: .35rem;
+    min-width: 160px;
+    text-align: center;
+  }
+
+  /* ============================================================
+     PRINT STYLES — only active when printing
      ============================================================ */
   @media print {
-    /* Hide everything except the transcript modal */
+    /* Hide everything except the modal */
     body * { visibility: hidden !important; }
     #tr-modal,
     #tr-modal * { visibility: visible !important; }
 
-    /* Reset the modal for printing */
+    /* Reset the modal container for print */
     #tr-modal {
       position: static !important;
       display: block !important;
@@ -118,24 +239,14 @@
       max-height: none !important;
       overflow: visible !important;
     }
-    #tr-modal-body {
-      padding: 0 !important;
-    }
-    .tr-modal-header {
-      display: none !important;
-    }
-    .tr-print-hide {
-      display: none !important;
-    }
+    #tr-modal-body { padding: 0 !important; }
+    .tr-modal-header { display: none !important; }
+    .tr-print-hide { display: none !important; }
 
-    /* Print-friendly transcript */
-    .tr-printable {
-      position: relative;
-      padding: 20mm 15mm;
-      font-family: 'Times New Roman', 'Georgia', serif;
-      color: #000;
-    }
+    /* Show watermark only on print */
+    .tr-printable { padding: 20mm 15mm; font-family: 'Times New Roman', serif; }
     .tr-printable .tr-watermark {
+      display: block;
       position: fixed;
       top: 50%;
       left: 50%;
@@ -146,126 +257,27 @@
       z-index: 0;
       pointer-events: none;
     }
-    .tr-printable .tr-content {
-      position: relative;
-      z-index: 1;
-    }
-
-    /* Letterhead */
-    .tr-letterhead {
-      text-align: center;
-      padding-bottom: 15px;
-      margin-bottom: 20px;
-      border-bottom: 3px double #065f46;
-    }
-    .tr-letterhead img { height: 70px; margin-bottom: 8px; }
-    .tr-letterhead h1 {
-      font-size: 22px;
-      margin: 0;
-      color: #065f46;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-    }
-    .tr-letterhead p {
-      margin: 4px 0 0;
-      font-size: 12px;
-      color: #555;
-    }
-
-    /* Title */
-    .tr-title {
-      text-align: center;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      text-decoration: underline;
-      margin: 20px 0;
-    }
-
-    /* Student info grid */
-    .tr-info-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-      font-size: 12px;
-    }
-    .tr-info-grid > div > span {
-      display: block;
-      font-weight: 700;
-      text-transform: uppercase;
-      font-size: 9px;
-      color: #666;
-      letter-spacing: 0.5px;
-      margin-bottom: 3px;
-    }
-    .tr-info-grid > div > strong {
-      font-weight: 700;
-      font-size: 13px;
-    }
-
-    /* Results table */
-    .tr-results-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11px;
-      margin-bottom: 20px;
-    }
+    .tr-letterhead { border-bottom: 3px double #065f46; }
+    .tr-letterhead h1 { font-size: 22px; }
+    .tr-letterhead p { font-size: 12px; }
+    .tr-title { font-size: 16px; letter-spacing: 3px; }
+    .tr-info-grid { gap: 12px; margin-bottom: 20px; }
+    .tr-info-grid > div > span { font-size: 9px; }
+    .tr-info-grid > div > strong { font-size: 13px; }
+    .tr-results-table { font-size: 11px; }
     .tr-results-table th {
-      background: #f0fdf4;
-      padding: 8px;
       border: 1px solid #000;
-      text-align: left;
-      text-transform: uppercase;
-      font-size: 9px;
-      letter-spacing: 0.5px;
+      padding: 8px;
+      background: #f0fdf4;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .tr-results-table td {
-      padding: 6px 8px;
-      border: 1px solid #333;
-    }
-    .tr-results-table td.center {
-      text-align: center;
-    }
-
-    /* Summary block */
-    .tr-summary {
-      display: flex;
-      justify-content: flex-end;
-      gap: 40px;
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 2px solid #065f46;
-      font-size: 12px;
-    }
-    .tr-summary .tr-cgpa-big {
-      font-size: 22px;
-      font-weight: 800;
-      color: #065f46;
-    }
-
-    /* Footer */
-    .tr-footer {
-      margin-top: 30px;
-      padding-top: 15px;
-      border-top: 1px solid #999;
-      font-size: 10px;
-      text-align: center;
-      color: #666;
-    }
-    .tr-signature {
-      margin-top: 40px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 11px;
-    }
-    .tr-signature .tr-sign-block {
-      border-top: 1px solid #000;
-      padding-top: 5px;
-      min-width: 180px;
-      text-align: center;
-    }
+    .tr-results-table td { border: 1px solid #333; padding: 6px 8px; }
+    .tr-summary { font-size: 12px; }
+    .tr-summary .tr-cgpa-big { font-size: 22px; }
+    .tr-signature { font-size: 11px; }
+    .tr-signature .tr-sign-block { border-top: 1px solid #000; }
+    .tr-footer { border-top: 1px solid #999; color: #666; font-size: 10px; }
   }
 </style>
 
@@ -298,7 +310,6 @@
       const res = await core.portalFetch('/api/admin/transcript/students');
       ALL = Array.isArray(res.data) ? res.data : [];
 
-      // Populate department filter
       const deptNames = [...new Set(ALL.map(s => s.departmentName).filter(Boolean))].sort();
       const deptSelect = $('tr-filter-dept');
       deptSelect.innerHTML = '<option value="">All Departments</option>' +
@@ -350,7 +361,6 @@
       return;
     }
 
-    // Group by department
     const groups = {};
     rows.forEach(s => {
       const d = s.departmentName || 'Unassigned';
@@ -431,9 +441,7 @@
       title.textContent = `Transcript — ${s.firstName} ${s.lastName}`;
 
       const cgpa = summary.cgpa != null && !isNaN(summary.cgpa) ? Number(summary.cgpa).toFixed(2) : '0.00';
-      const cgpaColor = getCgpaClass(summary.cgpa != null ? Number(summary.cgpa) : null);
 
-      // Build results table rows
       let resultRows = '';
       if (!rows.length) {
         resultRows = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:#991b1b;">No published results found.</td></tr>';
@@ -452,12 +460,9 @@
 
       const logoUrl = '/images/logo.png';
 
-      // ============================================================
-      // RENDER: Printable transcript (matches print styles above)
-      // ============================================================
       body.innerHTML = `
         <div class="tr-printable">
-          <!-- Watermark -->
+          <!-- Watermark: only shown when printing (via @media print) -->
           <img src="${logoUrl}" class="tr-watermark" alt="" onerror="this.style.display='none'" />
 
           <div class="tr-content">
@@ -516,13 +521,13 @@
             <!-- Summary -->
             <div class="tr-summary">
               <div>
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;">Total Units</div>
-                <div style="font-size:18px;font-weight:800;">${esc(summary.totalUnits || '0')}</div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.05em;">Total Units</div>
+                <div style="font-size:1.1rem;font-weight:800;">${esc(summary.totalUnits || '0')}</div>
               </div>
               <div style="text-align:right;">
-                <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.5px;">Cumulative GPA</div>
+                <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b;letter-spacing:.05em;">Cumulative GPA</div>
                 <div class="tr-cgpa-big">${cgpa}</div>
-                <div style="font-size:12px;font-weight:600;">${esc(summary.classification || '—')}</div>
+                <div style="font-size:.78rem;font-weight:600;">${esc(summary.classification || '—')}</div>
               </div>
             </div>
 
@@ -531,7 +536,7 @@
               <div>Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
               <div class="tr-sign-block">
                 <div style="font-weight:800;">REGISTRAR</div>
-                <div style="font-size:10px;color:#666;">Signature / Stamp</div>
+                <div style="font-size:.7rem;color:#64748b;">Signature / Stamp</div>
               </div>
             </div>
 
@@ -541,7 +546,7 @@
           </div>
         </div>
 
-        <!-- On-screen only: Print + Close -->
+        <!-- On-screen only buttons (hidden when printing) -->
         <div class="tr-print-hide" style="margin-top:1.5rem;display:flex;justify-content:flex-end;gap:.5rem;">
           <button onclick="window.print()" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print / Save as PDF</button>
           <button onclick="document.getElementById('tr-modal').style.display='none'" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>

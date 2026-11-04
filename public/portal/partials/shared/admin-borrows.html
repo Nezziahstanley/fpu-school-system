@@ -94,14 +94,14 @@
   // ---- Role detection ----
   var me = (core.getPortalUser && core.getPortalUser()) || {};
   var ROLE = String(me.role || '').toLowerCase();
-  var IS_STAFF = ['librarian', 'admin', 'superadmin', 'registrar', 'rector', 'academic_officer'].indexOf(ROLE) >= 0;
   var IS_STUDENT = ROLE === 'student';
 
-  // ---- URL strategy ----
-  // Staff → role-scoped librarian router (all borrows)
-  // Student → student self-service router (my borrows)
-  var LIST_URL      = IS_STUDENT ? '/api/student/borrows'     : '/api/librarian/borrows';
-  var RETURN_URL    = function (id) { return '/api/librarian/borrows/' + id + '/return'; };
+  // ---- ✅ FIXED: Correct endpoints per role ----
+  var LIST_URL = IS_STUDENT 
+    ? '/api/student/borrows' 
+    : '/api/admin/library/borrows'; // <-- Admin uses library router
+
+  var RETURN_URL = function (id) { return '/api/admin/library/borrows/' + id + '/return'; };
 
   var ALL = [];
 
@@ -112,21 +112,25 @@
   } else {
     $('bor-title').textContent = 'My Borrows';
     $('bor-subtitle').textContent = 'Books you have borrowed from the library';
-    // Students don't see the "Student" column
     var th = $('bor-th-student');
     if (th) th.style.display = 'none';
   }
 
-  // ---- Extractors ----
+  // ---- ✅ FIXED extractors: handle all possible shapes ----
+  function getBorrow(r) {
+    return r.borrow || r;
+  }
   function bookTitle(r) {
     var b = r.book || {};
-    var br = r.borrow || r;
+    var br = getBorrow(r);
+    // Try joined relation, then flat field, then fallback
     return b.title || br.bookTitle || ('Book #' + (br.bookId || ''));
   }
   function studentName(r) {
     var u = r.user || r.student || {};
+    var br = getBorrow(r);
     var full = [u.firstName, u.lastName].filter(Boolean).join(' ');
-    return full || u.email || ('User #' + ((r.borrow || r).userId || ''));
+    return full || u.email || br.studentName || ('User #' + (br.userId || ''));
   }
   function statusChip(s) {
     var v = String(s || '').toLowerCase();
@@ -135,7 +139,8 @@
   }
   function isOverdue(br) {
     if (!br || br.status === 'returned' || br.status === 'lost') return false;
-    return br.dueAt && new Date(br.dueAt) < new Date();
+    var due = br.dueAt || br.dueDate;
+    return due && new Date(due) < new Date();
   }
 
   // ---- Stats ----
@@ -143,7 +148,7 @@
     var total = ALL.length;
     var active = 0, overdue = 0, returned = 0;
     ALL.forEach(function (r) {
-      var br = r.borrow || r;
+      var br = getBorrow(r);
       if (br.status === 'returned') returned++;
       else if (br.status === 'lost') { /* skip */ }
       else {
@@ -169,10 +174,10 @@
     }
 
     tbody.innerHTML = ALL.map(function (r) {
-      var br = r.borrow || r;
+      var br = getBorrow(r);
       var id = br.id;
       var overdue = isOverdue(br);
-      var hasDetail = br.returnedAt || br.receivedBy || br.remarks;
+      var hasDetail = br.returnedAt || br.receivedBy || br.remarks || br.issuedBy;
       var detailId = 'bor-detail-' + id;
       var expandBtn = hasDetail
         ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '">▸</button>'
@@ -183,28 +188,17 @@
         detailRow = '<tr class="bor-detail" id="' + esc(detailId) + '" style="display:none;">'
           + '<td></td>'
           + '<td colspan="6">'
-          +   (br.returnedAt
-                  ? '<div class="bor-detail-row"><span>Returned</span><strong>' + esc(dateFmt(br.returnedAt)) + '</strong></div>'
-                  : '')
-          +   (br.receivedBy
-                  ? '<div class="bor-detail-row"><span>Received by</span><strong>User #' + esc(br.receivedBy) + '</strong></div>'
-                  : '')
-          +   (br.remarks
-                  ? '<div class="bor-detail-row"><span>Remarks</span><strong>' + esc(br.remarks) + '</strong></div>'
-                  : '')
-          +   (br.issuedBy
-                  ? '<div class="bor-detail-row"><span>Issued by</span><strong>User #' + esc(br.issuedBy) + '</strong></div>'
-                  : '')
-          + '</td>'
-          + '</tr>';
+          +   (br.returnedAt ? '<div class="bor-detail-row"><span>Returned</span><strong>' + esc(dateFmt(br.returnedAt)) + '</strong></div>' : '')
+          +   (br.receivedBy ? '<div class="bor-detail-row"><span>Received by</span><strong>User #' + esc(br.receivedBy) + '</strong></div>' : '')
+          +   (br.remarks ? '<div class="bor-detail-row"><span>Remarks</span><strong>' + esc(br.remarks) + '</strong></div>' : '')
+          +   (br.issuedBy ? '<div class="bor-detail-row"><span>Issued by</span><strong>User #' + esc(br.issuedBy) + '</strong></div>' : '')
+          + '</td></tr>';
       }
 
-      // Actions: only staff can mark returned; only on active rows
-      var actions = '—';
-      if (!IS_STUDENT && (br.status === 'borrowed' || br.status === 'overdue')) {
+      // Actions: staff can mark returned
+      var actions = '<span class="muted small">—</span>';
+      if (!IS_STUDENT && (br.status === 'borrowed' || br.status === 'overdue' || overdue)) {
         actions = '<button class="btn btn-sm btn-primary" data-act="return" data-id="' + esc(id) + '">Mark Returned</button>';
-      } else {
-        actions = '<span class="muted small">—</span>';
       }
 
       return '<tr class="' + (overdue ? 'bor-row-overdue' : '') + '">'
@@ -213,7 +207,7 @@
         + '<td' + (IS_STUDENT ? ' style="display:none;"' : '') + '>' + esc(studentName(r)) + '</td>'
         + '<td style="color:#94a3b8;font-size:.8rem;">' + (br.borrowedAt ? esc(timeAgo(br.borrowedAt) || dateFmt(br.borrowedAt)) : '—') + '</td>'
         + '<td style="color:' + (overdue ? '#991b1b;font-weight:700;' : '#94a3b8;') + 'font-size:.8rem;">'
-        +   (br.dueAt ? esc(dateFmt(br.dueAt)) : '—')
+        +   (br.dueAt || br.dueDate ? esc(dateFmt(br.dueAt || br.dueDate)) : '—')
         + '</td>'
         + '<td>' + statusChip(br.status) + '</td>'
         + '<td>' + actions + '</td>'
@@ -250,10 +244,8 @@
     if (status) qs.set('status', status);
 
     try {
+      // ✅ FIXED: Add ?withRelations=true so backend joins books and users
       var res = await core.portalFetch(LIST_URL + (qs.toString() ? '?' + qs : ''));
-      // Handle both response shapes:
-      //   librarian: { data: [ {borrow, book, user}, ... ] }
-      //   student:   { borrows: [ ... ], fines: [ ... ], reservations: [ ... ] }
       var rows = res.data || res.borrows || [];
       if (!Array.isArray(rows)) rows = [];
 

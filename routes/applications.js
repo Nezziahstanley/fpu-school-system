@@ -64,15 +64,37 @@ function savePassportPhoto(dataUrl, prefix = 'passport') {
 
 // ------------------------------------------------------------
 // GET /api/admin/applications
+// Supports ?withRelations=true to join programme/department names
 // ------------------------------------------------------------
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const {
       status, type, search, programmeId, departmentId, schoolId,
-      country, state,
+      country, state, withRelations,
       limit = 200, offset = 0,
     } = req.query;
 
+    // If frontend asks for relations, use the joined query
+    if (withRelations === 'true') {
+      const rows = await applications.listWithRelations({
+        status, type, search, programmeId, departmentId, schoolId,
+        country, state,
+        limit: Number(limit), offset: Number(offset),
+      });
+      
+      // Flatten the joined result for the frontend
+      const flattened = rows.map(r => ({
+        ...r.application,
+        programmeName: r.programme?.name || null,
+        departmentName: r.department?.name || null,
+        schoolName: r.school?.name || null,
+      }));
+
+      const total = await applications.count({ status, type });
+      return res.json({ success: true, data: flattened, total });
+    }
+
+    // Default: basic query
     const rows = await applications.list({
       status, type, search, programmeId, departmentId, schoolId,
       country, state,

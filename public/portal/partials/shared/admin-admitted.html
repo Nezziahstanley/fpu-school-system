@@ -100,8 +100,8 @@
       </td></tr>`;
 
     try {
-      // FIX: Fetch all applications from the single admin endpoint, then filter on frontend
-      const res = await core.portalFetch('/api/admin/applications?limit=500');
+      // Request relations to get programme names
+      const res = await core.portalFetch('/api/admin/applications?limit=500&withRelations=true');
       
       const allApps = Array.isArray(res.data) ? res.data : [];
       

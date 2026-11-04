@@ -77,7 +77,6 @@
     hod: [
       'portal-profile', 'portal-photo', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      // Remove 'admin-transcript' here
     ],
     bursar: [
       'portal-profile', 'portal-photo', 'portal-messages',
@@ -135,7 +134,6 @@
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      // Add clearances and graduations here
       const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances'].includes(it.key));
       
       const registryItems = [
@@ -195,7 +193,7 @@
       { key: 'lecturer-results',     label: 'Results',     icon: ICON.chart },
       { key: 'lecturer-materials',   label: 'Materials',   icon: ICON.book },
       { key: 'lecturer-assignments', label: 'Assignments', icon: ICON.book2 },
-      { key: 'lecturer-exams',       label: 'Exams',       icon: ICON.clipboard }, // <-- ADD THIS
+      { key: 'lecturer-exams',       label: 'Exams',       icon: ICON.clipboard },
       { key: 'lecturer-requests',    label: 'Requests',    icon: ICON.chat },
       { key: 'lecturer-reports',     label: 'Reports',     icon: ICON.chart },
     ],
@@ -208,7 +206,7 @@
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
       { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard },
-      { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart }, // <-- ADD THIS
+      { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart },
       { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
     ],
     bursar: [
@@ -229,12 +227,12 @@
       { key: 'registrar-programmes',      label: 'Programmes',      icon: ICON.book2 },
       { key: 'registrar-registrations',   label: 'Registrations',   icon: ICON.clipboard },
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
-      { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check }, // <-- ADD THIS
+      { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
-      { key: 'librarian-books',        label: 'Books',        icon: ICON.book },   // NEW
+      { key: 'librarian-books',        label: 'Books',        icon: ICON.book },
       { key: 'librarian-borrows',      label: 'Borrows',      icon: ICON.book },
       { key: 'librarian-reservations', label: 'Reservations', icon: ICON.book },
       { key: 'librarian-fines',        label: 'Fines',        icon: ICON.money },
@@ -306,7 +304,6 @@
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return null;
     
-    // Custom mapping for registrar student profile
     if (cleanKey === 'registrar-student-profile') {
       return { 
         url: '/portal/partials/registrar/student-profile.html', 
@@ -317,18 +314,15 @@
     const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
-    // Pages restricted to admin-only roles. Rector also has read access to the audit log.
     const adminOnly = ['admin-settings', 'admin-users'];
     if (adminOnly.includes(cleanKey) && role !== 'admin' && role !== 'superadmin') {
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
-    // Audit log is admin + rector
     if (cleanKey === 'admin-audit' && !['admin', 'superadmin', 'rector'].includes(role)) {
       return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
     }
 
-    // Role-specific pages (student-*, lecturer-*, admission-officer-*, etc.)
     const roleList = PORTAL_SIDEBAR[role] || [];
     const roleItem = roleList.find((p) => p.key === cleanKey);
     if (roleItem) {
@@ -356,7 +350,6 @@
       };
     }
 
-    // Shared pages
     if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       return {
@@ -518,3 +511,62 @@
         closeMenu();
         const action = item.dataset.menu;
         if (action === 'profile')        navigatePortal('portal-profile');
+        else if (action === 'photo')     navigatePortal('portal-photo');
+        else if (action === 'password')  navigatePortal('portal-security');
+        else if (action === 'notifications') navigatePortal('portal-notifications');
+        else if (action === 'logout')    core.portalLogout && core.portalLogout();
+      });
+    });
+  }
+
+  function initPortalSPA() {
+    if (!core.getToken || !core.getToken()) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    const user = core.getPortalUser && core.getPortalUser();
+    if (!user) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    const role = user.role;
+
+    const titleEl = document.getElementById('topbar-title');
+    const roleEl = document.getElementById('topbar-role');
+    const nameEl = document.getElementById('topbar-name');
+    const avatarEl = document.getElementById('topbar-avatar');
+    if (roleEl) roleEl.textContent = role;
+    if (nameEl) nameEl.textContent = user.firstName || user.email || 'User';
+    if (titleEl) titleEl.textContent = 'Dashboard';
+    if (avatarEl && !avatarEl.style.backgroundImage) {
+      avatarEl.textContent = (user.firstName || 'U')[0].toUpperCase();
+    }
+    if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar && avatarEl) {
+      window.FPU_PHOTO.renderMyAvatar(avatarEl, user);
+    }
+
+    initUserDropdown();
+
+    const logoutBtn = document.getElementById('topbar-logout');
+    if (logoutBtn) logoutBtn.addEventListener('click', () => core.portalLogout && core.portalLogout());
+
+    const landing = DASHBOARD_CONFIG[role] || 'portal-profile';
+    const hash = (window.location.hash || '').replace(/^#/, '');
+    loadPage(hash || landing);
+
+    window.addEventListener('hashchange', () => {
+      const h = (window.location.hash || '').replace(/^#/, '');
+      if (h) loadPage(h);
+    });
+  }
+
+  window.FPU_SPA = { navigatePortal, loadPage, renderSidebar, resolvePageConfig };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPortalSPA);
+  } else {
+    initPortalSPA();
+  }
+})();

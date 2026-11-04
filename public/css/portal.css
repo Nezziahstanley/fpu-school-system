@@ -1025,736 +1025,78 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
 }
 
 
-/* --- Top bar: show hamburger toggle on mobile --- */
-@media (max-width: 980px) {
-  /* Sidebar collapses to off-canvas */
-  .portal-app .sidebar,
-  body.portal-app .sidebar,
-  aside.sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 280px !important;
-    max-width: 84vw !important;
-    transform: translateX(-100%) !important;
-    transition: transform .25s ease-out !important;
-    z-index: 1000 !important;
-    box-shadow: 4px 0 24px rgba(15,23,42,.25) !important;
-    overflow-y: auto !important;
-  }
-
-  /* When the SPA adds .open OR .active OR .sidebar-open, slide it in */
-  .portal-app .sidebar.open,
-  .portal-app .sidebar.active,
-  .portal-app .sidebar.sidebar-open,
-  body.portal-app .sidebar.open,
-  body.portal-app .sidebar.active,
-  body.portal-app .sidebar.sidebar-open,
-  body.sidebar-open .sidebar {
-    transform: translateX(0) !important;
-  }
-
-  /* Backdrop overlay when sidebar is open */
-  body.sidebar-open::before,
-  .portal-app.sidebar-open::before,
-  body.sidebar-open .sidebar-backdrop,
-  .sidebar-backdrop.visible {
-    content: '' !important;
-    position: fixed !important;
-    inset: 0 !important;
-    background: rgba(15,23,42,.5) !important;
-    z-index: 999 !important;
-  }
-
-  /* Main content shifts back to full width */
-  .portal-app .main,
-  .portal-app .content,
-  .portal-app main,
-  body.portal-app .main,
-  body.portal-app .content,
-  body.portal-app main,
-  .portal-app .page-view,
-  .portal-app .main-content {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Topbar: reset any left padding that was accounting for the sidebar */
-  .portal-app .topbar,
-  body.portal-app .topbar {
-    left: 0 !important;
-    width: 100% !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-  }
-
-  /* Show the hamburger toggle in the topbar */
-  .sidebar-toggle,
-  .portal-app .topbar .sidebar-toggle,
-  .portal-app .topbar button[aria-label*="menu" i],
-  .portal-app .topbar button[aria-label*="sidebar" i] {
-    display: inline-flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-
-  /* Greeting stacks vertically */
-  .greeting {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: .75rem !important;
-  }
-  .greeting .meta {
-    text-align: left !important;
-    width: 100% !important;
-    padding-top: .75rem !important;
-    border-top: 1px solid rgba(255,255,255,.18) !important;
-  }
-
-  /* Tile grid becomes 2-across on mobile */
-  .tile-grid,
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .6rem !important;
-  }
-  .tile-value { font-size: 1.25rem !important; }
-  .tile-label { font-size: .68rem !important; }
-
-  /* Panel-head stacks on mobile */
-  .panel-head {
-    flex-wrap: wrap !important;
-    gap: .5rem !important;
-  }
-
-  /* Tables scroll horizontally */
-  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
-  .table-admin { min-width: 600px; }
-
-  /* Quick action buttons wrap */
-  .quick-actions { flex-wrap: wrap !important; }
-  .quick-actions .btn { flex: 1 1 calc(50% - .25rem); min-width: 130px; }
-
-  /* Forms stack */
-  .form-row { grid-template-columns: 1fr !important; }
-}
-
-/* --- Small phones --- */
-@media (max-width: 640px) {
-  .portal-app .sidebar,
-  body.portal-app .sidebar {
-    width: 260px !important;
-    max-width: 86vw !important;
-  }
-
-  .greeting h1,
-  .greeting .who h1 {
-    font-size: 1.15rem !important;
-  }
-  .greeting .who .sub {
-    font-size: .78rem !important;
-  }
-
-  .tile-grid,
-  .stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .quick-actions .btn {
-    flex: 1 1 100% !important;
-  }
-
-  .page-head {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: .5rem !important;
-  }
-  .page-head .actions {
-    width: 100% !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: .35rem !important;
-  }
-}
-
-/* --- Very small phones --- */
-@media (max-width: 400px) {
-  .portal-app .sidebar,
-  body.portal-app .sidebar {
-    width: 240px !important;
-    max-width: 90vw !important;
-  }
-  .tile-value { font-size: 1.1rem !important; }
-}
 
 /* ============================================================
-   PORTAL MOBILE SIDEBAR — hard-lock for the actual DOM hooks
-   #sidebar + body.sidebar-open + #sidebar-toggle
+   FPU PORTAL — MOBILE / TABLET RESPONSIVE (single source)
+   Replaces all prior override blocks. Do not add more below.
+   Desktop styles above this line are untouched.
    ============================================================ */
 
-/* Hamburger button in the topbar — always visible on mobile */
-@media (max-width: 980px) {
-  #sidebar-toggle,
-  .topbar .toggle,
-  .topbar button.toggle {
-    display: inline-flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 40px !important;
-    height: 40px !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 8px !important;
-  }
-
-  /* #sidebar off-canvas by default */
-  #sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 280px !important;
-    max-width: 84vw !important;
-    transform: translateX(-100%) !important;
-    transition: transform .25s ease-out !important;
-    z-index: 1100 !important;
-    overflow-y: auto !important;
-    box-shadow: 4px 0 24px rgba(15,23,42,.25) !important;
-    will-change: transform !important;
-  }
-
-  /* Slide in when body gets the class OR sidebar gets .open */
-  body.sidebar-open #sidebar,
-  #sidebar.open,
-  #sidebar.sidebar-open {
-    transform: translateX(0) !important;
-  }
-
-  /* Backdrop — appears with body.sidebar-open */
-  body.sidebar-open::after {
-    content: '' !important;
-    position: fixed !important;
-    inset: 0 !important;
-    background: rgba(15,23,42,.5) !important;
-    z-index: 1090 !important;
-    pointer-events: none !important;
-  }
-
-  /* Main content gets full width — no more margin-left from desktop */
-  .main,
-  main.main,
-  .portal-app .main,
-  .content,
-  .main-content,
-  .page-view {
-    margin-left: 0 !important;
-    padding-left: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* Topbar spans full width */
-  .topbar,
-  .portal-app .topbar {
-    left: 0 !important;
-    width: 100% !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-  }
+/* ---------- DESKTOP (>= 1025px): hamburger hidden ---------- */
+@media (min-width: 1025px) {
+  #sidebar-toggle { display: none !important; }
+  .sidebar-scrim  { display: none !important; }
 }
 
-/* Small phones — sidebar a touch narrower */
-@media (max-width: 640px) {
-  #sidebar {
-    width: 260px !important;
-    max-width: 86vw !important;
-  }
-}
-@media (max-width: 400px) {
-  #sidebar {
-    width: 240px !important;
-    max-width: 90vw !important;
-  }
-}
+/* ---------- TABLET & MOBILE (<= 1024px) ---------- */
+@media (max-width: 1024px) {
 
-
-
-
-/* Kill any fixed pixel widths on mobile */
-@media (max-width: 640px) {
-  main.main *[style*="width:"][style*="px"] {
-    width: auto !important;
-    max-width: 100% !important;
-  }
-}
-
-/* ============================================================
-   PORTAL MOBILE LAYOUT — full reset
-   Mirrors the public site approach:
-   - Off-canvas sidebar (visibility + transform + opacity lock)
-   - Single-column content, no reserved grid track
-   - Every container forced to 100% width on phones
-   ============================================================ */
-
-@media (max-width: 980px) {
-
-  /* --- Off-canvas sidebar --- */
-  #sidebar,
-  aside#sidebar,
-  .portal-app #sidebar,
-  body.portal-app #sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    width: 280px !important;
-    max-width: 84vw !important;
-    transform: translateX(-105%) !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    transition: transform .25s ease-out, opacity .15s ease-out !important;
-    z-index: 1100 !important;
-    overflow-y: auto !important;
-    box-shadow: 4px 0 24px rgba(15,23,42,.25) !important;
-  }
-
-  body.sidebar-open #sidebar,
-  #sidebar.open,
-  #sidebar.sidebar-open,
-  aside#sidebar.open,
-  body.portal-app.sidebar-open #sidebar {
-    transform: translateX(0) !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  body.sidebar-open::after {
-    content: '' !important;
-    position: fixed !important;
-    inset: 0 !important;
-    background: rgba(15,23,42,.5) !important;
-    z-index: 1090 !important;
-  }
-
-  /* --- Kill the desktop grid: single column --- */
-  body.portal-app,
-  .portal-app,
-  .portal-app > *,
-  .portal-app .layout,
-  .portal-app .app-layout,
-  .portal-app .app-shell,
-  .portal-app .portal-layout,
-  .portal-app .portal-shell {
-    display: block !important;
-    grid-template-columns: 1fr !important;
-    grid-template-areas: none !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  /* --- Main content full width --- */
-  main,
-  main.main,
-  .main,
-  .main-content,
-  .content,
-  .page-view,
-  .portal-main,
-  .app-main {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-    box-sizing: border-box !important;
-    flex: 1 1 auto !important;
-  }
-
-  /* --- Every descendant of main: full width --- */
-  main.main > *,
-  main.main > * > *,
-  main.main > * > * > * {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  /* --- Topbar full width --- */
-  .topbar,
-  .portal-topbar,
-  .app-topbar,
-  header.topbar {
-    display: flex !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    left: 0 !important;
-    right: 0 !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-    box-sizing: border-box !important;
-  }
-
-  /* --- Panels, cards, tiles: full width --- */
-  .panel,
-  .card,
-  .tile,
-  .panel-body,
-  .panel-head,
-  .greeting,
-  .filters,
-  .filter-bar {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  /* --- Greeting stacks vertically --- */
-  .greeting {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: .75rem !important;
-  }
-  .greeting .meta {
-    text-align: left !important;
-    width: 100% !important;
-    padding-top: .75rem !important;
-    border-top: 1px solid rgba(255,255,255,.18) !important;
-  }
-
-  /* --- Grid layouts stack --- */
-  .grid,
-  .row,
-  .cols,
-  .chart-grid,
-  .breakdown-grid,
-  [class*="grid-"],
-  [class*="cols-"] {
-    display: block !important;
-    grid-template-columns: 1fr !important;
-    gap: .75rem !important;
-    width: 100% !important;
-  }
-
-  /* Tile grid: 2 up on tablet-sized mobile */
-  .tile-grid,
-  .stat-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .6rem !important;
-    width: 100% !important;
-  }
-  .tile-value { font-size: 1.25rem !important; }
-  .tile-label { font-size: .68rem !important; }
-
-  /* --- Tables scroll horizontally --- */
-  .table-wrap {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-  .table-admin { min-width: 600px; }
-
-  /* --- Quick actions wrap --- */
-  .quick-actions { flex-wrap: wrap !important; }
-  .quick-actions .btn { flex: 1 1 calc(50% - .25rem); min-width: 130px; }
-
-  /* --- Forms stack --- */
-  .form-row { grid-template-columns: 1fr !important; }
-  .form-group { width: 100% !important; }
-
-  /* --- Any inline max-width / fixed width reset --- */
-  main.main [style*="max-width"] {
-    max-width: 100% !important;
-  }
-}
-
-/* --- Small phones: tighten further --- */
-@media (max-width: 640px) {
-  #sidebar,
-  aside#sidebar,
-  .portal-app #sidebar,
-  body.portal-app #sidebar {
-    width: 260px !important;
-    max-width: 86vw !important;
-  }
-
-  main.main,
-  .main,
-  .content,
-  .page-view {
-    padding-left: .5rem !important;
-    padding-right: .5rem !important;
-  }
-
-  .tile-grid,
-  .stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-
-  .quick-actions .btn {
-    flex: 1 1 100% !important;
-  }
-
-  .greeting h1,
-  .greeting .who h1 {
-    font-size: 1.15rem !important;
-  }
-  .greeting .who .sub {
-    font-size: .78rem !important;
-  }
-
-  .page-head {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: .5rem !important;
-  }
-  .page-head .actions {
-    width: 100% !important;
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: .35rem !important;
-  }
-}
-
-/* --- Tiny phones --- */
-@media (max-width: 400px) {
-  #sidebar,
-  aside#sidebar,
-  body.portal-app #sidebar {
-    width: 240px !important;
-    max-width: 90vw !important;
-  }
-  .tile-value { font-size: 1.1rem !important; }
-}
-
-/* ============================================================
-   PORTAL TOPBAR — full width on mobile
-   ============================================================ */
-@media (max-width: 980px) {
-  .topbar,
-  .portal-topbar,
-  .app-topbar,
-  header.topbar,
-  body.portal-app .topbar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-    box-sizing: border-box !important;
-    z-index: 900 !important;
-  }
-
-  /* Any inline left offset the desktop layout set */
-  body.portal-app .topbar[style*="left"],
-  body.portal-app .topbar[style*="margin-left"] {
-    left: 0 !important;
-    margin-left: 0 !important;
-  }
-
-  /* Add top padding to main so content clears the fixed topbar */
-  main.main,
-  .main,
-  .content,
-  .page-view {
-    padding-top: 60px !important;
-  }
-
-  /* Nav text inside topbar visible */
-  .topbar .page-title,
-  .topbar h1,
-  .topbar .title {
-    display: inline-block !important;
-    color: inherit !important;
-    font-size: 1rem !important;
-  }
-}
-
-/* ============================================================
-   PORTAL MOBILE POLISH — layout, topbar, sidebar toggle
-   ============================================================ */
-
-@media (max-width: 980px) {
-  /* --- Layout shell --- */
   html, body.portal-app {
     overflow-x: hidden !important;
     width: 100% !important;
-  }
-
-  /* --- Topbar: sits at top, single row, no overlap --- */
-  .topbar,
-  .portal-topbar,
-  .app-topbar,
-  header.topbar,
-  body.portal-app .topbar {
-    position: sticky !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
     max-width: 100% !important;
-    height: auto !important;
-    min-height: 56px !important;
-    margin: 0 !important;
-    padding: .5rem .75rem !important;
-    box-sizing: border-box !important;
-    z-index: 900 !important;
-    background: #fff !important;
-    box-shadow: 0 1px 4px rgba(15,23,42,.08) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    gap: .5rem !important;
+    -webkit-text-size-adjust: 100%;
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 
-  .topbar .topbar-left,
-  .topbar .topbar-right,
-  .topbar .actions {
-    display: flex !important;
-    align-items: center !important;
-    gap: .4rem !important;
-    flex-shrink: 0 !important;
+  .sidebar-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 1090;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease;
+  }
+  body.portal-app.sidebar-open .sidebar-scrim {
+    opacity: 1;
+    pointer-events: auto;
   }
 
-  /* Icons in the topbar shrink so they don't overflow */
-  .topbar button,
-  .topbar .icon-btn,
-  .topbar a[href*="logout"] {
-    width: 38px !important;
-    height: 38px !important;
-    min-width: 38px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-  }
-
-  .topbar .user-chip .name,
-  .topbar .user-chip .role { display: none !important; }
-
-  /* Main content flows under the topbar (sticky handles spacing) */
-  main.main,
-  .main,
-  .content,
-  .page-view {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
-  }
-
-  /* Greeting card gets its own row, no collision */
-  .greeting {
-    margin-top: .75rem !important;
-  }
-
-  /* --- Sidebar off-canvas --- */
-  body.portal-app #sidebar {
+  body.portal-app #sidebar,
+  #sidebar {
     position: fixed !important;
     top: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
+    height: 100vh !important;
+    height: 100dvh !important;
     width: 280px !important;
     max-width: 84vw !important;
     transform: translateX(-105%) !important;
     visibility: hidden !important;
     opacity: 0 !important;
     pointer-events: none !important;
-    transition: transform .25s ease-out, opacity .15s ease-out !important;
+    transition: transform .25s ease, opacity .15s ease !important;
     z-index: 1100 !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 6px 0 28px rgba(15, 23, 42, 0.28) !important;
     background: #064e3b !important;
-    box-shadow: 4px 0 24px rgba(15,23,42,.3) !important;
   }
   body.portal-app.sidebar-open #sidebar,
-  body.portal-app #sidebar.open {
+  body.portal-app #sidebar.open,
+  #sidebar.open {
     transform: translateX(0) !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
   }
-  body.portal-app.sidebar-open::after {
-    content: '' !important;
-    position: fixed !important;
-    inset: 0 !important;
-    background: rgba(15,23,42,.55) !important;
-    z-index: 1090 !important;
-  }
 
-  /* Content full width */
-  main.main, .main, .content, .page-view {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding-left: .75rem !important;
-    padding-right: .75rem !important;
-    box-sizing: border-box !important;
-  }
-  main.main > *, main.main > * > * {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
+  body.portal-app.sidebar-open { overflow: hidden !important; }
 
-  /* Tiles: 1 per row on small, 2 per row on tablet */
-  .tile-grid, .stat-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .5rem !important;
-  }
-
-  /* Panels full width */
-  .panel, .card, .tile { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
-
-  .greeting {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: .65rem !important;
-    padding: 1rem !important;
-  }
-  .greeting .meta {
-    text-align: left !important;
-    width: 100% !important;
-    padding-top: .65rem !important;
-    border-top: 1px solid rgba(255,255,255,.18) !important;
-  }
-}
-
-@media (max-width: 640px) {
-  .tile-grid, .stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
-  main.main, .main, .content, .page-view {
-    padding-left: .5rem !important;
-    padding-right: .5rem !important;
-  }
-  .greeting h1, .greeting .who h1 { font-size: 1.1rem !important; }
-  .greeting .who .sub { font-size: .78rem !important; }
-}
-
-/* ============================================================
-   PORTAL TOPBAR — single row on mobile
-   ☰  Dashboard                       🔔 ✉ ⬤ →
-   ============================================================ */
-@media (max-width: 980px) {
   .topbar,
-  .portal-topbar,
-  .app-topbar,
   header.topbar,
   body.portal-app .topbar {
     position: sticky !important;
@@ -1763,13 +1105,12 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: 60px !important;
     min-height: 60px !important;
     margin: 0 !important;
     padding: .5rem .75rem !important;
     box-sizing: border-box !important;
     background: #fff !important;
-    box-shadow: 0 1px 4px rgba(15,23,42,.08) !important;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
@@ -1778,11 +1119,8 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     gap: .5rem !important;
     z-index: 900 !important;
   }
-
-  /* Left group (toggle + title) */
-  .topbar > *:first-child,
   .topbar .topbar-left,
-  .topbar .left {
+  .topbar > *:first-child {
     display: flex !important;
     align-items: center !important;
     gap: .6rem !important;
@@ -1790,21 +1128,32 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     flex: 1 1 auto !important;
     overflow: hidden !important;
   }
-
-  /* Right group (bell / mail / avatar / logout) */
-  .topbar .topbar-right,
-  .topbar .right,
-  .topbar .actions {
+  .topbar .topbar-right {
     display: flex !important;
     align-items: center !important;
     gap: .3rem !important;
     flex-shrink: 0 !important;
   }
 
-  /* Title styling — truncates rather than wraps */
-  .topbar .page-title,
+  #sidebar-toggle,
+  .topbar .toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 8px !important;
+    -webkit-tap-highlight-color: transparent !important;
+    flex-shrink: 0 !important;
+    transition: background .15s !important;
+  }
+  #sidebar-toggle:active { background: rgba(0, 0, 0, 0.08) !important; }
+  #sidebar-toggle svg { transition: transform .25s ease; }
+  body.portal-app.sidebar-open #sidebar-toggle svg { transform: rotate(90deg); }
+
   .topbar h1,
-  .topbar .title {
+  #topbar-title {
     font-size: 1rem !important;
     font-weight: 700 !important;
     color: #064e3b !important;
@@ -1814,72 +1163,122 @@ body.portal-app .sidebar .nav-item.active { background: #047857; }
     text-overflow: ellipsis !important;
     max-width: 45vw !important;
   }
+  .topbar .subtitle { display: none !important; }
 
-  /* Icon buttons — compact and round */
-  .topbar button,
-  .topbar .icon-btn,
-  .topbar a[href*="logout"],
-  .topbar .avatar {
+  .topbar .icon-btn {
     width: 36px !important;
     height: 36px !important;
     min-width: 36px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 50% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    flex-shrink: 0 !important;
-    font-size: .9rem !important;
   }
-
-  /* Hamburger — first child in the left group, always visible */
-  #sidebar-toggle,
-  .topbar .toggle,
-  .topbar button[aria-label*="sidebar" i],
-  .topbar button[aria-label*="menu" i] {
-    display: inline-flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
-    flex-shrink: 0 !important;
-  }
-
-  /* Hide "name / role" text next to user avatar */
   .topbar .user-chip .name,
   .topbar .user-chip .role,
-  .topbar .user-name,
-  .topbar .user-role { display: none !important; }
+  .topbar .user-chip .chev {
+    display: none !important;
+  }
+  .topbar #topbar-user-menu {
+    right: -6px !important;
+    left: auto !important;
+    max-width: calc(100vw - 16px) !important;
+    width: 280px !important;
+  }
 
-  /* Content flows under the sticky topbar */
   main.main,
   .main,
   .content,
   .page-view {
-    padding-top: 0 !important;
-    margin-top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: .75rem .75rem 2rem !important;
+    box-sizing: border-box !important;
+  }
+  main.main > *,
+  main.main > * > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .greeting { margin-top: .75rem !important; }
+  .grid,
+  .row,
+  .cols,
+  .chart-grid,
+  [class*="grid-"],
+  [class*="cols-"] {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    gap: .75rem !important;
+  }
+  .tile-grid,
+  .stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .6rem !important;
+  }
+  .tile-value { font-size: 1.25rem !important; }
+  .tile-label { font-size: .68rem !important; }
+
+  .table-wrap,
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  table { min-width: 560px; }
+
+  .greeting {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .75rem !important;
+  }
+  .greeting .meta {
+    text-align: left !important;
+    width: 100% !important;
+    padding-top: .65rem !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.18) !important;
+  }
+
+  .quick-actions { flex-wrap: wrap !important; }
+  .quick-actions .btn { flex: 1 1 calc(50% - .25rem); min-width: 130px; }
+  .form-row { grid-template-columns: 1fr !important; }
+
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 @media (max-width: 640px) {
-  .topbar,
-  .portal-topbar,
-  .app-topbar,
-  header.topbar,
-  body.portal-app .topbar {
-    height: 56px !important;
-    min-height: 56px !important;
-    padding: .4rem .6rem !important;
+  #sidebar { width: 260px !important; max-width: 86vw !important; }
+  main.main, .main, .content, .page-view {
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
   }
-  .topbar button,
-  .topbar .icon-btn,
-  .topbar a[href*="logout"] {
-    width: 34px !important;
-    height: 34px !important;
-    min-width: 34px !important;
+  .tile-grid, .stat-grid { grid-template-columns: 1fr !important; }
+  .quick-actions .btn { flex: 1 1 100% !important; }
+  .page-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: .5rem !important;
   }
+  .page-head .actions {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: .35rem !important;
+  }
+  .greeting h1, .greeting .who h1 { font-size: 1.1rem !important; }
+  .greeting .who .sub { font-size: .78rem !important; }
+}
+
+@media (max-width: 400px) {
+  #sidebar { width: 240px !important; max-width: 90vw !important; }
+  .tile-value { font-size: 1.1rem !important; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  #sidebar { width: 230px !important; }
+  main.main { padding: .5rem .6rem 1rem !important; }
 }

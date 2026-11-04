@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Portal — Federal Polytechnic Ugep</title>
   <link rel="icon" href="/images/logo.png" />
   <link rel="stylesheet" href="/css/portal.css" />
@@ -101,7 +101,7 @@
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="topbar-left">
-      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+      <button class="toggle" id="sidebar-toggle" aria-label="Toggle sidebar" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <div>
@@ -164,321 +164,231 @@
   <script>
     document.getElementById('sb-year').textContent = new Date().getFullYear();
   </script>
-<!-- PORTAL MOBILE FALLBACK START -->
-<style id="portal-mobile-fallback">
-@media (max-width: 980px) {
-  html, body.portal-app { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; }
 
-  body.portal-app #sidebar {
-    position: fixed !important; top:0 !important; bottom:0 !important; left:0 !important;
-    width: 280px !important; max-width: 84vw !important;
-    transform: translateX(-105%) !important;
-    visibility: hidden !important; opacity: 0 !important; pointer-events: none !important;
-    transition: transform .25s ease-out !important;
-    z-index: 1100 !important; overflow-y: auto !important;
-  }
-  body.portal-app.sidebar-open #sidebar,
-  body.portal-app #sidebar.open {
-    transform: translateX(0) !important;
-    visibility: visible !important; opacity: 1 !important; pointer-events: auto !important;
-  }
-  body.portal-app.sidebar-open::after {
-    content:'' !important; position:fixed !important; inset:0 !important;
-    background: rgba(15,23,42,.5) !important; z-index: 1090 !important;
-  }
+  <!-- ============================================================
+       FPU PORTAL — Sidebar toggle (single binding, no duplicates)
+       Replaces all prior mobile scripts in this file.
+       ============================================================ -->
+  <script id="sidebar-toggle-js">
+  (function () {
+    'use strict';
 
-  body.portal-app .layout,
-  body.portal-app .app-layout,
-  body.portal-app .app-shell,
-  body.portal-app .portal-layout,
-  body.portal-app .portal-shell,
-  body.portal-app > * {
-    display: block !important;
-    grid-template-columns: 1fr !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
+    function bind(toggle, sidebar) {
+      if (toggle.dataset.sbBound === '1') return;
+      toggle.dataset.sbBound = '1';
 
-  main.main {
-    width: 100% !important; max-width: 100% !important;
-    margin: 0 !important;
-    padding-left: .75rem !important; padding-right: .75rem !important;
-    box-sizing: border-box !important;
-  }
-  main.main > *, main.main > * > * {
-    width: 100% !important; max-width: 100% !important;
-    margin-left: 0 !important; margin-right: 0 !important;
-    box-sizing: border-box !important;
-  }
-
-  .topbar, .portal-topbar, .app-topbar, header.topbar {
-    width: 100% !important; max-width: 100% !important;
-    left: 0 !important; right: 0 !important;
-    padding-left: .75rem !important; padding-right: .75rem !important;
-    box-sizing: border-box !important;
-  }
-
-  .panel, .card, .tile, .greeting, .filters, .filter-bar {
-    width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
-  }
-
-  .greeting { flex-direction: column !important; align-items: flex-start !important; gap: .75rem !important; }
-  .greeting .meta { text-align: left !important; width: 100% !important; padding-top: .75rem !important; border-top: 1px solid rgba(255,255,255,.18) !important; }
-
-  .tile-grid, .stat-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: .6rem !important;
-  }
-
-  .grid, .row, .cols, .chart-grid, [class*="grid-"], [class*="cols-"] {
-    display: block !important; grid-template-columns: 1fr !important; gap: .75rem !important;
-  }
-
-  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
-
-  main.main [style*="max-width"] { max-width: 100% !important; }
-}
-@media (max-width: 640px) {
-  body.portal-app #sidebar { width: 260px !important; max-width: 86vw !important; }
-  .tile-grid, .stat-grid { grid-template-columns: 1fr !important; }
-  main.main { padding-left: .5rem !important; padding-right: .5rem !important; }
-}
-@media (max-width: 400px) {
-  body.portal-app #sidebar { width: 240px !important; max-width: 90vw !important; }
-}
-</style>
-<script>
-/* Portal mobile — sidebar toggle fallback */
-(function () {
-  function bind() {
-    var toggle = document.getElementById('sidebar-toggle');
-    var sb = document.getElementById('sidebar');
-    if (!toggle || !sb) return;
-    if (toggle.dataset.bound === '1') return;
-    toggle.dataset.bound = '1';
-    toggle.addEventListener('click', function (e) {
-      e.preventDefault();
-      var open = document.body.classList.toggle('sidebar-open');
-      sb.classList.toggle('open', open);
-    });
-    document.addEventListener('click', function (e) {
-      if (!document.body.classList.contains('sidebar-open')) return;
-      if (sb.contains(e.target) || toggle.contains(e.target)) return;
-      document.body.classList.remove('sidebar-open');
-      sb.classList.remove('open');
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && document.body.classList.contains('sidebar-open')) {
-        document.body.classList.remove('sidebar-open');
-        sb.classList.remove('open');
+      // Create scrim once
+      var scrim = document.querySelector('.sidebar-scrim');
+      if (!scrim) {
+        scrim = document.createElement('div');
+        scrim.className = 'sidebar-scrim';
+        document.body.appendChild(scrim);
       }
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})();
-</script>
-<!-- PORTAL MOBILE FALLBACK END -->
-<!-- PORTAL SIDEBAR TOGGLE FIX START -->
-<script>
-(function () {
-  'use strict';
-  function openSidebar() {
-    document.body.classList.add('sidebar-open');
-    var sb = document.getElementById('sidebar');
-    if (sb) sb.classList.add('open');
-  }
-  function closeSidebar() {
-    document.body.classList.remove('sidebar-open');
-    var sb = document.getElementById('sidebar');
-    if (sb) sb.classList.remove('open');
-  }
-  function toggleSidebar() {
-    if (document.body.classList.contains('sidebar-open')) closeSidebar();
-    else openSidebar();
-  }
-  function bind() {
-    var toggle =
-      document.getElementById('sidebar-toggle') ||
-      document.querySelector('.topbar .toggle') ||
-      document.querySelector('button[aria-label*="sidebar" i]') ||
-      document.querySelector('button[aria-label*="menu" i]');
-    var sb = document.getElementById('sidebar');
-    if (!toggle || !sb) { console.warn('[sidebar] elements missing'); return; }
-    if (toggle.dataset.sbBound === '1') return;
-    toggle.dataset.sbBound = '1';
-    toggle.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleSidebar();
-    });
-    document.addEventListener('click', function (e) {
-      if (!document.body.classList.contains('sidebar-open')) return;
-      if (sb.contains(e.target) || toggle.contains(e.target)) return;
-      closeSidebar();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeSidebar();
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind);
-  } else {
-    bind();
-  }
-})();
-</script>
-<!-- PORTAL SIDEBAR TOGGLE FIX END -->
 
-<script id="notif-bell-js">
-(function () {
-  'use strict';
-  var core = window.FPU_PORTAL || {};
-  var $ = function (id) { return document.getElementById(id); };
-  var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
-  var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+      function isOpen() { return document.body.classList.contains('sidebar-open'); }
+      function open() {
+        document.body.classList.add('sidebar-open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+      function close() {
+        document.body.classList.remove('sidebar-open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
 
-  var POLL_MS = 30000;
-  var panel, bell, badge, list;
-  var timer = null;
-  var bound = false;
+      toggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        isOpen() ? close() : open();
+      });
 
-  function renderList(rows) {
-    if (!rows.length) {
-      list.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
-      return;
+      scrim.addEventListener('click', close);
+
+      // Close on nav link click (allow nav to proceed)
+      sidebar.addEventListener('click', function (e) {
+        if (e.target.closest('a')) setTimeout(close, 80);
+      });
+
+      // ESC closes
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen()) close();
+      });
+
+      // Auto-close when resized to desktop
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 1024 && isOpen()) close();
+      });
     }
-    list.innerHTML = rows.slice(0, 10).map(function (n) {
-      var unread = n.isRead === false || n.isRead === undefined;
-      return '<button type="button" class="notif-item ' + (unread ? 'unread' : '') + '" data-id="' + esc(n.id) + '" data-link="' + esc(n.link || '') + '">'
-        + '<div class="notif-item-top">'
-        +   '<span class="notif-item-title">' + (unread ? '<span class="notif-dot"></span>' : '') + esc(n.title || 'Notification') + '</span>'
-        +   '<span class="notif-item-time">' + esc(timeAgo(n.createdAt) || '') + '</span>'
-        + '</div>'
-        + (n.body ? '<div class="notif-item-body">' + esc(n.body) + '</div>' : '')
-        + '</button>';
-    }).join('');
-    list.querySelectorAll('.notif-item').forEach(function (el) {
-      el.addEventListener('click', function () { openItem(el); });
-    });
-  }
 
-  async function openItem(el) {
-    var id = el.dataset.id;
-    var link = el.dataset.link || '';
-    try { await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' }); }
-    catch (e) { /* silent */ }
-    closePanel();
-    refresh();
-    if (link) {
-      var hash = link.split('#').pop();
-      if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && /^[a-z-]+$/.test(hash)) {
-        window.FPU_SPA.navigatePortal(hash);
+    function setup() {
+      var toggle = document.getElementById('sidebar-toggle');
+      var sidebar = document.getElementById('sidebar');
+      if (toggle && sidebar) { bind(toggle, sidebar); return; }
+
+      // SPA partials may render late — retry briefly
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries++;
+        var t = document.getElementById('sidebar-toggle');
+        var s = document.getElementById('sidebar');
+        if (t && s) { clearInterval(timer); bind(t, s); }
+        else if (tries > 100) clearInterval(timer);
+      }, 100);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setup);
+    } else {
+      setup();
+    }
+  })();
+  </script>
+
+  <!-- ============================================================
+       Notifications bell (unchanged from your existing version)
+       ============================================================ -->
+  <script id="notif-bell-js">
+  (function () {
+    'use strict';
+    var core = window.FPU_PORTAL || {};
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (s) { return core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s); };
+    var timeAgo = function (d) { return core.timeAgo ? core.timeAgo(d) : ''; };
+
+    var POLL_MS = 30000;
+    var panel, bell, badge, list;
+    var timer = null;
+    var bound = false;
+
+    function renderList(rows) {
+      if (!rows.length) {
+        list.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
         return;
       }
-      window.location.href = link;
-    } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
-      window.FPU_SPA.navigatePortal('portal-notifications');
+      list.innerHTML = rows.slice(0, 10).map(function (n) {
+        var unread = n.isRead === false || n.isRead === undefined;
+        return '<button type="button" class="notif-item ' + (unread ? 'unread' : '') + '" data-id="' + esc(n.id) + '" data-link="' + esc(n.link || '') + '">'
+          + '<div class="notif-item-top">'
+          +   '<span class="notif-item-title">' + (unread ? '<span class="notif-dot"></span>' : '') + esc(n.title || 'Notification') + '</span>'
+          +   '<span class="notif-item-time">' + esc(timeAgo(n.createdAt) || '') + '</span>'
+          + '</div>'
+          + (n.body ? '<div class="notif-item-body">' + esc(n.body) + '</div>' : '')
+          + '</button>';
+      }).join('');
+      list.querySelectorAll('.notif-item').forEach(function (el) {
+        el.addEventListener('click', function () { openItem(el); });
+      });
     }
-  }
 
-  async function refresh() {
-    try {
-      var res = await core.portalFetch('/api/portal/notifications?limit=10');
-      var rows = (res && res.data) || [];
-      var unread = (res && res.unread) || 0;
-      if (badge) {
-        if (unread > 0) { badge.hidden = false; badge.textContent = unread > 99 ? '99+' : String(unread); }
-        else { badge.hidden = true; }
-      }
-      if (list) renderList(rows);
-    } catch (err) { /* silent */ }
-  }
-
-  function openPanel() {
-    if (!panel) return;
-    panel.hidden = false;
-    if (bell) bell.setAttribute('aria-expanded', 'true');
-    refresh();
-  }
-  function closePanel() {
-    if (!panel) return;
-    panel.hidden = true;
-    if (bell) bell.setAttribute('aria-expanded', 'false');
-  }
-
-  async function markAllRead() {
-    try {
-      await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
-      if (core.showToast) core.showToast('All marked as read.', 'success');
-      refresh();
-    } catch (err) { if (core.showToast) core.showToast(err.message, 'error'); }
-  }
-
-  function goToNotifications() {
-    closePanel();
-    if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
-      window.FPU_SPA.navigatePortal('portal-notifications');
-    } else {
-      window.location.hash = 'portal-notifications';
-    }
-  }
-
-  function bind() {
-    if (bound) return;
-    panel = $('notif-panel');
-    bell = $('notif-bell');
-    badge = $('notif-badge');
-    list = $('notif-list');
-    if (!panel || !bell || !list) return false;
-    bound = true;
-
-    bell.addEventListener('click', function (e) {
-      e.stopPropagation();
-      if (panel.hidden) openPanel(); else closePanel();
-    });
-    var markAll = $('notif-mark-all');
-    if (markAll) markAll.addEventListener('click', function (e) { e.stopPropagation(); markAllRead(); });
-    var viewAll = $('notif-view-all');
-    if (viewAll) viewAll.addEventListener('click', function (e) { e.stopPropagation(); goToNotifications(); });
-
-    document.addEventListener('click', function (e) {
-      if (!panel || panel.hidden) return;
-      if (panel.contains(e.target) || bell.contains(e.target)) return;
+    async function openItem(el) {
+      var id = el.dataset.id;
+      var link = el.dataset.link || '';
+      try { await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' }); }
+      catch (e) { /* silent */ }
       closePanel();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && panel && !panel.hidden) closePanel();
-    });
+      refresh();
+      if (link) {
+        var hash = link.split('#').pop();
+        if (window.FPU_SPA && window.FPU_SPA.navigatePortal && hash && /^[a-z-]+$/.test(hash)) {
+          window.FPU_SPA.navigatePortal(hash);
+          return;
+        }
+        window.location.href = link;
+      } else if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+        window.FPU_SPA.navigatePortal('portal-notifications');
+      }
+    }
 
-    refresh();
-    if (timer) clearInterval(timer);
-    timer = setInterval(refresh, POLL_MS);
-    window.addEventListener('hashchange', refresh);
-    return true;
-  }
+    async function refresh() {
+      try {
+        var res = await core.portalFetch('/api/portal/notifications?limit=10');
+        var rows = (res && res.data) || [];
+        var unread = (res && res.unread) || 0;
+        if (badge) {
+          if (unread > 0) { badge.hidden = false; badge.textContent = unread > 99 ? '99+' : String(unread); }
+          else { badge.hidden = true; }
+        }
+        if (list) renderList(rows);
+      } catch (err) { /* silent */ }
+    }
 
-  // Retry loop: keep trying every 100ms until the bell exists
-  function init() {
-    if (bind()) return;
-    var attempts = 0;
-    var retry = setInterval(function () {
-      attempts++;
-      if (bind() || attempts > 50) clearInterval(retry);
-    }, 100);
-  }
+    function openPanel() {
+      if (!panel) return;
+      panel.hidden = false;
+      if (bell) bell.setAttribute('aria-expanded', 'true');
+      refresh();
+    }
+    function closePanel() {
+      if (!panel) return;
+      panel.hidden = true;
+      if (bell) bell.setAttribute('aria-expanded', 'false');
+    }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
-</script>
+    async function markAllRead() {
+      try {
+        await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
+        if (core.showToast) core.showToast('All marked as read.', 'success');
+        refresh();
+      } catch (err) { if (core.showToast) core.showToast(err.message, 'error'); }
+    }
+
+    function goToNotifications() {
+      closePanel();
+      if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+        window.FPU_SPA.navigatePortal('portal-notifications');
+      } else {
+        window.location.hash = 'portal-notifications';
+      }
+    }
+
+    function bind() {
+      if (bound) return;
+      panel = $('notif-panel');
+      bell = $('notif-bell');
+      badge = $('notif-badge');
+      list = $('notif-list');
+      if (!panel || !bell || !list) return false;
+      bound = true;
+
+      bell.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (panel.hidden) openPanel(); else closePanel();
+      });
+      var markAll = $('notif-mark-all');
+      if (markAll) markAll.addEventListener('click', function (e) { e.stopPropagation(); markAllRead(); });
+      var viewAll = $('notif-view-all');
+      if (viewAll) viewAll.addEventListener('click', function (e) { e.stopPropagation(); goToNotifications(); });
+
+      document.addEventListener('click', function (e) {
+        if (!panel || panel.hidden) return;
+        if (panel.contains(e.target) || bell.contains(e.target)) return;
+        closePanel();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && panel && !panel.hidden) closePanel();
+      });
+
+      refresh();
+      if (timer) clearInterval(timer);
+      timer = setInterval(refresh, POLL_MS);
+      window.addEventListener('hashchange', refresh);
+      return true;
+    }
+
+    function init() {
+      if (bind()) return;
+      var attempts = 0;
+      var retry = setInterval(function () {
+        attempts++;
+        if (bind() || attempts > 50) clearInterval(retry);
+      }, 100);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  })();
+  </script>
 </body>
 </html>
-
-
-

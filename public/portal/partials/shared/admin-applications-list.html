@@ -1,15 +1,34 @@
-<!-- Portal → Shared → Applications list (staff only) -->
-<section class="page-head">
-  <div><h2>Applications</h2></div>
-</section>
+<!-- Portal → Shared → Admin Applications List -->
+<div class="page-head">
+  <div>
+    <h2>Applications</h2>
+    <div class="muted small">Manage all student applications across ND and HND.</div>
+  </div>
+</div>
 
 <div class="panel">
-  <div class="panel-head"><h3>All Applications</h3></div>
-  <div class="panel-body flush">
+  <div class="panel-head">
+    <h3>All Applications</h3>
+  </div>
+  <div class="panel-body">
     <div class="table-wrap">
-      <table class="table-admin">
-        <thead><tr><th>App No</th><th>Applicant</th><th>Status</th><th>Submitted</th></tr></thead>
-        <tbody id="shared-apps-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>App No</th>
+            <th>Applicant</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="applications-tbody">
+          <tr>
+            <td colspan="5" class="loading-cell" style="text-align: center; padding: 2rem;">
+              <span class="spinner" style="display:inline-block; margin-right:8px;"></span> Loading applications…
+            </td>
+          </tr>
+        </tbody>
       </table>
     </div>
   </div>
@@ -18,35 +37,58 @@
 <script>
   (async function loadApplications() {
     const core = window.FPU_PORTAL;
-    const tbody = document.querySelector('.data-table tbody') || document.querySelector('table tbody'); 
+    const tbody = document.getElementById('applications-tbody');
     
-    if (!tbody) return;
+    if (!tbody || !core) return;
 
     try {
+      // Fetch real data from the backend
       const res = await core.portalFetch('/api/admin/applications?limit=100');
       
       if (!res.success || !res.data || res.data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-cell">No applications found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-cell" style="text-align: center; padding: 2rem; color: #64748b;">No applications found.</td></tr>`;
         return;
       }
 
+      // Render the rows
       tbody.innerHTML = res.data.map(app => {
-        let statusColor = '#f59e0b';
-        if (app.status === 'approved') statusColor = '#10b981';
-        if (app.status === 'rejected') statusColor = '#ef4444';
-        if (app.status === 'registered') statusColor = '#3b82f6';
+        // Map colors to statuses
+        let statusColor = '#f59e0b'; // Pending (Amber)
+        if (app.status === 'approved') statusColor = '#10b981'; // Green
+        if (app.status === 'rejected') statusColor = '#ef4444'; // Red
+        if (app.status === 'registered' || app.status === 'matriculated') statusColor = '#3b82f6'; // Blue
 
-        // Safely map createdAt (Drizzle will output createdAt based on schema)
+        // Format Date
         const submittedDate = app.createdAt 
           ? new Date(app.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) 
           : '—';
+
+        // Build Action Buttons
+        let actions = '';
+        
+        // Always allow viewing the full application
+        actions += `<button class="btn btn-sm btn-outline" onclick="viewApp(${app.id})" style="margin-right:4px;">👁 View</button>`;
+
+        // Conditional buttons based on status
+        if (app.status === 'pending' || app.status === 'under_review') {
+          actions += `<button class="btn btn-sm" style="background:#10b981;color:white;margin-right:4px;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" onclick="approveApp(${app.id})">✅ Approve</button>`;
+          actions += `<button class="btn btn-sm" style="background:#ef4444;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" onclick="rejectApp(${app.id})">❌ Reject</button>`;
+        } 
+        else if (app.status === 'approved') {
+          actions += `<button class="btn btn-sm" style="background:#3b82f6;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;" onclick="registerApp(${app.id})">🎓 Register</button>`;
+        }
 
         return `
           <tr>
             <td><strong>${app.applicationNumber || '—'}</strong></td>
             <td>${app.firstName} ${app.lastName}</td>
-            <td><span class="badge" style="background:${statusColor}; color:white; padding:2px 8px; border-radius:4px; font-size:11px;">${(app.status || 'pending').toUpperCase()}</span></td>
+            <td>
+              <span class="badge" style="background:${statusColor}; color:white; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:600;">
+                ${(app.status || 'pending').toUpperCase()}
+              </span>
+            </td>
             <td>${submittedDate}</td>
+            <td style="text-align:right;">${actions}</td>
           </tr>
         `;
       }).join('');
@@ -55,10 +97,64 @@
       console.error('Applications load error:', err);
       tbody.innerHTML = `
         <tr>
-          <td colspan="4" class="empty-cell" style="color:#ef4444;">
+          <td colspan="5" class="empty-cell" style="text-align: center; color: #ef4444; padding: 2rem;">
             ⚠️ Could not load applications. Please check Render logs.
           </td>
         </tr>`;
     }
   })();
+
+  // ==========================================
+  // ACTION HANDLERS
+  // ==========================================
+
+  window.approveApp = async function(id) {
+    if (!confirm('Are you sure you want to APPROVE this application?')) return;
+    try {
+      await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
+      window.FPU_PORTAL.showToast('Application approved successfully!', 'success');
+      location.reload(); // Refresh the table to show new buttons
+    } catch (err) {
+      window.FPU_PORTAL.showToast(err.message, 'error');
+    }
+  };
+
+  window.rejectApp = async function(id) {
+    const reason = prompt('Enter the reason for rejection:');
+    if (reason === null) return; // User cancelled
+    if (!reason.trim()) return alert('Rejection reason is required.');
+    
+    try {
+      await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/reject`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason })
+      });
+      window.FPU_PORTAL.showToast('Application rejected.', 'success');
+      location.reload();
+    } catch (err) {
+      window.FPU_PORTAL.showToast(err.message, 'error');
+    }
+  };
+
+  window.registerApp = async function(id) {
+    if (!confirm('This will create a Student Portal account and generate a Matric Number. Proceed?')) return;
+    try {
+      await window.FPU_PORTAL.portalFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
+      window.FPU_PORTAL.showToast('Student registered and Matric Number generated!', 'success');
+      location.reload();
+    } catch (err) {
+      window.FPU_PORTAL.showToast(err.message, 'error');
+    }
+  };
+
+  window.viewApp = function(id) {
+    // Navigate to the detailed view in your SPA
+    // (Assuming you have a partial named 'admin-application-view' as seen in your folder structure)
+    if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
+      window.FPU_SPA.navigatePortal('admin-application-view', { id: id });
+    } else {
+      window.location.hash = 'admin-application-view-' + id;
+    }
+  };
 </script>

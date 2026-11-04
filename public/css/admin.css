@@ -2991,3 +2991,51 @@ tr.row-clickable:hover td:first-child {
   .admin-sidebar, #admin-sidebar { width: 230px !important; }
   main, .main { padding: .5rem .6rem !important; }
 }
+/* ============================================================
+   FIX: Force the real sidebar toggle to work as a burger on mobile
+   The button is #sidebar-toggle with class .toggle
+   ============================================================ */
+
+/* Desktop (>= 1025px): sidebar toggle is visible but only collapses */
+@media (min-width: 1025px) {
+  body.admin-app #sidebar-toggle,
+  body.admin-app .topbar-left .toggle {
+    display: inline-flex !important;
+  }
+}
+
+/* Mobile / Tablet (<= 1024px): sidebar toggle becomes the burger */
+@media (max-width: 1024px) {
+  body.admin-app #sidebar-toggle,
+  body.admin-app .topbar-left .toggle {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    padding: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+    color: #065f46 !important;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 1101 !important;
+    position: relative !important;
+  }
+  body.admin-app #sidebar-toggle:active {
+    background: rgba(0, 0, 0, 0.08) !important;
+  }
+  body.admin-app #sidebar-toggle svg {
+    display: block !important;
+    width: 22px !important;
+    height: 22px !important;
+    transition: transform .25s ease !important;
+  }
+  body.admin-sidebar-open #sidebar-toggle svg {
+    transform: rotate(90deg);
+  }
+}

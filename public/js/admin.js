@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // FPU ADMIN.JS — Federal Polytechnic Ugep
 // Complete consolidated version (v10)
 // Includes: dashboard, applications, students (dept-first),
@@ -981,7 +981,16 @@ async function loadApplications() {
             <td>${escapeHtml(a.type || 'ND')}</td>
             <td>${statusPill(a.status)}</td>
             <td class="small muted">${fmtDate(a.createdAt)}</td>
-            <td><div class="row-actions"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('application-view', { id: ${a.id} })">View</button></div></td>
+            <td><div class="row-actions" style="white-space:nowrap;">
+              <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('application-view', { id: ${a.id} })">👁 View</button>
+              ${['pending','under_review'].includes(String(a.status).toLowerCase()) ? `
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); FPU_ADMIN.approveApplication(${a.id})">✅ Approve</button>
+                <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="event.stopPropagation(); FPU_ADMIN.rejectApplication(${a.id})">❌ Reject</button>
+              ` : ''}
+              ${String(a.status).toLowerCase() === 'approved' ? `
+                <button class="btn btn-sm" style="background:#3b82f6;color:white;border-color:#3b82f6;" onclick="event.stopPropagation(); FPU_ADMIN.registerApplication(${a.id})">🎓 Register</button>
+              ` : ''}
+            </div></td>
           </tr>
         `;
       }).join("");
@@ -1048,6 +1057,53 @@ async function bulkApplicationAction(action) {
   }
 }
 
+// ============================================
+// INDIVIDUAL APPLICATION ACTIONS
+// ============================================
+
+async function approveApplication(id) {
+  if (!confirm('Approve this application?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Approve failed');
+    showToast('✅ Application approved.', 'success');
+    loadApplications();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function rejectApplication(id) {
+  const reason = prompt('Enter rejection reason (optional):');
+  if (reason === null) return;
+  try {
+    const res = await adminFetch(`/api/admin/applications/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason.trim() || 'Did not meet requirements.' })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Reject failed');
+    showToast('⚠️ Application rejected.', 'warning');
+    loadApplications();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function registerApplication(id) {
+  if (!confirm('Register this applicant?\n\nThis will:\n• Generate a Matric Number\n• Create a Student Portal account\n• Send them a welcome email\n\nProceed?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Registration failed');
+    const matric = (json.data && json.data.matricNumber) ? json.data.matricNumber : 'N/A';
+    showToast('🎓 Student registered! Matric: ' + matric, 'success');
+    loadApplications();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
 async function loadAdmitted() {
   const container = document.getElementById("admitted-tbody");
   if (!container) return;
@@ -10155,6 +10211,7 @@ window.FPU_ADMIN = {
 
   // applications
   loadApplications, loadAdmitted, registerAdmitted, bulkApplicationAction,
+  approveApplication, rejectApplication, registerApplication,
   updateApplicationStats, updateAdmittedStats, bulkRegisterAdmitted,
 
   // students (department-first)

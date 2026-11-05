@@ -4330,13 +4330,23 @@ async function loadLoginHistory() {
     const rows = extractArray(result);
 
     container.innerHTML = rows.length ? rows.map((r) => {
-      const entry = r.entry || r;
-      const user = r.user || null;
+      const entry = r.entry || r; // Depending on the API shape
+      const user = r.user || entry.user || null; // Check both places for the user object
+      
+      // Handle name fallback
+      let userName = '—';
+      if (user) {
+        userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        if (!userName) userName = user.email || 'Unknown';
+      } else if (entry.email) {
+        userName = entry.email; // Fallback to email if user object is missing
+      }
+
       return `
         <tr>
-          <td>${user ? escapeHtml(`${user.firstName || ''} ${user.lastName || ''}`.trim()) : '—'}</td>
+          <td><strong>${escapeHtml(userName)}</strong></td>
           <td>${escapeHtml(entry.email || '')}</td>
-          <td>${entry.success ? 'Success' : 'Failed'}</td>
+          <td>${entry.success ? badge('success') : badge('failed')}</td>
           <td>${escapeHtml(entry.ipAddress || '')}</td>
           <td>${escapeHtml(entry.reason || '')}</td>
           <td>${fmtDateTime(entry.createdAt)}</td>

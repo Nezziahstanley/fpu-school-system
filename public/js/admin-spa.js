@@ -322,7 +322,7 @@
     'users-with-photos':  { url: '/admin/partials/users/with-photos.html',       title: 'Photo Directory', init: call('loadUsersWithPhotos') },
     'users-login-history':{ url: '/admin/partials/users/login-history.html',     title: 'Login History',   init: call('loadLoginHistory') },
     'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: () => {} },
-    'user-profile':       { url: '/admin/partials/users/profile.html',           title: 'User Profile',    init: () => {} },
+    'user-profile':       { url: '/admin/partials/users/profile.html',           title: 'User Profile',    init: call('loadUserProfile') },
 
     // ---------- Security sub-pages ----------
     'security-dashboard':   { url: '/admin/partials/security/dashboard.html',    title: 'Security Center', init: call('loadSecurityDashboard') },

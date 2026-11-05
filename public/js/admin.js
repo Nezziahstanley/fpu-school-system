@@ -4499,6 +4499,192 @@ async function loadDepartmentAllocations() {
 }
 
 // ============================================
+// USER PROFILE (Detail View)
+// ============================================
+async function loadUserProfile() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const id = params.get('id');
+
+  if (!id) {
+    document.getElementById('page-subtitle').textContent = 'No user ID provided.';
+    return;
+  }
+
+  try {
+    // Try to find the user in the combined list (staff + students)
+    const [staffRes, studentRes] = await Promise.all([
+      adminFetch('/api/admin/staff?limit=2000').catch(() => null),
+      adminFetch('/api/admin/students?limit=2000').catch(() => null),
+    ]);
+
+    let user = null;
+
+    if (staffRes && staffRes.ok) {
+      const staffJson = await staffRes.json();
+      const staff = staffJson.data || [];
+      user = staff.find((u) => Number(u.id) === Number(id));
+    }
+
+    if (!user && studentRes && studentRes.ok) {
+      const studentJson = await studentRes.json();
+      const students = studentJson.data || [];
+      user = students.find((u) => Number(u.id) === Number(id));
+    }
+
+    // If not found, try the admin users endpoint
+    if (!user) {
+      const adminRes = await adminFetch('/api/admin/users?limit=1000').catch(() => null);
+      if (adminRes && adminRes.ok) {
+        const adminJson = await adminRes.json();
+        const admins = adminJson.data || [];
+        user = admins.find((u) => Number(u.id) === Number(id));
+      }
+    }
+
+    if (!user) throw new Error('User not found');
+
+    // ----- 1. Update Header -----
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
+    document.getElementById('page-subtitle').textContent = `${user.email || ''} · ${String(user.role || '').replace(/_/g, ' ')}`;
+    document.getElementById('up-name').textContent = fullName;
+    document.getElementById('up-role').innerHTML = roleBadge(user.role);
+
+    const avatarEl = document.getElementById('up-avatar');
+    if (avatarEl) {
+      const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+      if (user.photoUrl) {
+        avatarEl.innerHTML = `<img src="${escapeHtml(user.photoUrl)}" alt="" />`;
+      } else {
+        avatarEl.textContent = initials;
+      }
+    }
+
+    // ----- 2. Contact Panel -----
+    const contactEl = document.getElementById('up-contact');
+    if (contactEl) {
+      contactEl.innerHTML = `
+        <div class="field-row"><div class="k">Email</div><div class="v">${escapeHtml(user.email || '—')}</div></div>
+        <div class="field-row"><div class="k">Phone</div><div class="v">${escapeHtml(user.phone || '—')}</div></div>
+        <div class="field-row"><div class="k">Gender</div><div class="v">${escapeHtml(user.gender || '—')}</div></div>
+        <div class="field-row"><div class="k">Date of Birth</div><div class="v">${user.dateOfBirth ? fmtDate(user.dateOfBirth) : '—'}</div></div>
+        <div class="field-row"><div class="k">State of Origin</div><div class="v">${escapeHtml(user.stateOfOrigin || '—')}</div></div>
+      `;
+    }
+
+    // ----- 3. Account Panel -----
+    const accountEl = document.getElementById('up-account');
+    if (accountEl) {
+      accountEl.innerHTML = `
+        <div class="field-row"><div class="k">Role</div><div class="v">${roleBadge(user.role)}</div></div>
+        <div class="field-row"><div class="k">Status</div><div class="v">${user.isActive !== false ? badge('active') : badge('inactive')}</div></div>
+        <div class="field-row"><div class="k">Created</div><div class="v">${fmtDate(user.createdAt)}</div></div>
+        <div class="field-row"><div class="k">Last Login</div><div class="v">${user.lastLoginAt ? fmtDateTime(user.lastLoginAt) : 'Never'}</div></div>
+      `;
+    }
+
+    // ----- 4. Role Details Panel -----
+    const roleEl = document.getElementById('up-role-details');
+    if (roleEl) {
+      let roleHtml = '';
+      if (user.role === 'student') {
+        roleHtml = `
+          <div class="field-row"><div class="k">Matric No</div><div class="v"><code>${escapeHtml(user.matricNumber || '—')}</code></div></div>
+          <div class="field-row"><div class="k">Level</div><div class="v">${escapeHtml(user.level || '—')}</div></div>
+          <div class="field-row"><div class="k">Department</div><div class="v">${escapeHtml(user.departmentName || user.department?.name || '—')}</div></div>
+          <div class="field-row"><div class="k">Programme</div><div class="v">${escapeHtml(user.programmeName || user.programme?.name || '—')}</div></div>
+        `;
+      } else if (user.role === 'admin') {
+        roleHtml = `<p class="muted">No additional profile fields for administrators.</p>`;
+      } else {
+        const sp = user.staffProfile || {};
+        roleHtml = `
+          <div class="field-row"><div class="k">Staff No</div><div class="v"><code>${escapeHtml(user.staffNumber || '—')}</code></div></div>
+          <div class="field-row"><div class="k">Department</div><div class="v">${escapeHtml(user.departmentName || user.department?.name || '—')}</div></div>
+          <div class="field-row"><div class="k">Rank</div><div class="v">${escapeHtml(sp.rank || '—')}</div></div>
+          <div class="field-row"><div class="k">Specialization</div><div class="v">${escapeHtml(sp.specialization || '—')}</div></div>
+        `;
+      }
+      roleEl.innerHTML = roleHtml;
+    }
+
+    // ----- 5. Recent Activity Panel -----
+    const activityEl = document.getElementById('up-activity');
+    if (activityEl) {
+      try {
+        const auditRes = await adminFetch(`/api/admin/audit?userId=${id}&limit=5`);
+        const auditJson = await auditRes.json();
+        const logs = auditJson.data || [];
+        if (!logs.length) {
+          activityEl.innerHTML = '<p class="muted" style="padding:10px;">No recent activity.</p>';
+        } else {
+          activityEl.innerHTML = logs.map((l) => {
+            const log = l.log || l;
+            return `
+              <div class="activity-item" style="padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                <div style="font-size:13px;"><strong>${escapeHtml(log.action || '')}</strong></div>
+                <div class="small muted">${escapeHtml(log.entity || '')} · ${timeAgo(log.createdAt)}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (e) {
+        activityEl.innerHTML = '<p class="muted" style="padding:10px;">Could not load activity.</p>';
+      }
+    }
+
+    // ----- 6. Wire Action Buttons -----
+    document.getElementById('up-back').onclick = () => history.back();
+    document.getElementById('up-edit').onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('user-form', { id });
+    document.getElementById('up-reset-pwd').onclick = async () => {
+      const pwd = prompt('New password (leave blank for default "student1234" or "admin1234"):', '');
+      if (pwd === null) return;
+      try {
+        await adminFetch(`/api/admin/users/${id}/reset-password`, {
+          method: 'POST',
+          body: JSON.stringify({ password: pwd || undefined }),
+        });
+        showToast('Password reset.', 'success');
+      } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    };
+    document.getElementById('up-toggle-active').onclick = async () => {
+      try {
+        await adminFetch(`/api/admin/users/${id}/toggle-active`, { method: 'POST' });
+        showToast('Status toggled.', 'success');
+        loadUserProfile();
+      } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    };
+    document.getElementById('up-delete').onclick = async () => {
+      if (!confirm(`Delete user "${fullName}"?`)) return;
+      try {
+        const role = user.role;
+        let url = `/api/admin/users/${id}`;
+        if (role === 'student') url = `/api/admin/students/${id}`;
+        else if (role !== 'admin') url = `/api/admin/staff/${id}`;
+
+        await adminFetch(url, { method: 'DELETE' });
+        showToast('User deleted.', 'success');
+        FPU_ADMIN_SPA.navigateTo('users-all');
+      } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    };
+
+  } catch (err) {
+    document.getElementById('page-subtitle').textContent = 'Error loading profile';
+    const contactEl = document.getElementById('up-contact');
+    if (contactEl) {
+      contactEl.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+    }
+    const accountEl = document.getElementById('up-account');
+    if (accountEl) accountEl.innerHTML = '';
+    const roleEl = document.getElementById('up-role-details');
+    if (roleEl) roleEl.innerHTML = '';
+    const activityEl = document.getElementById('up-activity');
+    if (activityEl) activityEl.innerHTML = '';
+  }
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
@@ -4577,7 +4763,7 @@ window.FPU_ADMIN = {
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable, loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
 
   // Users
-  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory,
+  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory, loadUserProfile,
   
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear

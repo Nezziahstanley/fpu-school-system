@@ -6184,6 +6184,118 @@ async function saveAdvSetting(key) {
 // Wire up the advanced tab when it loads
 const __origLoadSettingsShell = typeof loadSettingsShell === 'function' ? loadSettingsShell : null;
 
+// ============================================
+// SECURITY — Events feed
+// ============================================
+async function loadSecurityEvents() {
+  const tbody = document.getElementById('ev-tbody');
+  if (!tbody) return;
+
+  const severity = (document.getElementById('ev-severity-tabs')?.querySelector('.active')?.dataset.severity) || '';
+  const eventName = (document.getElementById('ev-event') || {}).value || '';
+  const resolved = (document.getElementById('ev-resolved') || {}).value || '';
+
+  const qs = new URLSearchParams({ limit: 300 });
+  if (severity) qs.set('severity', severity);
+  if (eventName) qs.set('event', eventName);
+  if (resolved) qs.set('resolved', resolved);
+
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch(`/api/admin/security?${qs}`);
+    const json = await res.json();
+    const rows = json.data || [];
+
+    const total = rows.length;
+    const critical = rows.filter((r) => (r.log || r).severity === 'critical').length;
+    const warning = rows.filter((r) => (r.log || r).severity === 'warning').length;
+    const unresolved = rows.filter((r) => !(r.log || r).resolvedAt).length;
+
+    setText('ev-stat-total', total);
+    setText('ev-stat-critical', critical);
+    setText('ev-stat-warning', warning);
+    setText('ev-stat-unresolved', unresolved);
+    setText('ev-count', `Showing ${total} event${total === 1 ? '' : 's'}`);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No events found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+      const log = r.log || r;
+      const user = r.user
+        ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+        : '—';
+      return `
+        <tr>
+          <td><code>${escapeHtml(log.event || '')}</code></td>
+          <td>${badge(log.severity)}</td>
+          <td>${escapeHtml(user)}</td>
+          <td>${escapeHtml(log.ipAddress || '—')}</td>
+          <td class="small muted">${fmtDateTime(log.createdAt)}</td>
+          <td>
+            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.copyToClipboard('${escapeQuotes(JSON.stringify(log.details || {}))}')">
+              Copy Details
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire buttons (idempotent)
+    const refreshBtn = document.getElementById('ev-refresh');
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadSecurityEvents();
+    }
+
+    const exportBtn = document.getElementById('ev-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => {
+        const table = tbody.closest('table');
+        if (table) exportTableAsCSV(table, `security-events-${new Date().toISOString().slice(0, 10)}.csv`);
+      };
+    }
+
+    const purgeBtn = document.getElementById('ev-purge');
+    if (purgeBtn && !purgeBtn.__wired) {
+      purgeBtn.__wired = true;
+      purgeBtn.onclick = async () => {
+        const ok = await window.fpuConfirm(
+          'Purge all expired security sessions and stale events?\n\nThis cannot be undone.',
+          { title: 'Purge Expired?', type: 'danger', okText: 'Purge' }
+        );
+        if (!ok) return;
+        try {
+          await adminFetch('/api/admin/security/purge', { method: 'POST' });
+          showToast('🧹 Expired sessions purged.', 'success');
+          loadSecurityEvents();
+        } catch (err) {
+          showToast('❌ ' + err.message, 'error');
+        }
+      };
+    }
+
+    // Wire severity tabs (idempotent)
+    document.querySelectorAll('#ev-severity-tabs .staff-role-tab').forEach((tab) => {
+      if (tab.__wired) return;
+      tab.__wired = true;
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#ev-severity-tabs .staff-role-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadSecurityEvents();
+      });
+    });
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

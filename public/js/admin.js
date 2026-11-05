@@ -4083,7 +4083,7 @@ async function loadSettingsShell() {
 
   const tabs = document.querySelectorAll('#settings-tabs .staff-role-tab');
   async function loadTab(tab) {
-    content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    content.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading ' + tab + '…</div>';
     try {
       const res = await fetch(`/admin/partials/settings/_tabs/${tab}.html`, { cache: 'no-cache' });
       if (!res.ok) throw new Error(`Partial ${tab} not found`);
@@ -4099,7 +4099,6 @@ async function loadSettingsShell() {
         });
       }
       prefillSettingsForm(tab, content);
-      // Wire tab-specific extras (bank accounts, library sweep, etc.)
       if (typeof wireSettingsTabExtras === 'function') {
         wireSettingsTabExtras(tab);
       }
@@ -4999,7 +4998,262 @@ function wireSettingsTabExtras(tab) {
   if (tab === 'library') setTimeout(runLibrarySweep, 100);
   if (tab === 'account') setTimeout(initAccountTab, 100);
   if (tab === 'system') setTimeout(initSystemTab, 100);
+  if (tab === 'advanced') setTimeout(loadAdvancedSettings, 100);
 }
+
+// ============================================
+// SYSTEM: Deploy & Advanced Settings
+// ============================================
+
+async function initSystemTab() {
+  try {
+    // Fetch system health
+    const healthRes = await adminFetch('/api/health').catch(() => null);
+    if (healthRes && healthRes.ok) {
+      const h = await healthRes.json();
+      setText('sys-name', h.app || 'FPU School Management System');
+      setText('sys-version', h.version || '1.0.0');
+      setText('sys-env', h.env || 'production');
+      setText('sys-node', h.node || 'server');
+      setText('sys-uptime', h.uptime || '—');
+      setText('sys-last-deploy', h.lastDeploy ? fmtDateTime(h.lastDeploy) : '—');
+    } else {
+      setText('sys-name', 'FPU School Management System');
+      setText('sys-version', '1.0.0');
+      setText('sys-env', 'production');
+    }
+  } catch (e) {
+    console.debug('[system] version:', e.message);
+  }
+
+  // Wire deploy buttons
+  const deployBtn = document.getElementById('deploy-now-btn');
+  if (deployBtn && !deployBtn.__bound) {
+    deployBtn.__bound = true;
+    deployBtn.onclick = async () => {
+      const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
+      const notes = (document.getElementById('deploy-notes') || {}).value || '';
+      if (!confirm(`Deploy branch "${branch}" to production?\n\nNotes: ${notes || '(none)'}\n\nThis will rebuild the app and take 2–5 minutes.`)) return;
+
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading" style="padding:20px;"><span class="spinner"></span> Triggering deployment…</div>';
+
+      try {
+        const res = await adminFetch('/api/admin/system/deploy', {
+          method: 'POST',
+          body: JSON.stringify({ branch, notes }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Deploy failed');
+        status.innerHTML = `
+          <div class="alert alert-success">
+            ✅ Deployment triggered for branch <strong>${escapeHtml(branch)}</strong>.
+            <br/><small>The app will restart automatically in 2–5 minutes. You may need to refresh this page after.</small>
+          </div>`;
+        if (typeof loadDeployHistory === 'function') loadDeployHistory();
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  const checkBtn = document.getElementById('deploy-check-btn');
+  if (checkBtn && !checkBtn.__bound) {
+    checkBtn.__bound = true;
+    checkBtn.onclick = async () => {
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking GitHub…</div>';
+      try {
+        const res = await adminFetch('/api/admin/system/github-status');
+        const json = await res.json();
+        status.innerHTML = `
+          <div class="alert alert-info">
+            🔍 <strong>Latest commit:</strong> ${escapeHtml(json.commit || '—')}
+            <br/><small>By ${escapeHtml(json.author || '—')} · ${json.date ? fmtDateTime(json.date) : '—'}</small>
+          </div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-warning">⚠️ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  // Load deployment history
+  loadDeployHistory();
+
+  // Wire backup buttons
+  const nowBtn = document.getElementById('sys-backup-now');
+  if (nowBtn && !nowBtn.__bound) {
+    nowBtn.__bound = true;
+    nowBtn.onclick = async () => {
+      if (!confirm('Trigger a backup now?')) return;
+      const status = document.getElementById('sys-backup-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Backing up…</div>';
+      try {
+        await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
+        status.innerHTML = '<div class="alert alert-success">✅ Backup completed.</div>';
+        loadBackupHistory();
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-danger">❌ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+  const refreshBtn = document.getElementById('sys-backup-refresh');
+  if (refreshBtn && !refreshBtn.__bound) {
+    refreshBtn.__bound = true;
+    refreshBtn.onclick = loadBackupHistory;
+  }
+  const exportBtn = document.getElementById('sys-export-json');
+  if (exportBtn && !exportBtn.__bound) {
+    exportBtn.__bound = true;
+    exportBtn.onclick = async () => {
+      try {
+        const res = await adminFetch('/api/admin/reports/overview');
+        const json = await res.json();
+        const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'fpu-snapshot-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ Exported.', 'success');
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Wire migrations
+  const migBtn = document.getElementById('sys-run-migrations');
+  if (migBtn && !migBtn.__bound) {
+    migBtn.__bound = true;
+    migBtn.onclick = () => {
+      document.getElementById('sys-upgrade-status').innerHTML =
+        '<div class="alert alert-info">ℹ️ Migrations run automatically when the server restarts. Use the Deploy button above to trigger a restart.</div>';
+    };
+  }
+  const healthBtn = document.getElementById('sys-health-check');
+  if (healthBtn && !healthBtn.__bound) {
+    healthBtn.__bound = true;
+    healthBtn.onclick = async () => {
+      const status = document.getElementById('sys-upgrade-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking health…</div>';
+      try {
+        const res = await adminFetch('/api/health');
+        const json = await res.json();
+        status.innerHTML = `<div class="alert alert-success">✅ System healthy. Version ${escapeHtml(json.version || '1.0.0')}, env ${escapeHtml(json.env || 'production')}.</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-danger">❌ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  loadBackupHistory();
+}
+
+async function loadDeployHistory() {
+  const tbody = document.getElementById('deploy-history-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading deployment history…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/system/deployments?limit=10');
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No deployments yet. Click "Deploy Now" above to create the first one.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((d) => `
+      <tr>
+        <td><code>${escapeHtml(d.version || d.commit || '—')}</code></td>
+        <td>${escapeHtml(d.branch || 'main')}</td>
+        <td>${badge(d.status)}</td>
+        <td>${escapeHtml(d.deployedBy || 'System')}</td>
+        <td class="small muted">${fmtDateTime(d.createdAt)}</td>
+        <td>
+          <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.viewDeployLog('${escapeHtml(d.id)}')">View Log</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function loadBackupHistory() {
+  const tbody = document.getElementById('sys-backup-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/security/backups');
+    const json = await res.json();
+    const rows = json.data || [];
+    tbody.innerHTML = rows.length ? rows.map((b) => `
+      <tr>
+        <td>${escapeHtml(b.kind || 'full')}</td>
+        <td>${badge(b.status)}</td>
+        <td>${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
+        <td class="small muted">${fmtDateTime(b.startedAt)}</td>
+        <td class="small muted">${b.completedAt ? fmtDateTime(b.completedAt) : '—'}</td>
+        <td>${b.fileUrl ? `<a class="btn btn-sm btn-outline" href="${escapeHtml(b.fileUrl)}" target="_blank">Download</a>` : '—'}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" class="empty">No backups yet.</td></tr>';
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function viewDeployLog(id) {
+  try {
+    const res = await adminFetch(`/api/admin/system/deployments/${id}`);
+    const json = await res.json();
+    openModal('Deployment Log', `<pre style="white-space:pre-wrap;font-size:12px;background:#f8fafc;padding:14px;border-radius:8px;">${escapeHtml(json.log || 'No log available.')}</pre>`);
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadAdvancedSettings() {
+  const tbody = document.getElementById('adv-tbody');
+  if (!tbody) return;
+  const search = (document.getElementById('adv-search') || {}).value || '';
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : ''));
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No settings found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((s) => `
+      <tr>
+        <td><code>${escapeHtml(s.key)}</code></td>
+        <td>${escapeHtml(s.category || 'general')}</td>
+        <td><input class="form-control form-control-sm" data-adv-key="${escapeHtml(s.key)}" value="${escapeHtml(s.value || '')}" /></td>
+        <td class="small muted">${s.updatedAt ? fmtDateTime(s.updatedAt) : '—'}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(s.key)}')">Save</button></td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function saveAdvSetting(key) {
+  const input = document.querySelector(`[data-adv-key="${key}"]`);
+  if (!input) return;
+  try {
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: input.value }),
+    });
+    showToast('Saved.', 'success');
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+// Wire up the advanced tab when it loads
+const __origLoadSettingsShell = typeof loadSettingsShell === 'function' ? loadSettingsShell : null;
 
 // ============================================
 // EXPORTS
@@ -5082,6 +5336,10 @@ window.FPU_ADMIN = {
     // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory, loadUserProfile, loadUsersWithPhotos,
   
+    // ... existing exports
+  loadSettingsShell, saveSettingsSection, loadAdvancedSettings, saveAdvSetting, loadDeployHistory, loadBackupHistory,
+  viewDeployLog, initSystemTab, initAccountTab, loadBankAccounts, runLibrarySweep, wireSettingsTabExtras,
+ 
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear
 };

@@ -4351,9 +4351,11 @@ async function loadLoginHistory() {
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
+  // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
-  toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo, fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal,
-  extractArray, badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
+  toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo, 
+  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, extractArray, 
+  badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
   
   // Dashboard
   initDashboard, loadDashboardStats, loadRecentActivity, loadAll,
@@ -4372,61 +4374,60 @@ window.FPU_ADMIN = {
   // Students
   loadStudentDepartments, loadDepartmentStudents, globalStudentSearch, bulkStudentAction,
 
-    // Sessions
+  // Sessions
   loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
 
-    // Programmes
+  // Programmes
   loadProgrammes, selectProgrammeDepartment, deleteProgramme,
 
-    // Schools
+  // Schools
   loadSchools, loadSchoolCards,
 
-    // Departments
+  // Departments
   loadDepartments, loadDepartmentCards,
 
-    // Allocations
+  // Allocations
   loadAllocationDepartments,
 
-    // Registrations
+  // Registrations
   loadRegistrationStudents,
 
-    // Results
+  // Results
   loadResultDepartments,
 
-    // Grade Scales
+  // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,
 
-    // Transcript
+  // Transcript
   loadTranscriptLookup,
 
-    // Timetable
+  // Timetable
   loadTimetableIndex, 
   
-    // Exams
+  // Exams
   loadExamsIndex,
 
-    // Attendance
+  // Attendance
   loadAttendanceDepartments,
 
-    // Staff, HODs, Lecturers
+  // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
 
-    // Fees, Payments, Clearances
+  // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,
   
-    // Communication
+  // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead, deleteNotification, loadComplaints,
   
   // Library
   loadBooksGrid, loadBorrowsTable,
 
-    // Records & System
+  // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable, loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
 
-    // Users
+  // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory,
   
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear
-
 };

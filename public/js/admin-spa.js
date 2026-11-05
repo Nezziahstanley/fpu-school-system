@@ -196,12 +196,6 @@
     'application-view': { url: '/admin/partials/applications/view.html',         title: 'Application',     init: () => {} },
     'admitted':         { url: '/admin/partials/applications/admitted.html',     title: 'Admitted',        init: call('loadAdmitted') },
 
-    'allocation-form': { 
-      title: 'New Allocation', 
-      file: 'allocations/form.html', 
-      // The form handles its own init in the inline <script> tag
-    },
-
     // ---------- Academics ----------
     'students':           { url: '/admin/partials/students/list.html',           title: 'Students',        init: call('loadStudentDepartments') },
     'students-by-dept':   { url: '/admin/partials/students/by-department.html',  title: 'Department',      init: call('loadDepartmentStudents') },

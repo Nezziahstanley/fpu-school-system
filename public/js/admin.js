@@ -4507,7 +4507,8 @@ window.FPU_ADMIN = {
   loadAllocationDepartments, loadDepartmentAllocations,
 
   // Registrations
-  loadRegistrationStudents,
+  loadRegistrationStudents, loadCourseRegistrations, approveAllPendingCourse,
+  approveRegistration, rejectRegistration,
 
   // Results
   loadResultDepartments,

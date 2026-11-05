@@ -4150,13 +4150,22 @@ async function prefillSettingsForm(section, container) {
 
 async function loadUsersHub() {
   try {
-    const [allRes, loginRes] = await Promise.all([
-      adminFetch('/api/admin/user-list?limit=2000'),
-      adminFetch('/api/admin/login-history?limit=100'),
+    // Fetch from all three working endpoints
+    const [staffRes, studentRes, adminRes, loginRes] = await Promise.all([
+      adminFetch('/api/admin/staff?limit=2000').catch(() => null),
+      adminFetch('/api/admin/students?limit=2000').catch(() => null),
+      adminFetch('/api/admin/users?limit=2000').catch(() => null),
+      adminFetch('/api/admin/login-history?limit=100').catch(() => null),
     ]);
-    const users = (await allRes.json()).data || [];
-    const logins = (await loginRes.json()).data || [];
 
+    let users = [];
+    if (staffRes && staffRes.ok) users = users.concat((await staffRes.json()).data || []);
+    if (studentRes && studentRes.ok) users = users.concat((await studentRes.json()).data || []);
+    if (adminRes && adminRes.ok) users = users.concat((await adminRes.json()).data || []);
+    
+    const logins = loginRes && loginRes.ok ? (await loginRes.json()).data || [] : [];
+
+    // Compute stats
     const students = users.filter((u) => u.role === 'student').length;
     const admins   = users.filter((u) => u.role === 'admin').length;
     const staff    = users.length - students - admins;
@@ -4168,6 +4177,7 @@ async function loadUsersHub() {
     setText('ujc-admins-count', admins + ' accounts');
     setText('ujc-logins-count', logins.length + ' recent');
 
+    // Get 5 most recent users
     const recent = [...users].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 5);
 
     const tbody = document.getElementById('us-recent-tbody');

@@ -7,12 +7,8 @@
     <p class="muted small">NDPR + internal policy checklist</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadCompliance()">
-      Refresh
-    </button>
-    <button class="btn btn-outline btn-sm" id="comp-export">
-      📥 Export Report
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadCompliance()">🔄 Refresh</button>
+    <button class="btn btn-outline btn-sm" id="comp-export">📥 Export Report</button>
   </div>
 </section>
 
@@ -34,11 +30,7 @@
   }
   .compliance-check.fail { border-left-color: #dc2626; background: #fef2f2; }
   .compliance-check.warn { border-left-color: #f59e0b; background: #fffbeb; }
-  .compliance-check .cc-icon {
-    font-size: 1.5rem;
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
+  .compliance-check .cc-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 2px; }
   .compliance-check .cc-body { flex: 1; min-width: 0; }
   .compliance-check .cc-title {
     font-family: 'Poppins', sans-serif;
@@ -95,7 +87,3 @@
     margin-top: 6px;
   }
 </style>
-
-<script>
-  // SPA init calls FPU_ADMIN.loadCompliance()
-</script>

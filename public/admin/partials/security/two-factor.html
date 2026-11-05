@@ -7,20 +7,13 @@
     <p class="muted small">Require 2FA for sensitive roles</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.load2FAConfig()">
-      Reset
-    </button>
-    <button class="btn btn-primary btn-sm" id="tfa-save">
-      💾 Save
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.load2FAConfig()">🔄 Reset</button>
+    <button class="btn btn-primary btn-sm" id="tfa-save">💾 Save</button>
   </div>
 </section>
 
 <div class="info-banner" style="max-width:none;">
-  <strong>ℹ️ How it works:</strong>
-  When enabled for a role, users in that role must set up a 2FA method
-  (authenticator app or SMS) at next login. Sessions will require a fresh
-  TOTP code on every new device.
+  <strong>ℹ️ How it works:</strong> When enabled for a role, users in that role must set up a 2FA method (authenticator app or SMS) at next login. Sessions will require a fresh TOTP code on every new device.
 </div>
 
 <div class="panel">
@@ -137,7 +130,3 @@
     line-height: 1.5;
   }
 </style>
-
-<script>
-  // SPA init calls FPU_ADMIN.load2FAConfig()
-</script>

@@ -7,12 +7,8 @@
     <p class="muted small">Backup status, history, and manual trigger</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBackups()">
-      Refresh
-    </button>
-    <button class="btn btn-primary btn-sm" id="bk-trigger">
-      💾 Trigger Backup Now
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBackups()">🔄 Refresh</button>
+    <button class="btn btn-primary btn-sm" id="bk-trigger">💾 Trigger Backup Now</button>
   </div>
 </section>
 
@@ -71,7 +67,3 @@
     </div>
   </div>
 </div>
-
-<script>
-  // SPA init calls FPU_ADMIN.loadBackups()
-</script>

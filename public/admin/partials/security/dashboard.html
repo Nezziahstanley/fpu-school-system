@@ -1,7 +1,5 @@
 <!-- ============================================================
      Admin → Security → Dashboard
-     ------------------------------------------------------------
-     Threat overview + recent activity + quick actions.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -9,25 +7,16 @@
     <p class="muted small">Monitor threats, sessions, and system access</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSecurityDashboard()">
-      Refresh
-    </button>
-    <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('security-export')">
-      📥 Export Report
-    </button>
-    <button class="btn btn-danger btn-sm" id="sec-lockdown">
-      🚨 Lockdown All Sessions
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSecurityDashboard()">🔄 Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.exportSecurityReport()">📥 Export Report</button>
+    <button class="btn btn-danger btn-sm" id="sec-lockdown">🚨 Lockdown All Sessions</button>
   </div>
 </section>
 
-<!-- Threat score banner -->
 <div id="sec-threat-banner" class="sec-threat-banner">
   <div class="loading"><span class="spinner"></span> Analysing threats…</div>
 </div>
 
-<!-- KPI tiles -->
 <div class="stat-grid">
   <div class="stat">
     <div class="meta"><span class="label">Active Sessions</span><span class="value" id="sec-kpi-sessions">—</span></div>
@@ -47,7 +36,6 @@
   </div>
 </div>
 
-<!-- Quick actions grid -->
 <div class="sec-actions-grid">
   <a class="sec-action-card" onclick="FPU_ADMIN_SPA.navigateTo('security-sessions')">
     <div class="sac-icon">🖥️</div>
@@ -98,26 +86,16 @@
   </a>
 </div>
 
-<!-- Recent events -->
 <div class="panel">
   <div class="panel-head">
     <h3>🔴 Recent Critical Events</h3>
-    <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('security-events')">
-      View all →
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('security-events')">View all →</button>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
       <table class="table-admin">
         <thead>
-          <tr>
-            <th>Event</th>
-            <th>Severity</th>
-            <th>User</th>
-            <th>IP</th>
-            <th style="width:160px;">Time</th>
-          </tr>
+          <tr><th>Event</th><th>Severity</th><th>User</th><th>IP</th><th style="width:160px;">Time</th></tr>
         </thead>
         <tbody id="sec-recent-events">
           <tr><td colspan="5" class="empty">Loading…</td></tr>
@@ -206,10 +184,7 @@
     box-shadow: 0 12px 28px rgba(15,23,42,0.10);
     border-color: rgba(6,95,70,0.3);
   }
-  .sac-icon {
-    font-size: 1.6rem;
-    margin-bottom: 4px;
-  }
+  .sac-icon { font-size: 1.6rem; margin-bottom: 4px; }
   .sec-action-card h3 {
     font-family: 'Poppins', sans-serif;
     font-size: 1rem;

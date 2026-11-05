@@ -4740,6 +4740,125 @@ async function bulkPublishCourseResults(courseId) {
 }
 
 // ============================================
+// RESULT DETAIL VIEW
+// ============================================
+async function loadResultDetail() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const id = params.get('id');
+
+  if (!id) {
+    const sub = document.getElementById('res-detail-subtitle');
+    if (sub) sub.textContent = 'No result ID provided.';
+    return;
+  }
+
+  try {
+    const res = await adminFetch(`/api/admin/results/${id}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    const r = json.data;
+    
+    // Fetch related student and course info
+    const [stuRes, courseRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${r.studentId}`),
+      adminFetch(`/api/admin/courses/${r.courseId}`)
+    ]);
+    
+    const stu = (await stuRes.json()).data || {};
+    const course = (await courseRes.json()).data || {};
+
+    const sub = document.getElementById('res-detail-subtitle');
+    if (sub) sub.textContent = `${stu.matricNumber || '—'} · ${course.code || '—'}`;
+
+    // 1. Student Panel
+    const studentPanel = document.getElementById('res-detail-student');
+    if (studentPanel) {
+      const initials = ((stu.firstName || ' ')[0] + (stu.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+      const avatar = stu.photoUrl ? `<img src="${escapeHtml(stu.photoUrl)}" alt="" />` : escapeHtml(initials);
+      studentPanel.innerHTML = `
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="width:64px; height:64px; border-radius:50%; background:#065f46; color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:bold; overflow:hidden;">
+            ${avatar}
+          </div>
+          <div>
+            <h4 style="margin:0 0 4px 0; font-size:16px;">${escapeHtml((stu.firstName || '') + ' ' + (stu.lastName || ''))}</h4>
+            <div class="small muted">${escapeHtml(stu.level || '')} · ${escapeHtml(stu.programmeName || stu.programme?.name || '—')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Course Panel
+    const coursePanel = document.getElementById('res-detail-course');
+    if (coursePanel) {
+      coursePanel.innerHTML = `
+        <div class="field-row"><div class="k">Code</div><div class="v"><code>${escapeHtml(course.code || '')}</code></div></div>
+        <div class="field-row"><div class="k">Title</div><div class="v">${escapeHtml(course.title || '')}</div></div>
+        <div class="field-row"><div class="k">Credit Units</div><div class="v">${Number(course.unit) || 0}</div></div>
+        <div class="field-row"><div class="k">Level</div><div class="v">${badge(course.level)}</div></div>
+      `;
+    }
+
+    // 3. Score & Grade Panel
+    const scorePanel = document.getElementById('res-detail-score');
+    if (scorePanel) {
+      const isFail = String(r.grade || '').toUpperCase() === 'F';
+      scorePanel.innerHTML = `
+        <div class="score-display">
+          <div class="num ${isFail ? 'fail' : ''}">${r.score}<span class="max">/ 100</span></div>
+          <div class="grade-badge ${r.grade}">${escapeHtml(r.grade || '—')}</div>
+        </div>
+      `;
+    }
+
+    // 4. Workflow Panel
+    const workflowPanel = document.getElementById('res-detail-workflow');
+    if (workflowPanel) {
+      const steps = [
+        { label: 'Score Entered', status: 'done', date: r.createdAt },
+        { label: 'Submitted', status: 'done', date: r.submittedAt || r.createdAt },
+        { label: 'HOD Verified', status: 'done', date: r.hodVerifiedAt || r.createdAt },
+        { label: 'Admin Approved', status: r.status === 'approved' || r.status === 'published' ? 'done' : (r.status === 'admin_rejected' ? 'rejected' : 'current'), date: r.approvedAt },
+        { label: 'Published', status: r.status === 'published' ? 'done' : 'pending', date: r.publishedAt }
+      ];
+
+      workflowPanel.innerHTML = steps.map(s => `
+        <div class="workflow-step ${s.status}">
+          <div class="dot">${s.status === 'done' ? '✓' : s.status === 'rejected' ? '✕' : ''}</div>
+          <div class="info">
+            <strong>${escapeHtml(s.label)}</strong>
+            ${s.date ? `<small>${fmtDateTime(s.date)}</small>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 5. Actions Panel
+    const actionsPanel = document.getElementById('res-detail-actions');
+    if (actionsPanel) {
+      actionsPanel.innerHTML = `
+        ${r.status === 'hod_verified' ? `
+          <button class="btn btn-primary" onclick="FPU_ADMIN.approveResult(${r.id})">Approve</button>
+          <button class="btn btn-ghost" onclick="FPU_ADMIN.rejectResult(${r.id})">Reject</button>
+        ` : ''}
+        ${r.status === 'approved' ? `
+          <button class="btn btn-accent" onclick="FPU_ADMIN.publishResult(${r.id})">Publish</button>
+        ` : ''}
+        <button class="btn btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('result-edit', { id: ${r.id} })">Edit Score</button>
+      `;
+    }
+
+  } catch (err) {
+    const sub = document.getElementById('res-detail-subtitle');
+    if (sub) sub.textContent = `Error: ${err.message}`;
+    const studentPanel = document.getElementById('res-detail-student');
+    if (studentPanel) studentPanel.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
@@ -4786,7 +4905,7 @@ window.FPU_ADMIN = {
   approveRegistration, rejectRegistration,
 
   // Results
-  loadResultDepartments, loadDepartmentResults, 
+  loadResultDepartments, loadDepartmentResults, loadResultDetail, 
   approveResult, rejectResult, publishResult,
   bulkApproveResults, bulkRejectResults, bulkPublishResults,
   bulkApproveCourseResults, bulkPublishCourseResults,

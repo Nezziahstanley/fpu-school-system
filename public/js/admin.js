@@ -5409,303 +5409,91 @@ const __origLoadSettingsShell = typeof loadSettingsShell === 'function' ? loadSe
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
-  // ==========================================
   // Core Helpers
-  // ==========================================
-  adminFetch,
-  setAdminSession,
-  clearAdminSession,
-  getAdminToken,
-  getAdminUser,
-  requireAdminAuth,
-  toast: showToast,
-  showToast,
-  escapeHtml,
-  escapeQuotes,
-  capitalize,
-  getInitials,
-  timeAgo,
-  fmtDate,
-  fmtDateTime,
-  money,
-  setText,
-  copyToClipboard,
-  openModal,
-  extractArray,
-  badge,
-  roleBadge,
-  statusPill,
-  promptReason,
-  exportTableAsCSV,
+  adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
+  toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo,
+  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, extractArray,
+  badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
 
-  // ==========================================
   // Dashboard
-  // ==========================================
-  initDashboard,
-  loadDashboardStats,
-  loadRecentActivity,
-  loadAll,
-  loadStats,
-  loadTopDepartments,
-  loadPendingApprovals,
-  loadStudentsByDept,
-  loadStudentsByProgramme,
-  loadStudentsByLevel,
-  loadStudentGender,
-  loadAdmissionTrend,
-  loadApplicationStatus,
-  loadPopulationTrend,
-  loadPaymentStatus,
-  loadRevenueTrend,
-  loadRegistrationStats,
-  loadDeptComparison,
-  loadResultsStats,
-  loadRecentStudents,
-  loadRecentPayments,
-  loadRecentApplications,
-  loadRecentRegistrations,
-  loadRecentResults,
-  loadRecentNotifications,
-  loadUpcomingEvents,
-  loadRecentLogins,
+  initDashboard, loadDashboardStats, loadRecentActivity, loadAll,
+  loadStats, loadTopDepartments, loadPendingApprovals,
+  loadStudentsByDept, loadStudentsByProgramme, loadStudentsByLevel, loadStudentGender,
+  loadAdmissionTrend, loadApplicationStatus, loadPopulationTrend, loadPaymentStatus,
+  loadRevenueTrend, loadRegistrationStats, loadDeptComparison, loadResultsStats,
+  loadRecentStudents, loadRecentPayments, loadRecentApplications, loadRecentRegistrations,
+  loadRecentResults, loadRecentNotifications, loadUpcomingEvents, loadRecentLogins,
 
-  // ==========================================
   // Applications
-  // ==========================================
-  loadApplications,
-  loadAdmitted,
-  registerAdmitted,
-  bulkApplicationAction,
-  approveApplication,
-  rejectApplication,
-  registerApplication,
-  updateApplicationStats,
-  updateAdmittedStats,
-  bulkRegisterAdmitted,
+  loadApplications, loadAdmitted, registerAdmitted, bulkApplicationAction,
+  approveApplication, rejectApplication, registerApplication,
+  updateApplicationStats, updateAdmittedStats, bulkRegisterAdmitted,
 
-  // ==========================================
   // Students
-  // ==========================================
-  loadStudentDepartments,
-  loadDepartmentStudents,
-  globalStudentSearch,
-  bulkStudentAction,
+  loadStudentDepartments, loadDepartmentStudents, globalStudentSearch, bulkStudentAction,
 
-  // ==========================================
   // Sessions
-  // ==========================================
-  loadSessions,
-  setCurrentSession,
-  deleteSession,
-  autoCreateNextSession,
+  loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
 
-  // ==========================================
   // Programmes
-  // ==========================================
-  loadProgrammes,
-  selectProgrammeDepartment,
-  deleteProgramme,
+  loadProgrammes, selectProgrammeDepartment, deleteProgramme,
 
-  // ==========================================
   // Schools
-  // ==========================================
-  loadSchools,
-  loadSchoolCards,
+  loadSchools, loadSchoolCards,
 
-  // ==========================================
   // Departments
-  // ==========================================
-  loadDepartments,
-  loadDepartmentCards,
+  loadDepartments, loadDepartmentCards,
 
-  // ==========================================
   // Allocations
-  // ==========================================
-  loadAllocationDepartments,
-  loadDepartmentAllocations,
+  loadAllocationDepartments, loadDepartmentAllocations,
 
-  // ==========================================
   // Registrations
-  // ==========================================
   loadRegistrationStudents,
-  loadCourseRegistrations,
-  approveAllPendingCourse,
-  approveRegistration,
-  rejectRegistration,
 
-  // ==========================================
   // Results
-  // ==========================================
   loadResultDepartments,
-  loadDepartmentResults,
-  loadResultDetail,
-  approveResult,
-  rejectResult,
-  publishResult,
-  bulkApproveResults,
-  bulkRejectResults,
-  bulkPublishResults,
-  bulkApproveCourseResults,
-  bulkPublishCourseResults,
 
-  // ==========================================
   // Grade Scales
-  // ==========================================
-  loadGradeScales,
-  openEditGradeScale,
-  toggleGradeScale,
-  deleteGradeScale,
+  loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,
 
-  // ==========================================
   // Transcript
-  // ==========================================
   loadTranscriptLookup,
-  loadStudentTranscript,
 
-  // ==========================================
   // Timetable
-  // ==========================================
   loadTimetableIndex,
-  loadTimetable,
-  loadTimetableSheet,
 
-  // ==========================================
   // Exams
-  // ==========================================
   loadExamsIndex,
-  loadExams,
-  loadExamSheet,
 
-  // ==========================================
   // Attendance
-  // ==========================================
   loadAttendanceDepartments,
-  loadDepartmentAttendance,
-  loadCourseAttendance,
-  loadStudentCourseAttendance,
-  deleteAttendance,
 
-  // ==========================================
   // Staff, HODs, Lecturers
-  // ==========================================
-  loadStaffDirectory,
-  loadHodBoard,
-  loadLecturerGrid,
-  assignHodDept,
-  loadStaffProfile,
-  loadStaffWorkload,
+  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
 
-  // ==========================================
   // Fees, Payments, Clearances
-  // ==========================================
-  loadFeeDepartments,
-  loadDepartmentFees,
-  loadPaymentDepartments,
-  loadDepartmentPayments,
-  loadStudentPayments,
-  loadPaymentDetail,
-  verifyPayment,
-  rejectPayment,
-  loadClearanceDepartments,
-  loadDepartmentClearances,
-  createClearance,
-  clearClearance,
-  rejectClearance,
-  bulkClearClearances,
-  bulkRejectClearances,
+  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,
 
-  // ==========================================
   // Communication
-  // ==========================================
-  loadAnnouncements,
-  deleteAnnouncement,
-  loadNotifications,
-  markNotificationRead,
-  deleteNotification,
-  loadComplaints,
+  loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
+  deleteNotification, loadComplaints,
 
-  // ==========================================
   // Library
-  // ==========================================
-  loadBooksGrid,
-  loadBookDetail,
-  loadBorrowsTable,
-  returnBorrow,
-  markBorrowLost,
-  loadFinesTable,
-  payFine,
-  deleteFine,
-  loadReservationsTable,
-  markReservationReady,
-  fulfillReservation,
-  cancelReservation,
+  loadBooksGrid, loadBorrowsTable,
 
-  // ==========================================
   // Records & System
-  // ==========================================
-  loadDocumentsTable,
-  loadDocumentDetail,
-  approveDoc,
-  rejectDoc,
-  issueDoc,
-  loadGraduationsTable,
-  approveGraduation,
-  rejectGraduation,
-  markGraduated,
-  loadReportsWithCharts,
-  loadAuditTable,
-  loadSecurityDashboard,
-  loadSecurityEvents,
-  loadSecuritySessions,
-  revokeSession,
-  loadLoginAttempts,
-  loadIpRules,
-  deleteIpRule,
-  loadPasswordPolicy,
-  loadPermissionsMatrix,
-  load2FAConfig,
-  loadBackups,
-  loadCompliance,
+  loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
+  loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
 
-  // ==========================================
   // Users
-  // ==========================================
-  loadUsersHub,
-  loadAllUsers,
-  loadAdminAccounts,
-  resetAdminPwd,
-  toggleAdminActive,
-  loadLoginHistory,
-  loadUserProfile,
-  loadUsersWithPhotos,
+  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,
+  loadLoginHistory, loadUserProfile, loadUsersWithPhotos,
 
-  // ==========================================
-  // Settings — Core
-  // ==========================================
-  loadSettingsShell,
-  saveSettingsSection,
-  prefillSettingsForm,
-  loadAdvancedSettings,
-  saveAdvSetting,
-  wireSettingsTabExtras,
+  // Settings
+  saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,
+  loadBankAccounts, addBankAccount, saveBankAccount, deleteBankAccount,
+  runLibrarySweep, sendTestEmail, sendTestSMS, initAccountTab, initSystemTab,
 
-  // ==========================================
-  // Settings — Tab Extras
-  // ==========================================
-  loadBankAccounts,
-  addBankAccount,
-  saveBankAccount,
-  deleteBankAccount,
-  runLibrarySweep,
-  sendTestEmail,
-  sendTestSMS,
-  initAccountTab,
-  initSystemTab,
-
-  // ==========================================
   // Courses
-  // ==========================================
-  loadCourseDepartments,
-  loadDepartmentCourses,
-  inferCourseYear,
+  loadCourseDepartments, loadDepartmentCourses, inferCourseYear,
 };

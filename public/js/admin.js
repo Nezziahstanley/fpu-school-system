@@ -2454,6 +2454,150 @@ async function loadProgrammes() {
   } catch (err) {
     container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
   }
+}async function loadProgrammes() {
+  const container = document.getElementById("programmes-tbody");
+  if (!container) return;
+
+  // Read filters
+  const level = (document.getElementById("prog-filter-level") || {}).value || "";
+  const departmentId = (document.getElementById("prog-filter-dept") || {}).value || "";
+  const search = (document.getElementById("prog-filter-search") || {}).value || "";
+
+  const qs = new URLSearchParams();
+  if (level) qs.set("level", level);
+  if (departmentId) qs.set("departmentId", departmentId);
+  if (search) qs.set("search", search);
+
+  container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+
+  try {
+    // Fetch programmes AND departments in parallel (to resolve department names)
+    const [progRes, deptRes, studentsRes] = await Promise.all([
+      adminFetch(`/api/admin/programmes?${qs}`),
+      adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/students?limit=5000').catch(() => null),
+    ]);
+
+    const progJson = await progRes.json();
+    const deptJson = await deptRes.json();
+    const progs = progJson.data || [];
+    const depts = deptJson.data || [];
+
+    const deptById = new Map(depts.map(d => [Number(d.id), d]));
+
+    // Compute student counts per programme (optional)
+    let studentCounts = {};
+    if (studentsRes) {
+      try {
+        const stuJson = await studentsRes.json();
+        const students = stuJson.data || [];
+        students.forEach(s => {
+          if (s.programmeId) {
+            studentCounts[s.programmeId] = (studentCounts[s.programmeId] || 0) + 1;
+          }
+        });
+      } catch (e) { /* ignore */ }
+    }
+
+    // Stats
+    const nd = progs.filter(p => String(p.level || '').toUpperCase() === 'ND').length;
+    const hnd = progs.filter(p => String(p.level || '').toUpperCase() === 'HND').length;
+    const cert = progs.filter(p => String(p.level || '').toUpperCase() === 'CERT').length;
+
+    setText('prog-stat-total', progs.length);
+    setText('prog-stat-nd', nd);
+    setText('prog-stat-hnd', hnd);
+    setText('prog-stat-cert', cert);
+    setText('prog-count', `Showing ${progs.length} programme${progs.length === 1 ? '' : 's'}`);
+
+    if (!progs.length) {
+      container.innerHTML = '<tr><td colspan="7" class="empty">No programmes match your filters.</td></tr>';
+      return;
+    }
+
+    // Sort by department → code
+    progs.sort((a, b) => {
+      const da = deptById.get(Number(a.departmentId));
+      const db = deptById.get(Number(b.departmentId));
+      const dNameA = da ? da.name : '';
+      const dNameB = db ? db.name : '';
+      if (dNameA !== dNameB) return dNameA.localeCompare(dNameB);
+      return String(a.code || '').localeCompare(String(b.code || ''));
+    });
+
+    // Render rows
+    container.innerHTML = progs.map((p) => {
+      const dept = deptById.get(Number(p.departmentId));
+      const deptName = dept ? dept.name : (p.departmentName || '—');
+      const deptCode = dept ? dept.code : '';
+      const levelCls = String(p.level || 'ND').toUpperCase() === 'HND'
+        ? 'hnd'
+        : String(p.level || 'ND').toUpperCase() === 'CERT'
+          ? 'cert'
+          : 'nd';
+
+      const duration = p.durationYears || p.duration || 2;
+      const studentCount = studentCounts[p.id] || 0;
+
+      return `
+        <tr>
+          <td><code>${escapeHtml(p.code || '—')}</code></td>
+          <td>
+            <strong>${escapeHtml(p.name || '—')}</strong>
+          </td>
+          <td>
+            <span class="badge badge-${levelCls === 'hnd' ? 'warning' : levelCls === 'cert' ? 'success' : 'info'}">
+              ${escapeHtml(String(p.level || 'ND').toUpperCase())}
+            </span>
+          </td>
+          <td>
+            <div style="font-size:13px;color:#0f172a;font-weight:600;">${escapeHtml(deptName)}</div>
+            ${deptCode ? `<div style="font-size:11px;color:#94a3b8;">${escapeHtml(deptCode)}</div>` : ''}
+          </td>
+          <td class="small muted">${duration} yr${duration === 1 ? '' : 's'}</td>
+          <td class="num" style="text-align:center;">
+            ${studentCount > 0
+              ? `<span style="font-weight:700;color:#065f46;">${studentCount}</span>`
+              : '<span style="color:#cbd5e1;">0</span>'}
+          </td>
+          <td>
+            <div class="row-actions" style="justify-content:flex-end;">
+              <button class="btn btn-sm btn-outline"
+                onclick="FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { id: ${p.id} })">
+                ✏️ Edit
+              </button>
+              <button class="btn btn-sm btn-ghost" style="color:#dc2626;"
+                onclick="FPU_ADMIN.deleteProgramme(${p.id}, '${escapeQuotes(p.name)}')">
+                🗑 Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function deleteProgramme(id, name) {
+  // Warn about student count first
+  const ok = await window.fpuConfirm(
+    `Delete programme "${name}"?\n\nThis cannot be undone. If students are currently enrolled, the delete will fail — you'll need to transfer them first.`,
+    {
+      title: 'Delete Programme?',
+      type: 'danger',
+      okText: 'Delete Permanently',
+    }
+  );
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/programmes/${id}`, { method: 'DELETE' });
+    showToast('✅ Programme deleted.', 'success');
+    loadProgrammes();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
 }
 
 // ============================================
@@ -10644,7 +10788,7 @@ window.FPU_ADMIN = {
 
   // sessions
   loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
-  
+
   // academics
   loadProgrammes, loadSchools, loadSchoolCards,
   loadDepartments, loadDepartmentCards,

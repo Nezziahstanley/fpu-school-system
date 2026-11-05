@@ -4707,6 +4707,57 @@ async function loadUserProfile() {
 }
 
 // ============================================
+// USERS WITH PHOTOS (Photo Directory)
+// ============================================
+async function loadUsersWithPhotos() {
+  const container = document.getElementById('photos-grid');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading directory…</div>';
+
+  try {
+    // Fetch from all 3 working endpoints
+    const [staffRes, studentRes, adminRes] = await Promise.all([
+      adminFetch('/api/admin/staff?limit=500').catch(() => null),
+      adminFetch('/api/admin/students?limit=500').catch(() => null),
+      adminFetch('/api/admin/users?limit=500').catch(() => null),
+    ]);
+
+    let users = [];
+    if (staffRes && staffRes.ok) users = users.concat((await staffRes.json()).data || []);
+    if (studentRes && studentRes.ok) users = users.concat((await studentRes.json()).data || []);
+    if (adminRes && adminRes.ok) users = users.concat((await adminRes.json()).data || []);
+
+    // Remove duplicates by id just in case
+    const uniqueUsers = Array.from(new Map(users.map(u => [u.id, u])).values());
+
+    if (!uniqueUsers.length) {
+      container.innerHTML = '<p class="muted" style="padding:20px;">No users found.</p>';
+      return;
+    }
+
+    // Render the grid
+    container.innerHTML = uniqueUsers.map((u) => {
+      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown';
+      const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+      
+      return `
+        <div class="person" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })" style="cursor:pointer;">
+          <div class="photo">
+            ${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}
+          </div>
+          <h4>${escapeHtml(fullName)}</h4>
+          <div class="role">${escapeHtml(String(u.role || '').replace(/_/g, ' '))}</div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    container.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
@@ -4784,8 +4835,8 @@ window.FPU_ADMIN = {
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable, loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
 
-  // Users
-  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory, loadUserProfile,
+    // Users
+  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory, loadUserProfile, loadUsersWithPhotos,
   
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear

@@ -4187,6 +4187,9 @@ async function loadUsersHub() {
   }
 }
 
+// ============================================
+// ALL USERS (Flat, searchable, filterable table)
+// ============================================
 async function loadAllUsers() {
   const tbody = document.getElementById('au-tbody');
   const countEl = document.getElementById('au-count');
@@ -4211,6 +4214,7 @@ async function loadAllUsers() {
     const json = await res.json();
     const users = json.data || [];
 
+    // Update Stats
     const activeCount = users.filter((u) => u.isActive !== false).length;
     setText('au-stat-total', users.length);
     setText('au-stat-active', activeCount);
@@ -4220,13 +4224,15 @@ async function loadAllUsers() {
     if (countEl) countEl.textContent = `Showing ${users.length} user${users.length === 1 ? '' : 's'}`;
 
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found matching your filters.</td></tr>';
       return;
     }
 
+    // Render table rows (with pagination fallback)
     if (window.FPU_PAGINATE && typeof window.FPU_PAGINATE.mount === 'function') {
       window.FPU_PAGINATE.mount(tbody, users, {
-        pageSize: 25, renderRow: (u) => `
+        pageSize: 25,
+        renderRow: (u) => `
           <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
             <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
             <td>${escapeHtml(u.email || '')}</td>
@@ -4253,7 +4259,7 @@ async function loadAllUsers() {
       `).join('');
     }
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

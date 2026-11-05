@@ -4099,6 +4099,10 @@ async function loadSettingsShell() {
         });
       }
       prefillSettingsForm(tab, content);
+      // Wire tab-specific extras (bank accounts, library sweep, etc.)
+      if (typeof wireSettingsTabExtras === 'function') {
+        wireSettingsTabExtras(tab);
+      }
     } catch (err) {
       content.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
     }
@@ -4755,6 +4759,246 @@ async function loadUsersWithPhotos() {
   } catch (err) {
     container.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// SETTINGS — Additional Loaders
+// ============================================
+
+// Bank Accounts (for Finance tab)
+async function loadBankAccounts() {
+  const listEl = document.getElementById("bank-accounts-list");
+  const addBtn = document.getElementById("bank-add-btn");
+  if (!listEl) return;
+
+  listEl.innerHTML = "Loading…";
+  try {
+    const res = await adminFetch("/api/admin/settings?category=bank");
+    const json = await res.json();
+    const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="muted">No bank accounts yet.</p>';
+    } else {
+      listEl.innerHTML = "";
+      rows.forEach((row, idx) => {
+        let bank = {};
+        try { bank = JSON.parse(row.value); } catch (e) {}
+        const div = document.createElement("div");
+        div.style.cssText = "margin-bottom:10px; padding:12px; border:1px solid #e5e7eb; border-radius:8px;";
+        div.innerHTML = `
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">Bank</label><input class="form-control" data-bank="${idx}" value="${escapeHtml(bank.bank || '')}" /></div>
+            <div class="form-group"><label class="form-label">Account Name</label><input class="form-control" data-bankname="${idx}" value="${escapeHtml(bank.accountName || '')}" /></div>
+            <div class="form-group"><label class="form-label">Account Number</label><input class="form-control" data-banknum="${idx}" value="${escapeHtml(bank.accountNumber || '')}" /></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-sm btn-primary" data-save="${row.key}" data-idx="${idx}">Save</button>
+            <button type="button" class="btn btn-sm btn-ghost" data-del="${row.key}">Delete</button>
+          </div>`;
+        listEl.appendChild(div);
+      });
+
+      listEl.querySelectorAll("[data-save]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const key = btn.dataset.save;
+          const idx = btn.dataset.idx;
+          const bankVal = listEl.querySelector(`[data-bank="${idx}"]`).value;
+          const nameVal = listEl.querySelector(`[data-bankname="${idx}"]`).value;
+          const numVal = listEl.querySelector(`[data-banknum="${idx}"]`).value;
+          try {
+            await adminFetch(`/api/admin/settings/${key}`, {
+              method: "PUT",
+              body: JSON.stringify({ value: JSON.stringify({ bank: bankVal, accountName: nameVal, accountNumber: numVal }), category: "bank" })
+            });
+            showToast("Bank saved.", "success");
+          } catch (e) { showToast("❌ " + e.message, "error"); }
+        });
+      });
+
+      listEl.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Delete this bank account?")) return;
+          try {
+            await adminFetch(`/api/admin/settings/${btn.dataset.del}`, { method: "DELETE" });
+            showToast("Deleted.", "success");
+            loadBankAccounts();
+          } catch (e) { showToast("❌ " + e.message, "error"); }
+        });
+      });
+    }
+
+    if (addBtn && !addBtn.__bound) {
+      addBtn.__bound = true;
+      addBtn.addEventListener("click", async () => {
+        const res = await adminFetch("/api/admin/settings?category=bank");
+        const json = await res.json();
+        const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
+        const nextIdx = rows.length + 1;
+        const key = "bank_account_" + nextIdx;
+        await adminFetch(`/api/admin/settings/${key}`, {
+          method: "PUT",
+          body: JSON.stringify({ value: JSON.stringify({ bank: "", accountName: "", accountNumber: "" }), category: "bank" })
+        });
+        loadBankAccounts();
+      });
+    }
+  } catch (e) {
+    listEl.innerHTML = '<div class="alert alert-danger">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+// Library overdue sweep (for Library tab)
+async function runLibrarySweep() {
+  const btn = document.getElementById('library-sweep-btn');
+  if (!btn || btn.__bound) return;
+  btn.__bound = true;
+  btn.addEventListener('click', async () => {
+    const result = document.getElementById('library-sweep-result');
+    if (!confirm('Run the overdue sweep now?')) return;
+    result.innerHTML = '<div class="loading"><span class="spinner"></span> Sweeping…</div>';
+    try {
+      const res = await adminFetch('/api/admin/library/sweep-overdue', { method: 'POST' });
+      const json = await res.json();
+      result.innerHTML = `<div class="alert alert-success">✅ Swept ${json.count || 0} overdue borrow(s).</div>`;
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
+// Maintenance IPs helper
+async function loadMaintenanceInfo() {
+  const mode = document.querySelector('input[name="maintenance_mode"]');
+  if (mode && !mode.__bound) {
+    mode.__bound = true;
+  }
+}
+
+// My Account (for Account tab)
+function initAccountTab() {
+  const A = window.FPU_ADMIN;
+  const preview = document.getElementById('acc-photo-preview');
+  const user = A.getAdminUser() || {};
+  const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'A';
+  if (preview) {
+    if (user.photoUrl) preview.innerHTML = '<img src="' + A.escapeHtml(user.photoUrl) + '" alt="" />';
+    else preview.textContent = initials;
+  }
+
+  const pick = document.getElementById('acc-photo-pick');
+  const file = document.getElementById('acc-photo-file');
+  if (pick && !pick.__bound) {
+    pick.__bound = true;
+    pick.onclick = () => file.click();
+  }
+  if (file && !file.__bound) {
+    file.__bound = true;
+    file.onchange = async (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      if (!/^image\//.test(f.type)) { A.showToast('Only images allowed.', 'warning'); return; }
+      if (f.size > 5 * 1024 * 1024) { A.showToast('Max 5 MB.', 'warning'); return; }
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(f);
+      });
+      try {
+        const res = await A.adminFetch('/api/portal/avatar-upload', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        if (preview) preview.innerHTML = '<img src="' + A.escapeHtml(json.url) + '" alt="" />';
+        const u = A.getAdminUser() || {};
+        u.photoUrl = json.url;
+        localStorage.setItem('fpu_admin_user', JSON.stringify(u));
+        const topAvatar = document.getElementById('topbar-avatar');
+        if (topAvatar) topAvatar.innerHTML = '<img src="' + A.escapeHtml(json.url) + '" alt="" />';
+        A.showToast('Photo updated.', 'success');
+      } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+    };
+  }
+
+  const pwdForm = document.getElementById('acc-pwd-form');
+  if (pwdForm && !pwdForm.__bound) {
+    pwdForm.__bound = true;
+    pwdForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const valEl = document.getElementById('acc-pwd-validation');
+      if (valEl) valEl.innerHTML = '';
+      const fd = new FormData(e.target);
+      try {
+        const res = await A.adminFetch('/api/portal/change-password', { method: 'POST', body: JSON.stringify(Object.fromEntries(fd)) });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        A.showToast('Password updated.', 'success');
+        e.target.reset();
+      } catch (err) {
+        if (valEl) valEl.innerHTML = '<div class="alert alert-error">❌ ' + A.escapeHtml(err.message) + '</div>';
+      }
+    };
+  }
+}
+
+// System tab (backup, version)
+async function initSystemTab() {
+  const A = window.FPU_ADMIN;
+  try {
+    const res = await A.adminFetch('/api/health');
+    const j = await res.json();
+    setText('sys-name', j.app || 'FPU School Management System');
+    setText('sys-env', j.env || 'production');
+    setText('sys-node', 'server');
+    setText('sys-version', j.version || '1.0.0');
+  } catch (e) {}
+
+  const tbody = document.getElementById('sys-backup-tbody');
+  const loadBackups = async () => {
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await A.adminFetch('/api/admin/security/backups');
+      const j = await res.json();
+      const rows = j.data || [];
+      tbody.innerHTML = rows.length ? rows.map((b) => `
+        <tr>
+          <td>${A.escapeHtml(b.kind || 'full')}</td>
+          <td>${A.badge(b.status)}</td>
+          <td>${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
+          <td class="small muted">${A.fmtDateTime(b.startedAt)}</td>
+          <td class="small muted">${b.completedAt ? A.fmtDateTime(b.completedAt) : '—'}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="empty">No backups yet.</td></tr>';
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty">${A.escapeHtml(e.message)}</td></tr>`;
+    }
+  };
+
+  const nowBtn = document.getElementById('sys-backup-now');
+  if (nowBtn && !nowBtn.__bound) {
+    nowBtn.__bound = true;
+    nowBtn.onclick = async () => {
+      if (!confirm('Trigger a backup now?')) return;
+      try {
+        await A.adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
+        A.showToast('Backup completed.', 'success');
+        loadBackups();
+      } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+    };
+  }
+  const refreshBtn = document.getElementById('sys-backup-refresh');
+  if (refreshBtn && !refreshBtn.__bound) {
+    refreshBtn.__bound = true;
+    refreshBtn.onclick = loadBackups;
+  }
+  loadBackups();
+}
+
+// Wire the settings-specific tab extras after loadSettingsShell populates a tab
+function wireSettingsTabExtras(tab) {
+  if (tab === 'finance') setTimeout(loadBankAccounts, 100);
+  if (tab === 'library') setTimeout(runLibrarySweep, 100);
+  if (tab === 'account') setTimeout(initAccountTab, 100);
+  if (tab === 'system') setTimeout(initSystemTab, 100);
 }
 
 // ============================================

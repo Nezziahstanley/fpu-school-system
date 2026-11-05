@@ -1,20 +1,20 @@
-<div class="panel">
-  <div class="panel-head"><h3>Institution Logo</h3></div>
-  <div class="panel-body">
-    <div class="admin-avatar-uploader" id="institution-logo-uploader">
-      <input type="file" id="institution-logo-file" accept="image/*" style="display:none" />
-      <div class="avatar-preview" id="institution-logo-preview" style="border-radius:14px;">🏛️</div>
-      <p class="upload-hint"><strong>Click to upload school logo</strong><br/>PNG or JPG &middot; Max 2 MB</p>
-    </div>
-    <input type="hidden" id="institution-logo-data" />
-    <div class="form-group" style="margin-top:12px;">
-      <label class="form-label">Or paste a logo URL</label>
-      <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
+<form class="settings-form" data-settings-section="institution" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+  <div class="panel">
+    <div class="panel-head"><h3>Institution Logo</h3></div>
+    <div class="panel-body">
+      <div class="admin-avatar-uploader" id="institution-logo-uploader">
+        <input type="file" id="institution-logo-file" accept="image/*" style="display:none" />
+        <div class="avatar-preview" id="institution-logo-preview" style="border-radius:14px;">🏛️</div>
+        <p class="upload-hint"><strong>Click to upload school logo</strong><br/>PNG or JPG &middot; Max 2 MB</p>
+      </div>
+      <input type="hidden" id="institution-logo-data" />
+      <div class="form-group" style="margin-top:12px;">
+        <label class="form-label">Or paste a logo URL</label>
+        <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
+      </div>
     </div>
   </div>
-</div>
-<!-- Settings tab: Institution -->
-<form class="settings-form" data-settings-section="institution" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
+
   <div class="panel">
     <div class="panel-head"><h3>Identity</h3></div>
     <div class="panel-body">

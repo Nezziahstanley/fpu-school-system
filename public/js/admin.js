@@ -4348,6 +4348,123 @@ async function loadLoginHistory() {
 }
 
 // ============================================
+// ALLOCATIONS (Drill-down by Department)
+// ============================================
+async function loadDepartmentAllocations() {
+  const grid = document.getElementById('abd-lecturer-grid');
+  if (!grid) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const departmentId = params.get('departmentId') || '';
+  const deptName = params.get('name') || 'Department';
+
+  const titleEl = document.getElementById('alloc-dept-title');
+  const subEl = document.getElementById('alloc-dept-subtitle');
+  if (titleEl) titleEl.textContent = deptName;
+  if (subEl) subEl.textContent = `Allocations for ${deptName}`;
+
+  if (!departmentId) {
+    grid.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
+    return;
+  }
+
+  grid.innerHTML = '<div class="loading"><span class="spinner"></span> Loading allocations…</div>';
+
+  try {
+    const [allocsRes, deptRes] = await Promise.all([
+      adminFetch(`/api/admin/allocations?limit=2000`), // Fetch all to be safe
+      adminFetch(`/api/admin/departments/${departmentId}`),
+    ]);
+
+    const allocs = (await allocsRes.json()).data || [];
+    const dept = (await deptRes.json()).data;
+
+    if (dept?.name && titleEl) titleEl.textContent = dept.name;
+
+    // Filter to this department
+    const inDept = allocs.filter((a) => Number(a.course?.departmentId) === Number(departmentId));
+
+    const byLecturer = new Map();
+    for (const a of inDept) {
+      const l = a.lecturer || {};
+      const key = l.id || 0;
+      if (!byLecturer.has(key)) {
+        byLecturer.set(key, { lecturer: l, allocs: [] });
+      }
+      byLecturer.get(key).allocs.push(a);
+    }
+
+    let totalUnits = 0;
+    let totalCourses = new Set();
+    byLecturer.forEach((b) => {
+      b.allocs.forEach((a) => {
+        totalUnits += Number(a.course?.unit) || 0;
+        if (a.course?.id) totalCourses.add(a.course.id);
+      });
+    });
+
+    setText('abd-stat-total', inDept.length);
+    setText('abd-stat-lecturers', byLecturer.size);
+    setText('abd-stat-units', totalUnits);
+    setText('abd-stat-courses', totalCourses.size);
+
+    if (!byLecturer.size) {
+      grid.innerHTML = '<div class="empty-lect">No allocations in this department.</div>';
+      return;
+    }
+
+    grid.innerHTML = [...byLecturer.values()].map(({ lecturer, allocs: list }) => {
+      const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim() || `Lecturer #${lecturer.id}`;
+      const initials = ((lecturer.firstName || ' ')[0] + (lecturer.lastName || ' ')[0]).toUpperCase().trim() || 'L';
+      const avatar = lecturer.photoUrl ? `<img src="${escapeHtml(lecturer.photoUrl)}" alt="" />` : escapeHtml(initials);
+      const units = list.reduce((s, a) => s + (Number(a.course?.unit) || 0), 0);
+
+      return `
+        <div class="lect-card">
+          <div class="lect-card-head">
+            <div class="lect-avatar">${avatar}</div>
+            <div class="lect-info">
+              <strong>${escapeHtml(fullName)}</strong>
+              <div class="sub">${escapeHtml(lecturer.email || '')}</div>
+            </div>
+            <div class="lect-meta">
+              <span class="lect-badge"><strong>${list.length}</strong> courses</span>
+              <span class="lect-badge"><strong>${units}</strong> units</span>
+            </div>
+            <div class="lect-chevron">▼</div>
+          </div>
+          <div class="lect-card-body">
+            ${list.map((a) => `
+              <div class="lect-course-row">
+                <span class="code">${escapeHtml(a.course?.code || '')}</span>
+                <span class="title">${escapeHtml(a.course?.title || '')}</span>
+                <span class="meta">${escapeHtml(a.allocation?.semester || a.semester || '')}</span>
+                <span class="unit">${Number(a.course?.unit) || 0}</span>
+                <div class="actions">
+                  <button class="btn btn-sm btn-outline"
+                    onclick="FPU_ADMIN_SPA.navigateToWithQuery('allocation-form', { id: ${a.allocation?.id || a.id}, departmentId: ${departmentId}, name: '${escapeQuotes(deptName)}' })">Edit</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Collapsible logic
+    grid.querySelectorAll('.lect-card-head').forEach((head) => {
+      head.addEventListener('click', () => {
+        head.parentElement.classList.toggle('open');
+      });
+    });
+  } catch (err) {
+    grid.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
@@ -4387,7 +4504,7 @@ window.FPU_ADMIN = {
   loadDepartments, loadDepartmentCards,
 
   // Allocations
-  loadAllocationDepartments,
+  loadAllocationDepartments, loadDepartmentAllocations,
 
   // Registrations
   loadRegistrationStudents,

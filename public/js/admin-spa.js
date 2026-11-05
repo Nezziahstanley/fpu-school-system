@@ -321,7 +321,7 @@
     'users-admins':       { url: '/admin/partials/users/admins.html',            title: 'Admin Accounts',  init: call('loadAdminAccounts') },
     'users-with-photos':  { url: '/admin/partials/users/with-photos.html',       title: 'Photo Directory', init: call('loadUsersWithPhotos') },
     'users-login-history':{ url: '/admin/partials/users/login-history.html',     title: 'Login History',   init: call('loadLoginHistory') },
-    'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: () => {} },
+    'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: call('loadUserForm') },
     'user-profile':       { url: '/admin/partials/users/profile.html',           title: 'User Profile',    init: call('loadUserProfile') },
 
     // ---------- Security sub-pages ----------

@@ -6587,6 +6587,253 @@ async function loadSecurityEvents() {
   }
 }
 
+// ============================================
+// REPORTS — KPI tiles, charts, tables
+// ============================================
+async function loadReports() {
+  const days = (document.getElementById('rep-range') || {}).value || 365;
+  const rangeQs = days === 'all' ? '' : `?days=${days}`;
+
+  async function safeJson(url) {
+    try {
+      const res = await adminFetch(url);
+      if (!res.ok) return null;
+      const j = await res.json();
+      return j.data || j || [];
+    } catch (e) {
+      console.debug('[reports]', url, e.message);
+      return null;
+    }
+  }
+
+  // ---------- KPI tiles ----------
+  const [students, applications, programmes, payments] = await Promise.all([
+    safeJson('/api/admin/students?limit=5000'),
+    safeJson('/api/admin/applications?limit=5000'),
+    safeJson('/api/admin/programmes'),
+    safeJson('/api/admin/payments?limit=5000'),
+  ]);
+
+  const studentCount = Array.isArray(students) ? students.length : 0;
+  const appCount = Array.isArray(applications) ? applications.length : 0;
+  const progCount = Array.isArray(programmes) ? programmes.length : 0;
+  const revenue = Array.isArray(payments)
+    ? payments
+        .filter((p) => (p.payment || p).status === 'verified')
+        .reduce((s, p) => s + Number((p.payment || p).amount || 0), 0)
+    : 0;
+
+  setText('rep-stat-students', studentCount);
+  setText('rep-stat-apps', appCount);
+  setText('rep-stat-revenue', money(revenue));
+  setText('rep-stat-progs', progCount);
+
+  // If Chart.js isn't available, stop after KPIs
+  if (typeof Chart === 'undefined') {
+    console.warn('[reports] Chart.js not loaded — install it in admin app.html');
+    return;
+  }
+
+  function emptyState(canvasId, msg) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent) parent.innerHTML = `<p class="muted" style="padding:40px;text-align:center;color:#94a3b8;">${msg}</p>`;
+  }
+
+  // ---------- Chart 1: Admission Trend ----------
+  // Try specific report endpoint first
+  let admissions = await safeJson(`/api/admin/reports/admission-trend${rangeQs}`);
+  if (!Array.isArray(admissions) || !admissions.length) {
+    // Fallback: derive from applications createdAt
+    if (Array.isArray(applications) && applications.length) {
+      const byMonth = {};
+      applications.forEach((a) => {
+        const d = a.createdAt ? new Date(a.createdAt) : null;
+        if (!d) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        byMonth[key] = (byMonth[key] || 0) + 1;
+      });
+      admissions = Object.entries(byMonth)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([month, count]) => ({ month, count }));
+    }
+  }
+  const chartA = document.getElementById('rep-chart-admission');
+  if (chartA && Array.isArray(admissions) && admissions.length) {
+    new Chart(chartA, {
+      type: 'line',
+      data: {
+        labels: admissions.map((r) => r.month),
+        datasets: [{
+          data: admissions.map((r) => r.count),
+          borderColor: '#065f46',
+          backgroundColor: 'rgba(6,95,70,.1)',
+          tension: 0.4,
+          fill: true,
+          borderWidth: 3,
+        }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    emptyState('rep-chart-admission', 'No admission data yet.');
+  }
+
+  // ---------- Chart 2: Revenue Trend ----------
+  let revenueTrend = await safeJson(`/api/admin/reports/revenue-trend${rangeQs}`);
+  if (!Array.isArray(revenueTrend) || !revenueTrend.length) {
+    if (Array.isArray(payments) && payments.length) {
+      const byMonth = {};
+      payments.forEach((p) => {
+        const row = p.payment || p;
+        if (row.status !== 'verified') return;
+        const d = row.createdAt ? new Date(row.createdAt) : null;
+        if (!d) return;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        byMonth[key] = (byMonth[key] || 0) + Number(row.amount || 0);
+      });
+      revenueTrend = Object.entries(byMonth)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([month, total]) => ({ month, total }));
+    }
+  }
+  const chartR = document.getElementById('rep-chart-revenue');
+  if (chartR && Array.isArray(revenueTrend) && revenueTrend.length) {
+    new Chart(chartR, {
+      type: 'line',
+      data: {
+        labels: revenueTrend.map((r) => r.month),
+        datasets: [{
+          data: revenueTrend.map((r) => Number(r.total || 0)),
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245,158,11,.15)',
+          tension: 0.4,
+          fill: true,
+          borderWidth: 3,
+        }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    emptyState('rep-chart-revenue', 'No revenue data yet.');
+  }
+
+  // ---------- Chart 3: Enrollment by Department ----------
+  let deptData = await safeJson('/api/admin/reports/enrollment-by-department');
+  if (!Array.isArray(deptData) || !deptData.length) {
+    const departments = await safeJson('/api/admin/departments');
+    if (Array.isArray(students) && Array.isArray(departments)) {
+      const byDept = new Map();
+      departments.forEach((d) => byDept.set(d.id, { name: d.code || d.name, count: 0 }));
+      students.forEach((s) => {
+        const bucket = byDept.get(s.departmentId);
+        if (bucket) bucket.count++;
+      });
+      deptData = [...byDept.values()].filter((d) => d.count > 0);
+    }
+  }
+  const chartD = document.getElementById('rep-chart-dept');
+  if (chartD && Array.isArray(deptData) && deptData.length) {
+    const top = deptData.slice(0, 10);
+    new Chart(chartD, {
+      type: 'bar',
+      data: {
+        labels: top.map((r) => r.name),
+        datasets: [{ data: top.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    emptyState('rep-chart-dept', 'No department data yet.');
+  }
+
+  // ---------- Chart 4: Applications by Status ----------
+  let appStatus = await safeJson('/api/admin/reports/applications-by-status');
+  if (!Array.isArray(appStatus) || !appStatus.length) {
+    if (Array.isArray(applications) && applications.length) {
+      const counts = {};
+      applications.forEach((a) => {
+        const s = a.status || 'unknown';
+        counts[s] = (counts[s] || 0) + 1;
+      });
+      appStatus = Object.entries(counts).map(([status, count]) => ({ status, count }));
+    }
+  }
+  const chartAp = document.getElementById('rep-chart-apps');
+  if (chartAp && Array.isArray(appStatus) && appStatus.length) {
+    const colorMap = {
+      pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46',
+      rejected: '#dc2626', registered: '#8b5cf6',
+    };
+    new Chart(chartAp, {
+      type: 'doughnut',
+      data: {
+        labels: appStatus.map((r) => String(r.status || '').replace(/_/g, ' ')),
+        datasets: [{
+          data: appStatus.map((r) => r.count),
+          backgroundColor: appStatus.map((r) => colorMap[r.status] || '#64748b'),
+          borderColor: '#fff',
+          borderWidth: 3,
+        }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
+    });
+  } else {
+    emptyState('rep-chart-apps', 'No application data yet.');
+  }
+
+  // ---------- Applications by Status TABLE ----------
+  const appsTbody = document.getElementById('rep-apps-tbody');
+  if (appsTbody) {
+    if (Array.isArray(appStatus) && appStatus.length) {
+      appsTbody.innerHTML = appStatus.map((r) => `
+        <tr><td>${escapeHtml(r.status || '—')}</td><td class="num">${r.count || 0}</td></tr>
+      `).join('');
+    } else {
+      appsTbody.innerHTML = '<tr><td colspan="2" class="empty">No data available.</td></tr>';
+    }
+  }
+
+  // ---------- Payments by Status TABLE ----------
+  const payTbody = document.getElementById('rep-pay-tbody');
+  if (payTbody) {
+    if (Array.isArray(payments) && payments.length) {
+      const counts = {};
+      payments.forEach((p) => {
+        const row = p.payment || p;
+        const s = row.status || 'unknown';
+        if (!counts[s]) counts[s] = { count: 0, total: 0 };
+        counts[s].count++;
+        counts[s].total += Number(row.amount || 0);
+      });
+      payTbody.innerHTML = Object.entries(counts).map(([status, data]) => `
+        <tr>
+          <td>${escapeHtml(status)}</td>
+          <td class="num">${data.count}</td>
+          <td class="num">${money(data.total)}</td>
+        </tr>
+      `).join('');
+    } else {
+      payTbody.innerHTML = '<tr><td colspan="3" class="empty">No data available.</td></tr>';
+    }
+  }
+
+  // ---------- Wire export ----------
+  const exportBtn = document.getElementById('rep-export');
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.onclick = () => {
+      const table = document.getElementById('rep-apps-tbody')?.closest('table');
+      if (table) {
+        exportTableAsCSV(table, `reports-${new Date().toISOString().slice(0, 10)}.csv`);
+      } else {
+        showToast('⚠️ Nothing to export yet.', 'warning');
+      }
+    };
+  }
+}
+
 
 window.FPU_ADMIN = {
   // Core Helpers

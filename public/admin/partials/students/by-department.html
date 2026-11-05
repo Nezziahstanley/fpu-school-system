@@ -7,9 +7,14 @@
   <div class="actions">
     <button class="btn btn-outline btn-sm"
             onclick="FPU_ADMIN_SPA.navigateTo('students')">← All Departments</button>
-    <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('.table-admin'), 'students.csv')">
-      Export CSV
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.exportDeptStudentsByQuery()">
+      ⬇️ Export CSV
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.bulkImportStudents()">
+      📤 Bulk Import
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateToWithQuery('student-form', { departmentId: FPU_ADMIN.getCurrentDeptId() })">
+      + Add Student
     </button>
   </div>
 </section>
@@ -80,6 +85,7 @@
     <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkStudentAction('activate')">Activate</button>
     <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.bulkStudentAction('deactivate')">Deactivate</button>
     <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.bulkStudentAction('reset-password')">Reset Password</button>
+    <button class="btn btn-sm btn-danger" onclick="FPU_ADMIN.bulkStudentAction('delete')">Delete Selected</button>
   </div>
 </div>
 
@@ -101,7 +107,7 @@
             <th>Programme</th>
             <th>Phone</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th style="width:280px;">Actions</th>
           </tr>
         </thead>
         <tbody id="dept-students-tbody">
@@ -111,56 +117,145 @@
     </div>
   </div>
 </div>
+
 <style>
-  /* batch3: stu-avatar */
-  .stu-avatar { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg,#065f46,#f59e0b); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-family:'Poppins',sans-serif; font-size:12px; font-weight:700; vertical-align: middle; margin-right: 8px; }
+  /* Student avatar in the name cell */
+  .stu-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg,#065f46,#f59e0b);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
   .stu-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .stu-name-cell { display: flex; align-items: center; gap: 4px; }
+  .stu-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Row action buttons - compact */
+  .stu-actions {
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+  }
+  .stu-actions .btn {
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
 </style>
+
 <script>
-  // batch3: enhance student name cells with avatars
-  (function () {
-    const A = window.FPU_ADMIN;
-    if (!A) return;
-    let cache = null;
-    async function getStudents() {
-      if (cache) return cache;
-      try {
-        const res = await A.adminFetch('/api/admin/students?limit=5000');
-        const json = await res.json();
-        cache = json.data || [];
-        return cache;
-      } catch { return []; }
-    }
-    const observer = new MutationObserver(async () => {
-      const tbody = document.getElementById('dept-students-tbody');
-      if (!tbody) return;
-      const students = await getStudents();
-      tbody.querySelectorAll('tr').forEach((tr) => {
-        const cell = tr.children[2];
-        if (!cell || cell.querySelector('.stu-avatar')) return;
-        const avatarSrc = tr.querySelector('.applicant-avatar img');
-        if (avatarSrc) return; // already has one
-        const name = (cell.textContent || '').trim();
-        const match = students.find((s) => (s.firstName + ' ' + s.lastName).trim() === name);
-        if (!match || !match.photoUrl) return;
-        const initials = ((match.firstName || ' ')[0] + (match.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+(function() {
+  'use strict';
+
+  // ============================================================
+  // Enhance row rendering with avatars and action buttons.
+  // Runs after FPU_ADMIN.loadDepartmentStudents() finishes,
+  // so it upgrades the rendered rows in-place.
+  // ============================================================
+
+  function getDeptIdFromHash() {
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    return params.get('departmentId') || '';
+  }
+
+  // Expose for the "+ Add Student" and "Bulk Import" buttons
+  window.FPU_ADMIN_getCurrentDeptId = getDeptIdFromHash;
+
+  // Enhance each row: add avatar to name cell, add action buttons
+  function enhanceRows() {
+    const tbody = document.getElementById('dept-students-tbody');
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr[data-id]');
+    if (!rows.length) return;
+
+    rows.forEach((tr) => {
+      // Already enhanced?
+      if (tr.dataset.enhanced === '1') return;
+      tr.dataset.enhanced = '1';
+
+      const id = tr.dataset.id;
+
+      // 1. Name cell — add avatar
+      const nameCell = tr.children[2];
+      if (nameCell && !nameCell.querySelector('.stu-avatar')) {
+        const existingImg = nameCell.querySelector('img');
+        const nameText = (nameCell.textContent || '').trim();
+        const initials = nameText.split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((w) => w[0].toUpperCase())
+          .join('') || 'S';
+
         const avatar = document.createElement('div');
         avatar.className = 'stu-avatar';
-        avatar.innerHTML = match.photoUrl
-          ? '<img src="' + A.escapeHtml(match.photoUrl) + '" alt="" />'
-          : A.escapeHtml(initials);
-        cell.innerHTML = '';
+        if (existingImg && existingImg.src) {
+          avatar.innerHTML = '<img src="' + existingImg.src + '" alt="" />';
+        } else {
+          avatar.textContent = initials;
+        }
+
         const wrap = document.createElement('div');
         wrap.className = 'stu-name-cell';
         wrap.appendChild(avatar);
-        wrap.appendChild(document.createTextNode(name));
-        cell.appendChild(wrap);
-      });
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = nameText;
+        wrap.appendChild(nameSpan);
+
+        nameCell.innerHTML = '';
+        nameCell.appendChild(wrap);
+      }
+
+      // 2. Actions cell — add view / edit / reset buttons
+      const actionsCell = tr.children[7]; // last cell
+      if (actionsCell && !actionsCell.querySelector('.stu-actions')) {
+        actionsCell.innerHTML = `
+          <div class="stu-actions">
+            <button class="btn btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('student-profile', { id: ${id} })">👁 View</button>
+            <button class="btn btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('student-form', { id: ${id} })">✏️ Edit</button>
+            <button class="btn btn-ghost" style="color:#dc2626;" onclick="event.stopPropagation(); FPU_ADMIN.resetStudentPassword(${id})">🔑 Reset</button>
+          </div>
+        `;
+      }
     });
-    document.addEventListener('DOMContentLoaded', () => {
-      const root = document.getElementById('dept-students-tbody');
-      if (root) observer.observe(root.parentElement || root, { childList: true, subtree: true });
-    });
-  })();
+  }
+
+  // Watch the tbody for changes (new rows after filter / reload)
+  function startObserver() {
+    const tbody = document.getElementById('dept-students-tbody');
+    if (!tbody || tbody.__enhancer) return;
+    tbody.__enhancer = true;
+
+    // Run immediately on existing rows
+    enhanceRows();
+
+    // Then watch for new rows
+    const observer = new MutationObserver(() => enhanceRows());
+    observer.observe(tbody, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startObserver);
+  } else {
+    startObserver();
+  }
+
+  // Re-run on SPA navigation
+  window.addEventListener('hashchange', () => setTimeout(startObserver, 200));
+})();
 </script>

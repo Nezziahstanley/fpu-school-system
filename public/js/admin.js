@@ -1592,6 +1592,92 @@ async function bulkStudentAction(action) {
 }
 
 // ============================================
+// STUDENT QUICK ACTIONS
+// ============================================
+
+// Get current department ID from URL hash
+function getCurrentDeptId() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  return params.get('departmentId') || '';
+}
+
+// Export students for current department (uses current filters)
+async function exportDeptStudentsByQuery() {
+  try {
+    const departmentId = getCurrentDeptId();
+    const level = (document.getElementById('dept-filter-level') || {}).value || '';
+    const programme = (document.getElementById('dept-filter-programme') || {}).value || '';
+    const status = (document.getElementById('dept-filter-status') || {}).value || '';
+    const search = (document.getElementById('dept-filter-search') || {}).value || '';
+
+    const qs = new URLSearchParams({ limit: 5000 });
+    if (departmentId) qs.set('departmentId', departmentId);
+    if (level) qs.set('level', level);
+    if (programme) qs.set('programmeId', programme);
+    if (status) qs.set('isActive', status === 'active' ? 'true' : 'false');
+    if (search) qs.set('search', search);
+
+    showToast('Preparing export…', 'info');
+    const res = await adminFetch(`/api/admin/students?${qs}`);
+    const json = await res.json();
+    const students = json.data || [];
+
+    if (!students.length) {
+      showToast('No students to export.', 'warning');
+      return;
+    }
+
+    const headers = ['Matric', 'First Name', 'Last Name', 'Email', 'Phone', 'Level', 'Status'];
+    const rows = students.map((s) => [
+      s.matricNumber || '',
+      s.firstName || '',
+      s.lastName || '',
+      s.email || '',
+      s.phone || '',
+      s.level || '',
+      s.isActive !== false ? 'Active' : 'Inactive',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `students-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showToast(`✅ Exported ${students.length} students.`, 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// Reset a single student's password
+async function resetStudentPassword(id) {
+  const pwd = prompt('New password for this student (default: student1234):', 'student1234');
+  if (pwd === null) return;
+  if (!pwd.trim()) {
+    showToast('Password cannot be empty.', 'warning');
+    return;
+  }
+  try {
+    await adminFetch(`/api/admin/students/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password: pwd.trim() }),
+    });
+    showToast('✅ Password reset.', 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// ============================================
 // USERS
 // ============================================
 async function loadUsers() {

@@ -3321,6 +3321,7 @@ tr.row-clickable:hover td:first-child {
   background: linear-gradient(135deg, #065f46, #047857);
   color: #fff;
 }
+@keyframes fpu-spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
    END

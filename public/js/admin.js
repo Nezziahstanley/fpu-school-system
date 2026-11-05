@@ -2421,8 +2421,20 @@ function __progInitials(name) {
 }
 
 async function loadProgrammes() {
+  console.log('[programmes] loadProgrammes() starting');
+
   const grid = document.getElementById('prog-dept-grid');
-  if (!grid) return;
+  if (!grid) {
+    console.error('[programmes] CRITICAL: #prog-dept-grid not found in DOM.');
+    console.error('[programmes] Looking for old #programmes-tbody...', !!document.getElementById('programmes-tbody'));
+    console.error('[programmes] The HTML file has NOT been updated to the card grid version.');
+    // Fallback: try to render into the old table if present
+    const oldTbody = document.getElementById('programmes-tbody');
+    if (oldTbody) {
+      oldTbody.innerHTML = '<tr><td colspan="7" class="empty">HTML out of date. Please replace academics/programmes.html with the card-grid version.</td></tr>';
+    }
+    return;
+  }
 
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
     <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:fpu-spin .8s linear infinite;"></div>
@@ -2430,39 +2442,53 @@ async function loadProgrammes() {
   </div>`;
 
   try {
-    // Fetch programmes, departments, schools, students in parallel
-    const [progRes, deptRes, schoolRes, studentsRes] = await Promise.all([
-      adminFetch('/api/admin/programmes'),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/schools'),
-      adminFetch('/api/admin/students?limit=5000').catch(() => null),
-    ]);
+    console.log('[programmes] fetching /api/admin/programmes ...');
+    const progRes = await adminFetch('/api/admin/programmes');
+    console.log('[programmes] programmes status:', progRes.status);
+    const progJson = await progRes.json();
+    console.log('[programmes] programmes count:', (progJson.data || []).length);
 
-    const progs = (await progRes.json()).data || [];
-    const depts = (await deptRes.json()).data || [];
-    const schools = (await schoolRes.json()).data || [];
+    console.log('[programmes] fetching /api/admin/departments ...');
+    const deptRes = await adminFetch('/api/admin/departments');
+    const deptJson = await deptRes.json();
+    console.log('[programmes] departments count:', (deptJson.data || []).length);
 
-    // Count students per programme
+    console.log('[programmes] fetching /api/admin/schools ...');
+    const schoolRes = await adminFetch('/api/admin/schools');
+    const schoolJson = await schoolRes.json();
+    console.log('[programmes] schools count:', (schoolJson.data || []).length);
+
+    // Students (best-effort — won't break page if fails)
     let studentCounts = {};
-    if (studentsRes) {
-      try {
-        const stuJson = await studentsRes.json();
-        const students = stuJson.data || [];
-        students.forEach(s => {
-          if (s.programmeId) {
-            studentCounts[s.programmeId] = (studentCounts[s.programmeId] || 0) + 1;
-          }
-        });
-      } catch (e) { /* ignore */ }
+    try {
+      console.log('[programmes] fetching /api/admin/students ...');
+      const studentsRes = await adminFetch('/api/admin/students?limit=5000');
+      const stuJson = await studentsRes.json();
+      const students = stuJson.data || [];
+      console.log('[programmes] students count:', students.length);
+      students.forEach(s => {
+        if (s.programmeId) {
+          studentCounts[s.programmeId] = (studentCounts[s.programmeId] || 0) + 1;
+        }
+      });
+    } catch (e) {
+      console.warn('[programmes] student count failed (non-fatal):', e.message);
     }
 
-    // Group by department
+    const progs = progJson.data || [];
+    const depts = deptJson.data || [];
+    const schools = schoolJson.data || [];
+
+    // Group programmes by department
     const byDept = new Map();
-    depts.forEach(d => byDept.set(d.id, { dept: d, progs: [] }));
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, progs: [] }));
     progs.forEach(p => {
-      const bucket = byDept.get(p.departmentId);
+      const bucket = byDept.get(Number(p.departmentId));
       if (bucket) bucket.progs.push(p);
+      else console.warn('[programmes] orphan programme (no dept):', p.code, 'deptId=', p.departmentId);
     });
+
+    console.log('[programmes] departments with programmes:', [...byDept.values()].filter(v => v.progs.length > 0).length);
 
     // Stats
     const nd = progs.filter(p => String(p.level || '').toUpperCase() === 'ND').length;
@@ -2474,12 +2500,12 @@ async function loadProgrammes() {
     setText('prog-total-hnd', hnd);
     setText('prog-total-cert', cert);
 
-    // Hide detail panel, show grid
+    // Show grid, hide detail
     document.getElementById('prog-progs-panel').style.display = 'none';
     document.getElementById('prog-back-bar').style.display = 'none';
     grid.style.display = 'grid';
 
-    // Render department cards
+    // Filters
     const search = (document.getElementById('prog-search') || {}).value || '';
     const levelFilter = (document.getElementById('prog-level') || {}).value || '';
     const q = search.trim().toLowerCase();
@@ -2507,7 +2533,6 @@ async function loadProgrammes() {
 
     grid.innerHTML = visible.map(({ dept, progs: list }, i) => {
       const count = list.length;
-      const school = schools.find(s => Number(s.id) === Number(dept.schoolId));
       return `
         <div class="prog-dept-card" data-dept-id="${dept.id}" data-dept-name="${escapeQuotes(dept.name)}">
           <div class="prog-dept-icon" style="background:${__progPickColor(i)};">${escapeHtml(__progInitials(dept.name || dept.code))}</div>
@@ -2519,22 +2544,23 @@ async function loadProgrammes() {
         </div>`;
     }).join('');
 
-    // Wire card clicks
+    console.log('[programmes] rendered', visible.length, 'department cards');
+
+    // Wire clicks
     grid.querySelectorAll('.prog-dept-card').forEach(card => {
       card.addEventListener('click', () => {
-        const deptId = Number(card.dataset.deptId);
-        const deptName = card.dataset.deptName;
-        selectProgrammeDepartment(deptId, deptName);
+        selectProgrammeDepartment(Number(card.dataset.deptId), card.dataset.deptName);
       });
     });
 
-    // Save data for the detail view
     window.__progByDept = byDept;
     window.__progStudentCounts = studentCounts;
 
-    // Wire search/filter
+    // Wire filters (once)
     const searchEl = document.getElementById('prog-search');
     const levelEl = document.getElementById('prog-level');
+    const backBtn = document.getElementById('prog-back');
+
     if (searchEl && !searchEl.__wired) {
       searchEl.__wired = true;
       let timer;
@@ -2547,13 +2573,103 @@ async function loadProgrammes() {
       levelEl.__wired = true;
       levelEl.addEventListener('change', () => loadProgrammes());
     }
-    const backBtn = document.getElementById('prog-back');
     if (backBtn && !backBtn.__wired) {
       backBtn.__wired = true;
       backBtn.onclick = () => loadProgrammes();
     }
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[programmes] loadProgrammes error:', err);
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">
+      <strong>Failed to load programmes:</strong> ${escapeHtml(err.message)}
+      <br/><small>Open the browser console (F12) for details.</small>
+    </div>`;
+  }
+}
+
+// ============================================
+// Show programmes for a picked department
+// ============================================
+function selectProgrammeDepartment(deptId, deptName) {
+  const byDept = window.__progByDept || new Map();
+  const studentCounts = window.__progStudentCounts || {};
+  const bucket = byDept.get(deptId);
+
+  if (!bucket) {
+    console.warn('[programmes] department not found in cache:', deptId);
+    return;
+  }
+
+  document.getElementById('prog-dept-grid').style.display = 'none';
+  document.getElementById('prog-progs-panel').style.display = 'block';
+  document.getElementById('prog-back-bar').style.display = 'block';
+  document.getElementById('prog-current-dept').textContent =
+    `${bucket.dept.code || ''} · ${deptName}`;
+
+  const tbody = document.getElementById('prog-progs-tbody');
+  const list = bucket.progs.slice().sort((a, b) => String(a.code || '').localeCompare(String(b.code || '')));
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No programmes in this department yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const levelUpper = String(p.level || 'ND').toUpperCase();
+    const levelCls = levelUpper === 'HND' ? 'warning' : levelUpper === 'CERT' ? 'success' : 'info';
+    const studentCount = studentCounts[p.id] || 0;
+    const duration = p.durationYears || p.duration || 2;
+    return `
+      <tr>
+        <td><code>${escapeHtml(p.code || '—')}</code></td>
+        <td><strong>${escapeHtml(p.name || '—')}</strong></td>
+        <td style="text-align:center;"><span class="badge badge-${levelCls}">${escapeHtml(levelUpper)}</span></td>
+        <td style="text-align:center;">${duration} yr${duration === 1 ? '' : 's'}</td>
+        <td style="text-align:center;">${studentCount > 0 ? `<strong style="color:#065f46;">${studentCount}</strong>` : '<span style="color:#cbd5e1;">0</span>'}</td>
+        <td style="text-align:right;">
+          <div class="row-actions" style="justify-content:flex-end;">
+            <button class="btn btn-sm btn-outline"
+              onclick="FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { id: ${p.id} })">
+              ✏️ Edit
+            </button>
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;"
+              onclick="FPU_ADMIN.deleteProgramme(${p.id}, '${escapeQuotes(p.name)}')">
+              🗑 Delete
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// ============================================
+// Delete programme (styled confirm)
+// ============================================
+async function deleteProgramme(id, name) {
+  const ok = typeof window.fpuConfirm === 'function'
+    ? await window.fpuConfirm(`Delete programme "${name}"?\n\nIf students are enrolled, the delete will fail.`, {
+        title: 'Delete Programme?',
+        type: 'danger',
+        okText: 'Delete Permanently',
+      })
+    : confirm(`Delete programme "${name}"?`);
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/programmes/${id}`, { method: 'DELETE' });
+    showToast('✅ Programme deleted.', 'success');
+    const current = document.getElementById('prog-current-dept').textContent;
+    await loadProgrammes();
+    if (current) {
+      const code = current.split('·')[0].trim();
+      const byDept = window.__progByDept || new Map();
+      for (const [deptId, bucket] of byDept) {
+        if (bucket.dept.code === code) {
+          selectProgrammeDepartment(deptId, bucket.dept.name);
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
@@ -10836,8 +10952,7 @@ window.FPU_ADMIN = {
   loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
 
   // academics
-  loadProgrammes, loadSchools, loadSchoolCards,
-  selectProgrammeDepartment, deleteProgramme,
+  loadProgrammes, loadSchools, loadSchoolCards, selectProgrammeDepartment, deleteProgramme,
   loadDepartments, loadDepartmentCards,
   loadAllocations, loadAllocationDepartments, loadDepartmentAllocations,
   loadRegistrations, approveRegistration, rejectRegistration,

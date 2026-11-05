@@ -4028,11 +4028,7 @@ async function loadAuditTable() {
 // ============================================
 // SECURITY CENTER — Dashboard
 // ============================================
-// ============================================
-// SECURITY CENTER — Dashboard
-// ============================================
 async function loadSecurityDashboard() {
-  // Fetch summary, events, failed logins, and active sessions in parallel
   const [summaryRes, eventsRes, loginsRes, sessionsRes] = await Promise.all([
     adminFetch('/api/admin/security/summary').catch(() => null),
     adminFetch('/api/admin/security?limit=100').catch(() => null),
@@ -4040,8 +4036,8 @@ async function loadSecurityDashboard() {
     adminFetch('/api/admin/security/sessions').catch(() => null),
   ]);
 
-  // Parse summary (severity counts)
-  let summary = { critical: 0, warning: 0, info: 0 };
+  // Parse summary
+  const summary = { critical: 0, warning: 0, info: 0 };
   try {
     if (summaryRes && summaryRes.ok) {
       const json = await summaryRes.json();
@@ -4052,7 +4048,7 @@ async function loadSecurityDashboard() {
         else if (r.severity === 'info') summary.info = r.c || r.count || 0;
       });
     }
-  } catch (e) { console.debug('[security] summary:', e.message); }
+  } catch (e) { console.debug('[sec] summary:', e.message); }
 
   // Parse events
   let events = [];
@@ -4061,7 +4057,7 @@ async function loadSecurityDashboard() {
       const json = await eventsRes.json();
       events = json.data || [];
     }
-  } catch (e) { console.debug('[security] events:', e.message); }
+  } catch (e) { console.debug('[sec] events:', e.message); }
 
   // Parse failed logins
   let failedLogins = [];
@@ -4070,26 +4066,25 @@ async function loadSecurityDashboard() {
       const json = await loginsRes.json();
       failedLogins = json.data || [];
     }
-  } catch (e) { console.debug('[security] logins:', e.message); }
+  } catch (e) { console.debug('[sec] logins:', e.message); }
 
-  // Parse active sessions
+  // Parse sessions
   let sessions = [];
   try {
     if (sessionsRes && sessionsRes.ok) {
       const json = await sessionsRes.json();
       sessions = json.data || [];
     }
-  } catch (e) { console.debug('[security] sessions:', e.message); }
+  } catch (e) { console.debug('[sec] sessions:', e.message); }
 
-  // ----- Compute threat level -----
+  // Threat level
   const score = Math.min(100, summary.critical * 10 + summary.warning * 3 + summary.info);
   const level = summary.critical > 0 ? 'high' : summary.warning > 5 ? 'medium' : 'low';
 
-  // ----- Update threat banner -----
+  // Banner
   const banner = document.getElementById('sec-threat-banner');
   if (banner) {
     banner.className = 'sec-threat-banner ' + level;
-
     const issues = [];
     if (failedLogins.length > 5) issues.push(`${failedLogins.length} failed logins recently`);
     if (summary.critical > 0) issues.push(`${summary.critical} critical security event(s)`);
@@ -4100,48 +4095,35 @@ async function loadSecurityDashboard() {
       <div class="stb-info">
         <h3>Threat Level: ${level.toUpperCase()}</h3>
         <p>${summary.critical} critical · ${summary.warning} warning · ${summary.info} info events</p>
-        ${
-          issues.length
-            ? `<div class="stb-issues">${issues.map((i) => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
-            : '<div class="stb-issues"><span>No active threats detected.</span></div>'
-        }
+        ${issues.length
+          ? `<div class="stb-issues">${issues.map((i) => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
+          : '<div class="stb-issues"><span>No active threats detected.</span></div>'}
       </div>
     `;
   }
 
-  // ----- Update KPI tiles -----
+  // KPIs
   setText('sec-kpi-sessions', sessions.length);
   setText('sec-kpi-failed', failedLogins.length);
   setText('sec-kpi-locked', summary.critical);
   setText('sec-kpi-blocked', 0);
 
-  // ----- Update card badges -----
-  const sessionBadge = document.getElementById('sac-sessions-badge');
-  if (sessionBadge) sessionBadge.textContent = sessions.length;
-  const eventsBadge = document.getElementById('sac-events-badge');
-  if (eventsBadge) eventsBadge.textContent = events.length;
+  // Badges
+  const sBadge = document.getElementById('sac-sessions-badge');
+  if (sBadge) sBadge.textContent = sessions.length;
+  const eBadge = document.getElementById('sac-events-badge');
+  if (eBadge) eBadge.textContent = events.length;
 
-  // ----- Render recent critical events -----
+  // Recent critical events
   const tbody = document.getElementById('sec-recent-events');
   if (tbody) {
-    const recent = events
-      .filter((r) => (r.log || r).severity === 'critical')
-      .slice(0, 10);
-
+    const recent = events.filter((r) => (r.log || r).severity === 'critical').slice(0, 10);
     if (!recent.length) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="empty" style="padding:24px;text-align:center;color:#94a3b8;">
-            No critical events. System is healthy.
-          </td>
-        </tr>
-      `;
+      tbody.innerHTML = '<tr><td colspan="5" class="empty" style="padding:24px;text-align:center;color:#94a3b8;">No critical events. System is healthy.</td></tr>';
     } else {
       tbody.innerHTML = recent.map((r) => {
         const log = r.log || r;
-        const user = r.user
-          ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
-          : '—';
+        const user = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—' : '—';
         return `
           <tr>
             <td>${escapeHtml(log.event || 'Unknown')}</td>
@@ -4155,9 +4137,492 @@ async function loadSecurityDashboard() {
     }
   }
 
-  // ----- Wire up all actions & cards -----
-  wireSecurityActions();
-  wireSecurityCards();
+  // Wire actions
+  const lockdown = document.getElementById('sec-lockdown');
+  if (lockdown && !lockdown.__wired) {
+    lockdown.__wired = true;
+    lockdown.onclick = async () => {
+      const ok = await window.fpuConfirm(
+        'Lock down ALL active sessions? All users except you will be logged out.',
+        { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down' }
+      );
+      if (!ok) return;
+      try {
+        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || 'Lockdown failed');
+        showToast('🔒 All sessions locked down.', 'success');
+        loadSecurityDashboard();
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    };
+  }
+}
+
+async function loadSecuritySessions() {
+  const tbody = document.getElementById('sess-tbody');
+  if (!tbody) return;
+
+  const role = (document.getElementById('sess-filter-role') || {}).value || '';
+  const search = (document.getElementById('sess-search') || {}).value || '';
+
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/security/sessions');
+    const json = await res.json();
+    let rows = json.data || [];
+
+    if (role) rows = rows.filter((r) => r.user?.role === role);
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter((r) => {
+        const u = r.user || {};
+        return String(u.email || '').toLowerCase().includes(q) || String(r.session?.ipAddress || '').toLowerCase().includes(q);
+      });
+    }
+
+    setText('sess-stat-total', rows.length);
+    setText('sess-stat-admins', rows.filter((r) => r.user?.role === 'admin').length);
+    setText('sess-stat-ips', new Set(rows.map((r) => r.session?.ipAddress)).size);
+    setText('sess-stat-oldest', rows.length ? timeAgo(rows[rows.length - 1].session?.createdAt) : '—');
+    setText('sess-count', `Showing ${rows.length} sessions`);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No active sessions.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+      const s = r.session || {};
+      const u = r.user || {};
+      return `
+        <tr>
+          <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong><br/><span class="small muted">${escapeHtml(u.email || '')}</span></td>
+          <td>${roleBadge(u.role)}</td>
+          <td class="small">${escapeHtml((s.userAgent || '').slice(0, 60))}</td>
+          <td>${escapeHtml(s.ipAddress || '')}</td>
+          <td class="small muted">${fmtDateTime(s.createdAt)}</td>
+          <td class="small muted">${fmtDateTime(s.expiresAt)}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="FPU_ADMIN.revokeSession('${escapeQuotes(s.token)}')">Revoke</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    const purgeBtn = document.getElementById('sess-purge');
+    if (purgeBtn) purgeBtn.onclick = async () => {
+      try {
+        await adminFetch('/api/admin/security/purge', { method: 'POST' });
+        showToast('Expired sessions purged.', 'success');
+        loadSecuritySessions();
+      } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    };
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function revokeSession(token) {
+  if (!confirm('Revoke this session?')) return;
+  try {
+    await adminFetch(`/api/portal/security/revoke/${token}`, { method: 'POST' });
+    showToast('Session revoked.', 'success');
+    loadSecuritySessions();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function loadLoginAttempts() {
+  const tbody = document.getElementById('la-tbody');
+  if (!tbody) return;
+
+  const status = (document.getElementById('la-status-tabs')?.querySelector('.active')?.dataset.status) || '';
+  const email = (document.getElementById('la-email') || {}).value || '';
+  const ip = (document.getElementById('la-ip') || {}).value || '';
+
+  const qs = new URLSearchParams({ limit: 500 });
+  if (status === 'success') qs.set('success', 'true');
+  else if (status === 'fail') qs.set('success', 'false');
+  if (email) qs.set('email', email);
+
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch(`/api/admin/login-history?${qs}`);
+    const json = await res.json();
+    let rows = json.data || [];
+
+    if (ip) rows = rows.filter((r) => String((r.entry || r).ipAddress || '').includes(ip));
+
+    const total = rows.length;
+    const success = rows.filter((r) => (r.entry || r).success).length;
+    const fail = total - success;
+    const ips = new Set(rows.map((r) => (r.entry || r).ipAddress).filter(Boolean)).size;
+
+    setText('la-stat-total', total);
+    setText('la-stat-success', success);
+    setText('la-stat-fail', fail);
+    setText('la-stat-ips', ips);
+    setText('la-count', `Showing ${total} attempts`);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No login attempts found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+      const entry = r.entry || r;
+      return `
+        <tr>
+          <td>${escapeHtml(entry.email || '')}</td>
+          <td>${entry.success ? badge('success') : badge('failed')}</td>
+          <td>${escapeHtml(entry.ipAddress || '')}</td>
+          <td class="small">${escapeHtml((entry.userAgent || '').slice(0, 50))}</td>
+          <td>${escapeHtml(entry.reason || '')}</td>
+          <td class="small muted">${fmtDateTime(entry.createdAt)}</td>
+          <td><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.addIpBlock('${escapeQuotes(entry.ipAddress || '')}')">Block IP</button></td>
+        </tr>
+      `;
+    }).join('');
+
+    const exportBtn = document.getElementById('la-export');
+    if (exportBtn) exportBtn.onclick = () => exportTableAsCSV(tbody.closest('table'), 'login-attempts.csv');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function addIpBlock(ip) {
+  if (!ip) return;
+  FPU_ADMIN_SPA.navigateToWithQuery('security-ip-rules', { ip });
+}
+
+async function loadIpRules() {
+  const tbody = document.getElementById('ip-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/security/ip-rules');
+    const json = await res.json();
+    const rows = json.data || [];
+
+    const allow = rows.filter((r) => r.rule === 'allow').length;
+    const block = rows.filter((r) => r.rule === 'block').length;
+    const soon = rows.filter((r) => {
+      if (!r.expiresAt) return false;
+      const diff = new Date(r.expiresAt).getTime() - Date.now();
+      return diff > 0 && diff < 24 * 3600 * 1000;
+    }).length;
+
+    setText('ip-stat-total', rows.length);
+    setText('ip-stat-allow', allow);
+    setText('ip-stat-block', block);
+    setText('ip-stat-expiring', soon);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No IP rules yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td><code>${escapeHtml(r.ipAddress)}</code></td>
+        <td>${r.rule === 'allow' ? badge('active') : badge('rejected')}</td>
+        <td>${escapeHtml(r.reason || '—')}</td>
+        <td>${r.expiresAt ? fmtDateTime(r.expiresAt) : '—'}</td>
+        <td class="small muted">${fmtDateTime(r.createdAt)}</td>
+        <td><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.deleteIpRule(${r.id})">Delete</button></td>
+      </tr>
+    `).join('');
+
+    // Prefill IP if URL has ?ip=xxx
+    const hash = window.location.hash.replace(/^#/, '');
+    const qIdx = hash.indexOf('?');
+    const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+    const ip = params.get('ip');
+    if (ip) {
+      const panel = document.getElementById('ip-add-panel');
+      const addr = document.getElementById('ip-address');
+      if (panel) panel.style.display = 'block';
+      if (addr) addr.value = ip;
+    }
+
+    // Wire add form
+    const addBtn = document.getElementById('ip-add-btn');
+    const panel = document.getElementById('ip-add-panel');
+    const cancelBtn = document.getElementById('ip-add-cancel');
+    const saveBtn = document.getElementById('ip-save');
+
+    if (addBtn && !addBtn.__wired) {
+      addBtn.__wired = true;
+      addBtn.onclick = () => { if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; };
+    }
+    if (cancelBtn && !cancelBtn.__wired) {
+      cancelBtn.__wired = true;
+      cancelBtn.onclick = () => { if (panel) panel.style.display = 'none'; };
+    }
+    if (saveBtn && !saveBtn.__wired) {
+      saveBtn.__wired = true;
+      saveBtn.onclick = async () => {
+        const addr = document.getElementById('ip-address').value.trim();
+        const rule = document.getElementById('ip-rule').value;
+        const expires = document.getElementById('ip-expires').value || null;
+        const reason = document.getElementById('ip-reason').value.trim();
+        if (!addr) { showToast('IP address required.', 'warning'); return; }
+        try {
+          await adminFetch('/api/admin/security/ip-rules', {
+            method: 'POST',
+            body: JSON.stringify({ ipAddress: addr, rule, expiresAt: expires, reason }),
+          });
+          showToast('Rule added.', 'success');
+          loadIpRules();
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      };
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function deleteIpRule(id) {
+  if (!confirm('Delete this IP rule?')) return;
+  try {
+    await adminFetch(`/api/admin/security/ip-rules/${id}`, { method: 'DELETE' });
+    showToast('Deleted.', 'success');
+    loadIpRules();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function loadPasswordPolicy() {
+  try {
+    const res = await adminFetch('/api/admin/security/password-policy');
+    const json = await res.json();
+    const p = json.data || {};
+    document.getElementById('pp-min-length').value = p.minLength ?? 8;
+    document.getElementById('pp-require-uppercase').checked = p.requireUppercase !== false;
+    document.getElementById('pp-require-number').checked = p.requireNumber !== false;
+    document.getElementById('pp-require-symbol').checked = !!p.requireSymbol;
+    document.getElementById('pp-expiry').value = p.expiryDays ?? 90;
+    document.getElementById('pp-prevent-reuse').value = p.preventReuse ?? 3;
+    document.getElementById('pp-max-attempts').value = p.maxAttempts ?? 5;
+    document.getElementById('pp-lockout-minutes').value = p.lockoutMinutes ?? 15;
+    document.getElementById('pp-idle-timeout').value = p.idleTimeout ?? 60;
+    document.getElementById('pp-allow-concurrent').checked = p.allowConcurrent !== false;
+    document.getElementById('pp-max-concurrent').value = p.maxConcurrent ?? 3;
+  } catch (err) {
+    console.debug('[password-policy]', err && err.message);
+  }
+
+  const saveBtn = document.getElementById('pp-save');
+  if (saveBtn && !saveBtn.__wired) {
+    saveBtn.__wired = true;
+    saveBtn.onclick = async () => {
+      const payload = {
+        minLength: Number(document.getElementById('pp-min-length').value),
+        requireUppercase: document.getElementById('pp-require-uppercase').checked,
+        requireNumber: document.getElementById('pp-require-number').checked,
+        requireSymbol: document.getElementById('pp-require-symbol').checked,
+        expiryDays: Number(document.getElementById('pp-expiry').value),
+        preventReuse: Number(document.getElementById('pp-prevent-reuse').value),
+        maxAttempts: Number(document.getElementById('pp-max-attempts').value),
+        lockoutMinutes: Number(document.getElementById('pp-lockout-minutes').value),
+        idleTimeout: Number(document.getElementById('pp-idle-timeout').value),
+        allowConcurrent: document.getElementById('pp-allow-concurrent').checked,
+        maxConcurrent: Number(document.getElementById('pp-max-concurrent').value),
+      };
+      try {
+        await adminFetch('/api/admin/security/password-policy', {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        showToast('Policy saved.', 'success');
+      } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    };
+  }
+}
+
+async function loadPermissionsMatrix() {
+  const thead = document.getElementById('perm-thead');
+  const tbody = document.getElementById('perm-tbody');
+  if (!thead || !tbody) return;
+
+  try {
+    const res = await adminFetch('/api/admin/security/permissions');
+    const json = await res.json();
+    const d = json.data || {};
+    const roles = d.roles || ['admin', 'registrar', 'lecturer', 'student'];
+    const resources = d.resources || ['users', 'results', 'payments', 'courses'];
+
+    thead.innerHTML = `<tr><th>Resource</th>${roles.map((r) => `<th>${escapeHtml(String(r).replace(/_/g, ' '))}</th>`).join('')}</tr>`;
+
+    tbody.innerHTML = resources.map((res) => `
+      <tr>
+        <td class="resource-cell">${escapeHtml(res)}</td>
+        ${roles.map((role) => `
+          <td><input type="checkbox" data-resource="${escapeHtml(res)}" data-role="${escapeHtml(role)}" ${(d.matrix?.[res]?.[role]) ? 'checked' : ''} /></td>
+        `).join('')}
+      </tr>
+    `).join('');
+
+    setText('perm-count', `${resources.length} resources × ${roles.length} roles`);
+
+    const saveBtn = document.getElementById('perm-save');
+    if (saveBtn && !saveBtn.__wired) {
+      saveBtn.__wired = true;
+      saveBtn.onclick = async () => {
+        const matrix = {};
+        tbody.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+          const r = cb.dataset.resource;
+          const role = cb.dataset.role;
+          if (!matrix[r]) matrix[r] = {};
+          matrix[r][role] = cb.checked;
+        });
+        try {
+          await adminFetch('/api/admin/security/permissions', {
+            method: 'PUT',
+            body: JSON.stringify({ matrix }),
+          });
+          showToast('Permissions saved.', 'success');
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      };
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="99" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function load2FAConfig() {
+  const roles = document.getElementById('tfa-roles');
+  if (!roles) return;
+
+  try {
+    const res = await adminFetch('/api/admin/security/2fa');
+    const json = await res.json();
+    const d = json.data || {};
+
+    const allRoles = ['admin', 'registrar', 'rector', 'bursar', 'librarian', 'exam_officer', 'academic_officer', 'admission_officer', 'hod', 'lecturer', 'student'];
+    roles.innerHTML = allRoles.map((r) => `
+      <label class="tfa-role-item">
+        <input type="checkbox" data-role="${r}" ${(d.requiredRoles || []).includes(r) ? 'checked' : ''} />
+        <span class="label">${escapeHtml(String(r).replace(/_/g, ' '))}</span>
+      </label>
+    `).join('');
+
+    document.getElementById('tfa-method-app').checked = (d.methods || []).includes('app');
+    document.getElementById('tfa-method-sms').checked = (d.methods || []).includes('sms');
+    document.getElementById('tfa-method-email').checked = (d.methods || []).includes('email');
+    document.getElementById('tfa-method-backup').checked = (d.methods || []).includes('backup');
+
+    const saveBtn = document.getElementById('tfa-save');
+    if (saveBtn && !saveBtn.__wired) {
+      saveBtn.__wired = true;
+      saveBtn.onclick = async () => {
+        const requiredRoles = Array.from(roles.querySelectorAll('input:checked')).map((c) => c.dataset.role);
+        const methods = [];
+        if (document.getElementById('tfa-method-app').checked) methods.push('app');
+        if (document.getElementById('tfa-method-sms').checked) methods.push('sms');
+        if (document.getElementById('tfa-method-email').checked) methods.push('email');
+        if (document.getElementById('tfa-method-backup').checked) methods.push('backup');
+        try {
+          await adminFetch('/api/admin/security/2fa', {
+            method: 'PUT',
+            body: JSON.stringify({ requiredRoles, methods }),
+          });
+          showToast('2FA config saved.', 'success');
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      };
+    }
+  } catch (err) {
+    roles.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function loadBackups() {
+  const tbody = document.getElementById('bk-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/security/backups');
+    const json = await res.json();
+    const rows = json.data || [];
+
+    tbody.innerHTML = rows.length ? rows.map((b) => `
+      <tr>
+        <td>${escapeHtml(b.kind || 'full')}</td>
+        <td>${badge(b.status)}</td>
+        <td class="num">${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
+        <td class="small muted">${fmtDateTime(b.startedAt)}</td>
+        <td class="small muted">${b.completedAt ? fmtDateTime(b.completedAt) : '—'}</td>
+        <td>${b.fileUrl ? `<a class="btn btn-sm btn-outline" href="${escapeHtml(b.fileUrl)}" target="_blank">Download</a>` : '—'}</td>
+      </tr>
+    `).join('') : '<tr><td colspan="6" class="empty">No backups yet.</td></tr>';
+
+    const triggerBtn = document.getElementById('bk-trigger');
+    if (triggerBtn && !triggerBtn.__wired) {
+      triggerBtn.__wired = true;
+      triggerBtn.onclick = async () => {
+        if (!confirm('Trigger backup now?')) return;
+        try {
+          await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
+          showToast('Backup queued.', 'success');
+          setTimeout(loadBackups, 2000);
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      };
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function loadCompliance() {
+  const root = document.getElementById('comp-root');
+  if (!root) return;
+
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Checking compliance…</div>';
+
+  try {
+    const res = await adminFetch('/api/admin/security/compliance');
+    const json = await res.json();
+    const checks = json.data || [];
+
+    const passes = checks.filter((c) => c.status === 'pass').length;
+    const fails = checks.filter((c) => c.status === 'fail').length;
+    const warns = checks.filter((c) => c.status === 'warn').length;
+
+    root.innerHTML = `
+      <div class="compliance-summary">
+        <div class="compliance-summary-item pass"><div class="num">${passes}</div><div class="label">Passing</div></div>
+        <div class="compliance-summary-item warn"><div class="num">${warns}</div><div class="label">Warnings</div></div>
+        <div class="compliance-summary-item fail"><div class="num">${fails}</div><div class="label">Failing</div></div>
+      </div>
+      ${checks.map((c) => `
+        <div class="compliance-check ${c.status}">
+          <div class="cc-icon">${c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'}</div>
+          <div class="cc-body">
+            <div class="cc-title">${escapeHtml(c.title)}</div>
+            <div class="cc-detail">${escapeHtml(c.detail || '')}</div>
+            ${c.fix ? `<div class="cc-fix">→ ${escapeHtml(c.fix)}</div>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    `;
+
+    const exportBtn = document.getElementById('comp-export');
+    if (exportBtn) exportBtn.onclick = () => {
+      const report = checks.map((c) => `${c.status.toUpperCase()}\t${c.title}\t${c.detail}`).join('\n');
+      const blob = new Blob([report], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'compliance-report.txt';
+      a.click();
+    };
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
 }
 
 // ============================================
@@ -5805,6 +6270,11 @@ window.FPU_ADMIN = {
   saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,
   loadBankAccounts, addBankAccount, saveBankAccount, deleteBankAccount,
   runLibrarySweep, sendTestEmail, sendTestSMS, initAccountTab, initSystemTab,
+
+  // Security
+  loadSecurityDashboard, loadSecurityEvents, loadSecuritySessions, revokeSession,
+  loadLoginAttempts, addIpBlock, loadIpRules, deleteIpRule,
+  loadPasswordPolicy, loadPermissionsMatrix, load2FAConfig, loadBackups, loadCompliance,
 
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear,

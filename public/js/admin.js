@@ -2406,86 +2406,43 @@ async function autoCreateNextSession() {
 }
 
 // ============================================
-// PROGRAMMES
+// PROGRAMMES — department-first card grid
 // ============================================
+const __progPalette = [
+  '#065f46','#0891b2','#7c3aed','#dc2626',
+  '#ea580c','#0d9488','#db2777','#4f46e5',
+  '#059669','#d97706','#0369a1','#9333ea'
+];
+function __progPickColor(i) { return __progPalette[i % __progPalette.length]; }
+function __progInitials(name) {
+  return String(name || '')
+    .split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(w => w[0].toUpperCase()).join('').slice(0, 3);
+}
+
 async function loadProgrammes() {
-  const container = document.getElementById("programmes-tbody");
-  if (!container) return;
-  container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+  const grid = document.getElementById('prog-dept-grid');
+  if (!grid) return;
 
-  const level = (document.getElementById("prog-filter-level") || {}).value || "";
-  const departmentId = (document.getElementById("prog-filter-dept") || {}).value || "";
-  const search = (document.getElementById("prog-filter-search") || {}).value || "";
-
-  const qs = new URLSearchParams();
-  if (level) qs.set("level", level);
-  if (departmentId) qs.set("departmentId", departmentId);
-  if (search) qs.set("search", search);
+  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;font-size:.82rem;">
+    <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:fpu-spin .8s linear infinite;"></div>
+    <div style="margin-top:.65rem;">Loading departments…</div>
+  </div>`;
 
   try {
-    const res = await adminFetch(`/api/admin/programmes?${qs}`);
-    const result = await res.json();
-    const rows = extractArray(result);
-
-    const nd   = rows.filter((p) => p.level === 'ND').length;
-    const hnd  = rows.filter((p) => p.level === 'HND').length;
-    const cert = rows.filter((p) => p.level === 'CERT').length;
-    setText('prog-stat-total', rows.length);
-    setText('prog-stat-nd', nd);
-    setText('prog-stat-hnd', hnd);
-    setText('prog-stat-cert', cert);
-
-    container.innerHTML = rows.length ? rows.map((p) => `
-      <tr>
-        <td><code>${escapeHtml(p.code)}</code></td>
-        <td>${escapeHtml(p.name)}</td>
-        <td>${badge(p.level)}</td>
-        <td>${escapeHtml(p.departmentName || p.department?.name || '—')}</td>
-        <td>${p.durationYears || 2} yrs</td>
-        <td>${p.studentsCount || 0}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn btn-sm btn-outline"
-              onclick="FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { id: ${p.id} })">Edit</button>
-          </div>
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="7" class="empty">No programmes.</td></tr>';
-  } catch (err) {
-    container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}async function loadProgrammes() {
-  const container = document.getElementById("programmes-tbody");
-  if (!container) return;
-
-  // Read filters
-  const level = (document.getElementById("prog-filter-level") || {}).value || "";
-  const departmentId = (document.getElementById("prog-filter-dept") || {}).value || "";
-  const search = (document.getElementById("prog-filter-search") || {}).value || "";
-
-  const qs = new URLSearchParams();
-  if (level) qs.set("level", level);
-  if (departmentId) qs.set("departmentId", departmentId);
-  if (search) qs.set("search", search);
-
-  container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
-
-  try {
-    // Fetch programmes AND departments in parallel (to resolve department names)
-    const [progRes, deptRes, studentsRes] = await Promise.all([
-      adminFetch(`/api/admin/programmes?${qs}`),
+    // Fetch programmes, departments, schools, students in parallel
+    const [progRes, deptRes, schoolRes, studentsRes] = await Promise.all([
+      adminFetch('/api/admin/programmes'),
       adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/schools'),
       adminFetch('/api/admin/students?limit=5000').catch(() => null),
     ]);
 
-    const progJson = await progRes.json();
-    const deptJson = await deptRes.json();
-    const progs = progJson.data || [];
-    const depts = deptJson.data || [];
+    const progs = (await progRes.json()).data || [];
+    const depts = (await deptRes.json()).data || [];
+    const schools = (await schoolRes.json()).data || [];
 
-    const deptById = new Map(depts.map(d => [Number(d.id), d]));
-
-    // Compute student counts per programme (optional)
+    // Count students per programme
     let studentCounts = {};
     if (studentsRes) {
       try {
@@ -2499,91 +2456,166 @@ async function loadProgrammes() {
       } catch (e) { /* ignore */ }
     }
 
+    // Group by department
+    const byDept = new Map();
+    depts.forEach(d => byDept.set(d.id, { dept: d, progs: [] }));
+    progs.forEach(p => {
+      const bucket = byDept.get(p.departmentId);
+      if (bucket) bucket.progs.push(p);
+    });
+
     // Stats
     const nd = progs.filter(p => String(p.level || '').toUpperCase() === 'ND').length;
     const hnd = progs.filter(p => String(p.level || '').toUpperCase() === 'HND').length;
     const cert = progs.filter(p => String(p.level || '').toUpperCase() === 'CERT').length;
+    setText('prog-total-depts', depts.length);
+    setText('prog-total-progs', progs.length);
+    setText('prog-total-nd', nd);
+    setText('prog-total-hnd', hnd);
+    setText('prog-total-cert', cert);
 
-    setText('prog-stat-total', progs.length);
-    setText('prog-stat-nd', nd);
-    setText('prog-stat-hnd', hnd);
-    setText('prog-stat-cert', cert);
-    setText('prog-count', `Showing ${progs.length} programme${progs.length === 1 ? '' : 's'}`);
+    // Hide detail panel, show grid
+    document.getElementById('prog-progs-panel').style.display = 'none';
+    document.getElementById('prog-back-bar').style.display = 'none';
+    grid.style.display = 'grid';
 
-    if (!progs.length) {
-      container.innerHTML = '<tr><td colspan="7" class="empty">No programmes match your filters.</td></tr>';
+    // Render department cards
+    const search = (document.getElementById('prog-search') || {}).value || '';
+    const levelFilter = (document.getElementById('prog-level') || {}).value || '';
+    const q = search.trim().toLowerCase();
+
+    let visible = [...byDept.values()].filter(v => v.progs.length > 0);
+
+    if (q) {
+      visible = visible.filter(({ dept, progs: ps }) => {
+        if (`${dept.name} ${dept.code}`.toLowerCase().includes(q)) return true;
+        return ps.some(p => `${p.code} ${p.name}`.toLowerCase().includes(q));
+      });
+    }
+    if (levelFilter) {
+      visible = visible.filter(({ progs: ps }) =>
+        ps.some(p => String(p.level || '').toUpperCase() === levelFilter)
+      );
+    }
+
+    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+
+    if (!visible.length) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:#94a3b8;">No departments match your filters.</div>`;
       return;
     }
 
-    // Sort by department → code
-    progs.sort((a, b) => {
-      const da = deptById.get(Number(a.departmentId));
-      const db = deptById.get(Number(b.departmentId));
-      const dNameA = da ? da.name : '';
-      const dNameB = db ? db.name : '';
-      if (dNameA !== dNameB) return dNameA.localeCompare(dNameB);
-      return String(a.code || '').localeCompare(String(b.code || ''));
+    grid.innerHTML = visible.map(({ dept, progs: list }, i) => {
+      const count = list.length;
+      const school = schools.find(s => Number(s.id) === Number(dept.schoolId));
+      return `
+        <div class="prog-dept-card" data-dept-id="${dept.id}" data-dept-name="${escapeQuotes(dept.name)}">
+          <div class="prog-dept-icon" style="background:${__progPickColor(i)};">${escapeHtml(__progInitials(dept.name || dept.code))}</div>
+          <div class="prog-dept-body">
+            <div class="prog-dept-name" title="${escapeHtml(dept.name)}">${escapeHtml(dept.name || '—')}</div>
+            <div class="prog-dept-count">${escapeHtml(dept.code || '')} · ${count} programme${count === 1 ? '' : 's'}</div>
+          </div>
+          <div class="prog-dept-arrow">›</div>
+        </div>`;
+    }).join('');
+
+    // Wire card clicks
+    grid.querySelectorAll('.prog-dept-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const deptId = Number(card.dataset.deptId);
+        const deptName = card.dataset.deptName;
+        selectProgrammeDepartment(deptId, deptName);
+      });
     });
 
-    // Render rows
-    container.innerHTML = progs.map((p) => {
-      const dept = deptById.get(Number(p.departmentId));
-      const deptName = dept ? dept.name : (p.departmentName || '—');
-      const deptCode = dept ? dept.code : '';
-      const levelCls = String(p.level || 'ND').toUpperCase() === 'HND'
-        ? 'hnd'
-        : String(p.level || 'ND').toUpperCase() === 'CERT'
-          ? 'cert'
-          : 'nd';
+    // Save data for the detail view
+    window.__progByDept = byDept;
+    window.__progStudentCounts = studentCounts;
 
-      const duration = p.durationYears || p.duration || 2;
-      const studentCount = studentCounts[p.id] || 0;
-
-      return `
-        <tr>
-          <td><code>${escapeHtml(p.code || '—')}</code></td>
-          <td>
-            <strong>${escapeHtml(p.name || '—')}</strong>
-          </td>
-          <td>
-            <span class="badge badge-${levelCls === 'hnd' ? 'warning' : levelCls === 'cert' ? 'success' : 'info'}">
-              ${escapeHtml(String(p.level || 'ND').toUpperCase())}
-            </span>
-          </td>
-          <td>
-            <div style="font-size:13px;color:#0f172a;font-weight:600;">${escapeHtml(deptName)}</div>
-            ${deptCode ? `<div style="font-size:11px;color:#94a3b8;">${escapeHtml(deptCode)}</div>` : ''}
-          </td>
-          <td class="small muted">${duration} yr${duration === 1 ? '' : 's'}</td>
-          <td class="num" style="text-align:center;">
-            ${studentCount > 0
-              ? `<span style="font-weight:700;color:#065f46;">${studentCount}</span>`
-              : '<span style="color:#cbd5e1;">0</span>'}
-          </td>
-          <td>
-            <div class="row-actions" style="justify-content:flex-end;">
-              <button class="btn btn-sm btn-outline"
-                onclick="FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { id: ${p.id} })">
-                ✏️ Edit
-              </button>
-              <button class="btn btn-sm btn-ghost" style="color:#dc2626;"
-                onclick="FPU_ADMIN.deleteProgramme(${p.id}, '${escapeQuotes(p.name)}')">
-                🗑 Delete
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    // Wire search/filter
+    const searchEl = document.getElementById('prog-search');
+    const levelEl = document.getElementById('prog-level');
+    if (searchEl && !searchEl.__wired) {
+      searchEl.__wired = true;
+      let timer;
+      searchEl.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => loadProgrammes(), 200);
+      });
+    }
+    if (levelEl && !levelEl.__wired) {
+      levelEl.__wired = true;
+      levelEl.addEventListener('change', () => loadProgrammes());
+    }
+    const backBtn = document.getElementById('prog-back');
+    if (backBtn && !backBtn.__wired) {
+      backBtn.__wired = true;
+      backBtn.onclick = () => loadProgrammes();
+    }
   } catch (err) {
-    container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
   }
 }
 
+// ============================================
+// Show programmes for a picked department
+// ============================================
+function selectProgrammeDepartment(deptId, deptName) {
+  const byDept = window.__progByDept || new Map();
+  const studentCounts = window.__progStudentCounts || {};
+  const bucket = byDept.get(deptId);
+  if (!bucket) return;
+
+  document.getElementById('prog-dept-grid').style.display = 'none';
+  document.getElementById('prog-progs-panel').style.display = 'block';
+  document.getElementById('prog-back-bar').style.display = 'block';
+  document.getElementById('prog-current-dept').textContent =
+    `${bucket.dept.code || ''} · ${deptName}`;
+
+  const tbody = document.getElementById('prog-progs-tbody');
+  const list = bucket.progs.slice().sort((a, b) => String(a.code || '').localeCompare(String(b.code || '')));
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">No programmes in this department yet. Click "+ New Programme" above to add one.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const levelUpper = String(p.level || 'ND').toUpperCase();
+    const levelCls = levelUpper === 'HND' ? 'warning' : levelUpper === 'CERT' ? 'success' : 'info';
+    const studentCount = studentCounts[p.id] || 0;
+    const duration = p.durationYears || p.duration || 2;
+    return `
+      <tr>
+        <td><code>${escapeHtml(p.code || '—')}</code></td>
+        <td><strong>${escapeHtml(p.name || '—')}</strong></td>
+        <td style="text-align:center;">
+          <span class="badge badge-${levelCls}">${escapeHtml(levelUpper)}</span>
+        </td>
+        <td style="text-align:center;">${duration} yr${duration === 1 ? '' : 's'}</td>
+        <td style="text-align:center;">${studentCount > 0 ? `<strong style="color:#065f46;">${studentCount}</strong>` : '<span style="color:#cbd5e1;">0</span>'}</td>
+        <td style="text-align:right;">
+          <div class="row-actions" style="justify-content:flex-end;">
+            <button class="btn btn-sm btn-outline"
+              onclick="FPU_ADMIN_SPA.navigateToWithQuery('programme-form', { id: ${p.id} })">
+              ✏️ Edit
+            </button>
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;"
+              onclick="FPU_ADMIN.deleteProgramme(${p.id}, '${escapeQuotes(p.name)}')">
+              🗑 Delete
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// ============================================
+// Delete programme (styled confirm)
+// ============================================
 async function deleteProgramme(id, name) {
-  // Warn about student count first
   const ok = await window.fpuConfirm(
-    `Delete programme "${name}"?\n\nThis cannot be undone. If students are currently enrolled, the delete will fail — you'll need to transfer them first.`,
+    `Delete programme "${name}"?\n\nThis cannot be undone. If students are enrolled, the delete will fail — you'll need to transfer them first.`,
     {
       title: 'Delete Programme?',
       type: 'danger',
@@ -2594,7 +2626,21 @@ async function deleteProgramme(id, name) {
   try {
     await adminFetch(`/api/admin/programmes/${id}`, { method: 'DELETE' });
     showToast('✅ Programme deleted.', 'success');
-    loadProgrammes();
+    // Reload the current view
+    const current = document.getElementById('prog-current-dept').textContent;
+    await loadProgrammes();
+    if (current) {
+      // If we were inside a department, re-enter it
+      const parts = current.split('·');
+      const code = (parts[0] || '').trim();
+      const byDept = window.__progByDept || new Map();
+      for (const [deptId, bucket] of byDept) {
+        if (bucket.dept.code === code) {
+          selectProgrammeDepartment(deptId, bucket.dept.name);
+          break;
+        }
+      }
+    }
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
@@ -10791,6 +10837,7 @@ window.FPU_ADMIN = {
 
   // academics
   loadProgrammes, loadSchools, loadSchoolCards,
+  selectProgrammeDepartment, deleteProgramme,
   loadDepartments, loadDepartmentCards,
   loadAllocations, loadAllocationDepartments, loadDepartmentAllocations,
   loadRegistrations, approveRegistration, rejectRegistration,

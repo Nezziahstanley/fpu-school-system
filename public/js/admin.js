@@ -3990,38 +3990,132 @@ async function loadAuditTable() {
     const json = await res.json();
     const rows = json.data || [];
 
-    setText('audit-count', `Showing ${rows.length}`);
+    setText('audit-count', `Showing ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`);
 
-    container.innerHTML = rows.length ? rows.map((r) => {
+    if (!rows.length) {
+      container.innerHTML = '<tr><td colspan="7" class="empty">No audit entries match your filters.</td></tr>';
+      return;
+    }
+
+    // Build expandable rows
+    container.innerHTML = rows.map((r) => {
       const log = r.log || r;
+      const user = r.user
+        ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+        : '—';
+      const hasPayload = !!(log.before || log.after);
+      const logId = log.id || Math.random().toString(36).slice(2);
+
       return `
-        <tr class="audit-row">
-          <td><button class="btn btn-sm btn-ghost" data-toggle="${log.id}">▾</button></td>
+        <tr class="audit-row" data-id="${logId}">
+          <td>
+            <button class="btn btn-sm btn-ghost" data-toggle="${logId}" ${!hasPayload ? 'disabled' : ''}>
+              ${hasPayload ? '▸' : '·'}
+            </button>
+          </td>
           <td><code>${escapeHtml(log.action || '')}</code></td>
-          <td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td>
-          <td>${escapeHtml(log.entity || '')}</td>
-          <td>${escapeHtml(log.entityId || '')}</td>
-          <td>${escapeHtml(log.ipAddress || '')}</td>
+          <td>${escapeHtml(user)}</td>
+          <td>${escapeHtml(log.entity || '—')}</td>
+          <td>${escapeHtml(log.entityId || '—')}</td>
+          <td>${escapeHtml(log.ipAddress || '—')}</td>
           <td class="small muted">${fmtDateTime(log.createdAt)}</td>
         </tr>
-        <tr class="audit-detail-row" data-detail="${log.id}">
-          <td colspan="7" class="audit-detail">
-            ${log.before ? `<strong>Before:</strong> ${escapeHtml(JSON.stringify(log.before, null, 2))}<br/><br/>` : ''}
-            ${log.after ? `<strong>After:</strong> ${escapeHtml(JSON.stringify(log.after, null, 2))}` : ''}
-            ${!log.before && !log.after ? '<em>No payload recorded.</em>' : ''}
+        <tr class="audit-detail-row" data-detail="${logId}" style="display:none;">
+          <td colspan="7" style="background:#f8fafc;padding:16px;">
+            ${
+              hasPayload
+                ? `
+                  ${log.before ? `<div style="margin-bottom:12px;"><strong style="color:#dc2626;">Before:</strong><pre style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-top:6px;font-size:12px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(log.before, null, 2))}</pre></div>` : ''}
+                  ${log.after ? `<div><strong style="color:#047857;">After:</strong><pre style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-top:6px;font-size:12px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(log.after, null, 2))}</pre></div>` : ''}
+                `
+                : '<em style="color:#94a3b8;">No payload recorded for this entry.</em>'
+            }
           </td>
         </tr>
       `;
-    }).join('') : '<tr><td colspan="7" class="empty">No audit entries.</td></tr>';
+    }).join('');
 
-    container.querySelectorAll('[data-toggle]').forEach((b) => {
-      b.onclick = () => {
-        const row = container.querySelector(`[data-detail="${b.dataset.toggle}"]`);
-        if (row) row.classList.toggle('open');
+    // Wire toggle buttons
+    container.querySelectorAll('[data-toggle]').forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.dataset.toggle;
+        const detailRow = container.querySelector(`[data-detail="${id}"]`);
+        if (!detailRow) return;
+        const isOpen = detailRow.style.display !== 'none';
+        detailRow.style.display = isOpen ? 'none' : 'table-row';
+        btn.textContent = isOpen ? '▸' : '▾';
       };
     });
+
+    // Wire refresh & export
+    const refreshBtn = document.querySelector('.page-head .actions button');
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadAuditTable();
+    }
+
+    const exportBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+      .find((b) => /export/i.test(b.textContent || ''));
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => exportTableAsCSV(container.closest('table'), 'audit-log.csv');
+    }
+
+    // Wire tabs (Audit Log / Login History)
+    const tabs = document.querySelectorAll('.staff-role-tabs .staff-role-tab, #audit-tabs .staff-role-tab');
+    tabs.forEach((tab) => {
+      if (tab.__wired) return;
+      tab.__wired = true;
+      tab.onclick = () => {
+        tabs.forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const which = tab.dataset.tab || tab.textContent.trim().toLowerCase();
+        if (which.includes('login')) loadLoginHistoryIntoAudit();
+        else loadAuditTable();
+      };
+    });
+
   } catch (err) {
-    container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    container.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function loadLoginHistoryIntoAudit() {
+  const container = document.getElementById('audit-tbody');
+  if (!container) return;
+  container.innerHTML = '<tr><td colspan="7" class="empty">Loading login history…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/login-history?limit=200');
+    const json = await res.json();
+    const rows = json.data || [];
+
+    setText('audit-count', `Showing ${rows.length} login attempt${rows.length === 1 ? '' : 's'}`);
+
+    if (!rows.length) {
+      container.innerHTML = '<tr><td colspan="7" class="empty">No login history.</td></tr>';
+      return;
+    }
+
+    container.innerHTML = rows.map((r) => {
+      const entry = r.entry || r;
+      const user = r.user
+        ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+        : entry.email || '—';
+      return `
+        <tr>
+          <td></td>
+          <td><code>${escapeHtml(entry.success ? 'login.success' : 'login.failed')}</code></td>
+          <td>${escapeHtml(user)}</td>
+          <td>${escapeHtml(entry.email || '—')}</td>
+          <td>${escapeHtml(entry.reason || '—')}</td>
+          <td>${escapeHtml(entry.ipAddress || '—')}</td>
+          <td class="small muted">${fmtDateTime(entry.createdAt)}</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -6396,7 +6490,7 @@ window.FPU_ADMIN = {
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
   loadSecurityDashboard, wireSecurityActions, wireSecurityCards,
-  loadSettingsShell, prefillSettingsForm,
+  loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit,
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,

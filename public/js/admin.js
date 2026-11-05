@@ -4465,6 +4465,290 @@ async function loadDepartmentAllocations() {
 }
 
 // ============================================
+// RESULTS (Drill-down & Detail)
+// ============================================
+
+async function loadDepartmentResults() {
+  const root = document.getElementById('rd-root');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const departmentId = params.get('departmentId') || '';
+  const deptName = params.get('name') || 'Department';
+
+  const titleEl = document.getElementById('res-dept-title');
+  const subEl = document.getElementById('res-dept-subtitle');
+  if (titleEl) titleEl.textContent = deptName;
+  if (subEl) subEl.textContent = `Results for ${deptName}`;
+
+  if (!departmentId) {
+    root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
+    return;
+  }
+
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading results…</div>';
+
+  const status = (document.getElementById('rd-filter-status') || {}).value || 'hod_verified';
+  const semester = (document.getElementById('rd-filter-semester') || {}).value || '';
+  const search = (document.getElementById('rd-filter-search') || {}).value || '';
+
+  const qs = new URLSearchParams({ limit: 2000 });
+  if (status) qs.set('status', status);
+  if (semester) qs.set('semester', semester);
+
+  try {
+    const [resultsRes, coursesRes, studentsRes] = await Promise.all([
+      adminFetch(`/api/admin/results/with-student?${qs}`),
+      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch('/api/admin/students?limit=5000'),
+    ]);
+
+    let rows = (await resultsRes.json()).data || [];
+    const courses = (await coursesRes.json()).data || [];
+    const courseById = new Map(courses.map((c) => [c.id, c]));
+
+    // Filter to dept
+    rows = rows.filter((r) => {
+      const c = courseById.get(r.result?.courseId || r.courseId);
+      return c && Number(c.departmentId) === Number(departmentId);
+    });
+
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter((r) => {
+        const s = r.student || {};
+        const c = courseById.get(r.result?.courseId || r.courseId) || {};
+        return (
+          String(s.matricNumber || '').toLowerCase().includes(q) ||
+          String(s.firstName || '').toLowerCase().includes(q) ||
+          String(s.lastName || '').toLowerCase().includes(q) ||
+          String(c.code || '').toLowerCase().includes(q) ||
+          String(c.title || '').toLowerCase().includes(q)
+        );
+      });
+    }
+
+    let totalPending = 0, totalApproved = 0, totalPublished = 0;
+    rows.forEach((r) => {
+      const st = r.result?.status || r.status;
+      if (st === 'hod_verified') totalPending++;
+      else if (st === 'approved') totalApproved++;
+      else if (st === 'published') totalPublished++;
+    });
+
+    setText('rd-stat-total', rows.length);
+    setText('rd-stat-pending', totalPending);
+    setText('rd-stat-approved', totalApproved);
+    setText('rd-stat-published', totalPublished);
+
+    // Group by course
+    const byCourse = new Map();
+    for (const r of rows) {
+      const res = r.result || r;
+      const key = res.courseId;
+      if (!byCourse.has(key)) byCourse.set(key, { courseId: key, rows: [] });
+      byCourse.get(key).rows.push(r);
+    }
+
+    if (!byCourse.size) {
+      root.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>No results match your filters.</p></div>';
+      return;
+    }
+
+    root.innerHTML = [...byCourse.values()].map(({ courseId, rows: list }) => {
+      const c = courseById.get(courseId) || {};
+      const units = Number(c.unit) || 0;
+      const pending = list.filter((r) => (r.result?.status || r.status) === 'hod_verified').length;
+      const approved = list.filter((r) => (r.result?.status || r.status) === 'approved').length;
+
+      return `
+        <div class="res-course-group">
+          <div class="res-course-head">
+            <div>
+              <span class="code">${escapeHtml(c.code || '')}</span>
+              <span class="title">${escapeHtml(c.title || '')}</span>
+              <div class="meta">
+                ${list.length} student${list.length === 1 ? '' : 's'} · <strong>${units}</strong> credit units
+                ${pending ? ` · ${pending} awaiting` : ''}
+                ${approved ? ` · ${approved} approved` : ''}
+              </div>
+            </div>
+            <div class="head-actions">
+              ${pending ? `<button class="btn btn-sm btn-approve" onclick="FPU_ADMIN.bulkApproveCourseResults(${courseId})">✓ Approve All (${pending})</button>` : ''}
+              ${approved ? `<button class="btn btn-sm btn-publish" onclick="FPU_ADMIN.bulkPublishCourseResults(${courseId})">📢 Publish (${approved})</button>` : ''}
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table-admin">
+              <thead>
+                <tr>
+                  <th style="width:32px;"><input type="checkbox" class="rd-course-check" data-course="${courseId}" /></th>
+                  <th>Matric</th>
+                  <th>Student</th>
+                  <th>Score</th>
+                  <th>Grade</th>
+                  <th>Status</th>
+                  <th style="width:200px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((r) => {
+                  const res = r.result || r;
+                  const s = r.student || {};
+                  const st = res.status;
+                  const rowClass = st === 'published' ? 'row-published' : (st && st.includes('rejected')) ? 'row-rejected' : '';
+                  return `
+                    <tr class="${rowClass}">
+                      <td><input type="checkbox" class="rd-check" data-id="${res.id}" onclick="event.stopPropagation()" /></td>
+                      <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
+                      <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+                      <td class="num"><span class="res-score">${res.score}</span></td>
+                      <td>${res.grade ? `<span class="grade ${escapeHtml(res.grade)}">${escapeHtml(res.grade)}</span>` : '—'}</td>
+                      <td>${badge(st)}</td>
+                      <td>
+                        <div class="row-actions">
+                          ${st === 'hod_verified' ? `
+                            <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveResult(${res.id})">Approve</button>
+                            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.rejectResult(${res.id})">Reject</button>
+                          ` : ''}
+                          ${st === 'approved' ? `
+                            <button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.publishResult(${res.id})">Publish</button>
+                          ` : ''}
+                          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('result-edit', { id: ${res.id} })">Edit</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // select-all bar
+    const selectAll = document.getElementById('rd-select-all');
+    if (selectAll) {
+      selectAll.onchange = () => {
+        root.querySelectorAll('.rd-check').forEach((cb) => { cb.checked = selectAll.checked; });
+      };
+    }
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// RESULT ACTIONS
+// ============================================
+async function approveResult(id) {
+  try {
+    await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' });
+    showToast('Approved.', 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function rejectResult(id) {
+  const reason = prompt('Reason for rejecting:');
+  if (reason === null) return;
+  try {
+    await adminFetch(`/api/admin/results/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    showToast('Rejected.', 'warning');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function publishResult(id) {
+  try {
+    await adminFetch(`/api/admin/results/${id}/publish`, { method: 'POST' });
+    showToast('Published.', 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkApproveResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  if (!confirm(`Approve ${ids.length} result(s)?`)) return;
+  let ok = 0, failed = 0;
+  for (const id of ids) {
+    try { await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
+  }
+  showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+  loadDepartmentResults();
+}
+
+async function bulkRejectResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  const reason = prompt('Rejection reason (applied to all):');
+  if (reason === null) return;
+  let ok = 0, failed = 0;
+  for (const id of ids) {
+    try {
+      await adminFetch(`/api/admin/results/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+      ok++;
+    } catch { failed++; }
+  }
+  showToast(`⚠️ Rejected ${ok}${failed ? `, ${failed} failed` : ''}.`, 'warning');
+  loadDepartmentResults();
+}
+
+async function bulkPublishResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  if (!confirm(`Publish ${ids.length} result(s)?`)) return;
+  try {
+    await adminFetch('/api/admin/results/publish-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`✅ Published ${ids.length}.`, 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkApproveCourseResults(courseId) {
+  if (!confirm('Approve all hod_verified results for this course?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=hod_verified&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) { showToast('Nothing to approve.', 'info'); return; }
+    let ok = 0, failed = 0;
+    for (const r of rows) {
+      try { await adminFetch(`/api/admin/results/${r.id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
+    }
+    showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkPublishCourseResults(courseId) {
+  if (!confirm('Publish all approved results for this course?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=approved&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) { showToast('Nothing to publish.', 'info'); return; }
+    const ids = rows.map((r) => r.id);
+    await adminFetch('/api/admin/results/publish-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`✅ Published ${ids.length}.`, 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+// ============================================
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
@@ -4511,7 +4795,10 @@ window.FPU_ADMIN = {
   approveRegistration, rejectRegistration,
 
   // Results
-  loadResultDepartments,
+  loadResultDepartments, loadDepartmentResults, 
+  approveResult, rejectResult, publishResult,
+  bulkApproveResults, bulkRejectResults, bulkPublishResults,
+  bulkApproveCourseResults, bulkPublishCourseResults,
 
   // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,

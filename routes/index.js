@@ -77,6 +77,7 @@ router.use('/admin/complaints',     require('./complaints'));
 // Admin — system
 // ------------------------------------------------------------
 router.use('/admin/settings',       require('./settings'));
+router.use('/admin/system',         require('./adminSystem'));   // ← ADD THIS LINE
 router.use('/admin/security',       require('./security'));
 router.use('/admin/audit',          require('./audit'));
 router.use('/admin/reports',        require('./reports'));

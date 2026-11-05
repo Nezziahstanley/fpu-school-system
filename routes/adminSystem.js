@@ -1,5 +1,5 @@
 // ============================================================
-// routes/adminSystem.js — System health, deploy, backups
+// routes/adminSystem.js — System deploy & github status
 // ============================================================
 'use strict';
 
@@ -9,39 +9,28 @@ const router = express.Router();
 const { adminAuth } = require('../middleware/adminAuth');
 const { query } = require('../db');
 
-// ------------------------------------------------------------
-// GET /api/health — Public health check (also used by System tab)
-// ------------------------------------------------------------
-router.get('/health', (req, res) => {
-  res.json({
-    app: 'FPU School Management System',
-    version: process.env.APP_VERSION || '1.0.0',
-    env: process.env.NODE_ENV || 'production',
-    node: process.version,
-    uptime: Math.floor(process.uptime()) + 's',
-    lastDeploy: process.env.LAST_DEPLOY || null,
-  });
-});
-
-// ------------------------------------------------------------
-// Everything below requires admin auth
-// ------------------------------------------------------------
+// All routes below require admin auth
 router.use(adminAuth);
 
 // ------------------------------------------------------------
-// POST /api/admin/system/deploy — Trigger a deployment
+// POST /api/admin/system/deploy — Trigger deployment
 // ------------------------------------------------------------
-router.post('/admin/system/deploy', async (req, res) => {
+router.post('/system/deploy', async (req, res) => {
   try {
     const { branch = 'main', notes = '' } = req.body || {};
 
-    // Render deploy hook (set via env var)
     const hookUrl = process.env.RENDER_DEPLOY_HOOK;
     if (hookUrl) {
-      await fetch(hookUrl, { method: 'POST' });
+      try {
+        await fetch(hookUrl, { method: 'POST' });
+      } catch (hookErr) {
+        console.warn('[deploy] Hook failed:', hookErr.message);
+      }
+    } else {
+      console.warn('[deploy] RENDER_DEPLOY_HOOK not set — skipping actual deploy');
     }
 
-    // Optionally persist the deploy record to a table
+    // Persist record (ignore if table missing)
     try {
       await query(
         `INSERT INTO deployments (branch, notes, status, deployed_by, created_at)
@@ -49,7 +38,7 @@ router.post('/admin/system/deploy', async (req, res) => {
         [branch, notes, req.user?.id || null]
       );
     } catch (e) {
-      // Table might not exist yet — ignore
+      console.debug('[deploy] Could not persist:', e.message);
     }
 
     res.json({
@@ -63,14 +52,15 @@ router.post('/admin/system/deploy', async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/admin/system/deployments — Recent deploy history
+// GET /api/admin/system/deployments — Deploy history
 // ------------------------------------------------------------
-router.get('/admin/system/deployments', async (req, res) => {
+router.get('/system/deployments', async (req, res) => {
   try {
     let rows = [];
     try {
       const result = await query(
-        `SELECT * FROM deployments ORDER BY created_at DESC LIMIT 10`
+        `SELECT id, branch, notes, status, deployed_by, created_at, completed_at
+         FROM deployments ORDER BY created_at DESC LIMIT 10`
       );
       rows = result.rows || result || [];
     } catch { rows = []; }
@@ -81,19 +71,19 @@ router.get('/admin/system/deployments', async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/admin/system/github-status — Latest commit info
+// GET /api/admin/system/github-status — Latest commit
 // ------------------------------------------------------------
-router.get('/admin/system/github-status', async (req, res) => {
+router.get('/system/github-status', async (req, res) => {
   try {
-    // Optional: fetch from GitHub API if GITHUB_TOKEN is set
     const token = process.env.GITHUB_TOKEN;
-    const repo  = process.env.GITHUB_REPO; // e.g. "user/fpu-school-system"
+    const repo  = process.env.GITHUB_REPO;
     if (token && repo) {
-      const r = await fetch(`https://api.github.com/repos/${repo}/commits?per_page=1`, {
-        headers: { Authorization: `token ${token}` },
-      });
+      const r = await fetch(
+        `https://api.github.com/repos/${repo}/commits?per_page=1`,
+        { headers: { Authorization: `token ${token}`, 'User-Agent': 'FPU-Admin' } }
+      );
       const commits = await r.json();
-      const c = commits[0];
+      const c = Array.isArray(commits) ? commits[0] : null;
       return res.json({
         commit: c?.sha?.slice(0, 7) || '—',
         author: c?.commit?.author?.name || '—',

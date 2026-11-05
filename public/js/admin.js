@@ -2777,111 +2777,181 @@ async function loadCourseDepartments() {
   const grid = document.getElementById('course-dept-grid');
   if (!grid) return;
 
-  const schoolId = (document.getElementById('course-filter-school') || {}).value || '';
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
+  grid.innerHTML = `<div class="loading" style="grid-column:1/-1;">
+    <span class="spinner"></span> Loading departments…
+  </div>`;
 
   try {
+    const schoolId = (document.getElementById('course-filter-school') || {}).value || '';
+    const levelFilter = (document.getElementById('course-filter-level') || {}).value || '';
+    const search = (document.getElementById('crs-search') || {}).value || '';
+    const sortBy = (document.getElementById('course-filter-sort') || {}).value || 'code';
+
     const [deptRes, courseRes, schoolRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch('/api/admin/courses?limit=5000'),
       adminFetch('/api/admin/schools'),
     ]);
 
-    const depts   = (await deptRes.json()).data   || [];
+    const depts = (await deptRes.json()).data || [];
     const courses = (await courseRes.json()).data || [];
     const schools = (await schoolRes.json()).data || [];
+    const schoolMap = new Map(schools.map(s => [Number(s.id), s]));
 
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
+    // Group courses by department
     const byDept = new Map();
-    for (const d of depts) {
-      byDept.set(d.id, { dept: d, courses: [] });
-    }
-    for (const c of courses) {
-      if (!c.departmentId) continue;
-      if (!byDept.has(c.departmentId)) continue;
-      byDept.get(c.departmentId).courses.push(c);
-    }
-
-    const visible = [...byDept.values()].filter(({ dept }) => {
-      if (!schoolId) return true;
-      return Number(dept.schoolId) === Number(schoolId);
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, courses: [] }));
+    courses.forEach(c => {
+      const bucket = byDept.get(Number(c.departmentId));
+      if (bucket) bucket.courses.push(c);
     });
 
+    // Total stats (unfiltered)
     let totalCourses = 0;
     let totalUnits = 0;
-    for (const { courses: list } of visible) {
-      totalCourses += list.length;
-      totalUnits   += list.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+    for (const bucket of byDept.values()) {
+      totalCourses += bucket.courses.length;
+      totalUnits += bucket.courses.reduce((s, c) => s + (Number(c.unit) || 0), 0);
     }
     setText('crs-stat-total', totalCourses);
     setText('crs-stat-units', totalUnits);
-    setText('crs-stat-departments', visible.length);
-    setText('crs-stat-with-courses', visible.filter((d) => d.courses.length > 0).length);
+    setText('crs-stat-departments', depts.length);
+    setText('crs-stat-with-courses', [...byDept.values()].filter(b => b.courses.length > 0).length);
+
+    // Apply level filter to each department's courses
+    const filteredByDept = [];
+    for (const bucket of byDept.values()) {
+      let list = bucket.courses;
+      if (levelFilter) {
+        list = list.filter(c => String(c.level || '').toUpperCase() === levelFilter);
+      }
+      filteredByDept.push({ dept: bucket.dept, courses: list });
+    }
+
+    // Apply school filter + search
+    let visible = filteredByDept.filter(v => {
+      if (schoolId && Number(v.dept.schoolId) !== Number(schoolId)) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const deptMatch = `${v.dept.name || ''} ${v.dept.code || ''}`.toLowerCase().includes(q);
+        if (!deptMatch && !v.courses.some(c => `${c.code || ''} ${c.title || ''}`.toLowerCase().includes(q))) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Sort
+    switch (sortBy) {
+      case 'courses-desc': visible.sort((a, b) => b.courses.length - a.courses.length); break;
+      case 'courses-asc': visible.sort((a, b) => a.courses.length - b.courses.length); break;
+      case 'units-desc': visible.sort((a, b) =>
+        b.courses.reduce((s, c) => s + (Number(c.unit) || 0), 0) -
+        a.courses.reduce((s, c) => s + (Number(c.unit) || 0), 0)
+      ); break;
+      case 'units-asc': visible.sort((a, b) =>
+        a.courses.reduce((s, c) => s + (Number(c.unit) || 0), 0) -
+        b.courses.reduce((s, c) => s + (Number(c.unit) || 0), 0)
+      ); break;
+      default: visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+    }
 
     if (!visible.length) {
-      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
-        <div class="icon">📚</div>
-        <p>No departments found.</p>
-      </div>`;
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📚</div><p>No departments match your filters.</p></div>';
       return;
     }
 
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
     grid.innerHTML = visible.map(({ dept, courses: list }) => {
-      const total = list.length;
       const units = list.reduce((s, c) => s + (Number(c.unit) || 0), 0);
-      const school = schoolMap.get(dept.schoolId);
-
-      const ndCount  = list.filter((c) => c.level === 'ND').length;
-      const hndCount = list.filter((c) => c.level === 'HND').length;
-
-      const isEmpty = total === 0;
+      const nd = list.filter(c => String(c.level || '').toUpperCase() === 'ND').length;
+      const hnd = list.filter(c => String(c.level || '').toUpperCase() === 'HND').length;
+      const cert = list.filter(c => String(c.level || '').toUpperCase() === 'CERT').length;
+      const school = schoolMap.get(Number(dept.schoolId));
+      const isEmpty = list.length === 0;
 
       return `
         <div class="course-dept-card ${isEmpty ? 'empty' : ''}"
-             ${isEmpty ? '' : `data-dept-id="${dept.id}" data-dept-name="${escapeHtml(dept.name)}"`}>
+             ${isEmpty ? '' : `data-dept-id="${dept.id}" data-dept-name="${escapeQuotes(dept.name)}"`}>
           <div class="cdc-head">
-            <span class="cdc-code">${escapeHtml(dept.code)}</span>
-            <span class="cdc-school">${escapeHtml(school?.code || '')}</span>
+            <span class="cdc-code">${escapeHtml(dept.code || '—')}</span>
+            <span class="cdc-school">${escapeHtml(school ? school.code : '')}</span>
           </div>
-          <h3>${escapeHtml(dept.name)}</h3>
+          <h3>${escapeHtml(dept.name || '—')}</h3>
           <div class="cdc-stats">
             <div class="cdc-stat">
-              <span class="num">${total}</span>
-              <span class="label">course${total === 1 ? '' : 's'}</span>
+              <span class="num">${list.length}</span>
+              <span class="label">Courses</span>
             </div>
             <div class="cdc-stat units">
               <span class="num">${units}</span>
-              <span class="label">credit unit${units === 1 ? '' : 's'}</span>
+              <span class="label">Credit Units</span>
             </div>
           </div>
           <div class="cdc-split">
-            ${ndCount  ? `<span class="cdc-chip nd">ND: ${ndCount}</span>` : ''}
-            ${hndCount ? `<span class="cdc-chip hnd">HND: ${hndCount}</span>` : ''}
-            ${!ndCount && !hndCount ? `<span class="cdc-chip">No courses</span>` : ''}
+            ${nd ? `<span class="cdc-chip nd">ND: ${nd}</span>` : ''}
+            ${hnd ? `<span class="cdc-chip hnd">HND: ${hnd}</span>` : ''}
+            ${cert ? `<span class="cdc-chip cert">CERT: ${cert}</span>` : ''}
+            ${!nd && !hnd && !cert ? '<span class="cdc-chip">No courses</span>' : ''}
           </div>
           <div class="cdc-footer">
             <span>${isEmpty ? 'No courses yet' : 'View courses →'}</span>
+            <span class="arrow">→</span>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.course-dept-card[data-dept-id]').forEach((card) => {
+    // Wire clicks
+    grid.querySelectorAll('.course-dept-card[data-dept-id]').forEach(card => {
       card.addEventListener('click', () => {
-        const deptId   = Number(card.dataset.deptId);
-        const deptName = card.dataset.deptName;
         FPU_ADMIN_SPA.navigateToWithQuery('courses-by-dept', {
-          departmentId: deptId,
-          name: deptName,
+          departmentId: Number(card.dataset.deptId),
+          name: card.dataset.deptName,
         });
       });
     });
   } catch (err) {
     grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// Export all courses to CSV
+// ============================================
+async function exportAllCourses() {
+  try {
+    showToast('Preparing export…', 'info');
+    const res = await adminFetch('/api/admin/courses?limit=5000');
+    const json = await res.json();
+    const courses = json.data || [];
+    if (!courses.length) {
+      showToast('No courses to export.', 'warning');
+      return;
+    }
+    const headers = ['Code', 'Title', 'Unit', 'Level', 'Year', 'Semester', 'Programme ID', 'Department ID'];
+    const rows = courses.map(c => [
+      c.code || '',
+      c.title || '',
+      c.unit || '',
+      c.level || '',
+      c.yearOfStudy || '',
+      c.semester || '',
+      c.programmeId || '',
+      c.departmentId || '',
+    ]);
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `courses-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ Exported ${courses.length} courses.`, 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
@@ -10966,8 +11036,7 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadStudentTranscript,
 
   // courses (department-first)
-  loadCourseDepartments, loadDepartmentCourses, loadCourses,
-  inferCourseYear,
+  loadCourseDepartments, loadDepartmentCourses, loadCourses, inferCourseYear, exportAllCourses,
 
   // staff
   loadStaff, loadStaffDirectory, loadStaffProfile, loadStaffWorkload,

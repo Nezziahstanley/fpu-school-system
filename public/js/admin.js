@@ -1,7 +1,7 @@
 ﻿// ============================================
 // FPU ADMIN.JS — Federal Polytechnic Ugep
-// Complete consolidated version (v11)
-// Fixed: Syntax errors, Dashboard loading, Course Departments
+// Complete consolidated version (v12)
+// Fixed: Results, Department drill-downs, Result Detail, Registrations
 // ============================================
 
 // ============================================================
@@ -2093,6 +2093,292 @@ async function loadRegistrationStudents() {
   }
 }
 
+async function loadCourseRegistrations() {
+  const root = document.getElementById('reg-course-root');
+  if (!root) return;
+
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading roster…</div>';
+
+  const sessionId = (document.getElementById('reg-course-session') || {}).value || '';
+  const semester = (document.getElementById('reg-course-semester') || {}).value || '';
+  const deptId = (document.getElementById('reg-course-dept') || {}).value || '';
+  const courseId = (document.getElementById('reg-course-course') || {}).value || '';
+  const status = (document.getElementById('reg-course-status') || {}).value || '';
+
+  const qs = new URLSearchParams({ limit: 2000 });
+  if (sessionId) qs.set('sessionId', sessionId);
+  if (semester) qs.set('semester', semester);
+  if (courseId) qs.set('courseId', courseId);
+  if (status) qs.set('status', status);
+
+  try {
+    const res = await adminFetch(`/api/admin/registrations/with-student?${qs}`);
+    const json = await res.json();
+    let rows = json.data || [];
+
+    if (deptId) {
+      rows = rows.filter((r) => Number(r.course?.departmentId) === Number(deptId));
+    }
+
+    // Group by course
+    const byCourse = new Map();
+    for (const r of rows) {
+      const c = r.course || {};
+      const key = c.id || 0;
+      if (!byCourse.has(key)) byCourse.set(key, { course: c, rows: [] });
+      byCourse.get(key).rows.push(r);
+    }
+
+    let totalPending = 0, totalApproved = 0;
+    rows.forEach((r) => {
+      if (r.registration.status === 'pending') totalPending++;
+      else if (r.registration.status === 'approved') totalApproved++;
+    });
+
+    setText('reg-crs-stat-courses', byCourse.size);
+    setText('reg-crs-stat-rows', rows.length);
+    setText('reg-crs-stat-pending', totalPending);
+    setText('reg-crs-stat-approved', totalApproved);
+
+    if (!byCourse.size) {
+      root.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No registrations match your filters.</p></div>';
+      return;
+    }
+
+    root.innerHTML = [...byCourse.values()].map(({ course, rows: list }) => {
+      const units = list
+        .filter((r) => ['pending','approved'].includes(r.registration.status))
+        .reduce((s, r) => s + (Number(course.unit) || 0), 0);
+      const pending = list.filter((r) => r.registration.status === 'pending').length;
+
+      return `
+        <div class="roster-course">
+          <div class="roster-course-head">
+            <div>
+              <span class="code">${escapeHtml(course.code || '')}</span>
+              <span class="title">${escapeHtml(course.title || '')}</span>
+              <div class="meta">${list.length} students · <strong>${units}</strong> credit units${pending ? ` · ${pending} pending` : ''}</div>
+            </div>
+            ${pending > 0 ? `
+              <button class="btn btn-sm btn-accent"
+                onclick="FPU_ADMIN.approveAllPendingCourse(${course.id})">
+                Approve All Pending
+              </button>
+            ` : ''}
+          </div>
+          <div class="table-wrap">
+            <table class="table-admin">
+              <thead>
+                <tr>
+                  <th>Matric</th>
+                  <th>Student</th>
+                  <th>Semester</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((r) => {
+                  const s = r.student || {};
+                  const reg = r.registration || {};
+                  return `
+                    <tr>
+                      <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
+                      <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+                      <td>${escapeHtml(reg.semester || '')}</td>
+                      <td>${badge(reg.status)}</td>
+                      <td>
+                        ${reg.status === 'pending' ? `
+                          <div class="row-actions">
+                            <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveRegistration(${reg.id})">Approve</button>
+                            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.rejectRegistration(${reg.id})">Reject</button>
+                          </div>
+                        ` : '—'}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function approveAllPendingCourse(courseId) {
+  if (!confirm('Approve all pending registrations for this course?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/registrations?courseId=${courseId}&status=pending&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) { showToast('No pending registrations.', 'info'); return; }
+
+    let ok = 0, failed = 0;
+    for (const r of rows) {
+      try {
+        await adminFetch(`/api/admin/registrations/${r.id}/approve`, { method: 'POST' });
+        ok++;
+      } catch { failed++; }
+    }
+    showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+    loadCourseRegistrations();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadStudentRegistrations() {
+  const groups = document.getElementById('reg-stu-groups');
+  if (!groups) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const studentId = params.get('studentId') || '';
+
+  if (!studentId) {
+    groups.innerHTML = '<div class="alert alert-warning">No student selected.</div>';
+    return;
+  }
+
+  groups.innerHTML = '<div class="loading"><span class="spinner"></span> Loading registrations…</div>';
+
+  try {
+    const [regsRes, stuRes] = await Promise.all([
+      adminFetch(`/api/admin/registrations/with-course?studentId=${studentId}&limit=500`),
+      adminFetch(`/api/admin/students/${studentId}`),
+    ]);
+
+    const regs = (await regsRes.json()).data || [];
+    const student = (await stuRes.json()).data || {};
+
+    const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim();
+    const initials = ((student.firstName || ' ')[0] + (student.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+
+    const summaryPanel = document.getElementById('reg-stu-summary-panel');
+    if (summaryPanel) summaryPanel.style.display = 'block';
+
+    const avatar = document.getElementById('reg-stu-avatar');
+    if (avatar) {
+      avatar.textContent = initials;
+      if (student.photoUrl) {
+        avatar.innerHTML = `<img src="${escapeHtml(student.photoUrl)}" alt="" />`;
+      }
+    }
+    setText('reg-stu-name', fullName || '—');
+    setText('reg-stu-email', student.email || '—');
+    setText('reg-stu-meta', `Matric: ${student.matricNumber || '—'} · Level: ${student.level || '—'}`);
+
+    const titleEl = document.getElementById('reg-stu-title');
+    const subEl = document.getElementById('reg-stu-subtitle');
+    if (titleEl) titleEl.textContent = fullName || 'Student Registrations';
+    if (subEl) subEl.textContent = `${student.matricNumber || '—'} · ${regs.length} registration(s)`;
+
+    // Group by semester
+    const bySem = new Map();
+    for (const r of regs) {
+      const reg = r.registration || {};
+      const key = `${reg.sessionId || '?'}|${reg.semester || '?'}`;
+      if (!bySem.has(key)) bySem.set(key, { sessionId: reg.sessionId, semester: reg.semester, rows: [] });
+      bySem.get(key).rows.push(r);
+    }
+
+    let totalUnits = 0;
+    regs.forEach((r) => {
+      if (['pending','approved'].includes(r.registration.status)) {
+        totalUnits += Number(r.course?.unit) || 0;
+      }
+    });
+    setText('reg-stu-total-units', totalUnits);
+
+    if (!bySem.size) {
+      groups.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>No registrations.</p></div>';
+      return;
+    }
+
+    groups.innerHTML = [...bySem.values()].map(({ sessionId, semester, rows }) => {
+      const units = rows
+        .filter((r) => ['pending','approved'].includes(r.registration.status))
+        .reduce((s, r) => s + (Number(r.course?.unit) || 0), 0);
+
+      return `
+        <div class="sem-group">
+          <div class="sem-group-head">
+            <div>
+              <span class="title">Session ${sessionId} — ${escapeHtml(semester)} Semester</span>
+              <div class="subtitle">${rows.length} course${rows.length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="sem-group-units">
+              <span class="num">${units}</span>
+              <span class="lbl">units</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table-admin">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Title</th>
+                  <th>Unit</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map((r) => {
+                  const c = r.course || {};
+                  const reg = r.registration || {};
+                  return `
+                    <tr>
+                      <td><code>${escapeHtml(c.code || '')}</code></td>
+                      <td>${escapeHtml(c.title || '')}</td>
+                      <td class="num">${Number(c.unit) || 0}</td>
+                      <td>${badge(reg.status)}</td>
+                      <td>
+                        ${reg.status === 'pending' ? `
+                          <div class="row-actions">
+                            <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveRegistration(${reg.id})">Approve</button>
+                            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.rejectRegistration(${reg.id})">Reject</button>
+                          </div>
+                        ` : '—'}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bulk approve
+    const bulkBtn = document.getElementById('reg-stu-bulk-approve');
+    if (bulkBtn) {
+      bulkBtn.onclick = async () => {
+        const pending = regs.filter((r) => r.registration.status === 'pending').map((r) => r.registration.id);
+        if (!pending.length) { showToast('No pending registrations.', 'info'); return; }
+        if (!confirm(`Approve ${pending.length} pending registration(s)?`)) return;
+        let ok = 0, failed = 0;
+        for (const id of pending) {
+          try {
+            await adminFetch(`/api/admin/registrations/${id}/approve`, { method: 'POST' });
+            ok++;
+          } catch { failed++; }
+        }
+        showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+        loadStudentRegistrations();
+      };
+    }
+  } catch (err) {
+    groups.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+  }
+}
+
 // ============================================
 // RESULTS (Department Overview)
 // ============================================
@@ -2206,2258 +2492,6 @@ async function loadResultDepartments() {
     grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
   }
 }
-
-// ============================================
-// GRADE SCALES
-// ============================================
-async function loadGradeScales() {
-  const container = document.getElementById("grade-scales-tbody");
-  if (!container) return;
-  
-  container.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-  
-  try {
-    const res = await adminFetch("/api/admin/grade-scales");
-    const result = await res.json();
-    const rows = extractArray(result);
-
-    if (!rows.length) {
-      container.innerHTML = '<tr><td colspan="6" class="empty">No grade scales defined.</td></tr>';
-      return;
-    }
-
-    // Sort rows by minimum score descending
-    rows.sort((a, b) => Number(b.minScore) - Number(a.minScore));
-
-    container.innerHTML = rows.map((g) => `
-      <tr>
-        <td><span class="gs-grade-chip ${escapeHtml(g.grade)}">${escapeHtml(g.grade)}</span></td>
-        <td><span class="gs-range">${g.minScore} – ${g.maxScore}</span></td>
-        <td><span class="gs-points">${g.points}</span></td>
-        <td>${escapeHtml(g.remark || '')}</td>
-        <td>${g.isActive ? badge('active') : badge('inactive')}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openEditGradeScale(${g.id})">Edit</button>
-            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.toggleGradeScale(${g.id}, ${!g.isActive})">${g.isActive ? 'Deactivate' : 'Activate'}</button>
-            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteGradeScale(${g.id})">Delete</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
-
-    // Pass data to the health checker and live preview
-    renderGradeScaleHealth(rows);
-    setupGradeScalePreview(rows);
-
-  } catch (err) {
-    container.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-function renderGradeScaleHealth(rows) {
-  const health = document.getElementById('gs-health');
-  if (!health) return;
-
-  const active = rows.filter((r) => r.isActive !== false).sort((a, b) => Number(a.minScore) - Number(b.minScore));
-  
-  if (!active.length) {
-    health.innerHTML = '<div class="panel-body"><div class="alert alert-warning">⚠️ No active grade bands — no scores can be graded.</div></div>';
-    return;
-  }
-
-  let coverage = 0;
-  let overlaps = [];
-  let lastMax = -1;
-
-  for (const b of active) {
-    const min = Number(b.minScore);
-    const max = Number(b.maxScore);
-
-    if (min > lastMax + 1 && lastMax >= 0) {
-      overlaps.push(`Gap between ${lastMax} and ${min}`);
-    }
-    if (min <= lastMax) {
-      overlaps.push(`Overlap at ${min} (band ${b.grade})`);
-    }
-    
-    // Count unique numbers covered (roughly)
-    coverage += (max - min + 1);
-    lastMax = Math.max(lastMax, max);
-  }
-
-  const cls = overlaps.length ? 'err' : coverage >= 101 ? 'ok' : 'warn';
-  
-  health.innerHTML = `
-    <div class="panel-body">
-      <div class="gs-health-grid">
-        <div class="gs-health-item">
-          <div class="num ${cls}">${coverage}</div>
-          <div class="label">Score coverage (0-100)</div>
-        </div>
-        <div class="gs-health-item">
-          <div class="num ${active.length ? 'ok' : 'err'}">${active.length}</div>
-          <div class="label">Active bands</div>
-        </div>
-        <div class="gs-health-item">
-          <div class="num ${rows.length - active.length ? 'warn' : 'ok'}">${rows.length - active.length}</div>
-          <div class="label">Inactive</div>
-        </div>
-        <div class="gs-health-item">
-          <div class="num ${overlaps.length ? 'err' : 'ok'}">${overlaps.length}</div>
-          <div class="label">Issues</div>
-        </div>
-      </div>
-      ${overlaps.length ? `<div class="gs-overlap-list" style="color:#dc2626;margin-top:12px;font-size:12px;">${overlaps.map(escapeHtml).join('<br/>')}</div>` : ''}
-    </div>`;
-}
-
-function setupGradeScalePreview(rows) {
-  const input = document.getElementById('gs-preview-score');
-  const result = document.getElementById('gs-preview-result');
-  if (!input || !result) return;
-
-  const render = () => {
-    const v = Number(input.value);
-    if (!Number.isFinite(v) || input.value === '') {
-      result.innerHTML = '<div class="gs-preview-empty" style="padding:20px;text-align:center;color:#94a3b8;">Enter a score to preview</div>';
-      return;
-    }
-    
-    const active = rows.filter((r) => r.isActive !== false);
-    const hit = active.find((b) => v >= Number(b.minScore) && v <= Number(b.maxScore));
-    
-    if (!hit) {
-      result.innerHTML = `<div class="gs-preview-miss" style="padding:20px;text-align:center;color:#dc2626;font-weight:600;">Score ${v} falls outside all active bands.<br/>Students scoring this would get an F.</div>`;
-      return;
-    }
-    
-    result.innerHTML = `
-      <div class="gs-preview-hit" style="padding:20px;display:flex;align-items:center;gap:20px;border:1px solid #e2e8f0;border-radius:8px;">
-        <div class="gs-preview-grade ${escapeHtml(hit.grade)}" style="font-size:32px;font-weight:800;color:#065f46;">${escapeHtml(hit.grade)}</div>
-        <div class="gs-preview-meta">
-          <div class="label" style="font-size:12px;text-transform:uppercase;color:#64748b;">Grade</div>
-          <div class="value" style="font-size:16px;font-weight:700;">${escapeHtml(hit.grade)} — ${escapeHtml(hit.remark || '')}</div>
-          <div class="sub" style="font-size:13px;color:#475569;">${hit.minScore}–${hit.maxScore} → ${hit.points} points</div>
-        </div>
-      </div>`;
-  };
-  
-  input.oninput = render;
-  render(); // Run once initially
-}
-
-// Modal & Actions for Grade Scales
-function openEditGradeScale(id) {
-  if (!id) return;
-  adminFetch(`/api/admin/grade-scales/${id}`).then((r) => r.json()).then((j) => {
-    if (!j.success) return;
-    const g = j.data;
-    const modal = document.getElementById('gs-modal');
-    if (!modal) return;
-    document.getElementById('gs-edit-grade').value = g.grade || '';
-    document.getElementById('gs-edit-min').value = g.minScore ?? '';
-    document.getElementById('gs-edit-max').value = g.maxScore ?? '';
-    document.getElementById('gs-edit-points').value = g.points ?? '';
-    document.getElementById('gs-edit-remark').value = g.remark || '';
-    document.getElementById('gs-edit-active').checked = g.isActive !== false;
-    document.getElementById('gs-edit-form').dataset.id = id;
-    modal.style.display = 'flex';
-    modal.classList.add('open');
-  });
-}
-
-async function toggleGradeScale(id, nextState) {
-  try {
-    await adminFetch(`/api/admin/grade-scales/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ isActive: nextState }),
-    });
-    showToast('Updated.', 'success');
-    loadGradeScales();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function deleteGradeScale(id) {
-  if (!confirm('Delete this grade band?')) return;
-  try {
-    await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
-    loadGradeScales();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-// ============================================
-// TRANSCRIPT (Lookup Directory)
-// ============================================
-async function loadTranscriptLookup() {
-  const tbody = document.getElementById('tx-search-tbody');
-  const countEl = document.getElementById('tx-count');
-  const input = document.getElementById('tx-search');
-  const searchBtn = document.getElementById('tx-search-btn');
-  
-  if (!tbody) return;
-
-  const q = (input || {}).value || '';
-
-  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-
-  try {
-    const qs = new URLSearchParams({ limit: q ? 100 : 50 });
-    if (q) qs.set('search', q);
-    
-    const res = await adminFetch(`/api/admin/students?${qs}`);
-    const json = await res.json();
-    const rows = json.data || [];
-
-    if (countEl) countEl.textContent = `${rows.length} result${rows.length === 1 ? '' : 's'}`;
-
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No students found.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = rows.map((s) => `
-      <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id} })">
-        <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
-        <td><strong>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</strong></td>
-        <td>${escapeHtml(s.level || '')}</td>
-        <td>${escapeHtml(s.programmeName || s.programme?.name || '—')}</td>
-        <td>${s.isActive !== false ? badge('active') : badge('inactive')}</td>
-        <td>
-          <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id} })">
-            Open Transcript
-          </button>
-        </td>
-      </tr>
-    `).join('');
-
-    // Wire search button if it exists
-    if (searchBtn && !searchBtn.__wired) {
-      searchBtn.__wired = true;
-      searchBtn.onclick = () => loadTranscriptLookup();
-    }
-    
-    // Wire enter key on search input
-    if (input && !input.__wired) {
-      input.__wired = true;
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          loadTranscriptLookup();
-        }
-      });
-    }
-
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-// ============================================
-// TIMETABLE
-// ============================================
-async function loadTimetableIndex() {
-  const grid = document.getElementById('tt-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('tt-session') || {}).value || '';
-  const semester = (document.getElementById('tt-semester') || {}).value || 'first';
-  const search = (document.getElementById('tt-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams({ limit: 2000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [deptsRes, slotsRes, schoolsRes, coursesRes] = await Promise.all([
-      adminFetch('/api/admin/departments'),
-      adminFetch(`/api/admin/timetable?${qs}`),
-      adminFetch('/api/admin/schools'),
-      adminFetch('/api/admin/courses?limit=2000'),
-    ]);
-
-    const depts = (await deptsRes.json()).data || [];
-    const slots = (await slotsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
-
-    window.__ttCache = slots.map((s) => s.slot || s);
-
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, slots: [] });
-    
-    for (const s of slots) {
-      const slot = s.slot || s;
-      const c = courseById.get(slot.courseId);
-      if (!c) continue;
-      const bucket = byDept.get(c.departmentId);
-      if (!bucket) continue;
-      bucket.slots.push(s);
-    }
-
-    let totalSlots = 0;
-    let scheduledDepts = 0;
-    for (const b of byDept.values()) {
-      totalSlots += b.slots.length;
-      if (b.slots.length > 0) scheduledDepts++;
-    }
-
-    setText('tt-stat-depts', depts.length);
-    setText('tt-stat-slots', totalSlots);
-    setText('tt-stat-scheduled', scheduledDepts);
-    setText('tt-stat-conflicts', 0);
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🗓️</div><p>No departments.</p></div>';
-      return;
-    }
-
-    grid.innerHTML = visible.map((b) => {
-      const units = b.slots.reduce((acc, s) => {
-        const slot = s.slot || s;
-        const c = courseById.get(slot.courseId);
-        return acc + (Number(c?.unit) || 0);
-      }, 0);
-      const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
-      const isEmpty = b.slots.length === 0;
-      const school = schoolMap.get(b.dept.schoolId);
-
-      return `
-        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="ttd-head">
-            <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
-            <span class="ttd-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="ttd-stats">
-            <div class="ttd-stat"><span class="num">${b.slots.length}</span><span class="label">Slots</span></div>
-            <div class="ttd-stat"><span class="num">${units}</span><span class="label">Units</span></div>
-            <div class="ttd-stat"><span class="num">${days.size}</span><span class="label">Days</span></div>
-          </div>
-          <div class="ttd-footer">
-            <span>${isEmpty ? 'Empty' : 'View timetable'}</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.tt-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: Number(card.dataset.deptId), sessionId: sessionId || '', semester, name: card.dataset.deptName });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// EXAMS
-// ============================================
-async function loadExamsIndex() {
-  const grid = document.getElementById('ex-school-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading schools…</div>';
-
-  const sessionId = (document.getElementById('ex-session') || {}).value || '';
-  const semester = (document.getElementById('ex-semester') || {}).value || 'first';
-  const schoolId = (document.getElementById('ex-school') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [schoolsRes, examsRes, deptsRes, coursesRes] = await Promise.all([
-      adminFetch('/api/admin/schools'),
-      adminFetch(`/api/admin/exams?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/courses?limit=2000'),
-    ]);
-
-    const schools = (await schoolsRes.json()).data || [];
-    const exams = (await examsRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
-
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const deptById = new Map(depts.map((d) => [d.id, d]));
-
-    const bySchool = new Map();
-    for (const s of schools) bySchool.set(s.id, { school: s, exams: [] });
-
-    for (const e of exams) {
-      const c = courseById.get(e.exam?.courseId || e.courseId);
-      if (!c) continue;
-      const d = deptById.get(c.departmentId);
-      if (!d) continue;
-      const bucket = bySchool.get(d.schoolId);
-      if (!bucket) continue;
-      bucket.exams.push(e);
-    }
-
-    let total = 0, totalDays = new Set(), totalVenues = new Set();
-    for (const b of bySchool.values()) {
-      total += b.exams.length;
-      b.exams.forEach((e) => {
-        const exam = e.exam || e;
-        if (exam.examDate) totalDays.add(String(exam.examDate).slice(0, 10));
-        if (exam.venue) totalVenues.add(exam.venue);
-      });
-    }
-
-    setText('ex-stat-total', total);
-    setText('ex-stat-depts', depts.length);
-    setText('ex-stat-days', totalDays.size);
-    setText('ex-stat-venues', totalVenues.size);
-
-    const visible = [...bySchool.values()].filter((b) => {
-      if (!schoolId) return true;
-      return Number(b.school.id) === Number(schoolId);
-    });
-
-    grid.innerHTML = visible.map((b) => {
-      const isEmpty = b.exams.length === 0;
-      return `
-        <div class="ex-school-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-school-id="${b.school.id}" data-school-name="${escapeHtml(b.school.name)}"`}>
-          <div class="esc-head">
-            <span class="esc-code">${escapeHtml(b.school.code)}</span>
-            <span class="esc-badge">Exam Sheet</span>
-          </div>
-          <h3>${escapeHtml(b.school.name)}</h3>
-          <div class="esc-stats">
-            <div class="esc-stat"><span class="num">${b.exams.length}</span><span class="label">Exams</span></div>
-            <div class="esc-stat"><span class="num">${new Set(b.exams.map((e) => (e.exam || e).examDate)).size}</span><span class="label">Days</span></div>
-            <div class="esc-stat"><span class="num">${new Set(b.exams.map((e) => (e.exam || e).venue).filter(Boolean)).size}</span><span class="label">Venues</span></div>
-          </div>
-          <div class="esc-footer">
-            <span>${isEmpty ? 'No exams yet' : 'Open exam sheet'}</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.ex-school-card[data-school-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: Number(card.dataset.schoolId), sessionId: sessionId || '', semester, name: card.dataset.schoolName });
-      });
-    });
-
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// ATTENDANCE
-// ============================================
-async function loadAttendanceDepartments() {
-  const grid = document.getElementById('att-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('att-filter-session') || {}).value || '';
-  const semester = (document.getElementById('att-filter-semester') || {}).value || '';
-  const schoolId = (document.getElementById('att-filter-school') || {}).value || '';
-  const search = (document.getElementById('att-filter-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams({ limit: 5000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [attRes, deptsRes, coursesRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/attendance?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/courses?limit=2000'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const records = (await attRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, records: [], courses: new Set(), students: new Set(), present: 0, total: 0 });
-
-    for (const r of records) {
-      const course = courseById.get(r.courseId);
-      if (!course) continue;
-      const bucket = byDept.get(course.departmentId);
-      if (!bucket) continue;
-      bucket.records.push(r);
-      bucket.courses.add(course.id);
-      bucket.students.add(r.studentId);
-      bucket.total++;
-      if (r.status === 'present') bucket.present++;
-    }
-
-    let totalRecords = 0, totalPresent = 0;
-    byDept.forEach((b) => { totalRecords += b.total; totalPresent += b.present; });
-
-    setText('att-stat-depts', [...byDept.values()].filter((b) => b.total > 0).length);
-    setText('att-stat-courses', courses.length);
-    setText('att-stat-rate', totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—');
-    setText('att-stat-total', totalRecords);
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No departments.</p></div>';
-      return;
-    }
-
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
-      const rate = b.total ? Math.round((b.present / b.total) * 100) : 0;
-      const cls = b.total === 0 ? 'empty' : rate >= 75 ? 'healthy' : rate >= 50 ? 'warning' : 'critical';
-      const school = schoolMap.get(b.dept.schoolId);
-      return `
-        <div class="att-dept-card ${cls}" ${b.total === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="adc-head">
-            <span class="adc-code">${escapeHtml(b.dept.code)}</span>
-            <span class="adc-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="adc-rate">
-            <span class="adc-rate-num ${cls}">${b.total ? rate + '%' : '—'}</span>
-            <span class="label">attendance rate</span>
-          </div>
-          <div class="adc-stats">
-            <div class="adc-stat"><span class="num">${b.courses.size}</span><span class="label">Courses</span></div>
-            <div class="adc-stat"><span class="num">${b.students.size}</span><span class="label">Students</span></div>
-            <div class="adc-stat"><span class="num">${b.total}</span><span class="label">Records</span></div>
-          </div>
-          <div class="adc-footer">
-            <span>${b.total === 0 ? 'No records' : 'View courses'}</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.att-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, semester, name: card.dataset.deptName });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// STAFF (Directory, HODs, Lecturers)
-// ============================================
-
-// 1. Staff Directory (All Staff)
-async function loadStaffDirectory() {
-  const grid = document.getElementById('staff-grid');
-  if (!grid) return;
-
-  const role = (document.getElementById('staff-role-tabs')?.querySelector('.active')?.dataset.role) || '';
-  const deptId = (document.getElementById('staff-filter-dept') || {}).value || '';
-  const search = (document.getElementById('staff-search') || {}).value || '';
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading staff…</div>';
-
-  try {
-    const qs = new URLSearchParams({ limit: 500 });
-    if (role && role !== 'principal') qs.set('role', role);
-    if (deptId) qs.set('departmentId', deptId);
-    if (search) qs.set('search', search);
-
-    const res = await adminFetch(`/api/admin/staff?${qs}`);
-    const json = await res.json();
-    let rows = json.data || [];
-
-    if (role === 'principal') {
-      const principalRoles = ['bursar', 'registrar', 'rector', 'librarian', 'exam_officer', 'academic_officer', 'admission_officer'];
-      rows = rows.filter((u) => principalRoles.includes(u.role));
-    }
-
-    // Counts
-    const allRes = await adminFetch('/api/admin/staff?limit=500');
-    const allStaff = (await allRes.json()).data || [];
-    setText('staff-count-all', allStaff.length);
-    setText('staff-count-lecturer', allStaff.filter((s) => s.role === 'lecturer').length);
-    setText('staff-count-hod', allStaff.filter((s) => s.role === 'hod').length);
-    setText('staff-count-principal', allStaff.filter((s) => ['bursar','registrar','rector','librarian','exam_officer','academic_officer','admission_officer'].includes(s.role)).length);
-    setText('staff-count-admin', allStaff.filter((s) => s.role === 'admin').length);
-
-    if (!rows.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">👥</div><p>No staff.</p></div>';
-      return;
-    }
-
-    grid.innerHTML = rows.map((s) => {
-      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      const initials = ((s.firstName || ' ')[0] + (s.lastName || ' ')[0]).toUpperCase().trim() || 'S';
-      const avatar = s.photoUrl ? `<img src="${escapeHtml(s.photoUrl)}" alt="" />` : escapeHtml(initials);
-      const roleClass = s.role === 'lecturer' ? 'lecturer' : s.role === 'hod' ? 'hod' : s.role === 'admin' ? 'admin' : 'principal';
-      const cardClass = s.isActive === false ? 'inactive' : roleClass;
-
-      return `
-        <div class="staff-card role-${cardClass}" data-id="${s.id}">
-          <div class="sc-head">
-            <div class="sc-avatar">${avatar}</div>
-            <div class="sc-info">
-              <div class="sc-name">${escapeHtml(fullName)}</div>
-              <div class="sc-email">${escapeHtml(s.email || '')}</div>
-              <span class="sc-role-badge ${roleClass}">${escapeHtml(s.role || '').replace(/_/g, ' ')}</span>
-            </div>
-          </div>
-          <div class="sc-meta">
-            <div class="sc-meta-row"><span class="k">Department</span><span class="v">${escapeHtml(s.departmentName || s.department?.name || '—')}</span></div>
-            <div class="sc-meta-row"><span class="k">Rank</span><span class="v">${escapeHtml(s.staffProfile?.rank || '—')}</span></div>
-            <div class="sc-meta-row"><span class="k">Status</span><span class="v">${s.isActive !== false ? 'Active' : 'Inactive'}</span></div>
-          </div>
-          <div class="sc-actions">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id: ${s.id} })">View</button>
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('staff-form', { id: ${s.id} })">Edit</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.staff-card').forEach((card) => {
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
-        FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id: Number(card.dataset.id) });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// 2. HODs Board
-async function loadHodBoard() {
-  const grid = document.getElementById('hod-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading HODs…</div>';
-
-  try {
-    const [deptsRes, hodsRes, schoolsRes] = await Promise.all([
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/hods'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const depts = (await deptsRes.json()).data || [];
-    const hods = (await hodsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const hodById = new Map(hods.map((h) => [h.id, h]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const assigned = new Set();
-    depts.forEach((d) => { if (d.hodUserId) assigned.add(d.hodUserId); });
-
-    const unassigned = hods.filter((h) => !assigned.has(h.id));
-
-    setText('hod-stat-total', hods.length);
-    setText('hod-stat-assigned', assigned.size);
-    setText('hod-stat-unassigned', unassigned.length);
-    setText('hod-stat-depts', depts.length);
-
-    const unassignedPanel = document.getElementById('hod-unassigned-panel');
-    const unassignedBody = document.getElementById('hod-unassigned-body');
-    if (unassigned.length && unassignedPanel && unassignedBody) {
-      unassignedPanel.style.display = 'block';
-      unassignedBody.innerHTML = unassigned.map((h) => `
-        <div class="session-item">
-          <div class="meta"><strong>${escapeHtml(h.firstName + ' ' + h.lastName)}</strong>${escapeHtml(h.email)}</div>
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.assignHodDept(${h.id})">Assign Dept</button>
-        </div>
-      `).join('');
-    } else if (unassignedPanel) {
-      unassignedPanel.style.display = 'none';
-    }
-
-    grid.innerHTML = depts.map((d) => {
-      const hod = d.hodUserId ? hodById.get(d.hodUserId) : null;
-      const school = schoolMap.get(d.schoolId);
-      const vacant = !hod;
-      const initials = hod ? ((hod.firstName || ' ')[0] + (hod.lastName || ' ')[0]).toUpperCase().trim() : '—';
-
-      return `
-        <div class="hod-dept-card ${vacant ? 'vacant' : ''}">
-          <div class="hdc-head">
-            <span class="hdc-code">${escapeHtml(d.code)}</span>
-            <span class="hdc-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(d.name)}</h3>
-          <div class="hdc-hod ${vacant ? 'vacant' : ''}">
-            <div class="hdc-avatar ${vacant ? 'vacant' : ''}">${hod?.photoUrl ? `<img src="${escapeHtml(hod.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
-            <div class="hdc-hod-info">
-              <div class="hdc-hod-name">${vacant ? 'Vacant' : escapeHtml(`${hod.firstName} ${hod.lastName}`)}</div>
-              <div class="hdc-hod-email">${vacant ? 'No HOD assigned' : escapeHtml(hod.email)}</div>
-            </div>
-          </div>
-          <div class="hdc-actions">
-            ${vacant
-              ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.assignHodDept(null, ${d.id})">Assign HOD</button>`
-              : `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${hod.id} })">View HOD</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.assignHodDept(null, ${d.id})">Replace</button>`}
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// 3. Lecturers Grid
-async function loadLecturerGrid() {
-  const grid = document.getElementById('lec-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading lecturers…</div>';
-
-  const deptId = (document.getElementById('lec-filter-dept') || {}).value || '';
-  const workload = (document.getElementById('lec-filter-workload') || {}).value || '';
-  const search = (document.getElementById('lec-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams({ role: 'lecturer', limit: 500 });
-    if (deptId) qs.set('departmentId', deptId);
-    if (search) qs.set('search', search);
-
-    const [staffRes, allocsRes] = await Promise.all([
-      adminFetch(`/api/admin/staff?${qs}`),
-      adminFetch('/api/admin/allocations?limit=2000'),
-    ]);
-
-    const staff = (await staffRes.json()).data || [];
-    const allocs = (await allocsRes.json()).data || [];
-
-    const allocsByLecturer = new Map();
-    allocs.forEach((a) => {
-      const lid = a.lecturer?.id || a.allocation?.lecturerId;
-      if (!lid) return;
-      if (!allocsByLecturer.has(lid)) allocsByLecturer.set(lid, []);
-      allocsByLecturer.get(lid).push(a);
-    });
-
-    let visible = staff.map((s) => {
-      const list = allocsByLecturer.get(s.id) || [];
-      const units = list.reduce((acc, a) => acc + (Number(a.course?.unit) || 0), 0);
-      return { ...s, _allocs: list, _units: units };
-    });
-
-    if (workload === 'loaded') visible = visible.filter((s) => s._allocs.length > 0);
-    else if (workload === 'unloaded') visible = visible.filter((s) => s._allocs.length === 0);
-    else if (workload === 'overloaded') visible = visible.filter((s) => s._units >= 12);
-
-    const totalUnits = visible.reduce((acc, s) => acc + s._units, 0);
-    const avg = visible.length ? Math.round((totalUnits / visible.length) * 10) / 10 : 0;
-
-    setText('lec-stat-total', visible.length);
-    setText('lec-stat-loaded', visible.filter((s) => s._allocs.length > 0).length);
-    setText('lec-stat-unloaded', visible.filter((s) => s._allocs.length === 0).length);
-    setText('lec-stat-avg', avg + ' u');
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">👨‍🏫</div><p>No lecturers.</p></div>';
-      return;
-    }
-
-    grid.innerHTML = visible.map((s) => {
-      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      const initials = ((s.firstName || ' ')[0] + (s.lastName || ' ')[0]).toUpperCase().trim() || 'L';
-      const avatar = s.photoUrl ? `<img src="${escapeHtml(s.photoUrl)}" alt="" />` : escapeHtml(initials);
-      const cls = s._units >= 12 ? 'heavy' : s._units >= 6 ? 'loaded' : s._units > 0 ? 'light' : 'none';
-
-      return `
-        <div class="lec-card ${cls}" data-id="${s.id}">
-          <div class="lc-head">
-            <div class="lc-avatar">${avatar}</div>
-            <div class="lc-info">
-              <div class="lc-name">${escapeHtml(fullName)}</div>
-              <div class="lc-email">${escapeHtml(s.email || '')}</div>
-              ${s.departmentName || s.department?.name ? `<span class="lc-dept">${escapeHtml(s.departmentName || s.department?.name)}</span>` : ''}
-            </div>
-          </div>
-          <div class="lc-workload">
-            <div class="lc-workload-stat ${s._allocs.length === 0 ? 'none' : ''}">
-              <span class="num">${s._allocs.length}</span>
-              <span class="label">Courses</span>
-            </div>
-            <div class="lc-workload-stat ${s._units >= 12 ? 'heavy' : ''}">
-              <span class="num">${s._units}</span>
-              <span class="label">Units</span>
-            </div>
-          </div>
-          ${s._allocs.length === 0 ? '<div class="lc-empty">⚠️ No courses allocated</div>' : ''}
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.lec-card').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('staff-workload', { id: Number(card.dataset.id) });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// Helper for HOD assigning
-async function assignHodDept(hodId, departmentId = null) {
-  if (!hodId && departmentId) {
-    const email = prompt("HOD's email (must have role 'hod'):");
-    if (!email) return;
-    try {
-      const res = await adminFetch(`/api/admin/user-list?search=${encodeURIComponent(email)}&limit=5`);
-      const json = await res.json();
-      const match = (json.data || []).find((u) => u.role === 'hod' && u.email.toLowerCase() === email.toLowerCase());
-      if (!match) { showToast('No HOD with that email.', 'error'); return; }
-      hodId = match.id;
-    } catch (err) { showToast('❌ ' + err.message, 'error'); return; }
-  }
-
-  if (!departmentId) {
-    departmentId = prompt("Enter the department ID to assign this HOD to:");
-    if (!departmentId) return;
-  }
-
-  try {
-    await adminFetch(`/api/admin/hods/${hodId}/assign-department`, {
-      method: "POST",
-      body: JSON.stringify({ departmentId: Number(departmentId) }),
-    });
-    showToast("Department assigned.", 'success');
-    loadHodBoard();
-  } catch (err) {
-    showToast("❌ " + err.message, "error");
-  }
-}
-
-// ============================================
-// FEES
-// ============================================
-async function loadFeeDepartments() {
-  const grid = document.getElementById('fees-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('fees-session') || {}).value || '';
-  const schoolId = (document.getElementById('fees-school') || {}).value || '';
-  const search = (document.getElementById('fees-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams({ limit: 2000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-
-    const [feesRes, deptsRes, progsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/fees?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/programmes'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const fees = (await feesRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const progs = (await progsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const progById = new Map(progs.map((p) => [p.id, p]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, fees: [] });
-
-    for (const f of fees) {
-      const p = progById.get(f.programmeId);
-      if (!p) continue;
-      const bucket = byDept.get(p.departmentId);
-      if (!bucket) continue;
-      bucket.fees.push(f);
-    }
-
-    let totalStructures = 0, min = Infinity, max = 0;
-    byDept.forEach((b) => {
-      totalStructures += b.fees.length;
-      b.fees.forEach((f) => {
-        const t = Number(f.total);
-        if (t < min) min = t;
-        if (t > max) max = t;
-      });
-    });
-
-    setText('fees-stat-depts', [...byDept.values()].filter((b) => b.fees.length > 0).length);
-    setText('fees-stat-total', totalStructures);
-    setText('fees-stat-min', min === Infinity ? '—' : money(min));
-    setText('fees-stat-max', max ? money(max) : '—');
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">💰</div><p>No departments.</p></div>';
-      return;
-    }
-
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
-      const totals = b.fees.map((f) => Number(f.total));
-      const range = totals.length ? `${money(Math.min(...totals))} – ${money(Math.max(...totals))}` : '—';
-      const avg = totals.length ? money(Math.round(totals.reduce((s, n) => s + n, 0) / totals.length)) : '—';
-      const school = schoolMap.get(b.dept.schoolId);
-      const isEmpty = b.fees.length === 0;
-
-      return `
-        <div class="fees-dept-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="fdc-head">
-            <span class="fdc-code">${escapeHtml(b.dept.code)}</span>
-            <span class="fdc-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="fdc-range">
-            <span class="num">${b.fees.length}</span>
-            <span class="label">structure${b.fees.length === 1 ? '' : 's'}</span>
-          </div>
-          <div class="fdc-stats">
-            <div class="fdc-stat"><span class="num">${range !== '—' ? range.split(' – ')[0] : '—'}</span><span class="label">Min</span></div>
-            <div class="fdc-stat"><span class="num">${range !== '—' ? range.split(' – ')[1] : '—'}</span><span class="label">Max</span></div>
-            <div class="fdc-stat"><span class="num">${avg}</span><span class="label">Average</span></div>
-          </div>
-          <div class="fdc-footer">
-            <span>${isEmpty ? 'No structures' : 'View structures'}</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.fees-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('fees-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, name: card.dataset.deptName });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// PAYMENTS
-// ============================================
-async function loadPaymentDepartments() {
-  const grid = document.getElementById('pm-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('pm-session') || {}).value || '';
-  const schoolId = (document.getElementById('pm-school') || {}).value || '';
-  const search = (document.getElementById('pm-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-
-    const [payRes, deptsRes, studentsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/payments?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const payments = (await payRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const students = (await studentsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const studentById = new Map(students.map((s) => [s.id, s]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, verified: 0, pending: 0, verifiedAmt: 0, pendingAmt: 0, studentIds: new Set() });
-
-    let totalVerified = 0, totalPendingAmt = 0, pendingCount = 0;
-    for (const p of payments) {
-      const row = p.payment || p;
-      const stu = studentById.get(row.studentId) || p.student;
-      if (!stu) continue;
-      const bucket = byDept.get(stu.departmentId);
-      if (!bucket) continue;
-      bucket.studentIds.add(row.studentId);
-      if (row.status === 'verified') {
-        bucket.verified++;
-        bucket.verifiedAmt += Number(row.amount) || 0;
-        totalVerified += Number(row.amount) || 0;
-      } else if (row.status === 'pending') {
-        bucket.pending++;
-        bucket.pendingAmt += Number(row.amount) || 0;
-        totalPendingAmt += Number(row.amount) || 0;
-        pendingCount++;
-      }
-    }
-
-    setText('pm-stat-verified', money(totalVerified));
-    setText('pm-stat-pending-amt', money(totalPendingAmt));
-    setText('pm-stat-pending-count', pendingCount);
-    setText('pm-stat-total', payments.length);
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">💳</div><p>No departments.</p></div>';
-      return;
-    }
-
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
-      const school = schoolMap.get(b.dept.schoolId);
-      const hasPending = b.pending > 0;
-      const totalStudents = students.filter((s) => s.departmentId === b.dept.id).length;
-      const paidCount = b.studentIds.size;
-      const rate = totalStudents ? Math.round((paidCount / totalStudents) * 100) : 0;
-
-      return `
-        <div class="pm-dept-card ${hasPending ? 'has-pending' : ''} ${paidCount === 0 ? 'empty' : ''}" ${paidCount === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="pmd-head">
-            <span class="pmd-code">${escapeHtml(b.dept.code)}</span>
-            <span class="pmd-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="pmd-amounts">
-            <div class="pmd-amount verified">
-              <span class="num">${money(b.verifiedAmt)}</span>
-              <span class="label">Verified</span>
-            </div>
-            <div class="pmd-amount pending">
-              <span class="num">${money(b.pendingAmt)}</span>
-              <span class="label">Pending</span>
-            </div>
-          </div>
-          <div class="pmd-split">
-            <div class="item"><span class="n">${b.verified}</span><span class="l">Verified</span></div>
-            <div class="item"><span class="n">${b.pending}</span><span class="l">Pending</span></div>
-            <div class="item"><span class="n">${rate}%</span><span class="l">Coverage</span></div>
-          </div>
-          <div class="pmd-footer">
-            <span>${paidCount === 0 ? 'No payments' : 'View payments'}</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.pm-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('payments-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, name: card.dataset.deptName });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// CLEARANCES
-// ============================================
-async function loadClearanceDepartments() {
-  const grid = document.getElementById('clr-dept-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('clr-session') || {}).value || '';
-  const schoolId = (document.getElementById('clr-school') || {}).value || '';
-  const search = (document.getElementById('clr-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-
-    const [clrRes, deptsRes, studentsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/clearances?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const clearances = (await clrRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const students = (await studentsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const studentById = new Map(students.map((s) => [s.id, s]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, cleared: 0, pending: 0, rejected: 0, missing: 0, total: 0 });
-    
-    for (const s of students) {
-      if (!s.departmentId) continue;
-      const bucket = byDept.get(s.departmentId);
-      if (!bucket) continue;
-      bucket.total++;
-    }
-
-    for (const c of clearances) {
-      const row = c.clearance || c;
-      const stu = studentById.get(row.studentId) || c.student;
-      if (!stu) continue;
-      const bucket = byDept.get(stu.departmentId);
-      if (!bucket) continue;
-      if (row.status === 'cleared') bucket.cleared++;
-      else if (row.status === 'pending') bucket.pending++;
-      else if (row.status === 'rejected') bucket.rejected++;
-    }
-
-    // Missing = students without any clearance
-    byDept.forEach((b) => {
-      const total = clearances.filter((c) => {
-        const stu = studentById.get((c.clearance || c).studentId);
-        return stu && Number(stu.departmentId) === Number(b.dept.id);
-      }).length;
-      b.missing = Math.max(0, b.total - total);
-    });
-
-    let totalCleared = 0, totalPending = 0;
-    byDept.forEach((b) => { totalCleared += b.cleared; totalPending += b.pending; });
-
-    setText('clr-stat-depts', [...byDept.values()].filter((b) => b.total > 0).length);
-    setText('clr-stat-cleared', totalCleared);
-    setText('clr-stat-pending', totalPending);
-    setText('clr-stat-rate', students.length ? Math.round((totalCleared / students.length) * 100) + '%' : '—');
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">✅</div><p>No departments.</p></div>';
-      return;
-    }
-
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
-      const rate = b.total ? Math.round((b.cleared / b.total) * 100) : 0;
-      const cls = b.total === 0 ? 'empty' : rate >= 75 ? 'healthy' : rate >= 40 ? 'warning' : 'critical';
-      const school = schoolMap.get(b.dept.schoolId);
-
-      return `
-        <div class="clr-dept-card ${cls}" ${b.total === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="cdc-head">
-            <span class="cdc-code">${escapeHtml(b.dept.code)}</span>
-            <span class="cdc-school">${escapeHtml(school?.code || '')}</span>
-          </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="cdc-rate">
-            <span class="cdc-rate-num ${cls}">${b.total ? rate + '%' : '—'}</span>
-            <span class="label">cleared</span>
-          </div>
-          <div class="cdc-stats">
-            <div class="item cleared"><span class="n">${b.cleared}</span><span class="l">Cleared</span></div>
-            <div class="item pending"><span class="n">${b.pending}</span><span class="l">Pending</span></div>
-            <div class="item rejected"><span class="n">${b.rejected}</span><span class="l">Rejected</span></div>
-          </div>
-          <div class="cdc-footer">
-            <span>${b.missing} without records</span>
-            <span class="arrow">→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.clr-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('clearances-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, name: card.dataset.deptName });
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// COMMUNICATION (Announcements, Notifications, Complaints)
-// ============================================
-
-async function loadAnnouncements() {
-  const box = document.getElementById("announcements-list");
-  const grid = document.getElementById("ann-list");
-  const target = box || grid;
-  if (!target) return;
-
-  target.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading…</div>';
-
-  try {
-    const res = await adminFetch("/api/admin/announcements");
-    const result = await res.json();
-    const rows = extractArray(result);
-
-    if (!rows.length) {
-      target.innerHTML = '<p class="muted" style="padding:20px;">No announcements.</p>';
-      return;
-    }
-
-    if (grid) {
-      target.innerHTML = rows.map((r) => {
-        const a = r.announcement || r;
-        const priority = a.priority || 'normal';
-        const isExpired = a.expiresAt && new Date(a.expiresAt).getTime() < Date.now();
-        return `
-          <div class="ann-card ${priority} ${a.isPublished === false ? 'unpublished' : ''}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('announcement-detail', { id: ${a.id} })">
-            <div class="anc-head">
-              <div class="anc-badges">
-                <span class="anc-badge priority-${priority}">${priority === 'high' ? '🔴 Urgent' : priority === 'low' ? '📝 General' : '📢 Normal'}</span>
-                <span class="anc-badge audience">${escapeHtml(a.audience === 'all' ? 'Everyone' : a.audience || '')}</span>
-                ${a.isPublished === false ? '<span class="anc-badge unpublished">Draft</span>' : ''}
-                ${isExpired ? '<span class="anc-badge expired">Expired</span>' : ''}
-              </div>
-            </div>
-            <h3>${escapeHtml(a.title || '')}</h3>
-            <div class="body">${escapeHtml(a.body || '')}</div>
-            <div class="anc-meta"><span>${fmtDateTime(a.publishedAt || a.createdAt)}</span><span>${a.authorId ? 'Admin #' + a.authorId : ''}</span></div>
-            <div class="anc-actions">
-              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('announcement-form', { id: ${a.id} })">Edit</button>
-              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); FPU_ADMIN.deleteAnnouncement(${a.id})">Delete</button>
-            </div>
-          </div>`;
-      }).join('');
-    } else {
-      target.innerHTML = rows.map((r) => {
-        const a = r.announcement || r;
-        const badgeCls = a.priority === 'high' ? 'danger' : a.priority === 'low' ? 'muted' : 'info';
-        return `<article class="panel" style="margin-bottom:.75rem;"><div class="panel-body"><span class="badge badge-${badgeCls}">${escapeHtml(a.priority || 'normal')}</span><h3 style="margin:.4rem 0;">${escapeHtml(a.title || '')}</h3><p>${escapeHtml(a.body || '')}</p><p class="small muted">${fmtDateTime(a.publishedAt || a.createdAt)}</p></div></article>`;
-      }).join('');
-    }
-
-    const total = rows.length;
-    const urgent = rows.filter((r) => (r.announcement || r).priority === 'high').length;
-    const published = rows.filter((r) => (r.announcement || r).isPublished !== false).length;
-    const active = rows.filter((r) => { const a = r.announcement || r; return !a.expiresAt || new Date(a.expiresAt).getTime() > Date.now(); }).length;
-    setText('ann-stat-total', total);
-    setText('ann-stat-urgent', urgent);
-    setText('ann-stat-published', published);
-    setText('ann-stat-active', active);
-  } catch (err) {
-    target.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-async function deleteAnnouncement(id) {
-  if (!confirm('Delete this announcement?')) return;
-  try {
-    await adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
-    loadAnnouncements();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function loadNotifications() {
-  const box = document.getElementById("notifications-list");
-  const list = document.getElementById("nt-list");
-  if (!box && !list) return;
-
-  const target = list || box;
-  target.innerHTML = list ? '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading…</div>' : '<div class="loading"><span class="spinner"></span> Loading…</div>';
-
-  try {
-    const res = await adminFetch("/api/admin/notifications");
-    const result = await res.json();
-    const rows = extractArray(result);
-
-    if (!rows.length) { target.innerHTML = '<p class="muted" style="padding:20px;">No notifications.</p>'; return; }
-
-    if (list) {
-      target.innerHTML = rows.map((n) => `
-        <div class="nt-item ${n.isRead ? '' : 'unread'}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('notification-detail', { id: ${n.id} })">
-          <div class="nt-icon ${escapeHtml(n.type || 'default')}">${n.type === 'warning' ? '⚠️' : n.type === 'success' ? '✅' : n.type === 'complaint' ? '📩' : n.type === 'fee' ? '💰' : 'ℹ️'}</div>
-          <div class="nt-body">
-            <div class="nt-title">${escapeHtml(n.title || '')}</div>
-            <div class="nt-text">${escapeHtml(n.body || '')}</div>
-            <div class="nt-meta"><span>${timeAgo(n.createdAt)}</span>${!n.isRead ? '<span class="unread-pill">Unread</span>' : ''}</div>
-          </div>
-          <div class="nt-actions">
-            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.markNotificationRead(${n.id})">Read</button>
-            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.deleteNotification(${n.id})">Delete</button>
-          </div>
-        </div>
-      `).join('');
-
-      const total = rows.length; const unread = rows.filter((n) => !n.isRead).length;
-      const week = rows.filter((n) => new Date(n.createdAt).getTime() > Date.now() - 7 * 86400000).length;
-      const high = rows.filter((n) => n.type === 'warning').length;
-      setText('nt-stat-total', total); setText('nt-stat-unread', unread); setText('nt-stat-week', week); setText('nt-stat-high', high);
-    } else {
-      target.innerHTML = rows.map((n) => `
-        <div class="session-item ${n.isRead ? '' : 'current'}"><div class="meta"><strong>${escapeHtml(n.title || '')}</strong>${escapeHtml(n.body || '')}</div><div class="small muted">${fmtDateTime(n.createdAt)}</div></div>
-      `).join('');
-    }
-  } catch (err) { target.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`; }
-}
-
-async function markNotificationRead(id) {
-  try { await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }); showToast('Marked read.', 'success'); loadNotifications(); } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function deleteNotification(id) {
-  if (!confirm('Delete this notification?')) return;
-  try { await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); showToast('Deleted.', 'success'); loadNotifications(); } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function loadComplaints() {
-  const container = document.getElementById("complaints-tbody");
-  const tbody2 = document.getElementById("cmp-tbody");
-  const target = container || tbody2;
-  if (!target) return;
-
-  const cols = target.id === 'cmp-tbody' ? 6 : 5;
-  target.innerHTML = `<tr><td colspan="${cols}" class="empty">Loading…</td></tr>`;
-
-  const status = (document.getElementById('cmp-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const category = (document.getElementById('cmp-filter-category') || {}).value || '';
-  const search = (document.getElementById('cmp-search') || {}).value || '';
-  const sort = (document.getElementById('cmp-filter-sort') || {}).value || 'newest';
-
-  const qs = new URLSearchParams({ limit: 500 });
-  if (status) qs.set('status', status);
-
-  try {
-    const res = await adminFetch(`/api/admin/complaints?${qs}`);
-    const json = await res.json();
-    let rows = json.data || [];
-
-    if (category) rows = rows.filter((r) => (r.complaint || r).category === category);
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => { const c = r.complaint || r; return String(c.subject || '').toLowerCase().includes(q) || String(c.body || '').toLowerCase().includes(q); });
-    }
-    if (sort === 'oldest') rows.sort((a, b) => new Date((a.complaint || a).createdAt) - new Date((b.complaint || b).createdAt));
-
-    if (container) {
-      container.innerHTML = rows.length ? rows.map((r) => {
-        const c = r.complaint || r;
-        return `<tr><td>${escapeHtml(c.subject || '')}</td><td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td><td>${badge(c.status)}</td><td>${fmtDateTime(c.createdAt)}</td><td><div class="row-actions"><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaint-view', { id: ${c.id} })">View</button></div></td></tr>`;
-      }).join('') : '<tr><td colspan="5" class="empty">No complaints.</td></tr>';
-    } else {
-      const now = Date.now();
-      target.innerHTML = rows.length ? rows.map((r) => {
-        const c = r.complaint || r;
-        const ageDays = Math.floor((now - new Date(c.createdAt).getTime()) / 86400000);
-        let ageCls = '';
-        if (c.status === 'open' && ageDays >= 7) ageCls = 'sla-critical'; else if (c.status === 'open' && ageDays >= 3) ageCls = 'sla-warning';
-        return `<tr><td>${escapeHtml(c.subject || '')}</td><td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td><td>${escapeHtml(c.category || '—')}</td><td>${badge(c.status)}</td><td class="${ageCls}">${ageDays}d</td><td><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaint-view', { id: ${c.id} })">View</button></td></tr>`;
-      }).join('') : `<tr><td colspan="6" class="empty">No complaints.</td></tr>`;
-
-      const open = rows.filter((r) => (r.complaint || r).status === 'open').length;
-      const inReview = rows.filter((r) => (r.complaint || r).status === 'in_review').length;
-      const resolved = rows.filter((r) => (r.complaint || r).status === 'resolved').length;
-      setText('cmp-stat-total', rows.length); setText('cmp-stat-open', open); setText('cmp-stat-in-review', inReview); setText('cmp-stat-resolved', resolved); setText('cmp-count', `Showing ${rows.length}`);
-    }
-  } catch (err) { target.innerHTML = `<tr><td colspan="${cols}" class="empty">${escapeHtml(err.message)}</td></tr>`; }
-}
-
-// ============================================
-// LIBRARY (Books & Borrows)
-// ============================================
-
-async function loadBooksGrid() {
-  const grid = document.getElementById('books-grid');
-  if (!grid) return;
-
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading books…</div>';
-
-  const category = (document.getElementById('books-category-tabs')?.querySelector('.active')?.dataset.category) || '';
-  const search = (document.getElementById('books-search') || {}).value || '';
-  const avail = (document.getElementById('books-avail') || {}).value || '';
-
-  const qs = new URLSearchParams({ limit: 500 });
-  if (search) qs.set('search', search);
-  if (category) qs.set('category', category);
-
-  try {
-    const res = await adminFetch(`/api/admin/library/books?${qs}`);
-    const json = await res.json();
-    let books = json.data || [];
-
-    if (avail === 'available') books = books.filter((b) => b.copiesAvailable > 0);
-    else if (avail === 'low') books = books.filter((b) => b.copiesAvailable > 0 && b.copiesAvailable <= 2);
-    else if (avail === 'out') books = books.filter((b) => b.copiesAvailable === 0);
-
-    const totalTitles = books.length; const totalCopies = books.reduce((s, b) => s + (b.copiesTotal || 0), 0);
-    const onLoan = books.reduce((s, b) => s + ((b.copiesTotal || 0) - (b.copiesAvailable || 0)), 0);
-    const available = books.reduce((s, b) => s + (b.copiesAvailable || 0), 0);
-
-    setText('books-stat-total', totalTitles); setText('books-stat-copies', totalCopies); setText('books-stat-onloan', onLoan); setText('books-stat-avail', available); setText('books-count-all', totalTitles);
-
-    if (!books.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📚</div><p>No books match your filters.</p></div>'; return; }
-
-    grid.innerHTML = books.map((b, i) => {
-      const catCls = `cat-${i % 6}`; const stock = b.copiesAvailable === 0 ? 'out' : b.copiesAvailable <= 2 ? 'low' : 'available';
-      return `
-        <div class="book-card" onclick="FPU_ADMIN_SPA.navigateToWithQuery('book-detail', { id: ${b.id} })">
-          <div class="book-spine ${catCls}"></div>
-          <h3>${escapeHtml(b.title || '')}</h3>
-          <p class="book-author">${escapeHtml(b.author || 'Unknown')}</p>
-          <div class="book-meta">${b.category ? `<span class="book-chip category">${escapeHtml(b.category)}</span>` : ''}${b.shelf ? `<span class="book-chip shelf">${escapeHtml(b.shelf)}</span>` : ''}</div>
-          <div class="book-stock"><span class="num ${stock === 'low' ? 'warning' : stock === 'out' ? 'critical' : ''}">${b.copiesAvailable}</span><span class="label">/ ${b.copiesTotal} available</span><span class="book-stock-badge ${stock}">${stock === 'out' ? 'Out' : stock === 'low' ? 'Low' : 'Available'}</span></div>
-          <div class="book-actions"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('book-form', { id: ${b.id} })">Edit</button><button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('borrow-issue', { bookId: ${b.id} })">Issue</button></div>
-        </div>`;
-    }).join('');
-  } catch (err) { grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`; }
-}
-
-async function loadBorrowsTable() {
-  const tbody = document.getElementById('bor-tbody');
-  if (!tbody) return;
-
-  const status = (document.getElementById('borrows-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const search = (document.getElementById('bor-search') || {}).value || '';
-  const due = (document.getElementById('bor-due-filter') || {}).value || '';
-
-  const qs = new URLSearchParams();
-  if (status) qs.set('status', status);
-
-  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
-
-  try {
-    const res = await adminFetch(`/api/admin/library/borrows?${qs}`);
-    const json = await res.json();
-    let rows = json.data || [];
-
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => { const user = r.user || {}; const book = r.book || {}; return String(user.firstName || '').toLowerCase().includes(q) || String(user.lastName || '').toLowerCase().includes(q) || String(user.matricNumber || '').toLowerCase().includes(q) || String(book.title || '').toLowerCase().includes(q); });
-    }
-
-    if (due) {
-      const days = Number(due); const limit = Date.now() + days * 86400000;
-      rows = rows.filter((r) => { const b = r.borrow || r; if (b.status !== 'borrowed') return false; return new Date(b.dueAt).getTime() <= limit; });
-    }
-
-    const total = rows.length; const active = rows.filter((r) => ['borrowed', 'overdue'].includes((r.borrow || r).status)).length;
-    const overdue = rows.filter((r) => (r.borrow || r).status === 'overdue').length; const returned = rows.filter((r) => (r.borrow || r).status === 'returned').length;
-
-    setText('bor-stat-total', total); setText('bor-stat-active', active); setText('bor-stat-overdue', overdue); setText('bor-stat-returned', returned); setText('bor-count', `Showing ${total}`);
-
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrows.</td></tr>'; return; }
-
-    tbody.innerHTML = rows.map((r) => {
-      const b = r.borrow || r; const user = r.user || {}; const book = r.book || {};
-      const overdue = b.status === 'overdue'; const due = new Date(b.dueAt); const daysLeft = Math.ceil((due.getTime() - Date.now()) / 86400000);
-      const daysCls = b.status === 'returned' ? 'done' : overdue ? 'danger' : daysLeft <= 3 ? 'warning' : 'ok';
-      const daysText = b.status === 'returned' ? 'Returned' : overdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
-
-      return `<tr class="${overdue ? 'borrow-row-overdue' : ''}"><td>${escapeHtml(book.title || '')}</td><td>${escapeHtml((user.firstName || '') + ' ' + (user.lastName || ''))}</td><td>${fmtDate(b.borrowedAt)}</td><td>${fmtDate(b.dueAt)}</td><td>${badge(b.status)}</td><td><span class="days-badge ${daysCls}">${daysText}</span></td><td><div class="row-actions">${b.status === 'borrowed' || b.status === 'overdue' ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.returnBorrow(${b.id})">Return</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.markBorrowLost(${b.id})">Lost</button>` : ''}</div></td></tr>`;
-    }).join('');
-  } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`; }
-}
-
-// ============================================
-// RECORDS (Documents, Graduation)
-// ============================================
-
-async function loadDocumentsTable() {
-  const list = document.getElementById('doc-list');
-  if (!list) return;
-
-  list.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading documents…</div>';
-
-  const status = (document.getElementById('doc-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const type = (document.getElementById('doc-filter-type') || {}).value || '';
-  const search = (document.getElementById('doc-search') || {}).value || '';
-
-  try {
-    const qs = new URLSearchParams();
-    if (status) qs.set('status', status);
-    if (type) qs.set('type', type);
-
-    const [docsRes, usersRes] = await Promise.all([
-      adminFetch(`/api/admin/documents?${qs}`),
-      adminFetch('/api/admin/user-list?limit=2000'),
-    ]);
-
-    const docs = (await docsRes.json()).data || [];
-    const users = (await usersRes.json()).data || [];
-    const userById = new Map(users.map((u) => [u.id, u]));
-
-    let visible = docs;
-    if (search) {
-      const q = search.toLowerCase();
-      visible = docs.filter((r) => {
-        const d = r.document || r;
-        const user = r.user || userById.get(d.userId);
-        return (
-          String(d.title || '').toLowerCase().includes(q) ||
-          String(d.type || '').toLowerCase().includes(q) ||
-          String(user?.firstName || '').toLowerCase().includes(q) ||
-          String(user?.lastName || '').toLowerCase().includes(q) ||
-          String(user?.matricNumber || '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    const total = visible.length;
-    const pending = visible.filter((r) => (r.document || r).status === 'pending').length;
-    const issued = visible.filter((r) => (r.document || r).status === 'issued').length;
-    const month = visible.filter((r) => {
-      const d = r.document || r;
-      return new Date(d.requestedAt || d.createdAt).getTime() > Date.now() - 30 * 86400000;
-    }).length;
-
-    setText('doc-stat-total', total);
-    setText('doc-stat-pending', pending);
-    setText('doc-stat-issued', issued);
-    setText('doc-stat-month', month);
-
-    if (!visible.length) {
-      list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📄</div><p>No documents match your filters.</p></div>';
-      return;
-    }
-
-    list.innerHTML = visible.map((r) => {
-      const d = r.document || r;
-      const user = r.user || userById.get(d.userId) || {};
-      const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
-      return `
-        <div class="doc-card ${d.status}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: ${d.id} })">
-          <div class="dc-head">
-            <span class="dc-type">${escapeHtml(String(d.type || '').replace(/-/g, ' '))}</span>
-            <span class="dc-status ${d.status}">${escapeHtml(d.status)}</span>
-          </div>
-          <h3>${escapeHtml(d.title || '')}</h3>
-          <div class="dc-student">
-            <div class="dc-avatar">${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
-            <div class="dc-student-info">
-              <strong>${escapeHtml((user.firstName || '') + ' ' + (user.lastName || ''))}</strong>
-              <span>${escapeHtml(user.matricNumber || user.email || '')}</span>
-            </div>
-          </div>
-          <div class="dc-footer">
-            <span>Requested ${fmtDate(d.requestedAt || d.createdAt)}</span>
-            <span class="arrow">View →</span>
-          </div>
-        </div>
-      `;
-    }).join('');
-  } catch (err) {
-    list.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-async function loadGraduationsTable() {
-  const tbody = document.getElementById('grad-tbody');
-  if (!tbody) return;
-
-  const status = (document.getElementById('grad-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const sessionId = (document.getElementById('grad-filter-session') || {}).value || '';
-  const classification = (document.getElementById('grad-filter-class') || {}).value || '';
-  const search = (document.getElementById('grad-search') || {}).value || '';
-
-  const qs = new URLSearchParams();
-  if (status) qs.set('status', status);
-  if (sessionId) qs.set('sessionId', sessionId);
-
-  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
-
-  try {
-    const res = await adminFetch(`/api/admin/graduation?${qs}`);
-    const json = await res.json();
-    let rows = json.data || [];
-
-    if (classification) rows = rows.filter((r) => (r.graduation || r).classification === classification);
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => {
-        const s = r.student || {};
-        return String(s.matricNumber || '').toLowerCase().includes(q) || String(s.firstName || '').toLowerCase().includes(q) || String(s.lastName || '').toLowerCase().includes(q);
-      });
-    }
-
-    const total = rows.length;
-    const pending = rows.filter((r) => (r.graduation || r).status === 'pending').length;
-    const graduated = rows.filter((r) => (r.graduation || r).status === 'graduated').length;
-    const dist = rows.filter((r) => (r.graduation || r).classification === 'Distinction').length;
-    
-    setText('grad-stat-total', total);
-    setText('grad-stat-pending', pending);
-    setText('grad-stat-graduated', graduated);
-    setText('grad-stat-dist', dist);
-    setText('grad-count', `Showing ${total}`);
-
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No records.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = rows.map((r) => {
-      const g = r.graduation || r;
-      const s = r.student || {};
-      const clsName = g.classification === 'Distinction' ? 'distinction' : g.classification === 'Upper Credit' ? 'upper' : g.classification === 'Lower Credit' ? 'lower' : g.classification === 'Pass' ? 'pass' : 'fail';
-      const canApprove = g.status === 'pending';
-      const canGraduate = g.status === 'approved';
-
-      return `
-        <tr>
-          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
-          <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
-          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
-          <td>${escapeHtml(g.level || '')}</td>
-          <td class="num">${g.cgpa || '—'}</td>
-          <td><span class="grad-class ${clsName}">${escapeHtml(g.classification || '—')}</span></td>
-          <td>${badge(g.status)}</td>
-          <td>
-            <div class="row-actions">
-              ${canApprove ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.rejectGraduation(${g.id})">Reject</button>` : ''}
-              ${canGraduate ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
-              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${g.studentId} })">Transcript</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    const selectAll = document.getElementById('grad-select-all');
-    if (selectAll) {
-      selectAll.onchange = () => {
-        tbody.querySelectorAll('.grad-check').forEach((cb) => { cb.checked = selectAll.checked; });
-      };
-    }
-
-    const bulkBtn = document.getElementById('grad-bulk-approve');
-    if (bulkBtn) {
-      bulkBtn.onclick = async () => {
-        const ids = Array.from(tbody.querySelectorAll('.grad-check:checked')).map((c) => Number(c.dataset.id));
-        if (!ids.length) { showToast('Select students first.', 'warning'); return; }
-        if (!confirm(`Approve ${ids.length} graduation record(s)?`)) return;
-        let ok = 0, failed = 0;
-        for (const id of ids) {
-          try { await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
-        }
-        showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
-        loadGraduationsTable();
-      };
-    }
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-// ============================================
-// SYSTEM (Reports, Audit, Security, Settings)
-// ============================================
-
-async function loadReportsWithCharts() {
-  try {
-    const days = (document.getElementById('rep-range') || {}).value || 365;
-    const qs = days === 'all' ? '' : `?days=${days}`;
-
-    const res = await adminFetch(`/api/admin/reports/overview`);
-    const json = await res.json();
-    const d = json.data || json;
-
-    setText('rep-stat-students', d.students || 0);
-    setText('rep-stat-apps', d.totalApplications || 0);
-    setText('rep-stat-revenue', money(d.totalRevenue || 0));
-    setText('rep-stat-progs', d.totalProgrammes || 0);
-
-    if (typeof Chart === 'undefined') return;
-
-    const admissionRes = await adminFetch(`/api/admin/reports/admission-trend${qs}`);
-    const admissionRows = (await admissionRes.json()).data || [];
-    const chartA = document.getElementById('rep-chart-admission');
-    if (chartA && admissionRows.length) {
-      new Chart(chartA, { type: 'line', data: { labels: admissionRows.map((r) => r.month), datasets: [{ data: admissionRows.map((r) => r.count), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', tension: .4, fill: true, borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-    }
-
-    const revenueRes = await adminFetch(`/api/admin/reports/revenue-trend${qs}`);
-    const revenueRows = (await revenueRes.json()).data || [];
-    const chartR = document.getElementById('rep-chart-revenue');
-    if (chartR && revenueRows.length) {
-      new Chart(chartR, { type: 'line', data: { labels: revenueRows.map((r) => r.month), datasets: [{ data: revenueRows.map((r) => Number(r.total || 0)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: .4, fill: true, borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-    }
-
-    const deptRes = await adminFetch('/api/admin/reports/enrollment-by-department');
-    const deptRows = (await deptRes.json()).data || [];
-    const chartD = document.getElementById('rep-chart-dept');
-    if (chartD && deptRows.length) {
-      new Chart(chartD, { type: 'bar', data: { labels: deptRows.slice(0, 10).map((r) => r.name), datasets: [{ data: deptRows.slice(0, 10).map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
-    }
-
-    const appRes = await adminFetch('/api/admin/reports/applications-by-status');
-    const appRows = (await appRes.json()).data || [];
-    const chartAp = document.getElementById('rep-chart-apps');
-    if (chartAp && appRows.length) {
-      const colorMap = { pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6' };
-      new Chart(chartAp, { type: 'doughnut', data: { labels: appRows.map((r) => (r.status || '').replace(/_/g, ' ')), datasets: [{ data: appRows.map((r) => r.count), backgroundColor: appRows.map((r) => colorMap[r.status] || '#64748b'), borderColor: '#fff', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '62%' } });
-    }
-
-    const appsTbody = document.getElementById('rep-apps-tbody');
-    if (appsTbody) {
-      appsTbody.innerHTML = appRows.length ? appRows.map((r) => `<tr><td>${escapeHtml(r.status)}</td><td class="num">${r.count}</td></tr>`).join('') : '<tr><td colspan="2" class="empty">No data.</td></tr>';
-    }
-
-    const payRes = await adminFetch('/api/admin/reports/payments-by-status');
-    const payRows = (await payRes.json()).data || [];
-    const payTbody = document.getElementById('rep-pay-tbody');
-    if (payTbody) {
-      payTbody.innerHTML = payRows.length ? payRows.map((r) => `<tr><td>${escapeHtml(r.status)}</td><td class="num">${r.count}</td><td class="num">${money(r.total)}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">No data.</td></tr>';
-    }
-  } catch (err) {
-    console.debug('[reports]', err && err.message);
-  }
-}
-
-async function loadAuditTable() {
-  const container = document.getElementById('audit-tbody');
-  if (!container) return;
-  container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
-
-  const action = (document.getElementById('audit-action') || {}).value || '';
-  const entity = (document.getElementById('audit-entity') || {}).value || '';
-  const from = (document.getElementById('audit-from') || {}).value || '';
-  const to = (document.getElementById('audit-to') || {}).value || '';
-
-  const qs = new URLSearchParams({ limit: 300 });
-  if (action) qs.set('action', action);
-  if (entity) qs.set('entity', entity);
-  if (from) qs.set('from', from);
-  if (to) qs.set('to', to);
-
-  try {
-    const res = await adminFetch(`/api/admin/audit?${qs}`);
-    const json = await res.json();
-    const rows = json.data || [];
-
-    setText('audit-count', `Showing ${rows.length}`);
-
-    container.innerHTML = rows.length ? rows.map((r) => {
-      const log = r.log || r;
-      return `
-        <tr class="audit-row">
-          <td><button class="btn btn-sm btn-ghost" data-toggle="${log.id}">▾</button></td>
-          <td><code>${escapeHtml(log.action || '')}</code></td>
-          <td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td>
-          <td>${escapeHtml(log.entity || '')}</td>
-          <td>${escapeHtml(log.entityId || '')}</td>
-          <td>${escapeHtml(log.ipAddress || '')}</td>
-          <td class="small muted">${fmtDateTime(log.createdAt)}</td>
-        </tr>
-        <tr class="audit-detail-row" data-detail="${log.id}">
-          <td colspan="7" class="audit-detail">
-            ${log.before ? `<strong>Before:</strong> ${escapeHtml(JSON.stringify(log.before, null, 2))}<br/><br/>` : ''}
-            ${log.after ? `<strong>After:</strong> ${escapeHtml(JSON.stringify(log.after, null, 2))}` : ''}
-            ${!log.before && !log.after ? '<em>No payload recorded.</em>' : ''}
-          </td>
-        </tr>
-      `;
-    }).join('') : '<tr><td colspan="7" class="empty">No audit entries.</td></tr>';
-
-    container.querySelectorAll('[data-toggle]').forEach((b) => {
-      b.onclick = () => {
-        const row = container.querySelector(`[data-detail="${b.dataset.toggle}"]`);
-        if (row) row.classList.toggle('open');
-      };
-    });
-  } catch (err) {
-    container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-async function loadSecurityDashboard() {
-  var summaryRes = null, eventsRes = null, loginsRes = null;
-  try { summaryRes = await adminFetch("/api/admin/security/summary"); } catch (e) { console.debug("[sd] summary", e.message); }
-  try { eventsRes = await adminFetch("/api/admin/security?limit=100"); } catch (e) { console.debug("[sd] events", e.message); }
-  try { loginsRes = await adminFetch("/api/admin/login-history?limit=100&success=false"); } catch (e) { console.debug("[sd] logins", e.message); }
-
-  var summaryRows = [], eventRows = [], failedRows = [];
-  try { if (summaryRes) summaryRows = (await summaryRes.json()).data || []; } catch (e) {}
-  try { if (eventsRes) eventRows = (await eventsRes.json()).data || []; } catch (e) {}
-  try { if (loginsRes) failedRows = (await loginsRes.json()).data || []; } catch (e) {}
-
-  var critical = 0, warning = 0, info = 0;
-  summaryRows.forEach(function (r) {
-    if (r.severity === "critical") critical = r.c || 0;
-    else if (r.severity === "warning") warning = r.c || 0;
-    else if (r.severity === "info") info = r.c || 0;
-  });
-
-  setText("sec-kpi-sessions", 0);
-  setText("sec-kpi-failed", failedRows.length);
-  setText("sec-kpi-locked", 0);
-  setText("sec-kpi-blocked", 0);
-
-  var banner = document.getElementById("sec-threat-banner");
-  if (banner) {
-    var score = critical * 10 + warning * 3 + info;
-    var level = critical > 0 ? "high" : warning > 5 ? "medium" : "low";
-    banner.className = "sec-threat-banner " + level;
-    var issues = "";
-    if (failedRows.length > 5) issues += "<span>" + failedRows.length + " failed logins recently</span>";
-    if (critical > 0) issues += "<span>" + critical + " critical security event(s)</span>";
-    banner.innerHTML = '<div class="stb-score ' + level + '">' + Math.min(100, score) + '</div><div class="stb-info"><h3>Threat Level: ' + level.toUpperCase() + '</h3><p>' + critical + ' critical &middot; ' + warning + ' warning &middot; ' + info + ' info events</p><div class="stb-issues">' + issues + '</div></div>';
-  }
-
-  setText("sac-events-badge", eventRows.length);
-  setText("sac-sessions-badge", "—");
-
-  var recent = eventRows.filter(function (r) { return (r.log || r).severity === "critical"; }).slice(0, 10);
-  var tbody = document.getElementById("sec-recent-events");
-  if (tbody) {
-    if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No critical events.</td></tr>';
-    } else {
-      tbody.innerHTML = recent.map(function (r) {
-        var log = r.log || r;
-        var user = r.user ? escapeHtml(r.user.firstName) + " " + escapeHtml(r.user.lastName) : "—";
-        return '<tr><td>' + escapeHtml(log.event || "") + '</td><td>' + badge(log.severity) + '</td><td>' + user + '</td><td>' + escapeHtml(log.ipAddress || "") + '</td><td class="small muted">' + fmtDateTime(log.createdAt) + '</td></tr>';
-      }).join("");
-    }
-  }
-}
-
-async function loadSettingsShell() {
-  const content = document.getElementById('settings-tab-content');
-  if (!content) return;
-
-  const tabs = document.querySelectorAll('#settings-tabs .staff-role-tab');
-  async function loadTab(tab) {
-    content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-    try {
-      const res = await fetch(`/admin/partials/settings/_tabs/${tab}.html`, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`Partial ${tab} not found`);
-      const html = await res.text();
-      content.innerHTML = html;
-      if (window.FPU_EXECUTE_PARTIAL_SCRIPTS) {
-        window.FPU_EXECUTE_PARTIAL_SCRIPTS(content);
-      } else {
-        content.querySelectorAll('script').forEach((old) => {
-          const s = document.createElement('script');
-          s.textContent = old.textContent;
-          old.replaceWith(s);
-        });
-      }
-      prefillSettingsForm(tab, content);
-    } catch (err) {
-      content.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
-    }
-  }
-
-  tabs.forEach((t) => {
-    t.onclick = () => {
-      tabs.forEach((x) => x.classList.remove('active'));
-      t.classList.add('active');
-      loadTab(t.dataset.tab);
-    };
-  });
-
-  const refreshBtn = document.getElementById('settings-refresh');
-  if (refreshBtn) refreshBtn.onclick = () => {
-    const active = document.querySelector('#settings-tabs .active');
-    if (active) loadTab(active.dataset.tab);
-  };
-
-  loadTab('institution');
-}
-
-async function prefillSettingsForm(section, container) {
-  try {
-    const res = await adminFetch(`/api/admin/settings?category=${section}`);
-    const json = await res.json();
-    const rows = json.data || [];
-    const map = {};
-    rows.forEach((r) => { map[r.key] = r.value; });
-
-    container.querySelectorAll('input, select, textarea').forEach((el) => {
-      const key = el.name;
-      if (!key || !(key in map)) return;
-      const v = map[key];
-      if (el.type === 'checkbox') {
-        el.checked = ['true','1','yes','on'].includes(String(v).toLowerCase());
-      } else {
-        el.value = v ?? '';
-      }
-    });
-  } catch (err) {
-    console.debug('[settings] prefill', err && err.message);
-  }
-}
-
-// ============================================
-// USERS (Hub, All Users, Admins, Login History)
-// ============================================
-
-async function loadUsersHub() {
-  try {
-    const [allRes, loginRes] = await Promise.all([
-      adminFetch('/api/admin/user-list?limit=2000'),
-      adminFetch('/api/admin/login-history?limit=100'),
-    ]);
-    const users = (await allRes.json()).data || [];
-    const logins = (await loginRes.json()).data || [];
-
-    const students = users.filter((u) => u.role === 'student').length;
-    const admins   = users.filter((u) => u.role === 'admin').length;
-    const staff    = users.length - students - admins;
-
-    setText('us-stat-total', users.length);
-    setText('us-stat-students', students);
-    setText('us-stat-staff', staff);
-    setText('us-stat-admins', admins);
-    setText('ujc-admins-count', admins + ' accounts');
-    setText('ujc-logins-count', logins.length + ' recent');
-
-    const recent = [...users].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 5);
-
-    const tbody = document.getElementById('us-recent-tbody');
-    if (tbody) {
-      tbody.innerHTML = recent.length ? recent.map((u) => `
-        <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-          <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-          <td>${escapeHtml(u.email || '')}</td>
-          <td>${roleBadge(u.role)}</td>
-          <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-          <td>${fmtDate(u.createdAt)}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="5" class="empty">No users yet.</td></tr>';
-    }
-  } catch (err) {
-    console.debug('[users-hub]', err && err.message);
-  }
-}
-
-async function loadAllUsers() {
-  const tbody = document.getElementById('au-tbody');
-  const countEl = document.getElementById('au-count');
-  if (!tbody) return;
-
-  const role   = (document.getElementById('au-filter-role') || {}).value || '';
-  const active = (document.getElementById('au-filter-active') || {}).value || '';
-  const dept   = (document.getElementById('au-filter-dept') || {}).value || '';
-  const search = (document.getElementById('au-search') || {}).value || '';
-
-  const qs = new URLSearchParams({ limit: 500 });
-  if (role)   qs.set('role', role);
-  if (active) qs.set('isActive', active);
-  if (dept)   qs.set('departmentId', dept);
-  if (search) qs.set('search', search);
-
-  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
-  if (countEl) countEl.textContent = 'Loading…';
-
-  try {
-    const res = await adminFetch(`/api/admin/user-list?${qs}`);
-    const json = await res.json();
-    const users = json.data || [];
-
-    const activeCount = users.filter((u) => u.isActive !== false).length;
-    setText('au-stat-total', users.length);
-    setText('au-stat-active', activeCount);
-    setText('au-stat-inactive', users.length - activeCount);
-    setText('au-stat-roles', new Set(users.map((u) => u.role)).size);
-
-    if (countEl) countEl.textContent = `Showing ${users.length} user${users.length === 1 ? '' : 's'}`;
-
-    if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found.</td></tr>';
-      return;
-    }
-
-    if (window.FPU_PAGINATE && typeof window.FPU_PAGINATE.mount === 'function') {
-      window.FPU_PAGINATE.mount(tbody, users, {
-        pageSize: 25, renderRow: (u) => `
-          <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-            <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-            <td>${escapeHtml(u.email || '')}</td>
-            <td><code>${escapeHtml(u.matricNumber || u.staffNumber || '—')}</code></td>
-            <td>${roleBadge(u.role)}</td>
-            <td>${escapeHtml(u.departmentName || u.department?.name || '—')}</td>
-            <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-            <td class="small muted">${fmtDate(u.createdAt)}</td>
-            <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">View</button></td>
-          </tr>`,
-      });
-    } else {
-      tbody.innerHTML = users.map((u) => `
-        <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-          <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-          <td>${escapeHtml(u.email || '')}</td>
-          <td><code>${escapeHtml(u.matricNumber || u.staffNumber || '—')}</code></td>
-          <td>${roleBadge(u.role)}</td>
-          <td>${escapeHtml(u.departmentName || u.department?.name || '—')}</td>
-          <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-          <td class="small muted">${fmtDate(u.createdAt)}</td>
-          <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">View</button></td>
-        </tr>
-      `).join('');
-    }
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-async function loadAdminAccounts() {
-  const tbody = document.getElementById('ad-tbody');
-  const countEl = document.getElementById('ad-count');
-  if (!tbody) return;
-
-  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
-  if (countEl) countEl.textContent = 'Loading…';
-
-  try {
-    const res = await adminFetch('/api/admin/users?limit=500');
-    const json = await res.json();
-    const admins = json.data || [];
-
-    const thirty = Date.now() - 30 * 24 * 3600 * 1000;
-    const recent = admins.filter((a) => a.lastLoginAt && new Date(a.lastLoginAt).getTime() > thirty).length;
-
-    setText('ad-stat-total', admins.length);
-    setText('ad-stat-active', admins.filter((a) => a.isActive !== false).length);
-    setText('ad-stat-inactive', admins.filter((a) => a.isActive === false).length);
-    setText('ad-stat-recent', recent);
-
-    if (countEl) countEl.textContent = `Showing ${admins.length} admin${admins.length === 1 ? '' : 's'}`;
-
-    tbody.innerHTML = admins.length ? admins.map((u) => `
-      <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-        <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-        <td>${escapeHtml(u.email || '')}</td>
-        <td>${escapeHtml(u.phone || '—')}</td>
-        <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-        <td class="small muted">${u.lastLoginAt ? fmtDateTime(u.lastLoginAt) : 'Never'}</td>
-        <td class="small muted">${fmtDate(u.createdAt)}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-form', { id: ${u.id} })">Edit</button>
-            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.resetAdminPwd(${u.id})">Reset Pwd</button>
-            ${u.id !== (getAdminUser() || {}).id ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.toggleAdminActive(${u.id})">Toggle</button>` : ''}
-          </div>
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="7" class="empty">No admin accounts.</td></tr>';
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-async function resetAdminPwd(id) {
-  const pwd = prompt('New password (default: admin1234):', 'admin1234');
-  if (pwd === null) return;
-  try {
-    await adminFetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password: pwd }) });
-    showToast('Password reset.', 'success');
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function toggleAdminActive(id) {
-  try {
-    await adminFetch(`/api/admin/users/${id}/toggle-active`, { method: 'POST' });
-    showToast('Status updated.', 'success');
-    loadAdminAccounts();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function loadLoginHistory() {
-  const container = document.getElementById("login-history-tbody");
-  if (!container) return;
-  container.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-
-  try {
-    const res = await adminFetch("/api/admin/login-history?limit=100");
-    const result = await res.json();
-    const rows = extractArray(result);
-
-    container.innerHTML = rows.length ? rows.map((r) => {
-      const entry = r.entry || r;
-      const user = r.user || null;
-      return `
-        <tr>
-          <td>${user ? escapeHtml(`${user.firstName || ''} ${user.lastName || ''}`.trim()) : '—'}</td>
-          <td>${escapeHtml(entry.email || '')}</td>
-          <td>${entry.success ? 'Success' : 'Failed'}</td>
-          <td>${escapeHtml(entry.ipAddress || '')}</td>
-          <td>${escapeHtml(entry.reason || '')}</td>
-          <td>${fmtDateTime(entry.createdAt)}</td>
-        </tr>`;
-    }).join('') : '<tr><td colspan="6" class="empty">No records.</td></tr>';
-  } catch (err) {
-    container.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
-  }
-}
-
-// ============================================
-// ALLOCATIONS (Drill-down by Department)
-// ============================================
-async function loadDepartmentAllocations() {
-  const grid = document.getElementById('abd-lecturer-grid');
-  if (!grid) return;
-
-  const hash = window.location.hash.replace(/^#/, '');
-  const qIdx = hash.indexOf('?');
-  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
-  const departmentId = params.get('departmentId') || '';
-  const deptName = params.get('name') || 'Department';
-
-  const titleEl = document.getElementById('alloc-dept-title');
-  const subEl = document.getElementById('alloc-dept-subtitle');
-  if (titleEl) titleEl.textContent = deptName;
-  if (subEl) subEl.textContent = `Allocations for ${deptName}`;
-
-  if (!departmentId) {
-    grid.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
-    return;
-  }
-
-  grid.innerHTML = '<div class="loading"><span class="spinner"></span> Loading allocations…</div>';
-
-  try {
-    const [allocsRes, deptRes] = await Promise.all([
-      adminFetch(`/api/admin/allocations?limit=2000`), // Fetch all to be safe
-      adminFetch(`/api/admin/departments/${departmentId}`),
-    ]);
-
-    const allocs = (await allocsRes.json()).data || [];
-    const dept = (await deptRes.json()).data;
-
-    if (dept?.name && titleEl) titleEl.textContent = dept.name;
-
-    // Filter to this department
-    const inDept = allocs.filter((a) => Number(a.course?.departmentId) === Number(departmentId));
-
-    const byLecturer = new Map();
-    for (const a of inDept) {
-      const l = a.lecturer || {};
-      const key = l.id || 0;
-      if (!byLecturer.has(key)) {
-        byLecturer.set(key, { lecturer: l, allocs: [] });
-      }
-      byLecturer.get(key).allocs.push(a);
-    }
-
-    let totalUnits = 0;
-    let totalCourses = new Set();
-    byLecturer.forEach((b) => {
-      b.allocs.forEach((a) => {
-        totalUnits += Number(a.course?.unit) || 0;
-        if (a.course?.id) totalCourses.add(a.course.id);
-      });
-    });
-
-    setText('abd-stat-total', inDept.length);
-    setText('abd-stat-lecturers', byLecturer.size);
-    setText('abd-stat-units', totalUnits);
-    setText('abd-stat-courses', totalCourses.size);
-
-    if (!byLecturer.size) {
-      grid.innerHTML = '<div class="empty-lect">No allocations in this department.</div>';
-      return;
-    }
-
-    grid.innerHTML = [...byLecturer.values()].map(({ lecturer, allocs: list }) => {
-      const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim() || `Lecturer #${lecturer.id}`;
-      const initials = ((lecturer.firstName || ' ')[0] + (lecturer.lastName || ' ')[0]).toUpperCase().trim() || 'L';
-      const avatar = lecturer.photoUrl ? `<img src="${escapeHtml(lecturer.photoUrl)}" alt="" />` : escapeHtml(initials);
-      const units = list.reduce((s, a) => s + (Number(a.course?.unit) || 0), 0);
-
-      return `
-        <div class="lect-card">
-          <div class="lect-card-head">
-            <div class="lect-avatar">${avatar}</div>
-            <div class="lect-info">
-              <strong>${escapeHtml(fullName)}</strong>
-              <div class="sub">${escapeHtml(lecturer.email || '')}</div>
-            </div>
-            <div class="lect-meta">
-              <span class="lect-badge"><strong>${list.length}</strong> courses</span>
-              <span class="lect-badge"><strong>${units}</strong> units</span>
-            </div>
-            <div class="lect-chevron">▼</div>
-          </div>
-          <div class="lect-card-body">
-            ${list.map((a) => `
-              <div class="lect-course-row">
-                <span class="code">${escapeHtml(a.course?.code || '')}</span>
-                <span class="title">${escapeHtml(a.course?.title || '')}</span>
-                <span class="meta">${escapeHtml(a.allocation?.semester || a.semester || '')}</span>
-                <span class="unit">${Number(a.course?.unit) || 0}</span>
-                <div class="actions">
-                  <button class="btn btn-sm btn-outline"
-                    onclick="FPU_ADMIN_SPA.navigateToWithQuery('allocation-form', { id: ${a.allocation?.id || a.id}, departmentId: ${departmentId}, name: '${escapeQuotes(deptName)}' })">Edit</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Collapsible logic
-    grid.querySelectorAll('.lect-card-head').forEach((head) => {
-      head.addEventListener('click', () => {
-        head.parentElement.classList.toggle('open');
-      });
-    });
-  } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// ============================================
-// RESULTS (Drill-down & Detail)
-// ============================================
 
 async function loadDepartmentResults() {
   const root = document.getElementById('rd-root');
@@ -4633,113 +2667,6 @@ async function loadDepartmentResults() {
 }
 
 // ============================================
-// RESULT ACTIONS
-// ============================================
-async function approveResult(id) {
-  try {
-    await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' });
-    showToast('Approved.', 'success');
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function rejectResult(id) {
-  const reason = prompt('Reason for rejecting:');
-  if (reason === null) return;
-  try {
-    await adminFetch(`/api/admin/results/${id}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    });
-    showToast('Rejected.', 'warning');
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function publishResult(id) {
-  try {
-    await adminFetch(`/api/admin/results/${id}/publish`, { method: 'POST' });
-    showToast('Published.', 'success');
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function bulkApproveResults() {
-  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
-  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
-  if (!confirm(`Approve ${ids.length} result(s)?`)) return;
-  let ok = 0, failed = 0;
-  for (const id of ids) {
-    try { await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
-  }
-  showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
-  loadDepartmentResults();
-}
-
-async function bulkRejectResults() {
-  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
-  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
-  const reason = prompt('Rejection reason (applied to all):');
-  if (reason === null) return;
-  let ok = 0, failed = 0;
-  for (const id of ids) {
-    try {
-      await adminFetch(`/api/admin/results/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
-      ok++;
-    } catch { failed++; }
-  }
-  showToast(`⚠️ Rejected ${ok}${failed ? `, ${failed} failed` : ''}.`, 'warning');
-  loadDepartmentResults();
-}
-
-async function bulkPublishResults() {
-  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
-  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
-  if (!confirm(`Publish ${ids.length} result(s)?`)) return;
-  try {
-    await adminFetch('/api/admin/results/publish-batch', {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    });
-    showToast(`✅ Published ${ids.length}.`, 'success');
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function bulkApproveCourseResults(courseId) {
-  if (!confirm('Approve all hod_verified results for this course?')) return;
-  try {
-    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=hod_verified&limit=500`);
-    const json = await res.json();
-    const rows = json.data || [];
-    if (!rows.length) { showToast('Nothing to approve.', 'info'); return; }
-    let ok = 0, failed = 0;
-    for (const r of rows) {
-      try { await adminFetch(`/api/admin/results/${r.id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
-    }
-    showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function bulkPublishCourseResults(courseId) {
-  if (!confirm('Publish all approved results for this course?')) return;
-  try {
-    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=approved&limit=500`);
-    const json = await res.json();
-    const rows = json.data || [];
-    if (!rows.length) { showToast('Nothing to publish.', 'info'); return; }
-    const ids = rows.map((r) => r.id);
-    await adminFetch('/api/admin/results/publish-batch', {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    });
-    showToast(`✅ Published ${ids.length}.`, 'success');
-    loadDepartmentResults();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-// ============================================
 // RESULT DETAIL VIEW
 // ============================================
 async function loadResultDetail() {
@@ -4856,6 +2783,113 @@ async function loadResultDetail() {
     const studentPanel = document.getElementById('res-detail-student');
     if (studentPanel) studentPanel.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// RESULT ACTIONS
+// ============================================
+async function approveResult(id) {
+  try {
+    await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' });
+    showToast('Approved.', 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function rejectResult(id) {
+  const reason = prompt('Reason for rejecting:');
+  if (reason === null) return;
+  try {
+    await adminFetch(`/api/admin/results/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    showToast('Rejected.', 'warning');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function publishResult(id) {
+  try {
+    await adminFetch(`/api/admin/results/${id}/publish`, { method: 'POST' });
+    showToast('Published.', 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkApproveResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  if (!confirm(`Approve ${ids.length} result(s)?`)) return;
+  let ok = 0, failed = 0;
+  for (const id of ids) {
+    try { await adminFetch(`/api/admin/results/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
+  }
+  showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+  loadDepartmentResults();
+}
+
+async function bulkRejectResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  const reason = prompt('Rejection reason (applied to all):');
+  if (reason === null) return;
+  let ok = 0, failed = 0;
+  for (const id of ids) {
+    try {
+      await adminFetch(`/api/admin/results/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
+      ok++;
+    } catch { failed++; }
+  }
+  showToast(`⚠️ Rejected ${ok}${failed ? `, ${failed} failed` : ''}.`, 'warning');
+  loadDepartmentResults();
+}
+
+async function bulkPublishResults() {
+  const ids = Array.from(document.querySelectorAll('.rd-check:checked')).map((c) => Number(c.dataset.id));
+  if (!ids.length) { showToast('Select results first.', 'warning'); return; }
+  if (!confirm(`Publish ${ids.length} result(s)?`)) return;
+  try {
+    await adminFetch('/api/admin/results/publish-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`✅ Published ${ids.length}.`, 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkApproveCourseResults(courseId) {
+  if (!confirm('Approve all hod_verified results for this course?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=hod_verified&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) { showToast('Nothing to approve.', 'info'); return; }
+    let ok = 0, failed = 0;
+    for (const r of rows) {
+      try { await adminFetch(`/api/admin/results/${r.id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
+    }
+    showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function bulkPublishCourseResults(courseId) {
+  if (!confirm('Publish all approved results for this course?')) return;
+  try {
+    const res = await adminFetch(`/api/admin/results?courseId=${courseId}&status=approved&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) { showToast('Nothing to publish.', 'info'); return; }
+    const ids = rows.map((r) => r.id);
+    await adminFetch('/api/admin/results/publish-batch', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`✅ Published ${ids.length}.`, 'success');
+    loadDepartmentResults();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
 // ============================================

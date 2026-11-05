@@ -114,5 +114,12 @@
 </div>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadAllUsers()
+  // Reset filters to default on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    const roleFilter = document.getElementById('au-filter-role');
+    if (roleFilter) roleFilter.value = ''; // Set to "All roles"
+    
+    const statusFilter = document.getElementById('au-filter-active');
+    if (statusFilter) statusFilter.value = ''; // Set to "All"
+  });
 </script>

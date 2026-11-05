@@ -52,10 +52,67 @@
           <label class="form-label">Date of Birth</label>
           <input class="form-control" type="date" name="dateOfBirth" id="uf-dob" />
         </div>
+        
+        <!-- DROPDOWN: COUNTRY -->
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <select class="form-select" name="country" id="uf-country">
+            <option value="">—</option>
+            <option value="Nigeria" selected>Nigeria</option>
+            <option value="Ghana">Ghana</option>
+            <option value="Cameroon">Cameroon</option>
+            <option value="Chad">Chad</option>
+            <option value="Benin">Benin</option>
+            <option value="Niger">Niger</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <!-- DROPDOWN: STATE OF ORIGIN -->
         <div class="form-group">
           <label class="form-label">State of Origin</label>
-          <input class="form-control" name="stateOfOrigin" id="uf-state" />
+          <select class="form-select" name="stateOfOrigin" id="uf-state">
+            <option value="">—</option>
+            <option value="Abia">Abia</option>
+            <option value="Adamawa">Adamawa</option>
+            <option value="Akwa Ibom">Akwa Ibom</option>
+            <option value="Anambra">Anambra</option>
+            <option value="Bauchi">Bauchi</option>
+            <option value="Bayelsa">Bayelsa</option>
+            <option value="Benue">Benue</option>
+            <option value="Borno">Borno</option>
+            <option value="Cross River">Cross River</option>
+            <option value="Delta">Delta</option>
+            <option value="Ebonyi">Ebonyi</option>
+            <option value="Edo">Edo</option>
+            <option value="Ekiti">Ekiti</option>
+            <option value="Enugu">Enugu</option>
+            <option value="FCT">FCT (Abuja)</option>
+            <option value="Gombe">Gombe</option>
+            <option value="Imo">Imo</option>
+            <option value="Jigawa">Jigawa</option>
+            <option value="Kaduna">Kaduna</option>
+            <option value="Kano">Kano</option>
+            <option value="Katsina">Katsina</option>
+            <option value="Kebbi">Kebbi</option>
+            <option value="Kogi">Kogi</option>
+            <option value="Kwara">Kwara</option>
+            <option value="Lagos">Lagos</option>
+            <option value="Nasarawa">Nasarawa</option>
+            <option value="Niger">Niger</option>
+            <option value="Ogun">Ogun</option>
+            <option value="Ondo">Ondo</option>
+            <option value="Osun">Osun</option>
+            <option value="Oyo">Oyo</option>
+            <option value="Plateau">Plateau</option>
+            <option value="Rivers">Rivers</option>
+            <option value="Sokoto">Sokoto</option>
+            <option value="Taraba">Taraba</option>
+            <option value="Yobe">Yobe</option>
+            <option value="Zamfara">Zamfara</option>
+          </select>
         </div>
+
         <div class="form-group">
           <label class="form-label">Role <span class="req">*</span></label>
           <select class="form-select" name="role" id="uf-role" required>
@@ -87,8 +144,7 @@
   </div>
 </div>
 
-<!-- Security -->
-
+<!-- Profile Photo (Admin) -->
 <div class="panel" id="user-avatar-panel" style="display:none;">
   <div class="panel-head"><h3>Profile Photo (Admin only)</h3></div>
   <div class="panel-body">
@@ -101,26 +157,7 @@
   </div>
 </div>
 
-<script>
-  // batch5: show avatar uploader only when role=admin
-  (function () {
-    function checkRole() {
-      var roleSel = document.getElementById("uf-role");
-      var panel = document.getElementById("user-avatar-panel");
-      if (!roleSel || !panel) return;
-      panel.style.display = roleSel.value === "admin" ? "block" : "none";
-    }
-    document.addEventListener("DOMContentLoaded", function () {
-      var roleSel = document.getElementById("uf-role");
-      if (roleSel) {
-        roleSel.addEventListener("change", checkRole);
-        checkRole();
-      }
-    });
-    window.addEventListener("hashchange", function () { setTimeout(checkRole, 150); });
-    setTimeout(checkRole, 200);
-  })();
-</script>
+<!-- Security -->
 <div class="panel">
   <div class="panel-head"><h3>Security</h3></div>
   <div class="panel-body">
@@ -157,6 +194,26 @@
 </div>
 
 <script>
+  // Show avatar uploader only when role = admin
+  (function () {
+    function checkRole() {
+      var roleSel = document.getElementById("uf-role");
+      var panel = document.getElementById("user-avatar-panel");
+      if (!roleSel || !panel) return;
+      panel.style.display = roleSel.value === "admin" ? "block" : "none";
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      var roleSel = document.getElementById("uf-role");
+      if (roleSel) {
+        roleSel.addEventListener("change", checkRole);
+        checkRole();
+      }
+    });
+    window.addEventListener("hashchange", function () { setTimeout(checkRole, 150); });
+    setTimeout(checkRole, 200);
+  })();
+
+  // Main form logic
   (function () {
     const A = window.FPU_ADMIN;
     const $ = (id) => document.getElementById(id);
@@ -279,7 +336,6 @@
           u = (json.data || []).find((x) => Number(x.id) === Number(id));
         }
         if (!u) {
-          // Fallback to /api/admin/students/:id or /api/admin/staff/:id
           const r2 = await A.adminFetch(`/api/admin/students/${id}`).catch(() => null);
           if (r2) {
             const j2 = await r2.json();
@@ -295,7 +351,11 @@
         $('uf-phone').value = u.phone || '';
         $('uf-gender').value = u.gender || '';
         $('uf-dob').value = u.dateOfBirth ? String(u.dateOfBirth).slice(0, 10) : '';
-        $('uf-state').value = u.stateOfOrigin || '';
+        
+        // Set country & state dropdowns
+        if ($('uf-country')) $('uf-country').value = u.country || 'Nigeria';
+        if ($('uf-state')) $('uf-state').value = u.stateOfOrigin || '';
+
         $('uf-role').value = u.role || 'student';
         $('uf-active').checked = u.isActive !== false;
         $('uf-must-change').checked = !!u.mustChangePassword;
@@ -311,7 +371,6 @@
             const v = u[el.name];
             if (v !== undefined && v !== null) el.value = v;
           });
-          // Prefill profile fields from staffProfile
           if (u.staffProfile) {
             form.querySelectorAll('input, select').forEach((el) => {
               const v = u.staffProfile[el.name];
@@ -367,7 +426,6 @@
       btn.textContent = isEdit ? 'Saving…' : 'Creating…';
 
       try {
-        // Use students / staff endpoint based on role
         const role = payload.role;
         let url, method;
 

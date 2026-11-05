@@ -1,12 +1,3 @@
-<!-- Settings → System (Deployment, Backups, Versions) -->
-<section class="page-head" style="margin-bottom:0;">
-  <div>
-    <h2>🖥️ System &amp; Deployment</h2>
-    <p class="muted small">Version control, backups, and system upgrades</p>
-  </div>
-</section>
-
-<!-- Current System Info -->
 <div class="panel" style="border-left:4px solid #065f46;">
   <div class="panel-head"><h3>📦 Current System</h3></div>
   <div class="panel-body">
@@ -15,105 +6,58 @@
       <div class="field-row"><div class="k">Version</div><div class="v"><code id="sys-version">—</code></div></div>
       <div class="field-row"><div class="k">Node.js</div><div class="v" id="sys-node">—</div></div>
       <div class="field-row"><div class="k">Environment</div><div class="v"><span class="badge badge-success" id="sys-env">—</span></div></div>
-      <div class="field-row"><div class="k">Uptime</div><div class="v" id="sys-uptime">—</div></div>
-      <div class="field-row"><div class="k">Last Deploy</div><div class="v" id="sys-last-deploy">—</div></div>
     </div>
   </div>
 </div>
 
-<!-- Deploy New Version -->
 <div class="panel" style="border-left:4px solid #3b82f6;">
-  <div class="panel-head">
-    <h3>🚀 Deploy New Version</h3>
-    <span class="small muted">Trigger a fresh deployment of the codebase</span>
-  </div>
+  <div class="panel-head"><h3>🚀 Deploy New Version</h3></div>
   <div class="panel-body">
-    <div class="alert alert-info" style="margin-bottom:16px;">
-      <strong>ℹ️ How deployment works:</strong> Triggering a deploy pulls the latest code from your GitHub repository and rebuilds the application. This may take 2–5 minutes. The site will reload automatically.
-    </div>
-
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Target Branch</label>
         <select class="form-select" id="deploy-branch">
-          <option value="main" selected>main (production)</option>
+          <option value="main">main (production)</option>
           <option value="develop">develop (staging)</option>
-          <option value="staging">staging (testing)</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Deployment Notes (optional)</label>
-        <input class="form-control" id="deploy-notes" placeholder="e.g., Fix for result publishing bug" />
+        <label class="form-label">Deployment Notes</label>
+        <input class="form-control" id="deploy-notes" placeholder="Optional description" />
       </div>
     </div>
-
     <div class="form-actions" style="margin-top:16px;">
-      <button class="btn btn-primary" id="deploy-now-btn">
-        🚀 Deploy Now
-      </button>
-      <button class="btn btn-outline" id="deploy-check-btn">
-        🔍 Check GitHub Status
-      </button>
+      <button class="btn btn-primary" id="deploy-now-btn">🚀 Deploy Now</button>
+      <button class="btn btn-outline" id="deploy-check-btn">🔍 Check GitHub Status</button>
     </div>
-
     <div id="deploy-status" style="margin-top:16px;"></div>
 
-    <!-- Recent Deployments -->
-    <div style="margin-top:24px;">
-      <h4 style="font-family:'Poppins',sans-serif; font-size:13px; margin-bottom:12px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px;">Recent Deployments</h4>
-      <div class="table-wrap">
-        <table class="table-admin">
-          <thead>
-            <tr>
-              <th>Version</th>
-              <th>Branch</th>
-              <th>Status</th>
-              <th>Deployed By</th>
-              <th>When</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="deploy-history-tbody">
-            <tr><td colspan="6" class="empty">Loading deployment history…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <h4 style="margin:24px 0 12px; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; color:#6b7280;">Recent Deployments</h4>
+    <table class="table-admin">
+      <thead><tr><th>Commit</th><th>Branch</th><th>Status</th><th>When</th></tr></thead>
+      <tbody id="deploy-history-tbody"><tr><td colspan="4" class="empty">Loading deployment history…</td></tr></tbody>
+    </table>
   </div>
 </div>
 
-<!-- Backup & Restore -->
 <div class="panel" style="border-left:4px solid #f59e0b;">
-  <div class="panel-head">
-    <h3>💾 Database Backup</h3>
-    <span class="small muted">Snapshot the database before deploying</span>
-  </div>
+  <div class="panel-head"><h3>💾 Backup</h3></div>
   <div class="panel-body">
-    <p class="muted small" style="margin-bottom:14px;">
-      Create an on-demand snapshot of the database. Backups are stored server-side and listed below.
-    </p>
     <div class="form-actions" style="margin-bottom:14px;">
       <button class="btn btn-primary" id="sys-backup-now">💾 Trigger Backup Now</button>
-      <button class="btn btn-outline" id="sys-backup-refresh">🔄 Refresh History</button>
-      <button class="btn btn-outline" id="sys-export-json">📥 Export JSON Snapshot</button>
+      <button class="btn btn-outline" id="sys-backup-refresh">Refresh History</button>
     </div>
     <div id="sys-backup-status"></div>
-    <div class="table-wrap" style="margin-top:12px;">
-      <table class="table-admin">
-        <thead><tr><th>Kind</th><th>Status</th><th>Size</th><th>Started</th><th>Completed</th><th>Actions</th></tr></thead>
-        <tbody id="sys-backup-tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
-      </table>
-    </div>
+    <table class="table-admin" style="margin-top:12px;">
+      <thead><tr><th>Kind</th><th>Status</th><th>Size</th><th>Started</th><th>Completed</th></tr></thead>
+      <tbody id="sys-backup-tbody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
   </div>
 </div>
 
-<!-- Danger Zone -->
 <div class="panel" style="border-left:4px solid #dc2626;">
-  <div class="panel-head"><h3>⚠️ Upgrade &amp; Maintenance</h3></div>
+  <div class="panel-head"><h3>⚠️ Maintenance</h3></div>
   <div class="panel-body">
-    <div class="alert alert-warning">
-      <strong>⚠️ Careful:</strong> Running migrations modifies the database schema. Always take a backup first.
-    </div>
     <div class="form-actions">
       <button class="btn btn-primary" id="sys-run-migrations">🔄 Run Migrations</button>
       <button class="btn btn-outline" id="sys-health-check">🩺 Health Check</button>

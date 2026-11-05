@@ -2,13 +2,12 @@
   <div class="panel">
     <div class="panel-head"><h3>Institution Logo</h3></div>
     <div class="panel-body">
-      <div class="admin-avatar-uploader" id="institution-logo-uploader">
+      <div class="admin-avatar-uploader" id="institution-logo-uploader" style="cursor:pointer;">
         <input type="file" id="institution-logo-file" accept="image/*" style="display:none" />
-        <div class="avatar-preview" id="institution-logo-preview" style="border-radius:14px;">🏛️</div>
-        <p class="upload-hint"><strong>Click to upload school logo</strong><br/>PNG or JPG &middot; Max 2 MB</p>
+        <div class="avatar-preview" id="institution-logo-preview" style="border-radius:14px; background:#065f46; color:#fff; font-size:32px;">🏛️</div>
+        <p class="upload-hint"><strong>Click to upload logo</strong><br/>PNG or JPG · Max 2 MB</p>
       </div>
-      <input type="hidden" id="institution-logo-data" />
-      <div class="form-group" style="margin-top:12px;">
+      <div class="form-group" style="margin-top:16px;">
         <label class="form-label">Or paste a logo URL</label>
         <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
       </div>
@@ -20,29 +19,29 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group" style="grid-column:span 2;">
-          <label class="form-label">Institution Name</label>
-          <input class="form-control" name="institution_name" value="Federal Polytechnic Ugep" />
+          <label class="form-label">Institution Name <span class="req">*</span></label>
+          <input class="form-control" name="institution_name" required placeholder="Federal Polytechnic Ugep" />
         </div>
         <div class="form-group">
           <label class="form-label">Short Name</label>
-          <input class="form-control" name="institution_short" value="FPU" maxlength="10" />
+          <input class="form-control" name="institution_short" maxlength="10" placeholder="FPU" />
         </div>
         <div class="form-group">
           <label class="form-label">Motto</label>
-          <input class="form-control" name="institution_motto" value="Citadel of Technical Excellence" />
+          <input class="form-control" name="institution_motto" placeholder="Citadel of Technical Excellence" />
         </div>
         <div class="form-group">
           <label class="form-label">State</label>
-          <input class="form-control" name="institution_state" value="Cross River State" />
+          <input class="form-control" name="institution_state" placeholder="Cross River State" />
         </div>
         <div class="form-group">
           <label class="form-label">Country</label>
-          <input class="form-control" name="institution_country" value="Nigeria" />
+          <input class="form-control" name="institution_country" placeholder="Nigeria" />
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">Address</label>
-        <textarea class="form-control" name="institution_address" rows="2">Km 95 Calabar–Ikom Highway, Ugep, Yakurr LGA, Cross River State</textarea>
+        <textarea class="form-control" name="institution_address" rows="2" placeholder="Full postal address"></textarea>
       </div>
     </div>
   </div>
@@ -53,7 +52,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Primary Phone</label>
-          <input class="form-control" name="institution_phone" placeholder="+234 …" />
+          <input class="form-control" name="institution_phone" placeholder="+234…" />
         </div>
         <div class="form-group">
           <label class="form-label">Support Email</label>
@@ -65,8 +64,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">Matric Prefix</label>
-          <input class="form-control" name="matric_prefix" value="FPU" maxlength="6" />
-          <div class="form-help">Used for new matric numbers (e.g. <code>FPU/SST/CST/ND/26/001</code>)</div>
+          <input class="form-control" name="matric_prefix" maxlength="6" placeholder="FPU" />
+          <div class="form-help">e.g. <code>FPU/SST/CST/ND/26/001</code></div>
         </div>
       </div>
     </div>
@@ -77,17 +76,13 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Logo URL</label>
-          <input class="form-control" name="institution_logo_url" placeholder="/images/logo.png" />
-        </div>
-        <div class="form-group">
           <label class="form-label">Favicon URL</label>
           <input class="form-control" name="institution_favicon_url" placeholder="/images/favicon.ico" />
         </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Primary Colour (hex)</label>
-        <input class="form-control" name="institution_primary_color" placeholder="#065f46" />
+        <div class="form-group">
+          <label class="form-label">Primary Colour</label>
+          <input class="form-control" type="color" name="institution_primary_color" value="#065f46" />
+        </div>
       </div>
     </div>
   </div>

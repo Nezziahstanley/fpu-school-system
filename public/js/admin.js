@@ -4086,24 +4086,20 @@ async function loadSettingsShell() {
     content.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading ' + tab + '…</div>';
     try {
       const res = await fetch(`/admin/partials/settings/_tabs/${tab}.html`, { cache: 'no-cache' });
-      if (!res.ok) throw new Error(`Partial ${tab} not found`);
+      if (!res.ok) throw new Error(`Partial "${tab}" not found (HTTP ${res.status})`);
       const html = await res.text();
       content.innerHTML = html;
-      if (window.FPU_EXECUTE_PARTIAL_SCRIPTS) {
-        window.FPU_EXECUTE_PARTIAL_SCRIPTS(content);
-      } else {
-        content.querySelectorAll('script').forEach((old) => {
-          const s = document.createElement('script');
-          s.textContent = old.textContent;
-          old.replaceWith(s);
-        });
-      }
+      content.querySelectorAll('script').forEach((old) => {
+        const s = document.createElement('script');
+        s.textContent = old.textContent;
+        old.replaceWith(s);
+      });
       prefillSettingsForm(tab, content);
       if (typeof wireSettingsTabExtras === 'function') {
         wireSettingsTabExtras(tab);
       }
     } catch (err) {
-      content.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+      content.innerHTML = `<div class="alert alert-danger" style="padding:20px;">${escapeHtml(err.message)}</div>`;
     }
   }
 
@@ -4761,99 +4757,84 @@ async function loadUsersWithPhotos() {
 }
 
 // ============================================
-// SETTINGS — Additional Loaders
+// SETTINGS TAB EXTRAS (per-tab bindings)
 // ============================================
 
-// Bank Accounts (for Finance tab)
 async function loadBankAccounts() {
-  const listEl = document.getElementById("bank-accounts-list");
-  const addBtn = document.getElementById("bank-add-btn");
+  const listEl = document.getElementById('bank-accounts-list');
   if (!listEl) return;
-
-  listEl.innerHTML = "Loading…";
+  listEl.innerHTML = '<p class="muted">Loading bank accounts…</p>';
   try {
-    const res = await adminFetch("/api/admin/settings?category=bank");
+    const res = await adminFetch('/api/admin/settings/banks');
     const json = await res.json();
-    const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
-    if (!rows.length) {
-      listEl.innerHTML = '<p class="muted">No bank accounts yet.</p>';
-    } else {
-      listEl.innerHTML = "";
-      rows.forEach((row, idx) => {
-        let bank = {};
-        try { bank = JSON.parse(row.value); } catch (e) {}
-        const div = document.createElement("div");
-        div.style.cssText = "margin-bottom:10px; padding:12px; border:1px solid #e5e7eb; border-radius:8px;";
-        div.innerHTML = `
-          <div class="form-grid">
-            <div class="form-group"><label class="form-label">Bank</label><input class="form-control" data-bank="${idx}" value="${escapeHtml(bank.bank || '')}" /></div>
-            <div class="form-group"><label class="form-label">Account Name</label><input class="form-control" data-bankname="${idx}" value="${escapeHtml(bank.accountName || '')}" /></div>
-            <div class="form-group"><label class="form-label">Account Number</label><input class="form-control" data-banknum="${idx}" value="${escapeHtml(bank.accountNumber || '')}" /></div>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn btn-sm btn-primary" data-save="${row.key}" data-idx="${idx}">Save</button>
-            <button type="button" class="btn btn-sm btn-ghost" data-del="${row.key}">Delete</button>
-          </div>`;
-        listEl.appendChild(div);
-      });
-
-      listEl.querySelectorAll("[data-save]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const key = btn.dataset.save;
-          const idx = btn.dataset.idx;
-          const bankVal = listEl.querySelector(`[data-bank="${idx}"]`).value;
-          const nameVal = listEl.querySelector(`[data-bankname="${idx}"]`).value;
-          const numVal = listEl.querySelector(`[data-banknum="${idx}"]`).value;
-          try {
-            await adminFetch(`/api/admin/settings/${key}`, {
-              method: "PUT",
-              body: JSON.stringify({ value: JSON.stringify({ bank: bankVal, accountName: nameVal, accountNumber: numVal }), category: "bank" })
-            });
-            showToast("Bank saved.", "success");
-          } catch (e) { showToast("❌ " + e.message, "error"); }
-        });
-      });
-
-      listEl.querySelectorAll("[data-del]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("Delete this bank account?")) return;
-          try {
-            await adminFetch(`/api/admin/settings/${btn.dataset.del}`, { method: "DELETE" });
-            showToast("Deleted.", "success");
-            loadBankAccounts();
-          } catch (e) { showToast("❌ " + e.message, "error"); }
-        });
-      });
+    const banks = json.data || [];
+    if (!banks.length) {
+      listEl.innerHTML = '<p class="muted" style="padding:16px;">No bank accounts yet. Click "+ Add Account" above.</p>';
+      return;
     }
-
-    if (addBtn && !addBtn.__bound) {
-      addBtn.__bound = true;
-      addBtn.addEventListener("click", async () => {
-        const res = await adminFetch("/api/admin/settings?category=bank");
-        const json = await res.json();
-        const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
-        const nextIdx = rows.length + 1;
-        const key = "bank_account_" + nextIdx;
-        await adminFetch(`/api/admin/settings/${key}`, {
-          method: "PUT",
-          body: JSON.stringify({ value: JSON.stringify({ bank: "", accountName: "", accountNumber: "" }), category: "bank" })
-        });
-        loadBankAccounts();
-      });
-    }
+    listEl.innerHTML = banks.map((b, idx) => `
+      <div class="form-grid" style="padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;">
+        <div class="form-group"><label class="form-label">Bank</label><input class="form-control" data-bank-bank="${idx}" value="${escapeHtml(b.bank || '')}" /></div>
+        <div class="form-group"><label class="form-label">Account Name</label><input class="form-control" data-bank-name="${idx}" value="${escapeHtml(b.accountName || '')}" /></div>
+        <div class="form-group"><label class="form-label">Account Number</label><input class="form-control" data-bank-num="${idx}" value="${escapeHtml(b.accountNumber || '')}" /></div>
+        <div style="display:flex;gap:6px;align-items:flex-end;">
+          <button type="button" class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveBankAccount(${idx})">Save</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.deleteBankAccount(${idx})">Delete</button>
+        </div>
+      </div>
+    `).join('');
   } catch (e) {
-    listEl.innerHTML = '<div class="alert alert-danger">' + escapeHtml(e.message) + '</div>';
+    listEl.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
   }
 }
 
-// Library overdue sweep (for Library tab)
+async function addBankAccount() {
+  try {
+    const res = await adminFetch('/api/admin/settings?category=bank');
+    const json = await res.json();
+    const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
+    const nextIdx = rows.length + 1;
+    const key = 'bank_account_' + nextIdx;
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: JSON.stringify({ bank: '', accountName: '', accountNumber: '' }), category: 'bank' }),
+    });
+    showToast('Bank account added.', 'success');
+    loadBankAccounts();
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+async function saveBankAccount(idx) {
+  try {
+    const bank = document.querySelector(`[data-bank-bank="${idx}"]`).value;
+    const accountName = document.querySelector(`[data-bank-name="${idx}"]`).value;
+    const accountNumber = document.querySelector(`[data-bank-num="${idx}"]`).value;
+    const key = 'bank_account_' + (idx + 1);
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: JSON.stringify({ bank, accountName, accountNumber }), category: 'bank' }),
+    });
+    showToast('Bank saved.', 'success');
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+async function deleteBankAccount(idx) {
+  if (!confirm('Delete this bank account?')) return;
+  try {
+    const key = 'bank_account_' + (idx + 1);
+    await adminFetch(`/api/admin/settings/${key}`, { method: 'DELETE' });
+    showToast('Deleted.', 'success');
+    loadBankAccounts();
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
 async function runLibrarySweep() {
   const btn = document.getElementById('library-sweep-btn');
   if (!btn || btn.__bound) return;
   btn.__bound = true;
   btn.addEventListener('click', async () => {
     const result = document.getElementById('library-sweep-result');
-    if (!confirm('Run the overdue sweep now?')) return;
+    if (!confirm('Run overdue sweep now?')) return;
     result.innerHTML = '<div class="loading"><span class="spinner"></span> Sweeping…</div>';
     try {
       const res = await adminFetch('/api/admin/library/sweep-overdue', { method: 'POST' });
@@ -4865,22 +4846,65 @@ async function runLibrarySweep() {
   });
 }
 
-// Maintenance IPs helper
-async function loadMaintenanceInfo() {
-  const mode = document.querySelector('input[name="maintenance_mode"]');
-  if (mode && !mode.__bound) {
-    mode.__bound = true;
-  }
+async function sendTestEmail() {
+  const btn = document.getElementById('smtp-test-btn');
+  if (!btn || btn.__bound) return;
+  btn.__bound = true;
+  btn.addEventListener('click', async () => {
+    const result = document.getElementById('smtp-test-result');
+    const to = prompt('Send test email to:');
+    if (!to) return;
+    result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
+    try {
+      const res = await adminFetch('/api/admin/settings/email/test', {
+        method: 'POST',
+        body: JSON.stringify({ to }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        result.innerHTML = `<div class="alert alert-success">✅ Test email sent to ${escapeHtml(to)}.</div>`;
+      } else {
+        result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(json.error || 'Failed')}</div>`;
+      }
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+    }
+  });
 }
 
-// My Account (for Account tab)
+async function sendTestSMS() {
+  const btn = document.getElementById('sms-test-btn');
+  if (!btn || btn.__bound) return;
+  btn.__bound = true;
+  btn.addEventListener('click', async () => {
+    const result = document.getElementById('sms-test-result');
+    const phone = prompt('Send test SMS to (e.g., +2348012345678):');
+    if (!phone) return;
+    result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
+    try {
+      const res = await adminFetch('/api/admin/settings/sms/test', {
+        method: 'POST',
+        body: JSON.stringify({ phone }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        result.innerHTML = `<div class="alert alert-success">✅ Test SMS sent to ${escapeHtml(phone)}.</div>`;
+      } else {
+        result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(json.error || 'Failed')}</div>`;
+      }
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+    }
+  });
+}
+
 function initAccountTab() {
   const A = window.FPU_ADMIN;
   const preview = document.getElementById('acc-photo-preview');
   const user = A.getAdminUser() || {};
   const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'A';
   if (preview) {
-    if (user.photoUrl) preview.innerHTML = '<img src="' + A.escapeHtml(user.photoUrl) + '" alt="" />';
+    if (user.photoUrl) preview.innerHTML = '<img src="' + A.escapeHtml(user.photoUrl) + '" alt="" style="width:100%;height:100%;object-fit:cover;" />';
     else preview.textContent = initials;
   }
 
@@ -4907,7 +4931,7 @@ function initAccountTab() {
         const res = await A.adminFetch('/api/portal/avatar-upload', { method: 'POST', body: JSON.stringify({ dataUrl }) });
         const json = await res.json();
         if (!json.success) throw new Error(json.error);
-        if (preview) preview.innerHTML = '<img src="' + A.escapeHtml(json.url) + '" alt="" />';
+        if (preview) preview.innerHTML = '<img src="' + A.escapeHtml(json.url) + '" alt="" style="width:100%;height:100%;object-fit:cover;" />';
         const u = A.getAdminUser() || {};
         u.photoUrl = json.url;
         localStorage.setItem('fpu_admin_user', JSON.stringify(u));
@@ -4939,63 +4963,189 @@ function initAccountTab() {
   }
 }
 
-// System tab (backup, version)
 async function initSystemTab() {
-  const A = window.FPU_ADMIN;
   try {
-    const res = await A.adminFetch('/api/health');
-    const j = await res.json();
-    setText('sys-name', j.app || 'FPU School Management System');
-    setText('sys-env', j.env || 'production');
-    setText('sys-node', 'server');
-    setText('sys-version', j.version || '1.0.0');
-  } catch (e) {}
-
-  const tbody = document.getElementById('sys-backup-tbody');
-  const loadBackups = async () => {
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-    try {
-      const res = await A.adminFetch('/api/admin/security/backups');
-      const j = await res.json();
-      const rows = j.data || [];
-      tbody.innerHTML = rows.length ? rows.map((b) => `
-        <tr>
-          <td>${A.escapeHtml(b.kind || 'full')}</td>
-          <td>${A.badge(b.status)}</td>
-          <td>${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
-          <td class="small muted">${A.fmtDateTime(b.startedAt)}</td>
-          <td class="small muted">${b.completedAt ? A.fmtDateTime(b.completedAt) : '—'}</td>
-        </tr>`).join('') : '<tr><td colspan="5" class="empty">No backups yet.</td></tr>';
-    } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty">${A.escapeHtml(e.message)}</td></tr>`;
+    const res = await adminFetch('/api/health').catch(() => null);
+    if (res && res.ok) {
+      const h = await res.json();
+      setText('sys-name', h.app || 'FPU School Management System');
+      setText('sys-version', h.version || '1.0.0');
+      setText('sys-env', h.env || 'production');
+      setText('sys-node', h.node || 'server');
     }
-  };
+  } catch (e) { console.debug('[system] health:', e.message); }
 
-  const nowBtn = document.getElementById('sys-backup-now');
-  if (nowBtn && !nowBtn.__bound) {
-    nowBtn.__bound = true;
-    nowBtn.onclick = async () => {
-      if (!confirm('Trigger a backup now?')) return;
+  const deployBtn = document.getElementById('deploy-now-btn');
+  if (deployBtn && !deployBtn.__bound) {
+    deployBtn.__bound = true;
+    deployBtn.onclick = async () => {
+      const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
+      const notes = (document.getElementById('deploy-notes') || {}).value || '';
+      if (!confirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`)) return;
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Triggering deployment…</div>';
       try {
-        await A.adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
-        A.showToast('Backup completed.', 'success');
-        loadBackups();
-      } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+        const res = await adminFetch('/api/admin/system/deploy', {
+          method: 'POST',
+          body: JSON.stringify({ branch, notes }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        status.innerHTML = `<div class="alert alert-success">✅ ${escapeHtml(json.message || 'Deploy triggered.')}</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+      }
     };
   }
-  const refreshBtn = document.getElementById('sys-backup-refresh');
-  if (refreshBtn && !refreshBtn.__bound) {
-    refreshBtn.__bound = true;
-    refreshBtn.onclick = loadBackups;
+
+  const checkBtn = document.getElementById('deploy-check-btn');
+  if (checkBtn && !checkBtn.__bound) {
+    checkBtn.__bound = true;
+    checkBtn.onclick = async () => {
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking GitHub…</div>';
+      try {
+        const res = await adminFetch('/api/admin/system/github-status');
+        const json = await res.json();
+        status.innerHTML = `<div class="alert alert-info">🔍 Latest commit: <strong>${escapeHtml(json.commit || '—')}</strong> by ${escapeHtml(json.author || '—')} (${json.date ? fmtDateTime(json.date) : '—'})</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-warning">⚠️ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  // Deploy history
+  const histTbody = document.getElementById('deploy-history-tbody');
+  if (histTbody) {
+    try {
+      const res = await adminFetch('/api/admin/system/deployments?limit=10').catch(() => null);
+      if (res && res.ok) {
+        const json = await res.json();
+        const rows = json.data || [];
+        histTbody.innerHTML = rows.length ? rows.map((d) => `
+          <tr>
+            <td><code>${escapeHtml(d.commit || d.id || '—')}</code></td>
+            <td>${escapeHtml(d.branch || 'main')}</td>
+            <td>${badge(d.status || 'triggered')}</td>
+            <td class="small muted">${fmtDateTime(d.created_at || d.createdAt)}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>';
+      } else {
+        histTbody.innerHTML = '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>';
+      }
+    } catch (e) { histTbody.innerHTML = '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>'; }
+  }
+
+  // Backups
+  const backupNow = document.getElementById('sys-backup-now');
+  const backupRefresh = document.getElementById('sys-backup-refresh');
+  const backupTbody = document.getElementById('sys-backup-tbody');
+  const loadBackups = async () => {
+    if (!backupTbody) return;
+    backupTbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await adminFetch('/api/admin/security/backups');
+      const json = await res.json();
+      const rows = json.data || [];
+      backupTbody.innerHTML = rows.length ? rows.map((b) => `
+        <tr>
+          <td>${escapeHtml(b.kind || 'full')}</td>
+          <td>${badge(b.status)}</td>
+          <td>${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
+          <td class="small muted">${fmtDateTime(b.startedAt)}</td>
+          <td class="small muted">${b.completedAt ? fmtDateTime(b.completedAt) : '—'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No backups yet.</td></tr>';
+    } catch (e) {
+      backupTbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    }
+  };
+  if (backupNow && !backupNow.__bound) {
+    backupNow.__bound = true;
+    backupNow.onclick = async () => {
+      if (!confirm('Trigger backup now?')) return;
+      try {
+        await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
+        showToast('Backup triggered.', 'success');
+        loadBackups();
+      } catch (e) { showToast('❌ ' + e.message, 'error'); }
+    };
+  }
+  if (backupRefresh && !backupRefresh.__bound) {
+    backupRefresh.__bound = true;
+    backupRefresh.onclick = loadBackups;
   }
   loadBackups();
+
+  // Migrations and health
+  const migBtn = document.getElementById('sys-run-migrations');
+  if (migBtn && !migBtn.__bound) {
+    migBtn.__bound = true;
+    migBtn.onclick = () => {
+      document.getElementById('sys-upgrade-status').innerHTML = '<div class="alert alert-info">ℹ️ Migrations run automatically when the server restarts. Deploy to trigger.</div>';
+    };
+  }
+  const healthBtn = document.getElementById('sys-health-check');
+  if (healthBtn && !healthBtn.__bound) {
+    healthBtn.__bound = true;
+    healthBtn.onclick = async () => {
+      const status = document.getElementById('sys-upgrade-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking…</div>';
+      try {
+        const res = await adminFetch('/api/health');
+        const json = await res.json();
+        status.innerHTML = `<div class="alert alert-success">✅ Healthy — v${escapeHtml(json.version || '1.0.0')}, ${escapeHtml(json.env || 'production')}</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-danger">❌ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
 }
 
-// Wire the settings-specific tab extras after loadSettingsShell populates a tab
+async function loadAdvancedSettings() {
+  const tbody = document.getElementById('adv-tbody');
+  if (!tbody) return;
+  const search = (document.getElementById('adv-search') || {}).value || '';
+  tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+  try {
+    const url = '/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const rows = json.data || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">No settings found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((s) => `
+      <tr>
+        <td><code>${escapeHtml(s.key)}</code></td>
+        <td>${escapeHtml(s.category || 'general')}</td>
+        <td><input class="form-control form-control-sm" data-adv-key="${escapeHtml(s.key)}" value="${escapeHtml(s.value || '')}" /></td>
+        <td><button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(s.key)}')">Save</button></td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function saveAdvSetting(key) {
+  const input = document.querySelector(`[data-adv-key="${key}"]`);
+  if (!input) return;
+  try {
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: input.value }),
+    });
+    showToast('Saved.', 'success');
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
 function wireSettingsTabExtras(tab) {
   if (tab === 'finance') setTimeout(loadBankAccounts, 100);
   if (tab === 'library') setTimeout(runLibrarySweep, 100);
+  if (tab === 'email') setTimeout(sendTestEmail, 100);
+  if (tab === 'sms') setTimeout(sendTestSMS, 100);
   if (tab === 'account') setTimeout(initAccountTab, 100);
   if (tab === 'system') setTimeout(initSystemTab, 100);
   if (tab === 'advanced') setTimeout(loadAdvancedSettings, 100);
@@ -5259,87 +5409,303 @@ const __origLoadSettingsShell = typeof loadSettingsShell === 'function' ? loadSe
 // EXPORTS
 // ============================================
 window.FPU_ADMIN = {
+  // ==========================================
   // Core Helpers
-  adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
-  toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo, 
-  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, extractArray, 
-  badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
-  
+  // ==========================================
+  adminFetch,
+  setAdminSession,
+  clearAdminSession,
+  getAdminToken,
+  getAdminUser,
+  requireAdminAuth,
+  toast: showToast,
+  showToast,
+  escapeHtml,
+  escapeQuotes,
+  capitalize,
+  getInitials,
+  timeAgo,
+  fmtDate,
+  fmtDateTime,
+  money,
+  setText,
+  copyToClipboard,
+  openModal,
+  extractArray,
+  badge,
+  roleBadge,
+  statusPill,
+  promptReason,
+  exportTableAsCSV,
+
+  // ==========================================
   // Dashboard
-  initDashboard, loadDashboardStats, loadRecentActivity, loadAll,
-  loadStats, loadTopDepartments, loadPendingApprovals,
-  loadStudentsByDept, loadStudentsByProgramme, loadStudentsByLevel, loadStudentGender,
-  loadAdmissionTrend, loadApplicationStatus, loadPopulationTrend, loadPaymentStatus,
-  loadRevenueTrend, loadRegistrationStats, loadDeptComparison, loadResultsStats,
-  loadRecentStudents, loadRecentPayments, loadRecentApplications, loadRecentRegistrations,
-  loadRecentResults, loadRecentNotifications, loadUpcomingEvents, loadRecentLogins,
+  // ==========================================
+  initDashboard,
+  loadDashboardStats,
+  loadRecentActivity,
+  loadAll,
+  loadStats,
+  loadTopDepartments,
+  loadPendingApprovals,
+  loadStudentsByDept,
+  loadStudentsByProgramme,
+  loadStudentsByLevel,
+  loadStudentGender,
+  loadAdmissionTrend,
+  loadApplicationStatus,
+  loadPopulationTrend,
+  loadPaymentStatus,
+  loadRevenueTrend,
+  loadRegistrationStats,
+  loadDeptComparison,
+  loadResultsStats,
+  loadRecentStudents,
+  loadRecentPayments,
+  loadRecentApplications,
+  loadRecentRegistrations,
+  loadRecentResults,
+  loadRecentNotifications,
+  loadUpcomingEvents,
+  loadRecentLogins,
 
+  // ==========================================
   // Applications
-  loadApplications, loadAdmitted, registerAdmitted, bulkApplicationAction,
-  approveApplication, rejectApplication, registerApplication,
-  updateApplicationStats, updateAdmittedStats, bulkRegisterAdmitted,
+  // ==========================================
+  loadApplications,
+  loadAdmitted,
+  registerAdmitted,
+  bulkApplicationAction,
+  approveApplication,
+  rejectApplication,
+  registerApplication,
+  updateApplicationStats,
+  updateAdmittedStats,
+  bulkRegisterAdmitted,
 
+  // ==========================================
   // Students
-  loadStudentDepartments, loadDepartmentStudents, globalStudentSearch, bulkStudentAction,
+  // ==========================================
+  loadStudentDepartments,
+  loadDepartmentStudents,
+  globalStudentSearch,
+  bulkStudentAction,
 
+  // ==========================================
   // Sessions
-  loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
+  // ==========================================
+  loadSessions,
+  setCurrentSession,
+  deleteSession,
+  autoCreateNextSession,
 
+  // ==========================================
   // Programmes
-  loadProgrammes, selectProgrammeDepartment, deleteProgramme,
+  // ==========================================
+  loadProgrammes,
+  selectProgrammeDepartment,
+  deleteProgramme,
 
+  // ==========================================
   // Schools
-  loadSchools, loadSchoolCards,
+  // ==========================================
+  loadSchools,
+  loadSchoolCards,
 
+  // ==========================================
   // Departments
-  loadDepartments, loadDepartmentCards,
+  // ==========================================
+  loadDepartments,
+  loadDepartmentCards,
 
+  // ==========================================
   // Allocations
-  loadAllocationDepartments, loadDepartmentAllocations,
+  // ==========================================
+  loadAllocationDepartments,
+  loadDepartmentAllocations,
 
+  // ==========================================
   // Registrations
+  // ==========================================
   loadRegistrationStudents,
+  loadCourseRegistrations,
+  approveAllPendingCourse,
+  approveRegistration,
+  rejectRegistration,
 
+  // ==========================================
   // Results
+  // ==========================================
   loadResultDepartments,
+  loadDepartmentResults,
+  loadResultDetail,
+  approveResult,
+  rejectResult,
+  publishResult,
+  bulkApproveResults,
+  bulkRejectResults,
+  bulkPublishResults,
+  bulkApproveCourseResults,
+  bulkPublishCourseResults,
 
+  // ==========================================
   // Grade Scales
-  loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,
+  // ==========================================
+  loadGradeScales,
+  openEditGradeScale,
+  toggleGradeScale,
+  deleteGradeScale,
 
+  // ==========================================
   // Transcript
+  // ==========================================
   loadTranscriptLookup,
+  loadStudentTranscript,
 
+  // ==========================================
   // Timetable
-  loadTimetableIndex, 
-  
+  // ==========================================
+  loadTimetableIndex,
+  loadTimetable,
+  loadTimetableSheet,
+
+  // ==========================================
   // Exams
+  // ==========================================
   loadExamsIndex,
+  loadExams,
+  loadExamSheet,
 
+  // ==========================================
   // Attendance
+  // ==========================================
   loadAttendanceDepartments,
+  loadDepartmentAttendance,
+  loadCourseAttendance,
+  loadStudentCourseAttendance,
+  deleteAttendance,
 
+  // ==========================================
   // Staff, HODs, Lecturers
-  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
+  // ==========================================
+  loadStaffDirectory,
+  loadHodBoard,
+  loadLecturerGrid,
+  assignHodDept,
+  loadStaffProfile,
+  loadStaffWorkload,
 
+  // ==========================================
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,
-  
+  // ==========================================
+  loadFeeDepartments,
+  loadDepartmentFees,
+  loadPaymentDepartments,
+  loadDepartmentPayments,
+  loadStudentPayments,
+  loadPaymentDetail,
+  verifyPayment,
+  rejectPayment,
+  loadClearanceDepartments,
+  loadDepartmentClearances,
+  createClearance,
+  clearClearance,
+  rejectClearance,
+  bulkClearClearances,
+  bulkRejectClearances,
+
+  // ==========================================
   // Communication
-  loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead, deleteNotification, loadComplaints,
-  
+  // ==========================================
+  loadAnnouncements,
+  deleteAnnouncement,
+  loadNotifications,
+  markNotificationRead,
+  deleteNotification,
+  loadComplaints,
+
+  // ==========================================
   // Library
-  loadBooksGrid, loadBorrowsTable,
+  // ==========================================
+  loadBooksGrid,
+  loadBookDetail,
+  loadBorrowsTable,
+  returnBorrow,
+  markBorrowLost,
+  loadFinesTable,
+  payFine,
+  deleteFine,
+  loadReservationsTable,
+  markReservationReady,
+  fulfillReservation,
+  cancelReservation,
 
+  // ==========================================
   // Records & System
-  loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable, loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
+  // ==========================================
+  loadDocumentsTable,
+  loadDocumentDetail,
+  approveDoc,
+  rejectDoc,
+  issueDoc,
+  loadGraduationsTable,
+  approveGraduation,
+  rejectGraduation,
+  markGraduated,
+  loadReportsWithCharts,
+  loadAuditTable,
+  loadSecurityDashboard,
+  loadSecurityEvents,
+  loadSecuritySessions,
+  revokeSession,
+  loadLoginAttempts,
+  loadIpRules,
+  deleteIpRule,
+  loadPasswordPolicy,
+  loadPermissionsMatrix,
+  load2FAConfig,
+  loadBackups,
+  loadCompliance,
 
-    // Users
-  loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive, loadLoginHistory, loadUserProfile, loadUsersWithPhotos,
-  
-    // ... existing exports
-  loadSettingsShell, saveSettingsSection, loadAdvancedSettings, saveAdvSetting, loadDeployHistory, loadBackupHistory,
-  viewDeployLog, initSystemTab, initAccountTab, loadBankAccounts, runLibrarySweep, wireSettingsTabExtras,
- 
+  // ==========================================
+  // Users
+  // ==========================================
+  loadUsersHub,
+  loadAllUsers,
+  loadAdminAccounts,
+  resetAdminPwd,
+  toggleAdminActive,
+  loadLoginHistory,
+  loadUserProfile,
+  loadUsersWithPhotos,
+
+  // ==========================================
+  // Settings — Core
+  // ==========================================
+  loadSettingsShell,
+  saveSettingsSection,
+  prefillSettingsForm,
+  loadAdvancedSettings,
+  saveAdvSetting,
+  wireSettingsTabExtras,
+
+  // ==========================================
+  // Settings — Tab Extras
+  // ==========================================
+  loadBankAccounts,
+  addBankAccount,
+  saveBankAccount,
+  deleteBankAccount,
+  runLibrarySweep,
+  sendTestEmail,
+  sendTestSMS,
+  initAccountTab,
+  initSystemTab,
+
+  // ==========================================
   // Courses
-  loadCourseDepartments, loadDepartmentCourses, inferCourseYear
+  // ==========================================
+  loadCourseDepartments,
+  loadDepartmentCourses,
+  inferCourseYear,
 };

@@ -1,10 +1,10 @@
 <!-- ============================================================
-     Admin → Settings → Shell (Redesigned)
+     Admin → Settings → Shell
      ============================================================ -->
 <section class="page-head">
   <div>
     <h2>System Settings</h2>
-    <p class="muted small">Configure institution-wide behaviour & system deployment</p>
+    <p class="muted small">Configure institution-wide behaviour &amp; system deployment</p>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" id="settings-refresh">🔄 Refresh</button>
@@ -12,8 +12,7 @@
   </div>
 </section>
 
-<!-- Category tabs (grouped for clarity) -->
-<div class="staff-role-tabs" id="settings-tabs" style="flex-wrap: wrap;">
+<div class="staff-role-tabs" id="settings-tabs" style="flex-wrap:wrap;">
   <button class="staff-role-tab active" data-tab="institution">🏛️ Institution</button>
   <button class="staff-role-tab" data-tab="academic">🎓 Academic</button>
   <button class="staff-role-tab" data-tab="finance">💰 Finance</button>
@@ -27,22 +26,23 @@
   <button class="staff-role-tab" data-tab="maintenance">🚧 Maintenance</button>
   <button class="staff-role-tab" data-tab="advanced">⚙️ Advanced</button>
   <button class="staff-role-tab" data-tab="account">👤 My Account</button>
-  <button class="staff-role-tab" data-tab="system">🖥️ System & Deploy</button>
+  <button class="staff-role-tab" data-tab="system">🖥️ System &amp; Deploy</button>
 </div>
 
-<!-- Tab content -->
 <div id="settings-tab-content">
-  <div class="loading"><span class="spinner"></span> Loading settings…</div>
+  <div class="loading" style="padding:40px;text-align:center;">
+    <span class="spinner"></span> Loading settings…
+  </div>
 </div>
 
 <style>
-  /* Settings page aesthetic tweaks */
   #settings-tabs {
     background: #f8fafc;
     padding: 6px;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
     margin-bottom: 24px;
+    gap: 4px;
   }
   #settings-tabs .staff-role-tab {
     border-radius: 8px;
@@ -50,15 +50,15 @@
     background: transparent;
     padding: 10px 14px;
     font-size: 12.5px;
+    font-weight: 600;
     transition: all 0.15s;
+    color: #475569;
   }
-  #settings-tabs .staff-role-tab:hover {
-    background: #e2e8f0;
-  }
+  #settings-tabs .staff-role-tab:hover { background: #e2e8f0; color: #0f172a; }
   #settings-tabs .staff-role-tab.active {
     background: #065f46;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.3);
+    box-shadow: 0 2px 8px rgba(6, 95, 70, 0.25);
   }
   #settings-tab-content .panel {
     margin-bottom: 20px;
@@ -77,6 +77,7 @@
     justify-content: space-between;
     align-items: center;
     margin-top: 24px;
+    z-index: 10;
   }
 </style>
 

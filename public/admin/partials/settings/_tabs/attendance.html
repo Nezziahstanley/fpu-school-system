@@ -4,21 +4,20 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Minimum Attendance % for Exam Eligibility</label>
+          <label class="form-label">Minimum Attendance % for Exam</label>
           <input class="form-control" type="number" name="attendance_min_percent" value="75" min="0" max="100" />
+          <div class="form-help">NBTE requirement: 75%</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Count Late as Present?</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="attendance_count_late_present" checked />
-            <span>Late arrivals count towards attendance</span>
+            <span>Count late as present</span>
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">Count Excused as Present?</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="attendance_count_excused_present" checked />
-            <span>Excused absences count towards attendance</span>
+            <span>Count excused as present</span>
           </label>
         </div>
       </div>
@@ -34,7 +33,7 @@
           <input class="form-control" type="number" name="attendance_grace_minutes" value="10" min="0" max="60" />
         </div>
         <div class="form-group">
-          <label class="form-label">Auto-Mark Absent After (minutes)</label>
+          <label class="form-label">Auto-Mark Absent After (min)</label>
           <input class="form-control" type="number" name="attendance_absent_after" value="30" min="0" max="120" />
         </div>
       </div>

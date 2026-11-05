@@ -8,7 +8,7 @@
           <input class="form-control" type="number" name="library_loan_days" value="14" min="1" max="90" />
         </div>
         <div class="form-group">
-          <label class="form-label">Maximum Books Per User</label>
+          <label class="form-label">Max Books Per User</label>
           <input class="form-control" type="number" name="library_max_books_per_user" value="3" min="1" max="20" />
         </div>
         <div class="form-group">
@@ -32,22 +32,20 @@
           <input class="form-control" type="number" name="library_fine_per_day" value="50" min="0" />
         </div>
         <div class="form-group">
-          <label class="form-label">Maximum Fine Per Book (₦)</label>
+          <label class="form-label">Max Fine Per Book (₦)</label>
           <input class="form-control" type="number" name="library_max_fine" value="2000" min="0" />
         </div>
         <div class="form-group">
-          <label class="form-label">Fine for Lost Book (₦)</label>
+          <label class="form-label">Lost Book Fine (₦)</label>
           <input class="form-control" type="number" name="library_lost_fine" value="5000" min="0" />
         </div>
         <div class="form-group">
-          <label class="form-label">Fine for Damaged Book (₦)</label>
+          <label class="form-label">Damaged Book Fine (₦)</label>
           <input class="form-control" type="number" name="library_damaged_fine" value="2500" min="0" />
         </div>
       </div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-outline btn-sm" id="library-sweep-btn">
-          ⏰ Run Overdue Sweep Now
-        </button>
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="button" class="btn btn-outline btn-sm" id="library-sweep-btn">⏰ Run Overdue Sweep Now</button>
       </div>
       <div id="library-sweep-result" style="margin-top:12px;"></div>
     </div>
@@ -58,18 +56,17 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Enable Reservations</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="library_enable_reservations" checked />
-            <span>Allow students to reserve books</span>
+            <span>Enable reservations</span>
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">Reservation Hold Duration (days)</label>
+          <label class="form-label">Reservation Hold (days)</label>
           <input class="form-control" type="number" name="library_reservation_hold_days" value="3" min="1" max="14" />
         </div>
         <div class="form-group">
-          <label class="form-label">Max Active Reservations Per User</label>
+          <label class="form-label">Max Active Reservations</label>
           <input class="form-control" type="number" name="library_max_reservations" value="2" min="1" max="10" />
         </div>
       </div>

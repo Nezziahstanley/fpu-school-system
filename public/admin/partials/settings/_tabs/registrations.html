@@ -4,11 +4,11 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Registration Opens</label>
+          <label class="form-label">Opens At</label>
           <input class="form-control" type="datetime-local" name="registration_opens_at" />
         </div>
         <div class="form-group">
-          <label class="form-label">Registration Closes</label>
+          <label class="form-label">Closes At</label>
           <input class="form-control" type="datetime-local" name="registration_closes_at" />
         </div>
         <div class="form-group">
@@ -16,7 +16,7 @@
           <input class="form-control" type="datetime-local" name="registration_late_closes_at" />
         </div>
         <div class="form-group">
-          <label class="form-label">Late Registration Fee (₦)</label>
+          <label class="form-label">Late Fee (₦)</label>
           <input class="form-control" type="number" name="registration_late_fee" value="0" min="0" />
         </div>
       </div>
@@ -28,25 +28,42 @@
     <div class="panel-body">
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label">Require Fee Payment Before Registration</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="registration_require_payment" checked />
-            <span>Students must pay first</span>
+            <span>Require fee payment first</span>
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">Require Clearance Before Registration</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="registration_require_clearance" />
-            <span>Must have an approved clearance</span>
+            <span>Require clearance</span>
           </label>
         </div>
         <div class="form-group">
-          <label class="form-label">Auto-Approve Registrations</label>
           <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
             <input type="checkbox" name="registration_auto_approve" />
-            <span>Skip HOD approval</span>
+            <span>Auto-approve (skip HOD)</span>
           </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Unit Limits</h3></div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Max Units — ND</label>
+          <input class="form-control" type="number" name="registration_max_units_nd" value="24" min="6" max="40" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Units — HND</label>
+          <input class="form-control" type="number" name="registration_max_units_hnd" value="24" min="6" max="40" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Min Units</label>
+          <input class="form-control" type="number" name="registration_min_units" value="12" min="1" max="20" />
         </div>
       </div>
     </div>

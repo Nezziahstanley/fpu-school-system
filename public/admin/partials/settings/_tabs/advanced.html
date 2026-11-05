@@ -1,35 +1,31 @@
-<!-- Settings → Advanced (Raw key-value) -->
-<div class="info-banner" style="max-width:none; background:#fef3c7; border:1px solid #f59e0b; padding:14px 18px; border-radius:10px; margin-bottom:20px;">
-  <strong style="color:#92400e;">⚠️ Advanced:</strong>
-  <span style="color:#78350f;">Raw settings table. Use this only if you know what you're doing. Wrong values can break the app.</span>
+<div class="alert alert-warning" style="margin-bottom:20px;">
+  <strong>⚠️ Advanced:</strong> Raw settings table. Edit only if you know what you're doing.
 </div>
 
 <div class="panel">
   <div class="panel-head">
     <h3>All Settings</h3>
     <div class="tools">
-      <input class="form-control form-control-sm" id="adv-search" placeholder="Search key…" style="max-width:200px;"
+      <input class="form-control form-control-sm" id="adv-search" placeholder="Search key…"
+             style="max-width:220px;"
              onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAdvancedSettings()" />
       <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAdvancedSettings()">Search</button>
       <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('#adv-tbody').closest('table'), 'settings.csv')">Export CSV</button>
     </div>
   </div>
   <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin">
-        <thead>
-          <tr>
-            <th style="width:280px;">Key</th>
-            <th style="width:140px;">Category</th>
-            <th>Value</th>
-            <th style="width:120px;">Updated</th>
-            <th style="width:100px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="adv-tbody">
-          <tr><td colspan="5" class="empty">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <table class="table-admin">
+      <thead>
+        <tr>
+          <th style="width:280px;">Key</th>
+          <th style="width:140px;">Category</th>
+          <th>Value</th>
+          <th style="width:100px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="adv-tbody">
+        <tr><td colspan="4" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>

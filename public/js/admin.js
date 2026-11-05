@@ -3904,132 +3904,140 @@ async function loadGraduationsTable() {
   }
 }
 
-// ============================================
-// SYSTEM (Reports, Audit, Security, Settings)
-// ============================================
-
-// ============================================
-// REPORTS — KPI tiles, trends & breakdown charts
-// ============================================
 async function loadReportsWithCharts() {
   const days = (document.getElementById('rep-range') || {}).value || 365;
   const rangeQs = days === 'all' ? '' : `?days=${days}`;
 
-  // Helper to safely parse responses
-  async function safeFetch(url) {
+  async function safeJson(url) {
     try {
       const res = await adminFetch(url);
       if (!res.ok) return null;
-      const json = await res.json();
-      return json.data || json;
-    } catch (e) {
-      console.debug('[reports]', url, e.message);
-      return null;
-    }
+      const j = await res.json();
+      return j.data || j || [];
+    } catch { return null; }
   }
 
-  // ----- KPI tiles -----
-  const overview = await safeFetch('/api/admin/reports/overview');
-  if (overview) {
+  // ---------- KPI tiles ----------
+  // Try the reports overview endpoint first
+  const overview = await safeJson('/api/admin/reports/overview');
+  if (overview && typeof overview === 'object' && !Array.isArray(overview)) {
     setText('rep-stat-students', overview.students || 0);
     setText('rep-stat-apps', overview.totalApplications || 0);
     setText('rep-stat-revenue', money(overview.totalRevenue || 0));
     setText('rep-stat-progs', overview.totalProgrammes || 0);
   } else {
-    // Fallback: compute from basic endpoints
-    try {
-      const [stuRes, appRes, progRes] = await Promise.all([
-        safeFetch('/api/admin/students?limit=5000'),
-        safeFetch('/api/admin/applications?limit=5000'),
-        safeFetch('/api/admin/programmes'),
-      ]);
-      setText('rep-stat-students', Array.isArray(stuRes) ? stuRes.length : 0);
-      setText('rep-stat-apps', Array.isArray(appRes) ? appRes.length : 0);
-      setText('rep-stat-progs', Array.isArray(progRes) ? progRes.length : 0);
-      setText('rep-stat-revenue', money(0));
-    } catch (e) {
-      setText('rep-stat-students', 0);
-      setText('rep-stat-apps', 0);
-      setText('rep-stat-progs', 0);
-      setText('rep-stat-revenue', money(0));
-    }
+    // Fallback: compute from the working endpoints
+    const [students, applications, programmes, payments] = await Promise.all([
+      safeJson('/api/admin/students?limit=5000'),
+      safeJson('/api/admin/applications?limit=5000'),
+      safeJson('/api/admin/programmes'),
+      safeJson('/api/admin/payments?limit=5000'),
+    ]);
+    const studentCount = Array.isArray(students) ? students.length : 0;
+    const appCount = Array.isArray(applications) ? applications.length : 0;
+    const progCount = Array.isArray(programmes) ? programmes.length : 0;
+    const revenue = Array.isArray(payments)
+      ? payments.filter((p) => (p.payment || p).status === 'verified')
+               .reduce((s, p) => s + Number((p.payment || p).amount || 0), 0)
+      : 0;
+    setText('rep-stat-students', studentCount);
+    setText('rep-stat-apps', appCount);
+    setText('rep-stat-revenue', money(revenue));
+    setText('rep-stat-progs', progCount);
   }
 
-  // Bail if Chart.js isn't loaded yet
+  // If Chart.js isn't loaded, stop (KPI tiles already work above)
   if (typeof Chart === 'undefined') {
     console.warn('[reports] Chart.js not loaded — skipping charts');
     return;
   }
 
-  // ----- Chart 1: Admission Trend -----
-  const admissions = await safeFetch(`/api/admin/reports/admission-trend${rangeQs}`);
+  // Helper: replace canvas with message if no data
+  function emptyState(canvasId, msg) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent) parent.innerHTML = `<p class="muted" style="padding:40px;text-align:center;color:#94a3b8;">${msg}</p>`;
+  }
+
+  // ---------- Chart 1: Admission Trend ----------
+  const admissions = await safeJson(`/api/admin/reports/admission-trend${rangeQs}`);
   const chartA = document.getElementById('rep-chart-admission');
   if (chartA && Array.isArray(admissions) && admissions.length) {
     new Chart(chartA, {
       type: 'line',
       data: {
         labels: admissions.map((r) => r.month),
-        datasets: [{
-          data: admissions.map((r) => r.count),
-          borderColor: '#065f46',
-          backgroundColor: 'rgba(6,95,70,.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3,
-        }],
+        datasets: [{ data: admissions.map((r) => r.count), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', tension: 0.4, fill: true, borderWidth: 3 }],
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
-  } else if (chartA) {
-    chartA.parentElement.innerHTML = '<p class="muted" style="padding:40px;text-align:center;">No admission data available.</p>';
+  } else {
+    emptyState('rep-chart-admission', 'No admission trend data yet. Add applications to see this chart.');
   }
 
-  // ----- Chart 2: Revenue Trend -----
-  const revenue = await safeFetch(`/api/admin/reports/revenue-trend${rangeQs}`);
+  // ---------- Chart 2: Revenue Trend ----------
+  const revenue = await safeJson(`/api/admin/reports/revenue-trend${rangeQs}`);
   const chartR = document.getElementById('rep-chart-revenue');
   if (chartR && Array.isArray(revenue) && revenue.length) {
     new Chart(chartR, {
       type: 'line',
       data: {
         labels: revenue.map((r) => r.month),
-        datasets: [{
-          data: revenue.map((r) => Number(r.total || 0)),
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245,158,11,.15)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3,
-        }],
+        datasets: [{ data: revenue.map((r) => Number(r.total || 0)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: 0.4, fill: true, borderWidth: 3 }],
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
-  } else if (chartR) {
-    chartR.parentElement.innerHTML = '<p class="muted" style="padding:40px;text-align:center;">No revenue data available.</p>';
+  } else {
+    emptyState('rep-chart-revenue', 'No revenue trend data yet. Verify payments to see this chart.');
   }
 
-  // ----- Chart 3: Enrollment by Department -----
-  const depts = await safeFetch('/api/admin/reports/enrollment-by-department');
+  // ---------- Chart 3: Enrollment by Department ----------
+  const depts = await safeJson('/api/admin/reports/enrollment-by-department');
   const chartD = document.getElementById('rep-chart-dept');
   if (chartD && Array.isArray(depts) && depts.length) {
-    const top10 = depts.slice(0, 10);
+    const top = depts.slice(0, 10);
     new Chart(chartD, {
       type: 'bar',
       data: {
-        labels: top10.map((r) => r.name),
-        datasets: [{
-          data: top10.map((r) => r.count),
-          backgroundColor: '#065f46',
-          borderRadius: 6,
-        }],
+        labels: top.map((r) => r.name),
+        datasets: [{ data: top.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
       },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
-  } else if (chartD) {
-    chartD.parentElement.innerHTML = '<p class="muted" style="padding:40px;text-align:center;">No department data available.</p>';
+  } else {
+    // Fallback: compute dept enrollment from /students + /departments
+    const [students, departments] = await Promise.all([
+      safeJson('/api/admin/students?limit=5000'),
+      safeJson('/api/admin/departments'),
+    ]);
+    if (Array.isArray(students) && Array.isArray(departments)) {
+      const byDept = new Map();
+      departments.forEach((d) => byDept.set(d.id, { name: d.code || d.name, count: 0 }));
+      students.forEach((s) => {
+        const bucket = byDept.get(s.departmentId);
+        if (bucket) bucket.count++;
+      });
+      const sorted = [...byDept.values()].filter((d) => d.count > 0).sort((a, b) => b.count - a.count).slice(0, 10);
+      if (sorted.length && chartD) {
+        new Chart(chartD, {
+          type: 'bar',
+          data: {
+            labels: sorted.map((r) => r.name),
+            datasets: [{ data: sorted.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+        });
+      } else {
+        emptyState('rep-chart-dept', 'No enrollment data yet.');
+      }
+    } else {
+      emptyState('rep-chart-dept', 'No enrollment data yet.');
+    }
   }
 
-  // ----- Chart 4: Applications by Status -----
-  const appStatus = await safeFetch('/api/admin/reports/applications-by-status');
+  // ---------- Chart 4: Applications by Status ----------
+  const appStatus = await safeJson('/api/admin/reports/applications-by-status');
   const chartAp = document.getElementById('rep-chart-apps');
   if (chartAp && Array.isArray(appStatus) && appStatus.length) {
     const colorMap = { pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6' };
@@ -4037,74 +4045,91 @@ async function loadReportsWithCharts() {
       type: 'doughnut',
       data: {
         labels: appStatus.map((r) => (r.status || '').replace(/_/g, ' ')),
-        datasets: [{
-          data: appStatus.map((r) => r.count),
-          backgroundColor: appStatus.map((r) => colorMap[r.status] || '#64748b'),
-          borderColor: '#fff',
-          borderWidth: 3,
-        }],
+        datasets: [{ data: appStatus.map((r) => r.count), backgroundColor: appStatus.map((r) => colorMap[r.status] || '#64748b'), borderColor: '#fff', borderWidth: 3 }],
       },
       options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
     });
-  } else if (chartAp) {
-    chartAp.parentElement.innerHTML = '<p class="muted" style="padding:40px;text-align:center;">No application data available.</p>';
+  } else {
+    // Fallback: compute status counts from /applications
+    const apps = await safeJson('/api/admin/applications?limit=5000');
+    if (Array.isArray(apps) && apps.length) {
+      const counts = {};
+      apps.forEach((a) => { counts[a.status || 'unknown'] = (counts[a.status || 'unknown'] || 0) + 1; });
+      const rows = Object.entries(counts).map(([status, count]) => ({ status, count }));
+      const colorMap = { pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6' };
+      if (chartAp) {
+        new Chart(chartAp, {
+          type: 'doughnut',
+          data: {
+            labels: rows.map((r) => r.status.replace(/_/g, ' ')),
+            datasets: [{ data: rows.map((r) => r.count), backgroundColor: rows.map((r) => colorMap[r.status] || '#64748b'), borderColor: '#fff', borderWidth: 3 }],
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
+        });
+      }
+    } else {
+      emptyState('rep-chart-apps', 'No applications yet.');
+    }
   }
 
-  // ----- Applications by Status table -----
+  // ---------- Applications by Status TABLE ----------
   const appsTbody = document.getElementById('rep-apps-tbody');
   if (appsTbody) {
-    if (Array.isArray(appStatus) && appStatus.length) {
-      appsTbody.innerHTML = appStatus.map((r) => `
-        <tr>
-          <td>${escapeHtml(r.status || '—')}</td>
-          <td class="num">${r.count || 0}</td>
-        </tr>
+    const apps = await safeJson('/api/admin/applications?limit=5000');
+    if (Array.isArray(apps) && apps.length) {
+      const counts = {};
+      apps.forEach((a) => { counts[a.status || 'unknown'] = (counts[a.status || 'unknown'] || 0) + 1; });
+      appsTbody.innerHTML = Object.entries(counts).map(([status, count]) => `
+        <tr><td>${escapeHtml(status)}</td><td class="num">${count}</td></tr>
       `).join('');
     } else {
       appsTbody.innerHTML = '<tr><td colspan="2" class="empty">No data available.</td></tr>';
     }
   }
 
-  // ----- Payments by Status table -----
-  const payStatus = await safeFetch('/api/admin/reports/payments-by-status');
+  // ---------- Payments by Status TABLE ----------
   const payTbody = document.getElementById('rep-pay-tbody');
   if (payTbody) {
-    if (Array.isArray(payStatus) && payStatus.length) {
-      payTbody.innerHTML = payStatus.map((r) => `
-        <tr>
-          <td>${escapeHtml(r.status || '—')}</td>
-          <td class="num">${r.count || 0}</td>
-          <td class="num">${money(r.total || 0)}</td>
-        </tr>
+    const payments = await safeJson('/api/admin/payments?limit=5000');
+    if (Array.isArray(payments) && payments.length) {
+      const counts = {};
+      payments.forEach((p) => {
+        const row = p.payment || p;
+        const status = row.status || 'unknown';
+        if (!counts[status]) counts[status] = { count: 0, total: 0 };
+        counts[status].count++;
+        counts[status].total += Number(row.amount || 0);
+      });
+      payTbody.innerHTML = Object.entries(counts).map(([status, data]) => `
+        <tr><td>${escapeHtml(status)}</td><td class="num">${data.count}</td><td class="num">${money(data.total)}</td></tr>
       `).join('');
     } else {
       payTbody.innerHTML = '<tr><td colspan="3" class="empty">No data available.</td></tr>';
     }
   }
 
-  // ----- Wire refresh & export buttons -----
-  const buttons = Array.from(document.querySelectorAll('.page-head .actions button, .actions button'));
-
+  // ---------- Wire buttons ----------
+  const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
   const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
   if (refreshBtn && !refreshBtn.__wired) {
     refreshBtn.__wired = true;
     refreshBtn.onclick = () => loadReportsWithCharts();
   }
-
-  const exportBtn = buttons.find((b) => /export/i.test(b.textContent || ''));
+  const exportBtn = document.getElementById('rep-export');
   if (exportBtn && !exportBtn.__wired) {
     exportBtn.__wired = true;
     exportBtn.onclick = () => {
-      // Export all report tables merged into one CSV
       const tables = ['rep-apps-tbody', 'rep-pay-tbody']
         .map((id) => document.getElementById(id)?.closest('table'))
         .filter(Boolean);
       if (!tables.length) { showToast('⚠️ Nothing to export yet.', 'warning'); return; }
-      // Use the first table
       exportTableAsCSV(tables[0], `reports-${new Date().toISOString().slice(0, 10)}.csv`);
     };
   }
 }
+
+// Alias so the partial's `FPU_ADMIN.loadReports()` call works
+async function loadReports() { return loadReportsWithCharts(); }
 
 async function loadAuditTable() {
   const container = document.getElementById('audit-tbody');
@@ -6643,7 +6668,7 @@ window.FPU_ADMIN = {
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,
-  loadLoginHistory, loadUserProfile, loadUsersWithPhotos,
+  loadLoginHistory, loadUserProfile, loadUsersWithPhotos, LoadReports, loadReportsWithCharts,
 
   // Settings
   saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,

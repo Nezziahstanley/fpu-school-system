@@ -5106,39 +5106,113 @@ async function loadAdvancedSettings() {
   const tbody = document.getElementById('adv-tbody');
   if (!tbody) return;
   const search = (document.getElementById('adv-search') || {}).value || '';
-  tbody.innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
   try {
     const url = '/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : '');
     const res = await adminFetch(url);
     const json = await res.json();
     const rows = json.data || [];
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty">No settings found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No settings found.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map((s) => `
-      <tr>
-        <td><code>${escapeHtml(s.key)}</code></td>
-        <td>${escapeHtml(s.category || 'general')}</td>
-        <td><input class="form-control form-control-sm" data-adv-key="${escapeHtml(s.key)}" value="${escapeHtml(s.value || '')}" /></td>
-        <td><button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(s.key)}')">Save</button></td>
-      </tr>
-    `).join('');
+
+    // Sort by category, then key
+    rows.sort((a, b) => {
+      const c = String(a.category || 'general').localeCompare(String(b.category || 'general'));
+      if (c !== 0) return c;
+      return String(a.key || '').localeCompare(String(b.key || ''));
+    });
+
+    tbody.innerHTML = rows.map((s) => {
+      const key = s.key;
+      const cat = s.category || 'general';
+      const rawValue = s.value || '';
+      const updated = s.updatedAt || s.updated_at;
+
+      // Try to prettify JSON values (like bank accounts)
+      let displayValue = rawValue;
+      let isJson = false;
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (parsed && typeof parsed === 'object') {
+          isJson = true;
+          // Pretty-print bank accounts and other JSON in a compact way
+          if (parsed.bank) {
+            displayValue = `${parsed.bank} · ${parsed.accountName || ''} · ${parsed.accountNumber || ''}`;
+          } else {
+            displayValue = Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ');
+          }
+        }
+      } catch { /* not JSON */ }
+
+      const dateStr = updated
+        ? `<strong>${fmtDate(updated)}</strong>${new Date(updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+        : '—';
+
+      // Truncate very long values in preview
+      const preview = displayValue.length > 80 ? displayValue.slice(0, 80) + '…' : displayValue;
+
+      return `
+        <tr data-key="${escapeHtml(key)}">
+          <td><span class="adv-key" title="${escapeHtml(key)}">${escapeHtml(key)}</span></td>
+          <td><span class="adv-cat ${escapeHtml(cat)}">${escapeHtml(cat)}</span></td>
+          <td>
+            <input class="adv-input" data-adv-key="${escapeHtml(key)}"
+                   value="${escapeHtml(rawValue)}"
+                   title="${escapeHtml(rawValue)}" />
+          </td>
+          <td class="adv-date">${dateStr}</td>
+          <td>
+            <button class="btn btn-sm btn-primary"
+                    onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(key)}')">
+              Save
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
 async function saveAdvSetting(key) {
   const input = document.querySelector(`[data-adv-key="${key}"]`);
   if (!input) return;
+
+  const row = input.closest('tr');
+  const btn = row ? row.querySelector('button') : null;
+  const original = btn ? btn.textContent : 'Save';
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+
   try {
-    await adminFetch(`/api/admin/settings/${key}`, {
+    await adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, {
       method: 'PUT',
       body: JSON.stringify({ value: input.value }),
     });
-    showToast('Saved.', 'success');
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    showToast('✅ Saved.', 'success');
+    if (btn) {
+      btn.textContent = '✓ Saved';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('btn-outline');
+        btn.classList.add('btn-primary');
+      }, 1500);
+    }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    if (btn) btn.textContent = original;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function wireSettingsTabExtras(tab) {

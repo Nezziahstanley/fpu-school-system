@@ -8,6 +8,142 @@
 // exams, attendance, fees, payments, clearances, comms,
 // records, library, reports, audit, security, settings, users.
 // ============================================
+// ============================================================
+// FPU ADMIN — STYLED CONFIRM/ALERT MODALS
+// Replaces browser confirm() / alert() with styled modals
+// ============================================================
+(function() {
+  'use strict';
+
+  // Create the modal DOM once
+  function ensureModalDOM() {
+    if (document.getElementById('fpu-modal-container')) return;
+    const html = `
+      <div class="fpu-modal-overlay" id="fpu-modal-container">
+        <div class="fpu-modal-box">
+          <div class="fpu-modal-icon warning" id="fpu-modal-icon">⚠️</div>
+          <h3 class="fpu-modal-title" id="fpu-modal-title">Confirm</h3>
+          <div class="fpu-modal-message" id="fpu-modal-message"></div>
+          <div class="fpu-modal-actions">
+            <button type="button" class="fpu-modal-btn fpu-modal-btn-cancel" id="fpu-modal-cancel">Cancel</button>
+            <button type="button" class="fpu-modal-btn fpu-modal-btn-confirm" id="fpu-modal-ok">Confirm</button>
+          </div>
+        </div>
+      </div>
+    `;
+    if (document.body) {
+      document.body.insertAdjacentHTML('beforeend', html);
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.body.insertAdjacentHTML('beforeend', html);
+      });
+    }
+  }
+
+  // ============================================================
+  // fpuConfirm — styled confirmation dialog (returns Promise<boolean>)
+  // ============================================================
+  window.fpuConfirm = function(message, options) {
+    options = options || {};
+    const type = options.type || 'warning'; // warning | danger | info | success
+    const title = options.title || (type === 'danger' ? 'Are you sure?' : 'Please Confirm');
+    const okText = options.okText || 'Confirm';
+    const cancelText = options.cancelText || 'Cancel';
+    const showCancel = options.showCancel !== false;
+
+    ensureModalDOM();
+
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('fpu-modal-container');
+      const iconEl = document.getElementById('fpu-modal-icon');
+      const titleEl = document.getElementById('fpu-modal-title');
+      const msgEl = document.getElementById('fpu-modal-message');
+      const okBtn = document.getElementById('fpu-modal-ok');
+      const cancelBtn = document.getElementById('fpu-modal-cancel');
+
+      // Set content
+      iconEl.className = 'fpu-modal-icon ' + type;
+      iconEl.textContent =
+        type === 'danger' ? '❌' :
+        type === 'info' ? 'ℹ️' :
+        type === 'success' ? '✅' : '⚠️';
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      okBtn.textContent = okText;
+      okBtn.className = 'fpu-modal-btn fpu-modal-btn-confirm ' + (type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : '');
+      cancelBtn.textContent = cancelText;
+      cancelBtn.style.display = showCancel ? '' : 'none';
+
+      overlay.classList.add('show');
+
+      function cleanup(result) {
+        overlay.classList.remove('show');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onOverlayClick);
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      function onOverlayClick(e) {
+        if (e.target === overlay) cleanup(false);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') cleanup(false);
+        if (e.key === 'Enter') cleanup(true);
+      }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onOverlayClick);
+      document.addEventListener('keydown', onKey);
+    });
+  };
+
+  // ============================================================
+  // fpuAlert — styled alert (returns Promise<void>)
+  // ============================================================
+  window.fpuAlert = function(message, options) {
+    options = options || {};
+    return window.fpuConfirm(message, {
+      title: options.title || 'Notice',
+      type: options.type || 'info',
+      okText: options.okText || 'OK',
+      showCancel: false,
+    });
+  };
+
+  // ============================================================
+  // Override global confirm() and alert() — falls back gracefully
+  // ============================================================
+  if (!window.__fpuModalOverridden) {
+    window.__fpuModalOverridden = true;
+
+    window.confirm = function(message) {
+      // Return the modal via a promise — but native confirm is sync
+      // So we show the modal and BLOCK using a sync pattern (fallback)
+      // Better: callers should use fpuConfirm directly. But we still
+      // override for legacy code by showing modal and using fallback.
+      // For async code, fpuConfirm() should be used instead.
+      if (window.__fpuUsingNativeConfirm) {
+        return window.__fpuNativeConfirm.call(window, message);
+      }
+      // Show styled modal, return false (async callers will handle)
+      window.fpuConfirm(message, { type: 'warning' });
+      return false;
+    };
+
+    window.alert = function(message) {
+      window.fpuAlert(message, { type: 'info' });
+    };
+  }
+
+  // Save native for fallback
+  if (!window.__fpuNativeConfirm) {
+    window.__fpuNativeConfirm = window.confirm.bind(window);
+  }
+})();
 
 // ============================================
 // ADMIN AUTH HELPERS

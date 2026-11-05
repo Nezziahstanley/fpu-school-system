@@ -103,17 +103,32 @@
       return;
     }
 
-    function fieldRow(label, value) {
-      return `<div class="field-row"><span class="k">${A.escapeHtml(label)}</span><span class="v">${A.escapeHtml(value || '—')}</span></div>`;
+    // ============================================================
+    // Styled confirm helper (uses fpuConfirm if present, else falls back)
+    // ============================================================
+    async function styledConfirm(message, options) {
+      if (typeof window.fpuConfirm === 'function') {
+        return await window.fpuConfirm(message, options || {});
+      }
+      // Fallback to native if fpuConfirm not installed
+      return window.__fpuNativeConfirm ? window.__fpuNativeConfirm(message) : confirm(message);
     }
 
     // ============================================================
-    // Helper: read a field whether it's flat or nested
+    // Field row template
+    // ============================================================
+    function fieldRow(label, value) {
+      return `<div class="field-row">
+        <span class="k">${A.escapeHtml(label)}</span>
+        <span class="v">${A.escapeHtml(value || '—')}</span>
+      </div>`;
+    }
+
+    // ============================================================
+    // Pick a field from flat OR nested path
     // ============================================================
     function pick(obj, flatKey, nestedObj, nestedKey) {
-      // Try flat first (e.g., u.programmeName)
       if (obj[flatKey]) return obj[flatKey];
-      // Then nested (e.g., u.programme.name)
       if (nestedObj && obj[nestedObj] && obj[nestedObj][nestedKey || 'name']) {
         return obj[nestedObj][nestedKey || 'name'];
       }
@@ -121,12 +136,11 @@
     }
 
     // ============================================================
-    // Resolve relations by fetching lookups if needed
+    // Resolve missing relations by fetching lookups
     // ============================================================
     async function resolveRelations(u) {
       const tasks = [];
 
-      // Programme name
       if (!u.programmeName && u.programmeId) {
         tasks.push(
           A.adminFetch('/api/admin/programmes').then(r => r.json()).then(j => {
@@ -135,8 +149,6 @@
           }).catch(() => {})
         );
       }
-
-      // Department name
       if (!u.departmentName && u.departmentId) {
         tasks.push(
           A.adminFetch('/api/admin/departments').then(r => r.json()).then(j => {
@@ -145,8 +157,6 @@
           }).catch(() => {})
         );
       }
-
-      // School name
       if (!u.schoolName && u.schoolId) {
         tasks.push(
           A.adminFetch('/api/admin/schools').then(r => r.json()).then(j => {
@@ -155,8 +165,6 @@
           }).catch(() => {})
         );
       }
-
-      // Session name
       if (!u.sessionName && u.currentSessionId) {
         tasks.push(
           A.adminFetch('/api/admin/sessions').then(r => r.json()).then(j => {
@@ -169,6 +177,9 @@
       await Promise.all(tasks);
     }
 
+    // ============================================================
+    // Main loader
+    // ============================================================
     async function load() {
       try {
         const res = await A.adminFetch(`/api/admin/students/${id}`);
@@ -176,18 +187,12 @@
         if (!json.success) throw new Error(json.error);
         const u = json.data;
 
-        // Resolve relations if missing
         await resolveRelations(u);
 
-        // ============================================================
         // Subtitle
-        // ============================================================
-        $('stu-profile-subtitle').textContent =
-          `${u.matricNumber || 'No matric'} · ${u.email || ''}`;
+        $('stu-profile-subtitle').textContent = `${u.matricNumber || 'No matric'} · ${u.email || ''}`;
 
-        // ============================================================
         // Photo
-        // ============================================================
         const wrap = $('stu-photo-wrap');
         if (u.photoUrl) {
           wrap.innerHTML = `<img src="${A.escapeHtml(u.photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" />`;
@@ -196,14 +201,10 @@
           wrap.textContent = initials;
         }
 
-        // ============================================================
         // Status pill
-        // ============================================================
         $('stu-status-pill').innerHTML = u.isActive !== false ? A.badge('active') : A.badge('inactive');
 
-        // ============================================================
-        // Quick Info — use pick() to handle flat or nested
-        // ============================================================
+        // Quick Info
         $('stu-quick').innerHTML = [
           fieldRow('Matric No', u.matricNumber),
           fieldRow('Level', u.level),
@@ -211,9 +212,7 @@
           fieldRow('Programme', pick(u, 'programmeName', 'programme', 'name')),
         ].join('');
 
-        // ============================================================
-        // Bio-Data
-        // ============================================================
+        // Bio
         $('stu-bio').innerHTML = [
           fieldRow('First Name', u.firstName),
           fieldRow('Middle Name', u.middleName),
@@ -227,9 +226,7 @@
           fieldRow('Address', u.address),
         ].join('');
 
-        // ============================================================
-        // Academic Record — FIXED with pick() and resolved relations
-        // ============================================================
+        // Academic
         $('stu-academic').innerHTML = [
           fieldRow('Department', pick(u, 'departmentName', 'department', 'name')),
           fieldRow('Programme', pick(u, 'programmeName', 'programme', 'name')),
@@ -238,9 +235,7 @@
           fieldRow('Enrolled', A.fmtDate(u.createdAt)),
         ].join('');
 
-        // ============================================================
-        // Fees summary (async)
-        // ============================================================
+        // Fees (async)
         A.adminFetch(`/api/admin/payments?studentId=${id}&limit=500`).then(async (r) => {
           const j = await r.json();
           const payments = j.data || [];
@@ -263,33 +258,52 @@
         });
 
         // ============================================================
-        // Actions
+        // ACTIONS — using styled modals
         // ============================================================
+
+        // --- Toggle Active ---
         $('stu-toggle-active').onclick = async () => {
           const active = u.isActive !== false;
-          if (!confirm(`${active ? 'Deactivate' : 'Activate'} this student?`)) return;
+          const ok = await styledConfirm(
+            `${active ? 'Deactivate' : 'Activate'} ${u.firstName} ${u.lastName}?\n\nThey will ${active ? 'lose' : 'regain'} access to the student portal.`,
+            {
+              title: active ? 'Deactivate Student?' : 'Activate Student?',
+              type: active ? 'warning' : 'success',
+              okText: active ? 'Deactivate' : 'Activate',
+            }
+          );
+          if (!ok) return;
           try {
             await A.adminFetch(`/api/admin/students/${id}/toggle-active`, { method: 'POST' });
-            A.showToast('Status updated.');
+            A.showToast(`✅ Student ${active ? 'deactivated' : 'activated'}.`, 'success');
             load();
-          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+          } catch (e) {
+            A.showToast('❌ ' + e.message, 'error');
+          }
         };
 
+        // --- Reset Password ---
         $('stu-reset-pwd').onclick = async () => {
           const pwd = prompt('New password (default: student1234):', 'student1234');
           if (pwd === null) return;
-          if (!pwd.trim()) return;
+          if (!pwd.trim()) {
+            A.showToast('Password cannot be empty.', 'warning');
+            return;
+          }
           try {
             await A.adminFetch(`/api/admin/students/${id}/reset-password`, {
               method: 'POST',
               body: JSON.stringify({ password: pwd.trim() }),
             });
-            A.showToast('Password reset.');
-          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+            A.showToast('✅ Password reset.', 'success');
+          } catch (e) {
+            A.showToast('❌ ' + e.message, 'error');
+          }
         };
 
+        // --- View Transcript (FIXED: uses correct route) ---
         $('stu-goto-transcript').onclick = () => {
-          // Navigate via SPA instead of breaking out of the shell
+          A.showToast('Opening transcript…', 'info');
           if (A.FPU_ADMIN_SPA && A.FPU_ADMIN_SPA.navigateToWithQuery) {
             A.FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: id });
           } else {
@@ -297,16 +311,29 @@
           }
         };
 
+        // --- Delete Student ---
         $('stu-delete').onclick = async () => {
-          if (!confirm(`Delete ${u.firstName} ${u.lastName} permanently?\n\nThis cannot be undone.`)) return;
+          const ok = await styledConfirm(
+            `Delete ${u.firstName} ${u.lastName} permanently?\n\nThis will remove ALL their records — results, payments, registrations, and cannot be undone.`,
+            {
+              title: 'Delete Student?',
+              type: 'danger',
+              okText: 'Delete Permanently',
+            }
+          );
+          if (!ok) return;
           try {
             await A.adminFetch(`/api/admin/students/${id}`, { method: 'DELETE' });
-            A.showToast('Student deleted.');
+            A.showToast('✅ Student deleted.', 'success');
             A.FPU_ADMIN_SPA.navigateTo('students');
-          } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
+          } catch (e) {
+            A.showToast('❌ ' + e.message, 'error');
+          }
         };
 
+        // --- Print ---
         $('stu-print-btn').onclick = () => window.print();
+
       } catch (err) {
         $('stu-bio').innerHTML = `<div class="alert alert-danger">${A.escapeHtml(err.message)}</div>`;
       }

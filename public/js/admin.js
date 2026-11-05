@@ -4025,55 +4025,270 @@ async function loadAuditTable() {
   }
 }
 
+// ============================================
+// SECURITY CENTER — Dashboard
+// ============================================
+// ============================================
+// SECURITY CENTER — Dashboard
+// ============================================
 async function loadSecurityDashboard() {
-  var summaryRes = null, eventsRes = null, loginsRes = null;
-  try { summaryRes = await adminFetch("/api/admin/security/summary"); } catch (e) { console.debug("[sd] summary", e.message); }
-  try { eventsRes = await adminFetch("/api/admin/security?limit=100"); } catch (e) { console.debug("[sd] events", e.message); }
-  try { loginsRes = await adminFetch("/api/admin/login-history?limit=100&success=false"); } catch (e) { console.debug("[sd] logins", e.message); }
+  // Fetch summary, events, failed logins, and active sessions in parallel
+  const [summaryRes, eventsRes, loginsRes, sessionsRes] = await Promise.all([
+    adminFetch('/api/admin/security/summary').catch(() => null),
+    adminFetch('/api/admin/security?limit=100').catch(() => null),
+    adminFetch('/api/admin/login-history?limit=100&success=false').catch(() => null),
+    adminFetch('/api/admin/security/sessions').catch(() => null),
+  ]);
 
-  var summaryRows = [], eventRows = [], failedRows = [];
-  try { if (summaryRes) summaryRows = (await summaryRes.json()).data || []; } catch (e) {}
-  try { if (eventsRes) eventRows = (await eventsRes.json()).data || []; } catch (e) {}
-  try { if (loginsRes) failedRows = (await loginsRes.json()).data || []; } catch (e) {}
+  // Parse summary (severity counts)
+  let summary = { critical: 0, warning: 0, info: 0 };
+  try {
+    if (summaryRes && summaryRes.ok) {
+      const json = await summaryRes.json();
+      const rows = json.data || [];
+      rows.forEach((r) => {
+        if (r.severity === 'critical') summary.critical = r.c || r.count || 0;
+        else if (r.severity === 'warning') summary.warning = r.c || r.count || 0;
+        else if (r.severity === 'info') summary.info = r.c || r.count || 0;
+      });
+    }
+  } catch (e) { console.debug('[security] summary:', e.message); }
 
-  var critical = 0, warning = 0, info = 0;
-  summaryRows.forEach(function (r) {
-    if (r.severity === "critical") critical = r.c || 0;
-    else if (r.severity === "warning") warning = r.c || 0;
-    else if (r.severity === "info") info = r.c || 0;
-  });
+  // Parse events
+  let events = [];
+  try {
+    if (eventsRes && eventsRes.ok) {
+      const json = await eventsRes.json();
+      events = json.data || [];
+    }
+  } catch (e) { console.debug('[security] events:', e.message); }
 
-  setText("sec-kpi-sessions", 0);
-  setText("sec-kpi-failed", failedRows.length);
-  setText("sec-kpi-locked", 0);
-  setText("sec-kpi-blocked", 0);
+  // Parse failed logins
+  let failedLogins = [];
+  try {
+    if (loginsRes && loginsRes.ok) {
+      const json = await loginsRes.json();
+      failedLogins = json.data || [];
+    }
+  } catch (e) { console.debug('[security] logins:', e.message); }
 
-  var banner = document.getElementById("sec-threat-banner");
+  // Parse active sessions
+  let sessions = [];
+  try {
+    if (sessionsRes && sessionsRes.ok) {
+      const json = await sessionsRes.json();
+      sessions = json.data || [];
+    }
+  } catch (e) { console.debug('[security] sessions:', e.message); }
+
+  // ----- Compute threat level -----
+  const score = Math.min(100, summary.critical * 10 + summary.warning * 3 + summary.info);
+  const level = summary.critical > 0 ? 'high' : summary.warning > 5 ? 'medium' : 'low';
+
+  // ----- Update threat banner -----
+  const banner = document.getElementById('sec-threat-banner');
   if (banner) {
-    var score = critical * 10 + warning * 3 + info;
-    var level = critical > 0 ? "high" : warning > 5 ? "medium" : "low";
-    banner.className = "sec-threat-banner " + level;
-    var issues = "";
-    if (failedRows.length > 5) issues += "<span>" + failedRows.length + " failed logins recently</span>";
-    if (critical > 0) issues += "<span>" + critical + " critical security event(s)</span>";
-    banner.innerHTML = '<div class="stb-score ' + level + '">' + Math.min(100, score) + '</div><div class="stb-info"><h3>Threat Level: ' + level.toUpperCase() + '</h3><p>' + critical + ' critical &middot; ' + warning + ' warning &middot; ' + info + ' info events</p><div class="stb-issues">' + issues + '</div></div>';
+    banner.className = 'sec-threat-banner ' + level;
+
+    const issues = [];
+    if (failedLogins.length > 5) issues.push(`${failedLogins.length} failed logins recently`);
+    if (summary.critical > 0) issues.push(`${summary.critical} critical security event(s)`);
+    if (sessions.length > 10) issues.push(`${sessions.length} active sessions`);
+
+    banner.innerHTML = `
+      <div class="stb-score ${level}">${score}</div>
+      <div class="stb-info">
+        <h3>Threat Level: ${level.toUpperCase()}</h3>
+        <p>${summary.critical} critical · ${summary.warning} warning · ${summary.info} info events</p>
+        ${
+          issues.length
+            ? `<div class="stb-issues">${issues.map((i) => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
+            : '<div class="stb-issues"><span>No active threats detected.</span></div>'
+        }
+      </div>
+    `;
   }
 
-  setText("sac-events-badge", eventRows.length);
-  setText("sac-sessions-badge", "—");
+  // ----- Update KPI tiles -----
+  setText('sec-kpi-sessions', sessions.length);
+  setText('sec-kpi-failed', failedLogins.length);
+  setText('sec-kpi-locked', summary.critical);
+  setText('sec-kpi-blocked', 0);
 
-  var recent = eventRows.filter(function (r) { return (r.log || r).severity === "critical"; }).slice(0, 10);
-  var tbody = document.getElementById("sec-recent-events");
+  // ----- Update card badges -----
+  const sessionBadge = document.getElementById('sac-sessions-badge');
+  if (sessionBadge) sessionBadge.textContent = sessions.length;
+  const eventsBadge = document.getElementById('sac-events-badge');
+  if (eventsBadge) eventsBadge.textContent = events.length;
+
+  // ----- Render recent critical events -----
+  const tbody = document.getElementById('sec-recent-events');
   if (tbody) {
+    const recent = events
+      .filter((r) => (r.log || r).severity === 'critical')
+      .slice(0, 10);
+
     if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No critical events.</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="empty" style="padding:24px;text-align:center;color:#94a3b8;">
+            No critical events. System is healthy.
+          </td>
+        </tr>
+      `;
     } else {
-      tbody.innerHTML = recent.map(function (r) {
-        var log = r.log || r;
-        var user = r.user ? escapeHtml(r.user.firstName) + " " + escapeHtml(r.user.lastName) : "—";
-        return '<tr><td>' + escapeHtml(log.event || "") + '</td><td>' + badge(log.severity) + '</td><td>' + user + '</td><td>' + escapeHtml(log.ipAddress || "") + '</td><td class="small muted">' + fmtDateTime(log.createdAt) + '</td></tr>';
-      }).join("");
+      tbody.innerHTML = recent.map((r) => {
+        const log = r.log || r;
+        const user = r.user
+          ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+          : '—';
+        return `
+          <tr>
+            <td>${escapeHtml(log.event || 'Unknown')}</td>
+            <td>${badge(log.severity)}</td>
+            <td>${escapeHtml(user)}</td>
+            <td>${escapeHtml(log.ipAddress || '—')}</td>
+            <td class="small muted">${fmtDateTime(log.createdAt)}</td>
+          </tr>
+        `;
+      }).join('');
     }
+  }
+
+  // ----- Wire up all actions & cards -----
+  wireSecurityActions();
+  wireSecurityCards();
+}
+
+// ============================================
+// SECURITY — Wire card navigation & top actions
+// ============================================
+function wireSecurityCards() {
+  const cards = document.querySelectorAll('.sec-action-card');
+  cards.forEach((card) => {
+    if (card.__wired) return;
+    card.__wired = true;
+    // Cards already have inline onclick= pointing to SPA routes,
+    // but we add a fallback for keyboard access
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+  });
+}
+
+function wireSecurityActions() {
+  // Refresh button
+  const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+  const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+  if (refreshBtn && !refreshBtn.__wired) {
+    refreshBtn.__wired = true;
+    refreshBtn.onclick = () => loadSecurityDashboard();
+  }
+
+  // Lockdown button
+  const lockdownBtn = document.getElementById('sec-lockdown');
+  if (lockdownBtn && !lockdownBtn.__wired) {
+    lockdownBtn.__wired = true;
+    lockdownBtn.onclick = async () => {
+      const ok = await window.fpuConfirm(
+        'Lock down ALL active sessions?\n\nAll users except you will be logged out immediately.',
+        { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down All' }
+      );
+      if (!ok) return;
+
+      try {
+        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.error || 'Lockdown endpoint not available');
+        showToast('🔒 All sessions locked down.', 'success');
+        loadSecurityDashboard();
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Export Report button — fallback to CSV of the events table
+  const exportBtn = buttons.find((b) => /export/i.test(b.textContent || ''));
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.onclick = () => {
+      const table = document.querySelector('#sec-recent-events')?.closest('table');
+      if (table) {
+        exportTableAsCSV(table, `security-events-${new Date().toISOString().slice(0, 10)}.csv`);
+      } else {
+        showToast('⚠️ Nothing to export yet.', 'warning');
+      }
+    };
+  }
+}
+
+function wireSecurityActions() {
+  // Refresh button
+  const refreshBtn = document.querySelector('.page-head .actions button');
+  if (refreshBtn && !refreshBtn.__wired) {
+    refreshBtn.__wired = true;
+    const text = (refreshBtn.textContent || '').trim().toLowerCase();
+    if (text.includes('refresh')) {
+      refreshBtn.addEventListener('click', () => loadSecurityDashboard());
+    }
+  }
+
+  // Export Report button
+  const exportBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+    .find((b) => /export/i.test(b.textContent || ''));
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.addEventListener('click', async () => {
+      try {
+        const res = await adminFetch('/api/admin/security/report');
+        if (!res.ok) throw new Error('No report endpoint');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `security-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ Report downloaded.', 'success');
+      } catch (err) {
+        // Fallback: export the events table as CSV
+        const table = document.querySelector('#sec-recent-events')?.closest('table');
+        if (table) {
+          exportTableAsCSV(table, 'security-events.csv');
+        } else {
+          showToast('❌ Could not export report.', 'error');
+        }
+      }
+    });
+  }
+
+  // Lockdown button
+  const lockdownBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+    .find((b) => /lockdown/i.test(b.textContent || ''));
+  if (lockdownBtn && !lockdownBtn.__wired) {
+    lockdownBtn.__wired = true;
+    lockdownBtn.addEventListener('click', async () => {
+      const ok = await window.fpuConfirm(
+        'Lock down ALL active sessions?\n\nAll users except you will be logged out immediately. They will need to log in again.',
+        { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down All' }
+      );
+      if (!ok) return;
+
+      try {
+        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
+        if (!res.ok) throw new Error('Lockdown endpoint not available');
+        showToast('🔒 All sessions locked down.', 'success');
+        loadSecurityDashboard();
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    });
   }
 }
 
@@ -5504,9 +5719,6 @@ async function saveAdvSetting(key) {
 // Wire up the advanced tab when it loads
 const __origLoadSettingsShell = typeof loadSettingsShell === 'function' ? loadSettingsShell : null;
 
-// ============================================
-// EXPORTS
-// ============================================
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -5582,7 +5794,8 @@ window.FPU_ADMIN = {
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
-  loadSecurityDashboard, loadSettingsShell, prefillSettingsForm,
+  loadSecurityDashboard, wireSecurityActions, wireSecurityCards,
+  loadSettingsShell, prefillSettingsForm,
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,

@@ -1,20 +1,107 @@
-<!-- Admin → Academics → Programmes -->
+﻿<!-- Admin → Academics → Programmes (department-first, card grid) -->
 <section class="page-head">
-  <div><h2>Programmes</h2><p class="muted small">ND & HND programmes by department</p></div>
+  <div>
+    <h2>Programmes</h2>
+    <p class="muted small">Browse academic programmes by department</p>
+  </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadProgrammes()">Refresh</button>
-    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('programme-form')">+ New Programme</button>
+    <input type="search" id="prog-search" placeholder="🔍  Search programme…"
+           style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;min-width:200px;" />
+    <select id="prog-level" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+      <option value="">All Levels</option>
+      <option value="ND">ND</option>
+      <option value="HND">HND</option>
+      <option value="CERT">Certificate</option>
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadProgrammes()">↻ Refresh</button>
+    <button class="btn btn-primary btn-sm"
+            onclick="FPU_ADMIN_SPA.navigateTo('programme-form')">
+      + New Programme
+    </button>
   </div>
 </section>
 
-<div class="panel">
-  <div class="panel-head"><h3>All Programmes</h3></div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
+<div id="prog-summary"
+     style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+            padding:.75rem 1rem;margin-bottom:1rem;
+            display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;
+            font-size:.82rem;color:#475569;">
+  <div><strong style="color:#0f172a;" id="prog-total-depts">—</strong> departments</div>
+  <div><strong style="color:#0f172a;" id="prog-total-progs">—</strong> total programmes</div>
+  <div><strong style="color:#065f46;" id="prog-total-nd">—</strong> ND</div>
+  <div><strong style="color:#1e40af;" id="prog-total-hnd">—</strong> HND</div>
+  <div><strong style="color:#059669;" id="prog-total-cert">—</strong> CERT</div>
+</div>
+
+<div id="prog-back-bar" style="display:none;margin-bottom:1rem;">
+  <button id="prog-back"
+          style="display:inline-flex;align-items:center;gap:.4rem;
+                 padding:.5rem .9rem;font-size:.82rem;font-weight:700;
+                 background:#fff;color:#065f46;border:1px solid #bbf7d0;
+                 border-radius:8px;cursor:pointer;">
+    ← All Departments
+  </button>
+  <span id="prog-current-dept"
+        style="margin-left:.75rem;font-size:.85rem;font-weight:800;color:#0f172a;"></span>
+</div>
+
+<div id="prog-dept-grid"
+     style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem;"></div>
+
+<div id="prog-progs-panel" style="display:none;">
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+    <div style="overflow-x:auto;">
       <table class="table-admin">
-        <thead><tr><th>Code</th><th>Name</th><th>Level</th><th>Duration</th></tr></thead>
-        <tbody id="programmes-tbody"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Programme</th>
+            <th style="text-align:center;">Level</th>
+            <th style="text-align:center;">Duration</th>
+            <th style="text-align:center;">Students</th>
+            <th style="text-align:right; width:200px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="prog-progs-tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
 </div>
+
+<style>
+  .prog-dept-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+  }
+  .prog-dept-card:hover {
+    border-color: #065f46;
+    box-shadow: 0 6px 18px rgba(6,95,70,.10);
+    transform: translateY(-2px);
+  }
+  .prog-dept-icon {
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: .72rem;
+    flex-shrink: 0;
+    letter-spacing: .03em;
+  }
+  .prog-dept-body { min-width: 0; flex: 1; }
+  .prog-dept-name {
+    font-weight: 800; color: #0f172a; font-size: .9rem; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .prog-dept-count {
+    font-size: .72rem; color: #64748b; margin-top: .25rem; font-weight: 600;
+  }
+  .prog-dept-arrow { color: #94a3b8; font-size: 1.2rem; flex-shrink: 0; }
+</style>

@@ -115,6 +115,85 @@
   };
 
   // ============================================================
+// fpuPrompt — styled text input dialog (returns Promise<string|null>)
+// ============================================================
+window.fpuPrompt = function(message, defaultValue, options) {
+  defaultValue = defaultValue || '';
+  options = options || {};
+  const title = options.title || 'Input Required';
+  const okText = options.okText || 'OK';
+  const cancelText = options.cancelText || 'Cancel';
+  const inputType = options.inputType || 'text';
+  const placeholder = options.placeholder || '';
+
+  // Build the prompt modal DOM (separate from confirm modal)
+  let overlay = document.getElementById('fpu-prompt-container');
+  if (!overlay) {
+    const html = `
+      <div class="fpu-prompt-overlay" id="fpu-prompt-container">
+        <div class="fpu-prompt-box">
+          <h3 class="fpu-prompt-title" id="fpu-prompt-title">${title}</h3>
+          <p class="fpu-prompt-message" id="fpu-prompt-message">${message}</p>
+          <input type="${inputType}" class="fpu-prompt-input" id="fpu-prompt-input" placeholder="${placeholder}" />
+          <div class="fpu-prompt-actions">
+            <button type="button" class="fpu-prompt-btn fpu-prompt-btn-cancel" id="fpu-prompt-cancel">${cancelText}</button>
+            <button type="button" class="fpu-prompt-btn fpu-prompt-btn-ok" id="fpu-prompt-ok">${okText}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    overlay = document.getElementById('fpu-prompt-container');
+  }
+
+  // Update content for this call
+  const titleEl = document.getElementById('fpu-prompt-title');
+  const msgEl = document.getElementById('fpu-prompt-message');
+  const inputEl = document.getElementById('fpu-prompt-input');
+  const okBtn = document.getElementById('fpu-prompt-ok');
+  const cancelBtn = document.getElementById('fpu-prompt-cancel');
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  inputEl.type = inputType;
+  inputEl.placeholder = placeholder;
+  inputEl.value = defaultValue;
+  okBtn.textContent = okText;
+  cancelBtn.textContent = cancelText;
+
+  return new Promise((resolve) => {
+    overlay.classList.add('show');
+    setTimeout(() => {
+      inputEl.focus();
+      inputEl.select();
+    }, 50);
+
+    function cleanup(result) {
+      overlay.classList.remove('show');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      inputEl.removeEventListener('keydown', onKey);
+      overlay.removeEventListener('click', onOverlayClick);
+      resolve(result);
+    }
+    function onOk() { cleanup(inputEl.value); }
+    function onCancel() { cleanup(null); }
+    function onKey(e) {
+      if (e.key === 'Enter') { e.preventDefault(); cleanup(inputEl.value); }
+      if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
+    }
+    function onOverlayClick(e) {
+      if (e.target === overlay) cleanup(null);
+    }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    inputEl.addEventListener('keydown', onKey);
+    overlay.addEventListener('click', onOverlayClick);
+  });
+};
+
+  // ============================================================
   // Override global confirm() and alert() — falls back gracefully
   // ============================================================
   if (!window.__fpuModalOverridden) {

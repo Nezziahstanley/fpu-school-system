@@ -104,14 +104,19 @@
     }
 
     // ============================================================
-    // Styled confirm helper (uses fpuConfirm if present, else falls back)
+    // Styled helpers — fall back to native if modal system absent
     // ============================================================
     async function styledConfirm(message, options) {
       if (typeof window.fpuConfirm === 'function') {
         return await window.fpuConfirm(message, options || {});
       }
-      // Fallback to native if fpuConfirm not installed
       return window.__fpuNativeConfirm ? window.__fpuNativeConfirm(message) : confirm(message);
+    }
+    async function styledPrompt(message, defaultValue, options) {
+      if (typeof window.fpuPrompt === 'function') {
+        return await window.fpuPrompt(message, defaultValue || '', options || {});
+      }
+      return window.prompt(message, defaultValue || '');
     }
 
     // ============================================================
@@ -258,7 +263,7 @@
         });
 
         // ============================================================
-        // ACTIONS — using styled modals
+        // ACTIONS
         // ============================================================
 
         // --- Toggle Active ---
@@ -282,26 +287,51 @@
           }
         };
 
-        // --- Reset Password ---
+        // --- Reset Password (STYLED PROMPT) ---
         $('stu-reset-pwd').onclick = async () => {
-          const pwd = prompt('New password (default: student1234):', 'student1234');
+          const pwd = await styledPrompt(
+            `Enter a new password for ${u.firstName} ${u.lastName}. They will need this to log in.`,
+            'student1234',
+            {
+              title: 'Reset Student Password',
+              okText: 'Reset Password',
+              placeholder: 'Enter new password (min 6 chars)',
+            }
+          );
+
           if (pwd === null) return;
           if (!pwd.trim()) {
             A.showToast('Password cannot be empty.', 'warning');
             return;
           }
+          if (pwd.trim().length < 6) {
+            A.showToast('Password must be at least 6 characters.', 'warning');
+            return;
+          }
+
+          // Second confirmation
+          const confirmed = await styledConfirm(
+            `Reset ${u.firstName}'s password to a new value?\n\nThey will need to use the new password to log in.`,
+            {
+              title: 'Confirm Password Reset?',
+              type: 'warning',
+              okText: 'Yes, Reset Password',
+            }
+          );
+          if (!confirmed) return;
+
           try {
             await A.adminFetch(`/api/admin/students/${id}/reset-password`, {
               method: 'POST',
               body: JSON.stringify({ password: pwd.trim() }),
             });
-            A.showToast('✅ Password reset.', 'success');
+            A.showToast('✅ Password reset successfully.', 'success');
           } catch (e) {
             A.showToast('❌ ' + e.message, 'error');
           }
         };
 
-        // --- View Transcript (FIXED: uses correct route) ---
+        // --- View Transcript ---
         $('stu-goto-transcript').onclick = () => {
           A.showToast('Opening transcript…', 'info');
           if (A.FPU_ADMIN_SPA && A.FPU_ADMIN_SPA.navigateToWithQuery) {

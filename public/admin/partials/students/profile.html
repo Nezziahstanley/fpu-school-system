@@ -107,6 +107,68 @@
       return `<div class="field-row"><span class="k">${A.escapeHtml(label)}</span><span class="v">${A.escapeHtml(value || '—')}</span></div>`;
     }
 
+    // ============================================================
+    // Helper: read a field whether it's flat or nested
+    // ============================================================
+    function pick(obj, flatKey, nestedObj, nestedKey) {
+      // Try flat first (e.g., u.programmeName)
+      if (obj[flatKey]) return obj[flatKey];
+      // Then nested (e.g., u.programme.name)
+      if (nestedObj && obj[nestedObj] && obj[nestedObj][nestedKey || 'name']) {
+        return obj[nestedObj][nestedKey || 'name'];
+      }
+      return '';
+    }
+
+    // ============================================================
+    // Resolve relations by fetching lookups if needed
+    // ============================================================
+    async function resolveRelations(u) {
+      const tasks = [];
+
+      // Programme name
+      if (!u.programmeName && u.programmeId) {
+        tasks.push(
+          A.adminFetch('/api/admin/programmes').then(r => r.json()).then(j => {
+            const found = (j.data || []).find(p => Number(p.id) === Number(u.programmeId));
+            if (found) u.programmeName = found.name;
+          }).catch(() => {})
+        );
+      }
+
+      // Department name
+      if (!u.departmentName && u.departmentId) {
+        tasks.push(
+          A.adminFetch('/api/admin/departments').then(r => r.json()).then(j => {
+            const found = (j.data || []).find(d => Number(d.id) === Number(u.departmentId));
+            if (found) u.departmentName = found.name;
+          }).catch(() => {})
+        );
+      }
+
+      // School name
+      if (!u.schoolName && u.schoolId) {
+        tasks.push(
+          A.adminFetch('/api/admin/schools').then(r => r.json()).then(j => {
+            const found = (j.data || []).find(s => Number(s.id) === Number(u.schoolId));
+            if (found) u.schoolName = found.name;
+          }).catch(() => {})
+        );
+      }
+
+      // Session name
+      if (!u.sessionName && u.currentSessionId) {
+        tasks.push(
+          A.adminFetch('/api/admin/sessions').then(r => r.json()).then(j => {
+            const found = (j.data || []).find(s => Number(s.id) === Number(u.currentSessionId));
+            if (found) u.sessionName = found.name;
+          }).catch(() => {})
+        );
+      }
+
+      await Promise.all(tasks);
+    }
+
     async function load() {
       try {
         const res = await A.adminFetch(`/api/admin/students/${id}`);
@@ -114,9 +176,18 @@
         if (!json.success) throw new Error(json.error);
         const u = json.data;
 
-        $('stu-profile-subtitle').textContent = `${u.matricNumber || 'No matric'} · ${u.email}`;
+        // Resolve relations if missing
+        await resolveRelations(u);
 
+        // ============================================================
+        // Subtitle
+        // ============================================================
+        $('stu-profile-subtitle').textContent =
+          `${u.matricNumber || 'No matric'} · ${u.email || ''}`;
+
+        // ============================================================
         // Photo
+        // ============================================================
         const wrap = $('stu-photo-wrap');
         if (u.photoUrl) {
           wrap.innerHTML = `<img src="${A.escapeHtml(u.photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" />`;
@@ -125,18 +196,24 @@
           wrap.textContent = initials;
         }
 
+        // ============================================================
         // Status pill
+        // ============================================================
         $('stu-status-pill').innerHTML = u.isActive !== false ? A.badge('active') : A.badge('inactive');
 
-        // Quick info
+        // ============================================================
+        // Quick Info — use pick() to handle flat or nested
+        // ============================================================
         $('stu-quick').innerHTML = [
           fieldRow('Matric No', u.matricNumber),
           fieldRow('Level', u.level),
-          fieldRow('Session', u.currentSession?.name),
-          fieldRow('Programme', u.programme?.name),
+          fieldRow('Session', pick(u, 'sessionName', 'currentSession', 'name')),
+          fieldRow('Programme', pick(u, 'programmeName', 'programme', 'name')),
         ].join('');
 
-        // Bio
+        // ============================================================
+        // Bio-Data
+        // ============================================================
         $('stu-bio').innerHTML = [
           fieldRow('First Name', u.firstName),
           fieldRow('Middle Name', u.middleName),
@@ -146,38 +223,51 @@
           fieldRow('Gender', u.gender),
           fieldRow('Date of Birth', u.dateOfBirth ? A.fmtDate(u.dateOfBirth) : ''),
           fieldRow('State of Origin', u.stateOfOrigin),
-          fieldRow('Nationality', u.nationality),
+          fieldRow('Nationality', u.nationality || u.country),
           fieldRow('Address', u.address),
         ].join('');
 
-        // Academic
+        // ============================================================
+        // Academic Record — FIXED with pick() and resolved relations
+        // ============================================================
         $('stu-academic').innerHTML = [
-          fieldRow('Department', u.department?.name),
-          fieldRow('Programme', u.programme?.name),
-          fieldRow('School', u.school?.name),
+          fieldRow('Department', pick(u, 'departmentName', 'department', 'name')),
+          fieldRow('Programme', pick(u, 'programmeName', 'programme', 'name')),
+          fieldRow('School', pick(u, 'schoolName', 'school', 'name')),
           fieldRow('Level', u.level),
           fieldRow('Enrolled', A.fmtDate(u.createdAt)),
         ].join('');
 
-        // Fees (quick summary — fetch in background)
-        A.adminFetch(`/api/admin/payments?studentId=${id}&limit=1`).then(async (r) => {
+        // ============================================================
+        // Fees summary (async)
+        // ============================================================
+        A.adminFetch(`/api/admin/payments?studentId=${id}&limit=500`).then(async (r) => {
           const j = await r.json();
           const payments = j.data || [];
-          const totalVerified = payments
-            .filter((p) => (p.payment || p).status === 'verified')
-            .reduce((s, p) => s + Number((p.payment || p).amount || 0), 0);
+          const verified = payments.filter(p => (p.payment || p).status === 'verified');
+          const totalVerified = verified.reduce((s, p) => s + Number((p.payment || p).amount || 0), 0);
+          const lastPayment = verified.length
+            ? verified.map(p => (p.payment || p).createdAt).sort().slice(-1)[0]
+            : null;
+
           $('stu-fees').innerHTML = [
+            fieldRow('Verified Payments', verified.length),
             fieldRow('Total Verified', A.money(totalVerified)),
-            fieldRow('Last Payment', payments[0] ? A.fmtDate((payments[0].payment || payments[0]).createdAt) : '—'),
+            fieldRow('Last Payment', lastPayment ? A.fmtDate(lastPayment) : '—'),
           ].join('') + `<div style="margin-top:12px;">
-            <a class="btn btn-sm btn-outline" href="#payments">View all payments →</a>
+            <a class="btn btn-sm btn-outline"
+               href="#payments-by-student?studentId=${id}">View all payments →</a>
           </div>`;
         }).catch(() => {
           $('stu-fees').innerHTML = '<p class="muted">Could not load fees.</p>';
         });
 
-        // Buttons
+        // ============================================================
+        // Actions
+        // ============================================================
         $('stu-toggle-active').onclick = async () => {
+          const active = u.isActive !== false;
+          if (!confirm(`${active ? 'Deactivate' : 'Activate'} this student?`)) return;
           try {
             await A.adminFetch(`/api/admin/students/${id}/toggle-active`, { method: 'POST' });
             A.showToast('Status updated.');
@@ -188,22 +278,27 @@
         $('stu-reset-pwd').onclick = async () => {
           const pwd = prompt('New password (default: student1234):', 'student1234');
           if (pwd === null) return;
+          if (!pwd.trim()) return;
           try {
             await A.adminFetch(`/api/admin/students/${id}/reset-password`, {
               method: 'POST',
-              body: JSON.stringify({ password: pwd }),
+              body: JSON.stringify({ password: pwd.trim() }),
             });
             A.showToast('Password reset.');
           } catch (e) { A.showToast('❌ ' + e.message, 'error'); }
         };
 
         $('stu-goto-transcript').onclick = () => {
-          A.showToast('Opening transcript…', 'info');
-          window.open(`/#transcript?studentId=${id}`, '_self');
+          // Navigate via SPA instead of breaking out of the shell
+          if (A.FPU_ADMIN_SPA && A.FPU_ADMIN_SPA.navigateToWithQuery) {
+            A.FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: id });
+          } else {
+            window.location.hash = `#transcript-by-student?studentId=${id}`;
+          }
         };
 
         $('stu-delete').onclick = async () => {
-          if (!confirm(`Delete ${u.firstName} ${u.lastName} permanently? This cannot be undone.`)) return;
+          if (!confirm(`Delete ${u.firstName} ${u.lastName} permanently?\n\nThis cannot be undone.`)) return;
           try {
             await A.adminFetch(`/api/admin/students/${id}`, { method: 'DELETE' });
             A.showToast('Student deleted.');

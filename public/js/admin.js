@@ -1,5 +1,4 @@
-﻿============================================.txt
-// ============================================
+﻿// ============================================
 // FPU ADMIN.JS — Federal Polytechnic Ugep
 // Complete consolidated version (v10)
 // Includes: dashboard, applications, students (dept-first),
@@ -9,6 +8,7 @@
 // exams, attendance, fees, payments, clearances, comms,
 // records, library, reports, audit, security, settings, users.
 // ============================================
+
 // ============================================================
 // FPU ADMIN — STYLED CONFIRM/ALERT MODALS
 // Replaces browser confirm() / alert() with styled modals
@@ -116,83 +116,83 @@
   };
 
   // ============================================================
-// fpuPrompt — styled text input dialog (returns Promise<string|null>)
-// ============================================================
-window.fpuPrompt = function(message, defaultValue, options) {
-  defaultValue = defaultValue || '';
-  options = options || {};
-  const title = options.title || 'Input Required';
-  const okText = options.okText || 'OK';
-  const cancelText = options.cancelText || 'Cancel';
-  const inputType = options.inputType || 'text';
-  const placeholder = options.placeholder || '';
+  // fpuPrompt — styled text input dialog (returns Promise<string|null>)
+  // ============================================================
+  window.fpuPrompt = function(message, defaultValue, options) {
+    defaultValue = defaultValue || '';
+    options = options || {};
+    const title = options.title || 'Input Required';
+    const okText = options.okText || 'OK';
+    const cancelText = options.cancelText || 'Cancel';
+    const inputType = options.inputType || 'text';
+    const placeholder = options.placeholder || '';
 
-  // Build the prompt modal DOM (separate from confirm modal)
-  let overlay = document.getElementById('fpu-prompt-container');
-  if (!overlay) {
-    const html = `
-      <div class="fpu-prompt-overlay" id="fpu-prompt-container">
-        <div class="fpu-prompt-box">
-          <h3 class="fpu-prompt-title" id="fpu-prompt-title">${title}</h3>
-          <p class="fpu-prompt-message" id="fpu-prompt-message">${message}</p>
-          <input type="${inputType}" class="fpu-prompt-input" id="fpu-prompt-input" placeholder="${placeholder}" />
-          <div class="fpu-prompt-actions">
-            <button type="button" class="fpu-prompt-btn fpu-prompt-btn-cancel" id="fpu-prompt-cancel">${cancelText}</button>
-            <button type="button" class="fpu-prompt-btn fpu-prompt-btn-ok" id="fpu-prompt-ok">${okText}</button>
+    // Build the prompt modal DOM (separate from confirm modal)
+    let overlay = document.getElementById('fpu-prompt-container');
+    if (!overlay) {
+      const html = `
+        <div class="fpu-prompt-overlay" id="fpu-prompt-container">
+          <div class="fpu-prompt-box">
+            <h3 class="fpu-prompt-title" id="fpu-prompt-title">${title}</h3>
+            <p class="fpu-prompt-message" id="fpu-prompt-message">${message}</p>
+            <input type="${inputType}" class="fpu-prompt-input" id="fpu-prompt-input" placeholder="${placeholder}" />
+            <div class="fpu-prompt-actions">
+              <button type="button" class="fpu-prompt-btn fpu-prompt-btn-cancel" id="fpu-prompt-cancel">${cancelText}</button>
+              <button type="button" class="fpu-prompt-btn fpu-prompt-btn-ok" id="fpu-prompt-ok">${okText}</button>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', html);
-    overlay = document.getElementById('fpu-prompt-container');
-  }
-
-  // Update content for this call
-  const titleEl = document.getElementById('fpu-prompt-title');
-  const msgEl = document.getElementById('fpu-prompt-message');
-  const inputEl = document.getElementById('fpu-prompt-input');
-  const okBtn = document.getElementById('fpu-prompt-ok');
-  const cancelBtn = document.getElementById('fpu-prompt-cancel');
-
-  titleEl.textContent = title;
-  msgEl.textContent = message;
-  inputEl.type = inputType;
-  inputEl.placeholder = placeholder;
-  inputEl.value = defaultValue;
-  okBtn.textContent = okText;
-  cancelBtn.textContent = cancelText;
-
-  return new Promise((resolve) => {
-    overlay.classList.add('show');
-    setTimeout(() => {
-      inputEl.focus();
-      inputEl.select();
-    }, 50);
-
-    function cleanup(result) {
-      overlay.classList.remove('show');
-      okBtn.removeEventListener('click', onOk);
-      cancelBtn.removeEventListener('click', onCancel);
-      inputEl.removeEventListener('keydown', onKey);
-      overlay.removeEventListener('click', onOverlayClick);
-      resolve(result);
-    }
-    function onOk() { cleanup(inputEl.value); }
-    function onCancel() { cleanup(null); }
-    function onKey(e) {
-      if (e.key === 'Enter') { e.preventDefault(); cleanup(inputEl.value); }
-      if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
-    }
-    function onOverlayClick(e) {
-      if (e.target === overlay) cleanup(null);
+      `;
+      document.body.insertAdjacentHTML('beforeend', html);
+      overlay = document.getElementById('fpu-prompt-container');
     }
 
-    okBtn.addEventListener('click', onOk);
-    cancelBtn.addEventListener('click', onCancel);
-    inputEl.addEventListener('keydown', onKey);
-    overlay.addEventListener('click', onOverlayClick);
-  });
-};
+    // Update content for this call
+    const titleEl = document.getElementById('fpu-prompt-title');
+    const msgEl = document.getElementById('fpu-prompt-message');
+    const inputEl = document.getElementById('fpu-prompt-input');
+    const okBtn = document.getElementById('fpu-prompt-ok');
+    const cancelBtn = document.getElementById('fpu-prompt-cancel');
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    inputEl.type = inputType;
+    inputEl.placeholder = placeholder;
+    inputEl.value = defaultValue;
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    return new Promise((resolve) => {
+      overlay.classList.add('show');
+      setTimeout(() => {
+        inputEl.focus();
+        inputEl.select();
+      }, 50);
+
+      function cleanup(result) {
+        overlay.classList.remove('show');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        inputEl.removeEventListener('keydown', onKey);
+        overlay.removeEventListener('click', onOverlayClick);
+        resolve(result);
+      }
+      function onOk() { cleanup(inputEl.value); }
+      function onCancel() { cleanup(null); }
+      function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); cleanup(inputEl.value); }
+        if (e.key === 'Escape') { e.preventDefault(); cleanup(null); }
+      }
+      function onOverlayClick(e) {
+        if (e.target === overlay) cleanup(null);
+      }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+      inputEl.addEventListener('keydown', onKey);
+      overlay.addEventListener('click', onOverlayClick);
+    });
+  };
 
   // ============================================================
   // Override global confirm() and alert() — falls back gracefully
@@ -201,15 +201,9 @@ window.fpuPrompt = function(message, defaultValue, options) {
     window.__fpuModalOverridden = true;
 
     window.confirm = function(message) {
-      // Return the modal via a promise — but native confirm is sync
-      // So we show the modal and BLOCK using a sync pattern (fallback)
-      // Better: callers should use fpuConfirm directly. But we still
-      // override for legacy code by showing modal and using fallback.
-      // For async code, fpuConfirm() should be used instead.
       if (window.__fpuUsingNativeConfirm) {
         return window.__fpuNativeConfirm.call(window, message);
       }
-      // Show styled modal, return false (async callers will handle)
       window.fpuConfirm(message, { type: 'warning' });
       return false;
     };
@@ -510,8 +504,6 @@ function __ttTimeToMin(hhmm) {
 }
 
 function __ttFindConflicts({ sessionId, semester, dayOfWeek, startTime, endTime, lecturerId, venue, excludeId }) {
-  // Client-side pre-check that reads from the cached timetable.
-  // Returns an array of strings (human-readable conflict labels).
   if (!window.__ttCache) return [];
   const [a1, a2] = [__ttTimeToMin(startTime), __ttTimeToMin(endTime)];
   if (a1 === null || a2 === null) return [];
@@ -1320,6 +1312,7 @@ async function registerApplication(id) {
     showToast('❌ ' + err.message, 'error');
   }
 }
+
 async function loadAdmitted() {
   const container = document.getElementById("admitted-tbody");
   if (!container) return;
@@ -1583,4 +1576,272 @@ async function loadStudentDepartments() {
           <div class="dept-footer">
             <span>${active} active</span>
             <span class="arrow">View students →</span>
-          </
+          </div>
+        </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.dept-card[data-dept-id]').forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = Number(card.dataset.deptId);
+        const name = card.dataset.deptName;
+        window.FPU_ADMIN_SPA.navigateToWithQuery('students-by-dept', { departmentId: id, name });
+      });
+    });
+  } catch (err) {
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// COURSES BY DEPARTMENT (Always show all 8 sections)
+// ============================================
+async function loadDepartmentCourses() {
+  const root = document.getElementById('course-by-dept-root');
+  if (!root) {
+    console.error('[Courses] #course-by-dept-root not found in DOM');
+    return;
+  }
+
+  // ---------- Parse hash query ----------
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const departmentId = params.get('departmentId') || '';
+  const deptName = params.get('name') || 'Department';
+
+  // ---------- Headers ----------
+  const titleEl = document.getElementById('course-dept-title');
+  const subEl = document.getElementById('course-dept-subtitle');
+  if (titleEl) titleEl.textContent = deptName;
+  if (subEl) subEl.textContent = `Courses offered by ${deptName}, grouped by level, year, and semester`;
+
+  if (!departmentId) {
+    root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
+    return;
+  }
+
+  root.innerHTML = `<div class="loading"><span class="spinner"></span> Loading courses…</div>`;
+
+  try {
+    const res = await adminFetch(`/api/admin/courses?departmentId=${departmentId}&limit=500`);
+    const json = await res.json();
+    
+    // Ensure we have an array
+    const courses = json.data || json.rows || (Array.isArray(json) ? json : []);
+
+    // ---------- Department-level stats ----------
+    const totalCourses = courses.length;
+    const totalUnits = courses.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+    const nd = courses.filter(c => String(c.level || '').toUpperCase() === 'ND').length;
+    const hnd = courses.filter(c => String(c.level || '').toUpperCase() === 'HND').length;
+
+    setText('cbd-stat-total', totalCourses);
+    setText('cbd-stat-units', totalUnits);
+    setText('cbd-stat-nd', nd);
+    setText('cbd-stat-hnd', hnd);
+
+    // ---------- Build ALL 8 buckets (even empty) ----------
+    const LEVELS = [
+      { code: 'ND',  label: 'ND' },
+      { code: 'HND', label: 'HND' },
+    ];
+    const YEARS = [1, 2];
+    const SEMESTERS = [
+      { code: 'first',  label: 'First Semester' },
+      { code: 'second', label: 'Second Semester' },
+    ];
+
+    // Helper: infer year from course code (e.g. COM111 → year 1, COM211 → year 2)
+    function inferYear(course) {
+      if (course.yearOfStudy) return Number(course.yearOfStudy);
+      const m = String(course.code || '').match(/^\D+(\d)/);
+      if (m) {
+        const d = Number(m[1]);
+        if (d === 1) return 1;
+        if (d === 2) return 2;
+      }
+      return 1; // default
+    }
+
+    // Helper: normalize semester
+    function normalizeSemester(course) {
+      const s = String(course.semester || '').toLowerCase();
+      if (s === 'second') return 'second';
+      if (s === 'first') return 'first';
+      // Try inferring from course code 3rd digit (e.g. COM111 -> first, COM121 -> second)
+      const m = String(course.code || '').match(/^\D+\d(\d)\d/);
+      if (m && m[1] === '2') return 'second';
+      return 'first';
+    }
+
+    // Bucket courses
+    const buckets = {};
+    LEVELS.forEach(lvl => {
+      YEARS.forEach(yr => {
+        SEMESTERS.forEach(sem => {
+          buckets[`${lvl.code}-${yr}-${sem.code}`] = {
+            level: lvl,
+            year: yr,
+            semester: sem,
+            courses: [],
+          };
+        });
+      });
+    });
+
+    courses.forEach(c => {
+      const lvl = String(c.level || 'ND').toUpperCase();
+      if (lvl !== 'ND' && lvl !== 'HND') return; // skip CERT for now
+      const yr = inferYear(c);
+      const sem = normalizeSemester(c);
+      const key = `${lvl}-${yr}-${sem}`;
+      if (buckets[key]) {
+        buckets[key].courses.push(c);
+      }
+    });
+
+    // Sort courses within each bucket by code
+    Object.values(buckets).forEach(b => {
+      b.courses.sort((a, c) => String(a.code || '').localeCompare(String(c.code || '')));
+    });
+
+    // ---------- Render level tabs ----------
+    const levelTotals = {};
+    LEVELS.forEach(lvl => {
+      levelTotals[lvl.code] = {
+        count: courses.filter(c => String(c.level || '').toUpperCase() === lvl.code).length,
+        units: courses
+          .filter(c => String(c.level || '').toUpperCase() === lvl.code)
+          .reduce((s, c) => s + (Number(c.unit) || 0), 0),
+      };
+    });
+
+    const levelTabs = LEVELS.map((lvl, i) => {
+      const t = levelTotals[lvl.code];
+      return `
+        <button class="course-level-tab ${i === 0 ? 'active' : ''}" data-level="${lvl.code}">
+          ${lvl.label}
+          <span class="tab-count">${t.count} · ${t.units}u</span>
+        </button>
+      `;
+    }).join('');
+
+    // ---------- Render sections for each level ----------
+    function renderSection(bucket) {
+      const { level, year, semester, courses: list } = bucket;
+      const sectionUnits = list.reduce((s, c) => s + (Number(c.unit) || 0), 0);
+      const isEmpty = list.length === 0;
+      const sectionTitle = `${level.label} ${year} — ${semester.label}`;
+
+      const tableRows = isEmpty
+        ? `<tr>
+            <td colspan="4" style="text-align:center;padding:1.5rem;color:#94a3b8;font-style:italic;">
+              No courses in this section yet.
+              <button class="btn btn-sm btn-outline" style="margin-left:.5rem;"
+                onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('course-form', { departmentId: ${departmentId}, level: '${level.code}', yearOfStudy: ${year}, semester: '${semester.code}' })">
+                + Add Course
+              </button>
+            </td>
+          </tr>`
+        : list.map(c => `
+            <tr>
+              <td><code>${escapeHtml(c.code || '')}</code></td>
+              <td>${escapeHtml(c.title || '')}</td>
+              <td class="num" style="text-align:center;">${Number(c.unit) || 0}</td>
+              <td>
+                <div class="row-actions" style="justify-content:flex-end;">
+                  <button class="btn btn-sm btn-outline"
+                    onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('course-form', { id: ${c.id} })">
+                    Edit
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+
+      return `
+        <div class="course-section ${isEmpty ? 'course-section-empty' : ''}">
+          <div class="course-section-head">
+            <div>
+              <span class="course-section-title">${escapeHtml(sectionTitle)}</span>
+              <span class="course-section-count">${list.length} course${list.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="course-section-units">
+              <span class="units-num">${sectionUnits}</span>
+              <span class="units-lbl">credit units</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table-admin">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Title</th>
+                  <th style="text-align:center;width:80px;">Unit</th>
+                  <th style="text-align:right;width:100px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLevelBlock(levelCode) {
+      const sections = [];
+      for (const yr of YEARS) {
+        for (const sem of SEMESTERS) {
+          const bucket = buckets[`${levelCode}-${yr}-${sem.code}`];
+          if (bucket) sections.push(renderSection(bucket));
+        }
+      }
+      return sections.join('');
+    }
+
+    // ---------- Assemble the page ----------
+    root.innerHTML = `
+      <div class="course-level-tabs" role="tablist">
+        ${levelTabs}
+      </div>
+
+      ${LEVELS.map((lvl, i) => `
+        <div class="course-level-panel ${i === 0 ? 'active' : ''}" data-level-panel="${lvl.code}">
+          ${renderLevelBlock(lvl.code)}
+        </div>
+      `).join('')}
+    `;
+
+    // ---------- Wire level tab clicks ----------
+    root.querySelectorAll('.course-level-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        root.querySelectorAll('.course-level-tab').forEach(b => b.classList.remove('active'));
+        root.querySelectorAll('.course-level-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const level = btn.dataset.level;
+        const panel = root.querySelector(`.course-level-panel[data-level-panel="${level}"]`);
+        if (panel) panel.classList.add('active');
+      });
+    });
+    
+  } catch (err) {
+    console.error('[Courses] Error:', err);
+    root.innerHTML = `<div class="alert alert-danger">Failed to load courses: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+window.FPU_ADMIN = {
+  approveApplication,
+  rejectApplication,
+  registerApplication,
+  bulkApplicationAction,
+  bulkRegisterAdmitted,
+  registerAdmitted,
+  loadAll,
+  loadApplications,
+  loadAdmitted,
+  loadStudentDepartments,
+  loadDepartmentCourses,
+  showToast,
+  // ... (any other exports required by the rest of your app)
+};

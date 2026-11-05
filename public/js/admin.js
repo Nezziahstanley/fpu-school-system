@@ -4499,7 +4499,7 @@ async function loadDepartmentAllocations() {
 }
 
 // ============================================
-// USER PROFILE (Detail View)
+// USER PROFILE (Detail View for any role)
 // ============================================
 async function loadUserProfile() {
   const hash = window.location.hash.replace(/^#/, '');
@@ -4508,179 +4508,191 @@ async function loadUserProfile() {
   const id = params.get('id');
 
   if (!id) {
-    document.getElementById('page-subtitle').textContent = 'No user ID provided.';
+    const sub = document.getElementById('up-subtitle');
+    if (sub) sub.textContent = 'No user selected.';
     return;
   }
 
   try {
-    // Try to find the user in the combined list (staff + students)
-    const [staffRes, studentRes] = await Promise.all([
+    // Fetch from all three sources to find the user (regardless of role)
+    const [staffRes, studentRes, adminRes] = await Promise.all([
       adminFetch('/api/admin/staff?limit=2000').catch(() => null),
       adminFetch('/api/admin/students?limit=2000').catch(() => null),
+      adminFetch('/api/admin/users?limit=2000').catch(() => null),
     ]);
 
     let user = null;
 
     if (staffRes && staffRes.ok) {
       const staffJson = await staffRes.json();
-      const staff = staffJson.data || [];
-      user = staff.find((u) => Number(u.id) === Number(id));
+      user = (staffJson.data || []).find((u) => Number(u.id) === Number(id));
     }
-
     if (!user && studentRes && studentRes.ok) {
       const studentJson = await studentRes.json();
-      const students = studentJson.data || [];
-      user = students.find((u) => Number(u.id) === Number(id));
+      user = (studentJson.data || []).find((u) => Number(u.id) === Number(id));
     }
-
-    // If not found, try the admin users endpoint
-    if (!user) {
-      const adminRes = await adminFetch('/api/admin/users?limit=1000').catch(() => null);
-      if (adminRes && adminRes.ok) {
-        const adminJson = await adminRes.json();
-        const admins = adminJson.data || [];
-        user = admins.find((u) => Number(u.id) === Number(id));
-      }
+    if (!user && adminRes && adminRes.ok) {
+      const adminJson = await adminRes.json();
+      user = (adminJson.data || []).find((u) => Number(u.id) === Number(id));
     }
 
     if (!user) throw new Error('User not found');
 
-    // ----- 1. Update Header -----
-    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
-    document.getElementById('page-subtitle').textContent = `${user.email || ''} · ${String(user.role || '').replace(/_/g, ' ')}`;
-    document.getElementById('up-name').textContent = fullName;
-    document.getElementById('up-role').innerHTML = roleBadge(user.role);
+    // --- Update Header/Subtitle ---
+    const subEl = document.getElementById('up-subtitle');
+    if (subEl) subEl.textContent = `${user.email || ''} · ${String(user.role || '').replace(/_/g, ' ')}`;
 
-    const avatarEl = document.getElementById('up-avatar');
-    if (avatarEl) {
+    // --- Identity Panel ---
+    const identityEl = document.getElementById('up-identity');
+    if (identityEl) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
       const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
-      if (user.photoUrl) {
-        avatarEl.innerHTML = `<img src="${escapeHtml(user.photoUrl)}" alt="" />`;
-      } else {
-        avatarEl.textContent = initials;
-      }
+      identityEl.innerHTML = `
+        <div class="up-identity">
+          <div class="up-avatar">
+            ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : escapeHtml(initials)}
+          </div>
+          <div class="up-info">
+            <div class="name">${escapeHtml(fullName)}</div>
+            <div class="email">${escapeHtml(user.email || '')}</div>
+            <div class="badges">
+              ${roleBadge(user.role)}
+              ${user.isActive !== false ? badge('active') : badge('inactive')}
+            </div>
+          </div>
+        </div>
+      `;
     }
 
-    // ----- 2. Contact Panel -----
+    // --- Contact Panel ---
     const contactEl = document.getElementById('up-contact');
     if (contactEl) {
-      contactEl.innerHTML = `
-        <div class="field-row"><div class="k">Email</div><div class="v">${escapeHtml(user.email || '—')}</div></div>
-        <div class="field-row"><div class="k">Phone</div><div class="v">${escapeHtml(user.phone || '—')}</div></div>
-        <div class="field-row"><div class="k">Gender</div><div class="v">${escapeHtml(user.gender || '—')}</div></div>
-        <div class="field-row"><div class="k">Date of Birth</div><div class="v">${user.dateOfBirth ? fmtDate(user.dateOfBirth) : '—'}</div></div>
-        <div class="field-row"><div class="k">State of Origin</div><div class="v">${escapeHtml(user.stateOfOrigin || '—')}</div></div>
-      `;
+      contactEl.innerHTML = [
+        row('Phone', user.phone),
+        row('Gender', user.gender),
+        row('Date of Birth', user.dateOfBirth ? fmtDate(user.dateOfBirth) : ''),
+        row('State of Origin', user.stateOfOrigin),
+        row('Country', user.country),
+        row('Address', user.address),
+      ].join('');
     }
 
-    // ----- 3. Account Panel -----
+    // --- Account Panel ---
     const accountEl = document.getElementById('up-account');
     if (accountEl) {
-      accountEl.innerHTML = `
-        <div class="field-row"><div class="k">Role</div><div class="v">${roleBadge(user.role)}</div></div>
-        <div class="field-row"><div class="k">Status</div><div class="v">${user.isActive !== false ? badge('active') : badge('inactive')}</div></div>
-        <div class="field-row"><div class="k">Created</div><div class="v">${fmtDate(user.createdAt)}</div></div>
-        <div class="field-row"><div class="k">Last Login</div><div class="v">${user.lastLoginAt ? fmtDateTime(user.lastLoginAt) : 'Never'}</div></div>
-      `;
+      accountEl.innerHTML = [
+        row('User ID', user.id),
+        row('Role', String(user.role || '').replace(/_/g, ' ')),
+        row('Created', fmtDateTime(user.createdAt)),
+        row('Last Login', user.lastLoginAt ? fmtDateTime(user.lastLoginAt) : 'Never'),
+        row('Matric Number', user.matricNumber),
+        row('Staff Number', user.staffNumber),
+      ].join('');
     }
 
-    // ----- 4. Role Details Panel -----
-    const roleEl = document.getElementById('up-role-details');
+    // --- Role Details Panel ---
+    const roleEl = document.getElementById('up-role-body');
     if (roleEl) {
-      let roleHtml = '';
-      if (user.role === 'student') {
-        roleHtml = `
-          <div class="field-row"><div class="k">Matric No</div><div class="v"><code>${escapeHtml(user.matricNumber || '—')}</code></div></div>
-          <div class="field-row"><div class="k">Level</div><div class="v">${escapeHtml(user.level || '—')}</div></div>
-          <div class="field-row"><div class="k">Department</div><div class="v">${escapeHtml(user.departmentName || user.department?.name || '—')}</div></div>
-          <div class="field-row"><div class="k">Programme</div><div class="v">${escapeHtml(user.programmeName || user.programme?.name || '—')}</div></div>
-        `;
-      } else if (user.role === 'admin') {
-        roleHtml = `<p class="muted">No additional profile fields for administrators.</p>`;
-      } else {
-        const sp = user.staffProfile || {};
-        roleHtml = `
-          <div class="field-row"><div class="k">Staff No</div><div class="v"><code>${escapeHtml(user.staffNumber || '—')}</code></div></div>
-          <div class="field-row"><div class="k">Department</div><div class="v">${escapeHtml(user.departmentName || user.department?.name || '—')}</div></div>
-          <div class="field-row"><div class="k">Rank</div><div class="v">${escapeHtml(sp.rank || '—')}</div></div>
-          <div class="field-row"><div class="k">Specialization</div><div class="v">${escapeHtml(sp.specialization || '—')}</div></div>
-        `;
-      }
-      roleEl.innerHTML = roleHtml;
+      roleEl.innerHTML = [
+        row('Department', user.departmentName || user.department?.name),
+        row('Programme', user.programmeName || user.programme?.name),
+        row('School', user.schoolName || user.school?.name),
+        row('Level', user.level),
+        row('Rank', user.staffProfile?.rank),
+        row('Specialization', user.staffProfile?.specialization),
+        row('Qualification', user.staffProfile?.qualification),
+      ].join('');
     }
 
-    // ----- 5. Recent Activity Panel -----
-    const activityEl = document.getElementById('up-activity');
+    // --- Recent Activity ---
+    const activityEl = document.getElementById('up-activity-list');
     if (activityEl) {
       try {
-        const auditRes = await adminFetch(`/api/admin/audit?userId=${id}&limit=5`);
+        const auditRes = await adminFetch(`/api/admin/audit?userId=${id}&limit=8`);
         const auditJson = await auditRes.json();
         const logs = auditJson.data || [];
         if (!logs.length) {
-          activityEl.innerHTML = '<p class="muted" style="padding:10px;">No recent activity.</p>';
+          activityEl.innerHTML = '<p class="muted" style="padding:16px;">No recent activity.</p>';
         } else {
           activityEl.innerHTML = logs.map((l) => {
             const log = l.log || l;
-            return `
-              <div class="activity-item" style="padding:8px 0; border-bottom:1px solid #f1f5f9;">
-                <div style="font-size:13px;"><strong>${escapeHtml(log.action || '')}</strong></div>
-                <div class="small muted">${escapeHtml(log.entity || '')} · ${timeAgo(log.createdAt)}</div>
+            return `<div class="activity-item">
+              <div class="activity-icon">📝</div>
+              <div class="activity-content">
+                <strong>${escapeHtml(log.action || '')}</strong>
+                <p>${escapeHtml(log.entity || '')}${log.entityId ? ' #' + escapeHtml(String(log.entityId)) : ''}</p>
               </div>
-            `;
+              <span class="activity-time">${timeAgo(log.createdAt)}</span>
+            </div>`;
           }).join('');
         }
-      } catch (e) {
-        activityEl.innerHTML = '<p class="muted" style="padding:10px;">Could not load activity.</p>';
+      } catch {
+        activityEl.innerHTML = '<p class="muted" style="padding:16px;">Could not load activity.</p>';
       }
     }
 
-    // ----- 6. Wire Action Buttons -----
-    document.getElementById('up-back').onclick = () => history.back();
-    document.getElementById('up-edit').onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('user-form', { id });
-    document.getElementById('up-reset-pwd').onclick = async () => {
-      const pwd = prompt('New password (leave blank for default "student1234" or "admin1234"):', '');
+    // --- Wire Action Buttons ---
+    const backBtn = document.getElementById('up-back');
+    if (backBtn) backBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('users-all');
+    
+    const editBtn = document.getElementById('up-edit');
+    if (editBtn) editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('user-form', { id });
+    
+    const activityBtn = document.getElementById('up-activity');
+    if (activityBtn) activityBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('audit');
+    
+    const resetPwdBtn = document.getElementById('up-reset-pwd');
+    if (resetPwdBtn) resetPwdBtn.onclick = async () => {
+      const pwd = prompt('New password (leave blank for default):', '');
       if (pwd === null) return;
       try {
-        await adminFetch(`/api/admin/users/${id}/reset-password`, {
-          method: 'POST',
-          body: JSON.stringify({ password: pwd || undefined }),
-        });
+        const endpoint = user.role === 'student'
+          ? `/api/admin/students/${id}/reset-password`
+          : user.role === 'admin'
+            ? `/api/admin/users/${id}/reset-password`
+            : `/api/admin/staff/${id}/reset-password`;
+        await adminFetch(endpoint, { method: 'POST', body: JSON.stringify({ password: pwd || undefined }) });
         showToast('Password reset.', 'success');
       } catch (err) { showToast('❌ ' + err.message, 'error'); }
     };
-    document.getElementById('up-toggle-active').onclick = async () => {
+    
+    const toggleBtn = document.getElementById('up-toggle');
+    if (toggleBtn) toggleBtn.onclick = async () => {
       try {
-        await adminFetch(`/api/admin/users/${id}/toggle-active`, { method: 'POST' });
-        showToast('Status toggled.', 'success');
-        loadUserProfile();
+        const endpoint = user.role === 'student'
+          ? `/api/admin/students/${id}/toggle-active`
+          : user.role === 'admin'
+            ? `/api/admin/users/${id}/toggle-active`
+            : `/api/admin/staff/${id}/toggle-active`;
+        await adminFetch(endpoint, { method: 'POST' });
+        showToast('Status updated.', 'success');
+        loadUserProfile(); // reload
       } catch (err) { showToast('❌ ' + err.message, 'error'); }
     };
-    document.getElementById('up-delete').onclick = async () => {
-      if (!confirm(`Delete user "${fullName}"?`)) return;
+    
+    const deleteBtn = document.getElementById('up-delete');
+    if (deleteBtn) deleteBtn.onclick = async () => {
+      if (!confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) return;
       try {
-        const role = user.role;
-        let url = `/api/admin/users/${id}`;
-        if (role === 'student') url = `/api/admin/students/${id}`;
-        else if (role !== 'admin') url = `/api/admin/staff/${id}`;
-
-        await adminFetch(url, { method: 'DELETE' });
+        const endpoint = user.role === 'student'
+          ? `/api/admin/students/${id}`
+          : user.role === 'admin'
+            ? `/api/admin/users/${id}`
+            : `/api/admin/staff/${id}`;
+        await adminFetch(endpoint, { method: 'DELETE' });
         showToast('User deleted.', 'success');
         FPU_ADMIN_SPA.navigateTo('users-all');
       } catch (err) { showToast('❌ ' + err.message, 'error'); }
     };
 
-  } catch (err) {
-    document.getElementById('page-subtitle').textContent = 'Error loading profile';
-    const contactEl = document.getElementById('up-contact');
-    if (contactEl) {
-      contactEl.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+    // Helper for field rows
+    function row(k, v) {
+      return `<div class="field-row"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v || '—')}</span></div>`;
     }
-    const accountEl = document.getElementById('up-account');
-    if (accountEl) accountEl.innerHTML = '';
-    const roleEl = document.getElementById('up-role-details');
-    if (roleEl) roleEl.innerHTML = '';
-    const activityEl = document.getElementById('up-activity');
-    if (activityEl) activityEl.innerHTML = '';
+
+  } catch (err) {
+    const identityEl = document.getElementById('up-identity');
+    if (identityEl) identityEl.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
   }
 }
 

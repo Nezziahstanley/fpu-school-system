@@ -4192,25 +4192,44 @@ async function loadAllUsers() {
   const countEl = document.getElementById('au-count');
   if (!tbody) return;
 
-  const role   = (document.getElementById('au-filter-role') || {}).value || '';
-  const active = (document.getElementById('au-filter-active') || {}).value || '';
-  const dept   = (document.getElementById('au-filter-dept') || {}).value || '';
-  const search = (document.getElementById('au-search') || {}).value || '';
-
-  const qs = new URLSearchParams({ limit: 500 });
-  if (role)   qs.set('role', role);
-  if (active) qs.set('isActive', active);
-  if (dept)   qs.set('departmentId', dept);
-  if (search) qs.set('search', search);
-
   tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
   if (countEl) countEl.textContent = 'Loading…';
 
   try {
-    const res = await adminFetch(`/api/admin/user-list?${qs}`);
+    // Fetch all users from the primary users endpoint
+    const res = await adminFetch('/api/admin/users?limit=2000');
     const json = await res.json();
-    const users = json.data || [];
+    
+    // Handle the response format
+    let users = json.data || (Array.isArray(json) ? json : []);
 
+    // Apply filters client-side
+    const role = (document.getElementById('au-filter-role') || {}).value || '';
+    const active = (document.getElementById('au-filter-active') || {}).value || '';
+    const dept = (document.getElementById('au-filter-dept') || {}).value || '';
+    const search = (document.getElementById('au-search') || {}).value || '';
+
+    if (role) {
+      users = users.filter(u => String(u.role || '').toLowerCase() === role.toLowerCase());
+    }
+    if (active) {
+      const isActive = active === 'true';
+      users = users.filter(u => (u.isActive !== false) === isActive);
+    }
+    if (dept) {
+      users = users.filter(u => Number(u.departmentId) === Number(dept));
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      users = users.filter(u => 
+        String(u.firstName || '').toLowerCase().includes(q) ||
+        String(u.lastName || '').toLowerCase().includes(q) ||
+        String(u.email || '').toLowerCase().includes(q) ||
+        String(u.matricNumber || u.staffNumber || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Update Stats
     const activeCount = users.filter((u) => u.isActive !== false).length;
     setText('au-stat-total', users.length);
     setText('au-stat-active', activeCount);
@@ -4224,36 +4243,21 @@ async function loadAllUsers() {
       return;
     }
 
-    if (window.FPU_PAGINATE && typeof window.FPU_PAGINATE.mount === 'function') {
-      window.FPU_PAGINATE.mount(tbody, users, {
-        pageSize: 25, renderRow: (u) => `
-          <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-            <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-            <td>${escapeHtml(u.email || '')}</td>
-            <td><code>${escapeHtml(u.matricNumber || u.staffNumber || '—')}</code></td>
-            <td>${roleBadge(u.role)}</td>
-            <td>${escapeHtml(u.departmentName || u.department?.name || '—')}</td>
-            <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-            <td class="small muted">${fmtDate(u.createdAt)}</td>
-            <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">View</button></td>
-          </tr>`,
-      });
-    } else {
-      tbody.innerHTML = users.map((u) => `
-        <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
-          <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
-          <td>${escapeHtml(u.email || '')}</td>
-          <td><code>${escapeHtml(u.matricNumber || u.staffNumber || '—')}</code></td>
-          <td>${roleBadge(u.role)}</td>
-          <td>${escapeHtml(u.departmentName || u.department?.name || '—')}</td>
-          <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
-          <td class="small muted">${fmtDate(u.createdAt)}</td>
-          <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">View</button></td>
-        </tr>
-      `).join('');
-    }
+    // Render table
+    tbody.innerHTML = users.map((u) => `
+      <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">
+        <td><strong>${escapeHtml((u.firstName || '') + ' ' + (u.lastName || ''))}</strong></td>
+        <td>${escapeHtml(u.email || '')}</td>
+        <td><code>${escapeHtml(u.matricNumber || u.staffNumber || '—')}</code></td>
+        <td>${roleBadge(u.role)}</td>
+        <td>${escapeHtml(u.departmentName || u.department?.name || '—')}</td>
+        <td>${u.isActive !== false ? badge('active') : badge('inactive')}</td>
+        <td class="small muted">${fmtDate(u.createdAt)}</td>
+        <td><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${u.id} })">View</button></td>
+      </tr>
+    `).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty" style="color:#dc2626;"><strong>Error:</strong> ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

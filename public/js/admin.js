@@ -5390,6 +5390,31 @@ async function loadAdvancedSettings() {
   }
 }
 
+async function saveSettingsSection(form) {
+  const section = form.dataset.settingsSection;
+  const payload = {};
+  form.querySelectorAll('input, select, textarea').forEach((el) => {
+    if (!el.name) return;
+    if (el.type === 'checkbox') payload[el.name] = el.checked ? 'true' : 'false';
+    else if (el.value !== '') payload[el.name] = el.value;
+  });
+
+  const statusEl = document.getElementById(`save-status-${section}`);
+  if (statusEl) statusEl.textContent = 'Saving…';
+
+  try {
+    await adminFetch('/api/admin/settings/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ settings: payload, category: section }),
+    });
+    if (statusEl) statusEl.textContent = '✅ Saved ' + new Date().toLocaleTimeString();
+    showToast('Settings saved.', 'success');
+  } catch (err) {
+    if (statusEl) statusEl.textContent = '❌ ' + err.message;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
 async function saveAdvSetting(key) {
   const input = document.querySelector(`[data-adv-key="${key}"]`);
   if (!input) return;

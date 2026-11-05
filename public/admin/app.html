@@ -260,7 +260,10 @@
       // LOGOUT
       // ============================================================
       async function doLogout() {
-        if (!confirm('Log out of the admin panel?')) return;
+        const _okLogout = typeof window.fpuConfirm === 'function'
+          ? await window.fpuConfirm('Log out of the admin panel?', { title: 'Sign Out?', type: 'warning', okText: 'Sign Out', cancelText: 'Stay Signed In' })
+          : confirm('Log out of the admin panel?');
+        if (!_okLogout) return;
         const token = getToken();
         if (token) {
           try {

@@ -5603,17 +5603,29 @@ async function addBankAccount() {
 }
 
 async function saveBankAccount(idx) {
+  const bank = document.querySelector(`[data-bank-bank="${idx}"]`).value.trim();
+  const accountName = document.querySelector(`[data-bank-name="${idx}"]`).value.trim();
+  const accountNumber = document.querySelector(`[data-bank-num="${idx}"]`).value.trim();
+
+  // Validate before saving
+  if (!bank || !accountName || !accountNumber) {
+    showToast('⚠️ Bank name, account name, and account number are all required.', 'warning');
+    return;
+  }
+
+  const key = 'bank_account_' + (idx + 1);
   try {
-    const bank = document.querySelector(`[data-bank-bank="${idx}"]`).value;
-    const accountName = document.querySelector(`[data-bank-name="${idx}"]`).value;
-    const accountNumber = document.querySelector(`[data-bank-num="${idx}"]`).value;
-    const key = 'bank_account_' + (idx + 1);
     await adminFetch(`/api/admin/settings/${key}`, {
       method: 'PUT',
-      body: JSON.stringify({ value: JSON.stringify({ bank, accountName, accountNumber }), category: 'bank' }),
+      body: JSON.stringify({
+        value: JSON.stringify({ bank, accountName, accountNumber }),
+        category: 'bank',
+      }),
     });
-    showToast('Bank saved.', 'success');
-  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+    showToast('✅ Bank saved.', 'success');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
 }
 
 async function deleteBankAccount(idx) {

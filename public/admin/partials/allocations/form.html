@@ -107,6 +107,19 @@
       $('alloc-delete').style.display = 'inline-flex';
     }
 
+    // ---------- Init Dropdowns (Lookups) ----------
+    // This tells the global FPU_LOOKUPS library to populate all the 
+    // select elements on this page that have data-lookup attributes.
+    setTimeout(() => {
+      if (window.FPU_LOOKUPS && typeof window.FPU_LOOKUPS.populate === 'function') {
+        document.querySelectorAll('select[data-lookup]').forEach(el => {
+          window.FPU_LOOKUPS.populate(el);
+        });
+      } else {
+        console.warn('[Allocations Form] FPU_LOOKUPS not found. Dropdowns will be empty.');
+      }
+    }, 100);
+
     // ---------- Back / Cancel ----------
     function goBack() {
       const deptId = prefillDept || $('alloc-dept').value;
@@ -134,11 +147,10 @@
         // Session + semester
         setTimeout(() => {
           if ($('alloc-session') && a.sessionId) $('alloc-session').value = String(a.sessionId);
-        }, 300);
+        }, 400);
         $('alloc-semester').value = a.semester || 'first';
 
         // Department (via course lookup once loaded)
-        // We set it after lookups are ready
         setTimeout(() => {
           // Fetch the course to find its department
           A.adminFetch(`/api/admin/courses/${a.courseId}`).then((r) => r.json()).then((j) => {
@@ -151,9 +163,9 @@
             setTimeout(() => {
               if ($('alloc-course') && a.courseId) $('alloc-course').value = String(a.courseId);
               if ($('alloc-lecturer') && a.lecturerId) $('alloc-lecturer').value = String(a.lecturerId);
-            }, 600);
+            }, 800);
           }).catch(() => {});
-        }, 500);
+        }, 600);
       } catch (err) {
         A.showToast('❌ ' + err.message, 'error');
       }
@@ -167,7 +179,7 @@
           $('alloc-dept').value = String(prefillDept);
           $('alloc-dept').dispatchEvent(new Event('change'));
         }
-      }, 500);
+      }, 600);
       setTimeout(() => {
         if (prefillCourse && $('alloc-course')) {
           $('alloc-course').value = String(prefillCourse);
@@ -175,7 +187,7 @@
         if (prefillLect && $('alloc-lecturer')) {
           $('alloc-lecturer').value = String(prefillLect);
         }
-      }, 900);
+      }, 1000);
     }
 
     // ---------- Submit ----------

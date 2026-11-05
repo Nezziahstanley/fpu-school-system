@@ -6,6 +6,7 @@
        • With id → PUT  /api/admin/courses/:id      (update)
      Supports prefill via query params:
        ?departmentId=X   ?programmeId=Y
+       ?level=ND|HND     ?yearOfStudy=1|2   ?semester=first|second
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -251,8 +252,24 @@
     // ---------------- Prefill (create mode from dept page) ----------------
     function applyPrefill() {
       if (isEdit) return;
-      // Only departmentId / programmeId need explicit prefill.
-      // Department select is populated by lookups; we set it after.
+
+      const prefillLevel = params.get('level');
+      const prefillYear  = params.get('yearOfStudy');
+      const prefillSem   = params.get('semester');
+
+      // Set level / year / semester immediately (independent of lookups)
+      setTimeout(() => {
+        if (prefillLevel && $('course-level')) {
+          $('course-level').value = String(prefillLevel).toUpperCase();
+        }
+        if (prefillYear && $('course-year')) {
+          $('course-year').value = String(prefillYear);
+        }
+        if (prefillSem && $('course-semester')) {
+          $('course-semester').value = String(prefillSem);
+        }
+      }, 100);
+
       if (!prefillDept && !prefillProg) return;
 
       setTimeout(() => {

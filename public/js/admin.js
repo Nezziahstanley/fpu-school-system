@@ -4196,12 +4196,32 @@ async function loadAllUsers() {
   if (countEl) countEl.textContent = 'Loading…';
 
   try {
-    // Fetch all users from the primary users endpoint
-    const res = await adminFetch('/api/admin/users?limit=2000');
-    const json = await res.json();
-    
-    // Handle the response format
-    let users = json.data || (Array.isArray(json) ? json : []);
+    // Fetch from both endpoints in parallel
+    const [staffRes, studentRes] = await Promise.all([
+      adminFetch('/api/admin/staff?limit=2000').catch(() => null),
+      adminFetch('/api/admin/students?limit=2000').catch(() => null),
+    ]);
+
+    let users = [];
+
+    if (staffRes && staffRes.ok) {
+      const staffJson = await staffRes.json();
+      const staff = staffJson.data || [];
+      users = users.concat(staff);
+    }
+
+    if (studentRes && studentRes.ok) {
+      const studentJson = await studentRes.json();
+      const students = studentJson.data || [];
+      users = users.concat(students);
+    }
+
+    // If both failed, try the generic users endpoint as a fallback
+    if (users.length === 0) {
+      const res = await adminFetch('/api/admin/users?limit=2000');
+      const json = await res.json();
+      users = json.data || [];
+    }
 
     // Apply filters client-side
     const role = (document.getElementById('au-filter-role') || {}).value || '';

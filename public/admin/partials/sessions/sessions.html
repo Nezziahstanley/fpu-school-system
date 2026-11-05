@@ -5,7 +5,10 @@
     <p class="muted small">Manage past, current, and future sessions</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSessions()">Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.autoCreateNextSession()">
+      ⚡ Auto-Create Next
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadSessions()">↻ Refresh</button>
     <button class="btn btn-primary btn-sm"
             onclick="FPU_ADMIN_SPA.navigateTo('session-form')">
       + New Session
@@ -67,7 +70,7 @@
             <th>Duration</th>
             <th>Students</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th style="width:320px; text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody id="sessions-tbody">

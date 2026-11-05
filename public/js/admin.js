@@ -2192,76 +2192,120 @@ async function toggleAdminActive(id) {
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
-// ============================================
-// SESSIONS
-// ============================================
 async function loadSessions() {
   const container = document.getElementById("sessions-tbody");
   if (!container) return;
+
   container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
 
   try {
-    const res = await adminFetch("/api/admin/sessions");
-    const result = await res.json();
+    const [sessionsRes, studentsRes] = await Promise.all([
+      adminFetch("/api/admin/sessions"),
+      adminFetch("/api/admin/students?limit=5000").catch(() => null),
+    ]);
+    const result = await sessionsRes.json();
     const rows = extractArray(result);
+
+    // Fetch student counts per session
+    let studentCounts = {};
+    if (studentsRes) {
+      try {
+        const sJson = await studentsRes.json();
+        const students = sJson.data || [];
+        students.forEach(s => {
+          if (s.currentSessionId) {
+            studentCounts[s.currentSessionId] = (studentCounts[s.currentSessionId] || 0) + 1;
+          }
+        });
+      } catch (e) { /* ignore */ }
+    }
 
     if (!rows.length) {
       container.innerHTML = '<tr><td colspan="7" class="empty">No sessions yet. Create the first one.</td></tr>';
       return;
     }
 
+    // Sort: latest session first
     const sorted = [...rows].sort((a, b) => String(b.name).localeCompare(String(a.name)));
 
-    const current = sorted.find((s) => s.isCurrent);
-    const currPanel = document.getElementById('current-session-panel');
-    if (current && currPanel) {
-      currPanel.style.display = 'block';
-      setText('current-session-name', current.name);
-      setText('current-session-dates',
-        `${current.startDate ? fmtDate(current.startDate) : '—'} → ${current.endDate ? fmtDate(current.endDate) : '—'}`
-      );
-      adminFetch(`/api/admin/students?limit=1&sessionId=${current.id}`)
-        .then((r) => r.json())
-        .then((j) => setText('current-session-count', (j.data || []).length))
-        .catch(() => setText('current-session-count', '—'));
-    } else if (currPanel) {
-      currPanel.style.display = 'none';
-    }
-
+    // Compute stats
+    const current = sorted.find(s => s.isCurrent);
     const now = Date.now();
-    const upcoming = sorted.filter((s) => s.startDate && new Date(s.startDate).getTime() > now).length;
-    const past = sorted.filter((s) => s.endDate && new Date(s.endDate).getTime() < now).length;
+    const upcoming = sorted.filter(s => s.startDate && new Date(s.startDate).getTime() > now).length;
+    const past = sorted.filter(s => s.endDate && new Date(s.endDate).getTime() < now).length;
+
+    // Update stats
     setText('ses-stat-total', sorted.length);
     setText('ses-stat-current', current ? 1 : 0);
     setText('ses-stat-upcoming', upcoming);
     setText('ses-stat-past', past);
 
+    // Current session panel
+    const currentPanel = document.getElementById('current-session-panel');
+    if (current && currentPanel) {
+      currentPanel.style.display = 'block';
+      setText('current-session-name', current.name);
+      setText('current-session-dates',
+        `${current.startDate ? fmtDate(current.startDate) : '—'} → ${current.endDate ? fmtDate(current.endDate) : '—'}`);
+      setText('current-session-count', studentCounts[current.id] || 0);
+    } else if (currentPanel) {
+      currentPanel.style.display = 'none';
+    }
+
+    // Render rows
     container.innerHTML = sorted.map((s) => {
+      const isCurrent = !!s.isCurrent;
+      const start = s.startDate ? new Date(s.startDate) : null;
+      const end = s.endDate ? new Date(s.endDate) : null;
+
       let duration = '—';
-      if (s.startDate && s.endDate) {
-        const ms = new Date(s.endDate) - new Date(s.startDate);
-        const days = Math.round(ms / (1000 * 60 * 60 * 24));
+      if (start && end) {
+        const days = Math.round((end - start) / (1000 * 60 * 60 * 24));
         duration = `${days} days`;
       }
 
+      // Status badge
+      let statusText, statusClass;
+      if (isCurrent) { statusText = 'Current'; statusClass = 'success'; }
+      else if (start && start.getTime() > now) { statusText = 'Upcoming'; statusClass = 'info'; }
+      else if (end && end.getTime() < now) { statusText = 'Past'; statusClass = 'muted'; }
+      else { statusText = 'Active'; statusClass = 'primary'; }
+
+      const rowStyle = isCurrent ? 'background:#ecfdf5;' : '';
+
       return `
-        <tr style="${s.isCurrent ? 'background:#ecfdf5;' : ''}">
-          <td><strong>${escapeHtml(s.name)}</strong></td>
+        <tr style="${rowStyle}">
+          <td>
+            <strong>${escapeHtml(s.name || '—')}</strong>
+            ${isCurrent ? '<div style="font-size:10.5px;color:#10b981;font-weight:700;margin-top:2px;">● ACTIVE</div>' : ''}
+          </td>
           <td>${fmtDate(s.startDate)}</td>
           <td>${fmtDate(s.endDate)}</td>
-          <td>${escapeHtml(duration)}</td>
-          <td>—</td>
-          <td>${s.isCurrent ? badge('active') : (s.startDate && new Date(s.startDate) > new Date() ? badge('pending') : badge('muted'))}</td>
+          <td class="small muted">${duration}</td>
+          <td class="num">${studentCounts[s.id] || 0}</td>
+          <td><span class="badge badge-${statusClass}">${statusText}</span></td>
           <td>
-            <div class="row-actions">
-              ${!s.isCurrent
-                ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.setCurrentSession(${s.id})">Set Current</button>`
-                : '<span class="small muted">Current</span>'}
-              <button class="btn btn-sm btn-ghost"
-                onclick="FPU_ADMIN.deleteSession(${s.id}, '${escapeHtml(s.name)}')">Delete</button>
+            <div class="row-actions" style="justify-content:flex-end;">
+              ${!isCurrent ? `
+                <button class="btn btn-sm btn-primary"
+                  onclick="FPU_ADMIN.setCurrentSession(${s.id})">
+                  ⭐ Set Current
+                </button>
+              ` : '<span class="small muted" style="color:#10b981;font-weight:700;margin-right:6px;">✓ Current</span>'}
+              <button class="btn btn-sm btn-outline"
+                onclick="FPU_ADMIN_SPA.navigateToWithQuery('session-form', { id: ${s.id} })">
+                ✏️ Edit
+              </button>
+              ${!isCurrent ? `
+                <button class="btn btn-sm btn-ghost" style="color:#dc2626;"
+                  onclick="FPU_ADMIN.deleteSession(${s.id}, '${escapeQuotes(s.name)}')">
+                  🗑 Delete
+                </button>
+              ` : ''}
             </div>
           </td>
-        </tr>`;
+        </tr>
+      `;
     }).join('');
   } catch (err) {
     container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`;
@@ -2269,21 +2313,96 @@ async function loadSessions() {
 }
 
 async function setCurrentSession(id) {
-  if (!confirm('Set this session as the current session?')) return;
+  const ok = await window.fpuConfirm(
+    'Set this as the current academic session?\n\nThe previously current session will become past.',
+    {
+      title: 'Set Current Session?',
+      type: 'warning',
+      okText: 'Yes, Set Current',
+    }
+  );
+  if (!ok) return;
   try {
-    await adminFetch(`/api/admin/sessions/${id}/set-current`, { method: "POST" });
-    showToast("Session updated.");
+    await adminFetch(`/api/admin/sessions/${id}/set-current`, { method: 'POST' });
+    showToast('✅ Current session updated.', 'success');
     loadSessions();
-  } catch (err) { showToast("❌ " + err.message, "error"); }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
 }
 
 async function deleteSession(id, name) {
-  if (!confirm(`Delete session "${name}"? This does not delete enrollments but removes the session record.`)) return;
+  const ok = await window.fpuConfirm(
+    `Delete session "${name}"?\n\nThis cannot be undone. Enrolled student records are preserved.`,
+    {
+      title: 'Delete Session?',
+      type: 'danger',
+      okText: 'Delete Permanently',
+    }
+  );
+  if (!ok) return;
   try {
     await adminFetch(`/api/admin/sessions/${id}`, { method: 'DELETE' });
-    showToast('Session deleted.');
+    showToast('✅ Session deleted.', 'success');
     loadSessions();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function autoCreateNextSession() {
+  try {
+    const res = await adminFetch('/api/admin/sessions');
+    const json = await res.json();
+    const sessions = (json.data || []).sort((a, b) => String(b.name).localeCompare(String(a.name)));
+    const current = sessions.find(s => s.isCurrent) || sessions[0];
+
+    if (!current) {
+      showToast('Create the first session manually.', 'warning');
+      return;
+    }
+
+    const parts = String(current.name || '').split('/');
+    if (parts.length !== 2) {
+      showToast('Current session has invalid format. Use Manual Create.', 'warning');
+      return;
+    }
+    const nextYearStart = Number(parts[0]) + 1;
+    const nextYearEnd = Number(parts[1]) + 1;
+    const nextName = `${nextYearStart}/${nextYearEnd}`;
+
+    const start = current.startDate ? new Date(current.startDate) : new Date(nextYearStart, 9, 1);
+    const end = current.endDate ? new Date(current.endDate) : new Date(nextYearEnd, 6, 31);
+    start.setFullYear(nextYearStart);
+    end.setFullYear(nextYearEnd);
+
+    const formattedStart = start.toISOString().slice(0, 10);
+    const formattedEnd = end.toISOString().slice(0, 10);
+
+    const ok = await window.fpuConfirm(
+      `Create session "${nextName}"?\n\nStart: ${new Date(formattedStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}\nEnd: ${new Date(formattedEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}\n\nYou can set it as current later.`,
+      {
+        title: 'Auto-Create Next Session',
+        type: 'info',
+        okText: `Create ${nextName}`,
+      }
+    );
+    if (!ok) return;
+
+    await adminFetch('/api/admin/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: nextName,
+        startDate: formattedStart,
+        endDate: formattedEnd,
+        isCurrent: false,
+      }),
+    });
+    showToast(`✅ Session ${nextName} created.`, 'success');
+    loadSessions();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
 }
 
 // ============================================
@@ -10524,8 +10643,8 @@ window.FPU_ADMIN = {
   resetAdminPwd, toggleAdminActive,
 
   // sessions
-  loadSessions, setCurrentSession, deleteSession,
-
+  loadSessions, setCurrentSession, deleteSession, autoCreateNextSession,
+  
   // academics
   loadProgrammes, loadSchools, loadSchoolCards,
   loadDepartments, loadDepartmentCards,

@@ -2094,7 +2094,7 @@ async function loadRegistrationStudents() {
 }
 
 // ============================================
-// RESULTS (Department-first directory)
+// RESULTS (Department Overview)
 // ============================================
 async function loadResultDepartments() {
   const grid = document.getElementById('res-dept-grid');
@@ -2102,7 +2102,6 @@ async function loadResultDepartments() {
 
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading results…</div>';
 
-  // Fetch filter values
   const sessionId = (document.getElementById('res-filter-session') || {}).value || '';
   const semester = (document.getElementById('res-filter-semester') || {}).value || '';
   const status = (document.getElementById('res-filter-status') || {}).value || 'hod_verified';
@@ -2129,13 +2128,12 @@ async function loadResultDepartments() {
     const courseById = new Map(courses.map((c) => [c.id, c]));
     const schoolMap = new Map(schools.map((s) => [s.id, s]));
 
-    // Setup buckets
+    // Group results by department
     const byDept = new Map();
     for (const d of depts) {
       byDept.set(d.id, { dept: d, pending: 0, approved: 0, published: 0, rejected: 0, total: 0 });
     }
 
-    // Aggregate results by department
     for (const r of results) {
       const c = courseById.get(r.courseId);
       if (!c) continue;
@@ -2149,7 +2147,7 @@ async function loadResultDepartments() {
       else if (r.status && r.status.includes('rejected')) bucket.rejected++;
     }
 
-    // Stats
+    // Overall stats
     let totalPending = 0, totalApproved = 0, totalRows = 0;
     byDept.forEach((b) => {
       totalPending += b.pending;
@@ -2162,7 +2160,7 @@ async function loadResultDepartments() {
     setText('res-stat-approved', totalApproved);
     setText('res-stat-total', totalRows);
 
-    // Filter to visible departments
+    // Filter and render
     const visible = [...byDept.values()].filter((b) => b.total > 0).filter(({ dept }) => {
       if (!schoolId) return true;
       return Number(dept.schoolId) === Number(schoolId);
@@ -2203,13 +2201,6 @@ async function loadResultDepartments() {
         </div>
       `;
     }).join('');
-
-    // Wire Apply button if it exists
-    const applyBtn = document.getElementById('res-apply');
-    if (applyBtn && !applyBtn.__wired) {
-      applyBtn.__wired = true;
-      applyBtn.onclick = () => loadResultDepartments();
-    }
 
   } catch (err) {
     grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;

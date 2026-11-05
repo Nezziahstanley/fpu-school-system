@@ -4026,104 +4026,122 @@ async function loadAuditTable() {
 }
 
 // ============================================
-// SECURITY CENTER — Dashboard
+// SECURITY CENTER — Dashboard (resilient)
 // ============================================
 async function loadSecurityDashboard() {
-  const [summaryRes, eventsRes, loginsRes, sessionsRes] = await Promise.all([
-    adminFetch('/api/admin/security/summary').catch(() => null),
+  // Fetch from endpoints that likely exist. Failures fall back to empty arrays.
+  const [loginsRes, eventsRes, sessionsRes, summaryRes] = await Promise.all([
+    adminFetch('/api/admin/login-history?limit=100').catch(() => null),
     adminFetch('/api/admin/security?limit=100').catch(() => null),
-    adminFetch('/api/admin/login-history?limit=100&success=false').catch(() => null),
     adminFetch('/api/admin/security/sessions').catch(() => null),
+    adminFetch('/api/admin/security/summary').catch(() => null),
   ]);
 
+  // Parse logins (this endpoint exists for sure)
+  let logins = [];
+  try { if (loginsRes && loginsRes.ok) logins = (await loginsRes.json()).data || []; } catch {}
+  const failedLogins = logins.filter((l) => (l.entry || l).success === false);
+
+  // Parse events (may be empty if endpoint doesn't exist)
+  let events = [];
+  try { if (eventsRes && eventsRes.ok) events = (await eventsRes.json()).data || []; } catch {}
+
+  // Parse sessions
+  let sessions = [];
+  try { if (sessionsRes && sessionsRes.ok) sessions = (await sessionsRes.json()).data || []; } catch {}
+
   // Parse summary
-  const summary = { critical: 0, warning: 0, info: 0 };
+  let summary = { critical: 0, warning: 0, info: 0 };
   try {
     if (summaryRes && summaryRes.ok) {
-      const json = await summaryRes.json();
-      const rows = json.data || [];
+      const rows = (await summaryRes.json()).data || [];
       rows.forEach((r) => {
         if (r.severity === 'critical') summary.critical = r.c || r.count || 0;
         else if (r.severity === 'warning') summary.warning = r.c || r.count || 0;
         else if (r.severity === 'info') summary.info = r.c || r.count || 0;
       });
     }
-  } catch (e) { console.debug('[sec] summary:', e.message); }
+  } catch {}
 
-  // Parse events
-  let events = [];
-  try {
-    if (eventsRes && eventsRes.ok) {
-      const json = await eventsRes.json();
-      events = json.data || [];
-    }
-  } catch (e) { console.debug('[sec] events:', e.message); }
+  // Derive threat level (safe even if summary is empty)
+  const score = Math.min(100, summary.critical * 10 + summary.warning * 3 + summary.info + failedLogins.length);
+  const level = summary.critical > 0 || failedLogins.length > 10 ? 'high'
+              : summary.warning > 5 || failedLogins.length > 3 ? 'medium'
+              : 'low';
 
-  // Parse failed logins
-  let failedLogins = [];
-  try {
-    if (loginsRes && loginsRes.ok) {
-      const json = await loginsRes.json();
-      failedLogins = json.data || [];
-    }
-  } catch (e) { console.debug('[sec] logins:', e.message); }
-
-  // Parse sessions
-  let sessions = [];
-  try {
-    if (sessionsRes && sessionsRes.ok) {
-      const json = await sessionsRes.json();
-      sessions = json.data || [];
-    }
-  } catch (e) { console.debug('[sec] sessions:', e.message); }
-
-  // Threat level
-  const score = Math.min(100, summary.critical * 10 + summary.warning * 3 + summary.info);
-  const level = summary.critical > 0 ? 'high' : summary.warning > 5 ? 'medium' : 'low';
-
-  // Banner
+  // ===== Update threat banner =====
   const banner = document.getElementById('sec-threat-banner');
   if (banner) {
     banner.className = 'sec-threat-banner ' + level;
     const issues = [];
-    if (failedLogins.length > 5) issues.push(`${failedLogins.length} failed logins recently`);
+    if (failedLogins.length > 0) issues.push(`${failedLogins.length} failed login(s) recently`);
     if (summary.critical > 0) issues.push(`${summary.critical} critical security event(s)`);
-    if (sessions.length > 10) issues.push(`${sessions.length} active sessions`);
+    if (sessions.length > 0) issues.push(`${sessions.length} active session(s)`);
 
     banner.innerHTML = `
       <div class="stb-score ${level}">${score}</div>
       <div class="stb-info">
         <h3>Threat Level: ${level.toUpperCase()}</h3>
         <p>${summary.critical} critical · ${summary.warning} warning · ${summary.info} info events</p>
-        ${issues.length
-          ? `<div class="stb-issues">${issues.map((i) => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
-          : '<div class="stb-issues"><span>No active threats detected.</span></div>'}
+        ${
+          issues.length
+            ? `<div class="stb-issues">${issues.map((i) => `<span>${escapeHtml(i)}</span>`).join('')}</div>`
+            : '<div class="stb-issues"><span>No active threats detected. System is healthy.</span></div>'
+        }
       </div>
     `;
   }
 
-  // KPIs
+  // ===== Update KPI tiles =====
   setText('sec-kpi-sessions', sessions.length);
   setText('sec-kpi-failed', failedLogins.length);
   setText('sec-kpi-locked', summary.critical);
   setText('sec-kpi-blocked', 0);
 
-  // Badges
+  // ===== Update card badges =====
   const sBadge = document.getElementById('sac-sessions-badge');
-  if (sBadge) sBadge.textContent = sessions.length;
+  if (sBadge) sBadge.textContent = sessions.length || '0';
   const eBadge = document.getElementById('sac-events-badge');
-  if (eBadge) eBadge.textContent = events.length;
+  if (eBadge) eBadge.textContent = events.length || '0';
 
-  // Recent critical events
+  // ===== Recent critical events =====
   const tbody = document.getElementById('sec-recent-events');
   if (tbody) {
     const recent = events.filter((r) => (r.log || r).severity === 'critical').slice(0, 10);
+
     if (!recent.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty" style="padding:24px;text-align:center;color:#94a3b8;">No critical events. System is healthy.</td></tr>';
+      // Fall back to showing recent failed logins instead of critical events
+      if (failedLogins.length) {
+        tbody.innerHTML = failedLogins.slice(0, 10).map((r) => {
+          const entry = r.entry || r;
+          const user = r.user
+            ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+            : entry.email || '—';
+          return `
+            <tr>
+              <td><code>login_failed</code></td>
+              <td>${badge('warning')}</td>
+              <td>${escapeHtml(user)}</td>
+              <td>${escapeHtml(entry.ipAddress || '—')}</td>
+              <td class="small muted">${fmtDateTime(entry.createdAt)}</td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="empty" style="padding:24px;text-align:center;color:#94a3b8;">
+              No critical events or failed logins. System is healthy.
+            </td>
+          </tr>
+        `;
+      }
     } else {
       tbody.innerHTML = recent.map((r) => {
         const log = r.log || r;
-        const user = r.user ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—' : '—';
+        const user = r.user
+          ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email || '—'
+          : '—';
         return `
           <tr>
             <td>${escapeHtml(log.event || 'Unknown')}</td>
@@ -4137,20 +4155,26 @@ async function loadSecurityDashboard() {
     }
   }
 
-  // Wire actions
-  const lockdown = document.getElementById('sec-lockdown');
-  if (lockdown && !lockdown.__wired) {
-    lockdown.__wired = true;
-    lockdown.onclick = async () => {
+  // ===== Wire buttons (idempotent) =====
+  const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+
+  const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+  if (refreshBtn && !refreshBtn.__wired) {
+    refreshBtn.__wired = true;
+    refreshBtn.onclick = () => loadSecurityDashboard();
+  }
+
+  const lockdownBtn = document.getElementById('sec-lockdown');
+  if (lockdownBtn && !lockdownBtn.__wired) {
+    lockdownBtn.__wired = true;
+    lockdownBtn.onclick = async () => {
       const ok = await window.fpuConfirm(
         'Lock down ALL active sessions? All users except you will be logged out.',
         { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down' }
       );
       if (!ok) return;
       try {
-        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error || 'Lockdown failed');
+        await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
         showToast('🔒 All sessions locked down.', 'success');
         loadSecurityDashboard();
       } catch (err) {

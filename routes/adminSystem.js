@@ -6,16 +6,20 @@
 const express = require('express');
 const router = express.Router();
 
-const { adminAuth } = require('../middleware/adminAuth');
-const { query } = require('../db');
-
-// All routes below require admin auth
-router.use(adminAuth);
+// Safe require for db (handles both { query } and default exports)
+let query;
+try {
+  const db = require('../db');
+  query = db.query || db.default?.query || (async () => ({ rows: [] }));
+} catch (e) {
+  console.warn('[adminSystem] DB not available:', e.message);
+  query = async () => ({ rows: [] });
+}
 
 // ------------------------------------------------------------
-// POST /api/admin/system/deploy — Trigger deployment
+// POST /api/admin/system/deploy
 // ------------------------------------------------------------
-router.post('/system/deploy', async (req, res) => {
+router.post('/deploy', async (req, res) => {
   try {
     const { branch = 'main', notes = '' } = req.body || {};
 
@@ -26,16 +30,13 @@ router.post('/system/deploy', async (req, res) => {
       } catch (hookErr) {
         console.warn('[deploy] Hook failed:', hookErr.message);
       }
-    } else {
-      console.warn('[deploy] RENDER_DEPLOY_HOOK not set — skipping actual deploy');
     }
 
-    // Persist record (ignore if table missing)
     try {
       await query(
-        `INSERT INTO deployments (branch, notes, status, deployed_by, created_at)
-         VALUES ($1, $2, 'triggered', $3, NOW())`,
-        [branch, notes, req.user?.id || null]
+        `INSERT INTO deployments (branch, notes, status, created_at)
+         VALUES ($1, $2, 'triggered', NOW())`,
+        [branch, notes]
       );
     } catch (e) {
       console.debug('[deploy] Could not persist:', e.message);
@@ -52,18 +53,20 @@ router.post('/system/deploy', async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/admin/system/deployments — Deploy history
+// GET /api/admin/system/deployments
 // ------------------------------------------------------------
-router.get('/system/deployments', async (req, res) => {
+router.get('/deployments', async (req, res) => {
   try {
     let rows = [];
     try {
       const result = await query(
-        `SELECT id, branch, notes, status, deployed_by, created_at, completed_at
+        `SELECT id, branch, notes, status, created_at, completed_at
          FROM deployments ORDER BY created_at DESC LIMIT 10`
       );
-      rows = result.rows || result || [];
-    } catch { rows = []; }
+      rows = result.rows || [];
+    } catch (e) {
+      console.debug('[deployments] Query failed:', e.message);
+    }
     res.json({ success: true, data: rows });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -71,9 +74,9 @@ router.get('/system/deployments', async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// GET /api/admin/system/github-status — Latest commit
+// GET /api/admin/system/github-status
 // ------------------------------------------------------------
-router.get('/system/github-status', async (req, res) => {
+router.get('/github-status', async (req, res) => {
   try {
     const token = process.env.GITHUB_TOKEN;
     const repo  = process.env.GITHUB_REPO;

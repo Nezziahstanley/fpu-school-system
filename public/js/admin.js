@@ -3999,33 +3999,39 @@ async function renderDocPreview(doc, user) {
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
 
-  // Exclude ID cards from getting a full page preview
+  // Exclude ID cards
   if (type === 'id-card') {
     return `
       <div class="doc-preview-wrap">
         <div class="doc-preview-toolbar"><span>ID Card Preview</span></div>
-        <div class="doc-preview-frame" style="text-align:center;padding:60px 40px;color:#6b7280;">
-          <div style="font-size:2.5rem;margin-bottom:12px;">🪪</div>
-          <div style="font-weight:600;color:#0f172a;margin-bottom:4px;">ID Card Generation</div>
-          <div style="font-size:13px;">ID Cards are generated as physical assets. Use 🖨 Print to generate a temporary digital pass if needed.</div>
+        <div class="doc-preview-outer">
+          <div class="official-doc" style="text-align:center; padding-top: 100px;">
+            <div style="font-size:4rem; margin-bottom:20px;">🪪</div>
+            <h2 style="font-family:Poppins; color:#0f172a;">ID Card Generation</h2>
+            <p style="font-family:Poppins; color:#6b7280; font-size:16px;">ID Cards are generated as physical assets.<br>Use 🖨 Print to generate a temporary digital pass if needed.</p>
+          </div>
         </div>
       </div>
     `;
   }
 
-  // If it's a transcript, we keep your existing transcript renderer
+  // Transcripts (keep your existing renderer if you have one, or this simplified version)
   if (type === 'transcript') {
-    // (Keep your existing transcript rendering code here)
     return `<!-- Your existing transcript HTML -->`;
   }
 
-  // --- STAFF vs STUDENT LOGIC ---
-  // Adjust this logic based on how your DB determines a staff member (e.g., user.role === 'staff')
-  const isStaff = user.role === 'staff' || user.role === 'admin' || user.role === 'lecturer' || user.staffId; 
-  const idLabel = isStaff ? 'Staff ID' : 'Matriculation Number';
+  // --- DATA EXTRACTION (Handles both direct props and nested objects) ---
+  const isStaff = user.role === 'staff' || user.role === 'admin' || user.role === 'lecturer' || !!user.staffId;
+  
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
-  const levelLabel = isStaff ? 'Designation' : 'Level';
-  const levelValue = isStaff ? (user.designation || user.role || '—') : (user.level || '—');
+  const idLabel = isStaff ? 'Staff ID' : 'Matriculation Number';
+  
+  const levelValue = isStaff ? (user.designation || 'Staff') : (user.level ? `Level ${user.level}` : '—');
+  
+  // Deep search for programme/department names
+  const deptName = user.department?.name || user.departmentName || '—';
+  const progName = user.programme?.name || user.programmeName || '—';
+  const courseOfStudy = isStaff ? deptName : (progName !== '—' ? progName : deptName);
 
   let title = 'Official Document';
   let bodyContent = '';
@@ -4036,16 +4042,16 @@ async function renderDocPreview(doc, user) {
       <p>TO WHOM IT MAY CONCERN</p>
       <br>
       <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with ${idLabel} <strong>${escapeHtml(idValue)}</strong> is a bona fide ${isStaff ? 'staff member' : 'student'} of Federal Polytechnic Ugep.</p>
-      <p>${isStaff ? 'They currently serve in the capacity of' : 'They are currently in Level'} <strong>${escapeHtml(levelValue)}</strong> ${isStaff ? 'within the' : 'studying'} <strong>${escapeHtml(user.departmentName || user.department?.name || user.programmeName || '—')}</strong>.</p>
-      <p>This attestation is issued upon request for whatever legal purpose it may serve.</p>
+      <p>${isStaff ? 'They currently serve in the capacity of' : 'They are currently in'} <strong>${escapeHtml(levelValue)}</strong> ${isStaff ? 'within the' : 'studying'} <strong>${escapeHtml(courseOfStudy)}</strong>.</p>
+      <p>This attestation is issued upon their request for whatever legal purpose it may serve.</p>
     `;
   } else if (type === 'certificate') {
-    title = 'Certificate of Service';
+    title = isStaff ? 'Certificate of Service' : 'Certificate of Completion';
     bodyContent = `
-      <p style="text-align:center; font-size:16px;">This is to certify that</p>
-      <h2 style="text-align:center; font-size:24px; margin:20px 0;">${escapeHtml(fullName)}</h2>
-      <p style="text-align:center;">has successfully completed their tenure/requirements as</p>
-      <p style="text-align:center; font-weight:bold;">${escapeHtml(levelValue)} ${isStaff ? '' : 'in ' + escapeHtml(user.programmeName || '—')}</p>
+      <p style="text-align:center; font-size:18px;">This is to certify that</p>
+      <h2 style="text-align:center; font-size:28px; margin:30px 0; font-family:'Times New Roman', serif;">${escapeHtml(fullName)}</h2>
+      <p style="text-align:center;">has successfully completed their requirements for</p>
+      <p style="text-align:center; font-weight:bold; font-size:18px;">${escapeHtml(courseOfStudy)}</p>
     `;
   } else {
     title = `${String(doc.type).toUpperCase()} Document`;
@@ -4058,18 +4064,19 @@ async function renderDocPreview(doc, user) {
         <span>👁 Document Preview (Ready to Issue)</span>
         <span class="tip">Use 🖨 Print to save as PDF</span>
       </div>
-      <div class="doc-preview-frame">
+      <div class="doc-preview-outer">
+        
         <div class="official-doc">
-          
-          <!-- NEW: Logo Watermark -->
+          <!-- Logo Watermark -->
           <div class="official-watermark">
-            <img src="/images/logo.png" alt="watermark" style="width:400px; opacity:0.04; filter: grayscale(100%);" onerror="this.style.display='none'" />
+            <img src="/images/logo.png" alt="watermark" onerror="this.style.display='none'" />
           </div>
 
+          <!-- Letterhead -->
           <div class="official-letterhead">
             <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
             <div>
-              <div class="inst-name">Federal Polytechnic Ugep</div>
+              <div class="inst-name">FEDERAL POLYTECHNIC Ugep</div>
               <div class="inst-motto">Citadel of Technical Excellence</div>
             </div>
           </div>
@@ -4093,6 +4100,7 @@ async function renderDocPreview(doc, user) {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   `;
@@ -4179,84 +4187,6 @@ async function issueDoc(id) {
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
-}
-
-// ---------- Replace renderDocPreview with this robust version ----------
-async function renderDocPreview(doc, user) {
-  const type = String(doc.type || '').toLowerCase();
-  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const studentName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown Student';
-
-  // If it's a transcript, use the transcript renderer (keep your existing one)
-  if (type === 'transcript') {
-    return ` <!-- Your existing transcript renderer HTML goes here --> `;
-  }
-
-  // For Attestations, Certificates, Clearance, etc.
-  let title = 'Official Document';
-  let bodyContent = '';
-
-  if (type === 'attestation') {
-    title = 'Attestation Letter';
-    bodyContent = `
-      <p>TO WHOM IT MAY CONCERN</p>
-      <br>
-      <p>This is to certify that <strong>${escapeHtml(studentName)}</strong> with Matriculation Number <strong>${escapeHtml(user.matricNumber || '—')}</strong> is a bona fide student of Federal Polytechnic Ugep, currently in Level <strong>${escapeHtml(user.level || '—')}</strong> studying <strong>${escapeHtml(user.programmeName || user.programme?.name || '—')}</strong>.</p>
-      <p>This attestation is issued upon request for whatever legal purpose it may serve.</p>
-    `;
-  } else if (type === 'certificate') {
-    title = 'Certificate of Completion';
-    bodyContent = `
-      <p style="text-align:center; font-size:16px;">This is to certify that</p>
-      <h2 style="text-align:center; font-size:24px; margin:20px 0;">${escapeHtml(studentName)}</h2>
-      <p style="text-align:center;">has successfully completed the requirements for</p>
-      <p style="text-align:center; font-weight:bold;">${escapeHtml(user.programmeName || user.programme?.name || '—')}</p>
-    `;
-  } else {
-    title = `${String(doc.type).toUpperCase()} Document`;
-    bodyContent = `<p>This document is officially issued to <strong>${escapeHtml(studentName)}</strong> (${escapeHtml(user.matricNumber || '—')}).</p>`;
-  }
-
-  return `
-    <div class="doc-preview-wrap">
-      <div class="doc-preview-toolbar">
-        <span>👁 Document Preview (Ready to Issue)</span>
-        <span class="tip">Use 🖨 Print to save as PDF</span>
-      </div>
-      <div class="doc-preview-frame">
-        <div class="official-doc">
-          <div class="official-watermark">FPU</div>
-
-          <div class="official-letterhead">
-            <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
-            <div>
-              <div class="inst-name">Federal Polytechnic Ugep</div>
-              <div class="inst-motto">Citadel of Technical Excellence</div>
-            </div>
-          </div>
-
-          <div class="official-title">${escapeHtml(title)}</div>
-
-          <div class="official-body">
-            ${bodyContent}
-            <br>
-            <p>Issued on this day, ${dateStr}.</p>
-          </div>
-
-          <div class="official-signatures">
-            <div>
-              <div class="official-sig-line"></div>
-              <div class="official-sig-role">Registrar</div>
-            </div>
-            <div>
-              <div class="official-sig-line"></div>
-              <div class="official-sig-role">Date</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
 }
 
 async function deleteDoc(doc) {

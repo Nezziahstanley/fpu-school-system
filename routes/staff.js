@@ -108,13 +108,63 @@ router.put('/:id', requireRole(['admin', 'registrar']), async (req, res, next) =
     if (!user || user.role === 'student') {
       return res.status(404).json({ success: false, error: 'Staff member not found.' });
     }
-    const patch = { ...req.body };
-    delete patch.password;
-    delete patch.passwordHash;
-    delete patch.role; // role change must go through adminUsers endpoints
-    const updated = await userQueries.update(user.id, patch);
-    await logAudit({ req, action: 'staff.update', entity: 'user', entityId: user.id, before: user, after: updated });
-    return res.json({ success: true, data: updated });
+
+    const body = req.body || {};
+    const { rank, specialization, qualification, employmentDate } = body;
+
+    // 1. Separate User fields from Staff Profile fields
+    const userPatch = { ...body };
+    delete userPatch.password;
+    delete userPatch.passwordHash;
+    delete userPatch.role; 
+    
+    // Remove staff fields so they don't break the user update
+    delete userPatch.rank;
+    delete userPatch.specialization;
+    delete userPatch.qualification;
+    delete userPatch.employmentDate;
+
+    // 2. Update the User table (Name, Email, Phone, Address, etc.)
+    const updatedUser = await userQueries.update(user.id, userPatch);
+
+    // 3. Update the Staff Profile table (Rank, Specialization, etc.)
+    if (rank || specialization || qualification || employmentDate) {
+      const { db, schema } = require('../db');
+      const { eq } = require('drizzle-orm');
+
+      // Check if profile exists first
+      const existingProfile = await db
+        .select()
+        .from(schema.staffProfiles)
+        .where(eq(schema.staffProfiles.userId, user.id))
+        .limit(1);
+
+      if (existingProfile.length > 0) {
+        // Update existing profile
+        await db.update(schema.staffProfiles)
+          .set({
+            rank: rank || existingProfile[0].rank,
+            specialization: specialization || existingProfile[0].specialization,
+            qualification: qualification || existingProfile[0].qualification,
+            employmentDate: employmentDate || existingProfile[0].employmentDate,
+            updatedAt: new Date() // If your table has this column
+          })
+          .where(eq(schema.staffProfiles.userId, user.id));
+      } else {
+        // Create new profile
+        await db.insert(schema.staffProfiles).values({
+          userId: user.id,
+          rank: rank || null,
+          specialization: specialization || null,
+          qualification: qualification || null,
+          employmentDate: employmentDate || null,
+          isHod: user.role === 'hod',
+        });
+      }
+    }
+
+    await logAudit({ req, action: 'staff.update', entity: 'user', entityId: user.id, before: user, after: updatedUser });
+    return res.json({ success: true, data: updatedUser });
   } catch (err) {
     return next(err);
   }

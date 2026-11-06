@@ -10463,6 +10463,47 @@ async function loadStaffList(roleFilter = null) {
   }
 }
 
+async function saveStaffForm(e) {
+  if (e) e.preventDefault();
+  
+  const id = getCurrentStaffId(); // Assuming you have this helper
+  
+  // Gather all values from the form
+  const payload = {
+    firstName: document.getElementById('sf-firstName').value,
+    lastName: document.getElementById('sf-lastName').value,
+    middleName: document.getElementById('sf-middleName').value,
+    email: document.getElementById('sf-email').value,
+    phone: document.getElementById('sf-phone').value,
+    gender: document.getElementById('sf-gender').value,
+    role: document.getElementById('sf-role').value,
+    departmentId: document.getElementById('sf-department').value,
+    // --- STAFF PROFILE FIELDS ---
+    rank: document.getElementById('sf-rank').value,
+    specialization: document.getElementById('sf-specialization').value,
+    qualification: document.getElementById('sf-qualification').value,
+    employmentDate: document.getElementById('sf-employmentDate').value,
+  };
+
+  const password = document.getElementById('sf-password').value;
+  if (password) payload.password = password;
+
+  try {
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/api/admin/staff/${id}` : '/api/admin/staff';
+    
+    await adminFetch(url, {
+      method: method,
+      body: JSON.stringify(payload)
+    });
+    
+    showToast('✅ Staff saved successfully.', 'success');
+    window.location.hash = id ? `#staff-profile?id=${id}` : '#staff';
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

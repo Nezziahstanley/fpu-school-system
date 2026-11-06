@@ -3051,12 +3051,20 @@ async function openLecturerCourses(id) {
   const lecturer = ALL_LECTURERS.find(s => Number(s.id) === Number(id));
   if (!lecturer) return;
 
+  // Strict filter: must match lecturer AND have a valid course attached
   const allocs = ALL_ALLOCATIONS.filter(a => {
-    const lid = a.lecturer?.id || a.allocation?.lecturerId;
-    return Number(lid) === Number(id);
+    const lid = a.allocation?.lecturerId 
+             || a.lecturer?.id 
+             || a.lecturerId;
+    
+    return lid 
+        && Number(lid) === Number(id) 
+        && a.course 
+        && a.course.code;
   });
 
   const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim();
+  const email = lecturer.email || '';
 
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
@@ -3070,9 +3078,13 @@ async function openLecturerCourses(id) {
         ${allocs.length === 0 ? `
           <div style="text-align:center;padding:40px;color:#64748b;">
             <div style="font-size:2rem;margin-bottom:10px;">📚</div>
-            <p>No courses allocated yet.</p>
+            <p style="margin:0 0 8px;font-weight:600;color:#0f172a;">No courses allocated yet</p>
+            <p style="margin:0;font-size:13px;">Use the Allocations page to assign courses to this lecturer.</p>
           </div>
         ` : `
+          <div style="margin-bottom:12px;font-size:12px;color:#64748b;">
+            Showing <strong>${allocs.length}</strong> course${allocs.length === 1 ? '' : 's'} assigned to this lecturer.
+          </div>
           <table class="table-admin" style="width:100%;font-size:13px;">
             <thead>
               <tr>
@@ -3085,19 +3097,26 @@ async function openLecturerCourses(id) {
             <tbody>
               ${allocs.map(a => `
                 <tr>
-                  <td><code>${escapeHtml(a.course?.code || '—')}</code></td>
-                  <td>${escapeHtml(a.course?.title || '—')}</td>
-                  <td style="text-align:center;">${Number(a.course?.unit) || 0}</td>
+                  <td><code>${escapeHtml(a.course.code || '—')}</code></td>
+                  <td>${escapeHtml(a.course.title || '—')}</td>
+                  <td style="text-align:center;font-weight:600;">${Number(a.course.unit) || 0}</td>
                   <td><span style="text-transform:capitalize;">${escapeHtml(a.allocation?.semester || a.semester || '—')}</span></td>
                 </tr>
               `).join('')}
             </tbody>
+            <tfoot>
+              <tr style="background:#f8fafc;font-weight:700;">
+                <td colspan="2" style="text-align:right;">Total Units:</td>
+                <td style="text-align:center;">${allocs.reduce((sum, a) => sum + (Number(a.course.unit) || 0), 0)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         `}
       </div>
       <div class="fpu-modal-footer">
         <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Close</button>
-        <button class="btn btn-primary" onclick="FPU_ADMIN.sendLecturerEmail(${id})">✉️ Email ${escapeHtml(lecturer.firstName || 'Lecturer')}</button>
+        ${email ? `<button class="btn btn-primary" onclick="FPU_ADMIN.sendLecturerEmail(${id})">✉️ Email ${escapeHtml(lecturer.firstName || 'Lecturer')}</button>` : ''}
       </div>
     </div>
   `;

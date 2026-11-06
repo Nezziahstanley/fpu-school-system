@@ -4128,9 +4128,6 @@ async function loadReportsWithCharts() {
   }
 }
 
-// Alias so the partial's `FPU_ADMIN.loadReports()` call works
-async function loadReports() { return loadReportsWithCharts(); }
-
 async function loadAuditTable() {
   const container = document.getElementById('audit-tbody');
   if (!container) return;
@@ -6588,25 +6585,19 @@ async function loadSecurityEvents() {
 }
 
 // ============================================
-// REPORTS — KPI tiles, charts, tables
+// REPORTS
 // ============================================
 async function loadReports() {
-  const days = (document.getElementById('rep-range') || {}).value || 365;
-  const rangeQs = days === 'all' ? '' : `?days=${days}`;
-
+  // Safe fetch helper
   async function safeJson(url) {
     try {
       const res = await adminFetch(url);
       if (!res.ok) return null;
       const j = await res.json();
       return j.data || j || [];
-    } catch (e) {
-      console.debug('[reports]', url, e.message);
-      return null;
-    }
+    } catch { return null; }
   }
 
-  // ---------- KPI tiles ----------
   const [students, applications, programmes, payments] = await Promise.all([
     safeJson('/api/admin/students?limit=5000'),
     safeJson('/api/admin/applications?limit=5000'),
@@ -6614,223 +6605,259 @@ async function loadReports() {
     safeJson('/api/admin/payments?limit=5000'),
   ]);
 
-  const studentCount = Array.isArray(students) ? students.length : 0;
-  const appCount = Array.isArray(applications) ? applications.length : 0;
-  const progCount = Array.isArray(programmes) ? programmes.length : 0;
-  const revenue = Array.isArray(payments)
-    ? payments
-        .filter((p) => (p.payment || p).status === 'verified')
-        .reduce((s, p) => s + Number((p.payment || p).amount || 0), 0)
-    : 0;
+  // KPIs
+  setText('rep-stat-students', Array.isArray(students) ? students.length : 0);
+  setText('rep-stat-apps', Array.isArray(applications) ? applications.length : 0);
+  setText('rep-stat-progs', Array.isArray(programmes) ? programmes.length : 0);
 
-  setText('rep-stat-students', studentCount);
-  setText('rep-stat-apps', appCount);
-  setText('rep-stat-revenue', money(revenue));
-  setText('rep-stat-progs', progCount);
+  let revTotal = 0;
+  if (Array.isArray(payments)) {
+    payments.forEach(p => {
+      if (p.status === 'verified') revTotal += Number(p.amount) || 0;
+    });
+  }
+  setText('rep-stat-revenue', money(revTotal));
 
   // If Chart.js isn't available, stop after KPIs
-  if (typeof Chart === 'undefined') {
-    console.warn('[reports] Chart.js not loaded — install it in admin app.html');
-    return;
-  }
+  if (typeof Chart === 'undefined') return;
 
-  function emptyState(canvasId, msg) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (parent) parent.innerHTML = `<p class="muted" style="padding:40px;text-align:center;color:#94a3b8;">${msg}</p>`;
-  }
-
-  // ---------- Chart 1: Admission Trend ----------
-  // Try specific report endpoint first
-  let admissions = await safeJson(`/api/admin/reports/admission-trend${rangeQs}`);
-  if (!Array.isArray(admissions) || !admissions.length) {
-    // Fallback: derive from applications createdAt
-    if (Array.isArray(applications) && applications.length) {
-      const byMonth = {};
-      applications.forEach((a) => {
-        const d = a.createdAt ? new Date(a.createdAt) : null;
-        if (!d) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        byMonth[key] = (byMonth[key] || 0) + 1;
-      });
-      admissions = Object.entries(byMonth)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([month, count]) => ({ month, count }));
+  // Helper to replace canvas with a message if there's no data
+  function emptyState(id, msg) {
+    const canvas = document.getElementById(id);
+    if (canvas && canvas.parentElement) {
+      canvas.parentElement.innerHTML = `<p class="muted" style="padding:20px;text-align:center;">${msg}</p>`;
     }
   }
+
+  // Chart 1: Admissions
   const chartA = document.getElementById('rep-chart-admission');
-  if (chartA && Array.isArray(admissions) && admissions.length) {
+  if (chartA && Array.isArray(applications) && applications.length > 0) {
+    const counts = {};
+    applications.forEach(a => {
+      if (!a.createdAt) return;
+      const d = new Date(a.createdAt);
+      const m = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+      counts[m] = (counts[m] || 0) + 1;
+    });
     new Chart(chartA, {
       type: 'line',
       data: {
-        labels: admissions.map((r) => r.month),
-        datasets: [{
-          data: admissions.map((r) => r.count),
-          borderColor: '#065f46',
-          backgroundColor: 'rgba(6,95,70,.1)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3,
-        }],
+        labels: Object.keys(counts),
+        datasets: [{ data: Object.values(counts), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', fill: true, tension: 0.4 }]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
-  } else {
-    emptyState('rep-chart-admission', 'No admission data yet.');
-  }
+  } else { emptyState('rep-chart-admission', 'No admissions data.'); }
 
-  // ---------- Chart 2: Revenue Trend ----------
-  let revenueTrend = await safeJson(`/api/admin/reports/revenue-trend${rangeQs}`);
-  if (!Array.isArray(revenueTrend) || !revenueTrend.length) {
-    if (Array.isArray(payments) && payments.length) {
-      const byMonth = {};
-      payments.forEach((p) => {
-        const row = p.payment || p;
-        if (row.status !== 'verified') return;
-        const d = row.createdAt ? new Date(row.createdAt) : null;
-        if (!d) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        byMonth[key] = (byMonth[key] || 0) + Number(row.amount || 0);
-      });
-      revenueTrend = Object.entries(byMonth)
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([month, total]) => ({ month, total }));
-    }
-  }
+  // Chart 2: Revenue
   const chartR = document.getElementById('rep-chart-revenue');
-  if (chartR && Array.isArray(revenueTrend) && revenueTrend.length) {
+  if (chartR && Array.isArray(payments) && payments.length > 0) {
+    const counts = {};
+    payments.forEach(p => {
+      if (p.status !== 'verified' || !p.createdAt) return;
+      const d = new Date(p.createdAt);
+      const m = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+      counts[m] = (counts[m] || 0) + (Number(p.amount) || 0);
+    });
     new Chart(chartR, {
       type: 'line',
       data: {
-        labels: revenueTrend.map((r) => r.month),
-        datasets: [{
-          data: revenueTrend.map((r) => Number(r.total || 0)),
-          borderColor: '#f59e0b',
-          backgroundColor: 'rgba(245,158,11,.15)',
-          tension: 0.4,
-          fill: true,
-          borderWidth: 3,
-        }],
+        labels: Object.keys(counts),
+        datasets: [{ data: Object.values(counts), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', fill: true, tension: 0.4 }]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
-  } else {
-    emptyState('rep-chart-revenue', 'No revenue data yet.');
-  }
+  } else { emptyState('rep-chart-revenue', 'No revenue data.'); }
 
-  // ---------- Chart 3: Enrollment by Department ----------
-  let deptData = await safeJson('/api/admin/reports/enrollment-by-department');
-  if (!Array.isArray(deptData) || !deptData.length) {
-    const departments = await safeJson('/api/admin/departments');
-    if (Array.isArray(students) && Array.isArray(departments)) {
-      const byDept = new Map();
-      departments.forEach((d) => byDept.set(d.id, { name: d.code || d.name, count: 0 }));
-      students.forEach((s) => {
-        const bucket = byDept.get(s.departmentId);
-        if (bucket) bucket.count++;
-      });
-      deptData = [...byDept.values()].filter((d) => d.count > 0);
-    }
-  }
+  // Chart 3: Departments
   const chartD = document.getElementById('rep-chart-dept');
-  if (chartD && Array.isArray(deptData) && deptData.length) {
-    const top = deptData.slice(0, 10);
+  if (chartD && Array.isArray(students) && students.length > 0) {
+    // Very simplified grouping since we don't have department names easily mapped here
+    const counts = {};
+    students.forEach(s => {
+      const dId = s.departmentId || 'Unknown';
+      counts[dId] = (counts[dId] || 0) + 1;
+    });
     new Chart(chartD, {
       type: 'bar',
       data: {
-        labels: top.map((r) => r.name),
-        datasets: [{ data: top.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
+        labels: Object.keys(counts),
+        datasets: [{ data: Object.values(counts), backgroundColor: '#3b82f6', borderRadius: 6 }]
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
-  } else {
-    emptyState('rep-chart-dept', 'No department data yet.');
-  }
+  } else { emptyState('rep-chart-dept', 'No department data.'); }
 
-  // ---------- Chart 4: Applications by Status ----------
-  let appStatus = await safeJson('/api/admin/reports/applications-by-status');
-  if (!Array.isArray(appStatus) || !appStatus.length) {
-    if (Array.isArray(applications) && applications.length) {
-      const counts = {};
-      applications.forEach((a) => {
-        const s = a.status || 'unknown';
-        counts[s] = (counts[s] || 0) + 1;
-      });
-      appStatus = Object.entries(counts).map(([status, count]) => ({ status, count }));
-    }
-  }
+  // Chart 4: App Status
   const chartAp = document.getElementById('rep-chart-apps');
-  if (chartAp && Array.isArray(appStatus) && appStatus.length) {
-    const colorMap = {
-      pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46',
-      rejected: '#dc2626', registered: '#8b5cf6',
-    };
+  if (chartAp && Array.isArray(applications) && applications.length > 0) {
+    const counts = {};
+    applications.forEach(a => {
+      counts[a.status] = (counts[a.status] || 0) + 1;
+    });
     new Chart(chartAp, {
       type: 'doughnut',
       data: {
-        labels: appStatus.map((r) => String(r.status || '').replace(/_/g, ' ')),
-        datasets: [{
-          data: appStatus.map((r) => r.count),
-          backgroundColor: appStatus.map((r) => colorMap[r.status] || '#64748b'),
-          borderColor: '#fff',
-          borderWidth: 3,
-        }],
+        labels: Object.keys(counts),
+        datasets: [{ data: Object.values(counts), backgroundColor: ['#f59e0b', '#3b82f6', '#065f46', '#dc2626'], borderWidth: 0 }]
       },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
     });
-  } else {
-    emptyState('rep-chart-apps', 'No application data yet.');
+  } else { emptyState('rep-chart-apps', 'No application data.'); }
+
+  // Tables
+  const appTb = document.getElementById('rep-apps-tbody');
+  if (appTb && Array.isArray(applications)) {
+    const counts = {};
+    applications.forEach(a => { counts[a.status] = (counts[a.status] || 0) + 1; });
+    appTb.innerHTML = Object.entries(counts).map(([st, c]) => `<tr><td>${escapeHtml(st)}</td><td class="num">${c}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">No data.</td></tr>';
   }
 
-  // ---------- Applications by Status TABLE ----------
-  const appsTbody = document.getElementById('rep-apps-tbody');
-  if (appsTbody) {
-    if (Array.isArray(appStatus) && appStatus.length) {
-      appsTbody.innerHTML = appStatus.map((r) => `
-        <tr><td>${escapeHtml(r.status || '—')}</td><td class="num">${r.count || 0}</td></tr>
-      `).join('');
-    } else {
-      appsTbody.innerHTML = '<tr><td colspan="2" class="empty">No data available.</td></tr>';
+  const payTb = document.getElementById('rep-pay-tbody');
+  if (payTb && Array.isArray(payments)) {
+    const counts = {};
+    payments.forEach(p => {
+      if (!counts[p.status]) counts[p.status] = { c: 0, t: 0 };
+      counts[p.status].c++;
+      counts[p.status].t += Number(p.amount) || 0;
+    });
+    payTb.innerHTML = Object.entries(counts).map(([st, d]) => `<tr><td>${escapeHtml(st)}</td><td class="num">${d.c}</td><td class="num">${money(d.t)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">No data.</td></tr>';
+  }
+}
+
+// ============================================
+// GRADUATION
+// ============================================
+async function loadGraduationsTable() {
+  const tbody = document.getElementById('grad-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/graduation');
+    const json = await res.json();
+    const rows = json.data || json || []; // Fallback if API returns array directly
+
+    let pending = 0;
+    let graduated = 0;
+    let dist = 0;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No graduation records found.</td></tr>';
+      setText('grad-stat-total', 0);
+      setText('grad-stat-pending', 0);
+      setText('grad-stat-graduated', 0);
+      setText('grad-stat-dist', 0);
+      return;
     }
-  }
 
-  // ---------- Payments by Status TABLE ----------
-  const payTbody = document.getElementById('rep-pay-tbody');
-  if (payTbody) {
-    if (Array.isArray(payments) && payments.length) {
-      const counts = {};
-      payments.forEach((p) => {
-        const row = p.payment || p;
-        const s = row.status || 'unknown';
-        if (!counts[s]) counts[s] = { count: 0, total: 0 };
-        counts[s].count++;
-        counts[s].total += Number(row.amount || 0);
-      });
-      payTbody.innerHTML = Object.entries(counts).map(([status, data]) => `
+    tbody.innerHTML = rows.map((r) => {
+      const g = r.graduation || r;
+      const s = r.student || r; // Fallback if flattened
+      
+      if (g.status === 'pending') pending++;
+      if (g.status === 'graduated') graduated++;
+      if (g.classification === 'Distinction') dist++;
+
+      const isPending = g.status === 'pending';
+      const isApproved = g.status === 'approved';
+
+      return `
         <tr>
-          <td>${escapeHtml(status)}</td>
-          <td class="num">${data.count}</td>
-          <td class="num">${money(data.total)}</td>
+          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
+          <td><code>${escapeHtml(s.matricNumber || '—')}</code></td>
+          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td>${escapeHtml(g.level || '—')}</td>
+          <td class="num">${g.cgpa || '—'}</td>
+          <td>${escapeHtml(g.classification || '—')}</td>
+          <td>${badge(g.status)}</td>
+          <td>
+            <div class="row-actions" style="justify-content:flex-end;">
+              ${isPending ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button>` : ''}
+              ${isApproved ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
+              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">Transcript</button>
+            </div>
+          </td>
         </tr>
-      `).join('');
-    } else {
-      payTbody.innerHTML = '<tr><td colspan="3" class="empty">No data available.</td></tr>';
-    }
-  }
+      `;
+    }).join('');
 
-  // ---------- Wire export ----------
-  const exportBtn = document.getElementById('rep-export');
-  if (exportBtn && !exportBtn.__wired) {
-    exportBtn.__wired = true;
-    exportBtn.onclick = () => {
-      const table = document.getElementById('rep-apps-tbody')?.closest('table');
-      if (table) {
-        exportTableAsCSV(table, `reports-${new Date().toISOString().slice(0, 10)}.csv`);
-      } else {
-        showToast('⚠️ Nothing to export yet.', 'warning');
-      }
-    };
+    setText('grad-stat-total', rows.length);
+    setText('grad-stat-pending', pending);
+    setText('grad-stat-graduated', graduated);
+    setText('grad-stat-dist', dist);
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ============================================
+// GRADUATION
+// ============================================
+async function loadGraduationsTable() {
+  const tbody = document.getElementById('grad-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/graduation');
+    const json = await res.json();
+    const rows = json.data || json || []; // Fallback if API returns array directly
+
+    let pending = 0;
+    let graduated = 0;
+    let dist = 0;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No graduation records found.</td></tr>';
+      setText('grad-stat-total', 0);
+      setText('grad-stat-pending', 0);
+      setText('grad-stat-graduated', 0);
+      setText('grad-stat-dist', 0);
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+      const g = r.graduation || r;
+      const s = r.student || r; // Fallback if flattened
+      
+      if (g.status === 'pending') pending++;
+      if (g.status === 'graduated') graduated++;
+      if (g.classification === 'Distinction') dist++;
+
+      const isPending = g.status === 'pending';
+      const isApproved = g.status === 'approved';
+
+      return `
+        <tr>
+          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
+          <td><code>${escapeHtml(s.matricNumber || '—')}</code></td>
+          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td>${escapeHtml(g.level || '—')}</td>
+          <td class="num">${g.cgpa || '—'}</td>
+          <td>${escapeHtml(g.classification || '—')}</td>
+          <td>${badge(g.status)}</td>
+          <td>
+            <div class="row-actions" style="justify-content:flex-end;">
+              ${isPending ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button>` : ''}
+              ${isApproved ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
+              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">Transcript</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    setText('grad-stat-total', rows.length);
+    setText('grad-stat-pending', pending);
+    setText('grad-stat-graduated', graduated);
+    setText('grad-stat-dist', dist);
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -6915,7 +6942,9 @@ window.FPU_ADMIN = {
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,
-  loadLoginHistory, loadUserProfile, loadUsersWithPhotos, LoadReports, loadReportsWithCharts,
+  loadLoginHistory, loadUserProfile, loadUsersWithPhotos, 
+  
+  loadReports, loadReportsWithCharts, loadGraduationsTable,
 
   // Settings
   saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,

@@ -10892,7 +10892,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A4 Exam Sheet
+// EXAMS: Load A3 Exam Sheet (Fixed Layout)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -10932,7 +10932,7 @@ async function loadExamSheet() {
     }
 
     root.innerHTML = `
-      <div class="ex-sheet" id="a4-sheet">
+      <div class="ex-sheet" id="a3-sheet">
         <div class="ex-head">
           <img src="/images/logo.png" alt="Logo" class="ex-logo">
           <div class="ex-head-text">
@@ -10946,6 +10946,7 @@ async function loadExamSheet() {
           <thead>
             <tr>
               <th class="col-days">DAYS</th>
+              <th class="col-date">DATE</th>
               <th class="col-code">CODE</th>
               <th class="col-cu">CU</th>
               <th class="col-title">COURSE TITLE</th>
@@ -10959,7 +10960,7 @@ async function loadExamSheet() {
           </tbody>
         </table>
 
-        <div class="ex-footer">
+        <div style="margin-top: 30px; font-size: 11pt; font-weight: 700;">
           <div>Clp. AKIRKPO, Martha Onsisi mnip</div>
           <div>HOD, Computer Science</div>
         </div>
@@ -10972,6 +10973,74 @@ async function loadExamSheet() {
     console.error('Failed to load exam sheet', err);
     root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
   }
+}
+
+// ============================================
+// Helper: Render rows with separate columns
+// ============================================
+function renderExamTableRows(exams) {
+  const grouped = {};
+  
+  // 1. Group by Date safely
+  exams.forEach(ex => {
+    // Fallback for different date formats
+    let dateStr = ex.examDate || ex.date || '';
+    if (dateStr) dateStr = String(dateStr).split('T')[0];
+    if (!dateStr) dateStr = 'Unknown Date';
+
+    if (!grouped[dateStr]) grouped[dateStr] = [];
+    grouped[dateStr].push(ex);
+  });
+
+  const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  let html = '';
+
+  // 2. Loop through sorted dates
+  Object.keys(grouped).sort().forEach(dateStr => {
+    const dateObj = dateStr !== 'Unknown Date' ? new Date(dateStr) : null;
+    const dayName = dateObj ? (daysOfWeek[dateObj.getDay()] || 'UNK') : 'UNK';
+    const formattedDate = dateObj ? dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'TBA';
+    
+    const dayExams = grouped[dateStr];
+    const rowCount = dayExams.length;
+
+    // 3. Create a row for EACH exam
+    dayExams.forEach((ex, index) => {
+      html += `<tr>`;
+      
+      // Only render DAY and DATE columns on the first row, then use rowspan
+      if (index === 0) {
+        html += `
+          <td class="col-days" rowspan="${rowCount}">${dayName}</td>
+          <td class="col-date" rowspan="${rowCount}">${formattedDate}</td>
+        `;
+      }
+
+      // Safely extract variables
+      const courseCode = ex.course?.code || ex.courseCode || 'N/A';
+      const courseTitle = ex.course?.title || ex.courseTitle || 'N/A';
+      const cu = ex.course?.unit || ex.course?.creditUnit || ex.unit || '-';
+      
+      let start = ex.startTime ? String(ex.startTime).substring(0, 5) : 'TBA';
+      let end = ex.endTime ? String(ex.endTime).substring(0, 5) : 'TBA';
+      const timeStr = `${start} - ${end}`;
+      
+      const lecturer = ex.lecturerName || ex.course?.lecturerName || ex.lecturer || 'TBA';
+      const venue = ex.venue || 'TBA';
+
+      // Ensure we render each piece of data in its own <td>
+      html += `
+        <td class="col-code">${escapeHtml(courseCode)}</td>
+        <td class="col-cu">${escapeHtml(String(cu))}</td>
+        <td class="col-title">${escapeHtml(courseTitle)}</td>
+        <td class="col-time">${escapeHtml(timeStr)}</td>
+        <td class="col-lecturer">${escapeHtml(lecturer)}</td>
+        <td class="col-venue">${escapeHtml(venue)}</td>
+      </tr>`;
+    });
+  });
+
+  return html;
 }
 
 // Helper to render table rows with rowspans

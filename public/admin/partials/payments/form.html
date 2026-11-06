@@ -92,11 +92,8 @@
         const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
         ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
 
-        // 🔍 DIAGNOSTIC LOG (check F12 console)
-        console.log('[payment-form] Loaded fees:', ALL_FEES);
-        if (ALL_FEES.length > 0) {
-          console.log('[payment-form] Sample fee:', ALL_FEES[0]);
-        }
+        // 🔍 DIAGNOSTIC: Check exactly what the API returned
+        console.log('[payment-form] Fees from API:', ALL_FEES);
 
         // Departments dropdown
         $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
@@ -109,26 +106,17 @@
           .sort((a, b) => String(b.name).localeCompare(String(a.name)))
           .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
 
-        // 🕵️ FEE DROPDOWN — Deep scan for level and amount
+        // 🎯 FEE DROPDOWN — Direct mapping to the confirmed DB columns
         if (!ALL_FEES.length) {
           $('pf-fee').innerHTML = '<option value="">⚠️ No fees found in database</option>';
         } else {
           $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
             ALL_FEES.map(f => {
-              // Try EVERY possible key name for level and amount
-              const level = String(
-                f.level || f.name || f.programmeLevel || f.programme_level || 
-                f.programme?.level || 'Fee'
-              ).toUpperCase();
+              // We know from Neon the columns are exactly 'level' and 'amount'
+              const level = String(f.level || 'Fee').toUpperCase();
+              const amount = Number(f.amount || 0);
               
-              const amount = Number(
-                f.amount || f.totalAmount || f.total_amount || f.feeAmount || 
-                f.fee_amount || f.total || f.amount_due || f.amountDue || 
-                f.fee || 0
-              );
-              
-              const label = `${level} — ₦${amount.toLocaleString()}`;
-              return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(label)}</option>`;
+              return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(level)} — ₦${amount.toLocaleString()}</option>`;
             }).join('');
         }
 
@@ -136,7 +124,7 @@
         filterStudentsByDept();
 
       } catch (err) {
-        console.error('[payment-form]', err);
+        console.error('[payment-form] Error:', err);
         $('pf-validation').innerHTML = `<div style="color:#dc2626;">Load error: ${err.message}</div>`;
       }
     }
@@ -162,7 +150,7 @@
         }).join('');
     };
 
-    // When a student is selected: auto-fill fee and reference
+    // When student selected: auto-fill fee and reference
     window.onStudentSelected = function () {
       const sel = $('pf-student').selectedOptions[0];
       if (!sel || !sel.value) {
@@ -172,12 +160,9 @@
 
       const lvl = String(sel.dataset.level || '').toUpperCase();
 
-      // 1. Auto-select matching fee (by level)
+      // 1. Auto-select matching fee
       if (lvl && ALL_FEES.length) {
-        const match = ALL_FEES.find(f => {
-          const fLevel = String(f.level || f.name || f.programmeLevel || '').toUpperCase();
-          return fLevel === lvl;
-        });
+        const match = ALL_FEES.find(f => String(f.level || '').toUpperCase() === lvl);
         if (match) {
           $('pf-fee').value = match.id;
           applyFeeSelection();
@@ -193,7 +178,7 @@
       $('pf-reference').value = `FPU-${dateStr}-${rand}`;
     };
 
-    // When a fee is selected: auto-fill amount
+    // When fee selected: auto-fill amount
     window.applyFeeSelection = function () {
       const sel = $('pf-fee').selectedOptions[0];
       if (sel && sel.dataset.amount && Number(sel.dataset.amount) > 0) {

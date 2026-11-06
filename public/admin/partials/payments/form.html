@@ -16,7 +16,6 @@
   <div class="panel-body">
     <form id="payment-form">
       
-      <!-- Student Selection -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Filter by Department</label>
@@ -34,7 +33,6 @@
 
       <hr style="margin:20px 0; border:none; border-top:1px solid #e2e8f0;">
 
-      <!-- Payment Details -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Session <span class="req">*</span></label>
@@ -43,9 +41,12 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Fee Structure</label>
+          <label class="form-label">Fee Level</label>
           <select class="form-select" id="pf-fee" onchange="applyFeeSelection()">
-            <option value="">— Loading fees —</option>
+            <option value="ND-1" data-amount="53105">ND 1 — ₦53,105</option>
+            <option value="ND-2" data-amount="53105">ND 2 — ₦53,105</option>
+            <option value="HND-1" data-amount="66726">HND 1 — ₦66,726</option>
+            <option value="HND-2" data-amount="66726">HND 2 — ₦66,726</option>
           </select>
         </div>
         <div class="form-group">
@@ -76,24 +77,18 @@
 
     let ALL_STUDENTS = [];
     let ALL_DEPTS = [];
-    let ALL_FEES = [];
 
     async function loadInitialData() {
       try {
-        const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
+        const [deptsRes, studentsRes, sessionsRes] = await Promise.all([
           A.adminFetch('/api/admin/departments').catch(() => null),
           A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
           A.adminFetch('/api/admin/sessions').catch(() => null),
-          A.adminFetch('/api/admin/fees').catch(() => null),
         ]);
 
         ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
         ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
         const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
-        ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
-
-        // 🔍 DIAGNOSTIC: Check exactly what the API returned
-        console.log('[payment-form] Fees from API:', ALL_FEES);
 
         // Departments dropdown
         $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
@@ -106,26 +101,10 @@
           .sort((a, b) => String(b.name).localeCompare(String(a.name)))
           .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
 
-        // 🎯 FEE DROPDOWN — Direct mapping to the confirmed DB columns
-        if (!ALL_FEES.length) {
-          $('pf-fee').innerHTML = '<option value="">⚠️ No fees found in database</option>';
-        } else {
-          $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
-            ALL_FEES.map(f => {
-              // We know from Neon the columns are exactly 'level' and 'amount'
-              const level = String(f.level || 'Fee').toUpperCase();
-              const amount = Number(f.amount || 0);
-              
-              return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(level)} — ₦${amount.toLocaleString()}</option>`;
-            }).join('');
-        }
-
-        // Initial student list
         filterStudentsByDept();
 
       } catch (err) {
         console.error('[payment-form] Error:', err);
-        $('pf-validation').innerHTML = `<div style="color:#dc2626;">Load error: ${err.message}</div>`;
       }
     }
 
@@ -136,21 +115,22 @@
       if (deptId) filtered = filtered.filter(s => Number(s.departmentId) === Number(deptId));
 
       filtered.sort((a, b) => {
-        const an = `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase();
-        const bn = `${b.firstName || b.first_name || ''} ${b.lastName || b.last_name || ''}`.toLowerCase();
+        const an = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+        const bn = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
         return an.localeCompare(bn);
       });
 
       $('pf-student').innerHTML = '<option value="">— Choose a student —</option>' +
         filtered.map(s => {
-          const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
-          const mt = s.matricNumber || s.matric_number || '';
+          const fn = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+          const mt = s.matricNumber || '';
           const lvl = s.level || '';
-          return `<option value="${s.id}" data-level="${lvl}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
+          // Detect year of study from the matric number (e.g. ND/26/009 → year 1; ND/25/... → year 2)
+          return `<option value="${s.id}" data-level="${lvl}" data-matric="${mt}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
         }).join('');
     };
 
-    // When student selected: auto-fill fee and reference
+    // When a student is selected → auto-set fee level, amount, and reference
     window.onStudentSelected = function () {
       const sel = $('pf-student').selectedOptions[0];
       if (!sel || !sel.value) {
@@ -159,17 +139,27 @@
       }
 
       const lvl = String(sel.dataset.level || '').toUpperCase();
+      const matric = String(sel.dataset.matric || '');
 
-      // 1. Auto-select matching fee
-      if (lvl && ALL_FEES.length) {
-        const match = ALL_FEES.find(f => String(f.level || '').toUpperCase() === lvl);
-        if (match) {
-          $('pf-fee').value = match.id;
-          applyFeeSelection();
-        }
+      // Determine year from matric (e.g. FPU/SST/CSC/ND/26/009 → "26" is start year, so year 1 if current is 26/27)
+      let year = 1;
+      const matricYearMatch = matric.match(/\/(\d{2})\//);
+      const currentYear = new Date().getFullYear() % 100; // e.g. 2026 → 26
+      if (matricYearMatch) {
+        const startYear = Number(matricYearMatch[1]);
+        const diff = currentYear - startYear;
+        if (diff >= 1) year = 2;
       }
 
-      // 2. Auto-generate reference
+      // Map to fee option
+      let feeKey = 'ND-1';
+      if (lvl === 'HND') feeKey = year === 2 ? 'HND-2' : 'HND-1';
+      else if (lvl === 'ND') feeKey = year === 2 ? 'ND-2' : 'ND-1';
+
+      $('pf-fee').value = feeKey;
+      applyFeeSelection();
+
+      // Auto-generate reference
       const now = new Date();
       const dateStr = now.getFullYear().toString() + 
                      String(now.getMonth()+1).padStart(2,'0') + 
@@ -178,15 +168,15 @@
       $('pf-reference').value = `FPU-${dateStr}-${rand}`;
     };
 
-    // When fee selected: auto-fill amount
+    // When fee is selected → fill amount
     window.applyFeeSelection = function () {
       const sel = $('pf-fee').selectedOptions[0];
-      if (sel && sel.dataset.amount && Number(sel.dataset.amount) > 0) {
+      if (sel && sel.dataset.amount) {
         $('pf-amount').value = sel.dataset.amount;
       }
     };
 
-    // Submit form
+    // Submit
     $('payment-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('pf-validation');

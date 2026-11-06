@@ -12,8 +12,7 @@ const courseQueries = require('../db/queries/courses');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-// ⚠️ IMPORTANT: UPDATE THIS PATH TO MATCH YOUR ACTUAL DATABASE FILE ⚠️
-// Example: const db = require('../config/database'); or const pool = require('../db');
+// ⚠️ IMPORTANT: Ensure this path points to your actual database connection file
 const db = require('../db'); 
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
@@ -31,15 +30,14 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 });
 
 // IMPORTANT: /transcript/:userId must be declared BEFORE /:id
-// This endpoint uses raw PostgreSQL syntax specifically for Neon
 router.get('/transcript/:userId', requireRole(STAFF), async (req, res, next) => {
   try {
-    // 1. Fetch student using Postgres syntax ($1)
+    // 1. Fetch student using raw SQL (Fixed Postgres column names)
     const studentQuery = `
       SELECT u.*, p.name as "programmeName", d.name as "departmentName" 
       FROM users u
-      LEFT JOIN programmes p ON u."programmeId" = p.id
-      LEFT JOIN departments d ON u."departmentId" = d.id
+      LEFT JOIN programmes p ON u.programme_id = p.id
+      LEFT JOIN departments d ON u.department_id = d.id
       WHERE u.id = $1
     `;
     
@@ -50,7 +48,7 @@ router.get('/transcript/:userId', requireRole(STAFF), async (req, res, next) => 
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
 
-    // 2. Fetch results (using $1 for Postgres)
+    // 2. Fetch results (using $1 for Postgres, ensuring proper column casing)
     const resultsQuery = `
       SELECT * FROM results 
       WHERE "userId" = $1 AND published = true

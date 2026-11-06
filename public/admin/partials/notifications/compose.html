@@ -4,33 +4,69 @@
 <section class="page-head">
   <div>
     <h2>Send Notification</h2>
-    <p class="muted small">Send a notification or message to a user</p>
+    <p class="muted small">Send a notification to a specific user, a group, or everyone</p>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="window.location.hash='#notifications'">← Back</button>
   </div>
 </section>
 
-<div class="panel" style="max-width:700px; margin:0 auto;">
+<div class="panel" style="max-width:800px; margin:0 auto;">
   <div class="panel-head"><h3>Compose</h3></div>
   <div class="panel-body">
     <form id="notif-form" data-skip-generic="1">
-      <div class="form-group">
-        <label class="form-label">Recipient <span class="req">*</span></label>
-        <select class="form-select" id="nc-recipient" required>
-          <option value="">Loading users…</option>
-        </select>
-      </div>
       
-      <div class="form-group">
-        <label class="form-label">Type</label>
-        <select class="form-select" id="nc-type">
-          <option value="info">Info</option>
-          <option value="warning">Warning</option>
-          <option value="success">Success</option>
-          <option value="complaint">Complaint</option>
-          <option value="fee">Fee</option>
+      <!-- 1. Audience Type -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Send To <span class="req">*</span></label>
+          <select class="form-select" id="nc-audience" onchange="updateRecipientUI()">
+            <option value="everyone">🌍 Everyone (All Users)</option>
+            <option value="all_students">🎓 All Students</option>
+            <option value="all_staff">👔 All Staff</option>
+            <option value="all_lecturers">👨‍🏫 All Lecturers</option>
+            <option value="all_hods">🏛️ All HODs</option>
+            <option value="specific">👤 Specific User(s)</option>
+          </select>
+        </div>
+
+        <!-- 2. Department Filter (only shows for Specific) -->
+        <div class="form-group" id="nc-dept-group" style="display:none;">
+          <label class="form-label">Filter by Department</label>
+          <select class="form-select" id="nc-dept-filter" onchange="populateSpecificUsers()">
+            <option value="">All Departments</option>
+            <!-- Populated by JS -->
+          </select>
+        </div>
+      </div>
+
+      <!-- 3. Specific User Dropdown (only shows for Specific) -->
+      <div class="form-group" id="nc-user-group" style="display:none;">
+        <label class="form-label">Select Recipient(s) <span class="req">*</span></label>
+        <select class="form-select" id="nc-recipient" multiple size="8" style="height:auto;">
+          <option value="">Select a department first…</option>
         </select>
+        <div class="form-help">Hold Ctrl (Cmd on Mac) to select multiple users.</div>
+      </div>
+
+      <hr style="margin:24px 0; border:none; border-top:1px solid #e2e8f0;">
+
+      <!-- 4. Message Content -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" id="nc-type">
+            <option value="info">Info</option>
+            <option value="warning">Warning</option>
+            <option value="success">Success</option>
+            <option value="complaint">Complaint</option>
+            <option value="fee">Fee</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Link (optional)</label>
+          <input class="form-control" id="nc-link" placeholder="/admin/app.html#payments" />
+        </div>
       </div>
 
       <div class="form-group">
@@ -41,11 +77,6 @@
       <div class="form-group">
         <label class="form-label">Message Body</label>
         <textarea class="form-control" id="nc-body" rows="5" placeholder="Type the full message here..."></textarea>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Link (optional)</label>
-        <input class="form-control" id="nc-link" placeholder="e.g. /admin/app.html#payments" />
       </div>
 
       <div id="nc-validation"></div>
@@ -62,74 +93,161 @@
   (async function () {
     const A = window.FPU_ADMIN;
     const $ = (id) => document.getElementById(id);
-    
-    // 1. Load students and staff from working endpoints
+
+    // 🔥 Global cache of all users and departments
+    let allUsers = [];
+    let allDepts = [];
+
+    // 1. Load all data from working endpoints
     try {
-      const [studentsRes, staffRes, adminsRes] = await Promise.all([
+      const [studentsRes, staffRes, adminsRes, deptsRes] = await Promise.all([
         A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
         A.adminFetch('/api/admin/staff?limit=2000').catch(() => null),
         A.adminFetch('/api/admin/users?limit=2000').catch(() => null),
+        A.adminFetch('/api/admin/departments').catch(() => null),
       ]);
 
-      let users = [];
-      if (studentsRes && studentsRes.ok) {
-        const j = await studentsRes.json();
-        users = users.concat(j.data || []);
-      }
-      if (staffRes && staffRes.ok) {
-        const j = await staffRes.json();
-        users = users.concat(j.data || []);
-      }
-      if (adminsRes && adminsRes.ok) {
-        const j = await adminsRes.json();
-        users = users.concat(j.data || []);
-      }
+      if (studentsRes && studentsRes.ok) allUsers = allUsers.concat((await studentsRes.json()).data || []);
+      if (staffRes && staffRes.ok) allUsers = allUsers.concat((await staffRes.json()).data || []);
+      if (adminsRes && adminsRes.ok) allUsers = allUsers.concat((await adminsRes.json()).data || []);
+      if (deptsRes && deptsRes.ok) allDepts = (await deptsRes.json()).data || [];
 
       // Remove duplicates
-      const uniqueUsers = Array.from(new Map(users.map(u => [u.id, u])).values());
+      allUsers = Array.from(new Map(allUsers.map(u => [u.id, u])).values());
 
-      if (uniqueUsers.length === 0) {
-        $('nc-recipient').innerHTML = '<option value="">No users found</option>';
-      } else {
-        $('nc-recipient').innerHTML = '<option value="">— Choose a recipient —</option>' +
-          uniqueUsers.map(u => {
-            const firstName = u.firstName || u.first_name || '';
-            const lastName = u.lastName || u.last_name || '';
-            const name = `${firstName} ${lastName}`.trim() || 'Unknown';
-            const role = String(u.role || '').toUpperCase();
-            const email = u.email || '';
-            return `<option value="${u.id}">${A.escapeHtml(name)} ${role ? '(' + role + ')' : ''} — ${A.escapeHtml(email)}</option>`;
-          }).join('');
-      }
+      // Populate department filter
+      $('nc-dept-filter').innerHTML = '<option value="">All Departments</option>' + 
+        allDepts.map(d => `<option value="${d.id}">${A.escapeHtml(d.name || d.code)}</option>`).join('');
+
     } catch (err) {
-      $('nc-recipient').innerHTML = '<option value="">Error loading users: ' + A.escapeHtml(err.message) + '</option>';
+      console.warn('[compose] Error loading data:', err);
+      $('nc-recipient').innerHTML = '<option value="">Error loading users</option>';
     }
 
-    // 2. Submit form
+    // 2. This function updates the UI when the "Send To" dropdown changes
+    window.updateRecipientUI = function () {
+      const audience = $('nc-audience').value;
+      
+      if (audience === 'specific') {
+        // Show department & user pickers
+        $('nc-dept-group').style.display = 'block';
+        $('nc-user-group').style.display = 'block';
+        populateSpecificUsers();
+      } else {
+        // Hide them for group sends
+        $('nc-dept-group').style.display = 'none';
+        $('nc-user-group').style.display = 'none';
+      }
+    };
+
+    // 3. Populate specific users based on department & role
+    window.populateSpecificUsers = function () {
+      const deptId = $('nc-dept-filter').value;
+      const audience = $('nc-audience').value;
+
+      let filtered = allUsers;
+
+      // Filter by department if selected
+      if (deptId) {
+        filtered = filtered.filter(u => Number(u.departmentId) === Number(deptId));
+      }
+
+      // Filter by role if selecting e.g. 'all_lecturers'
+      if (audience === 'all_lecturers') filtered = filtered.filter(u => u.role === 'lecturer');
+      if (audience === 'all_hods') filtered = filtered.filter(u => u.role === 'hod');
+      if (audience === 'all_students') filtered = filtered.filter(u => u.role === 'student');
+      if (audience === 'all_staff') filtered = filtered.filter(u => u.role !== 'student'); // everything except students
+
+      // Group by department for nice display
+      const byDept = new Map();
+      filtered.forEach(u => {
+        const dName = (allDepts.find(d => Number(d.id) === Number(u.departmentId)) || {}).name || 'No Department';
+        if (!byDept.has(dName)) byDept.set(dName, []);
+        byDept.get(dName).push(u);
+      });
+
+      // Build the <option> list
+      let html = '';
+      if (filtered.length === 0) {
+        html = '<option value="">No users found</option>';
+      } else {
+        byDept.forEach((users, deptName) => {
+          // Group header
+          html += `<optgroup label="${A.escapeHtml(deptName)} (${users.length})">`;
+          users.forEach(u => {
+            const name = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim();
+            const role = String(u.role || '').toUpperCase();
+            const email = u.email || '';
+            html += `<option value="${u.id}">${A.escapeHtml(name)} ${role ? '— ' + role : ''} (${A.escapeHtml(email)})</option>`;
+          });
+          html += `</optgroup>`;
+        });
+      }
+
+      $('nc-recipient').innerHTML = html;
+    };
+
+    // Initialize UI on load
+    updateRecipientUI();
+
+    // 4. Handle Submit
     $('notif-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('nc-validation');
       valEl.innerHTML = '';
 
-      const userId = Number($('nc-recipient').value);
+      const audience = $('nc-audience').value;
+      const deptId = $('nc-dept-filter').value;
+      const type = $('nc-type').value;
       const title = $('nc-title').value.trim();
       const body = $('nc-body').value.trim();
-      const type = $('nc-type').value;
       const link = $('nc-link').value.trim() || null;
 
-      if (!userId) { valEl.innerHTML = '<div class="alert alert-danger" style="margin-bottom:15px;">⚠️ Please select a recipient.</div>'; return; }
       if (!title) { valEl.innerHTML = '<div class="alert alert-danger" style="margin-bottom:15px;">⚠️ Title is required.</div>'; return; }
+
+      // Determine which user IDs to send to
+      let userIds = [];
+
+      if (audience === 'everyone') {
+        userIds = allUsers.map(u => u.id);
+      } 
+      else if (audience === 'specific') {
+        // Read from the multi-select dropdown
+        userIds = Array.from($('nc-recipient').selectedOptions).map(o => Number(o.value)).filter(Boolean);
+        if (userIds.length === 0) { valEl.innerHTML = '<div class="alert alert-danger" style="margin-bottom:15px;">⚠️ Please select at least one recipient.</div>'; return; }
+      } 
+      else {
+        // Group send (all_students, all_lecturers, etc.)
+        let filtered = allUsers;
+        if (audience === 'all_students') filtered = filtered.filter(u => u.role === 'student');
+        else if (audience === 'all_staff') filtered = filtered.filter(u => u.role !== 'student');
+        else if (audience === 'all_lecturers') filtered = filtered.filter(u => u.role === 'lecturer');
+        else if (audience === 'all_hods') filtered = filtered.filter(u => u.role === 'hod');
+        if (deptId) filtered = filtered.filter(u => Number(u.departmentId) === Number(deptId));
+        userIds = filtered.map(u => u.id);
+      }
+
+      if (userIds.length === 0) {
+        valEl.innerHTML = '<div class="alert alert-warning" style="margin-bottom:15px;">⚠️ No recipients match your criteria.</div>';
+        return;
+      }
 
       const btn = e.target.querySelector('button[type="submit"]');
       btn.disabled = true;
-      btn.textContent = 'Sending…';
+      btn.textContent = `Sending to ${userIds.length} user(s)…`;
 
       try {
-        await A.adminFetch('/api/admin/notifications', {
-          method: 'POST',
-          body: JSON.stringify({ userId, title, body, type, link }),
-        });
-        A.showToast('✅ Notification sent.', 'success');
+        // Send notifications in parallel
+        const promises = userIds.map(uid => 
+          A.adminFetch('/api/admin/notifications', {
+            method: 'POST',
+            body: JSON.stringify({ userId: uid, title, body, type, link }),
+          })
+        );
+
+        await Promise.all(promises);
+
+        A.showToast(`✅ Notification sent to ${userIds.length} user(s).`, 'success');
         window.location.hash = '#notifications';
       } catch (err) {
         valEl.innerHTML = `<div class="alert alert-danger" style="margin-bottom:15px;">❌ ${A.escapeHtml(err.message)}</div>`;

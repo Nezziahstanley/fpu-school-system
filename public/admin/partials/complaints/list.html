@@ -17,19 +17,19 @@
 
 <!-- Status tabs -->
 <div class="staff-role-tabs" id="cmp-status-tabs">
-  <button class="staff-role-tab active" data-status="">
+  <button class="staff-role-tab active" data-status="" onclick="FPU_ADMIN.filterComplaints('')">
     All <span class="tab-count" id="cmp-count-all">—</span>
   </button>
-  <button class="staff-role-tab" data-status="open">
+  <button class="staff-role-tab" data-status="open" onclick="FPU_ADMIN.filterComplaints('open')">
     Open <span class="tab-count" id="cmp-count-open">—</span>
   </button>
-  <button class="staff-role-tab" data-status="in_review">
+  <button class="staff-role-tab" data-status="in_review" onclick="FPU_ADMIN.filterComplaints('in_review')">
     In Review <span class="tab-count" id="cmp-count-in_review">—</span>
   </button>
-  <button class="staff-role-tab" data-status="resolved">
+  <button class="staff-role-tab" data-status="resolved" onclick="FPU_ADMIN.filterComplaints('resolved')">
     Resolved <span class="tab-count" id="cmp-count-resolved">—</span>
   </button>
-  <button class="staff-role-tab" data-status="closed">
+  <button class="staff-role-tab" data-status="closed" onclick="FPU_ADMIN.filterComplaints('closed')">
     Closed <span class="tab-count" id="cmp-count-closed">—</span>
   </button>
 </div>
@@ -38,8 +38,7 @@
 <div class="filters">
   <div class="form-group">
     <label class="form-label">Category</label>
-    <select class="form-select" id="cmp-filter-category"
-            onchange="FPU_ADMIN.loadComplaints()">
+    <select class="form-select" id="cmp-filter-category" onchange="FPU_ADMIN.filterComplaints()">
       <option value="">All categories</option>
       <option value="academic">Academic</option>
       <option value="facility">Facility</option>
@@ -52,17 +51,14 @@
   </div>
   <div class="form-group">
     <label class="form-label">Sort by</label>
-    <select class="form-select" id="cmp-filter-sort"
-            onchange="FPU_ADMIN.loadComplaints()">
+    <select class="form-select" id="cmp-filter-sort" onchange="FPU_ADMIN.filterComplaints()">
       <option value="newest">Newest first</option>
       <option value="oldest">Oldest first (SLA)</option>
     </select>
   </div>
   <div class="form-group" style="flex:2 1 220px;">
     <label class="form-label">Search</label>
-    <input class="form-control" id="cmp-search"
-           placeholder="Subject or body…"
-           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadComplaints()" />
+    <input class="form-control" id="cmp-search" placeholder="Subject or body…" onkeyup="FPU_ADMIN.filterComplaints()" />
   </div>
 </div>
 
@@ -102,7 +98,7 @@
             <th style="width:110px;">Category</th>
             <th style="width:120px;">Status</th>
             <th style="width:110px;">Age</th>
-            <th style="width:100px;">Actions</th>
+            <th style="width:100px; text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody id="cmp-tbody">
@@ -114,14 +110,14 @@
 </div>
 
 <style>
-  .sla-critical {
-    color: #b91c1c !important;
-    font-weight: 800;
-  }
-  .sla-warning {
-    color: #b45309 !important;
-    font-weight: 700;
-  }
+  .sla-critical { color: #b91c1c !important; font-weight: 800; }
+  .sla-warning { color: #b45309 !important; font-weight: 700; }
+  
+  .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; display:inline-block; }
+  .badge-open { background: #f1f5f9; color: #475569; }
+  .badge-review { background: #fef3c7; color: #d97706; }
+  .badge-resolved { background: #dcfce7; color: #166534; }
+  .badge-closed { background: #f1f5f9; color: #64748b; }
 </style>
 
 <script>

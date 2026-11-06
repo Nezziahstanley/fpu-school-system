@@ -3540,57 +3540,188 @@ async function deleteNotification(id) {
   try { await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); showToast('Deleted.', 'success'); loadNotifications(); } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
+// ============================================
+// COMPLAINTS
+// ============================================
+let allComplaints = []; // Store data for local filtering
+
 async function loadComplaints() {
-  const container = document.getElementById("complaints-tbody");
-  const tbody2 = document.getElementById("cmp-tbody");
-  const target = container || tbody2;
-  if (!target) return;
+  const tbody = document.getElementById('complaints-tbody');
+  if (!tbody) return;
 
-  const cols = target.id === 'cmp-tbody' ? 6 : 5;
-  target.innerHTML = `<tr><td colspan="${cols}" class="empty">Loading…</td></tr>`;
-
-  const status = (document.getElementById('cmp-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const category = (document.getElementById('cmp-filter-category') || {}).value || '';
-  const search = (document.getElementById('cmp-search') || {}).value || '';
-  const sort = (document.getElementById('cmp-filter-sort') || {}).value || 'newest';
-
-  const qs = new URLSearchParams({ limit: 500 });
-  if (status) qs.set('status', status);
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Loading...</td></tr>';
 
   try {
-    const res = await adminFetch(`/api/admin/complaints?${qs}`);
+    const res = await adminFetch('/api/admin/complaints');
+    if (!res.ok) throw new Error('Failed to load complaints');
     const json = await res.json();
-    let rows = json.data || [];
-
-    if (category) rows = rows.filter((r) => (r.complaint || r).category === category);
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => { const c = r.complaint || r; return String(c.subject || '').toLowerCase().includes(q) || String(c.body || '').toLowerCase().includes(q); });
-    }
-    if (sort === 'oldest') rows.sort((a, b) => new Date((a.complaint || a).createdAt) - new Date((b.complaint || b).createdAt));
-
-    if (container) {
-      container.innerHTML = rows.length ? rows.map((r) => {
-        const c = r.complaint || r;
-        return `<tr><td>${escapeHtml(c.subject || '')}</td><td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td><td>${badge(c.status)}</td><td>${fmtDateTime(c.createdAt)}</td><td><div class="row-actions"><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaint-view', { id: ${c.id} })">View</button></div></td></tr>`;
-      }).join('') : '<tr><td colspan="5" class="empty">No complaints.</td></tr>';
-    } else {
-      const now = Date.now();
-      target.innerHTML = rows.length ? rows.map((r) => {
-        const c = r.complaint || r;
-        const ageDays = Math.floor((now - new Date(c.createdAt).getTime()) / 86400000);
-        let ageCls = '';
-        if (c.status === 'open' && ageDays >= 7) ageCls = 'sla-critical'; else if (c.status === 'open' && ageDays >= 3) ageCls = 'sla-warning';
-        return `<tr><td>${escapeHtml(c.subject || '')}</td><td>${r.user ? `${escapeHtml(r.user.firstName)} ${escapeHtml(r.user.lastName)}` : '—'}</td><td>${escapeHtml(c.category || '—')}</td><td>${badge(c.status)}</td><td class="${ageCls}">${ageDays}d</td><td><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaint-view', { id: ${c.id} })">View</button></td></tr>`;
-      }).join('') : `<tr><td colspan="6" class="empty">No complaints.</td></tr>`;
-
-      const open = rows.filter((r) => (r.complaint || r).status === 'open').length;
-      const inReview = rows.filter((r) => (r.complaint || r).status === 'in_review').length;
-      const resolved = rows.filter((r) => (r.complaint || r).status === 'resolved').length;
-      setText('cmp-stat-total', rows.length); setText('cmp-stat-open', open); setText('cmp-stat-in-review', inReview); setText('cmp-stat-resolved', resolved); setText('cmp-count', `Showing ${rows.length}`);
-    }
-  } catch (err) { target.innerHTML = `<tr><td colspan="${cols}" class="empty">${escapeHtml(err.message)}</td></tr>`; }
+    allComplaints = json.data || json || [];
+    
+    filterComplaints(); // Apply default filters
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#dc2626;">Error: ${err.message}</td></tr>`;
+  }
 }
+
+function filterComplaints() {
+  const activeTab = document.querySelector('.staff-role-tab.active');
+  const statusFilter = activeTab ? activeTab.dataset.status : '';
+  const catFilter = document.getElementById('cmp-filter-category')?.value || '';
+  const searchVal = document.getElementById('cmp-search')?.value.toLowerCase() || '';
+
+  let filtered = allComplaints.filter(c => {
+    const s = String(c.status || 'open').toLowerCase();
+    const cat = String(c.category || '').toLowerCase();
+    const subject = String(c.subject || '').toLowerCase();
+    const body = String(c.body || c.message || '').toLowerCase();
+    
+    if (statusFilter && s !== statusFilter) return false;
+    if (catFilter && cat !== catFilter) return false;
+    if (searchVal && !subject.includes(searchVal) && !body.includes(searchVal)) return false;
+    
+    return true;
+  });
+
+  renderComplaintsTable(filtered);
+  updateComplaintStats(allComplaints);
+}
+
+function renderComplaintsTable(records) {
+  const tbody = document.getElementById('cmp-tbody'); // Ensure this matches your HTML ID
+  
+  if (records.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">No complaints found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = records.map(c => {
+    const status = String(c.status || 'open').toLowerCase();
+    
+    // Calculate Age
+    const created = new Date(c.createdAt || c.created_at || Date.now());
+    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
+    const ageDisplay = diffDays === 0 ? 'Today' : `${diffDays}d`;
+
+    // Status Badge
+    let badgeClass = 'badge-open';
+    if (status === 'resolved') badgeClass = 'badge-resolved';
+    if (status === 'in_review') badgeClass = 'badge-review';
+    if (status === 'closed') badgeClass = 'badge-closed';
+
+    const u = c.user || c.student || {};
+    const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
+
+    return `
+      <tr>
+        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(c.subject || 'No Subject')}</div></td>
+        <td>${escapeHtml(fullName)}</td>
+        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
+        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
+        <td><span style="font-weight:600; color:${diffDays > 7 && status !== 'resolved' ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm btn-outline" onclick="window.location.hash = '#complaints-view?id=${c.id}'">View</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateComplaintStats(records) {
+  const counts = { total: records.length, open: 0, review: 0, resolved: 0 };
+  
+  records.forEach(c => {
+    const s = String(c.status || 'open').toLowerCase();
+    if (s === 'open') counts.open++;
+    else if (s === 'in_review' || s === 'in review') counts.review++;
+    else if (s === 'resolved' || s === 'closed') counts.resolved++;
+  });
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  
+  setText('comp-stat-total', counts.total);
+  setText('comp-stat-open', counts.open);
+  setText('comp-stat-review', counts.review);
+  setText('comp-stat-resolved', counts.resolved);
+  
+  setText('comp-count-all', counts.total);
+  setText('comp-count-open', counts.open);
+  setText('comp-count-review', counts.review);
+  setText('comp-count-resolved', counts.resolved);
+  setText('comp-showing', `Showing ${records.length}`);
+}
+
+// --- View Modal ---
+window.openComplaintModal = function(id) {
+  const complaint = allComplaints.find(c => c.id === id);
+  if (!complaint) return;
+
+  const status = String(complaint.status || 'open').toLowerCase();
+  const u = complaint.user || complaint.student || {};
+  const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
+  const matric = u.matricNumber || u.matric_number || '—';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="max-width: 600px;">
+      <div class="fpu-modal-header">
+        <h3>Complaint #${complaint.id}</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #e2e8f0;">
+          <h4 style="margin:0 0 8px 0; font-size:1.1rem; color:#0f172a;">${escapeHtml(complaint.subject)}</h4>
+          <div style="font-size:13px; color:#64748b;">
+            From: <strong>${escapeHtml(fullName)}</strong> (${escapeHtml(matric)})<br>
+            Category: <strong style="text-transform:capitalize;">${escapeHtml(complaint.category || 'General')}</strong><br>
+            Date: ${new Date(complaint.createdAt).toLocaleString()}
+          </div>
+        </div>
+        
+        <div style="background:#f8fafc; padding:16px; border-radius:8px; font-size:14px; line-height:1.6; color:#334155; margin-bottom:20px;">
+          ${escapeHtml(complaint.body || complaint.message || 'No description provided.')}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Update Status</label>
+          <select class="form-select" id="comp-modal-status">
+            <option value="open" ${status === 'open' ? 'selected' : ''}>Open</option>
+            <option value="in_review" ${status === 'in_review' ? 'selected' : ''}>In Review</option>
+            <option value="resolved" ${status === 'resolved' ? 'selected' : ''}>Resolved</option>
+            <option value="closed" ${status === 'closed' ? 'selected' : ''}>Closed</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Admin Reply (Optional)</label>
+          <textarea class="form-control" id="comp-modal-reply" rows="3" placeholder="Type a response to the student..."></textarea>
+        </div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn btn-primary" id="comp-modal-save">Save Changes</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#comp-modal-save').onclick = async () => {
+    const newStatus = backdrop.querySelector('#comp-modal-status').value;
+    const reply = backdrop.querySelector('#comp-modal-reply').value;
+
+    try {
+      await adminFetch(`/api/admin/complaints/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus, reply })
+      });
+      showToast('✅ Complaint updated.', 'success');
+      backdrop.remove();
+      loadComplaints();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+};
 
 // ============================================
 // LIBRARY (Books & Borrows)

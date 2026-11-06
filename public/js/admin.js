@@ -3381,7 +3381,6 @@ async function loadDepartmentPayments() {
   root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    // 1. Fetch students in this dept + all payments + all fees + all programmes
     const [studentsRes, payRes, feesRes, progsRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/payments').catch(() => null),
@@ -3394,38 +3393,49 @@ async function loadDepartmentPayments() {
     const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
     const programmes = progsRes?.ok ? (await progsRes.json()).data || [] : [];
 
-    // 2. Build maps
     // Map studentId → total verified amount paid
     const paidByStudent = new Map();
     payments.forEach(p => {
       const row = p.payment || p;
       const sid = Number(row.studentId || row.student_id);
       if (!sid) return;
-      if (row.status === 'verified' || row.status === 'approved' || row.status === 'paid') {
+      const status = String(row.status || '').toLowerCase();
+      if (status === 'verified' || status === 'approved' || status === 'paid' || status === 'success') {
         paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + (Number(row.amount) || 0));
       }
     });
 
-    // Map programmeId → expected fee (total due)
+    // 🕵️ DEEP SCAN for fee amount
+    // Check every possible column name your `fees` table might use
     const feeByProgramme = new Map();
     fees.forEach(f => {
-      const progId = f.programmeId || f.programme_id;
-      const total = f.totalAmount || f.total_amount || f.total;
-      if (progId && total) feeByProgramme.set(Number(progId), Number(total));
+      const progId = Number(f.programmeId || f.programme_id || f.program_id);
+      const amount = 
+        f.totalAmount || f.total_amount || 
+        f.amount || f.feeAmount || f.fee_amount ||
+        f.total || f.amountDue || f.amount_due;
+      
+      if (progId && amount) {
+        // If there are multiple fees for the same programme, use the sum
+        feeByProgramme.set(progId, (feeByProgramme.get(progId) || 0) + Number(amount));
+      }
     });
 
-    // 3. Enrich each student
+    console.log('[payments] Fee map:', Array.from(feeByProgramme.entries()));
+    console.log('[payments] Sample fee row:', fees[0]);
+
+    // Enrich each student
     let fullyPaid = 0, partial = 0, pendingCount = 0, totalCollected = 0;
 
     const enriched = students.map(s => {
       const sid = Number(s.id);
       const paid = paidByStudent.get(sid) || 0;
-      // Look for fee by programme, or fallback to 0 (in which case any payment counts as fully paid)
-      const due = feeByProgramme.get(Number(s.programmeId)) || (paid > 0 ? paid : 0);
-      const balance = Math.max(0, due - paid);
+      const progId = Number(s.programmeId || s.programme_id);
+      const due = feeByProgramme.get(progId) || 0;
+      const balance = due > 0 ? Math.max(0, due - paid) : (paid > 0 ? 0 : 0);
 
       let status = 'pending';
-      if (paid > 0 && balance <= 0) { status = 'paid'; fullyPaid++; }
+      if (paid > 0 && (due === 0 || balance <= 0)) { status = 'paid'; fullyPaid++; }
       else if (paid > 0) { status = 'partial'; partial++; }
       else { status = 'pending'; pendingCount++; }
 
@@ -3433,7 +3443,7 @@ async function loadDepartmentPayments() {
       return { s, paid, due, balance, status };
     });
 
-    // 4. Update stats (using the exact IDs from your HTML)
+    // Update stats
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('pd-stat-students', students.length);
     setT('pd-stat-fully', fullyPaid);
@@ -3441,7 +3451,7 @@ async function loadDepartmentPayments() {
     setT('pd-stat-collected', money(totalCollected));
     setT('pd-count', `Showing ${students.length} students`);
 
-    // 5. Filter
+    // Filter
     const statusFilter = document.getElementById('pd-filter-status')?.value || '';
     const search = document.getElementById('pd-search')?.value.toLowerCase() || '';
 
@@ -3460,7 +3470,7 @@ async function loadDepartmentPayments() {
       return;
     }
 
-    // 6. Render table
+    // Render
     root.innerHTML = filtered.map(({ s, paid, due, balance, status }) => {
       const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
       const initials = fn.charAt(0).toUpperCase() || 'S';
@@ -3475,16 +3485,14 @@ async function loadDepartmentPayments() {
           <td><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
           <td>
             <div style="display:flex;align-items:center;gap:8px;">
-              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#065f46,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">
-                ${escapeHtml(initials)}
-              </div>
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#065f46,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">${escapeHtml(initials)}</div>
               <span>${escapeHtml(fn)}</span>
             </div>
           </td>
           <td>${escapeHtml(s.level || '—')}</td>
-          <td style="text-align:right;font-weight:600;">${due > 0 ? money(due) : '—'}</td>
-          <td style="text-align:right;font-weight:600;color:#065f46;">${paid > 0 ? money(paid) : '—'}</td>
-          <td style="text-align:right;font-weight:600;color:${balance > 0 ? '#dc2626' : '#64748b'};">${balance > 0 ? money(balance) : '—'}</td>
+          <td style="text-align:right;font-weight:600;">${due > 0 ? money(due) : '<span style="color:#94a3b8;">No fee set</span>'}</td>
+          <td style="text-align:right;font-weight:600;color:${paid > 0 ? '#065f46' : '#94a3b8'};">${money(paid)}</td>
+          <td style="text-align:right;font-weight:600;color:${balance > 0 ? '#dc2626' : '#94a3b8'};">${balance > 0 ? money(balance) : '—'}</td>
           <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
           <td style="text-align:right;">
             <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openPaymentHistory(${s.id}, '${escapeQuotes(fn)}')">View History</button>
@@ -3493,7 +3501,7 @@ async function loadDepartmentPayments() {
       `;
     }).join('');
 
-    // 7. Wire Export CSV
+    // Wire Export
     const exportBtn = document.getElementById('pd-export');
     if (exportBtn && !exportBtn.__wired) {
       exportBtn.__wired = true;
@@ -3502,11 +3510,7 @@ async function loadDepartmentPayments() {
         const rows = filtered.map(({ s, paid, due, balance, status }) => [
           s.matricNumber || s.matric_number || '',
           `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim(),
-          s.level || '',
-          due,
-          paid,
-          balance,
-          status
+          s.level || '', due, paid, balance, status
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -3520,7 +3524,7 @@ async function loadDepartmentPayments() {
     }
 
   } catch (err) {
-    console.error('[payments by dept] Error:', err);
+    console.error('[payments] Error:', err);
     root.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
@@ -3625,6 +3629,9 @@ async function sendBulkPaymentReminder(departmentId, deptName) {
 // ============================================
 // PAYMENTS: VIEW HISTORY (modal)
 // ============================================
+// ============================================
+// PAYMENTS: View History Modal
+// ============================================
 async function openPaymentHistory(studentId, studentName) {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
@@ -3642,17 +3649,50 @@ async function openPaymentHistory(studentId, studentName) {
   document.body.appendChild(backdrop);
 
   try {
-    const res = await adminFetch(`/api/admin/payments?studentId=${studentId}`);
+    // Filter payments by student
+    const res = await adminFetch('/api/admin/payments');
     const json = await res.json();
-    const payments = json.data || [];
+    const allPayments = json.data || [];
+    const payments = allPayments.filter(p => {
+      const row = p.payment || p;
+      return Number(row.studentId || row.student_id) === Number(studentId);
+    });
+
+    const body = document.getElementById('payment-history-body');
 
     if (!payments.length) {
-      document.getElementById('payment-history-body').innerHTML = '<p style="text-align:center;padding:20px;color:#64748b;">No payments recorded for this student.</p>';
+      body.innerHTML = `
+        <div style="text-align:center;padding:40px 20px;color:#64748b;">
+          <div style="font-size:2rem;margin-bottom:10px;">💳</div>
+          <p style="margin:0;">No payments recorded for this student.</p>
+        </div>
+      `;
       return;
     }
 
-    document.getElementById('payment-history-body').innerHTML = `
-      <table class="table-admin" style="width:100%;">
+    // Calculate totals
+    let totalVerified = 0, totalPending = 0;
+    payments.forEach(p => {
+      const row = p.payment || p;
+      const amt = Number(row.amount) || 0;
+      const status = String(row.status || '').toLowerCase();
+      if (status === 'verified' || status === 'approved' || status === 'paid') totalVerified += amt;
+      else if (status === 'pending') totalPending += amt;
+    });
+
+    body.innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:16px;">
+        <div style="flex:1;background:#ecfdf5;padding:12px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;">Total Verified</div>
+          <div style="font-size:20px;font-weight:800;color:#065f46;margin-top:4px;">${money(totalVerified)}</div>
+        </div>
+        <div style="flex:1;background:#fef3c7;padding:12px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Pending</div>
+          <div style="font-size:20px;font-weight:800;color:#b45309;margin-top:4px;">${money(totalPending)}</div>
+        </div>
+      </div>
+
+      <table class="table-admin" style="width:100%;font-size:13px;">
         <thead>
           <tr>
             <th>Reference</th>
@@ -3669,7 +3709,7 @@ async function openPaymentHistory(studentId, studentName) {
                 <td><code>${escapeHtml(row.reference || '—')}</code></td>
                 <td style="font-weight:700;color:#065f46;">${money(row.amount)}</td>
                 <td>${badge(row.status)}</td>
-                <td class="small muted">${fmtDateTime(row.createdAt)}</td>
+                <td class="small muted">${fmtDateTime(row.createdAt || row.paidAt)}</td>
               </tr>
             `;
           }).join('')}
@@ -3677,7 +3717,11 @@ async function openPaymentHistory(studentId, studentName) {
       </table>
     `;
   } catch (err) {
-    document.getElementById('payment-history-body').innerHTML = `<p style="color:#dc2626;">Error: ${escapeHtml(err.message)}</p>`;
+    document.getElementById('payment-history-body').innerHTML = `
+      <div style="color:#dc2626;padding:20px;text-align:center;">
+        <p>Error: ${escapeHtml(err.message)}</p>
+      </div>
+    `;
   }
 }
 

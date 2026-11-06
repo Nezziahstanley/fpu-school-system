@@ -3570,136 +3570,6 @@ async function loadComplaints() {
   }
 }
 
-function renderComplaintsTable(records) {
-  const tbody = document.getElementById('cmp-tbody');
-  if (!tbody) return;
-  
-  if (records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:20px;">No complaints found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = records.map(c => {
-    const u = c.user || {};
-    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown User';
-    const status = String(c.status || 'open').toLowerCase();
-    
-    const rawDate = c.createdAt || c.created_at;
-    const created = new Date(rawDate);
-    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
-    const ageDisplay = diffDays <= 0 ? 'Today' : `${diffDays}d`;
-
-    let badgeClass = 'badge-open';
-    if (status.includes('resolve')) badgeClass = 'badge-resolved';
-    if (status.includes('review')) badgeClass = 'badge-review';
-    if (status.includes('close')) badgeClass = 'badge-closed';
-
-    return `
-      <tr>
-        <td><div style="font-weight:600;color:#0f172a;">${escapeHtml(c.subject)}</div></td>
-        <td>${escapeHtml(fullName)}</td>
-        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
-        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
-        <td><span style="font-weight:600;color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function renderComplaintsTable(records) {
-  const tbody = document.getElementById('cmp-tbody');
-  if (!tbody) return;
-  
-  if (records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px; color:#64748b;">No complaints found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = records.map(c => {
-    // 1. DEEP SCAN for Subject/Message
-    const rawSubject = c.subject || c.title || c.message || c.body || c.description || 'No Subject';
-    const displaySubject = rawSubject.length > 40 ? rawSubject.substring(0, 40) + '...' : rawSubject;
-
-    // 2. DEEP SCAN for Status
-    const status = String(c.status || c.state || 'open').toLowerCase();
-    
-    // 3. DEEP SCAN for Category
-    const category = c.category || c.type || c.department || 'General';
-
-    // 4. DEEP SCAN for Date
-    const rawDate = c.createdAt || c.created_at || c.date || c.timestamp || Date.now();
-    const created = new Date(rawDate);
-    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
-    const ageDisplay = diffDays === 0 || isNaN(diffDays) ? 'Today' : `${diffDays}d`;
-
-    // 5. DEEP SCAN for User
-    const u = c.user || c.student || c.author || {};
-    let fullName = 'Unknown User';
-    if (u.firstName || u.lastName) {
-      fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim();
-    } else if (u.name) {
-      fullName = u.name;
-    } else if (c.name || c.fullName) {
-      fullName = c.name || c.fullName;
-    }
-
-    // 6. Status Badge Class
-    let badgeClass = 'badge-open';
-    if (status.includes('resolve')) badgeClass = 'badge-resolved';
-    if (status.includes('review')) badgeClass = 'badge-review';
-    if (status.includes('close')) badgeClass = 'badge-closed';
-
-    return `
-      <tr>
-        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(displaySubject)}</div></td>
-        <td>${escapeHtml(fullName)}</td>
-        <td><span style="text-transform:capitalize;">${escapeHtml(category)}</span></td>
-        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
-        <td><span style="font-weight:600; color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function updateComplaintStats(records) {
-  const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
-  
-  records.forEach(c => {
-    const s = String(c.status || 'open').toLowerCase();
-    if (s.includes('open')) counts.open++;
-    else if (s.includes('review')) counts.review++;
-    else if (s.includes('resolve')) counts.resolved++;
-    else if (s.includes('close')) counts.closed++;
-  });
-
-  const setText = (id, val) => { 
-    const el = document.getElementById(id); 
-    if (el) el.textContent = val; 
-  };
-  
-  // 1. Top Cards (Notice the exact IDs from your HTML)
-  setText('cmp-stat-total', counts.total);
-  setText('cmp-stat-open', counts.open);
-  setText('cmp-stat-in-review', counts.review); // <-- Matches the ID 'cmp-stat-in-review'
-  setText('cmp-stat-resolved', counts.resolved);
-
-  // 2. Tabs
-  setText('cmp-count-all', counts.total);
-  setText('cmp-count-open', counts.open);
-  setText('cmp-count-in_review', counts.review); // <-- Note the underscore here!
-  setText('cmp-count-resolved', counts.resolved);
-  setText('cmp-count-closed', counts.closed);
-
-  // 3. Table Header
-  setText('cmp-count', `Showing ${records.length} complaints`);
-}
-
 function filterComplaints() {
   const activeTab = document.querySelector('#cmp-status-tabs .staff-role-tab.active');
   const statusFilter = activeTab ? activeTab.dataset.status : '';
@@ -3778,36 +3648,7 @@ function updateComplaintStats(records) {
   const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
   
   records.forEach(c => {
-    const s = String(c.status || 'open').toLowerCase();
-    if (s.includes('open')) counts.open++;
-    else if (s.includes('review')) counts.review++;
-    else if (s.includes('resolve')) counts.resolved++;
-    else if (s.includes('close')) counts.closed++;
-  });
-
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  
-  // Update Top Cards
-  setText('cmp-stat-total', counts.total);
-  setText('cmp-stat-open', counts.open);
-  setText('cmp-stat-in-review', counts.review);
-  setText('cmp-stat-resolved', counts.resolved);
-  
-  // Update Tabs
-  setText('cmp-count-all', counts.total);
-  setText('cmp-count-open', counts.open);
-  setText('cmp-count-in_review', counts.review);
-  setText('cmp-count-resolved', counts.resolved);
-  setText('cmp-count-closed', counts.closed);
-  
-  // Update Table Header
-  setText('cmp-count', `Showing ${records.length}`);
-}
-
-function updateComplaintStats(records) {
-  const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
-  
-  records.forEach(c => {
+    // Safely read status, default to 'open'
     const s = String(c.status || 'open').toLowerCase();
     if (s === 'open') counts.open++;
     else if (s === 'in_review') counts.review++;
@@ -3815,106 +3656,28 @@ function updateComplaintStats(records) {
     else if (s === 'closed') counts.closed++;
   });
 
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  // 🔥 SAFE UPDATER: Only updates if the element exists
+  const setText = (id, val) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = val; 
+    else console.warn(`[Complaints] Missing element with ID: ${id}`);
+  };
   
+  // 1. Top Cards
   setText('cmp-stat-total', counts.total);
   setText('cmp-stat-open', counts.open);
   setText('cmp-stat-in-review', counts.review);
   setText('cmp-stat-resolved', counts.resolved);
   
+  // 2. Tabs
   setText('cmp-count-all', counts.total);
   setText('cmp-count-open', counts.open);
   setText('cmp-count-in_review', counts.review);
   setText('cmp-count-resolved', counts.resolved);
   setText('cmp-count-closed', counts.closed);
-  setText('cmp-count', `Showing ${records.length}`);
-}
 
-function filterComplaints() {
-  const activeTab = document.querySelector('.staff-role-tab.active');
-  const statusFilter = activeTab ? activeTab.dataset.status : '';
-  const catFilter = document.getElementById('cmp-filter-category')?.value || '';
-  const searchVal = document.getElementById('cmp-search')?.value.toLowerCase() || '';
-
-  let filtered = allComplaints.filter(c => {
-    const s = String(c.status || 'open').toLowerCase();
-    const cat = String(c.category || '').toLowerCase();
-    const subject = String(c.subject || '').toLowerCase();
-    const body = String(c.body || c.message || '').toLowerCase();
-    
-    if (statusFilter && s !== statusFilter) return false;
-    if (catFilter && cat !== catFilter) return false;
-    if (searchVal && !subject.includes(searchVal) && !body.includes(searchVal)) return false;
-    
-    return true;
-  });
-
-  renderComplaintsTable(filtered);
-  updateComplaintStats(allComplaints);
-}
-
-function renderComplaintsTable(records) {
-  const tbody = document.getElementById('cmp-tbody'); // Ensure this matches your HTML ID
-  
-  if (records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#64748b;">No complaints found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = records.map(c => {
-    const status = String(c.status || 'open').toLowerCase();
-    
-    // Calculate Age
-    const created = new Date(c.createdAt || c.created_at || Date.now());
-    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
-    const ageDisplay = diffDays === 0 ? 'Today' : `${diffDays}d`;
-
-    // Status Badge
-    let badgeClass = 'badge-open';
-    if (status === 'resolved') badgeClass = 'badge-resolved';
-    if (status === 'in_review') badgeClass = 'badge-review';
-    if (status === 'closed') badgeClass = 'badge-closed';
-
-    const u = c.user || c.student || {};
-    const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
-
-    return `
-      <tr>
-        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(c.subject || 'No Subject')}</div></td>
-        <td>${escapeHtml(fullName)}</td>
-        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
-        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
-        <td><span style="font-weight:600; color:${diffDays > 7 && status !== 'resolved' ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-outline" onclick="window.location.hash = '#complaints-view?id=${c.id}'">View</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function updateComplaintStats(records) {
-  const counts = { total: records.length, open: 0, review: 0, resolved: 0 };
-  
-  records.forEach(c => {
-    const s = String(c.status || 'open').toLowerCase();
-    if (s === 'open') counts.open++;
-    else if (s === 'in_review' || s === 'in review') counts.review++;
-    else if (s === 'resolved' || s === 'closed') counts.resolved++;
-  });
-
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  
-  setText('comp-stat-total', counts.total);
-  setText('comp-stat-open', counts.open);
-  setText('comp-stat-review', counts.review);
-  setText('comp-stat-resolved', counts.resolved);
-  
-  setText('comp-count-all', counts.total);
-  setText('comp-count-open', counts.open);
-  setText('comp-count-review', counts.review);
-  setText('comp-count-resolved', counts.resolved);
-  setText('comp-showing', `Showing ${records.length}`);
+  // 3. Table Header
+  setText('cmp-count', `Showing ${counts.total}`);
 }
 
 // --- View Modal ---

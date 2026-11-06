@@ -2651,6 +2651,9 @@ async function loadExamsIndex() {
 // ============================================
 // 1. ATTENDANCE: Overview (Departments)
 // ============================================
+// ============================================
+// 1. ATTENDANCE: Overview (Departments)
+// ============================================
 async function loadAttendanceDepartments() {
   const grid = document.getElementById('att-dept-grid');
   if (!grid) return;
@@ -2676,10 +2679,10 @@ async function loadAttendanceDepartments() {
     document.getElementById('att-stat-courses').textContent = totalCourses;
     document.getElementById('att-stat-total').textContent = totalRecords;
     
-    // Calculate Overall Rate
+    // FIXED MATH: Parse to Number() to prevent scientific notation
     let overallRate = 0;
     if (totalRecords > 0) {
-      overallRate = Math.round(((totalPresent + totalLate) / totalRecords) * 100);
+      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
     document.getElementById('att-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
@@ -2699,7 +2702,6 @@ async function loadAttendanceDepartments() {
 
       const rateText = d.records > 0 ? `${d.rate}%` : '—';
 
-      // Routes to: #attendance-department?id=X
       return `
         <div class="dept-card" onclick="window.location.hash='#attendance-department?id=${d.id}'">
           <div class="dept-card-header">
@@ -2739,6 +2741,121 @@ async function loadAttendanceDepartments() {
   } catch (err) {
     console.error('Failed to load attendance', err);
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data.</div>';
+  }
+}
+
+// ============================================
+// 2. ATTENDANCE: By Department (Courses)
+// ============================================
+async function loadDepartmentAttendance() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('id');
+
+  const grid = document.getElementById('abd-course-grid');
+  if (!grid) return;
+
+  if (!deptId) {
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">No department selected. Please go back and click a department.</div>';
+    return;
+  }
+
+  grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading courses…</div>';
+
+  // Gather filters
+  const level = document.getElementById('abd-filter-level')?.value || '';
+  const semester = document.getElementById('abd-filter-semester')?.value || '';
+  const search = document.getElementById('abd-filter-search')?.value || '';
+
+  try {
+    let url = `/api/admin/attendance/department/${deptId}?`;
+    if (level) url += `level=${level}&`;
+    if (semester) url += `semester=${semester}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const courses = json.data || [];
+
+    // Update Stats
+    let totalRecords = 0, totalPresent = 0, totalLate = 0, totalStudents = 0, coursesWithRecords = 0;
+    
+    courses.forEach(c => {
+      totalRecords += c.records || 0;
+      totalPresent += c.present || 0;
+      totalLate += c.late || 0;
+      totalStudents += c.students || 0;
+      if (c.records > 0) coursesWithRecords++;
+    });
+
+    document.getElementById('abdc-stat-courses').textContent = coursesWithRecords;
+    document.getElementById('abdc-stat-records').textContent = totalRecords;
+    document.getElementById('abdc-stat-students').textContent = totalStudents;
+    
+    let overallRate = 0;
+    if (totalRecords > 0) {
+      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
+    }
+    document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+
+    if (!courses.length) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No courses found in this department.</div>';
+      return;
+    }
+
+    // Render Course Cards
+    grid.innerHTML = courses.map(c => {
+      let rateClass = 'empty';
+      if (c.records > 0) {
+        if (c.rate >= 75) rateClass = 'healthy';
+        else if (c.rate >= 50) rateClass = 'warning';
+        else rateClass = 'critical';
+      }
+
+      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const lvlClass = c.level ? c.level.toLowerCase() : 'other';
+      const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
+
+      return `
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+          <div class="course-card-header">
+            <span class="course-code-badge">${escapeHtml(c.code)}</span>
+            <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
+          </div>
+          <h3 class="course-name">${escapeHtml(c.title)}</h3>
+          
+          <div class="course-rate-wrap">
+            <span class="course-rate-number ${rateClass}">${rateText}</span>
+            <span class="course-rate-label">attendance rate</span>
+          </div>
+          
+          <div class="course-stats-grid">
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.records}</div>
+              <div class="course-stat-lbl">Records</div>
+            </div>
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.students}</div>
+              <div class="course-stat-lbl">Students</div>
+            </div>
+            <div class="course-stat-box" title="Last Class: ${lastDate}">
+              <div class="course-stat-val" style="font-size: 0.85rem; padding-top: 4px;">${lastDate}</div>
+              <div class="course-stat-lbl">Last Class</div>
+            </div>
+          </div>
+          
+          <div class="course-card-footer">
+            <span>${c.records === 0 ? 'No records yet' : 'View Roster'}</span>
+            <span>→</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load department courses', err);
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load courses.</div>';
   }
 }
 

@@ -8,67 +8,93 @@
 const express = require('express');
 const router = express.Router();
 
-const paymentQueries = require('../db/queries/payments');
+const db = require('../db');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'bursar', 'registrar', 'rector'];
 
+// GET /api/admin/fees — list all fees
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const { programmeId, level, sessionId, isActive } = req.query;
-    const rows = await paymentQueries.listFeeStructures({ programmeId, level, sessionId, isActive });
-    return res.json({ success: true, data: rows });
+    const { level, sessionId } = req.query;
+    let query = 'SELECT id, level, amount, session_id, created_at FROM fees';
+    const params = [];
+    const where = [];
+
+    if (level) {
+      params.push(level);
+      where.push(`level = $${params.length}`);
+    }
+    if (sessionId) {
+      params.push(sessionId);
+      where.push(`session_id = $${params.length}`);
+    }
+
+    if (where.length) query += ' WHERE ' + where.join(' AND ');
+    query += ' ORDER BY level ASC';
+
+    const result = await db.query(query, params);
+    return res.json({ success: true, data: result.rows });
   } catch (err) {
+    console.error('[fees] GET / error:', err.message);
     return next(err);
   }
 });
 
+// GET /api/admin/fees/:id
 router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
-    const row = await paymentQueries.findFeeStructureById(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Fee structure not found.' });
-    return res.json({ success: true, data: row });
+    const result = await db.query('SELECT * FROM fees WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
+    return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     return next(err);
   }
 });
 
+// POST /api/admin/fees
 router.post('/', requireRole(['admin', 'bursar']), async (req, res, next) => {
   try {
-    const { programmeId, level, sessionId } = req.body || {};
-    if (!programmeId || !level || !sessionId) {
-      return res.status(400).json({ success: false, error: 'programmeId, level, sessionId are required.' });
+    const { level, amount, sessionId } = req.body || {};
+    if (!level || amount === undefined) {
+      return res.status(400).json({ success: false, error: 'level and amount are required.' });
     }
-    const existing = await paymentQueries.findFeeStructure({ programmeId, level, sessionId });
-    if (existing) return res.status(409).json({ success: false, error: 'A fee structure already exists for this tuple.' });
-
-    const row = await paymentQueries.createFeeStructure(req.body);
-    await logAudit({ req, action: 'fee.create', entity: 'fee_structure', entityId: row.id, after: row });
-    return res.status(201).json({ success: true, data: row });
+    const result = await db.query(
+      'INSERT INTO fees (level, amount, session_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+      [String(level).toUpperCase(), Number(amount), sessionId || null]
+    );
+    await logAudit({ req, action: 'fee.create', entity: 'fee', entityId: result.rows[0].id });
+    return res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
     return next(err);
   }
 });
 
+// PUT /api/admin/fees/:id
 router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
   try {
-    const existing = await paymentQueries.findFeeStructureById(req.params.id);
-    if (!existing) return res.status(404).json({ success: false, error: 'Fee structure not found.' });
-    const row = await paymentQueries.updateFeeStructure(existing.id, req.body);
-    await logAudit({ req, action: 'fee.update', entity: 'fee_structure', entityId: existing.id, before: existing, after: row });
-    return res.json({ success: true, data: row });
+    const { level, amount, sessionId } = req.body || {};
+    const result = await db.query(
+      `UPDATE fees SET 
+        level = COALESCE($1, level), 
+        amount = COALESCE($2, amount), 
+        session_id = COALESCE($3, session_id)
+       WHERE id = $4 RETURNING *`,
+      [level ? String(level).toUpperCase() : null, amount != null ? Number(amount) : null, sessionId || null, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
+    return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     return next(err);
   }
 });
 
+// DELETE /api/admin/fees/:id
 router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
   try {
-    const existing = await paymentQueries.findFeeStructureById(req.params.id);
-    if (!existing) return res.status(404).json({ success: false, error: 'Fee structure not found.' });
-    await paymentQueries.removeFeeStructure(existing.id);
-    await logAudit({ req, action: 'fee.delete', entity: 'fee_structure', entityId: existing.id, before: existing });
+    const result = await db.query('DELETE FROM fees WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
     return res.json({ success: true });
   } catch (err) {
     return next(err);

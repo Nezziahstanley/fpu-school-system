@@ -2371,69 +2371,83 @@ async function deleteGradeScale(id) {
 }
 
 // ============================================
-// TRANSCRIPT (Lookup Directory)
+// TRANSCRIPT: Lookup & Search
 // ============================================
 async function loadTranscriptLookup() {
-  const tbody = document.getElementById('tx-search-tbody');
-  const countEl = document.getElementById('tx-count');
-  const input = document.getElementById('tx-search');
-  const searchBtn = document.getElementById('tx-search-btn');
-  
+  const tbody = document.getElementById('transcript-tbody');
   if (!tbody) return;
 
-  const q = (input || {}).value || '';
+  const searchInput = document.getElementById('transcript-search-input');
+  const searchTerm = searchInput ? searchInput.value.trim() : '';
 
-  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    const qs = new URLSearchParams({ limit: q ? 100 : 50 });
-    if (q) qs.set('search', q);
-    
-    const res = await adminFetch(`/api/admin/students?${qs}`);
+    // Build URL based on search
+    let url = '/api/admin/students?limit=50';
+    if (searchTerm) {
+      url += `&search=${encodeURIComponent(searchTerm)}`;
+    }
+
+    const res = await adminFetch(url);
     const json = await res.json();
-    const rows = json.data || [];
+    const students = json.data || [];
 
-    if (countEl) countEl.textContent = `${rows.length} result${rows.length === 1 ? '' : 's'}`;
+    document.getElementById('transcript-count').textContent = `${students.length} results`;
 
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No students found.</td></tr>';
+    if (!students.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No students found matching your search.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map((s) => `
-      <tr class="row-clickable" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id} })">
-        <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
-        <td><strong>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</strong></td>
-        <td>${escapeHtml(s.level || '')}</td>
-        <td>${escapeHtml(s.programmeName || s.programme?.name || '—')}</td>
-        <td>${s.isActive !== false ? badge('active') : badge('inactive')}</td>
-        <td>
-          <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id} })">
-            Open Transcript
-          </button>
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = students.map(s => {
+      const statusBadge = s.isActive !== false 
+        ? '<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">Active</span>'
+        : '<span style="background:#fee2e2; color:#b91c1c; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">Inactive</span>';
 
-    // Wire search button if it exists
-    if (searchBtn && !searchBtn.__wired) {
-      searchBtn.__wired = true;
-      searchBtn.onclick = () => loadTranscriptLookup();
-    }
-    
-    // Wire enter key on search input
-    if (input && !input.__wired) {
-      input.__wired = true;
-      input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          loadTranscriptLookup();
-        }
-      });
-    }
+      return `
+        <tr>
+          <td style="font-family: monospace; font-weight: 700; color: #065f46;">${escapeHtml(s.matricNumber || '—')}</td>
+          <td style="font-weight: 600; color: #0f172a;">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
+          <td style="text-align: center; font-weight: 700;">${escapeHtml(s.level || '—')}</td>
+          <td>${escapeHtml(s.programmeName || s.programme?.name || '—')}</td>
+          <td style="text-align: center;">${statusBadge}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" style="width: 100%;" onclick="window.location.hash='#transcript-view?id=${s.id}'">
+              Open Transcript
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    console.error('Failed to load transcript lookup:', err);
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load students.</td></tr>';
+  }
+}
+
+// Wire up the buttons (Run this inside your app initialization)
+function initTranscriptEvents() {
+  const searchBtn = document.getElementById('transcript-search-btn');
+  const searchInput = document.getElementById('transcript-search-input');
+  const refreshBtn = document.getElementById('transcript-refresh');
+
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => loadTranscriptLookup());
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadTranscriptLookup();
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      if (searchInput) searchInput.value = ''; // Clear search on refresh
+      loadTranscriptLookup();
+    });
   }
 }
 

@@ -3288,113 +3288,121 @@ async function loadPaymentDepartments() {
 }
 
 // ============================================
-// CLEARANCES
+// CLEARANCES (Full Dashboard + Drill-Down)
 // ============================================
+let allClearances = [];
+let currentClearanceFilter = { session: '', school: '', search: '' };
+
 async function loadClearanceDepartments() {
   const grid = document.getElementById('clr-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
+  // Get filters
+  const session = document.getElementById('clr-session')?.value || '';
+  const school = document.getElementById('clr-school')?.value || '';
+  const search = document.getElementById('clr-search')?.value.toLowerCase() || '';
 
-  const sessionId = (document.getElementById('clr-session') || {}).value || '';
-  const schoolId = (document.getElementById('clr-school') || {}).value || '';
-  const search = (document.getElementById('clr-search') || {}).value || '';
+  currentClearanceFilter = { session, school, search };
+
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1; text-align:center; padding:40px;"><span class="spinner"></span> Loading clearances…</div>';
 
   try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-
     const [clrRes, deptsRes, studentsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/clearances?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
+      adminFetch(`/api/admin/clearances${session ? '?sessionId='+session : ''}`).catch(() => null),
+      adminFetch('/api/admin/departments').catch(() => null),
+      adminFetch('/api/admin/students?limit=5000').catch(() => null),
+      adminFetch('/api/admin/schools').catch(() => null),
     ]);
 
-    const clearances = (await clrRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const students = (await studentsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
+    const clearances = clrRes ? (await clrRes.json()).data || [] : [];
+    const depts = deptsRes ? (await deptsRes.json()).data || [] : [];
+    const students = studentsRes ? (await studentsRes.json()).data || [] : [];
+    const schools = schoolsRes ? (await schoolsRes.json()).data || [] : [];
 
-    const studentById = new Map(students.map((s) => [s.id, s]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
+    const studentById = new Map(students.map(s => [s.id, s]));
+    const schoolMap = new Map(schools.map(s => [s.id, s]));
 
+    // Build department buckets
     const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, cleared: 0, pending: 0, rejected: 0, missing: 0, total: 0 });
-    
-    for (const s of students) {
-      if (!s.departmentId) continue;
-      const bucket = byDept.get(s.departmentId);
-      if (!bucket) continue;
-      bucket.total++;
-    }
+    depts.forEach(d => byDept.set(d.id, { dept: d, cleared: 0, pending: 0, rejected: 0, missing: 0, total: 0 }));
 
-    for (const c of clearances) {
+    // Count total students per department
+    students.forEach(s => {
+      if (!s.departmentId) return;
+      const bucket = byDept.get(s.departmentId);
+      if (bucket) bucket.total++;
+    });
+
+    // Aggregate clearances
+    clearances.forEach(c => {
       const row = c.clearance || c;
       const stu = studentById.get(row.studentId) || c.student;
-      if (!stu) continue;
+      if (!stu) return;
       const bucket = byDept.get(stu.departmentId);
-      if (!bucket) continue;
+      if (!bucket) return;
+      
       if (row.status === 'cleared') bucket.cleared++;
       else if (row.status === 'pending') bucket.pending++;
       else if (row.status === 'rejected') bucket.rejected++;
-    }
-
-    // Missing = students without any clearance
-    byDept.forEach((b) => {
-      const total = clearances.filter((c) => {
-        const stu = studentById.get((c.clearance || c).studentId);
-        return stu && Number(stu.departmentId) === Number(b.dept.id);
-      }).length;
-      b.missing = Math.max(0, b.total - total);
     });
 
-    let totalCleared = 0, totalPending = 0;
-    byDept.forEach((b) => { totalCleared += b.cleared; totalPending += b.pending; });
+    // Calculate missing (students with no clearance record)
+    byDept.forEach(b => {
+      const totalClearanceRecords = b.cleared + b.pending + b.rejected;
+      b.missing = Math.max(0, b.total - totalClearanceRecords);
+    });
 
-    setText('clr-stat-depts', [...byDept.values()].filter((b) => b.total > 0).length);
+    // Overall Stats
+    let totalCleared = 0, totalPending = 0, totalStudents = 0;
+    byDept.forEach(b => {
+      totalCleared += b.cleared;
+      totalPending += b.pending;
+      totalStudents += b.total;
+    });
+
+    setText('clr-stat-depts', byDept.size);
     setText('clr-stat-cleared', totalCleared);
     setText('clr-stat-pending', totalPending);
-    setText('clr-stat-rate', students.length ? Math.round((totalCleared / students.length) * 100) + '%' : '—');
+    setText('clr-stat-rate', totalStudents ? Math.round((totalCleared / totalStudents) * 100) + '%' : '—');
 
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
+    // Filter visible departments
+    let visible = [...byDept.values()].filter(b => {
+      if (school && Number(b.dept.schoolId) !== Number(school)) return false;
       if (search) {
         const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
+        return String(b.dept.code || '').toLowerCase().includes(q) || String(b.dept.name || '').toLowerCase().includes(q);
       }
       return true;
     });
 
+    // Sort by code
+    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+
     if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">✅</div><p>No departments.</p></div>';
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1; text-align:center; padding:40px;"><div style="font-size:2rem;margin-bottom:10px;">🎉</div><p>No departments match your filters.</p></div>';
       return;
     }
 
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
+    // Render Cards
+    grid.innerHTML = visible.map(b => {
       const rate = b.total ? Math.round((b.cleared / b.total) * 100) : 0;
       const cls = b.total === 0 ? 'empty' : rate >= 75 ? 'healthy' : rate >= 40 ? 'warning' : 'critical';
       const school = schoolMap.get(b.dept.schoolId);
 
       return `
-        <div class="clr-dept-card ${cls}" ${b.total === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="cdc-head">
-            <span class="cdc-code">${escapeHtml(b.dept.code)}</span>
-            <span class="cdc-school">${escapeHtml(school?.code || '')}</span>
+        <div class="clr-dept-card ${cls}" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}">
+          <div class="clr-card-head">
+            <div class="clr-code">${escapeHtml(b.dept.code)}</div>
+            <div class="clr-school">${escapeHtml(school ? school.code : '—')}</div>
           </div>
           <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="cdc-rate">
-            <span class="cdc-rate-num ${cls}">${b.total ? rate + '%' : '—'}</span>
-            <span class="label">cleared</span>
+          <div class="clr-rate ${cls}">${b.total ? rate + '%' : '—'}<span class="clr-rate-label">cleared</span></div>
+          <div class="clr-stats">
+            <div class="clr-stat cleared"><span class="num">${b.cleared}</span><span class="lbl">Cleared</span></div>
+            <div class="clr-stat pending"><span class="num">${b.pending}</span><span class="lbl">Pending</span></div>
+            <div class="clr-stat rejected"><span class="num">${b.rejected}</span><span class="lbl">Rejected</span></div>
           </div>
-          <div class="cdc-stats">
-            <div class="item cleared"><span class="n">${b.cleared}</span><span class="l">Cleared</span></div>
-            <div class="item pending"><span class="n">${b.pending}</span><span class="l">Pending</span></div>
-            <div class="item rejected"><span class="n">${b.rejected}</span><span class="l">Rejected</span></div>
-          </div>
-          <div class="cdc-footer">
+          <div class="clr-footer">
             <span>${b.missing} without records</span>
             <span class="arrow">→</span>
           </div>
@@ -3402,13 +3410,224 @@ async function loadClearanceDepartments() {
       `;
     }).join('');
 
-    grid.querySelectorAll('.clr-dept-card[data-dept-id]').forEach((card) => {
+    // Wire card clicks to drill-down
+    grid.querySelectorAll('.clr-dept-card').forEach(card => {
       card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('clearances-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, name: card.dataset.deptName });
+        FPU_ADMIN_SPA.navigateToWithQuery('clearances-by-dept', { 
+          departmentId: card.dataset.deptId, 
+          session: currentClearanceFilter.session,
+          name: card.dataset.deptName 
+        });
       });
     });
+
+    // Wire top buttons
+    const refreshBtn = document.querySelector('.page-head .actions button');
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadClearanceDepartments();
+    }
+
+    // Wire Export
+    const exportBtn = document.getElementById('clr-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => {
+        const headers = ['Code', 'Department', 'Total Students', 'Cleared', 'Pending', 'Rejected', 'Missing', 'Rate %'];
+        const rows = visible.map(b => [
+          b.dept.code, b.dept.name, b.total, b.cleared, b.pending, b.rejected, b.missing,
+          b.total ? Math.round((b.cleared / b.total) * 100) : 0
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clearances-${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        showToast('✅ Exported.', 'success');
+      };
+    }
+
+    // Wire Bulk Clear button
+    const bulkBtn = document.querySelector('.page-head .actions button:last-child');
+    if (bulkBtn && /bulk/i.test(bulkBtn.textContent)) {
+      if (!bulkBtn.__wired) {
+        bulkBtn.__wired = true;
+        bulkBtn.onclick = async () => {
+          const ok = await window.fpuConfirm(
+            'Bulk clear ALL pending clearances in the system?\n\nThis will approve every pending clearance.',
+            { title: 'Bulk Clear', type: 'danger', okText: 'Clear All' }
+          );
+          if (!ok) return;
+          try {
+            await adminFetch('/api/admin/clearances/bulk-clear', { method: 'POST' });
+            showToast('✅ Bulk clear complete.', 'success');
+            loadClearanceDepartments();
+          } catch (err) {
+            showToast('❌ ' + err.message, 'error');
+          }
+        };
+      }
+    }
+
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1; margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// CLEARANCES: DRILL-DOWN (Department Details)
+// ============================================
+async function loadDepartmentClearances() {
+  const root = document.getElementById('clr-detail-root');
+  if (!root) return;
+
+  // Get URL params
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const departmentId = params.get('departmentId');
+  const session = params.get('session') || '';
+  const deptName = params.get('name') || 'Department';
+
+  if (!departmentId) {
+    root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No department selected.</div>';
+    return;
+  }
+
+  document.getElementById('clr-detail-title').textContent = deptName;
+  document.getElementById('clr-detail-subtitle').textContent = `Manage clearances for ${deptName}`;
+
+  root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading students…</div>';
+
+  try {
+    // Load students in this department + all clearances
+    const [studentsRes, clrRes] = await Promise.all([
+      adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
+      adminFetch(`/api/admin/clearances${session ? '?sessionId='+session : ''}`).catch(() => null),
+    ]);
+
+    const students = studentsRes ? (await studentsRes.json()).data || [] : [];
+    const clearances = clrRes ? (await clrRes.json()).data || [] : [];
+
+    // Build map of student → clearance status
+    const clearanceByStudent = new Map();
+    clearances.forEach(c => {
+      const row = c.clearance || c;
+      clearanceByStudent.set(row.studentId, row);
+    });
+
+    if (!students.length) {
+      root.innerHTML = '<div class="empty-state" style="text-align:center; padding:60px;"><div style="font-size:3rem;">👻</div><h3>No students in this department</h3></div>';
+      return;
+    }
+
+    // Update stats
+    let cleared = 0, pending = 0, rejected = 0, missing = 0;
+    students.forEach(s => {
+      const clr = clearanceByStudent.get(s.id);
+      if (!clr) missing++;
+      else if (clr.status === 'cleared') cleared++;
+      else if (clr.status === 'pending') pending++;
+      else if (clr.status === 'rejected') rejected++;
+    });
+
+    document.getElementById('clr-detail-stats').innerHTML = `
+      <div class="stat-card" style="border-left:4px solid #10b981;">
+        <div class="label">Cleared</div><div class="value">${cleared}</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #f59e0b;">
+        <div class="label">Pending</div><div class="value">${pending}</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #dc2626;">
+        <div class="label">Rejected</div><div class="value">${rejected}</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #94a3b8;">
+        <div class="label">No Record</div><div class="value">${missing}</div>
+      </div>
+    `;
+
+    // Render table
+    root.innerHTML = `
+      <div class="table-wrap" style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
+        <table class="table-admin" style="width:100%;">
+          <thead style="background:#f8fafc; font-size:11px; text-transform:uppercase; color:#64748b;">
+            <tr>
+              <th style="padding:12px 20px;">Student</th>
+              <th style="padding:12px 20px;">Matric</th>
+              <th style="padding:12px 20px;">Level</th>
+              <th style="padding:12px 20px;">Status</th>
+              <th style="padding:12px 20px; text-align:right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${students.map(s => {
+              const clr = clearanceByStudent.get(s.id);
+              const status = clr?.status || 'missing';
+              const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim() || 'Unknown';
+
+              let badgeClass = 'badge-missing';
+              let actions = '';
+              
+              if (status === 'cleared') {
+                badgeClass = 'badge-cleared';
+                actions = `<button class="btn btn-sm btn-outline" disabled>✔ Cleared</button>`;
+              } else if (status === 'pending') {
+                badgeClass = 'badge-pending';
+                actions = `
+                  <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
+                  <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.clearStudent(${s.id}, 'rejected')">✕ Reject</button>
+                `;
+              } else if (status === 'rejected') {
+                badgeClass = 'badge-rejected';
+                actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
+              } else {
+                badgeClass = 'badge-missing';
+                actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">+ Create & Clear</button>`;
+              }
+
+              return `
+                <tr>
+                  <td style="padding:12px 20px;">${escapeHtml(fullName)}</td>
+                  <td style="padding:12px 20px;"><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
+                  <td style="padding:12px 20px;">${escapeHtml(s.level || '—')}</td>
+                  <td style="padding:12px 20px;"><span class="badge ${badgeClass}">${status.toUpperCase()}</span></td>
+                  <td style="padding:12px 20px; text-align:right;">${actions}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function clearStudent(studentId, newStatus) {
+  try {
+    // Try to update existing record
+    await adminFetch(`/api/admin/clearances/student/${studentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: newStatus }),
+    });
+    showToast(`✅ Status updated to ${newStatus}.`, 'success');
+    loadDepartmentClearances();
+  } catch (err) {
+    // If endpoint fails, try creating a new record
+    try {
+      await adminFetch(`/api/admin/clearances`, {
+        method: 'POST',
+        body: JSON.stringify({ studentId, status: newStatus }),
+      });
+      showToast(`✅ Clearance created.`, 'success');
+      loadDepartmentClearances();
+    } catch (err2) {
+      showToast('❌ ' + err2.message, 'error');
+    }
   }
 }
 
@@ -8463,6 +8682,68 @@ async function submitIssueBookForm() {
   }
 }
 
+// ============================================
+// CLEARANCES: BULK ACTIONS
+// ============================================
+async function bulkClearClearances(newStatus) {
+  const checkboxes = document.querySelectorAll('.clr-student-check:checked');
+  if (checkboxes.length === 0) {
+    showToast('⚠️ Select at least one student.', 'warning');
+    return;
+  }
+
+  const studentIds = Array.from(checkboxes).map(cb => Number(cb.value));
+  
+  const ok = await window.fpuConfirm(
+    `Mark ${studentIds.length} student(s) as ${newStatus.toUpperCase()}?`,
+    { title: `Bulk ${newStatus}`, type: newStatus === 'rejected' ? 'danger' : 'success', okText: 'Confirm' }
+  );
+  if (!ok) return;
+
+  try {
+    // Try bulk endpoint first
+    await adminFetch(`/api/admin/clearances/bulk-status`, {
+      method: 'POST',
+      body: JSON.stringify({ studentIds, status: newStatus }),
+    });
+    showToast(`✅ ${studentIds.length} student(s) updated.`, 'success');
+    loadDepartmentClearances();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// ============================================
+// CLEARANCES: EXPORT CSV
+// ============================================
+function exportClearanceCSV() {
+  const rows = document.querySelectorAll('#cdd-tbody tr');
+  if (!rows.length) {
+    showToast('⚠️ No data to export.', 'warning');
+    return;
+  }
+
+  let csv = 'Matric,Student Name,Level,Status,Remarks\n';
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 5) return;
+    const matric = cells[1]?.textContent.trim() || '';
+    const name = cells[2]?.textContent.trim() || '';
+    const level = cells[3]?.textContent.trim() || '';
+    const status = cells[4]?.textContent.trim() || '';
+    const remarks = cells[5]?.textContent.trim() || '';
+    csv += `"${matric}","${name}","${level}","${status}","${remarks}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `clearances-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Exported.', 'success');
+}
 
 window.FPU_ADMIN = {
   // Core Helpers
@@ -8528,7 +8809,7 @@ window.FPU_ADMIN = {
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
 
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,
+  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,  bulkClearClearances, exportClearanceCSV,
 
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,

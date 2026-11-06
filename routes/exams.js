@@ -11,10 +11,63 @@ const router = express.Router();
 const examQueries = require('../db/queries/exams');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
+const { db, schema, sql } = require('../db');
+const { eq, and } = require('drizzle-orm');
 
 const STAFF = ['admin', 'registrar', 'exam_officer', 'academic_officer', 'hod', 'lecturer', 'rector', 'librarian'];
 
-// ---------------- Schedules ----------------
+// ============================================================
+// 1. GET /api/admin/exams/periods
+// Powers the "Exam Periods" section on the dashboard
+// ============================================================
+router.get('/periods', requireRole(STAFF), async (req, res, next) => {
+  try {
+    // Standard static periods for the timetable
+    const periods = [
+      { id: 1, name: 'Morning', start: '09:00', end: '11:00' },
+      { id: 2, name: 'Afternoon', start: '12:00', end: '14:00' },
+      { id: 3, name: 'Evening', start: '15:00', end: '17:00' }
+    ];
+    return res.json({ success: true, data: periods });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// 2. GET /api/admin/exams/schools
+// Powers the School Cards on the dashboard
+// ============================================================
+router.get('/schools', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.query;
+    
+    // Build the query to aggregate exams per school
+    const stats = await db
+      .select({
+        id: schema.schools.id,
+        name: schema.schools.name,
+        code: schema.schools.code,
+        exams: sql`COUNT(DISTINCT ${schema.examSchedules.id})`,
+        days: sql`COUNT(DISTINCT ${schema.examSchedules.examDate})`,
+        venues: sql`COUNT(DISTINCT ${schema.examSchedules.venue})`
+      })
+      .from(schema.schools)
+      .leftJoin(schema.departments, eq(schema.schools.id, schema.departments.schoolId))
+      .leftJoin(schema.courses, eq(schema.departments.id, schema.courses.departmentId))
+      .leftJoin(schema.examSchedules, eq(schema.courses.id, schema.examSchedules.courseId))
+      .groupBy(schema.schools.id, schema.schools.name, schema.schools.code);
+
+    return res.json({ success: true, data: stats });
+  } catch (err) {
+    console.error('Error fetching exam schools:', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// 3. Schedules CRUD
+// ============================================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const filters = { ...req.query };
@@ -81,7 +134,9 @@ router.delete('/:id', requireRole(['admin', 'exam_officer']), async (req, res, n
   }
 });
 
-// ---------------- Attendance ----------------
+// ============================================================
+// 4. Attendance
+// ============================================================
 router.get('/:id/attendance', requireRole(STAFF), async (req, res, next) => {
   try {
     const rows = await examQueries.listAttendanceWithStudent({ examScheduleId: req.params.id });

@@ -2550,101 +2550,117 @@ async function loadTimetableIndex() {
 }
 
 // ============================================
-// EXAMS
+// EXAMS: Index Page Loader
 // ============================================
 async function loadExamsIndex() {
   const grid = document.getElementById('ex-school-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading schools…</div>';
+  // 1. Load Periods
+  loadExamPeriods();
 
-  const sessionId = (document.getElementById('ex-session') || {}).value || '';
-  const semester = (document.getElementById('ex-semester') || {}).value || 'first';
-  const schoolId = (document.getElementById('ex-school') || {}).value || '';
+  // 2. Load Schools & Stats
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading schools…</div>';
 
   try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
+    const sessionId = document.getElementById('ex-session')?.value || '';
+    const semester = document.getElementById('ex-semester')?.value || 'first';
 
-    const [schoolsRes, examsRes, deptsRes, coursesRes] = await Promise.all([
-      adminFetch('/api/admin/schools'),
-      adminFetch(`/api/admin/exams?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/courses?limit=2000'),
-    ]);
+    const res = await adminFetch(`/api/admin/exams/schools?sessionId=${sessionId}&semester=${semester}`);
+    const json = await res.json();
+    const schools = json.data || [];
 
-    const schools = (await schoolsRes.json()).data || [];
-    const exams = (await examsRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
-
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const deptById = new Map(depts.map((d) => [d.id, d]));
-
-    const bySchool = new Map();
-    for (const s of schools) bySchool.set(s.id, { school: s, exams: [] });
-
-    for (const e of exams) {
-      const c = courseById.get(e.exam?.courseId || e.courseId);
-      if (!c) continue;
-      const d = deptById.get(c.departmentId);
-      if (!d) continue;
-      const bucket = bySchool.get(d.schoolId);
-      if (!bucket) continue;
-      bucket.exams.push(e);
-    }
-
-    let total = 0, totalDays = new Set(), totalVenues = new Set();
-    for (const b of bySchool.values()) {
-      total += b.exams.length;
-      b.exams.forEach((e) => {
-        const exam = e.exam || e;
-        if (exam.examDate) totalDays.add(String(exam.examDate).slice(0, 10));
-        if (exam.venue) totalVenues.add(exam.venue);
-      });
-    }
-
-    setText('ex-stat-total', total);
-    setText('ex-stat-depts', depts.length);
-    setText('ex-stat-days', totalDays.size);
-    setText('ex-stat-venues', totalVenues.size);
-
-    const visible = [...bySchool.values()].filter((b) => {
-      if (!schoolId) return true;
-      return Number(b.school.id) === Number(schoolId);
+    // Update Stats Bar
+    let totalExams = 0, totalDays = 0, totalVenues = 0;
+    schools.forEach(s => {
+      totalExams += Number(s.exams) || 0;
+      totalDays += Number(s.days) || 0;
+      totalVenues += Number(s.venues) || 0;
     });
+    
+    // Note: Departments count might need to be fetched from a separate endpoint if not in `schools` data
+    document.getElementById('ex-stat-total').textContent = totalExams;
+    document.getElementById('ex-stat-depts').textContent = schools.length; 
+    document.getElementById('ex-stat-days').textContent = totalDays;
+    document.getElementById('ex-stat-venues').textContent = totalVenues;
 
-    grid.innerHTML = visible.map((b) => {
-      const isEmpty = b.exams.length === 0;
+    if (!schools.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No exams scheduled yet.</div>';
+      return;
+    }
+
+    // Render Cards
+    grid.innerHTML = schools.map(s => {
+      const examCount = Number(s.exams) || 0;
+      const isHealthy = examCount > 0;
+      
       return `
-        <div class="ex-school-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-school-id="${b.school.id}" data-school-name="${escapeHtml(b.school.name)}"`}>
+        <div class="ex-school-card ${isHealthy ? '' : 'empty'}" onclick="window.location.hash='#exam-sheet?schoolId=${s.id}&sessionId=${sessionId}&semester=${semester}&name=${encodeURIComponent(s.name)}'">
           <div class="esc-head">
-            <span class="esc-code">${escapeHtml(b.school.code)}</span>
+            <span class="esc-code">${escapeHtml(s.code || 'SCH')}</span>
             <span class="esc-badge">Exam Sheet</span>
           </div>
-          <h3>${escapeHtml(b.school.name)}</h3>
+          <h3>${escapeHtml(s.name)}</h3>
+          
           <div class="esc-stats">
-            <div class="esc-stat"><span class="num">${b.exams.length}</span><span class="label">Exams</span></div>
-            <div class="esc-stat"><span class="num">${new Set(b.exams.map((e) => (e.exam || e).examDate)).size}</span><span class="label">Days</span></div>
-            <div class="esc-stat"><span class="num">${new Set(b.exams.map((e) => (e.exam || e).venue).filter(Boolean)).size}</span><span class="label">Venues</span></div>
+            <div class="esc-stat">
+              <span class="num">${examCount}</span>
+              <span class="label">Exams</span>
+            </div>
+            <div class="esc-stat">
+              <span class="num">${Number(s.days) || 0}</span>
+              <span class="label">Days</span>
+            </div>
+            <div class="esc-stat">
+              <span class="num">${Number(s.venues) || 0}</span>
+              <span class="label">Venues</span>
+            </div>
           </div>
+          
           <div class="esc-footer">
-            <span>${isEmpty ? 'No exams yet' : 'Open exam sheet'}</span>
+            <span>${isHealthy ? 'Open exam sheet' : 'No exams yet'}</span>
             <span class="arrow">→</span>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.ex-school-card[data-school-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: Number(card.dataset.schoolId), sessionId: sessionId || '', semester, name: card.dataset.schoolName });
-      });
-    });
-
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('Failed to load exams index:', err);
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Failed to load exams data.</div>';
+  }
+}
+
+// ============================================
+// EXAMS: Load Periods
+// ============================================
+async function loadExamPeriods() {
+  const body = document.getElementById('ex-periods-body');
+  if (!body) return;
+
+  try {
+    const res = await adminFetch('/api/admin/exams/periods');
+    const json = await res.json();
+    const periods = json.data || [];
+
+    if (!periods.length) {
+      body.innerHTML = '<span class="muted">No periods configured.</span>';
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="period-chips">
+        ${periods.map(p => `
+          <div class="period-chip">
+            <span class="label">${escapeHtml(p.name)}</span>
+            <span class="value">${escapeHtml(p.start)} - ${escapeHtml(p.end)}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } catch (err) {
+    console.error('Failed to load periods:', err);
+    body.innerHTML = '<span style="color:#dc2626;">Failed to load periods.</span>';
   }
 }
 
@@ -10831,6 +10847,49 @@ async function saveStaffForm(e) {
     showToast('❌ ' + err.message, 'error');
   }
 }
+
+// ============================================
+// EXAMS: Load Exam Periods
+// ============================================
+async function loadExamPeriods() {
+  // Look for the container where the periods should go. 
+  // (Make sure this ID matches what's in your exams HTML)
+  const container = document.getElementById('exam-periods-list') || document.querySelector('.exam-periods-container'); 
+  
+  if (!container) {
+    console.warn('Exam periods container not found in DOM.');
+    return;
+  }
+
+  container.innerHTML = '<span class="spinner"></span> Loading periods...';
+
+  try {
+    const res = await adminFetch('/api/admin/exams/periods');
+    const json = await res.json();
+    const periods = json.data || [];
+
+    if (!periods.length) {
+      container.innerHTML = '<span class="muted">No periods configured.</span>';
+      return;
+    }
+
+    // Render the periods cleanly
+    container.innerHTML = periods.map(p => `
+      <div style="padding: 6px 12px; background: #f1f5f9; border-radius: 6px; margin-right: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600; color: #0f172a; display: inline-block;">
+        ${escapeHtml(p.name)}
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load periods', err);
+    container.innerHTML = '<span style="color: #dc2626; font-size: 12px;">Failed to load periods.</span>';
+  }
+}
+
+// Export it in your window.FPU_ADMIN object
+window.FPU_ADMIN = {
+  // ... existing functions
+  loadExamPeriods,
+};
 
 window.FPU_ADMIN = {
   // Core Helpers

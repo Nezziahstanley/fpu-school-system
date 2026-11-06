@@ -288,5 +288,20 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadExamsIndex()
+  // Initialize on load
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamsIndex) {
+    setTimeout(window.FPU_ADMIN.loadExamsIndex, 100);
+  }
+
+  // Wire up "Print All" button
+  document.getElementById('ex-print-all')?.addEventListener('click', () => {
+    window.print();
+  });
+
+  // Wire up "Exam Periods" button (Shows a simple alert for now, or opens modal)
+  document.getElementById('ex-edit-periods')?.addEventListener('click', () => {
+    // If you want to open the modal, add logic here.
+    // For now, it just shows the periods in an alert.
+    alert('Periods are standard: Morning (9-11), Afternoon (12-2), Evening (3-5)');
+  });
 </script>

@@ -12,6 +12,7 @@ const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
 // GET /api/admin/attendance/departments
 // Returns a flat array of departments with their stats
 // ============================================================
+// Inside routes/attendance.js
 router.get('/departments', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, semester, schoolId, search } = req.query;
@@ -47,7 +48,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       .groupBy(schema.departments.id, schema.departments.name, schema.departments.code, schema.schools.name)
       .orderBy(schema.departments.name);
 
-    // Format the data exactly as the frontend expects
+    // Fix the math by explicitly parsing to Numbers
     const formatted = stats.map(row => {
       const recs = Number(row.records) || 0;
       const p = Number(row.present) || 0;

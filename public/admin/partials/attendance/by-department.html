@@ -216,5 +216,7 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadDepartmentAttendance()
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadDepartmentAttendance) {
+    setTimeout(window.FPU_ADMIN.loadDepartmentAttendance, 100);
+  }
 </script>

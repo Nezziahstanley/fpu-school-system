@@ -2649,21 +2649,20 @@ async function loadExamsIndex() {
 }
 
 // ============================================
-// ATTENDANCE: Dashboard Loaders
+// 1. ATTENDANCE: Overview (Departments)
 // ============================================
-
 async function loadAttendanceDepartments() {
   const grid = document.getElementById('att-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
+  grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading departments…</div>';
 
   try {
     const res = await adminFetch('/api/admin/attendance/departments');
     const json = await res.json();
     const departments = json.data || [];
 
-    // Update Stats Bar
+    // Update Top Stats Bar
     document.getElementById('att-stat-depts').textContent = departments.length;
     
     let totalCourses = 0, totalRecords = 0, totalPresent = 0, totalLate = 0;
@@ -2676,17 +2675,21 @@ async function loadAttendanceDepartments() {
     
     document.getElementById('att-stat-courses').textContent = totalCourses;
     document.getElementById('att-stat-total').textContent = totalRecords;
-    const overallRate = totalRecords > 0 ? Math.round(((totalPresent + totalLate) / totalRecords) * 100) : 0;
+    
+    // Calculate Overall Rate
+    let overallRate = 0;
+    if (totalRecords > 0) {
+      overallRate = Math.round(((totalPresent + totalLate) / totalRecords) * 100);
+    }
     document.getElementById('att-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
-    // Render Cards
+    // Render Department Cards
     if (!departments.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No departments found.</div>';
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No departments found.</div>';
       return;
     }
 
     grid.innerHTML = departments.map(d => {
-      // Determine card color based on rate
       let rateClass = 'empty';
       if (d.records > 0) {
         if (d.rate >= 75) rateClass = 'healthy';
@@ -2696,34 +2699,38 @@ async function loadAttendanceDepartments() {
 
       const rateText = d.records > 0 ? `${d.rate}%` : '—';
 
+      // Routes to: #attendance-department?id=X
       return `
-        <div class="att-dept-card ${rateClass}" onclick="window.location.hash='#attendance-department?id=${d.id}'">
-          <div class="adc-head">
-            <div class="adc-code">${escapeHtml(d.code)}</div>
-            <div class="adc-school">${escapeHtml(d.schoolName || 'SMT')}</div>
+        <div class="dept-card" onclick="window.location.hash='#attendance-department?id=${d.id}'">
+          <div class="dept-card-header">
+            <span class="dept-code-badge">${escapeHtml(d.code)}</span>
+            <span class="dept-school-badge" title="${escapeHtml(d.schoolName || '')}">${escapeHtml(d.schoolName || 'N/A')}</span>
           </div>
-          <h3>${escapeHtml(d.name)}</h3>
-          <div class="adc-rate">
-            <div class="adc-rate-num ${rateClass}">${rateText}</div>
-            <div class="label">attendance rate</div>
+          <h3 class="dept-name">${escapeHtml(d.name)}</h3>
+          
+          <div class="dept-rate-wrap">
+            <span class="dept-rate-number ${rateClass}">${rateText}</span>
+            <span class="dept-rate-label">attendance rate</span>
           </div>
-          <div class="adc-stats">
-            <div class="adc-stat">
-              <div class="num">${d.courses}</div>
-              <div class="label">Courses</div>
+          
+          <div class="dept-stats-grid">
+            <div class="dept-stat-box">
+              <div class="dept-stat-val">${d.courses}</div>
+              <div class="dept-stat-lbl">Courses</div>
             </div>
-            <div class="adc-stat">
-              <div class="num">${d.students}</div>
-              <div class="label">Students</div>
+            <div class="dept-stat-box">
+              <div class="dept-stat-val">${d.students}</div>
+              <div class="dept-stat-lbl">Students</div>
             </div>
-            <div class="adc-stat">
-              <div class="num">${d.records}</div>
-              <div class="label">Records</div>
+            <div class="dept-stat-box">
+              <div class="dept-stat-val">${d.records}</div>
+              <div class="dept-stat-lbl">Records</div>
             </div>
           </div>
-          <div class="adc-footer">
-            <span>${d.records === 0 ? 'No records' : 'View Details'}</span>
-            <span class="arrow">→</span>
+          
+          <div class="dept-card-footer">
+            <span>${d.records === 0 ? 'No records yet' : 'View Details'}</span>
+            <span>→</span>
           </div>
         </div>
       `;
@@ -2731,7 +2738,124 @@ async function loadAttendanceDepartments() {
 
   } catch (err) {
     console.error('Failed to load attendance', err);
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Failed to load attendance data.</div>';
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data.</div>';
+  }
+}
+
+// ============================================
+// 2. ATTENDANCE: By Department (Courses)
+// ============================================
+async function loadDepartmentAttendance() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('id');
+
+  if (!deptId) {
+    showToast('No department selected.', 'error');
+    window.location.hash = '#attendance';
+    return;
+  }
+
+  const grid = document.getElementById('abd-course-grid');
+  if (!grid) return;
+
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1; text-align:center;"><span class="spinner"></span> Loading courses…</div>';
+
+  // Gather filters
+  const level = document.getElementById('abd-filter-level')?.value || '';
+  const semester = document.getElementById('abd-filter-semester')?.value || '';
+  const search = document.getElementById('abd-filter-search')?.value || '';
+
+  try {
+    let url = `/api/admin/attendance/department/${deptId}?`;
+    if (level) url += `level=${level}&`;
+    if (semester) url += `semester=${semester}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const courses = json.data || [];
+
+    // Update Stats
+    let totalRecords = 0, totalPresent = 0, totalLate = 0, totalStudents = 0, coursesWithRecords = 0;
+    
+    courses.forEach(c => {
+      totalRecords += c.records || 0;
+      totalPresent += c.present || 0;
+      totalLate += c.late || 0;
+      totalStudents += c.students || 0;
+      if (c.records > 0) coursesWithRecords++;
+    });
+
+    document.getElementById('abdc-stat-courses').textContent = coursesWithRecords;
+    document.getElementById('abdc-stat-records').textContent = totalRecords;
+    document.getElementById('abdc-stat-students').textContent = totalStudents;
+    
+    let overallRate = 0;
+    if (totalRecords > 0) {
+      overallRate = Math.round(((totalPresent + totalLate) / totalRecords) * 100);
+    }
+    document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+
+    if (!courses.length) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No courses found in this department.</div>';
+      return;
+    }
+
+    // Render Course Cards
+    grid.innerHTML = courses.map(c => {
+      let rateClass = 'empty';
+      if (c.records > 0) {
+        if (c.rate >= 75) rateClass = 'healthy';
+        else if (c.rate >= 50) rateClass = 'warning';
+        else rateClass = 'critical';
+      }
+
+      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const lvlClass = c.level ? c.level.toLowerCase() : 'other';
+      const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
+
+      // Routes to: #attendance-course?id=Y&departmentId=X
+      return `
+        <div class="abd-course-card ${rateClass}" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+          <div class="abcc-head">
+            <span class="abcc-code">${escapeHtml(c.code)}</span>
+            <span class="abcc-level ${lvlClass}">${escapeHtml(c.level || 'N/A')}</span>
+          </div>
+          <h3>${escapeHtml(c.title)}</h3>
+          
+          <div class="abcc-rate">
+            <span class="num ${rateClass}">${rateText}</span>
+            <span class="label">attendance rate</span>
+          </div>
+          
+          <div class="abcc-stats">
+            <div class="abcc-stat">
+              <span class="num">${c.records}</span>
+              <span class="label">Records</span>
+            </div>
+            <div class="abcc-stat">
+              <span class="num">${c.students}</span>
+              <span class="label">Students</span>
+            </div>
+            <div class="abcc-stat" title="Last Class: ${lastDate}">
+              <span class="num" style="font-size: 0.8rem; padding-top: 2px;">${lastDate}</span>
+              <span class="label">Last Class</span>
+            </div>
+          </div>
+          
+          <div class="abcc-footer">
+            <span>${c.records === 0 ? 'No records yet' : 'View Roster'}</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load department courses', err);
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load courses.</div>';
   }
 }
 
@@ -10558,7 +10682,7 @@ window.FPU_ADMIN = {
   loadExamsIndex,
 
   // Attendance
-  loadAttendanceDepartments,
+  loadAttendanceDepartments, loadDepartmentAttendance,
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,

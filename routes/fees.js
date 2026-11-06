@@ -8,18 +8,32 @@
 const express = require('express');
 const router = express.Router();
 
-const db = require('../db'); // Adjust path if your DB connection is elsewhere
+const { db, schema } = require('..');
+const { eq, asc } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
+const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'bursar', 'registrar', 'rector'];
 
-// GET /api/admin/fees — Return all fees from Neon
+// Detect the fees table from schema
+const feesTable = schema.fees || schema.feeStructures || schema.fee_structures;
+
+if (!feesTable) {
+  console.error('[fees] CRITICAL: schema.fees not found in db/schema. Check your schema file.');
+}
+
+// GET /api/admin/fees
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const result = await db.query(
-      'SELECT id, level, amount, session_id FROM fees ORDER BY level ASC'
-    );
-    return res.json({ success: true, data: result.rows });
+    if (!feesTable) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'fees table not registered in drizzle schema' 
+      });
+    }
+
+    const rows = await db.select().from(feesTable).orderBy(asc(feesTable.level));
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[fees] GET error:', err.message);
     return next(err);
@@ -29,11 +43,14 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 // GET /api/admin/fees/:id
 router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
-    const result = await db.query('SELECT * FROM fees WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Fee not found.' });
-    }
-    return res.json({ success: true, data: result.rows[0] });
+    const [row] = await db
+      .select()
+      .from(feesTable)
+      .where(eq(feesTable.id, Number(req.params.id)))
+      .limit(1);
+
+    if (!row) return res.status(404).json({ success: false, error: 'Fee not found.' });
+    return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
@@ -46,13 +63,18 @@ router.post('/', requireRole(['admin', 'bursar']), async (req, res, next) => {
     if (!level || amount === undefined) {
       return res.status(400).json({ success: false, error: 'level and amount are required.' });
     }
-    const result = await db.query(
-      `INSERT INTO fees (level, amount, session_id, created_at)
-       VALUES ($1, $2, $3, NOW())
-       RETURNING *`,
-      [String(level).toUpperCase(), Number(amount), sessionId || null]
-    );
-    return res.status(201).json({ success: true, data: result.rows[0] });
+
+    const [row] = await db
+      .insert(feesTable)
+      .values({
+        level: String(level).toUpperCase(),
+        amount: Number(amount),
+        sessionId: sessionId ? Number(sessionId) : null,
+      })
+      .returning();
+
+    await logAudit({ req, action: 'fee.create', entity: 'fee', entityId: row.id });
+    return res.status(201).json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
@@ -62,23 +84,24 @@ router.post('/', requireRole(['admin', 'bursar']), async (req, res, next) => {
 router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
   try {
     const { level, amount, sessionId } = req.body || {};
-    const result = await db.query(
-      `UPDATE fees SET
-        level = COALESCE($1, level),
-        amount = COALESCE($2, amount),
-        session_id = COALESCE($3, session_id)
-       WHERE id = $4 RETURNING *`,
-      [
-        level ? String(level).toUpperCase() : null,
-        amount != null ? Number(amount) : null,
-        sessionId || null,
-        req.params.id,
-      ]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Fee not found.' });
+
+    const patch = {};
+    if (level !== undefined) patch.level = String(level).toUpperCase();
+    if (amount !== undefined) patch.amount = Number(amount);
+    if (sessionId !== undefined) patch.sessionId = sessionId ? Number(sessionId) : null;
+
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({ success: false, error: 'No fields to update.' });
     }
-    return res.json({ success: true, data: result.rows[0] });
+
+    const [row] = await db
+      .update(feesTable)
+      .set(patch)
+      .where(eq(feesTable.id, Number(req.params.id)))
+      .returning();
+
+    if (!row) return res.status(404).json({ success: false, error: 'Fee not found.' });
+    return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);
   }
@@ -87,10 +110,12 @@ router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
 // DELETE /api/admin/fees/:id
 router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
   try {
-    const result = await db.query('DELETE FROM fees WHERE id = $1 RETURNING *', [req.params.id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Fee not found.' });
-    }
+    const [row] = await db
+      .delete(feesTable)
+      .where(eq(feesTable.id, Number(req.params.id)))
+      .returning();
+
+    if (!row) return res.status(404).json({ success: false, error: 'Fee not found.' });
     return res.json({ success: true });
   } catch (err) {
     return next(err);

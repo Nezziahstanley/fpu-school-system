@@ -242,5 +242,7 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadExamSheet()
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamSheet) {
+    setTimeout(window.FPU_ADMIN.loadExamSheet, 100);
+  }
 </script>

@@ -10891,6 +10891,145 @@ window.FPU_ADMIN = {
   loadExamPeriods,
 };
 
+// ============================================
+// EXAMS: Load A4 Exam Sheet
+// ============================================
+async function loadExamSheet() {
+  const root = document.getElementById('exsheet-root');
+  const titleEl = document.getElementById('exsheet-title');
+  const subtitleEl = document.getElementById('exsheet-subtitle');
+  
+  if (!root) return;
+
+  // Parse URL parameters (e.g., #exam-sheet?schoolId=2&sessionId=1...)
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  
+  const schoolId = params.get('schoolId');
+  const sessionId = params.get('sessionId');
+  const semester = params.get('semester') || 'first';
+  const schoolName = params.get('name') || 'School';
+
+  if (!schoolId) {
+    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">No school selected. Please go back.</div>';
+    return;
+  }
+
+  titleEl.textContent = `${schoolName} Exam Timetable`;
+  subtitleEl.textContent = `Loading schedules for ${semester} semester...`;
+
+  try {
+    // Fetch exams filtered by school
+    const res = await adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`);
+    const json = await res.json();
+    const exams = json.data || [];
+
+    subtitleEl.textContent = `${exams.length} exams scheduled`;
+
+    if (!exams.length) {
+      root.innerHTML = `
+        <div class="panel" style="text-align:center; padding: 60px 20px;">
+          <h3 style="color: #64748b; margin-bottom: 10px;">No Exams Scheduled</h3>
+          <p class="muted">There are no exams for this school in the selected semester.</p>
+          <button class="btn btn-primary" style="margin-top: 20px;" onclick="window.location.hash='#exam-form?departmentId='">+ Add an Exam</button>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort exams by date and time
+    exams.sort((a, b) => {
+      const dateA = new Date(a.examDate).getTime();
+      const dateB = new Date(b.examDate).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return (a.startTime || '').localeCompare(b.startTime || '');
+    });
+
+    // Build the A4 HTML
+    // (This is a simplified version. You can use the full A4 CSS from your sheet.html)
+    root.innerHTML = `
+      <div class="ex-sheet">
+        <div class="ex-head">
+          <div class="ex-head-text">
+            <div class="institution">FEDERAL POLYTECHNIC UGOWOLAWO</div>
+            <div class="faculty">${escapeHtml(schoolName.toUpperCase())}</div>
+            <div class="title-line">${semester.toUpperCase()} SEMESTER EXAMINATION TIMETABLE</div>
+            <div class="level-line">SESSION: ${sessionId || 'Current'}</div>
+          </div>
+        </div>
+
+        <table class="ex-table">
+          <thead>
+            <tr>
+              <th class="col-days">DAYS</th>
+              <th class="col-date">DATE</th>
+              <th class="col-period">MORNING (9:00 - 11:00)</th>
+              <th class="col-period">AFTERNOON (12:00 - 2:00)</th>
+              <th class="col-period">EVENING (3:00 - 5:00)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${renderExamTableRows(exams)}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+  } catch (err) {
+    console.error('Failed to load exam sheet', err);
+    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
+    subtitleEl.textContent = 'Error';
+  }
+}
+
+// Helper to group exams by date and slot them into periods
+function renderExamTableRows(exams) {
+  // Group by Date
+  const grouped = {};
+  exams.forEach(ex => {
+    const d = String(ex.examDate).split('T')[0];
+    if (!grouped[d]) grouped[d] = { morning: [], afternoon: [], evening: [] };
+    
+    // Slot into period based on start time
+    const time = ex.startTime || '09:00';
+    if (time < '11:00') grouped[d].morning.push(ex);
+    else if (time < '14:00') grouped[d].afternoon.push(ex);
+    else grouped[d].evening.push(ex);
+  });
+
+  const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+  return Object.keys(grouped).sort().map(dateStr => {
+    const dateObj = new Date(dateStr);
+    const dayName = daysOfWeek[dateObj.getDay()];
+    const formattedDate = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const row = grouped[dateStr];
+
+    const renderCell = (arr) => {
+      if (!arr.length) return '<td class="ex-cell-empty"></td>';
+      return `<td>${arr.map(ex => `
+        <div class="ex-cell-block">
+          <div class="ex-cell-course">${escapeHtml(ex.course?.code || 'N/A')}</div>
+          <div class="ex-cell-title">${escapeHtml(ex.course?.title || '')}</div>
+          <div class="ex-cell-venue">${escapeHtml(ex.venue || 'TBA')}</div>
+          <div class="ex-cell-inv">${escapeHtml(ex.invigilators || '')}</div>
+        </div>
+      `).join('')}</td>`;
+    };
+
+    return `
+      <tr>
+        <td class="col-days">${dayName}</td>
+        <td class="col-date">${formattedDate}</td>
+        ${renderCell(row.morning)}
+        ${renderCell(row.afternoon)}
+        ${renderCell(row.evening)}
+      </tr>
+    `;
+  }).join('');
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -10946,7 +11085,7 @@ window.FPU_ADMIN = {
   loadTimetableIndex,
 
   // Exams
-  loadExamsIndex,
+  loadExamsIndex, loadExamSheet,
 
   // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance,

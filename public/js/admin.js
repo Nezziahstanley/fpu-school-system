@@ -10170,6 +10170,52 @@ async function deleteFeeLevel(id, level) {
   }
 }
 
+// ============================================
+// STAFF PROFILE: Action helpers
+// ============================================
+function editStaffFromProfile() {
+  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+  if (id) window.location.hash = `#staff-form?id=${id}`;
+}
+
+async function resetStaffPassword() {
+  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+  if (!id) return;
+  const pwd = await window.fpuPrompt('New password (default: principal1234)', 'Leave blank for default.', 'Reset Password');
+  if (pwd === null) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password: pwd || undefined }),
+    });
+    showToast('✅ Password reset.', 'success');
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function toggleStaffActive() {
+  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+  if (!id) return;
+  const ok = await window.fpuConfirm('Toggle this staff member\'s active status?', { title: 'Toggle Status', type: 'warning' });
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}/toggle-active`, { method: 'POST' });
+    showToast('✅ Status updated.', 'success');
+    if (window.FPU_ADMIN.loadStaffProfile) loadStaffProfile();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function deleteStaff() {
+  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+  if (!id) return;
+  const ok = await window.fpuConfirm('Delete this staff member? This cannot be undone.', { title: 'Delete Staff', type: 'danger', okText: 'Delete' });
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Staff deleted.', 'success');
+    window.location.hash = '#staff';
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

@@ -3597,33 +3597,79 @@ function renderComplaintsTable(records) {
   }
 
   tbody.innerHTML = records.map(c => {
+    // 1. Robust Status
     const status = String(c.status || 'open').toLowerCase();
     
-    const created = new Date(c.createdAt || c.created_at || Date.now());
+    // 2. Robust Date/Age
+    const rawDate = c.createdAt || c.created_at || c.date || c.created;
+    const created = rawDate ? new Date(rawDate) : new Date();
     const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
     const ageDisplay = diffDays === 0 ? 'Today' : `${diffDays}d`;
 
+    // 3. Robust Status Badge
     let badgeClass = 'badge-open';
-    if (status === 'resolved') badgeClass = 'badge-resolved';
-    if (status === 'in_review') badgeClass = 'badge-review';
-    if (status === 'closed') badgeClass = 'badge-closed';
+    if (status.includes('resolve')) badgeClass = 'badge-resolved';
+    if (status.includes('review')) badgeClass = 'badge-review';
+    if (status.includes('close')) badgeClass = 'badge-closed';
 
+    // 4. Robust User Extraction
     const u = c.user || c.student || {};
     const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
 
+    // 5. Robust Subject/Message Extraction
+    // If there is no 'subject' column, we truncate the 'message' to use as the subject
+    const messageBody = c.message || c.body || c.description || c.text || '';
+    const rawSubject = c.subject || c.title;
+    const displaySubject = rawSubject || (messageBody ? (messageBody.substring(0, 40) + (messageBody.length > 40 ? '...' : '')) : 'No Subject');
+
+    // 6. Robust Category
+    const category = c.category || c.type || 'General';
+
     return `
       <tr>
-        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(c.subject || 'No Subject')}</div></td>
+        <td>
+          <div style="font-weight:600; color:#0f172a;">${escapeHtml(displaySubject)}</div>
+        </td>
         <td>${escapeHtml(fullName)}</td>
-        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
-        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
-        <td><span style="font-weight:600; color:${diffDays > 7 && status !== 'resolved' ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
+        <td><span style="text-transform:capitalize;">${escapeHtml(category)}</span></td>
+        <td><span class="badge ${badgeClass}">${status.replace(/_/g, ' ').toUpperCase()}</span></td>
+        <td><span style="font-weight:600; color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
         <td style="text-align:right;">
           <button class="btn btn-sm btn-outline" onclick="window.location.hash = '#complaints-view?id=${c.id}'">View</button>
         </td>
       </tr>
     `;
   }).join('');
+}
+
+function updateComplaintStats(records) {
+  const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
+  
+  records.forEach(c => {
+    const s = String(c.status || 'open').toLowerCase();
+    if (s.includes('open')) counts.open++;
+    else if (s.includes('review')) counts.review++;
+    else if (s.includes('resolve')) counts.resolved++;
+    else if (s.includes('close')) counts.closed++;
+  });
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  
+  // Update Top Cards
+  setText('cmp-stat-total', counts.total);
+  setText('cmp-stat-open', counts.open);
+  setText('cmp-stat-in-review', counts.review);
+  setText('cmp-stat-resolved', counts.resolved);
+  
+  // Update Tabs
+  setText('cmp-count-all', counts.total);
+  setText('cmp-count-open', counts.open);
+  setText('cmp-count-in_review', counts.review);
+  setText('cmp-count-resolved', counts.resolved);
+  setText('cmp-count-closed', counts.closed);
+  
+  // Update Table Header
+  setText('cmp-count', `Showing ${records.length}`);
 }
 
 function updateComplaintStats(records) {

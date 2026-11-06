@@ -7209,95 +7209,88 @@ async function loadStudentTranscript() {
       }, 0);
       const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
 
-      const rowsHtml = list.map((r) => {
-        const row = r.result || r;
-        const course = courseMap.get(row.courseId) || r.course || {};
-        const grade = row.grade || '—';
-        const gradeCls = ['A', 'B', 'C'].includes(grade) ? 'success'
-                       : grade === 'F' ? 'danger'
-                       : grade ? 'warning' : 'muted';
-        return `
-          <tr>
-            <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
-            <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
-            <td class="num">${Number(course.unit) || Number(row.unit) || 0}</td>
-            <td class="num">${row.score != null ? row.score : '—'}</td>
-            <td><span class="badge badge-${gradeCls}">${escapeHtml(grade)}</span></td>
-            <td class="num">${row.points != null ? row.points : '—'}</td>
-          </tr>
-        `;
-      }).join('');
+      const rowsHtml = list
+        .sort((a, b) => {
+          const ca = courseMap.get((a.result || a).courseId) || {};
+          const cb = courseMap.get((b.result || b).courseId) || {};
+          return String(ca.code || '').localeCompare(String(cb.code || ''));
+        })
+        .map((r) => {
+          const row = r.result || r;
+          const course = courseMap.get(row.courseId) || r.course || {};
+          const grade = row.grade || '—';
+          const gradeCls = grade || '';
+          return `
+            <tr>
+              <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
+              <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
+              <td class="num center">${Number(course.unit) || Number(row.unit) || 0}</td>
+              <td class="num">${row.score != null ? row.score : '—'}</td>
+              <td class="center"><span class="tx-grade ${gradeCls}">${escapeHtml(grade)}</span></td>
+              <td class="num">${row.points != null ? row.points : '—'}</td>
+            </tr>
+          `;
+        }).join('');
 
       return `
-        <div class="panel" style="margin-bottom:20px;">
-          <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
-            <h3>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</h3>
-            <div style="display:flex;gap:16px;font-size:13px;color:#6b7280;">
-              <span><strong style="color:#0f172a;">${sectionUnits}</strong> units</span>
-              <span>GPA <strong style="color:#065f46;">${gpa}</strong></span>
-            </div>
+        <div class="tx-semester">
+          <div class="tx-semester-head">
+            <span>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</span>
+            <span class="gpa">GPA ${gpa} · ${sectionUnits} units</span>
           </div>
-          <div class="panel-body flush">
-            <div class="table-wrap">
-              <table class="table-admin">
-                <thead>
-                  <tr>
-                    <th>Course Code</th>
-                    <th>Course Title</th>
-                    <th style="width:60px;">Units</th>
-                    <th style="width:70px;">Score</th>
-                    <th style="width:70px;">Grade</th>
-                    <th style="width:70px;">Points</th>
-                  </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-            </div>
-          </div>
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th style="width:100px;">Code</th>
+                <th>Course Title</th>
+                <th style="width:60px;text-align:center;">Units</th>
+                <th style="width:70px;text-align:right;">Score</th>
+                <th style="width:70px;text-align:center;">Grade</th>
+                <th style="width:70px;text-align:right;">Points</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
         </div>
       `;
     }).join('');
 
     // Render the full transcript
     root.innerHTML = `
-      <div style="max-width:1000px;margin:0 auto;padding:20px;">
+      <div class="tx-document">
 
         <!-- Student header -->
-        <div class="panel" style="margin-bottom:20px;border-left:4px solid #065f46;">
-          <div class="panel-body">
-            <div style="display:flex;gap:20px;align-items:center;">
-              <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#065f46,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;flex-shrink:0;">
-                ${student.photoUrl ? `<img src="${escapeHtml(student.photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />` : escapeHtml(initials)}
-              </div>
-              <div style="flex:1;">
-                <h2 style="margin:0 0 4px;">${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
-                <div style="color:#6b7280;font-size:13.5px;">
-                  <code>${escapeHtml(student.matricNumber || '—')}</code> · ${escapeHtml(student.level || '—')} · ${escapeHtml(student.programmeName || student.programme?.name || '—')}
-                </div>
-                <div style="color:#6b7280;font-size:13.5px;margin-top:2px;">
-                  ${escapeHtml(student.email || '')}
-                </div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;font-weight:700;">CGPA</div>
-                <div style="font-size:2.2rem;font-weight:800;color:#065f46;line-height:1;">${cgpa}</div>
-                <div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(classification)}</div>
-              </div>
+        <div class="tx-header">
+          <div class="tx-student-info">
+            <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
+            <div class="meta">
+              <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
+              ${escapeHtml(student.level || '—')} ·
+              ${escapeHtml(student.programmeName || student.programme?.name || '—')}
             </div>
+            <div class="meta">
+              ${escapeHtml(student.email || '')}
+              ${student.departmentName || student.department?.name ? ' · ' + escapeHtml(student.departmentName || student.department?.name) : ''}
+            </div>
+          </div>
+          <div class="tx-cgpa-block">
+            <div class="label">CGPA</div>
+            <div class="value">${cgpa}</div>
+            <div class="class">${escapeHtml(classification)}</div>
           </div>
         </div>
 
         <!-- Summary stats -->
-        <div class="stats-inline" style="margin-bottom:20px;">
-          <div class="stat-inline"><div class="label">Courses</div><div class="value">${courseCount}</div></div>
-          <div class="stat-inline stat-inline-success"><div class="label">Total Units</div><div class="value">${totalUnits}</div></div>
-          <div class="stat-inline stat-inline-primary"><div class="label">Total Points</div><div class="value">${totalPoints}</div></div>
-          <div class="stat-inline stat-inline-accent"><div class="label">Classification</div><div class="value" style="font-size:1rem;">${escapeHtml(classification)}</div></div>
+        <div class="tx-summary">
+          <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
+          <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
+          <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
+          <div class="tx-summary-item"><div class="num" style="font-size:1rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
         </div>
 
         <!-- Semester groups -->
         ${groups.size > 0 ? groupsHtml : `
-          <div class="alert alert-warning">
+          <div class="alert alert-warning" style="margin:0;">
             No published results found for this student. Transcript will populate once results are entered and published.
           </div>
         `}

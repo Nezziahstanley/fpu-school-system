@@ -10892,7 +10892,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Reference Format)
+// EXAMS: Load A4 Exam Sheet
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -10916,16 +10916,14 @@ async function loadExamSheet() {
   }
 
   titleEl.textContent = `${schoolName} Exam Timetable`;
-  subtitleEl.textContent = `Loading schedules for ${semester} semester...`;
+  subtitleEl.textContent = `Loading schedules...`;
 
   try {
     const res = await adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`);
     const json = await res.json();
     const exams = json.data || [];
 
-    // Get Year for Title
     const year = new Date().getFullYear();
-
     subtitleEl.textContent = `${exams.length} exams scheduled`;
 
     if (!exams.length) {
@@ -10933,62 +10931,102 @@ async function loadExamSheet() {
       return;
     }
 
-    // Build the HTML Structure
     root.innerHTML = `
-      <div class="ex-sheet" id="a3-sheet">
+      <div class="ex-sheet" id="a4-sheet">
         <div class="ex-head">
+          <img src="/images/logo.png" alt="Logo" class="ex-logo">
           <div class="ex-head-text">
-            <div class="title-line">${year}_2 E-Examination Draft Timetable</div>
+            <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
+            <div class="faculty">${escapeHtml(schoolName.toUpperCase())}</div>
+            <div class="title-line">${year}/2025 ${semester.toUpperCase()} SEMESTER LECTURERS TIMETABLE</div>
           </div>
         </div>
 
         <table class="ex-table">
           <thead>
             <tr>
-              <th class="col-day"></th>
-              <th class="col-date"></th>
-              <th class="col-time"></th>
-              <th class="col-courses">8:30am</th>
-              <th class="col-time"></th>
-              <th class="col-courses">11am</th>
-              <th class="col-time"></th>
-              <th class="col-courses">2pm</th>
+              <th class="col-days">DAYS</th>
+              <th class="col-code">CODE</th>
+              <th class="col-cu">CU</th>
+              <th class="col-title">COURSE TITLE</th>
+              <th class="col-time">TIME</th>
+              <th class="col-lecturer">LECTURER</th>
+              <th class="col-venue">VENUE</th>
             </tr>
           </thead>
           <tbody>
             ${renderExamTableRows(exams)}
           </tbody>
         </table>
+
+        <div class="ex-footer">
+          <div>Clp. AKIRKPO, Martha Onsisi mnip</div>
+          <div>HOD, Computer Science</div>
+        </div>
       </div>
     `;
 
-    // Wire up buttons (same as before)
     document.getElementById('exsheet-print').onclick = () => window.print();
-    document.getElementById('exsheet-export').onclick = () => {
-      let csv = 'Day,Date,Time,Code,Title\n';
-      exams.forEach(e => {
-        csv += `"${e.examDate}","${e.startTime}","${e.course?.code || ''}","${e.course?.title || ''}"\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Exam_Sheet_${schoolName}.csv`;
-      a.click();
-    };
-    document.getElementById('exsheet-draft-toggle').onclick = (e) => {
-      const btn = e.target;
-      btn.textContent = btn.textContent === 'Mark FINAL' ? 'Mark DRAFT' : 'Mark FINAL';
-    };
-    document.getElementById('exsheet-add').onclick = () => {
-      window.location.hash = `#exam-form?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`;
-    };
 
   } catch (err) {
     console.error('Failed to load exam sheet', err);
     root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
-    subtitleEl.textContent = 'Error';
   }
+}
+
+// Helper to render table rows with rowspans
+function renderExamTableRows(exams) {
+  const grouped = {};
+  
+  exams.forEach(ex => {
+    let dateStr = ex.examDate ? String(ex.examDate).split('T')[0] : '';
+    if (!dateStr) return;
+
+    if (!grouped[dateStr]) grouped[dateStr] = [];
+    grouped[dateStr].push(ex);
+  });
+
+  const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  let html = '';
+
+  Object.keys(grouped).sort().forEach(dateStr => {
+    const dateObj = new Date(dateStr);
+    const dayName = daysOfWeek[dateObj.getDay()] || 'UNKNOWN';
+    const dayExams = grouped[dateStr];
+    const rowCount = dayExams.length;
+
+    dayExams.forEach((ex, index) => {
+      html += `<tr>`;
+      
+      // Only render the DAY cell on the first row, then span downwards
+      if (index === 0) {
+        html += `<td class="col-days" rowspan="${rowCount}">${dayName}</td>`;
+      }
+
+      const courseCode = ex.course?.code || 'N/A';
+      const courseTitle = ex.course?.title || 'N/A';
+      const cu = ex.course?.unit || ex.course?.creditUnit || '-';
+      
+      const start = ex.startTime ? String(ex.startTime).substring(0, 5) : 'TBA';
+      const end = ex.endTime ? String(ex.endTime).substring(0, 5) : 'TBA';
+      const timeStr = `${start} - ${end}`;
+      
+      // Fallback for lecturer name if not directly on exam
+      const lecturer = ex.lecturerName || ex.course?.lecturerName || 'TBA';
+      const venue = ex.venue || 'TBA';
+
+      html += `
+        <td class="col-code">${escapeHtml(courseCode)}</td>
+        <td class="col-cu">${escapeHtml(String(cu))}</td>
+        <td class="col-title">${escapeHtml(courseTitle)}</td>
+        <td class="col-time">${escapeHtml(timeStr)}</td>
+        <td class="col-lecturer">${escapeHtml(lecturer)}</td>
+        <td class="col-venue">${escapeHtml(venue)}</td>
+      </tr>`;
+    });
+  });
+
+  return html;
 }
 
 // Helper to parse and render the complex table rows

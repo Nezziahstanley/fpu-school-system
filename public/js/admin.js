@@ -2962,11 +2962,21 @@ async function loadLecturerGrid() {
           .map(d => `<option value="${d.id}">${escapeHtml(d.code)} — ${escapeHtml(d.name)}</option>`).join('');
     }
 
-    // Group allocations by lecturer
+    // Group allocations by lecturer — strict filtering
     const allocsByLecturer = new Map();
     allocs.forEach(a => {
-      const lid = a.lecturer?.id || a.allocation?.lecturerId;
+      // 1. Get the lecturerId from any possible location
+      const lid = a.allocation?.lecturerId 
+              || a.lecturer?.id 
+              || a.lecturerId;
+      
+      // 2. Skip if no lecturer OR no valid course attached
       if (!lid) return;
+      if (!a.course) return;
+      if (!a.course.code) return;
+      if (!a.course.title) return;
+      
+      // 3. Add to the map
       if (!allocsByLecturer.has(lid)) allocsByLecturer.set(lid, []);
       allocsByLecturer.get(lid).push(a);
     });
@@ -3051,17 +3061,18 @@ async function openLecturerCourses(id) {
   const lecturer = ALL_LECTURERS.find(s => Number(s.id) === Number(id));
   if (!lecturer) return;
 
-  // Strict filter: must match lecturer AND have a valid course attached
-  const allocs = ALL_ALLOCATIONS.filter(a => {
-    const lid = a.allocation?.lecturerId 
-             || a.lecturer?.id 
-             || a.lecturerId;
-    
-    return lid 
-        && Number(lid) === Number(id) 
-        && a.course 
-        && a.course.code;
-  });
+    // Strict filter: only allocations with valid course data
+    const allocs = ALL_ALLOCATIONS.filter(a => {
+      const lid = a.allocation?.lecturerId 
+              || a.lecturer?.id 
+              || a.lecturerId;
+      
+      return lid 
+          && Number(lid) === Number(id) 
+          && a.course 
+          && a.course.code
+          && a.course.title;
+    });
 
   const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim();
   const email = lecturer.email || '';

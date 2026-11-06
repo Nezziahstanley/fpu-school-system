@@ -2193,51 +2193,166 @@ async function loadResultDepartments() {
 // ============================================
 // GRADE SCALES
 // ============================================
-async function loadGradeScales() {
-  const container = document.getElementById("grade-scales-tbody");
-  if (!container) return;
-  
-  container.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
-  
-  try {
-    const res = await adminFetch("/api/admin/grade-scales");
-    const result = await res.json();
-    const rows = extractArray(result);
+// ============================================
+// GRADE SCALES: Logic & Form Handling
+// ============================================
 
-    if (!rows.length) {
-      container.innerHTML = '<tr><td colspan="6" class="empty">No grade scales defined.</td></tr>';
+async function loadGradeScales() {
+  const tbody = document.getElementById('grade-scales-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading bands…</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/grade-scales');
+    const json = await res.json();
+    const bands = json.data || [];
+
+    // Update count
+    const countEl = document.getElementById('gs-count');
+    if (countEl) countEl.textContent = `${bands.length} active bands`;
+
+    if (!bands.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px; color: #64748b;">No grade bands configured yet.</td></tr>';
       return;
     }
 
-    // Sort rows by minimum score descending
-    rows.sort((a, b) => Number(b.minScore) - Number(a.minScore));
+    tbody.innerHTML = bands.map(b => {
+      const range = `${b.minScore} – ${b.maxScore}`;
+      const isActive = b.isActive !== false;
+      
+      // Grade chip color class
+      let chipClass = '';
+      if (b.grade === 'F') chipClass = 'F';
+      else if (b.grade === 'D' || b.grade === 'E') chipClass = 'D';
 
-    container.innerHTML = rows.map((g) => `
-      <tr>
-        <td><span class="gs-grade-chip ${escapeHtml(g.grade)}">${escapeHtml(g.grade)}</span></td>
-        <td><span class="gs-range">${g.minScore} – ${g.maxScore}</span></td>
-        <td><span class="gs-points">${g.points}</span></td>
-        <td>${escapeHtml(g.remark || '')}</td>
-        <td>${g.isActive ? badge('active') : badge('inactive')}</td>
-        <td>
-          <div class="row-actions">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openEditGradeScale(${g.id})">Edit</button>
-            <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.toggleGradeScale(${g.id}, ${!g.isActive})">${g.isActive ? 'Deactivate' : 'Activate'}</button>
-            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteGradeScale(${g.id})">Delete</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+      return `
+        <tr>
+          <td><span class="gs-grade-chip ${chipClass}">${escapeHtml(b.grade)}</span></td>
+          <td><span class="gs-range">${range}</span></td>
+          <td><span class="gs-points">${Number(b.points).toFixed(2)}</span></td>
+          <td style="color: #475569;">${escapeHtml(b.remark || '—')}</td>
+          <td>
+            <span style="background:${isActive ? '#dcfce7' : '#fee2e2'}; color:${isActive ? '#15803d' : '#b91c1c'}; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">
+              ${isActive ? 'Active' : 'Inactive'}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.editGradeScale(${b.id})">Edit</button>
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteGradeScale(${b.id})">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
 
-    // Pass data to the health checker and live preview
-    renderGradeScaleHealth(rows);
-    setupGradeScalePreview(rows);
+    // Update health banner
+    updateGradeHealth(bands);
 
   } catch (err) {
-    container.innerHTML = `<tr><td colspan="6" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    console.error('Failed to load grade scales:', err);
+    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load bands.</td></tr>';
   }
 }
 
+function updateGradeHealth(bands) {
+  const healthEl = document.getElementById('gs-health');
+  if (!healthEl) return;
+  
+  if (!bands.length) {
+    healthEl.innerHTML = '<div class="panel-body"><span class="muted">No bands configured.</span></div>';
+    return;
+  }
+
+  // Calculate simple stats for the banner
+  const totalPoints = bands.reduce((sum, b) => sum + Number(b.points || 0), 0);
+  
+  healthEl.innerHTML = `
+    <div class="panel-body">
+      <div class="gs-health-grid">
+        <div class="gs-health-item">
+          <div class="num ok">${bands.length}</div>
+          <div class="label">Active Bands</div>
+        </div>
+        <div class="gs-health-item">
+          <div class="num warn">${totalPoints.toFixed(1)}</div>
+          <div class="label">Total Points</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleAddBandForm(show) {
+  const panel = document.getElementById('gs-add-panel');
+  if (!panel) return;
+  
+  if (show) {
+    panel.style.display = 'block';
+    document.getElementById('gs-add-grade').focus();
+  } else {
+    panel.style.display = 'none';
+    document.getElementById('gs-add-form').reset();
+    document.getElementById('gs-add-validation').innerHTML = '';
+  }
+}
+
+async function submitAddBand(e) {
+  if (e) e.preventDefault();
+  
+  const grade = document.getElementById('gs-add-grade').value.trim().toUpperCase();
+  const minScore = parseInt(document.getElementById('gs-add-min').value);
+  const maxScore = parseInt(document.getElementById('gs-add-max').value);
+  const points = parseFloat(document.getElementById('gs-add-points').value);
+  const remark = document.getElementById('gs-add-remark').value.trim();
+  const isActive = document.getElementById('gs-add-active').checked;
+
+  const valEl = document.getElementById('gs-add-validation');
+  valEl.innerHTML = '';
+
+  if (!grade || isNaN(minScore) || isNaN(maxScore) || isNaN(points)) {
+    valEl.innerHTML = '<div class="alert alert-error">All required fields must be filled.</div>';
+    return;
+  }
+
+  const btn = document.getElementById('gs-add-submit');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    const res = await adminFetch('/api/admin/grade-scales', {
+      method: 'POST',
+      body: JSON.stringify({ grade, minScore, maxScore, points, remark, isActive })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to save band');
+
+    showToast('✅ Grade band added successfully.', 'success');
+    toggleAddBandForm(false);
+    loadGradeScales(); // Refresh the table
+
+  } catch (err) {
+    valEl.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// Placeholder for edit/delete (to wire up later)
+function editGradeScale(id) {
+  showToast('Edit logic coming soon for ID: ' + id, 'info');
+}
+async function deleteGradeScale(id) {
+  if (!confirm('Delete this grade band?')) return;
+  try {
+    await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Band deleted.', 'success');
+    loadGradeScales();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
 function renderGradeScaleHealth(rows) {
   const health = document.getElementById('gs-health');
   if (!health) return;
@@ -11429,7 +11544,8 @@ window.FPU_ADMIN = {
   loadResultDepartments,
 
   // Grade Scales
-  loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,
+  loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale, toggleAddBandForm,  submitAddBand,
+  editGradeScale,
 
   // Transcript
   loadTranscriptLookup, loadTranscriptView,

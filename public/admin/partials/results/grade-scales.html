@@ -20,7 +20,7 @@
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadGradeScales()">
       Refresh
     </button>
-    <button class="btn btn-primary btn-sm" id="gs-add-btn">
+    <button class="btn btn-primary btn-sm" id="gs-add-btn" onclick="FPU_ADMIN.toggleAddBandForm(true)">
       + Add Band
     </button>
   </div>
@@ -62,7 +62,7 @@
     </div>
   </div>
   <div class="panel-body">
-    <form id="gs-add-form" data-skip-generic="1">
+    <form id="gs-add-form" onsubmit="event.preventDefault(); FPU_ADMIN.submitAddBand(event);">
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Grade <span class="req">*</span></label>

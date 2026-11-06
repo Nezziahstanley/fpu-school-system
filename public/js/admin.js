@@ -3489,46 +3489,102 @@ async function deleteAnnouncement(id) {
 }
 
 async function loadNotifications() {
-  const box = document.getElementById("notifications-list");
-  const list = document.getElementById("nt-list");
-  if (!box && !list) return;
+  const list = document.getElementById('notifications-list');
+  if (!list) return;
 
-  const target = list || box;
-  target.innerHTML = list ? '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading…</div>' : '<div class="loading"><span class="spinner"></span> Loading…</div>';
+  list.innerHTML = '<div class="loading" style="padding:20px;text-align:center;"><span class="spinner"></span> Loading…</div>';
 
   try {
     const res = await adminFetch("/api/admin/notifications");
     const result = await res.json();
-    const rows = extractArray(result);
+    
+    // Handle different JSON shapes
+    const rows = result.data || result.rows || result || [];
 
-    if (!rows.length) { target.innerHTML = '<p class="muted" style="padding:20px;">No notifications.</p>'; return; }
+    if (!rows.length) {
+      list.innerHTML = '<p class="muted" style="padding:20px;">No notifications yet.</p>';
+      updateNotificationStats([]);
+      return;
+    }
 
-    if (list) {
-      target.innerHTML = rows.map((n) => `
-        <div class="nt-item ${n.isRead ? '' : 'unread'}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('notification-detail', { id: ${n.id} })">
-          <div class="nt-icon ${escapeHtml(n.type || 'default')}">${n.type === 'warning' ? '⚠️' : n.type === 'success' ? '✅' : n.type === 'complaint' ? '📩' : n.type === 'fee' ? '💰' : 'ℹ️'}</div>
-          <div class="nt-body">
-            <div class="nt-title">${escapeHtml(n.title || '')}</div>
-            <div class="nt-text">${escapeHtml(n.body || '')}</div>
-            <div class="nt-meta"><span>${timeAgo(n.createdAt)}</span>${!n.isRead ? '<span class="unread-pill">Unread</span>' : ''}</div>
+    // Render the list
+    list.innerHTML = rows.map(n => {
+      // 🕵️ DEEP SCAN for the actual column names
+      const title = n.title || n.subject || 'No Title';
+      const message = n.message || n.body || n.description || n.text || '';
+      const type = String(n.type || n.category || 'info').toLowerCase();
+      const isRead = n.isRead === true || n.is_read === true || n.status === 'read';
+      const createdAt = n.createdAt || n.created_at || n.date || Date.now();
+
+      // Map icons to types
+      let icon = 'ℹ️';
+      if (type.includes('warn')) icon = '⚠️';
+      if (type.includes('success')) icon = '✅';
+      if (type.includes('complaint')) icon = '📩';
+      if (type.includes('fee')) icon = '💰';
+
+      return `
+        <div class="nt-item ${isRead ? '' : 'unread'}" style="padding:16px; border-bottom:1px solid #e2e8f0; display:flex; gap:16px; background:${isRead ? '#fff' : '#f0fdf4'};">
+          <div class="nt-icon" style="font-size:24px;">${icon}</div>
+          <div class="nt-body" style="flex:1;">
+            <div class="nt-title" style="font-weight:700; color:#0f172a; font-size:14px;">${escapeHtml(title)}</div>
+            <div class="nt-text" style="color:#475569; font-size:13px; margin-top:4px;">${escapeHtml(message)}</div>
+            <div class="nt-meta" style="margin-top:8px; font-size:11px; color:#94a3b8; display:flex; gap:12px;">
+              <span>🕐 ${timeAgo(createdAt)}</span>
+              ${!isRead ? '<span style="color:#065f46; font-weight:700;">● Unread</span>' : ''}
+            </div>
           </div>
-          <div class="nt-actions">
-            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.markNotificationRead(${n.id})">Read</button>
-            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); FPU_ADMIN.deleteNotification(${n.id})">Delete</button>
+          <div class="nt-actions" style="display:flex; flex-direction:column; gap:8px;">
+            ${!isRead ? `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.markNotificationRead(${n.id})">Mark Read</button>` : ''}
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteNotification(${n.id})">Delete</button>
           </div>
         </div>
-      `).join('');
+      `;
+    }).join('');
 
-      const total = rows.length; const unread = rows.filter((n) => !n.isRead).length;
-      const week = rows.filter((n) => new Date(n.createdAt).getTime() > Date.now() - 7 * 86400000).length;
-      const high = rows.filter((n) => n.type === 'warning').length;
-      setText('nt-stat-total', total); setText('nt-stat-unread', unread); setText('nt-stat-week', week); setText('nt-stat-high', high);
-    } else {
-      target.innerHTML = rows.map((n) => `
-        <div class="session-item ${n.isRead ? '' : 'current'}"><div class="meta"><strong>${escapeHtml(n.title || '')}</strong>${escapeHtml(n.body || '')}</div><div class="small muted">${fmtDateTime(n.createdAt)}</div></div>
-      `).join('');
+    updateNotificationStats(rows);
+
+  } catch (err) {
+    list.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function updateNotificationStats(records) {
+  const counts = { total: records.length, unread: 0, thisWeek: 0, high: 0 };
+  
+  records.forEach(n => {
+    // Deep scan for unread
+    if (!(n.isRead === true || n.is_read === true || n.status === 'read')) {
+      counts.unread++;
     }
-  } catch (err) { target.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`; }
+    
+    // Deep scan for high priority
+    const type = String(n.type || n.category || n.priority || '').toLowerCase();
+    if (type.includes('high') || type.includes('warn') || type.includes('urgent')) {
+      counts.high++;
+    }
+
+    // Deep scan for date (within last 7 days)
+    const dateStr = n.createdAt || n.created_at || n.date;
+    if (dateStr && new Date(dateStr).getTime() > Date.now() - 7 * 86400000) {
+      counts.thisWeek++;
+    }
+  });
+
+  // Safe setter to prevent crashes if an ID is missing
+  const setText = (id, val) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = val; 
+    else console.warn(`[Notifications] Missing ID: ${id}`);
+  };
+  
+  setText('nt-stat-total', counts.total);
+  setText('nt-stat-unread', counts.unread);
+  setText('nt-stat-week', counts.thisWeek);
+  setText('nt-stat-high', counts.high);
+  
+  // Update tab counts if they exist
+  setText('nt-count-all', counts.total);
 }
 
 async function markNotificationRead(id) {

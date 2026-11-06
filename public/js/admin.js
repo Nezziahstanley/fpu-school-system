@@ -7265,9 +7265,18 @@ async function loadStudentTranscript() {
     root.innerHTML = `
       <div class="tx-document">
 
-        <!-- Watermark (only visible in print) -->
-        <div class="tx-watermark">
-          <img src="/images/logo.png" alt="" onerror="this.style.display='none';this.parentElement.textContent='FPU';" />
+        <!-- Watermark (print only) -->
+        <div class="tx-watermark">FPU</div>
+
+        <!-- Letterhead -->
+        <div class="tx-letterhead">
+          <img class="tx-letterhead-logo" src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
+          <div class="tx-letterhead-text">
+            <div class="institution">Federal Polytechnic Ugep</div>
+            <div class="motto">Citadel of Technical Excellence</div>
+            <div class="doc-type">Official Student Transcript</div>
+          </div>
+          <div style="width:80px;"></div> <!-- Spacer to center the text -->
         </div>
 
         <!-- Student header -->
@@ -7296,13 +7305,13 @@ async function loadStudentTranscript() {
           <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
           <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
           <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
-          <div class="tx-summary-item"><div class="num" style="font-size:1rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
+          <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
         </div>
 
         <!-- Semester groups -->
         ${groups.size > 0 ? groupsHtml : `
           <div class="alert alert-warning" style="margin:0;">
-            No published results found for this student. Transcript will populate once results are entered and published.
+            No published results found for this student.
           </div>
         `}
 
@@ -7323,7 +7332,7 @@ async function loadStudentTranscript() {
         </div>
       </div>
     `;
-
+    
     // Wire the "Print" and "Export CSV" buttons if they exist
     const printBtn = document.getElementById('tx-print');
     if (printBtn) printBtn.onclick = () => window.print();

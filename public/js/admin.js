@@ -3688,50 +3688,46 @@ function renderComplaintsTable(records) {
   if (!tbody) return;
   
   if (records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px; color:#64748b;">No complaints found matching your criteria.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px; color:#64748b;">No complaints found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = records.map(c => {
-    // 1. Robust Status
+    // 1. Exact column names for Subject and Message
+    const subject = c.subject || 'No Subject';
+    const message = c.body || c.message || '';
+
+    // 2. Exact column names for Category and Status
+    const category = c.category || 'General';
     const status = String(c.status || 'open').toLowerCase();
-    
-    // 2. Robust Date/Age
-    const rawDate = c.createdAt || c.created_at || c.date || c.created;
-    const created = rawDate ? new Date(rawDate) : new Date();
+
+    // 3. Exact column name for Date (created_at or createdAt)
+    const rawDate = c.createdAt || c.created_at || Date.now();
+    const created = new Date(rawDate);
     const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
     const ageDisplay = diffDays === 0 ? 'Today' : `${diffDays}d`;
 
-    // 3. Robust Status Badge
+    // 4. Exact column names for User (first_name, last_name or firstName, lastName)
+    const u = c.user || c.student || c;
+    const firstName = u.first_name || u.firstName || '';
+    const lastName = u.last_name || u.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
+
+    // 5. Status Badge Colors
     let badgeClass = 'badge-open';
     if (status.includes('resolve')) badgeClass = 'badge-resolved';
     if (status.includes('review')) badgeClass = 'badge-review';
     if (status.includes('close')) badgeClass = 'badge-closed';
 
-    // 4. Robust User Extraction
-    const u = c.user || c.student || {};
-    const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
-
-    // 5. Robust Subject/Message Extraction
-    // If there is no 'subject' column, we truncate the 'message' to use as the subject
-    const messageBody = c.message || c.body || c.description || c.text || '';
-    const rawSubject = c.subject || c.title;
-    const displaySubject = rawSubject || (messageBody ? (messageBody.substring(0, 40) + (messageBody.length > 40 ? '...' : '')) : 'No Subject');
-
-    // 6. Robust Category
-    const category = c.category || c.type || 'General';
-
     return `
       <tr>
-        <td>
-          <div style="font-weight:600; color:#0f172a;">${escapeHtml(displaySubject)}</div>
-        </td>
+        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(subject)}</div></td>
         <td>${escapeHtml(fullName)}</td>
         <td><span style="text-transform:capitalize;">${escapeHtml(category)}</span></td>
-        <td><span class="badge ${badgeClass}">${status.replace(/_/g, ' ').toUpperCase()}</span></td>
+        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
         <td><span style="font-weight:600; color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
         <td style="text-align:right;">
-          <button class="btn btn-sm btn-outline" \onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
+          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
         </td>
       </tr>
     `;

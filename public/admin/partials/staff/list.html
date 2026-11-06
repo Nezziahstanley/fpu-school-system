@@ -13,19 +13,27 @@
   </div>
 </section>
 
-<!-- Role Tabs -->
-<div class="staff-role-tabs" id="staff-role-tabs">
-  <button class="staff-role-tab active" data-role="" onclick="FPU_ADMIN.loadStaffDirectory('', this)">All <span class="tab-count" id="staff-count-all">—</span></button>
-  <button class="staff-role-tab" data-role="lecturer" onclick="FPU_ADMIN.loadStaffDirectory('lecturer', this)">Lecturers <span class="tab-count" id="staff-count-lecturer">—</span></button>
-  <button class="staff-role-tab" data-role="hod" onclick="FPU_ADMIN.loadStaffDirectory('hod', this)">HODs <span class="tab-count" id="staff-count-hod">—</span></button>
-  <button class="staff-role-tab" data-role="principal" onclick="FPU_ADMIN.loadStaffDirectory('principal', this)">Principals <span class="tab-count" id="staff-count-principal">—</span></button>
-  <button class="staff-role-tab" data-role="admin" onclick="FPU_ADMIN.loadStaffDirectory('admin', this)">Admins <span class="tab-count" id="staff-count-admin">—</span></button>
+<!-- Role Tabs (Scrollable horizontally) -->
+<div class="staff-role-tabs" id="staff-role-tabs" style="overflow-x: auto; white-space: nowrap; padding-bottom: 5px;">
+  <button class="staff-role-tab active" data-role="" onclick="FPU_ADMIN.loadStaffDirectory('', this)">All <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="lecturer" onclick="FPU_ADMIN.loadStaffDirectory('lecturer', this)">Lecturers <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="hod" onclick="FPU_ADMIN.loadStaffDirectory('hod', this)">HODs <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="principal" onclick="FPU_ADMIN.loadStaffDirectory('principal', this)">Principals <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="admin" onclick="FPU_ADMIN.loadStaffDirectory('admin', this)">Admins <span class="tab-count">—</span></button>
+  
+  <!-- New Roles Added -->
+  <button class="staff-role-tab" data-role="bursar" onclick="FPU_ADMIN.loadStaffDirectory('bursar', this)">Bursars <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="registrar" onclick="FPU_ADMIN.loadStaffDirectory('registrar', this)">Registrars <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="librarian" onclick="FPU_ADMIN.loadStaffDirectory('librarian', this)">Librarians <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="exam_officer" onclick="FPU_ADMIN.loadStaffDirectory('exam_officer', this)">Exam Officers <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="academic_officer" onclick="FPU_ADMIN.loadStaffDirectory('academic_officer', this)">Academic Officers <span class="tab-count">—</span></button>
+  <button class="staff-role-tab" data-role="admission_officer" onclick="FPU_ADMIN.loadStaffDirectory('admission_officer', this)">Admission Officers <span class="tab-count">—</span></button>
 </div>
 
 <!-- Filters -->
 <div class="filters" style="display: flex; gap: 16px; margin-bottom: 20px;">
   
-  <!-- Changed from Department to Staff Role -->
+  <!-- Staff Role Dropdown -->
   <div class="form-group" style="flex: 1;">
     <label class="form-label">Staff Role</label>
     <select class="form-select" id="staff-filter-role" onchange="FPU_ADMIN.loadStaffDirectory(this.value, null)">
@@ -34,6 +42,12 @@
       <option value="hod">HOD</option>
       <option value="principal">Principal</option>
       <option value="admin">Admin</option>
+      <option value="bursar">Bursar</option>
+      <option value="registrar">Registrar</option>
+      <option value="librarian">Librarian</option>
+      <option value="exam_officer">Exam Officer</option>
+      <option value="academic_officer">Academic Officer</option>
+      <option value="admission_officer">Admission Officer</option>
     </select>
   </div>
 
@@ -53,13 +67,13 @@
   /* Role tabs */
   .staff-role-tabs {
     display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 20px; overflow-x: auto;
+    margin-bottom: 20px;
   }
   .staff-role-tab {
-    background: transparent; border: none; padding: 12px 20px;
-    font-family: 'Poppins', sans-serif; font-size: 13.5px; font-weight: 700;
+    background: transparent; border: none; padding: 12px 16px;
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700;
     color: #6b7280; cursor: pointer; border-bottom: 3px solid transparent;
-    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
   }
   .staff-role-tab:hover { color: #065f46; }
   .staff-role-tab.active { color: #065f46; border-bottom-color: #f59e0b; }
@@ -78,10 +92,20 @@
   .staff-card::before {
     content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
   }
+  
+  /* Card Accent Colors */
   .staff-card.role-lecturer::before  { background: #3b82f6; }
   .staff-card.role-hod::before       { background: #8b5cf6; }
   .staff-card.role-admin::before     { background: #065f46; }
   .staff-card.role-principal::before { background: #f59e0b; }
+  .staff-card.role-bursar::before    { background: #0ea5e9; }
+  .staff-card.role-registrar::before { background: #10b981; }
+  .staff-card.role-librarian::before { background: #6366f1; }
+  .staff-card.role-exam_officer::before { background: #ef4444; }
+  .staff-card.role-academic_officer::before { background: #f97316; }
+  .staff-card.role-admission_officer::before { background: #ec4899; }
+  .staff-card.role-other::before { background: #94a3b8; }
+
   .staff-card:hover {
     transform: translateY(-3px); box-shadow: 0 12px 28px rgba(15,23,42,0.10);
   }
@@ -102,10 +126,18 @@
     letter-spacing: 0.6px; text-transform: uppercase;
     padding: 3px 9px; border-radius: 999px; margin-top: 6px;
   }
+  
+  /* Badge Colors */
   .sc-role-badge.lecturer  { background: #dbeafe; color: #1e40af; }
   .sc-role-badge.hod       { background: #ede9fe; color: #6d28d9; }
   .sc-role-badge.admin     { background: #d1fae5; color: #065f46; }
   .sc-role-badge.principal { background: #fef3c7; color: #92400e; }
+  .sc-role-badge.bursar    { background: #e0f2fe; color: #0369a1; }
+  .sc-role-badge.registrar { background: #d1fae5; color: #047857; }
+  .sc-role-badge.librarian { background: #e0e7ff; color: #4338ca; }
+  .sc-role-badge.exam_officer { background: #fee2e2; color: #b91c1c; }
+  .sc-role-badge.academic_officer { background: #ffedd5; color: #c2410c; }
+  .sc-role-badge.admission_officer { background: #fce7f3; color: #be185d; }
   .sc-role-badge.other     { background: #f1f5f9; color: #475569; }
 
   .sc-meta {

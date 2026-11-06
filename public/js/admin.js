@@ -2770,22 +2770,17 @@ async function loadStaffDirectory(roleFilter = null, tabElement = null) {
   // 1. Handle Tab & Dropdown UI Sync
   const roleDropdown = document.getElementById('staff-filter-role');
   
-  // If the user clicked a tab, update the dropdown to match
   if (tabElement) {
     document.querySelectorAll('.staff-role-tab').forEach(t => t.classList.remove('active'));
     tabElement.classList.add('active');
     if (roleDropdown) roleDropdown.value = roleFilter || '';
-  } 
-  // If the user used the dropdown, update the tabs to match
-  else if (roleFilter !== null) {
+  } else if (roleFilter !== null) {
     if (roleDropdown) roleDropdown.value = roleFilter || '';
     document.querySelectorAll('.staff-role-tab').forEach(t => {
       t.classList.remove('active');
       if (t.getAttribute('data-role') === roleFilter) t.classList.add('active');
     });
-  } 
-  // If it's a general reload (like searching), read from the dropdown
-  else {
+  } else {
     roleFilter = roleDropdown ? roleDropdown.value : '';
   }
 
@@ -2810,11 +2805,18 @@ async function loadStaffDirectory(roleFilter = null, tabElement = null) {
       return;
     }
 
+    // List of all valid roles for CSS classes
+    const validRoles = [
+      'lecturer', 'hod', 'principal', 'admin', 'bursar', 
+      'registrar', 'librarian', 'exam_officer', 'academic_officer', 'admission_officer'
+    ];
+
     grid.innerHTML = staffList.map(staff => {
       const initials = `${staff.firstName?.[0] || ''}${staff.lastName?.[0] || ''}`.toUpperCase() || 'S';
       
-      // Handle 'principal' role mapping to 'rector' if needed, based on your DB
-      const roleClass = ['lecturer', 'hod', 'admin', 'principal'].includes(staff.role) ? staff.role : 'other';
+      // Map DB 'rector' to UI 'principal' if needed
+      let dbRole = staff.role === 'rector' ? 'principal' : staff.role;
+      const roleClass = validRoles.includes(dbRole) ? dbRole : 'other';
       
       const deptName = staff.departmentName || staff.department?.name || '—';
       const rank = staff.staffProfile?.rank || '—'; 
@@ -2827,7 +2829,7 @@ async function loadStaffDirectory(roleFilter = null, tabElement = null) {
             <div class="sc-info">
               <div class="sc-name">${escapeHtml(staff.firstName)} ${escapeHtml(staff.lastName)}</div>
               <div class="sc-email">${escapeHtml(staff.email)}</div>
-              <span class="sc-role-badge ${roleClass}">${escapeHtml(staff.role)}</span>
+              <span class="sc-role-badge ${roleClass}">${escapeHtml(staff.role.replace(/_/g, ' '))}</span>
             </div>
           </div>
           <div class="sc-meta">

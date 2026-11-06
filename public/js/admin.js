@@ -3671,27 +3671,33 @@ function updateComplaintStats(records) {
   const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
   
   records.forEach(c => {
-    const s = String(c.status || c.state || 'open').toLowerCase();
+    const s = String(c.status || 'open').toLowerCase();
     if (s.includes('open')) counts.open++;
     else if (s.includes('review')) counts.review++;
     else if (s.includes('resolve')) counts.resolved++;
     else if (s.includes('close')) counts.closed++;
   });
 
-  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setText = (id, val) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = val; 
+  };
   
+  // 1. Top Cards (Notice the exact IDs from your HTML)
   setText('cmp-stat-total', counts.total);
   setText('cmp-stat-open', counts.open);
-  setText('cmp-stat-in-review', counts.review);
+  setText('cmp-stat-in-review', counts.review); // <-- Matches the ID 'cmp-stat-in-review'
   setText('cmp-stat-resolved', counts.resolved);
-  
+
+  // 2. Tabs
   setText('cmp-count-all', counts.total);
   setText('cmp-count-open', counts.open);
-  setText('cmp-count-in_review', counts.review);
+  setText('cmp-count-in_review', counts.review); // <-- Note the underscore here!
   setText('cmp-count-resolved', counts.resolved);
   setText('cmp-count-closed', counts.closed);
-  
-  setText('cmp-count', `Showing ${records.length}`);
+
+  // 3. Table Header
+  setText('cmp-count', `Showing ${records.length} complaints`);
 }
 
 function filterComplaints() {

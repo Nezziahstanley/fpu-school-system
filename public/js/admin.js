@@ -3867,7 +3867,7 @@ async function loadDocumentsTable() {
 }
 
 // ============================================
-// DOCUMENTS — Detail view
+// DOCUMENTS — Detail view with full actions
 // ============================================
 async function loadDocumentDetail() {
   const root = document.getElementById('dd-root');
@@ -3886,7 +3886,6 @@ async function loadDocumentDetail() {
   root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading…</div>';
 
   try {
-    // Fetch full list and find the target (works around missing single-doc endpoint)
     const [docsRes, usersRes] = await Promise.all([
       adminFetch('/api/admin/documents?limit=500').catch(() => null),
       adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
@@ -3908,19 +3907,13 @@ async function loadDocumentDetail() {
     const userById = new Map(users.map((u) => [u.id, u]));
     const user = docItem.user || userById.get(doc.userId) || {};
 
-    // Update subtitle
     const sub = document.getElementById('dd-subtitle');
     if (sub) sub.textContent = `Request #${doc.id} · ${String(doc.type || '').replace(/-/g, ' ')}`;
 
     const status = doc.status || 'pending';
 
-    // Icons per type
     const iconMap = {
-      transcript: '📜',
-      certificate: '🎓',
-      attestation: '📝',
-      'id-card': '🪪',
-      clearance: '✅',
+      transcript: '📜', certificate: '🎓', attestation: '📝', 'id-card': '🪪', clearance: '✅',
     };
     const icon = iconMap[String(doc.type || '').toLowerCase()] || '📄';
 
@@ -3976,12 +3969,14 @@ async function loadDocumentDetail() {
           ${status === 'approved' ? `
             <button class="btn btn-primary" style="background:#f59e0b;border-color:#f59e0b;color:#fff;" id="dd-issue">📤 Issue Document</button>
           ` : ''}
+          <button class="btn btn-outline" id="dd-edit">✏️ Edit Details</button>
+          <button class="btn btn-ghost" style="color:#dc2626;margin-left:auto;" id="dd-delete">🗑 Delete</button>
           <button class="btn btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back to Documents</button>
         </div>
       </div>
     `;
 
-    // Wire buttons
+    // Wire action buttons
     const approveBtn = document.getElementById('dd-approve');
     if (approveBtn) approveBtn.onclick = () => approveDoc(doc.id);
 
@@ -3990,6 +3985,12 @@ async function loadDocumentDetail() {
 
     const issueBtn = document.getElementById('dd-issue');
     if (issueBtn) issueBtn.onclick = () => issueDoc(doc.id);
+
+    const editBtn = document.getElementById('dd-edit');
+    if (editBtn) editBtn.onclick = () => openDocEditModal(doc);
+
+    const deleteBtn = document.getElementById('dd-delete');
+    if (deleteBtn) deleteBtn.onclick = () => deleteDoc(doc);
 
     const printBtn = document.getElementById('dd-print');
     if (printBtn) printBtn.onclick = () => window.print();
@@ -4004,6 +4005,142 @@ async function loadDocumentDetail() {
       </div>
     `;
   }
+}
+
+// ---------- Doc actions ----------
+async function approveDoc(id) {
+  const ok = await window.fpuConfirm(
+    'Approve this document request?\n\nThe student will be notified that their request was approved.',
+    { title: 'Approve Document', type: 'success', okText: 'Approve' }
+  );
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/documents/${id}/approve`, { method: 'POST' });
+    showToast('✅ Document approved.', 'success');
+    loadDocumentDetail();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function rejectDoc(id) {
+  const remarks = prompt('Reason for rejection (will be shown to the student):');
+  if (remarks === null) return;
+  try {
+    await adminFetch(`/api/admin/documents/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ remarks: remarks || 'Rejected by admin.' }),
+    });
+    showToast('⚠️ Document rejected.', 'warning');
+    loadDocumentDetail();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function issueDoc(id) {
+  const fileUrl = prompt('File URL (optional — paste a link to the generated PDF):');
+  if (fileUrl === null) return;
+  try {
+    await adminFetch(`/api/admin/documents/${id}/issue`, {
+      method: 'POST',
+      body: JSON.stringify({ fileUrl: fileUrl || null }),
+    });
+    showToast('📤 Document issued.', 'success');
+    loadDocumentDetail();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function deleteDoc(doc) {
+  const ok = await window.fpuConfirm(
+    `Delete document request "${doc.title || 'Untitled'}"?\n\nThis cannot be undone. The student will lose their request history.`,
+    { title: 'Delete Document', type: 'danger', okText: 'Delete Permanently' }
+  );
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/documents/${doc.id}`, { method: 'DELETE' });
+    showToast('🗑 Document deleted.', 'success');
+    FPU_ADMIN_SPA.navigateTo('documents');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+function openDocEditModal(doc) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  
+  backdrop.innerHTML = `
+    <div class="modal" style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 style="margin:0;">Edit Document Details</h3>
+        <button class="btn btn-sm btn-ghost" id="dd-modal-close">×</button>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input class="form-control" id="dd-edit-title" value="${escapeHtml(doc.title || '')}" />
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Document Type</label>
+        <select class="form-select" id="dd-edit-type">
+          <option value="transcript" ${doc.type === 'transcript' ? 'selected' : ''}>Transcript</option>
+          <option value="certificate" ${doc.type === 'certificate' ? 'selected' : ''}>Certificate</option>
+          <option value="attestation" ${doc.type === 'attestation' ? 'selected' : ''}>Attestation</option>
+          <option value="id-card" ${doc.type === 'id-card' ? 'selected' : ''}>ID Card</option>
+          <option value="clearance" ${doc.type === 'clearance' ? 'selected' : ''}>Clearance</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Reason / Description</label>
+        <textarea class="form-control" id="dd-edit-reason" rows="3">${escapeHtml(doc.reason || '')}</textarea>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Remarks (internal)</label>
+        <textarea class="form-control" id="dd-edit-remarks" rows="2">${escapeHtml(doc.remarks || '')}</textarea>
+      </div>
+      
+      <div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end;">
+        <button class="btn btn-outline" id="dd-modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="dd-modal-save">Save Changes</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(backdrop);
+  
+  const close = () => backdrop.remove();
+  
+  backdrop.querySelector('#dd-modal-close').onclick = close;
+  backdrop.querySelector('#dd-modal-cancel').onclick = close;
+  backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
+  
+  backdrop.querySelector('#dd-modal-save').onclick = async () => {
+    const title = backdrop.querySelector('#dd-edit-title').value.trim();
+    const type = backdrop.querySelector('#dd-edit-type').value;
+    const reason = backdrop.querySelector('#dd-edit-reason').value.trim();
+    const remarks = backdrop.querySelector('#dd-edit-remarks').value.trim();
+    
+    if (!title) { showToast('⚠️ Title is required.', 'warning'); return; }
+    
+    try {
+      await adminFetch(`/api/admin/documents/${doc.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ title, type, reason, remarks }),
+      });
+      showToast('✅ Document updated.', 'success');
+      close();
+      loadDocumentDetail();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
 }
 
 async function loadGraduationsTable() {
@@ -7642,6 +7779,7 @@ window.FPU_ADMIN = {
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
   loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
   loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
+  approveDoc, rejectDoc, issueDoc, deleteDoc, openDocEditModal,
   approveGraduation, rejectGraduation, markGraduated, loadStudentTranscript, loadDocumentDetail,
 
   // Users

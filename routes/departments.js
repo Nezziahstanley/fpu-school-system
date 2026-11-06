@@ -12,11 +12,42 @@ const courseQueries = require('../db/queries/courses');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
+// Models used by the transcript endpoint
+const { User, Programme, Department, Result } = require('../models');
+
 const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
+
+// ------------------------------------------------------------
+// Departments CRUD
+// ------------------------------------------------------------
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     return res.json({ success: true, data: await courseQueries.listDepartments({ schoolId: req.query.schoolId }) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// IMPORTANT: /transcript/:userId must be declared BEFORE /:id,
+// otherwise Express matches "transcript" as :id and this route
+// never runs. (See fix #2 below.)
+router.get('/transcript/:userId', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const student = await User.findByPk(req.params.userId, {
+      include: [
+        { model: Programme,  as: 'programme',  required: false },
+        { model: Department, as: 'department', required: false },
+      ],
+    });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
+
+    const results = await Result.findAll({
+      where: { userId: student.id, published: true },
+      order: [['session', 'ASC'], ['semester', 'ASC'], ['courseCode', 'ASC']],
+    });
+
+    return res.json({ success: true, student, results });
   } catch (err) {
     return next(err);
   }
@@ -35,7 +66,9 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
 router.post('/', requireRole(['admin', 'registrar']), async (req, res, next) => {
   try {
     const { code, name, schoolId, hodUserId } = req.body || {};
-    if (!code || !name || !schoolId) return res.status(400).json({ success: false, error: 'code, name, schoolId are required.' });
+    if (!code || !name || !schoolId) {
+      return res.status(400).json({ success: false, error: 'code, name, schoolId are required.' });
+    }
     const row = await courseQueries.createDepartment({ code, name, schoolId, hodUserId });
     await logAudit({ req, action: 'department.create', entity: 'department', entityId: row.id, after: row });
     return res.status(201).json({ success: true, data: row });

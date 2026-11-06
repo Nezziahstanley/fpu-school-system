@@ -7255,9 +7255,20 @@ async function loadStudentTranscript() {
       `;
     }).join('');
 
+    // Update subtitle if it exists (fallback for other layouts)
+    const subEl = document.getElementById('tx-subtitle');
+    if (subEl) {
+      subEl.textContent = `${student.matricNumber || ''} · ${student.firstName || ''} ${student.lastName || ''}`;
+    }
+
     // Render the full transcript
     root.innerHTML = `
       <div class="tx-document">
+
+        <!-- Watermark (only visible in print) -->
+        <div class="tx-watermark">
+          <img src="/images/logo.png" alt="" onerror="this.style.display='none';this.parentElement.textContent='FPU';" />
+        </div>
 
         <!-- Student header -->
         <div class="tx-header">
@@ -7294,6 +7305,22 @@ async function loadStudentTranscript() {
             No published results found for this student. Transcript will populate once results are entered and published.
           </div>
         `}
+
+        <!-- Signature block -->
+        <div class="tx-signatures">
+          <div class="tx-sig-block">
+            <div class="tx-sig-line"></div>
+            <div class="tx-sig-role">Registrar</div>
+          </div>
+          <div class="tx-sig-block">
+            <div class="tx-sig-line"></div>
+            <div class="tx-sig-role">Date</div>
+          </div>
+          <div class="tx-sig-block">
+            <div class="tx-sig-line"></div>
+            <div class="tx-sig-role">Rector</div>
+          </div>
+        </div>
       </div>
     `;
 

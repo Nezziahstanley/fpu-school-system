@@ -4,7 +4,7 @@
 <section class="page-head no-print">
   <div>
     <h2 id="tx-title">Student Transcript</h2>
-    <p class="muted small" id="tx-subtitle">Loading…</p>
+    <!-- Subtitle REMOVED from here to stop the "Loading..." text -->
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">
@@ -32,6 +32,13 @@
     max-width: 900px;
     margin: 0 auto 40px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Watermark - only visible on print */
+  .tx-watermark {
+    display: none;
   }
 
   .tx-header {
@@ -42,6 +49,8 @@
     padding-bottom: 24px;
     border-bottom: 2px solid #065f46;
     margin-bottom: 24px;
+    position: relative;
+    z-index: 1;
   }
 
   .tx-student-info h2 {
@@ -102,6 +111,8 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
     margin-bottom: 28px;
+    position: relative;
+    z-index: 1;
   }
 
   .tx-summary-item {
@@ -133,6 +144,8 @@
   .tx-semester {
     margin-bottom: 24px;
     page-break-inside: avoid;
+    position: relative;
+    z-index: 1;
   }
 
   .tx-semester-head {
@@ -212,12 +225,97 @@
   .tx-grade.E { background: #fee2e2; color: #991b1b; }
   .tx-grade.F { background: #fca5a5; color: #7f1d1d; }
 
+  /* Signature block */
+  .tx-signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 40px;
+    padding-top: 20px;
+    position: relative;
+    z-index: 1;
+    page-break-inside: avoid;
+  }
+
+  .tx-sig-block {
+    text-align: center;
+    width: 200px;
+  }
+
+  .tx-sig-line {
+    border-bottom: 1px solid #0f172a;
+    margin-bottom: 6px;
+    height: 30px;
+  }
+
+  .tx-sig-role {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+  }
+
   /* Print optimization */
   @media print {
     .no-print, .sidebar, .topbar, .page-head, .fpu-modal-overlay { display: none !important; }
-    .tx-document { box-shadow: none; border: none; padding: 0; margin: 0; }
+    .tx-document { 
+      box-shadow: none; 
+      border: none; 
+      padding: 0; 
+      margin: 0; 
+      max-width: 100%;
+    }
+
+    /* Watermark - print only */
+    .tx-watermark {
+      display: flex;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      opacity: 0.04;
+      z-index: 0;
+      font-family: 'Poppins', sans-serif;
+      font-size: 120px;
+      font-weight: 900;
+      color: #065f46;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    
+    .tx-watermark img {
+      width: 400px;
+      height: auto;
+    }
+
+    /* Add document letterhead only on print */
+    .tx-document::before {
+      content: "FEDERAL POLYTECHNIC Ugep";
+      display: block;
+      text-align: center;
+      font-family: 'Poppins', sans-serif;
+      font-size: 20px;
+      font-weight: 900;
+      color: #065f46;
+      margin-bottom: 4px;
+    }
+
+    .tx-document::after {
+      content: "Official Student Transcript — Confidential";
+      display: block;
+      text-align: center;
+      font-size: 10px;
+      color: #6b7280;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #065f46;
+    }
+
     .tx-semester-head { background: #065f46 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .tx-table th { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .tx-grade { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body { background: #fff; }
   }
 </style>

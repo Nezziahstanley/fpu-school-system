@@ -16,7 +16,7 @@
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('results')">
+            onclick="window.location.hash='#results'">
       ← All Departments
     </button>
     <button class="btn btn-outline btn-sm"
@@ -75,21 +75,21 @@
 </div>
 
 <!-- Bulk action bar -->
-<div class="bulk-bar">
+<div class="bulk-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; padding: 12px 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
   <div>
-    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px;">
-      <input type="checkbox" id="rd-select-all" />
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:13px; cursor:pointer;">
+      <input type="checkbox" id="rd-select-all" onchange="FPU_ADMIN.toggleAllResults(this.checked)" />
       <span class="muted">Select all on this page</span>
     </label>
   </div>
-  <div class="bulk-actions">
-    <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkApproveResults()">
+  <div class="bulk-actions" style="display:flex; gap:8px;">
+    <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.bulkResultAction('approved')">
       ✓ Approve selected
     </button>
-    <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.bulkRejectResults()">
+    <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.bulkResultAction('admin_rejected')">
       ✕ Reject selected
     </button>
-    <button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.bulkPublishResults()">
+    <button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.bulkResultAction('published')">
       📢 Publish selected
     </button>
   </div>
@@ -97,15 +97,16 @@
 
 <!-- Course groups -->
 <div id="rd-root">
-  <div class="loading"><span class="spinner"></span> Loading results…</div>
+  <div class="loading" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading results…</div>
 </div>
 
 <style>
   .res-course-group {
     margin-bottom: 22px;
-    border: 1px solid var(--fpu-border);
+    border: 1px solid #e2e8f0;
     border-radius: 10px;
     overflow: hidden;
+    background: #fff;
   }
   .res-course-head {
     display: flex;
@@ -175,6 +176,7 @@
 
   .res-course-group .table-admin {
     border-radius: 0;
+    border: none;
   }
   .res-course-group .table-admin tbody tr.row-rejected {
     background: #fef2f2;
@@ -196,5 +198,8 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadDepartmentResults()
+  // Initialize the page when loaded
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadDepartmentResults) {
+    setTimeout(window.FPU_ADMIN.loadDepartmentResults, 100);
+  }
 </script>

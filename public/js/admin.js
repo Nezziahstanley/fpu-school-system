@@ -11561,6 +11561,133 @@ function renderExamTableRows(exams) {
   }).join('');
 }
 
+// ============================================
+// RESULTS: Department View Loader
+// ============================================
+async function loadDeptResults() {
+  const tbody = document.getElementById('rd-tbody');
+  if (!tbody) return;
+
+  // 1. Get Department ID from URL
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('departmentId');
+  const deptName = params.get('name') || 'Department';
+
+  if (!deptId) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #dc2626;">No department selected. Please go back.</td></tr>';
+    return;
+  }
+
+  // Update Header
+  const titleEl = document.getElementById('rd-title');
+  if (titleEl) titleEl.textContent = `${deptName} Results`;
+
+  // 2. Get Filters
+  const status = document.getElementById('rd-filter-status')?.value || '';
+  const semester = document.getElementById('rd-filter-semester')?.value || '';
+  const search = document.getElementById('rd-search')?.value || '';
+
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading results...</td></tr>';
+
+  try {
+    // Build API URL
+    let url = `/api/admin/results?departmentId=${deptId}`;
+    if (status) url += `&status=${status}`;
+    if (semester && semester !== 'all') url += `&semester=${semester}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const results = json.data || [];
+
+    // 3. Update Stats
+    document.getElementById('rd-stat-total').textContent = results.length;
+    let awaiting = 0, approved = 0, published = 0;
+    results.forEach(r => {
+      if (r.status === 'pending') awaiting++;
+      else if (r.status === 'approved') approved++;
+      else if (r.status === 'published') published++;
+    });
+    document.getElementById('rd-stat-awaiting').textContent = awaiting;
+    document.getElementById('rd-stat-approved').textContent = approved;
+    document.getElementById('rd-stat-published').textContent = published;
+
+    // 4. Render Table
+    if (!results.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;">No results found matching your filters.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = results.map(r => {
+      const studentName = r.student ? `${r.student.firstName} ${r.student.lastName}` : 'Unknown';
+      const matric = r.student?.matricNumber || '—';
+      const courseCode = r.course?.code || '—';
+      const courseTitle = r.course?.title || '';
+      
+      let statusColor = '#64748b';
+      if (r.status === 'pending') statusColor = '#d97706';
+      if (r.status === 'approved') statusColor = '#2563eb';
+      if (r.status === 'published') statusColor = '#059669';
+      if (r.status === 'rejected') statusColor = '#dc2626';
+
+      return `
+        <tr>
+          <td><input type="checkbox" class="rd-checkbox" value="${r.id}" onchange="FPU_ADMIN.updateBulkBtnState()" /></td>
+          <td>
+            <div style="font-weight:700; color:#0f172a;">${escapeHtml(studentName)}</div>
+            <div style="font-size:11px; color:#64748b; font-family:monospace;">${escapeHtml(matric)}</div>
+          </td>
+          <td>
+            <div style="font-weight:700; color:#065f46;">${escapeHtml(courseCode)}</div>
+            <div style="font-size:11px; color:#64748b;">${escapeHtml(courseTitle)}</div>
+          </td>
+          <td style="font-family:monospace; font-weight:700;">${r.score || '-'}</td>
+          <td style="font-weight:700;">${escapeHtml(r.grade || '-')}</td>
+          <td><span style="color:${statusColor}; font-weight:700; font-size:11px; text-transform:uppercase;">${escapeHtml(r.status)}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.viewResultDetails(${r.id})">View</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load department results:', err);
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results.</td></tr>';
+  }
+}
+
+// Helper functions for the checkboxes and buttons
+function toggleAllResults(checked) {
+  document.querySelectorAll('.rd-checkbox').forEach(cb => cb.checked = checked);
+  updateBulkBtnState();
+}
+
+function updateBulkBtnState() {
+  const checked = document.querySelectorAll('.rd-checkbox:checked').length;
+  // You can enable/disable bulk buttons here based on selection
+}
+
+async function bulkResultAction(action) {
+  const selectedIds = Array.from(document.querySelectorAll('.rd-checkbox:checked')).map(cb => cb.value);
+  if (!selectedIds.length) return showToast('Select at least one result.', 'warning');
+  
+  if (!confirm(`Are you sure you want to ${action} ${selectedIds.length} result(s)?`)) return;
+
+  try {
+    await adminFetch('/api/admin/results/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({ ids: selectedIds, action })
+    });
+    showToast(`✅ Results ${action}d successfully.`, 'success');
+    loadDeptResults();
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -11604,7 +11731,7 @@ window.FPU_ADMIN = {
   loadRegistrationStudents,
 
   // Results
-  loadResultDepartments,
+  loadResultDepartments, loadDeptResults, toggleAllResults, updateBulkBtnState, bulkResultAction,
 
   // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale, toggleAddBandForm,  submitAddBand,

@@ -2651,9 +2651,6 @@ async function loadExamsIndex() {
 // ============================================
 // 1. ATTENDANCE: Overview (Departments)
 // ============================================
-// ============================================
-// 1. ATTENDANCE: Overview (Departments)
-// ============================================
 async function loadAttendanceDepartments() {
   const grid = document.getElementById('att-dept-grid');
   if (!grid) return;
@@ -2679,14 +2676,12 @@ async function loadAttendanceDepartments() {
     document.getElementById('att-stat-courses').textContent = totalCourses;
     document.getElementById('att-stat-total').textContent = totalRecords;
     
-    // FIXED MATH: Parse to Number() to prevent scientific notation
     let overallRate = 0;
     if (totalRecords > 0) {
       overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
     document.getElementById('att-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
-    // Render Department Cards
     if (!departments.length) {
       grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No departments found.</div>';
       return;
@@ -2702,8 +2697,9 @@ async function loadAttendanceDepartments() {
 
       const rateText = d.records > 0 ? `${d.rate}%` : '—';
 
+      // CHANGED: Now it opens a modal instead of navigating
       return `
-        <div class="dept-card" onclick="window.location.hash='#attendance-department?id=${d.id}'">
+        <div class="dept-card" onclick="FPU_ADMIN.openDeptModal(${d.id}, '${escapeHtml(d.name)}', '${escapeHtml(d.code)}')">
           <div class="dept-card-header">
             <span class="dept-code-badge">${escapeHtml(d.code)}</span>
             <span class="dept-school-badge" title="${escapeHtml(d.schoolName || '')}">${escapeHtml(d.schoolName || 'N/A')}</span>
@@ -2743,6 +2739,101 @@ async function loadAttendanceDepartments() {
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data.</div>';
   }
 }
+
+// ============================================
+// 2. ATTENDANCE: Modal Logic
+// ============================================
+async function openDeptModal(deptId, deptName, deptCode) {
+  const modal = document.getElementById('dept-modal');
+  const title = document.getElementById('modal-dept-name');
+  const meta = document.getElementById('modal-dept-meta');
+  const loading = document.getElementById('modal-loading');
+  const grid = document.getElementById('modal-course-grid');
+
+  if (!modal) return;
+
+  // Show modal & reset state
+  modal.style.display = 'flex';
+  setTimeout(() => modal.classList.add('show'), 10);
+  
+  title.textContent = deptName;
+  meta.textContent = `Code: ${deptCode}`;
+  loading.style.display = 'block';
+  grid.innerHTML = '';
+
+  try {
+    const res = await adminFetch(`/api/admin/attendance/department/${deptId}`);
+    const json = await res.json();
+    const courses = json.data || [];
+
+    loading.style.display = 'none';
+
+    if (!courses.length) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No courses found in this department.</div>';
+      return;
+    }
+
+    // Render cards INSIDE the modal
+    grid.innerHTML = courses.map(c => {
+      let rateClass = 'empty';
+      if (c.records > 0) {
+        if (c.rate >= 75) rateClass = 'healthy';
+        else if (c.rate >= 50) rateClass = 'warning';
+        else rateClass = 'critical';
+      }
+
+      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const lvlClass = c.level ? c.level.toLowerCase() : 'other';
+
+      return `
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+          <div class="course-card-header">
+            <span class="course-code-badge">${escapeHtml(c.code)}</span>
+            <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
+          </div>
+          <h3 class="course-name">${escapeHtml(c.title)}</h3>
+          
+          <div class="course-rate-wrap">
+            <span class="course-rate-number ${rateClass}">${rateText}</span>
+            <span class="course-rate-label">attendance rate</span>
+          </div>
+          
+          <div class="course-stats-grid">
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.records}</div>
+              <div class="course-stat-lbl">Records</div>
+            </div>
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.students}</div>
+              <div class="course-stat-lbl">Students</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load courses', err);
+    loading.style.display = 'none';
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load courses.</div>';
+  }
+}
+
+function closeDeptModal() {
+  const modal = document.getElementById('dept-modal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => modal.style.display = 'none', 200);
+  }
+}
+
+// Close modal if clicking outside
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('dept-modal');
+  if (modal && e.target === modal) {
+    closeDeptModal();
+  }
+});
 
 // ============================================
 // 2. ATTENDANCE: By Department (Courses)

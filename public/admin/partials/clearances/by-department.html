@@ -39,7 +39,7 @@
 </div>
 
 <!-- Bulk Actions Bar -->
-<div class="bulk-bar" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 16px; border-radius:10px; margin-bottom:16px; border:1px solid #e2e8f0;">
+<div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:10px 16px; border-radius:10px; margin-bottom:16px; border:1px solid #e2e8f0;">
   <label style="display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; margin:0;">
     <input type="checkbox" id="cd-select-all" style="width:16px; height:16px; accent-color:#065f46;" />
     <span class="muted">Select all on this page</span>
@@ -87,7 +87,6 @@
 </style>
 
 <script>
-  // Auto-load on page render
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadDepartmentClearances) {
     setTimeout(window.FPU_ADMIN.loadDepartmentClearances, 100);
   }

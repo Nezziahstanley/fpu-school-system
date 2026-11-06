@@ -3647,24 +3647,28 @@ async function loadDepartmentClearances() {
 
 async function clearStudent(studentId, newStatus) {
   try {
-    // Try to update existing record
+    // 1. First, try to update an existing clearance
     await adminFetch(`/api/admin/clearances/student/${studentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: newStatus }),
     });
     showToast(`✅ Status updated to ${newStatus}.`, 'success');
     loadDepartmentClearances();
-  } catch (err) {
-    // If endpoint fails, try creating a new record
+  } catch (err1) {
+    // 2. If that fails, try creating a new clearance with studentId
     try {
       await adminFetch(`/api/admin/clearances`, {
         method: 'POST',
-        body: JSON.stringify({ studentId, status: newStatus }),
+        body: JSON.stringify({ 
+          studentId: Number(studentId), 
+          status: newStatus,
+          remarks: 'Created via Admin Dashboard'
+        }),
       });
-      showToast(`✅ Clearance created.`, 'success');
+      showToast(`✅ Clearance created as ${newStatus}.`, 'success');
       loadDepartmentClearances();
     } catch (err2) {
-      showToast('❌ ' + err2.message, 'error');
+      showToast('❌ Failed: ' + err2.message, 'error');
     }
   }
 }

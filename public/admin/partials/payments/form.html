@@ -16,7 +16,6 @@
   <div class="panel-body">
     <form id="payment-form">
       
-      <!-- Student Selection -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Filter by Department</label>
@@ -26,7 +25,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Student <span class="req">*</span></label>
-          <select class="form-select" name="studentId" id="pf-student" required onchange="autoFillFeeForStudent()">
+          <select class="form-select" name="studentId" id="pf-student" required onchange="onStudentSelected()">
             <option value="">— Choose a student —</option>
           </select>
         </div>
@@ -34,20 +33,17 @@
 
       <hr style="margin:20px 0; border:none; border-top:1px solid #e2e8f0;">
 
-      <!-- Payment Details -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Session <span class="req">*</span></label>
           <select class="form-select" name="sessionId" id="pf-session" required>
-            <option value="">Loading sessions…</option>
+            <option value="">Loading…</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Fee Structure</label>
           <select class="form-select" id="pf-fee" onchange="applyFeeSelection()">
-            <option value="">— Choose a level —</option>
-            <option value="ND" data-amount="53105">ND — ₦53,105</option>
-            <option value="HND" data-amount="66726">HND — ₦66,726</option>
+            <option value="">— Loading fees —</option>
           </select>
         </div>
         <div class="form-group">
@@ -56,7 +52,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">Reference / Teller No. <span class="req">*</span></label>
-          <input class="form-control" name="reference" id="pf-reference" required placeholder="e.g. FPU-2025-0034" />
+          <input class="form-control" name="reference" id="pf-reference" required readonly style="background:#f8fafc;font-family:monospace;font-weight:600;" />
+          <div style="font-size:11px;color:#64748b;margin-top:4px;">Auto-generated</div>
         </div>
       </div>
 
@@ -77,18 +74,23 @@
 
     let ALL_STUDENTS = [];
     let ALL_DEPTS = [];
+    let ALL_FEES = [];
 
     async function loadInitialData() {
       try {
-        const [deptsRes, studentsRes, sessionsRes] = await Promise.all([
+        const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
           A.adminFetch('/api/admin/departments').catch(() => null),
           A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
           A.adminFetch('/api/admin/sessions').catch(() => null),
+          A.adminFetch('/api/admin/fees').catch(() => null),
         ]);
 
         ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
         ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
         const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
+        ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+
+        console.log('[payment-form] Loaded fees:', ALL_FEES);
 
         // Departments dropdown
         $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
@@ -101,6 +103,18 @@
           .sort((a, b) => String(b.name).localeCompare(String(a.name)))
           .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
 
+        // Fees dropdown
+        if (ALL_FEES.length === 0) {
+          $('pf-fee').innerHTML = '<option value="">⚠️ No fees in database — run the SQL</option>';
+        } else {
+          $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
+            ALL_FEES.map(f => {
+              const lvl = String(f.level || '').toUpperCase();
+              const amt = Number(f.amount || f.totalAmount || f.total_amount || 0);
+              return `<option value="${f.id}" data-amount="${amt}" data-level="${lvl}">${A.escapeHtml(lvl)} — ₦${amt.toLocaleString()}</option>`;
+            }).join('');
+        }
+
         // Initial student list
         filterStudentsByDept();
 
@@ -110,37 +124,56 @@
       }
     }
 
+    // ---- Filter Students ----
     window.filterStudentsByDept = function () {
       const deptId = $('pf-dept-filter').value;
       let filtered = ALL_STUDENTS;
       if (deptId) filtered = filtered.filter(s => Number(s.departmentId) === Number(deptId));
 
       filtered.sort((a, b) => {
-        const an = `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase();
-        const bn = `${b.firstName || b.first_name || ''} ${b.lastName || b.last_name || ''}`.toLowerCase();
+        const an = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+        const bn = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
         return an.localeCompare(bn);
       });
 
       $('pf-student').innerHTML = '<option value="">— Choose a student —</option>' +
         filtered.map(s => {
-          const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
-          const mt = s.matricNumber || s.matric_number || '';
+          const fn = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+          const mt = s.matricNumber || '';
           const lvl = s.level || '';
           return `<option value="${s.id}" data-level="${lvl}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
         }).join('');
     };
 
-    window.autoFillFeeForStudent = function () {
+    // ---- When Student Selected → Auto-fill Fee & Reference ----
+    window.onStudentSelected = function () {
       const sel = $('pf-student').selectedOptions[0];
-      if (!sel) return;
-      const lvl = String(sel.dataset.level || '').toUpperCase();
-      // Auto-select matching fee
-      if (lvl === 'ND' || lvl === 'HND') {
-        $('pf-fee').value = lvl;
-        applyFeeSelection();
+      if (!sel || !sel.value) {
+        $('pf-reference').value = '';
+        return;
       }
+
+      const lvl = String(sel.dataset.level || '').toUpperCase();
+
+      // 1. Auto-select matching fee
+      if (lvl && ALL_FEES.length) {
+        const match = ALL_FEES.find(f => String(f.level || '').toUpperCase() === lvl);
+        if (match) {
+          $('pf-fee').value = match.id;
+          applyFeeSelection();
+        }
+      }
+
+      // 2. Auto-generate reference
+      const now = new Date();
+      const dateStr = now.getFullYear().toString() + 
+                     String(now.getMonth()+1).padStart(2,'0') + 
+                     String(now.getDate()).padStart(2,'0');
+      const rand = Math.floor(1000 + Math.random() * 9000); // 4-digit random
+      $('pf-reference').value = `FPU-${dateStr}-${rand}`;
     };
 
+    // ---- Apply fee → fill amount ----
     window.applyFeeSelection = function () {
       const sel = $('pf-fee').selectedOptions[0];
       if (sel && sel.dataset.amount) {
@@ -148,6 +181,7 @@
       }
     };
 
+    // ---- Submit ----
     $('payment-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('pf-validation');
@@ -158,10 +192,10 @@
       const amount = Number($('pf-amount').value);
       const reference = $('pf-reference').value.trim();
 
-      if (!studentId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please select a student.</div>'; return; }
-      if (!sessionId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please select a session.</div>'; return; }
-      if (!amount || amount <= 0) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please enter a valid amount.</div>'; return; }
-      if (!reference) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please enter a reference/teller number.</div>'; return; }
+      if (!studentId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Select a student.</div>'; return; }
+      if (!sessionId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Select a session.</div>'; return; }
+      if (!amount || amount <= 0) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Enter a valid amount.</div>'; return; }
+      if (!reference) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Reference missing.</div>'; return; }
 
       const submitBtn = $('pf-submit');
       submitBtn.disabled = true;
@@ -178,8 +212,8 @@
           throw new Error(err.error || 'Failed to create payment');
         }
 
-        A.showToast('✅ Payment recorded successfully.', 'success');
-        setTimeout(() => { window.location.hash = '#payments'; }, 400);
+        A.showToast('✅ Payment recorded. Reference: ' + reference, 'success');
+        setTimeout(() => { window.location.hash = '#payments'; }, 500);
 
       } catch (err) {
         valEl.innerHTML = `<div style="color:#dc2626;">❌ ${A.escapeHtml(err.message)}</div>`;

@@ -63,18 +63,49 @@
     const A = window.FPU_ADMIN;
     const $ = (id) => document.getElementById(id);
     
-    // Load users into the dropdown
+    // 1. Load students and staff from working endpoints
     try {
-      const res = await A.adminFetch('/api/admin/user-list?limit=2000');
-      const json = await res.json();
-      const users = json.data || json || [];
-      $('nc-recipient').innerHTML = '<option value="">— Choose a recipient —</option>' +
-        users.map(u => `<option value="${u.id}">${A.escapeHtml(u.firstName || u.first_name)} ${A.escapeHtml(u.lastName || u.last_name)} (${A.escapeHtml(u.email || '')})</option>`).join('');
+      const [studentsRes, staffRes, adminsRes] = await Promise.all([
+        A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
+        A.adminFetch('/api/admin/staff?limit=2000').catch(() => null),
+        A.adminFetch('/api/admin/users?limit=2000').catch(() => null),
+      ]);
+
+      let users = [];
+      if (studentsRes && studentsRes.ok) {
+        const j = await studentsRes.json();
+        users = users.concat(j.data || []);
+      }
+      if (staffRes && staffRes.ok) {
+        const j = await staffRes.json();
+        users = users.concat(j.data || []);
+      }
+      if (adminsRes && adminsRes.ok) {
+        const j = await adminsRes.json();
+        users = users.concat(j.data || []);
+      }
+
+      // Remove duplicates
+      const uniqueUsers = Array.from(new Map(users.map(u => [u.id, u])).values());
+
+      if (uniqueUsers.length === 0) {
+        $('nc-recipient').innerHTML = '<option value="">No users found</option>';
+      } else {
+        $('nc-recipient').innerHTML = '<option value="">— Choose a recipient —</option>' +
+          uniqueUsers.map(u => {
+            const firstName = u.firstName || u.first_name || '';
+            const lastName = u.lastName || u.last_name || '';
+            const name = `${firstName} ${lastName}`.trim() || 'Unknown';
+            const role = String(u.role || '').toUpperCase();
+            const email = u.email || '';
+            return `<option value="${u.id}">${A.escapeHtml(name)} ${role ? '(' + role + ')' : ''} — ${A.escapeHtml(email)}</option>`;
+          }).join('');
+      }
     } catch (err) {
-      $('nc-recipient').innerHTML = '<option value="">Error loading users</option>';
+      $('nc-recipient').innerHTML = '<option value="">Error loading users: ' + A.escapeHtml(err.message) + '</option>';
     }
 
-    // Submit form
+    // 2. Submit form
     $('notif-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('nc-validation');

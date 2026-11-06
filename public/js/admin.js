@@ -6767,75 +6767,69 @@ async function loadReports() {
 }
 
 // ============================================
-// GRADUATION
+// GRADUATION — Tab & button wiring
 // ============================================
-async function loadGraduationsTable() {
-  const tbody = document.getElementById('grad-tbody');
-  if (!tbody) return;
+function wireGraduationPage() {
+  // Tab clicks
+  const tabs = document.querySelectorAll('#grad-status-tabs .staff-role-tab');
+  tabs.forEach((tab) => {
+    if (tab.__wired) return;
+    tab.__wired = true;
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadGraduationsTable();
+    });
+  });
 
-  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
-
-  try {
-    const res = await adminFetch('/api/admin/graduation');
-    const json = await res.json();
-    const rows = json.data || json || []; // Fallback if API returns array directly
-
-    let pending = 0;
-    let graduated = 0;
-    let dist = 0;
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No graduation records found.</td></tr>';
-      setText('grad-stat-total', 0);
-      setText('grad-stat-pending', 0);
-      setText('grad-stat-graduated', 0);
-      setText('grad-stat-dist', 0);
-      return;
+  // Filter changes
+  ['grad-filter-session', 'grad-filter-class', 'grad-search'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.__wired) return;
+    el.__wired = true;
+    el.addEventListener('change', () => loadGraduationsTable());
+    if (id === 'grad-search') {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loadGraduationsTable();
+      });
     }
+  });
 
-    tbody.innerHTML = rows.map((r) => {
-      const g = r.graduation || r;
-      const s = r.student || r; // Fallback if flattened
-      
-      if (g.status === 'pending') pending++;
-      if (g.status === 'graduated') graduated++;
-      if (g.classification === 'Distinction') dist++;
+  // Approve selected button
+  const approveBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+    .find((b) => /approve/i.test(b.textContent || ''));
+  if (approveBtn && !approveBtn.__wired) {
+    approveBtn.__wired = true;
+    approveBtn.onclick = async () => {
+      const ids = Array.from(document.querySelectorAll('.grad-check:checked')).map((cb) => Number(cb.dataset.id));
+      if (!ids.length) { showToast('Select at least one record.', 'warning'); return; }
+      if (!confirm(`Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`)) return;
 
-      const isPending = g.status === 'pending';
-      const isApproved = g.status === 'approved';
+      let ok = 0, failed = 0;
+      for (const id of ids) {
+        try {
+          await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' });
+          ok++;
+        } catch { failed++; }
+      }
+      showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`, failed ? 'warning' : 'success');
+      loadGraduationsTable();
+    };
+  }
 
-      return `
-        <tr>
-          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
-          <td><code>${escapeHtml(s.matricNumber || '—')}</code></td>
-          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
-          <td>${escapeHtml(g.level || '—')}</td>
-          <td class="num">${g.cgpa || '—'}</td>
-          <td>${escapeHtml(g.classification || '—')}</td>
-          <td>${badge(g.status)}</td>
-          <td>
-            <div class="row-actions" style="justify-content:flex-end;">
-              ${isPending ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button>` : ''}
-              ${isApproved ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
-              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">Transcript</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    setText('grad-stat-total', rows.length);
-    setText('grad-stat-pending', pending);
-    setText('grad-stat-graduated', graduated);
-    setText('grad-stat-dist', dist);
-
-  } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  // Queue Student button
+  const queueBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+    .find((b) => /queue/i.test(b.textContent || ''));
+  if (queueBtn && !queueBtn.__wired) {
+    queueBtn.__wired = true;
+    queueBtn.onclick = () => {
+      FPU_ADMIN_SPA.navigateTo('graduation-form');
+    };
   }
 }
 
 // ============================================
-// GRADUATION
+// GRADUATION — Queue loader (full featured)
 // ============================================
 async function loadGraduationsTable() {
   const tbody = document.getElementById('grad-tbody');
@@ -6844,61 +6838,250 @@ async function loadGraduationsTable() {
   tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
 
   try {
+    // -------- Fetch all graduation records --------
     const res = await adminFetch('/api/admin/graduation');
     const json = await res.json();
-    const rows = json.data || json || []; // Fallback if API returns array directly
+    let rows = json.data || json || [];
+    if (!Array.isArray(rows)) rows = [];
 
-    let pending = 0;
-    let graduated = 0;
-    let dist = 0;
+    // Normalize to { graduation, student }
+    const all = rows.map((r) => ({
+      graduation: r.graduation || r,
+      student: r.student || r,
+    }));
 
-    if (!Array.isArray(rows) || rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No graduation records found.</td></tr>';
-      setText('grad-stat-total', 0);
-      setText('grad-stat-pending', 0);
-      setText('grad-stat-graduated', 0);
-      setText('grad-stat-dist', 0);
+    // -------- Compute tab counts from full set --------
+    const counts = {
+      all: all.length,
+      pending: 0,
+      approved: 0,
+      graduated: 0,
+      rejected: 0,
+    };
+    all.forEach(({ graduation: g }) => {
+      const s = g.status || '';
+      if (counts[s] !== undefined) counts[s]++;
+    });
+    setText('grad-count-all', counts.all);
+    setText('grad-count-pending', counts.pending);
+    setText('grad-count-approved', counts.approved);
+    setText('grad-count-graduated', counts.graduated);
+    setText('grad-count-rejected', counts.rejected);
+
+    // -------- Stats tiles --------
+    const pending = counts.pending;
+    const graduated = counts.graduated;
+    const dist = all.filter(({ graduation: g }) => g.classification === 'Distinction').length;
+    setText('grad-stat-total', all.length);
+    setText('grad-stat-pending', pending);
+    setText('grad-stat-graduated', graduated);
+    setText('grad-stat-dist', dist);
+
+    // -------- Apply active tab filter --------
+    const activeTab = document.querySelector('#grad-status-tabs .staff-role-tab.active');
+    const statusFilter = activeTab?.dataset.status || '';
+    let visible = all;
+    if (statusFilter) visible = visible.filter(({ graduation: g }) => g.status === statusFilter);
+
+    // -------- Apply classification filter --------
+    const clsFilter = (document.getElementById('grad-filter-class') || {}).value || '';
+    if (clsFilter) visible = visible.filter(({ graduation: g }) => g.classification === clsFilter);
+
+    // -------- Apply session filter (if value set) --------
+    const sessionFilter = (document.getElementById('grad-filter-session') || {}).value || '';
+    if (sessionFilter) {
+      visible = visible.filter(({ graduation: g }) =>
+        String(g.sessionId || g.session_id || '') === String(sessionFilter)
+      );
+    }
+
+    // -------- Apply search filter --------
+    const search = (document.getElementById('grad-search') || {}).value || '';
+    if (search) {
+      const q = search.toLowerCase();
+      visible = visible.filter(({ student: s }) => (
+        String(s.matricNumber || '').toLowerCase().includes(q) ||
+        String(s.firstName || '').toLowerCase().includes(q) ||
+        String(s.lastName || '').toLowerCase().includes(q)
+      ));
+    }
+
+    // -------- Update count in panel header --------
+    setText('grad-count', `Showing ${visible.length} of ${all.length} record${all.length === 1 ? '' : 's'}`);
+
+    if (!visible.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No records match your filters.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map((r) => {
-      const g = r.graduation || r;
-      const s = r.student || r; // Fallback if flattened
-      
-      if (g.status === 'pending') pending++;
-      if (g.status === 'graduated') graduated++;
-      if (g.classification === 'Distinction') dist++;
+    // -------- Render rows --------
+    tbody.innerHTML = visible.map(({ graduation: g, student: s }) => {
+      const status = g.status || 'pending';
+      const isPending = status === 'pending';
+      const isApproved = status === 'approved';
+      const isGraduated = status === 'graduated';
+      const isRejected = status === 'rejected';
+      const canSelect = !isGraduated && !isRejected;
 
-      const isPending = g.status === 'pending';
-      const isApproved = g.status === 'approved';
+      const clsName = (() => {
+        const c = g.classification;
+        if (c === 'Distinction') return 'distinction';
+        if (c === 'Upper Credit') return 'upper';
+        if (c === 'Lower Credit') return 'lower';
+        if (c === 'Pass') return 'pass';
+        if (c === 'Fail') return 'fail';
+        return '';
+      })();
 
       return `
         <tr>
-          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
-          <td><code>${escapeHtml(s.matricNumber || '—')}</code></td>
-          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
-          <td>${escapeHtml(g.level || '—')}</td>
-          <td class="num">${g.cgpa || '—'}</td>
-          <td>${escapeHtml(g.classification || '—')}</td>
-          <td>${badge(g.status)}</td>
           <td>
-            <div class="row-actions" style="justify-content:flex-end;">
-              ${isPending ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button>` : ''}
-              ${isApproved ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
-              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">Transcript</button>
+            ${canSelect
+              ? `<input type="checkbox" class="grad-check" data-id="${g.id}" />`
+              : ''}
+          </td>
+          <td><code>${escapeHtml(s.matricNumber || '—')}</code></td>
+          <td>${escapeHtml(((s.firstName || '') + ' ' + (s.lastName || '')).trim() || '—')}</td>
+          <td>${escapeHtml(g.level || '—')}</td>
+          <td class="num">${g.cgpa != null ? Number(g.cgpa).toFixed(2) : '—'}</td>
+          <td>${clsName ? `<span class="grad-class ${clsName}">${escapeHtml(g.classification)}</span>` : '—'}</td>
+          <td>${badge(status)}</td>
+          <td>
+            <div class="row-actions" style="justify-content:flex-end; gap:4px;">
+              ${isPending
+                ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button>
+                   <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.rejectGraduation(${g.id})">Reject</button>`
+                : ''}
+              ${isApproved
+                ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>`
+                : ''}
+              <button class="btn btn-sm btn-outline"
+                onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">
+                Transcript
+              </button>
             </div>
           </td>
         </tr>
       `;
     }).join('');
 
-    setText('grad-stat-total', rows.length);
-    setText('grad-stat-pending', pending);
-    setText('grad-stat-graduated', graduated);
-    setText('grad-stat-dist', dist);
+    // -------- Wire select-all checkbox --------
+    const selectAll = document.getElementById('grad-select-all');
+    if (selectAll) {
+      selectAll.checked = false;
+      selectAll.onchange = () => {
+        tbody.querySelectorAll('.grad-check').forEach((cb) => {
+          cb.checked = selectAll.checked;
+        });
+      };
+    }
+
+    // -------- Wire tab clicks --------
+    document.querySelectorAll('#grad-status-tabs .staff-role-tab').forEach((tab) => {
+      if (tab.__wired) return;
+      tab.__wired = true;
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#grad-status-tabs .staff-role-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadGraduationsTable();
+      });
+    });
+
+    // -------- Wire bulk approve button --------
+    const bulkBtn = document.getElementById('grad-bulk-approve');
+    if (bulkBtn && !bulkBtn.__wired) {
+      bulkBtn.__wired = true;
+      bulkBtn.onclick = async () => {
+        const ids = Array.from(document.querySelectorAll('.grad-check:checked'))
+          .map((cb) => Number(cb.dataset.id));
+        if (!ids.length) {
+          showToast('⚠️ Select at least one record.', 'warning');
+          return;
+        }
+        const ok = await window.fpuConfirm(
+          `Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`,
+          { title: 'Bulk Approve', type: 'info', okText: 'Approve All' }
+        );
+        if (!ok) return;
+
+        const original = bulkBtn.textContent;
+        bulkBtn.disabled = true;
+        bulkBtn.textContent = 'Approving…';
+
+        let approved = 0, failed = 0;
+        for (const id of ids) {
+          try {
+            await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' });
+            approved++;
+          } catch {
+            failed++;
+          }
+        }
+        bulkBtn.disabled = false;
+        bulkBtn.textContent = original;
+
+        showToast(
+          failed === 0
+            ? `✅ Approved ${approved} record${approved === 1 ? '' : 's'}.`
+            : `⚠️ Approved ${approved}, failed ${failed}.`,
+          failed === 0 ? 'success' : 'warning'
+        );
+        loadGraduationsTable();
+      };
+    }
+
+    // -------- Wire refresh button --------
+    const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+    const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadGraduationsTable();
+    }
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
+    setText('grad-count', 'Error loading records');
+  }
+}
+
+// ---------- Individual actions ----------
+async function approveGraduation(id) {
+  try {
+    await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' });
+    showToast('✅ Graduation approved.', 'success');
+    loadGraduationsTable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function rejectGraduation(id) {
+  const remarks = prompt('Rejection remarks (optional):');
+  if (remarks === null) return;
+  try {
+    await adminFetch(`/api/admin/graduation/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ remarks }),
+    });
+    showToast('⚠️ Graduation rejected.', 'warning');
+    loadGraduationsTable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function markGraduated(id) {
+  const ok = await window.fpuConfirm(
+    'Mark this student as graduated?\n\nThis will finalize their graduation status and cannot be undone.',
+    { title: 'Mark as Graduated', type: 'success', okText: 'Mark Graduated' }
+  );
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/graduation/${id}/graduate`, { method: 'POST' });
+    showToast('🎓 Marked as graduated.', 'success');
+    loadGraduationsTable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
@@ -6978,14 +7161,13 @@ window.FPU_ADMIN = {
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
-  loadSecurityDashboard, wireSecurityActions, wireSecurityCards,
-  loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit,
+  loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
+  loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
+  approveGraduation, rejectGraduation, markGraduated,
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,
   loadLoginHistory, loadUserProfile, loadUsersWithPhotos, 
-  
-  loadReports, loadReportsWithCharts, loadGraduationsTable,
 
   // Settings
   saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,

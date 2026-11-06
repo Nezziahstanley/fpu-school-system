@@ -3375,7 +3375,11 @@ async function loadDepartmentPayments() {
     let fullyPaid = 0, partial = 0, totalCollected = 0;
     const enriched = students.map(s => {
       const paid = paidByStudent.get(Number(s.id)) || 0;
-      const due = feeByProgramme.get(Number(s.programmeId || s.programme_id)) || 0;
+      // Look up fee by level (ND=53105, HND=66726 fallback)
+      const levelUpper = String(s.level || '').toUpperCase();
+      const due = feeByProgramme.get(Number(s.programmeId || s.programme_id))
+         || feeByProgramme.get(levelUpper)
+         || (levelUpper === 'HND' ? 66726 : 53105);
       const balance = Math.max(0, due - paid);
       let status = 'pending';
       if (paid > 0 && balance <= 0) { status = 'paid'; fullyPaid++; }
@@ -3686,103 +3690,188 @@ async function sendBulkPaymentReminder(departmentId, deptName) {
   }
 }
 
+
 // ============================================
-// PAYMENTS: VIEW HISTORY (modal)
-// ============================================
-// ============================================
-// PAYMENTS: View History Modal
+// PAYMENTS: View History Modal (Full Version)
 // ============================================
 async function openPaymentHistory(studentId, studentName) {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.innerHTML = `
-    <div class="fpu-modal" style="max-width:700px;">
+    <div class="fpu-modal" style="max-width:900px; width:95%;">
       <div class="fpu-modal-header">
         <h3>Payment History — ${escapeHtml(studentName)}</h3>
         <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
       </div>
-      <div class="fpu-modal-body" id="payment-history-body" style="max-height:60vh;overflow-y:auto;">
-        <div style="text-align:center;padding:20px;"><span class="spinner"></span> Loading…</div>
+      <div class="fpu-modal-body" style="max-height:70vh; overflow-y:auto;" id="payment-history-body">
+        <div style="text-align:center;padding:40px;"><span class="spinner"></span> Loading…</div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="FPU_ADMIN.exportPaymentHistoryPDF(${studentId}, '${escapeQuotes(studentName)}')">⬇ Export CSV</button>
+        <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
+        <button class="btn btn-primary" onclick="this.closest('.fpu-modal-backdrop').remove()">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(backdrop);
 
+  const body = document.getElementById('payment-history-body');
+
   try {
-    // Filter payments by student
-    const res = await adminFetch('/api/admin/payments');
-    const json = await res.json();
-    const allPayments = json.data || [];
-    const payments = allPayments.filter(p => {
-      const row = p.payment || p;
-      return Number(row.studentId || row.student_id) === Number(studentId);
+    const [payRes, feesRes, studentRes] = await Promise.all([
+      adminFetch('/api/admin/payments').catch(() => null),
+      adminFetch('/api/admin/fees').catch(() => null),
+      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+    ]);
+
+    const allPayments = payRes?.ok ? (await payRes.json()).data || [] : [];
+    const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+    const student = studentRes?.ok ? (await studentRes.json()).data || {} : {};
+
+    const payments = allPayments
+      .map(p => p.payment || p)
+      .filter(p => Number(p.studentId || p.student_id) === Number(studentId))
+      .sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
+
+    // Totals
+    let totalVerified = 0, totalPending = 0, totalRejected = 0;
+    payments.forEach(p => {
+      const amt = Number(p.amount) || 0;
+      const s = String(p.status || '').toLowerCase();
+      if (['verified', 'approved', 'paid'].includes(s)) totalVerified += amt;
+      else if (s === 'pending') totalPending += amt;
+      else if (s === 'rejected' || s === 'failed') totalRejected += amt;
     });
 
-    const body = document.getElementById('payment-history-body');
+    // Fee lookup (with level fallback)
+    const levelUpper = String(student.level || '').toUpperCase();
+    const progId = Number(student.programmeId || student.programme_id);
+    
+    let totalDue = 0;
+    // Try programme_id match
+    for (const f of fees) {
+      const fProgId = Number(f.programmeId || f.programme_id);
+      const fLevel = String(f.level || '').toUpperCase();
+      const amt = Number(f.totalAmount || f.total_amount || f.amount || f.total) || 0;
+      if (fProgId === progId && amt > 0) totalDue = amt;
+      else if (!totalDue && fLevel === levelUpper && amt > 0) totalDue = amt;
+    }
+    if (!totalDue) totalDue = levelUpper === 'HND' ? 66726 : 53105;
+
+    const balance = Math.max(0, totalDue - totalVerified);
 
     if (!payments.length) {
       body.innerHTML = `
-        <div style="text-align:center;padding:40px 20px;color:#64748b;">
-          <div style="font-size:2rem;margin-bottom:10px;">💳</div>
-          <p style="margin:0;">No payments recorded for this student.</p>
+        <div style="text-align:center;padding:60px 20px;color:#64748b;">
+          <div style="font-size:3rem;margin-bottom:12px;">💳</div>
+          <h3 style="margin:0 0 6px;color:#0f172a;">No payments yet</h3>
+          <p style="margin:0;font-size:13px;">${escapeHtml(studentName)} has not made any payments.</p>
+          <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;display:inline-block;">
+            <div style="font-size:11px;text-transform:uppercase;color:#64748b;font-weight:700;">Fee Due</div>
+            <div style="font-size:24px;font-weight:800;color:#0f172a;margin-top:4px;">${money(totalDue)}</div>
+          </div>
         </div>
       `;
       return;
     }
 
-    // Calculate totals
-    let totalVerified = 0, totalPending = 0;
-    payments.forEach(p => {
-      const row = p.payment || p;
-      const amt = Number(row.amount) || 0;
-      const status = String(row.status || '').toLowerCase();
-      if (status === 'verified' || status === 'approved' || status === 'paid') totalVerified += amt;
-      else if (status === 'pending') totalPending += amt;
-    });
-
     body.innerHTML = `
-      <div style="display:flex;gap:12px;margin-bottom:16px;">
-        <div style="flex:1;background:#ecfdf5;padding:12px;border-radius:8px;text-align:center;">
-          <div style="font-size:11px;font-weight:700;color:#047857;text-transform:uppercase;">Total Verified</div>
+      <!-- Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:#f8fafc;padding:14px;border-radius:8px;border-left:4px solid #065f46;">
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Fee Due</div>
+          <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px;">${money(totalDue)}</div>
+        </div>
+        <div style="background:#ecfdf5;padding:14px;border-radius:8px;border-left:4px solid #10b981;">
+          <div style="font-size:10px;text-transform:uppercase;color:#047857;font-weight:700;letter-spacing:0.5px;">Total Paid</div>
           <div style="font-size:20px;font-weight:800;color:#065f46;margin-top:4px;">${money(totalVerified)}</div>
         </div>
-        <div style="flex:1;background:#fef3c7;padding:12px;border-radius:8px;text-align:center;">
-          <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Pending</div>
+        <div style="background:#fef3c7;padding:14px;border-radius:8px;border-left:4px solid #f59e0b;">
+          <div style="font-size:10px;text-transform:uppercase;color:#92400e;font-weight:700;letter-spacing:0.5px;">Pending</div>
           <div style="font-size:20px;font-weight:800;color:#b45309;margin-top:4px;">${money(totalPending)}</div>
+        </div>
+        <div style="background:${balance > 0 ? '#fee2e2' : '#ecfdf5'};padding:14px;border-radius:8px;border-left:4px solid ${balance > 0 ? '#dc2626' : '#10b981'};">
+          <div style="font-size:10px;text-transform:uppercase;color:${balance > 0 ? '#991b1b' : '#047857'};font-weight:700;letter-spacing:0.5px;">Balance</div>
+          <div style="font-size:20px;font-weight:800;color:${balance > 0 ? '#dc2626' : '#065f46'};margin-top:4px;">${balance > 0 ? money(balance) : '₦0'}</div>
         </div>
       </div>
 
+      <!-- Payment History Table -->
       <table class="table-admin" style="width:100%;font-size:13px;">
         <thead>
           <tr>
             <th>Reference</th>
-            <th>Amount</th>
+            <th>Description</th>
+            <th style="text-align:right;">Amount</th>
             <th>Status</th>
             <th>Date</th>
           </tr>
         </thead>
         <tbody>
           ${payments.map(p => {
-            const row = p.payment || p;
+            const s = String(p.status || '').toLowerCase();
+            let badgeCls = 'badge-warning';
+            if (['verified', 'approved', 'paid'].includes(s)) badgeCls = 'badge-success';
+            else if (['rejected', 'failed'].includes(s)) badgeCls = 'badge-danger';
             return `
               <tr>
-                <td><code>${escapeHtml(row.reference || '—')}</code></td>
-                <td style="font-weight:700;color:#065f46;">${money(row.amount)}</td>
-                <td>${badge(row.status)}</td>
-                <td class="small muted">${fmtDateTime(row.createdAt || row.paidAt)}</td>
+                <td><code>${escapeHtml(p.reference || '—')}</code></td>
+                <td>${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
+                <td style="text-align:right;font-weight:700;color:#065f46;">${money(p.amount)}</td>
+                <td><span class="badge ${badgeCls}">${s.toUpperCase()}</span></td>
+                <td class="small muted">${fmtDateTime(p.createdAt || p.created_at || p.paidAt)}</td>
               </tr>
             `;
           }).join('')}
         </tbody>
       </table>
     `;
+
+    // Store for export
+    window.__lastPaymentHistory = { studentId, studentName, payments, totalDue, totalVerified, balance };
+
   } catch (err) {
-    document.getElementById('payment-history-body').innerHTML = `
-      <div style="color:#dc2626;padding:20px;text-align:center;">
-        <p>Error: ${escapeHtml(err.message)}</p>
-      </div>
-    `;
+    body.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// PAYMENTS: Export History as CSV
+// ============================================
+function exportPaymentHistoryPDF(studentId, studentName) {
+  const data = window.__lastPaymentHistory;
+  if (!data || !data.payments || !data.payments.length) {
+    showToast('⚠️ No payments to export.', 'warning');
+    return;
+  }
+
+  const headers = ['Reference', 'Description', 'Amount', 'Status', 'Date'];
+  const rows = data.payments.map(p => [
+    p.reference || '',
+    p.description || p.purpose || 'Fee Payment',
+    Number(p.amount) || 0,
+    p.status || '',
+    fmtDateTime(p.createdAt || p.created_at || p.paidAt),
+  ]);
+
+  const csv = [
+    `Student: "${studentName.replace(/"/g, '""')}"`,
+    `Fee Due: ₦${data.totalDue}`,
+    `Total Paid: ₦${data.totalVerified}`,
+    `Balance: ₦${data.balance}`,
+    '',
+    headers.join(','),
+    ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `payment-history-${studentName.replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Exported.', 'success');
 }
 
 // ============================================
@@ -9361,6 +9450,8 @@ window.FPU_ADMIN = {
   loadLoginAttempts, addIpBlock, loadIpRules, deleteIpRule,
   loadPasswordPolicy, loadPermissionsMatrix, load2FAConfig, loadBackups, loadCompliance,
 
+  openPaymentHistory, exportPaymentHistoryPDF,
+  
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear,
 };

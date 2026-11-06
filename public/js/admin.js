@@ -2922,100 +2922,265 @@ async function loadHodBoard() {
   }
 }
 
-// 3. Lecturers Grid
+// ============================================
+// LECTURERS: Grid with Workload & Actions
+// ============================================
+let ALL_LECTURERS = [];
+let ALL_ALLOCATIONS = [];
+
 async function loadLecturerGrid() {
   const grid = document.getElementById('lec-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading lecturers…</div>';
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading lecturers…</div>';
 
   const deptId = (document.getElementById('lec-filter-dept') || {}).value || '';
   const workload = (document.getElementById('lec-filter-workload') || {}).value || '';
   const search = (document.getElementById('lec-search') || {}).value || '';
 
   try {
-    const qs = new URLSearchParams({ role: 'lecturer', limit: 500 });
-    if (deptId) qs.set('departmentId', deptId);
-    if (search) qs.set('search', search);
-
-    const [staffRes, allocsRes] = await Promise.all([
-      adminFetch(`/api/admin/staff?${qs}`),
+    // Fetch staff + allocations + departments
+    const [staffRes, allocsRes, deptsRes] = await Promise.all([
+      adminFetch(`/api/admin/staff?role=lecturer&limit=500${deptId ? '&departmentId=' + deptId : ''}${search ? '&search=' + encodeURIComponent(search) : ''}`),
       adminFetch('/api/admin/allocations?limit=2000'),
+      adminFetch('/api/admin/departments'),
     ]);
 
     const staff = (await staffRes.json()).data || [];
     const allocs = (await allocsRes.json()).data || [];
+    const depts = (await deptsRes.json()).data || [];
 
+    ALL_LECTURERS = staff;
+    ALL_ALLOCATIONS = allocs;
+
+    // Populate department filter
+    const deptSelect = document.getElementById('lec-filter-dept');
+    if (deptSelect && !deptSelect.__wired) {
+      deptSelect.__wired = true;
+      deptSelect.innerHTML = '<option value="">All departments</option>' +
+        depts.sort((a, b) => String(a.code).localeCompare(String(b.code)))
+          .map(d => `<option value="${d.id}">${escapeHtml(d.code)} — ${escapeHtml(d.name)}</option>`).join('');
+    }
+
+    // Group allocations by lecturer
     const allocsByLecturer = new Map();
-    allocs.forEach((a) => {
+    allocs.forEach(a => {
       const lid = a.lecturer?.id || a.allocation?.lecturerId;
       if (!lid) return;
       if (!allocsByLecturer.has(lid)) allocsByLecturer.set(lid, []);
       allocsByLecturer.get(lid).push(a);
     });
 
-    let visible = staff.map((s) => {
+    // Enrich staff
+    let visible = staff.map(s => {
       const list = allocsByLecturer.get(s.id) || [];
       const units = list.reduce((acc, a) => acc + (Number(a.course?.unit) || 0), 0);
       return { ...s, _allocs: list, _units: units };
     });
 
-    if (workload === 'loaded') visible = visible.filter((s) => s._allocs.length > 0);
-    else if (workload === 'unloaded') visible = visible.filter((s) => s._allocs.length === 0);
-    else if (workload === 'overloaded') visible = visible.filter((s) => s._units >= 12);
+    // Apply workload filter
+    if (workload === 'loaded') visible = visible.filter(s => s._allocs.length > 0 && s._units <= 12);
+    else if (workload === 'overloaded') visible = visible.filter(s => s._units >= 13);
+    else if (workload === 'unloaded') visible = visible.filter(s => s._allocs.length === 0);
 
+    // Stats
     const totalUnits = visible.reduce((acc, s) => acc + s._units, 0);
     const avg = visible.length ? Math.round((totalUnits / visible.length) * 10) / 10 : 0;
 
-    setText('lec-stat-total', visible.length);
-    setText('lec-stat-loaded', visible.filter((s) => s._allocs.length > 0).length);
-    setText('lec-stat-unloaded', visible.filter((s) => s._allocs.length === 0).length);
-    setText('lec-stat-avg', avg + ' u');
+    const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setT('lec-stat-total', visible.length);
+    setT('lec-stat-loaded', visible.filter(s => s._allocs.length > 0).length);
+    setT('lec-stat-unloaded', visible.filter(s => s._allocs.length === 0).length);
+    setT('lec-stat-avg', avg + ' u');
 
     if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">👨‍🏫</div><p>No lecturers.</p></div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;">No lecturers found.</div>';
       return;
     }
 
-    grid.innerHTML = visible.map((s) => {
+    // Render cards
+    grid.innerHTML = visible.map(s => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
       const initials = ((s.firstName || ' ')[0] + (s.lastName || ' ')[0]).toUpperCase().trim() || 'L';
-      const avatar = s.photoUrl ? `<img src="${escapeHtml(s.photoUrl)}" alt="" />` : escapeHtml(initials);
-      const cls = s._units >= 12 ? 'heavy' : s._units >= 6 ? 'loaded' : s._units > 0 ? 'light' : 'none';
+      
+      // Workload color class
+      let workloadClass = 'normal';
+      if (s._units >= 17) workloadClass = 'overloaded';
+      else if (s._units >= 13) workloadClass = 'heavy';
+      else if (s._allocs.length === 0) workloadClass = 'none';
 
       return `
-        <div class="lec-card ${cls}" data-id="${s.id}">
-          <div class="lc-head">
-            <div class="lc-avatar">${avatar}</div>
-            <div class="lc-info">
-              <div class="lc-name">${escapeHtml(fullName)}</div>
-              <div class="lc-email">${escapeHtml(s.email || '')}</div>
-              ${s.departmentName || s.department?.name ? `<span class="lc-dept">${escapeHtml(s.departmentName || s.department?.name)}</span>` : ''}
+        <div class="lec-card ${workloadClass}" data-id="${s.id}" onclick="FPU_ADMIN.openLecturerCourses(${s.id})">
+          <div class="lec-head">
+            <div class="lec-avatar">${escapeHtml(initials)}</div>
+            <div class="lec-info">
+              <div class="lec-name">${escapeHtml(fullName)}</div>
+              <div class="lec-email">${escapeHtml(s.email || '')}</div>
+              ${s.departmentName || s.department?.name ? `<span class="lec-dept">${escapeHtml(s.departmentName || s.department?.name)}</span>` : ''}
             </div>
           </div>
-          <div class="lc-workload">
-            <div class="lc-workload-stat ${s._allocs.length === 0 ? 'none' : ''}">
+          <div class="lec-workload">
+            <div class="lec-workload-stat ${s._allocs.length === 0 ? 'none' : ''}">
               <span class="num">${s._allocs.length}</span>
               <span class="label">Courses</span>
             </div>
-            <div class="lc-workload-stat ${s._units >= 12 ? 'heavy' : ''}">
+            <div class="lec-workload-stat ${s._units >= 17 ? 'heavy' : ''}">
               <span class="num">${s._units}</span>
               <span class="label">Units</span>
             </div>
           </div>
-          ${s._allocs.length === 0 ? '<div class="lc-empty">⚠️ No courses allocated</div>' : ''}
+          <div class="lec-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-sm btn-outline lec-action-icon" onclick="FPU_ADMIN.sendLecturerEmail(${s.id})" title="Send Email">✉️</button>
+            <button class="btn btn-sm btn-outline lec-action-icon" onclick="FPU_ADMIN.sendLecturerNotification(${s.id})" title="Send Notification">🔔</button>
+            <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openLecturerCourses(${s.id})">View Courses</button>
+          </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.lec-card').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('staff-workload', { id: Number(card.dataset.id) });
-      });
-    });
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[lecturers] Error:', err);
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// LECTURERS: View Courses Modal
+// ============================================
+async function openLecturerCourses(id) {
+  const lecturer = ALL_LECTURERS.find(s => Number(s.id) === Number(id));
+  if (!lecturer) return;
+
+  const allocs = ALL_ALLOCATIONS.filter(a => {
+    const lid = a.lecturer?.id || a.allocation?.lecturerId;
+    return Number(lid) === Number(id);
+  });
+
+  const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>${escapeHtml(fullName)} — Courses</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        ${allocs.length === 0 ? `
+          <div style="text-align:center;padding:40px;color:#64748b;">
+            <div style="font-size:2rem;margin-bottom:10px;">📚</div>
+            <p>No courses allocated yet.</p>
+          </div>
+        ` : `
+          <table class="table-admin" style="width:100%;font-size:13px;">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th style="text-align:center;">Units</th>
+                <th>Semester</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allocs.map(a => `
+                <tr>
+                  <td><code>${escapeHtml(a.course?.code || '—')}</code></td>
+                  <td>${escapeHtml(a.course?.title || '—')}</td>
+                  <td style="text-align:center;">${Number(a.course?.unit) || 0}</td>
+                  <td><span style="text-transform:capitalize;">${escapeHtml(a.allocation?.semester || a.semester || '—')}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Close</button>
+        <button class="btn btn-primary" onclick="FPU_ADMIN.sendLecturerEmail(${id})">✉️ Email ${escapeHtml(lecturer.firstName || 'Lecturer')}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+}
+
+// ============================================
+// LECTURERS: Send Email
+// ============================================
+function sendLecturerEmail(id) {
+  const lecturer = ALL_LECTURERS.find(s => Number(s.id) === Number(id));
+  if (!lecturer || !lecturer.email) {
+    showToast('⚠️ No email on file for this lecturer.', 'warning');
+    return;
+  }
+
+  const subject = encodeURIComponent('FPU Admin Notification');
+  const body = encodeURIComponent(`Dear ${lecturer.firstName || 'Lecturer'},\n\n\n\nRegards,\nFPU Admin`);
+  window.location.href = `mailto:${lecturer.email}?subject=${subject}&body=${body}`;
+}
+
+// ============================================
+// LECTURERS: Send Notification (Modal)
+// ============================================
+async function sendLecturerNotification(id) {
+  const lecturer = ALL_LECTURERS.find(s => Number(s.id) === Number(id));
+  if (!lecturer) return;
+
+  const fullName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Send Notification</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <p class="muted small" style="margin-bottom:12px;">To: <strong>${escapeHtml(fullName)}</strong></p>
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" id="notif-title" placeholder="e.g. Submit results for COM 111" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-control" id="notif-body" rows="4" placeholder="Type your message…"></textarea>
+        </div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn btn-primary" id="notif-send-btn">Send Notification</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#notif-send-btn').onclick = async () => {
+    const title = backdrop.querySelector('#notif-title').value.trim();
+    const body = backdrop.querySelector('#notif-body').value.trim();
+
+    if (!title) {
+      showToast('⚠️ Please enter a title.', 'warning');
+      return;
+    }
+
+    try {
+      const res = await adminFetch('/api/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: id,
+          title,
+          body: body || 'You have a new notification from the admin.',
+          type: 'info',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send notification');
+      showToast('✅ Notification sent to ' + (lecturer.firstName || 'lecturer'), 'success');
+      backdrop.remove();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
 }
 
 // Helper for HOD assigning
@@ -9878,7 +10043,7 @@ window.FPU_ADMIN = {
   loadAttendanceDepartments,
 
   // Staff, HODs, Lecturers
-  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
+  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,

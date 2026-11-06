@@ -6,10 +6,9 @@
     <h2 id="tx-title">Student Transcript</h2>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#transcript'">
       ← New Lookup
     </button>
-    <button class="btn btn-outline btn-sm" id="tx-export">📥 Export CSV</button>
     <button class="btn btn-primary btn-sm" id="tx-print">🖨️ Print</button>
   </div>
 </section>
@@ -24,321 +23,60 @@
 <style>
   /* Screen view */
   .tx-document {
-    background: #fff;
-    border-radius: 12px;
-    border: 1px solid var(--fpu-border);
-    padding: 32px;
-    max-width: 900px;
-    margin: 0 auto 40px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-    position: relative;
-    overflow: hidden;
+    background: #fff; border-radius: 12px; border: 1px solid #e2e8f0;
+    padding: 32px; max-width: 900px; margin: 0 auto 40px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04); position: relative; overflow: hidden;
   }
-
-  /* Letterhead (visible on both screen & print) */
   .tx-letterhead {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding-bottom: 20px;
-    margin-bottom: 24px;
-    border-bottom: 3px double #065f46;
+    display: flex; align-items: center; gap: 20px; padding-bottom: 20px;
+    margin-bottom: 24px; border-bottom: 3px double #065f46;
   }
-
-  .tx-letterhead-logo {
-    width: 80px;
-    height: 80px;
-    flex-shrink: 0;
-    object-fit: contain;
-  }
-
-  .tx-letterhead-text {
-    flex: 1;
-    text-align: center;
-  }
-
+  .tx-letterhead-logo { width: 80px; height: 80px; flex-shrink: 0; object-fit: contain; }
+  .tx-letterhead-text { flex: 1; text-align: center; }
   .tx-letterhead-text .institution {
-    font-family: 'Poppins', sans-serif;
-    font-size: 22px;
-    font-weight: 900;
-    color: #065f46;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0;
-    line-height: 1.2;
+    font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 900;
+    color: #065f46; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1.2;
   }
-
-  .tx-letterhead-text .motto {
-    font-size: 12px;
-    color: #6b7280;
-    font-style: italic;
-    margin: 2px 0;
-  }
-
   .tx-letterhead-text .doc-type {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-top: 4px;
+    font-size: 13px; font-weight: 700; color: #0f172a; text-transform: uppercase;
+    letter-spacing: 2px; margin-top: 4px;
   }
-
-  /* Student header */
   .tx-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 24px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid #e2e8f0;
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    padding-bottom: 24px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px;
   }
-
-  .tx-student-info h2 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0 0 4px;
-  }
-
-  .tx-student-info .meta {
-    font-size: 12.5px;
-    color: #6b7280;
-    line-height: 1.7;
-  }
-
-  .tx-student-info .matric {
-    font-family: 'Courier New', monospace;
-    background: #ecfdf5;
-    color: #065f46;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 700;
-    font-size: 12px;
-  }
-
-  .tx-cgpa-block {
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .tx-cgpa-block .label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-    color: #6b7280;
-  }
-
-  .tx-cgpa-block .value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 2.6rem;
-    font-weight: 800;
-    color: #065f46;
-    line-height: 1;
-    margin: 2px 0;
-  }
-
-  .tx-cgpa-block .class {
-    font-size: 12px;
-    font-weight: 700;
-    color: #f59e0b;
-  }
-
-  /* Summary stats */
-  .tx-summary {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 24px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .tx-summary-item {
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 10px;
-    text-align: center;
-    border: 1px solid #e2e8f0;
-  }
-
-  .tx-summary-item .num {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #065f46;
-    line-height: 1;
-  }
-
-  .tx-summary-item .lbl {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #6b7280;
-    margin-top: 4px;
-  }
-
-  /* Semester groups */
-  .tx-semester {
-    margin-bottom: 20px;
-    page-break-inside: avoid;
-    position: relative;
-    z-index: 1;
-  }
-
+  .tx-student-info h2 { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 4px; }
+  .tx-student-info .meta { font-size: 12.5px; color: #6b7280; line-height: 1.7; }
+  .tx-cgpa-block { text-align: right; flex-shrink: 0; }
+  .tx-cgpa-block .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #6b7280; }
+  .tx-cgpa-block .value { font-family: 'Poppins', sans-serif; font-size: 2.6rem; font-weight: 800; color: #065f46; line-height: 1; margin: 2px 0; }
+  .tx-semester { margin-bottom: 20px; page-break-inside: avoid; }
   .tx-semester-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 14px;
-    background: #065f46;
-    color: #fff;
-    border-radius: 6px 6px 0 0;
-    font-family: 'Poppins', sans-serif;
-    font-size: 12px;
-    font-weight: 700;
+    display: flex; justify-content: space-between; align-items: center; padding: 8px 14px;
+    background: #065f46; color: #fff; border-radius: 6px 6px 0 0; font-family: 'Poppins', sans-serif; font-size: 12px; font-weight: 700;
   }
-
-  .tx-semester-head .gpa {
-    background: rgba(255,255,255,0.15);
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-  }
-
-  .tx-table {
-    width: 100%;
-    border-collapse: collapse;
-    border: 1px solid #e2e8f0;
-    border-top: none;
-  }
-
-  .tx-table th,
-  .tx-table td {
-    padding: 8px 12px;
-    text-align: left;
-    font-size: 12px;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .tx-table th {
-    background: #f8fafc;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-size: 10px;
-    color: #6b7280;
-  }
-
-  .tx-table td.num {
-    text-align: right;
-    font-family: 'Courier New', monospace;
-    font-weight: 700;
-  }
-
-  .tx-table td.center {
-    text-align: center;
-  }
-
-  .tx-table tr:last-child td {
-    border-bottom: none;
-  }
-
-  .tx-grade {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 28px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 4px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 800;
-    font-size: 11px;
-  }
-
+  .tx-table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-top: none; }
+  .tx-table th, .tx-table td { padding: 8px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+  .tx-table th { background: #f8fafc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; color: #6b7280; }
+  .tx-table td.num { text-align: right; font-family: 'Courier New', monospace; font-weight: 700; }
+  .tx-table td.center { text-align: center; }
+  .tx-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 4px; font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 11px; }
   .tx-grade.A, .tx-grade.B { background: #dcfce7; color: #15803d; }
   .tx-grade.C { background: #dbeafe; color: #1e40af; }
   .tx-grade.D { background: #fef3c7; color: #92400e; }
   .tx-grade.E { background: #fee2e2; color: #991b1b; }
   .tx-grade.F { background: #fca5a5; color: #7f1d1d; }
 
-  /* Signature block */
-  .tx-signatures {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 40px;
-    padding-top: 20px;
-    position: relative;
-    z-index: 1;
-    page-break-inside: avoid;
-  }
-
-  .tx-sig-block {
-    text-align: center;
-    width: 180px;
-  }
-
-  .tx-sig-line {
-    border-bottom: 1px solid #0f172a;
-    margin-bottom: 6px;
-    height: 30px;
-  }
-
-  .tx-sig-role {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #6b7280;
-  }
-
-  /* Watermark - print only */
-  .tx-watermark {
-    display: none;
-  }
-
-  /* Print optimization */
   @media print {
-    .no-print, .sidebar, .topbar, .page-head, .fpu-modal-overlay { display: none !important; }
-    
+    .no-print, .sidebar, .topbar, .page-head { display: none !important; }
     body { background: #fff; margin: 0; padding: 0; }
-    
-    .tx-document { 
-      box-shadow: none; 
-      border: none; 
-      padding: 0; 
-      margin: 0; 
-      max-width: 100%;
-    }
-
-    /* Watermark */
-    .tx-watermark {
-      display: flex;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      opacity: 0.05;
-      z-index: 0;
-      font-family: 'Poppins', sans-serif;
-      font-size: 100px;
-      font-weight: 900;
-      color: #065f46;
-      pointer-events: none;
-      white-space: nowrap;
-    }
-
-    .tx-letterhead { border-bottom: 3px double #000; }
-    .tx-letterhead-text .institution { color: #000; }
+    .tx-document { box-shadow: none; border: none; padding: 0; margin: 0; max-width: 100%; }
     .tx-semester-head { background: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .tx-table th { background: #f1f5f9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .tx-grade { border: 1px solid #000; background: none !important; color: #000 !important; }
   }
 </style>
+
+<script>
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadTranscriptView) {
+    setTimeout(window.FPU_ADMIN.loadTranscriptView, 100);
+  }
+</script>

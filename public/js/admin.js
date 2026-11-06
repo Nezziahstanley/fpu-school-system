@@ -2371,59 +2371,153 @@ async function deleteGradeScale(id) {
 }
 
 // ============================================
-// TRANSCRIPT: Lookup & Search
+// TRANSCRIPT: Lookup
 // ============================================
 async function loadTranscriptLookup() {
-  const tbody = document.getElementById('transcript-tbody');
+  const tbody = document.getElementById('tx-search-tbody');
   if (!tbody) return;
 
-  const searchInput = document.getElementById('transcript-search-input');
+  const searchInput = document.getElementById('tx-search');
   const searchTerm = searchInput ? searchInput.value.trim() : '';
 
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    // Build URL based on search
     let url = '/api/admin/students?limit=50';
-    if (searchTerm) {
-      url += `&search=${encodeURIComponent(searchTerm)}`;
-    }
+    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
 
     const res = await adminFetch(url);
     const json = await res.json();
     const students = json.data || [];
 
-    document.getElementById('transcript-count').textContent = `${students.length} results`;
+    const countEl = document.getElementById('tx-count');
+    if (countEl) countEl.textContent = `${students.length} results`;
 
     if (!students.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No students found matching your search.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No students found.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = students.map(s => {
-      const statusBadge = s.isActive !== false 
-        ? '<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">Active</span>'
-        : '<span style="background:#fee2e2; color:#b91c1c; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">Inactive</span>';
-
-      return `
-        <tr>
-          <td style="font-family: monospace; font-weight: 700; color: #065f46;">${escapeHtml(s.matricNumber || '—')}</td>
-          <td style="font-weight: 600; color: #0f172a;">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
-          <td style="text-align: center; font-weight: 700;">${escapeHtml(s.level || '—')}</td>
-          <td>${escapeHtml(s.programmeName || s.programme?.name || '—')}</td>
-          <td style="text-align: center;">${statusBadge}</td>
-          <td>
-            <button class="btn btn-outline btn-sm" style="width: 100%;" onclick="window.location.hash='#transcript-view?id=${s.id}'">
-              Open Transcript
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    tbody.innerHTML = students.map(s => `
+      <tr>
+        <td style="font-family: monospace; font-weight: 700; color: #065f46;">${escapeHtml(s.matricNumber || '—')}</td>
+        <td style="font-weight: 600; color: #0f172a;">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
+        <td style="text-align: center;">${escapeHtml(s.level || '—')}</td>
+        <td>${escapeHtml(s.programmeName || '—')}</td>
+        <td style="text-align: center;">
+          ${s.isActive !== false 
+            ? '<span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700;">Active</span>' 
+            : '<span style="background:#fee2e2; color:#b91c1c; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700;">Inactive</span>'}
+        </td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="window.location.hash='#transcript-student?id=${s.id}'">
+            Open
+          </button>
+        </td>
+      </tr>
+    `).join('');
 
   } catch (err) {
     console.error('Failed to load transcript lookup:', err);
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load students.</td></tr>';
+  }
+}
+
+// ============================================
+// TRANSCRIPT: View
+// ============================================
+async function loadTranscriptView() {
+  const root = document.getElementById('tx-root');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const studentId = params.get('id');
+
+  if (!studentId) {
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No student selected.</div>';
+    return;
+  }
+
+  try {
+    // Fetch student & results
+    const res = await adminFetch(`/api/admin/transcripts/${studentId}`);
+    const json = await res.json();
+    
+    if (!json.success) throw new Error(json.error || 'Transcript not found');
+    
+    const { student, results } = json.data;
+    document.getElementById('tx-title').textContent = `${student.firstName} ${student.lastName} — Transcript`;
+
+    // Render Transcript HTML
+    root.innerHTML = `
+      <div class="tx-document">
+        <div class="tx-letterhead">
+          <img src="/images/logo.png" alt="Logo" class="tx-letterhead-logo">
+          <div class="tx-letterhead-text">
+            <h1 class="institution">Federal Polytechnic Ugep</h1>
+            <p class="doc-type">Student Academic Transcript</p>
+          </div>
+        </div>
+
+        <div class="tx-header">
+          <div class="tx-student-info">
+            <h2>${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</h2>
+            <div class="meta">
+              <strong>Matric:</strong> ${escapeHtml(student.matricNumber || 'N/A')}<br>
+              <strong>Programme:</strong> ${escapeHtml(student.programmeName || 'N/A')}<br>
+              <strong>Level:</strong> ${escapeHtml(student.level || 'N/A')}
+            </div>
+          </div>
+          <div class="tx-cgpa-block">
+            <div class="label">Status</div>
+            <div class="value" style="font-size: 1.5rem; margin-top: 10px;">${student.isActive ? 'Active' : 'Inactive'}</div>
+          </div>
+        </div>
+
+        <div class="tx-semester">
+          <div class="tx-semester-head">
+            <span>Course Results</span>
+          </div>
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th class="center">Unit</th>
+                <th class="center">Score</th>
+                <th class="center">Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${results.length === 0 ? '<tr><td colspan="5" class="center">No results found.</td></tr>' : ''}
+              ${results.map(r => `
+                <tr>
+                  <td style="font-weight: 700;">${escapeHtml(r.course?.code || 'N/A')}</td>
+                  <td>${escapeHtml(r.course?.title || 'N/A')}</td>
+                  <td class="center">${r.course?.unit || '-'}</td>
+                  <td class="num">${r.score || '-'}</td>
+                  <td class="center"><span class="tx-grade ${r.grade}">${escapeHtml(r.grade || '-')}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top: 50px; display: flex; justify-content: space-between;">
+          <div><div style="border-top: 1px solid #000; width: 200px; margin-top: 40px; text-align: center; padding-top: 5px; font-size: 12px;">Registrar Signature</div></div>
+          <div><div style="border-top: 1px solid #000; width: 200px; margin-top: 40px; text-align: center; padding-top: 5px; font-size: 12px;">Date</div></div>
+        </div>
+      </div>
+    `;
+
+    // Wire up print button
+    document.getElementById('tx-print').onclick = () => window.print();
+
+  } catch (err) {
+    console.error('Transcript Error:', err);
+    root.innerHTML = `<div style="text-align:center; padding: 40px; color: #dc2626;">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -11338,7 +11432,7 @@ window.FPU_ADMIN = {
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale,
 
   // Transcript
-  loadTranscriptLookup,
+  loadTranscriptLookup, loadTranscriptView,
 
   // Timetable
   loadTimetableIndex,

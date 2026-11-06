@@ -103,12 +103,6 @@ async function removeBook(id) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// adjustCopies — used by the borrow lifecycle.
-// Only nudges copiesAvailable; copiesTotal stays the same.
-//   createBorrow → -1
-//   returnBorrow → +1
-// ------------------------------------------------------------
 async function adjustCopies(id, delta) {
   const book = await findBookById(id);
   if (!book) return null;
@@ -117,12 +111,6 @@ async function adjustCopies(id, delta) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// changeInventory — catalogue-level physical inventory change.
-// Moves BOTH copiesTotal and copiesAvailable together.
-//   +1 → acquired a new physical copy
-//   -1 → removed a damaged/lost copy
-// ------------------------------------------------------------
 async function changeInventory(id, delta) {
   const book = await findBookById(id);
   if (!book) return null;
@@ -191,15 +179,25 @@ async function listBorrowsWithRelations({ userId, status } = {}) {
     .orderBy(desc(borrowRecords.borrowedAt));
 }
 
+// ✅ FIXED: Using Drizzle ORM and the correct ENUM value ('borrowed')
 async function createBorrow({ bookId, userId, dueAt, issuedBy }) {
-  const query = `
-    INSERT INTO borrow_records (book_id, user_id, borrowed_at, due_at, issued_by, status)
-    VALUES ($1, $2, NOW(), $3, $4, 'active')
-    RETURNING *
-  `;
-  // Note: We use 'active' because your database uses 'active', not 'borrowed'
-  const result = await db.query(query, [bookId, userId, dueAt, issuedBy]);
-  return result.rows[0];
+  const [row] = await db
+    .insert(borrowRecords)
+    .values({
+      bookId: Number(bookId),
+      userId: Number(userId),
+      borrowedAt: new Date(),
+      dueAt: new Date(dueAt),
+      issuedBy: issuedBy ? Number(issuedBy) : null,
+      status: 'borrowed', // <-- The DB requires 'borrowed', not 'active'
+    })
+    .returning();
+    
+  // Automatically decrement available copies
+  if (row) {
+    await adjustCopies(row.bookId, -1);
+  }
+  return row;
 }
 
 async function returnBorrow(id, receivedBy) {
@@ -355,7 +353,6 @@ async function removeFine(id) {
 // EXPORTS
 // ============================================================
 module.exports = {
-  // books
   findBookById,
   listBooks,
   countBooks,
@@ -364,8 +361,6 @@ module.exports = {
   removeBook,
   adjustCopies,
   changeInventory,
-
-  // borrows
   findBorrowById,
   listBorrows,
   listBorrowsWithRelations,
@@ -373,15 +368,11 @@ module.exports = {
   returnBorrow,
   markBorrowLost,
   sweepOverdue,
-
-  // reservations
   findReservationById,
   listReservations,
   listReservationsWithRelations,
   createReservation,
   updateReservationStatus,
-
-  // fines
   listFines,
   listFinesWithUser,
   createFine,

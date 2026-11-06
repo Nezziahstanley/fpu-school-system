@@ -4021,16 +4021,18 @@ async function renderDocPreview(doc, user) {
   }
 
   // --- DATA EXTRACTION (Handles both direct props and nested objects) ---
-  const isStaff = user.role === 'staff' || user.role === 'admin' || user.role === 'lecturer' || !!user.staffId;
+   const isStaff = user.role === 'staff' || user.role === 'admin' || user.role === 'lecturer' || !!user.staffId;
   
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
   const idLabel = isStaff ? 'Staff ID' : 'Matriculation Number';
   
   const levelValue = isStaff ? (user.designation || 'Staff') : (user.level ? `Level ${user.level}` : '—');
   
-  // Deep search for programme/department names
+  // IMPROVED: Check multiple common names for programme/course
   const deptName = user.department?.name || user.departmentName || '—';
-  const progName = user.programme?.name || user.programmeName || '—';
+  const progName = user.programme?.name || user.programmeName || user.course?.name || user.courseOfStudy || '—';
+  
+  // If programme is still missing, fall back to department
   const courseOfStudy = isStaff ? deptName : (progName !== '—' ? progName : deptName);
 
   let title = 'Official Document';

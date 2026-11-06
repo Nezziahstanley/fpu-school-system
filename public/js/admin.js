@@ -3650,7 +3650,9 @@ async function loadBorrowsTable() {
   if (!tbody) return;
 
   const activeTab = document.querySelector('.staff-role-tab.active');
-  const statusFilter = activeTab ? activeTab.dataset.status : '';
+  let statusFilter = activeTab ? activeTab.dataset.status : '';
+  if (statusFilter === 'active') statusFilter = 'borrowed'; // API fix for tab
+
   const searchVal = document.getElementById('bor-search')?.value || '';
   const dueFilter = document.getElementById('bor-due-filter')?.value || '';
 
@@ -3666,9 +3668,7 @@ async function loadBorrowsTable() {
     if (!res.ok) throw new Error('Failed to load borrows');
     
     const json = await res.json();
-    
-    // Handle whatever structure the backend returns (data, borrows, or raw array)
-    const records = json.data?.rows || json.data || json.borrows || json || [];
+    const records = json.data || json.borrows || json || [];
 
     if (!Array.isArray(records) || records.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records found.</td></tr>';
@@ -3677,32 +3677,19 @@ async function loadBorrowsTable() {
     }
 
     tbody.innerHTML = records.map(r => {
-      // 🕵️ ULTIMATE DEEP SCAN
-      const findKey = (obj, keywords) => {
-        if (!obj) return null;
-        // Check exact matches first (like 'due_at')
-        for (let k of Object.keys(obj)) {
-          if (keywords.includes(k.toLowerCase())) return obj[k];
-        }
-        // Then fallback to partial matches (like 'duedate')
-        for (let k of Object.keys(obj)) {
-          if (keywords.some(word => k.toLowerCase().includes(word))) return obj[k];
-        }
-        return null;
-      };
-
-      const statusStr = String(findKey(r, ['status', 'state']) || 'borrowed').toLowerCase();
+      const statusStr = String(r.status || 'active').toLowerCase();
       
-      // This hunts for the date fields exactly as your DB names them
-      const rawDue = findKey(r, ['due_at', 'due', 'duedate', 'expiry', 'return_date', 'date_due']);
-      const rawBorrowed = findKey(r, ['borrowed_at', 'borrowed', 'borrowdate', 'issue_date', 'created_at', 'date_issued']);
+      // EXACT column mapping based on your SQL screenshot
+      const rawDue = r.due_at;
+      const rawBorrowed = r.borrowed_at;
 
-      // If dates are found, format them. If not, show '—'
       const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
       const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
 
       let daysHtml = '—';
       let isOverdue = false;
+      
+      // Handles both 'active' and 'borrowed'
       const isActive = ['active', 'borrowed', 'issued', 'overdue'].includes(statusStr);
       
       if (rawDue && isActive) {
@@ -3727,14 +3714,11 @@ async function loadBorrowsTable() {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      // Book & User Extraction
-      const bookObj = r.book || r.Book || {};
-      const bookTitle = bookObj.title || r.book_title || r.bookTitle || r.title || 'Unknown Book';
-      const bookAuthor = bookObj.author || r.book_author || r.author || '';
-      
-      const u = r.user || r.User || r.student || r.borrower || {};
-      const fullName = `${u.first_name || r.first_name || u.firstName || ''} ${u.last_name || r.last_name || u.lastName || ''}`.trim() || 'Unknown User';
-      const matric = u.matric_number || r.matric_number || u.matricNumber || '—';
+      // User and book mappings (looking at the exact SQL joined names)
+      const bookTitle = r.book_title || r.book?.title || 'Unknown Book';
+      const bookAuthor = r.book_author || r.book?.author || '';
+      const fullName = `${r.first_name || r.user?.firstName || ''} ${r.last_name || r.user?.lastName || ''}`.trim() || 'Unknown User';
+      const matric = r.matric_number || r.user?.matricNumber || '—';
 
       let actionsHtml = '';
       if (isActive) {

@@ -1,7 +1,5 @@
 <!-- ============================================================
      Admin → Library → Borrows
-     ------------------------------------------------------------
-     Status tabs + issue/return workflow + overdue highlighting.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -9,16 +7,9 @@
     <p class="muted small">Issue, return, and track borrowed books</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBorrowsTable()">
-      Refresh
-    </button>
-    <button class="btn btn-outline btn-sm" id="borrows-sweep">
-      ⏰ Sweep Overdue
-    </button>
-    <button class="btn btn-primary btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('borrow-issue')">
-      + Issue Book
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBorrowsTable()">Refresh</button>
+    <button class="btn btn-outline btn-sm" id="borrows-sweep">⏰ Sweep Overdue</button>
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('borrow-issue')">+ Issue Book</button>
   </div>
 </section>
 
@@ -27,8 +18,8 @@
   <button class="staff-role-tab active" data-status="">
     All <span class="tab-count" id="bor-count-all">—</span>
   </button>
-  <button class="staff-role-tab" data-status="borrowed">
-    Borrowed <span class="tab-count" id="bor-count-borrowed">—</span>
+  <button class="staff-role-tab" data-status="active">
+    Active <span class="tab-count" id="bor-count-active">—</span>
   </button>
   <button class="staff-role-tab" data-status="overdue">
     Overdue <span class="tab-count" id="bor-count-overdue">—</span>
@@ -45,14 +36,11 @@
 <div class="filters">
   <div class="form-group" style="flex:2 1 260px;">
     <label class="form-label">Search</label>
-    <input class="form-control" id="bor-search"
-           placeholder="Student name, matric, or book title…"
-           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadBorrowsTable()" />
+    <input class="form-control" id="bor-search" placeholder="Student name, matric, or book title…" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadBorrowsTable()" />
   </div>
   <div class="form-group">
     <label class="form-label">Due within</label>
-    <select class="form-select" id="bor-due-filter"
-            onchange="FPU_ADMIN.loadBorrowsTable()">
+    <select class="form-select" id="bor-due-filter" onchange="FPU_ADMIN.loadBorrowsTable()">
       <option value="">Any time</option>
       <option value="3">Next 3 days</option>
       <option value="7">Next 7 days</option>
@@ -110,20 +98,9 @@
 </div>
 
 <style>
-  .borrow-row-overdue {
-    background: #fef2f2 !important;
-  }
-  .borrow-row-overdue td:first-child {
-    border-left: 3px solid #dc2626;
-  }
-  .days-badge {
-    display: inline-block;
-    font-family: 'Poppins', sans-serif;
-    font-size: 11.5px;
-    font-weight: 800;
-    padding: 3px 9px;
-    border-radius: 999px;
-  }
+  .borrow-row-overdue { background: #fef2f2 !important; }
+  .borrow-row-overdue td:first-child { border-left: 3px solid #dc2626; }
+  .days-badge { display: inline-block; font-family: 'Poppins', sans-serif; font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
   .days-badge.ok      { background: #ecfdf5; color: #065f46; }
   .days-badge.warning { background: #fef3c7; color: #92400e; }
   .days-badge.danger  { background: #fee2e2; color: #991b1b; }
@@ -131,5 +108,8 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadBorrowsTable()
+  // This guarantees the table loads when the page renders
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadBorrowsTable) {
+    setTimeout(window.FPU_ADMIN.loadBorrowsTable, 100);
+  }
 </script>

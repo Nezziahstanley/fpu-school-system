@@ -1,236 +1,282 @@
 // ============================================================
-// FPU — Admin library API
-// Mounted at /api/admin/library
+// FPU — Library Database Queries
 // ============================================================
 
 'use strict';
 
-const express = require('express');
-const router = express.Router();
+const db = require('../db'); // Adjust path if your db connection is elsewhere
 
-const libQueries = require('../db/queries/library');
-const { requireRole, requireUser } = require('../middleware/auth');
-const { logAudit } = require('../utils/audit');
+// ============================================
+// 1. BORROWS (The main fix)
+// ============================================
+async function listBorrowsWithRelations({ userId, status } = {}) {
+  let whereClause = 'WHERE 1=1';
+  const params = [];
 
-const STAFF = ['admin', 'librarian'];
-
-// ---------------- Books (read-only for any authenticated user) ----------------
-
-router.get('/books', requireUser, async (req, res, next) => {
-  try {
-    const { search, category, availableOnly, limit = 200, offset = 0 } = req.query;
-    const rows = await libQueries.listBooks({
-      search,
-      category,
-      availableOnly: availableOnly === 'true',
-      limit: Number(limit),
-      offset: Number(offset),
-    });
-    const total = await libQueries.countBooks({ search, category });
-    return res.json({ success: true, data: rows, total });
-  } catch (err) {
-    return next(err);
+  if (userId) {
+    params.push(userId);
+    whereClause += ` AND br.user_id = $${params.length}`;
   }
-});
 
-router.get('/books/:id', requireUser, async (req, res, next) => {
-  try {
-    const row = await libQueries.findBookById(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Book not found.' });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  if (status) {
+    params.push(status);
+    whereClause += ` AND br.status = $${params.length}`;
   }
-});
 
-// ---------------- Books (mutations — staff only) ----------------
+  const query = `
+    SELECT 
+      br.id,
+      br.status,
+      br.borrowed_at,
+      br.due_at,
+      br.returned_at,
+      u.first_name,
+      u.last_name,
+      u.matric_number,
+      b.title AS book_title,
+      b.author AS book_author
+    FROM borrow_records br
+    LEFT JOIN users u ON br.user_id = u.id
+    LEFT JOIN books b ON br.book_id = b.id
+    ${whereClause}
+    ORDER BY br.id DESC
+  `;
 
-router.post('/books', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { title } = req.body || {};
-    if (!title) return res.status(400).json({ success: false, error: 'title is required.' });
-    const row = await libQueries.createBook(req.body);
-    await logAudit({ req, action: 'library.book_create', entity: 'book', entityId: row.id, after: row });
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  const result = await db.query(query, params);
+  return result.rows;
+}
+
+async function createBorrow({ bookId, userId, dueAt, issuedBy }) {
+  const query = `
+    INSERT INTO borrow_records (book_id, user_id, due_at, issued_by, status)
+    VALUES ($1, $2, $3, $4, 'borrowed')
+    RETURNING *
+  `;
+  const result = await db.query(query, [bookId, userId, dueAt, issuedBy]);
+  return result.rows[0];
+}
+
+async function returnBorrow(borrowId, receivedBy) {
+  const query = `
+    UPDATE borrow_records 
+    SET status = 'returned', returned_at = NOW(), received_by = $2
+    WHERE id = $1
+    RETURNING *
+  `;
+  const result = await db.query(query, [borrowId, receivedBy]);
+  return result.rows[0];
+}
+
+async function markBorrowLost(borrowId) {
+  const query = `
+    UPDATE borrow_records 
+    SET status = 'lost', returned_at = NOW()
+    WHERE id = $1
+    RETURNING *
+  `;
+  const result = await db.query(query, [borrowId]);
+  return result.rows[0];
+}
+
+// ============================================
+// 2. BOOKS
+// ============================================
+async function listBooks({ search, category, availableOnly, limit = 200, offset = 0 }) {
+  let query = `SELECT * FROM books WHERE 1=1`;
+  const params = [];
+
+  if (search) {
+    params.push(`%${search}%`);
+    query += ` AND (title ILIKE $${params.length} OR author ILIKE $${params.length})`;
   }
-});
-
-router.put('/books/:id', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const existing = await libQueries.findBookById(req.params.id);
-    if (!existing) return res.status(404).json({ success: false, error: 'Book not found.' });
-    const row = await libQueries.updateBook(existing.id, req.body);
-    await logAudit({ req, action: 'library.book_update', entity: 'book', entityId: existing.id, before: existing, after: row });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  if (category) {
+    params.push(category);
+    query += ` AND category = $${params.length}`;
   }
-});
-
-router.delete('/books/:id', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const existing = await libQueries.findBookById(req.params.id);
-    if (!existing) return res.status(404).json({ success: false, error: 'Book not found.' });
-    await libQueries.removeBook(existing.id);
-    await logAudit({ req, action: 'library.book_delete', entity: 'book', entityId: existing.id, before: existing });
-    return res.json({ success: true });
-  } catch (err) {
-    return next(err);
+  if (availableOnly) {
+    query += ` AND available_copies > 0`;
   }
-});
 
-// ---------------- Borrows ----------------
+  params.push(limit);
+  query += ` ORDER BY title ASC LIMIT $${params.length}`;
+  
+  params.push(offset);
+  query += ` OFFSET $${params.length}`;
 
-router.get('/borrows', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { userId, status } = req.query;
-    const rows = await libQueries.listBorrowsWithRelations({ userId, status });
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    return next(err);
+  const result = await db.query(query, params);
+  return result.rows;
+}
+
+async function countBooks({ search, category }) {
+  let query = `SELECT COUNT(*) FROM books WHERE 1=1`;
+  const params = [];
+
+  if (search) {
+    params.push(`%${search}%`);
+    query += ` AND (title ILIKE $${params.length} OR author ILIKE $${params.length})`;
   }
-});
-
-router.post('/borrows', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { bookId, userId, dueAt } = req.body || {};
-    if (!bookId || !userId || !dueAt) {
-      return res.status(400).json({ success: false, error: 'bookId, userId, dueAt are required.' });
-    }
-    const row = await libQueries.createBorrow({ bookId, userId, dueAt, issuedBy: req.user.id });
-    await logAudit({ req, action: 'library.borrow', entity: 'borrow_record', entityId: row.id });
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  if (category) {
+    params.push(category);
+    query += ` AND category = $${params.length}`;
   }
-});
 
-router.post('/borrows/:id/return', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.returnBorrow(req.params.id, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Borrow record not found.' });
-    await logAudit({ req, action: 'library.return', entity: 'borrow_record', entityId: row.id });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  const result = await db.query(query, params);
+  return parseInt(result.rows[0].count, 10);
+}
+
+async function findBookById(id) {
+  const result = await db.query('SELECT * FROM books WHERE id = $1', [id]);
+  return result.rows[0];
+}
+
+async function createBook(data) {
+  const query = `
+    INSERT INTO books (title, author, category, isbn, total_copies, available_copies)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `;
+  const result = await db.query(query, [
+    data.title, data.author, data.category, data.isbn, data.totalCopies, data.totalCopies // Default available to total
+  ]);
+  return result.rows[0];
+}
+
+async function updateBook(id, data) {
+  // Basic dynamic update (you can expand this)
+  const query = `
+    UPDATE books SET 
+      title = COALESCE($1, title), 
+      author = COALESCE($2, author), 
+      category = COALESCE($3, category)
+    WHERE id = $4 RETURNING *
+  `;
+  const result = await db.query(query, [data.title, data.author, data.category, id]);
+  return result.rows[0];
+}
+
+async function removeBook(id) {
+  const result = await db.query('DELETE FROM books WHERE id = $1 RETURNING *', [id]);
+  return result.rows[0];
+}
+
+// ============================================
+// 3. RESERVATIONS
+// ============================================
+async function listReservationsWithRelations({ status }) {
+  let query = `
+    SELECT r.*, u.first_name, u.last_name, b.title AS book_title
+    FROM book_reservations r
+    LEFT JOIN users u ON r.user_id = u.id
+    LEFT JOIN books b ON r.book_id = b.id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (status) {
+    params.push(status);
+    query += ` AND r.status = $${params.length}`;
   }
-});
+  query += ` ORDER BY r.created_at DESC`;
+  
+  const result = await db.query(query, params);
+  return result.rows;
+}
 
-router.post('/borrows/:id/lost', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.markBorrowLost(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Borrow record not found.' });
-    await logAudit({ req, action: 'library.lost', entity: 'borrow_record', entityId: row.id });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+async function updateReservationStatus(id, status, extraData = {}) {
+  let setClause = `status = $2`;
+  const params = [id, status];
+
+  if (extraData.readyAt) {
+    params.push(extraData.readyAt);
+    setClause += `, ready_at = $${params.length}`;
   }
-});
-
-// ---------------- Reservations ----------------
-
-router.get('/reservations', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const rows = await libQueries.listReservationsWithRelations({ status: req.query.status });
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    return next(err);
+  if (extraData.fulfilledAt) {
+    params.push(extraData.fulfilledAt);
+    setClause += `, fulfilled_at = $${params.length}`;
   }
-});
 
-router.post('/reservations/:id/ready', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.updateReservationStatus(req.params.id, 'ready', { readyAt: new Date() });
-    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
+  const query = `UPDATE book_reservations SET ${setClause} WHERE id = $1 RETURNING *`;
+  const result = await db.query(query, params);
+  return result.rows[0];
+}
+
+// ============================================
+// 4. FINES
+// ============================================
+async function listFinesWithUser({ isPaid } = {}) {
+  let query = `
+    SELECT f.*, u.first_name, u.last_name, u.matric_number
+    FROM library_fines f
+    LEFT JOIN users u ON f.user_id = u.id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (isPaid !== undefined) {
+    params.push(isPaid);
+    query += ` AND f.is_paid = $${params.length}`;
   }
-});
+  query += ` ORDER BY f.created_at DESC`;
+  
+  const result = await db.query(query, params);
+  return result.rows;
+}
 
-router.post('/reservations/:id/fulfill', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.updateReservationStatus(req.params.id, 'fulfilled', { fulfilledAt: new Date() });
-    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
+async function createFine({ userId, amount, reason, borrowId }) {
+  const query = `
+    INSERT INTO library_fines (user_id, amount, reason, borrow_id)
+    VALUES ($1, $2, $3, $4)
+    RETURNING *
+  `;
+  const result = await db.query(query, [userId, amount, reason, borrowId || null]);
+  return result.rows[0];
+}
 
-router.post('/reservations/:id/cancel', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.updateReservationStatus(req.params.id, 'cancelled');
-    if (!row) return res.status(404).json({ success: false, error: 'Reservation not found.' });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
+async function payFine(id) {
+  const query = `
+    UPDATE library_fines SET is_paid = true, paid_at = NOW()
+    WHERE id = $1 RETURNING *
+  `;
+  const result = await db.query(query, [id]);
+  return result.rows[0];
+}
 
-// ---------------- Fines ----------------
+async function removeFine(id) {
+  const result = await db.query('DELETE FROM library_fines WHERE id = $1 RETURNING *', [id]);
+  return result.rows[0];
+}
 
-router.get('/fines', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { isPaid } = req.query;
-    const rows = await libQueries.listFinesWithUser({
-      isPaid: isPaid === undefined ? undefined : isPaid === 'true',
-    });
-    return res.json({ success: true, data: rows });
-  } catch (err) {
-    return next(err);
-  }
-});
+// ============================================
+// 5. OVERDUE SWEEP
+// ============================================
+async function sweepOverdue() {
+  const query = `
+    UPDATE borrow_records
+    SET status = 'overdue'
+    WHERE status = 'borrowed' AND due_at < NOW()
+    RETURNING id
+  `;
+  const result = await db.query(query);
+  return result.rowCount;
+}
 
-router.post('/fines', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { userId, amount, reason } = req.body || {};
-    if (!userId || amount === undefined) {
-      return res.status(400).json({ success: false, error: 'userId and amount are required.' });
-    }
-    const row = await libQueries.createFine({
-      userId, amount, reason, borrowId: req.body?.borrowId,
-    });
-    await logAudit({ req, action: 'library.fine_create', entity: 'library_fine', entityId: row.id });
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-router.post('/fines/:id/pay', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const row = await libQueries.payFine(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Fine not found.' });
-    await logAudit({ req, action: 'library.fine_pay', entity: 'library_fine', entityId: row.id });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-router.delete('/fines/:id', requireRole(['admin', 'librarian']), async (req, res, next) => {
-  try {
-    const row = await libQueries.removeFine(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Fine not found.' });
-    return res.json({ success: true });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// ---------------- Overdue sweep ----------------
-
-router.post('/sweep-overdue', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const count = await libQueries.sweepOverdue();
-    await logAudit({ req, action: 'library.sweep_overdue', after: { count } });
-    return res.json({ success: true, count });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-module.exports = router;
+// ============================================
+// EXPORTS
+// ============================================
+module.exports = {
+  listBorrowsWithRelations,
+  createBorrow,
+  returnBorrow,
+  markBorrowLost,
+  listBooks,
+  countBooks,
+  findBookById,
+  createBook,
+  updateBook,
+  removeBook,
+  listReservationsWithRelations,
+  updateReservationStatus,
+  listFinesWithUser,
+  createFine,
+  payFine,
+  removeFine,
+  sweepOverdue,
+};

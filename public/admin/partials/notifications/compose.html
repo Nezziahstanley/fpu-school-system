@@ -16,10 +16,10 @@
   <div class="panel-body">
     <form id="notif-form" data-skip-generic="1">
       
-      <!-- ================= STEP 1: AUDIENCE ================= -->
+      <!-- 1. Audience Selection -->
       <div class="form-grid" style="margin-bottom:16px;">
         <div class="form-group">
-          <label class="form-label">1. Who are you sending to? <span class="req">*</span></label>
+          <label class="form-label">1. Who are you sending to?</label>
           <select class="form-select" id="nc-role" onchange="updateDepartments()">
             <option value="everyone">🌍 Everyone (All Users)</option>
             <option value="student">🎓 Students</option>
@@ -29,28 +29,31 @@
           </select>
         </div>
 
-        <!-- ================= STEP 2: DEPARTMENT ================= -->
+        <!-- 2. Department Filter -->
         <div class="form-group" id="nc-dept-wrapper">
           <label class="form-label">2. Filter by Department</label>
           <select class="form-select" id="nc-dept" onchange="updateRecipients()">
             <option value="all">All Departments</option>
-            <!-- Populated by JS -->
           </select>
         </div>
       </div>
 
-      <!-- ================= STEP 3: RECIPIENTS ================= -->
+      <!-- 3. Recipient Picker (The New Design) -->
       <div class="form-group" id="nc-recipient-wrapper">
-        <label class="form-label">3. Select Recipient(s) <span class="req">*</span></label>
-          <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
-            Hold <kbd style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:1px 4px; font-size:11px;">Ctrl</kbd> (or <kbd>Cmd</kbd> on Mac) to select multiple.
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
+          <label class="form-label" style="margin:0;">3. Select Recipient(s) <span class="req">*</span></label>
+          <div>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="selectAllRecipients()">Select All</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="clearAllRecipients()">Clear</button>
           </div>
-          <select class="form-select" id="nc-recipients" multiple size="8" style="height:auto; padding:10px;">
-            <!-- Populated by JS -->
-          </select>
+        </div>
+        
+        <div id="nc-recipient-list" class="recipient-scroll-box">
+          <!-- JS injects checkboxes here -->
+        </div>
       </div>
 
-      <!-- ================= MESSAGE DETAILS ================= -->
+      <!-- Message Content -->
       <hr style="margin:24px 0; border:none; border-top:1px solid #e2e8f0;">
       
       <div class="form-grid">
@@ -90,16 +93,105 @@
   </div>
 </div>
 
+<style>
+  /* Custom recipient picker design */
+  .recipient-scroll-box {
+    max-height: 320px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px;
+  }
+
+  .recipient-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #e2e8f0;
+    color: #1e293b;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 6px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+    position: sticky;
+    top: -8px;
+    z-index: 1;
+  }
+  .recipient-group-header:first-child { margin-top: 0; }
+
+  .recipient-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .recipient-item:hover {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  .recipient-item.selected {
+    background: #ecfdf5;
+    border-color: #10b981;
+  }
+  
+  .recipient-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #065f46;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .recipient-info { flex: 1; min-width: 0; }
+  .recipient-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.3;
+  }
+  .recipient-meta {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .recipient-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  .badge-student { background: #dbeafe; color: #1e40af; }
+  .badge-lecturer { background: #f3e8ff; color: #6b21a8; }
+  .badge-hod { background: #ffedd5; color: #9a3412; }
+  .badge-staff { background: #f1f5f9; color: #475569; }
+</style>
+
 <script>
   (async function () {
     const A = window.FPU_ADMIN;
     const $ = (id) => document.getElementById(id);
 
-    // 1. Data Cache
     let ALL_USERS = [];
     let ALL_DEPTS = [];
 
-    // 2. Load Data from API
+    // 1. Load data
     try {
       const [stuRes, staffRes, adminRes, deptRes] = await Promise.all([
         A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
@@ -113,18 +205,34 @@
       if (adminRes && adminRes.ok) ALL_USERS = ALL_USERS.concat((await adminRes.json()).data || []);
       if (deptRes && deptRes.ok) ALL_DEPTS = (await deptRes.json()).data || [];
 
-      // Remove duplicates
       ALL_USERS = Array.from(new Map(ALL_USERS.map(u => [u.id, u])).values());
 
     } catch (err) {
       console.warn("Data load error:", err);
     }
 
-    // 3. Update Departments Dropdown based on Role
+    // Helper: Role matcher
+    function checkRoleMatch(userRole, targetRole) {
+      const uRole = String(userRole || '').toLowerCase();
+      if (targetRole === 'student') return uRole === 'student';
+      if (targetRole === 'lecturer') return uRole === 'lecturer';
+      if (targetRole === 'hod') return uRole === 'hod';
+      if (targetRole === 'staff') return !['student', 'lecturer', 'hod'].includes(uRole);
+      return false;
+    }
+
+    function roleBadgeClass(role) {
+      const r = String(role).toLowerCase();
+      if (r === 'student') return 'badge-student';
+      if (r === 'lecturer') return 'badge-lecturer';
+      if (r === 'hod') return 'badge-hod';
+      return 'badge-staff';
+    }
+
+    // 2. Update Departments
     window.updateDepartments = function () {
       const role = $('nc-role').value;
       
-      // If "Everyone" is selected, hide the department filter (makes no sense for everyone)
       if (role === 'everyone') {
         $('nc-dept-wrapper').style.display = 'none';
         $('nc-recipient-wrapper').style.display = 'none';
@@ -134,54 +242,32 @@
         $('nc-recipient-wrapper').style.display = 'block';
       }
 
-      // Find which departments have users with this role
       const relevantDepts = ALL_DEPTS.filter(d => {
-        return ALL_USERS.some(u => 
-          Number(u.departmentId) === Number(d.id) && 
-          checkRoleMatch(u.role, role)
-        );
+        return ALL_USERS.some(u => Number(u.departmentId) === Number(d.id) && checkRoleMatch(u.role, role));
       });
 
       $('nc-dept').innerHTML = '<option value="all">All Departments</option>' + 
         relevantDepts.map(d => `<option value="${d.id}">${A.escapeHtml(d.name || d.code)}</option>`).join('');
 
-      // After updating departments, refresh the recipients list
       updateRecipients();
     };
 
-    // Helper to match roles correctly (HOD vs Lecturer vs Staff)
-    function checkRoleMatch(userRole, targetRole) {
-      const uRole = String(userRole || '').toLowerCase();
-      if (targetRole === 'student') return uRole === 'student';
-      if (targetRole === 'lecturer') return uRole === 'lecturer';
-      if (targetRole === 'hod') return uRole === 'hod';
-      if (targetRole === 'staff') return !['student', 'lecturer', 'hod'].includes(uRole); // Staff = bursar, admin, registrar, etc.
-      return false;
-    }
-
-    // 4. Update Recipients Dropdown based on Role + Department
+    // 3. Update Recipients (New Checkbox List)
     window.updateRecipients = function () {
       const role = $('nc-role').value;
       const deptId = $('nc-dept').value;
 
-      // Filter users by role
       let filtered = ALL_USERS.filter(u => checkRoleMatch(u.role, role));
+      if (deptId !== 'all') filtered = filtered.filter(u => Number(u.departmentId) === Number(deptId));
 
-      // Filter by department if not 'all'
-      if (deptId !== 'all') {
-        filtered = filtered.filter(u => Number(u.departmentId) === Number(deptId));
-      }
+      const container = $('nc-recipient-list');
 
-      // Build the UI
-      const select = $('nc-recipients');
-      
       if (filtered.length === 0) {
-        select.innerHTML = '<option value="">No users found for this criteria</option>';
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:#94a3b8;">No users found for this criteria.</div>';
         return;
       }
 
-      // If specific department is selected, just list them nicely
-      // If "All Departments", group them by department using <optgroup>
+      // Group by department if 'All Departments' is selected
       if (deptId === 'all') {
         const byDept = new Map();
         filtered.forEach(u => {
@@ -192,26 +278,54 @@
 
         let html = '';
         byDept.forEach((users, dName) => {
-          html += `<optgroup label="🏢 ${A.escapeHtml(dName)} (${users.length})">`;
-          users.forEach(u => {
-            const name = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim();
-            html += `<option value="${u.id}">${A.escapeHtml(name)} — ${A.escapeHtml(u.email || '')}</option>`;
-          });
-          html += `</optgroup>`;
+          html += `<div class="recipient-group-header">
+            <span>🏢 ${A.escapeHtml(dName)}</span>
+            <span>${users.length} member${users.length > 1 ? 's' : ''}</span>
+          </div>`;
+          
+          html += users.map(u => renderUserItem(u)).join('');
         });
-        select.innerHTML = html;
+        container.innerHTML = html;
       } else {
-        select.innerHTML = filtered.map(u => {
-          const name = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim();
-          return `<option value="${u.id}">${A.escapeHtml(name)} — ${A.escapeHtml(u.email || '')}</option>`;
-        }).join('');
+        container.innerHTML = filtered.map(u => renderUserItem(u)).join('');
       }
+    };
+
+    function renderUserItem(u) {
+      const name = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown';
+      const email = u.email || '';
+      const role = String(u.role || '').toLowerCase();
+      
+      return `
+        <label class="recipient-item" onclick="this.classList.toggle('selected')">
+          <input type="checkbox" value="${u.id}" onchange="this.parentElement.classList.toggle('selected', this.checked)">
+          <div class="recipient-info">
+            <div class="recipient-name">${A.escapeHtml(name)}</div>
+            <div class="recipient-meta">${A.escapeHtml(email)}</div>
+          </div>
+          <span class="recipient-badge ${roleBadgeClass(role)}">${A.escapeHtml(role)}</span>
+        </label>
+      `;
+    }
+
+    // 4. Helper Buttons
+    window.selectAllRecipients = function () {
+      document.querySelectorAll('#nc-recipient-list input[type="checkbox"]').forEach(cb => {
+        cb.checked = true;
+        cb.parentElement.classList.add('selected');
+      });
+    };
+    window.clearAllRecipients = function () {
+      document.querySelectorAll('#nc-recipient-list input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+        cb.parentElement.classList.remove('selected');
+      });
     };
 
     // Initialize
     updateDepartments();
 
-    // 5. Submit Form
+    // 5. Submit
     $('notif-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('nc-validation');
@@ -225,14 +339,15 @@
 
       if (!title) { valEl.innerHTML = '<div class="alert alert-danger" style="margin-bottom:15px;">⚠️ Title is required.</div>'; return; }
 
-      // Determine User IDs
       let userIds = [];
 
       if (role === 'everyone') {
         userIds = ALL_USERS.map(u => u.id);
       } else {
-        // Get selected options from the multi-select
-        const selected = Array.from($('nc-recipients').selectedOptions).map(o => Number(o.value)).filter(Boolean);
+        // Read selected checkboxes from our beautiful list
+        const selected = Array.from(document.querySelectorAll('#nc-recipient-list input[type="checkbox"]:checked'))
+          .map(cb => Number(cb.value));
+        
         if (selected.length === 0) {
           valEl.innerHTML = '<div class="alert alert-danger" style="margin-bottom:15px;">⚠️ Please select at least one recipient from the list.</div>';
           return;
@@ -241,7 +356,7 @@
       }
 
       if (userIds.length === 0) {
-        valEl.innerHTML = '<div class="alert alert-warning" style="margin-bottom:15px;">⚠️ No users matched your criteria.</div>';
+        valEl.innerHTML = '<div class="alert alert-warning" style="margin-bottom:15px;">⚠️ No users matched.</div>';
         return;
       }
 
@@ -250,7 +365,6 @@
       btn.textContent = `Sending to ${userIds.length} user(s)…`;
 
       try {
-        // Send notifications in parallel
         const promises = userIds.map(uid => 
           A.adminFetch('/api/admin/notifications', {
             method: 'POST',

@@ -3369,7 +3369,7 @@ async function loadDepartmentPayments() {
   const deptName = params.get('name') || 'Department';
 
   if (!departmentId) {
-    root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
+    root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
     return;
   }
 
@@ -3378,60 +3378,70 @@ async function loadDepartmentPayments() {
   if (titleEl) titleEl.textContent = deptName;
   if (subEl) subEl.textContent = `Payment status for ${deptName}`;
 
-  root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
+  root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    const [studentsRes, payRes] = await Promise.all([
+    // 1. Fetch students in this dept + all payments + all fees + all programmes
+    const [studentsRes, payRes, feesRes, progsRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/payments').catch(() => null),
+      adminFetch('/api/admin/fees').catch(() => null),
+      adminFetch('/api/admin/programmes').catch(() => null),
     ]);
 
     const students = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
     const payments = payRes?.ok ? (await payRes.json()).data || [] : [];
+    const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+    const programmes = progsRes?.ok ? (await progsRes.json()).data || [] : [];
 
-    // Map studentId → total paid
+    // 2. Build maps
+    // Map studentId → total verified amount paid
     const paidByStudent = new Map();
     payments.forEach(p => {
       const row = p.payment || p;
       const sid = Number(row.studentId || row.student_id);
       if (!sid) return;
-      if (row.status === 'verified') {
-        const current = paidByStudent.get(sid) || 0;
-        paidByStudent.set(sid, current + (Number(row.amount) || 0));
+      if (row.status === 'verified' || row.status === 'approved' || row.status === 'paid') {
+        paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + (Number(row.amount) || 0));
       }
     });
 
-    // Fee structure per programme (assume fee structure lookup from /fees)
-    const feesRes = await adminFetch('/api/admin/fees').catch(() => null);
-    const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+    // Map programmeId → expected fee (total due)
     const feeByProgramme = new Map();
     fees.forEach(f => {
       const progId = f.programmeId || f.programme_id;
-      if (progId && f.total) feeByProgramme.set(Number(progId), Number(f.total));
+      const total = f.totalAmount || f.total_amount || f.total;
+      if (progId && total) feeByProgramme.set(Number(progId), Number(total));
     });
 
-    let paid = 0, partial = 0, pending = 0, totalRevenue = 0;
+    // 3. Enrich each student
+    let fullyPaid = 0, partial = 0, pendingCount = 0, totalCollected = 0;
 
     const enriched = students.map(s => {
       const sid = Number(s.id);
-      const paidAmt = paidByStudent.get(sid) || 0;
-      const expected = feeByProgramme.get(Number(s.programmeId)) || 0;
-      const outstanding = Math.max(0, expected - paidAmt);
+      const paid = paidByStudent.get(sid) || 0;
+      // Look for fee by programme, or fallback to 0 (in which case any payment counts as fully paid)
+      const due = feeByProgramme.get(Number(s.programmeId)) || (paid > 0 ? paid : 0);
+      const balance = Math.max(0, due - paid);
+
       let status = 'pending';
-      if (paidAmt > 0 && outstanding === 0) { status = 'paid'; paid++; }
-      else if (paidAmt > 0) { status = 'partial'; partial++; }
-      else { status = 'pending'; pending++; }
-      totalRevenue += paidAmt;
-      return { s, paidAmt, outstanding, status, expected };
+      if (paid > 0 && balance <= 0) { status = 'paid'; fullyPaid++; }
+      else if (paid > 0) { status = 'partial'; partial++; }
+      else { status = 'pending'; pendingCount++; }
+
+      totalCollected += paid;
+      return { s, paid, due, balance, status };
     });
 
-    setText('pd-stat-students', enriched.length);
-    setText('pd-stat-paid', paid);
-    setText('pd-stat-pending', pending + partial);
-    setText('pd-stat-revenue', money(totalRevenue));
-    setText('pd-count', `Showing ${enriched.length} students`);
+    // 4. Update stats (using the exact IDs from your HTML)
+    const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setT('pd-stat-students', students.length);
+    setT('pd-stat-fully', fullyPaid);
+    setT('pd-stat-partial', partial);
+    setT('pd-stat-collected', money(totalCollected));
+    setT('pd-count', `Showing ${students.length} students`);
 
-    // Filter
+    // 5. Filter
     const statusFilter = document.getElementById('pd-filter-status')?.value || '';
     const search = document.getElementById('pd-search')?.value.toLowerCase() || '';
 
@@ -3446,22 +3456,35 @@ async function loadDepartmentPayments() {
     });
 
     if (!filtered.length) {
-      root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b;">No students match your filters.</td></tr>';
+      root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:#64748b;">No students match your filters.</td></tr>';
       return;
     }
 
-    root.innerHTML = filtered.map(({ s, paidAmt, outstanding, status }) => {
+    // 6. Render table
+    root.innerHTML = filtered.map(({ s, paid, due, balance, status }) => {
       const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
-      const badgeCls = `badge-${status}`;
-      const badgeLabel = status === 'paid' ? 'Fully Paid' : status === 'partial' ? 'Partial' : 'Pending';
+      const initials = fn.charAt(0).toUpperCase() || 'S';
+
+      let badgeCls = 'badge-pending';
+      let badgeLabel = 'Pending';
+      if (status === 'paid') { badgeCls = 'badge-paid'; badgeLabel = 'Fully Paid'; }
+      else if (status === 'partial') { badgeCls = 'badge-partial'; badgeLabel = 'Partial'; }
 
       return `
         <tr>
           <td><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
-          <td>${escapeHtml(fn)}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#065f46,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;">
+                ${escapeHtml(initials)}
+              </div>
+              <span>${escapeHtml(fn)}</span>
+            </div>
+          </td>
           <td>${escapeHtml(s.level || '—')}</td>
-          <td style="text-align:right;font-weight:600;color:#065f46;">${money(paidAmt)}</td>
-          <td style="text-align:right;font-weight:600;color:${outstanding > 0 ? '#dc2626' : '#64748b'};">${outstanding > 0 ? money(outstanding) : '—'}</td>
+          <td style="text-align:right;font-weight:600;">${due > 0 ? money(due) : '—'}</td>
+          <td style="text-align:right;font-weight:600;color:#065f46;">${paid > 0 ? money(paid) : '—'}</td>
+          <td style="text-align:right;font-weight:600;color:${balance > 0 ? '#dc2626' : '#64748b'};">${balance > 0 ? money(balance) : '—'}</td>
           <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
           <td style="text-align:right;">
             <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openPaymentHistory(${s.id}, '${escapeQuotes(fn)}')">View History</button>
@@ -3470,24 +3493,27 @@ async function loadDepartmentPayments() {
       `;
     }).join('');
 
-    // Wire export
+    // 7. Wire Export CSV
     const exportBtn = document.getElementById('pd-export');
     if (exportBtn && !exportBtn.__wired) {
       exportBtn.__wired = true;
       exportBtn.onclick = () => {
-        const headers = ['Matric', 'Name', 'Level', 'Total Paid', 'Outstanding', 'Status'];
-        const rows = filtered.map(({ s, paidAmt, outstanding, status }) => [
+        const headers = ['Matric', 'Name', 'Level', 'Total Due', 'Total Paid', 'Balance', 'Status'];
+        const rows = filtered.map(({ s, paid, due, balance, status }) => [
           s.matricNumber || s.matric_number || '',
           `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim(),
           s.level || '',
-          paidAmt, outstanding, status,
+          due,
+          paid,
+          balance,
+          status
         ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `payments-${deptName.replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `payments-${deptName.replace(/\s/g,'-')}-${new Date().toISOString().slice(0,10)}.csv`;
         a.click();
         showToast('✅ Exported.', 'success');
       };
@@ -3495,7 +3521,7 @@ async function loadDepartmentPayments() {
 
   } catch (err) {
     console.error('[payments by dept] Error:', err);
-    root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
+    root.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -3621,7 +3647,7 @@ async function openPaymentHistory(studentId, studentName) {
     const payments = json.data || [];
 
     if (!payments.length) {
-      document.getElementById('payment-history-body').innerHTML = '<p style="text-align:center;padding:20px;color:#64748b;">No payments recorded.</p>';
+      document.getElementById('payment-history-body').innerHTML = '<p style="text-align:center;padding:20px;color:#64748b;">No payments recorded for this student.</p>';
       return;
     }
 
@@ -9202,6 +9228,7 @@ window.FPU_ADMIN = {
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
   loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend,
+ 
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
   deleteNotification, loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats,

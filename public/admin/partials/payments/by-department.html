@@ -15,10 +15,22 @@
 
 <!-- Stats -->
 <div class="stats-inline">
-  <div class="stat-inline"><div class="label">Students</div><div class="value" id="pd-stat-students">—</div></div>
-  <div class="stat-inline stat-inline-success"><div class="label">Fully Paid</div><div class="value" id="pd-stat-fully">—</div></div>
-  <div class="stat-inline stat-inline-accent"><div class="label">Partial</div><div class="value" id="pd-stat-partial">—</div></div>
-  <div class="stat-inline stat-inline-primary"><div class="label">Collected</div><div class="value" id="pd-stat-collected">—</div></div>
+  <div class="stat-inline">
+    <div class="label">Students</div>
+    <div class="value" id="pd-stat-students">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Fully Paid</div>
+    <div class="value" id="pd-stat-fully">—</div>
+  </div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Partial</div>
+    <div class="value" id="pd-stat-partial">—</div>
+  </div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Collected</div>
+    <div class="value" id="pd-stat-collected">—</div>
+  </div>
 </div>
 
 <!-- Filters -->
@@ -26,10 +38,10 @@
   <div class="form-group">
     <label class="form-label">Payment Status</label>
     <select class="form-select" id="pd-filter-status" onchange="FPU_ADMIN.loadDepartmentPayments()">
-      <option value="">All</option>
+      <option value="">All Students</option>
       <option value="paid">Fully Paid</option>
       <option value="partial">Partially Paid</option>
-      <option value="pending">Pending</option>
+      <option value="pending">Pending / Not Paid</option>
     </select>
   </div>
   <div class="form-group" style="flex:2 1 220px;">
@@ -68,13 +80,15 @@
 </div>
 
 <style>
+  /* Status Badges */
+  .badge { padding: 4px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; }
   .badge-paid    { background: #d1fae5; color: #065f46; }
   .badge-partial { background: #fef3c7; color: #92400e; }
   .badge-pending { background: #fee2e2; color: #991b1b; }
-  .badge { padding: 4px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; }
 </style>
 
 <script>
+  // Auto-load on page render
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadDepartmentPayments) {
     setTimeout(window.FPU_ADMIN.loadDepartmentPayments, 100);
   }

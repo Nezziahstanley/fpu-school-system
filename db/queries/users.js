@@ -14,10 +14,6 @@ const { users, departments, programmes, schools, staffProfiles } = schema;
 // ============================================================
 // SAFE SELECT MAPS
 // ============================================================
-// Two versions so every query only references tables it actually joins.
-//   SAFE_COLS      → users + programmes + departments
-//   SAFE_COLS_FULL → users + programmes + departments + schools
-// ============================================================
 
 const USER_FIELDS = {
   id: users.id,
@@ -46,7 +42,6 @@ const USER_FIELDS = {
   updatedAt: users.updatedAt,
 };
 
-// Used by: list, listStaff, listStudents  (join: programmes + departments)
 const SAFE_COLS = {
   ...USER_FIELDS,
   programmeName: programmes.name,
@@ -55,8 +50,6 @@ const SAFE_COLS = {
   departmentCode: departments.code,
 };
 
-// Used by: findById, findByEmail, findByIdWithRelations
-// (join: programmes + departments + schools)
 const SAFE_COLS_FULL = {
   ...SAFE_COLS,
   schoolName: schools.name,
@@ -64,7 +57,6 @@ const SAFE_COLS_FULL = {
 
 // ------------------------------------------------------------
 // Helper: normalize a row from a join query.
-// Handles both flat and nested Drizzle results.
 // ------------------------------------------------------------
 function unwrapJoin(row) {
   if (!row) return null;
@@ -88,9 +80,6 @@ function unwrapJoin(row) {
 // Lookups
 // ============================================================
 
-// ------------------------------------------------------------
-// findById — full user with department/programme/school names
-// ------------------------------------------------------------
 async function findById(id) {
   if (!id) return null;
   const rows = await db
@@ -106,24 +95,19 @@ async function findById(id) {
   return rows[0];
 }
 
-// ------------------------------------------------------------
-// findByIdWithRelations — same as findById, plus nested
-// department/programme/school/staffProfile objects for convenience. 
-// Used by portal pages that display the staff's identity.
-// ------------------------------------------------------------
 async function findByIdWithRelations(id) {
   if (!id) return null;
 
   const rows = await db
     .select({
       user: SAFE_COLS_FULL,
-      staffProfile: staffProfiles, // <--- ADDED: Fetch the staff profile
+      staffProfile: staffProfiles, // Fetch the staff profile
     })
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(schools, eq(users.schoolId, schools.id))
-    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // <--- ADDED: Join the table
+    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // Join the table
     .where(eq(users.id, Number(id)))
     .limit(1);
 
@@ -132,11 +116,9 @@ async function findByIdWithRelations(id) {
   const row = rows[0];
   const user = row.user;
 
-  // Add nested objects alongside the flat names, so the
-  // frontend can use either shape.
   return {
     ...user,
-    staffProfile: row.staffProfile || null, // <--- ADDED: Return it to the API
+    staffProfile: row.staffProfile || null, // Return it to the API
     department: user.departmentName
       ? { id: user.departmentId, name: user.departmentName, code: user.departmentCode }
       : null,
@@ -149,9 +131,6 @@ async function findByIdWithRelations(id) {
   };
 }
 
-// ------------------------------------------------------------
-// findByEmail — for login; includes passwordHash
-// ------------------------------------------------------------
 async function findByEmail(email) {
   if (!email) return null;
   const rows = await db
@@ -166,9 +145,6 @@ async function findByEmail(email) {
   return unwrapJoin(rows[0]);
 }
 
-// ------------------------------------------------------------
-// emailExists
-// ------------------------------------------------------------
 async function emailExists(email, exceptId = null) {
   if (!email) return false;
   const rows = await db
@@ -184,19 +160,23 @@ async function emailExists(email, exceptId = null) {
 // Lists
 // ============================================================
 
-// ------------------------------------------------------------
-// list — paginated user list (joins programmes + departments)
-// ------------------------------------------------------------
 async function list({
   role, departmentId, schoolId, programmeId, level, search, isActive,
   limit = 50, offset = 0,
 } = {}) {
   const conds = [];
-  if (role) conds.push(eq(users.role, role));
+  
+  if (role) {
+    // Map 'principal' to 'rector' if that's what your DB uses
+    const dbRole = role === 'principal' ? 'rector' : role;
+    conds.push(eq(users.role, dbRole));
+  }
+  
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
   if (schoolId) conds.push(eq(users.schoolId, Number(schoolId)));
   if (programmeId) conds.push(eq(users.programmeId, Number(programmeId)));
   if (level) conds.push(eq(users.level, level));
+  
   if (search) {
     const like = `%${search}%`;
     conds.push(or(
@@ -206,12 +186,12 @@ async function list({
       ilike(users.matricNumber, like),
     ));
   }
+  
   if (isActive === true || isActive === 'true') conds.push(eq(users.isActive, true));
   if (isActive === false || isActive === 'false') conds.push(eq(users.isActive, false));
 
   const where = conds.length ? and(...conds) : undefined;
 
-  // We add the staffProfiles join here
   const results = await db
     .select({
       user: SAFE_COLS,
@@ -220,26 +200,25 @@ async function list({
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
-    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // <--- Added Join
+    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // Join profile
     .where(where)
     .orderBy(desc(users.createdAt))
     .limit(Math.min(Number(limit) || 50, 500))
     .offset(Number(offset) || 0);
 
-  // Flatten the result for the frontend
   return results.map(r => ({
     ...r.user,
     staffProfile: r.staffProfile || null
   }));
 }
 
-// ------------------------------------------------------------
-// listStaff — non-students (joins programmes + departments)
-// ------------------------------------------------------------
 async function listStaff({ departmentId, role } = {}) {
   const conds = [sql`${users.role} <> 'student'`];
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
-  if (role) conds.push(eq(users.role, role));
+  if (role) {
+    const dbRole = role === 'principal' ? 'rector' : role;
+    conds.push(eq(users.role, dbRole));
+  }
 
   return db
     .select(SAFE_COLS)
@@ -250,9 +229,6 @@ async function listStaff({ departmentId, role } = {}) {
     .orderBy(asc(users.firstName), asc(users.lastName));
 }
 
-// ------------------------------------------------------------
-// listStudents — students only (joins programmes + departments)
-// ------------------------------------------------------------
 async function listStudents({ departmentId, programmeId, level, sessionId } = {}) {
   const conds = [eq(users.role, 'student')];
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
@@ -269,12 +245,12 @@ async function listStudents({ departmentId, programmeId, level, sessionId } = {}
     .orderBy(asc(users.lastName), asc(users.firstName));
 }
 
-// ------------------------------------------------------------
-// count
-// ------------------------------------------------------------
 async function count({ role, departmentId, schoolId, programmeId, level, isActive } = {}) {
   const conds = [];
-  if (role) conds.push(eq(users.role, role));
+  if (role) {
+    const dbRole = role === 'principal' ? 'rector' : role;
+    conds.push(eq(users.role, dbRole));
+  }
   if (departmentId) conds.push(eq(users.departmentId, Number(departmentId)));
   if (schoolId) conds.push(eq(users.schoolId, Number(schoolId)));
   if (programmeId) conds.push(eq(users.programmeId, Number(programmeId)));
@@ -291,9 +267,6 @@ async function count({ role, departmentId, schoolId, programmeId, level, isActiv
 // Writes
 // ============================================================
 
-// ------------------------------------------------------------
-// create — insert a new user
-// ------------------------------------------------------------
 async function create(payload) {
   const [row] = await db
     .insert(users)
@@ -324,9 +297,6 @@ async function create(payload) {
   return row;
 }
 
-// ------------------------------------------------------------
-// update — allow-list protects forbidden fields
-// ------------------------------------------------------------
 async function update(id, patch) {
   const allowed = [
     'firstName', 'lastName', 'middleName', 'email', 'phone',
@@ -356,9 +326,6 @@ async function update(id, patch) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// updatePassword — set a new password hash + clear mustChangePassword
-// ------------------------------------------------------------
 async function updatePassword(id, passwordHash) {
   const [row] = await db
     .update(users)
@@ -372,9 +339,6 @@ async function updatePassword(id, passwordHash) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// setActive — explicitly set the isActive flag
-// ------------------------------------------------------------
 async function setActive(id, isActive) {
   const [row] = await db
     .update(users)
@@ -384,9 +348,6 @@ async function setActive(id, isActive) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// toggleActive — flip the isActive flag
-// ------------------------------------------------------------
 async function toggleActive(id) {
   const [row] = await db
     .update(users)
@@ -396,9 +357,6 @@ async function toggleActive(id) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// remove
-// ------------------------------------------------------------
 async function remove(id) {
   const [row] = await db
     .delete(users)
@@ -407,9 +365,6 @@ async function remove(id) {
   return row || null;
 }
 
-// ------------------------------------------------------------
-// touchLogin — update lastLoginAt
-// ------------------------------------------------------------
 async function touchLogin(id) {
   try {
     await db
@@ -419,9 +374,6 @@ async function touchLogin(id) {
   } catch { /* ignore */ }
 }
 
-// ============================================================
-// findHodForDepartment — returns the HOD user for a department
-// ============================================================
 async function findHodForDepartment(departmentId) {
   if (!departmentId) return null;
   const [row] = await db

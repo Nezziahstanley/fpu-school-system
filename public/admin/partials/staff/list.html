@@ -23,14 +23,22 @@
 </div>
 
 <!-- Filters -->
-<div class="filters">
-  <div class="form-group">
-    <label class="form-label">Department</label>
-    <select class="form-select" id="staff-filter-dept" onchange="FPU_ADMIN.loadStaffDirectory()">
-      <option value="">All departments</option>
+<div class="filters" style="display: flex; gap: 16px; margin-bottom: 20px;">
+  
+  <!-- Changed from Department to Staff Role -->
+  <div class="form-group" style="flex: 1;">
+    <label class="form-label">Staff Role</label>
+    <select class="form-select" id="staff-filter-role" onchange="FPU_ADMIN.loadStaffDirectory(this.value, null)">
+      <option value="">All Roles</option>
+      <option value="lecturer">Lecturer</option>
+      <option value="hod">HOD</option>
+      <option value="principal">Principal</option>
+      <option value="admin">Admin</option>
     </select>
   </div>
-  <div class="form-group" style="flex:2 1 260px;">
+
+  <!-- Search -->
+  <div class="form-group" style="flex: 2;">
     <label class="form-label">Search</label>
     <input class="form-control" id="staff-search" placeholder="Name, email, or staff number…" onkeyup="FPU_ADMIN.loadStaffDirectory()" />
   </div>

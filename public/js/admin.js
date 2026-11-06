@@ -2763,84 +2763,95 @@ async function loadAttendanceDepartments() {
 // STAFF (Directory, HODs, Lecturers)
 // ============================================
 
-// 1. Staff Directory (All Staff)
-async function loadStaffDirectory() {
+async function loadStaffDirectory(roleFilter = null, tabElement = null) {
   const grid = document.getElementById('staff-grid');
   if (!grid) return;
 
-  const role = (document.getElementById('staff-role-tabs')?.querySelector('.active')?.dataset.role) || '';
-  const deptId = (document.getElementById('staff-filter-dept') || {}).value || '';
-  const search = (document.getElementById('staff-search') || {}).value || '';
+  // 1. Handle Tab & Dropdown UI Sync
+  const roleDropdown = document.getElementById('staff-filter-role');
+  
+  // If the user clicked a tab, update the dropdown to match
+  if (tabElement) {
+    document.querySelectorAll('.staff-role-tab').forEach(t => t.classList.remove('active'));
+    tabElement.classList.add('active');
+    if (roleDropdown) roleDropdown.value = roleFilter || '';
+  } 
+  // If the user used the dropdown, update the tabs to match
+  else if (roleFilter !== null) {
+    if (roleDropdown) roleDropdown.value = roleFilter || '';
+    document.querySelectorAll('.staff-role-tab').forEach(t => {
+      t.classList.remove('active');
+      if (t.getAttribute('data-role') === roleFilter) t.classList.add('active');
+    });
+  } 
+  // If it's a general reload (like searching), read from the dropdown
+  else {
+    roleFilter = roleDropdown ? roleDropdown.value : '';
+  }
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading staff…</div>';
+  const search = document.getElementById('staff-search')?.value || '';
+
+  // Show loading spinner
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading staff…</div>';
 
   try {
-    const qs = new URLSearchParams({ limit: 500 });
-    if (role && role !== 'principal') qs.set('role', role);
-    if (deptId) qs.set('departmentId', deptId);
-    if (search) qs.set('search', search);
+    // 2. Build API URL
+    let url = `/api/admin/staff?limit=500`;
+    if (roleFilter) url += `&role=${roleFilter}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
 
-    const res = await adminFetch(`/api/admin/staff?${qs}`);
+    const res = await adminFetch(url);
     const json = await res.json();
-    let rows = json.data || [];
+    const staffList = json.data || [];
 
-    if (role === 'principal') {
-      const principalRoles = ['bursar', 'registrar', 'rector', 'librarian', 'exam_officer', 'academic_officer', 'admission_officer'];
-      rows = rows.filter((u) => principalRoles.includes(u.role));
-    }
-
-    // Counts
-    const allRes = await adminFetch('/api/admin/staff?limit=500');
-    const allStaff = (await allRes.json()).data || [];
-    setText('staff-count-all', allStaff.length);
-    setText('staff-count-lecturer', allStaff.filter((s) => s.role === 'lecturer').length);
-    setText('staff-count-hod', allStaff.filter((s) => s.role === 'hod').length);
-    setText('staff-count-principal', allStaff.filter((s) => ['bursar','registrar','rector','librarian','exam_officer','academic_officer','admission_officer'].includes(s.role)).length);
-    setText('staff-count-admin', allStaff.filter((s) => s.role === 'admin').length);
-
-    if (!rows.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">👥</div><p>No staff.</p></div>';
+    // 3. Render Cards
+    if (!staffList.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No staff found matching your filters.</div>';
       return;
     }
 
-    grid.innerHTML = rows.map((s) => {
-      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-      const initials = ((s.firstName || ' ')[0] + (s.lastName || ' ')[0]).toUpperCase().trim() || 'S';
-      const avatar = s.photoUrl ? `<img src="${escapeHtml(s.photoUrl)}" alt="" />` : escapeHtml(initials);
-      const roleClass = s.role === 'lecturer' ? 'lecturer' : s.role === 'hod' ? 'hod' : s.role === 'admin' ? 'admin' : 'principal';
-      const cardClass = s.isActive === false ? 'inactive' : roleClass;
+    grid.innerHTML = staffList.map(staff => {
+      const initials = `${staff.firstName?.[0] || ''}${staff.lastName?.[0] || ''}`.toUpperCase() || 'S';
+      
+      // Handle 'principal' role mapping to 'rector' if needed, based on your DB
+      const roleClass = ['lecturer', 'hod', 'admin', 'principal'].includes(staff.role) ? staff.role : 'other';
+      
+      const deptName = staff.departmentName || staff.department?.name || '—';
+      const rank = staff.staffProfile?.rank || '—'; 
+      const status = staff.isActive !== false ? 'Active' : 'Inactive';
 
       return `
-        <div class="staff-card role-${cardClass}" data-id="${s.id}">
+        <div class="staff-card role-${roleClass}">
           <div class="sc-head">
-            <div class="sc-avatar">${avatar}</div>
+            <div class="sc-avatar">${initials}</div>
             <div class="sc-info">
-              <div class="sc-name">${escapeHtml(fullName)}</div>
-              <div class="sc-email">${escapeHtml(s.email || '')}</div>
-              <span class="sc-role-badge ${roleClass}">${escapeHtml(s.role || '').replace(/_/g, ' ')}</span>
+              <div class="sc-name">${escapeHtml(staff.firstName)} ${escapeHtml(staff.lastName)}</div>
+              <div class="sc-email">${escapeHtml(staff.email)}</div>
+              <span class="sc-role-badge ${roleClass}">${escapeHtml(staff.role)}</span>
             </div>
           </div>
           <div class="sc-meta">
-            <div class="sc-meta-row"><span class="k">Department</span><span class="v">${escapeHtml(s.departmentName || s.department?.name || '—')}</span></div>
-            <div class="sc-meta-row"><span class="k">Rank</span><span class="v">${escapeHtml(s.staffProfile?.rank || '—')}</span></div>
-            <div class="sc-meta-row"><span class="k">Status</span><span class="v">${s.isActive !== false ? 'Active' : 'Inactive'}</span></div>
+            <div class="sc-meta-row"><span class="k">Department</span><span class="v">${escapeHtml(deptName)}</span></div>
+            <div class="sc-meta-row"><span class="k">Rank</span><span class="v">${escapeHtml(rank)}</span></div>
+            <div class="sc-meta-row"><span class="k">Status</span><span class="v">${status}</span></div>
           </div>
           <div class="sc-actions">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id: ${s.id} })">View</button>
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('staff-form', { id: ${s.id} })">Edit</button>
+            <button class="btn btn-outline btn-sm" onclick="window.location.hash='#staff-profile?id=${staff.id}'">View</button>
+            <button class="btn btn-outline btn-sm" onclick="window.location.hash='#staff-form?id=${staff.id}'">Edit</button>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.staff-card').forEach((card) => {
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
-        FPU_ADMIN_SPA.navigateToWithQuery('staff-profile', { id: Number(card.dataset.id) });
-      });
-    });
+    // 4. Update the tab count for the active tab
+    if (tabElement) {
+      const countSpan = tabElement.querySelector('.tab-count');
+      if (countSpan) countSpan.textContent = staffList.length;
+    }
+
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[staff-directory] Error:', err);
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Failed to load staff directory.</div>';
   }
 }
 

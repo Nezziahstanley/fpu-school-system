@@ -3666,7 +3666,9 @@ async function loadBorrowsTable() {
     if (!res.ok) throw new Error('Failed to load borrows');
     
     const json = await res.json();
-    const records = json.data || json.borrows || json || [];
+    
+    // Handle whatever structure the backend returns (data, borrows, or raw array)
+    const records = json.data?.rows || json.data || json.borrows || json || [];
 
     if (!Array.isArray(records) || records.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records found.</td></tr>';
@@ -3675,23 +3677,33 @@ async function loadBorrowsTable() {
     }
 
     tbody.innerHTML = records.map(r => {
-      // 1. Get exact columns from database
-      const statusStr = String(r.status || 'borrowed').toLowerCase();
-      
-      // 2. Map dates directly from your confirmed database columns
-      const rawDue = r.due_at;
-      const rawBorrowed = r.borrowed_at;
+      // 🕵️ ULTIMATE DEEP SCAN
+      const findKey = (obj, keywords) => {
+        if (!obj) return null;
+        // Check exact matches first (like 'due_at')
+        for (let k of Object.keys(obj)) {
+          if (keywords.includes(k.toLowerCase())) return obj[k];
+        }
+        // Then fallback to partial matches (like 'duedate')
+        for (let k of Object.keys(obj)) {
+          if (keywords.some(word => k.toLowerCase().includes(word))) return obj[k];
+        }
+        return null;
+      };
 
+      const statusStr = String(findKey(r, ['status', 'state']) || 'borrowed').toLowerCase();
+      
+      // This hunts for the date fields exactly as your DB names them
+      const rawDue = findKey(r, ['due_at', 'due', 'duedate', 'expiry', 'return_date', 'date_due']);
+      const rawBorrowed = findKey(r, ['borrowed_at', 'borrowed', 'borrowdate', 'issue_date', 'created_at', 'date_issued']);
+
+      // If dates are found, format them. If not, show '—'
       const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
       const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
 
-      // 3. Determine if active (handles 'active', 'borrowed', 'issued', 'overdue')
-      const isActive = ['active', 'borrowed', 'issued', 'overdue'].includes(statusStr);
-      const isReturned = statusStr === 'returned';
-      const isLost = statusStr === 'lost';
-
       let daysHtml = '—';
       let isOverdue = false;
+      const isActive = ['active', 'borrowed', 'issued', 'overdue'].includes(statusStr);
       
       if (rawDue && isActive) {
         const dueDate = new Date(rawDue);
@@ -3709,25 +3721,21 @@ async function loadBorrowsTable() {
         } else {
           daysHtml = `<span class="days-badge ok">${diffDays} days left</span>`;
         }
-      } else if (isReturned) {
+      } else if (['returned', 'completed'].includes(statusStr)) {
         daysHtml = `<span class="days-badge done">Returned</span>`;
-      } else if (isLost) {
+      } else if (statusStr === 'lost') {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      // 4. Robust Book and User extraction (works with joined tables or flat data)
+      // Book & User Extraction
       const bookObj = r.book || r.Book || {};
-      const bookTitle = bookObj.title || bookObj.name || r.book_title || r.bookTitle || r.title || 'Unknown Book';
-      const bookAuthor = bookObj.author || r.author || '';
+      const bookTitle = bookObj.title || r.book_title || r.bookTitle || r.title || 'Unknown Book';
+      const bookAuthor = bookObj.author || r.book_author || r.author || '';
       
       const u = r.user || r.User || r.student || r.borrower || {};
-      const firstName = u.first_name || u.firstName || r.first_name || r.firstName || '';
-      const lastName = u.last_name || u.lastName || r.last_name || r.lastName || '';
-      const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
-      
-      const matric = u.matric_number || u.matricNumber || r.matric_number || r.matricNumber || '—';
+      const fullName = `${u.first_name || r.first_name || u.firstName || ''} ${u.last_name || r.last_name || u.lastName || ''}`.trim() || 'Unknown User';
+      const matric = u.matric_number || r.matric_number || u.matricNumber || '—';
 
-      // 5. Buttons
       let actionsHtml = '';
       if (isActive) {
         actionsHtml = `

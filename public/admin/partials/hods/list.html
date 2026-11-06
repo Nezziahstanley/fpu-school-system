@@ -1,47 +1,36 @@
 <!-- ============================================================
      Admin → HODs
-     ------------------------------------------------------------
-     Board view: one card per department showing its HOD.
-     HODs without a department appear in a "Needs Assignment" panel.
      ============================================================ -->
 <section class="page-head">
   <div>
     <h2>Heads of Department</h2>
-    <p class="muted small">One HOD per department · {count} assigned, {unassigned} unassigned</p>
+    <p class="muted small">One HOD per department</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadHodBoard()">
-      Refresh
-    </button>
-    <button class="btn btn-primary btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateToWithQuery('staff-form', { role: 'hod' })">
-      + New HOD
-    </button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadHodBoard()">Refresh</button>
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.emailAllHods()">✉️ Email All HODs</button>
+    <button class="btn btn-primary btn-sm" onclick="window.location.hash='#staff-form?role=hod'">+ New HOD</button>
   </div>
 </section>
 
-<!-- Stats -->
-<div class="stats-inline">
-  <div class="stat-inline">
-    <div class="label">Total HODs</div>
-    <div class="value" id="hod-stat-total">—</div>
-  </div>
-  <div class="stat-inline stat-inline-success">
-    <div class="label">Assigned</div>
-    <div class="value" id="hod-stat-assigned">—</div>
-  </div>
-  <div class="stat-inline stat-inline-accent">
-    <div class="label">Unassigned</div>
-    <div class="value" id="hod-stat-unassigned">—</div>
-  </div>
-  <div class="stat-inline stat-inline-primary">
-    <div class="label">Departments</div>
-    <div class="value" id="hod-stat-depts">—</div>
+<!-- Search -->
+<div class="filters">
+  <div class="form-group" style="flex:1;">
+    <label class="form-label">Search</label>
+    <input class="form-control" id="hod-search" placeholder="Department code, name, or HOD name…" onkeyup="FPU_ADMIN.loadHodBoard()" />
   </div>
 </div>
 
-<!-- Needs assignment panel -->
-<div class="panel" id="hod-unassigned-panel" style="display:none; border-left:4px solid #f59e0b;">
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline"><div class="label">Total HODs</div><div class="value" id="hod-stat-total">—</div></div>
+  <div class="stat-inline stat-inline-success"><div class="label">Assigned</div><div class="value" id="hod-stat-assigned">—</div></div>
+  <div class="stat-inline stat-inline-accent"><div class="label">Unassigned</div><div class="value" id="hod-stat-unassigned">—</div></div>
+  <div class="stat-inline stat-inline-primary"><div class="label">Departments</div><div class="value" id="hod-stat-depts">—</div></div>
+</div>
+
+<!-- Unassigned Panel -->
+<div class="panel" id="hod-unassigned-panel" style="display:none; border-left:4px solid #f59e0b; margin-bottom:16px;">
   <div class="panel-head">
     <h3>⚠️ HODs Without a Department</h3>
     <span class="small muted">Assign them to a department to activate</span>
@@ -49,140 +38,125 @@
   <div class="panel-body" id="hod-unassigned-body"></div>
 </div>
 
-<!-- Department cards -->
-<div id="hod-dept-grid" class="hod-dept-grid">
-  <div class="loading" style="grid-column:1/-1;">
-    <span class="spinner"></span> Loading HODs…
-  </div>
+<!-- Grid -->
+<div id="hod-dept-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:20px;">
+  <div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading HODs…</div>
 </div>
 
 <style>
-  .hod-dept-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 18px;
-    margin-top: 20px;
-  }
-  .hod-dept-card {
+  .hod-card {
     background: #fff;
-    border: 1px solid var(--fpu-border);
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 18px;
-    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
-    position: relative;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    position: relative;
     transition: transform 0.18s ease, box-shadow 0.18s ease;
   }
-  .hod-dept-card::before {
+  .hod-card::before {
     content: "";
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 4px;
-    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+    background: linear-gradient(90deg, #6b21a8, #9333ea);
   }
-  .hod-dept-card.vacant::before {
+  .hod-card.vacant::before {
     background: linear-gradient(90deg, #f59e0b, #fbbf24);
   }
-  .hod-dept-card:hover {
+  .hod-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 12px 28px rgba(15,23,42,0.10);
   }
-
-  .hdc-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
+  .hod-card.vacant {
+    opacity: 0.9;
+    border-color: #fcd34d;
   }
-  .hdc-code {
-    background: #ede9fe;
-    color: #6d28d9;
+  
+  .hod-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .hod-code {
+    background: #f3e8ff;
+    color: #6b21a8;
     font-family: 'Poppins', sans-serif;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 1px;
-    padding: 4px 10px;
-    border-radius: 6px;
+    font-size: 11px; font-weight: 800;
+    padding: 4px 10px; border-radius: 6px; letter-spacing: 1px;
   }
-  .hdc-school {
-    background: linear-gradient(135deg,#065f46,#047857);
-    color: #fff;
-    font-family: 'Poppins', sans-serif;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    padding: 4px 10px;
-    border-radius: 999px;
+  .hod-school {
+    background: #065f46; color: #fff;
+    font-family: 'Poppins', sans-serif; font-size: 10px; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; letter-spacing: 0.5px;
     text-transform: uppercase;
   }
-  .hod-dept-card h3 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.05rem;
-    color: #0f172a;
-    margin: 0;
-    line-height: 1.35;
+  .hod-card h3 {
+    font-family: 'Poppins', sans-serif; font-size: 1.05rem;
+    color: #0f172a; margin: 0; line-height: 1.35;
   }
-
-  .hdc-hod {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: #f8fafc;
-    border-radius: 10px;
+  
+  .hod-holder {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px; background: #f8fafc; border-radius: 10px;
+    margin-top: 4px;
   }
-  .hdc-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
-    color: #fff;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Poppins', sans-serif;
-    font-size: 15px;
-    font-weight: 800;
-    flex-shrink: 0;
-    overflow: hidden;
+  .hod-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, #6b21a8, #9333ea);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 800;
+    flex-shrink: 0; overflow: hidden;
   }
-  .hdc-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .hdc-avatar.vacant {
-    background: #fef3c7;
-    color: #b45309;
+  .hod-avatar.vacant { background: #fef3c7; color: #b45309; }
+  .hod-info { flex: 1; min-width: 0; }
+  .hod-name {
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700;
+    color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .hdc-hod-info { flex: 1; min-width: 0; }
-  .hdc-hod-name {
-    font-family: 'Poppins', sans-serif;
-    font-size: 13.5px;
-    font-weight: 700;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .hod-email {
+    font-size: 11.5px; color: #6b7280; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
   }
-  .hdc-hod-email {
-    font-size: 12px;
-    color: #6b7280;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .hdc-hod.vacant .hdc-hod-name { color: #b45309; }
-
-  .hdc-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding-top: 10px;
+  .hod-name.vacant { color: #b45309; font-style: italic; }
+  
+  .hod-actions {
+    display: flex; gap: 6px; padding-top: 8px;
     border-top: 1px solid #f1f5f9;
   }
-  .hdc-actions .btn { flex: 1; justify-content: center; padding: 6px 10px; font-size: 11.5px; }
+  .hod-actions .btn {
+    flex: 1; justify-content: center; padding: 6px 10px; font-size: 11.5px;
+  }
+
+  /* ==========================================
+     MODAL STYLES
+     ========================================== */
+  .fpu-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 99999; padding: 20px;
+  }
+  .fpu-modal {
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    max-height: 85vh; display: flex; flex-direction: column;
+    overflow: hidden; width: 100%; max-width: 500px;
+  }
+  .fpu-modal-header {
+    padding: 16px 24px; border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc; display: flex; justify-content: space-between;
+    align-items: center; flex-shrink: 0;
+  }
+  .fpu-modal-header h3 { margin: 0; font-size: 1.1rem; color: #0f172a; font-weight: 700; }
+  .fpu-modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+  .fpu-modal-footer {
+    padding: 14px 24px; border-top: 1px solid #e2e8f0;
+    background: #f8fafc; display: flex; gap: 8px;
+    justify-content: flex-end; flex-shrink: 0;
+  }
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadHodBoard()
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadHodBoard) {
+    setTimeout(window.FPU_ADMIN.loadHodBoard, 100);
+  }
 </script>

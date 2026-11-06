@@ -2844,12 +2844,19 @@ async function loadStaffDirectory() {
   }
 }
 
-// 2. HODs Board
+// ============================================
+// HODs: Board with search, view, and replace
+// ============================================
+let ALL_HODS = [];
+let ALL_DEPTS_HOD = [];
+
 async function loadHodBoard() {
   const grid = document.getElementById('hod-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading HODs…</div>';
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading HODs…</div>';
+
+  const search = (document.getElementById('hod-search') || {}).value.toLowerCase() || '';
 
   try {
     const [deptsRes, hodsRes, schoolsRes] = await Promise.all([
@@ -2862,64 +2869,215 @@ async function loadHodBoard() {
     const hods = (await hodsRes.json()).data || [];
     const schools = (await schoolsRes.json()).data || [];
 
-    const hodById = new Map(hods.map((h) => [h.id, h]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
+    ALL_HODS = hods;
+    ALL_DEPTS_HOD = depts;
 
-    const assigned = new Set();
-    depts.forEach((d) => { if (d.hodUserId) assigned.add(d.hodUserId); });
+    const hodById = new Map(hods.map(h => [Number(h.id), h]));
+    const schoolMap = new Map(schools.map(s => [Number(s.id), s]));
 
-    const unassigned = hods.filter((h) => !assigned.has(h.id));
+    // Filter departments by search
+    let visible = depts.filter(d => {
+      if (!search) return true;
+      const h = d.hodUserId ? hodById.get(Number(d.hodUserId)) : null;
+      const hay = [
+        d.code || '',
+        d.name || '',
+        h?.firstName || '',
+        h?.lastName || '',
+      ].join(' ').toLowerCase();
+      return hay.includes(search);
+    });
 
-    setText('hod-stat-total', hods.length);
-    setText('hod-stat-assigned', assigned.size);
-    setText('hod-stat-unassigned', unassigned.length);
-    setText('hod-stat-depts', depts.length);
+    // Stats
+    const assigned = depts.filter(d => d.hodUserId).length;
+    const unassigned = hods.length - assigned;
+    const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setT('hod-stat-total', hods.length);
+    setT('hod-stat-assigned', assigned);
+    setT('hod-stat-unassigned', unassigned);
+    setT('hod-stat-depts', depts.length);
 
-    const unassignedPanel = document.getElementById('hod-unassigned-panel');
-    const unassignedBody = document.getElementById('hod-unassigned-body');
-    if (unassigned.length && unassignedPanel && unassignedBody) {
-      unassignedPanel.style.display = 'block';
-      unassignedBody.innerHTML = unassigned.map((h) => `
-        <div class="session-item">
-          <div class="meta"><strong>${escapeHtml(h.firstName + ' ' + h.lastName)}</strong>${escapeHtml(h.email)}</div>
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.assignHodDept(${h.id})">Assign Dept</button>
-        </div>
-      `).join('');
-    } else if (unassignedPanel) {
-      unassignedPanel.style.display = 'none';
-    }
-
-    grid.innerHTML = depts.map((d) => {
-      const hod = d.hodUserId ? hodById.get(d.hodUserId) : null;
-      const school = schoolMap.get(d.schoolId);
+    // Render cards
+    grid.innerHTML = visible.map(d => {
+      const hod = d.hodUserId ? hodById.get(Number(d.hodUserId)) : null;
+      const school = schoolMap.get(Number(d.schoolId));
       const vacant = !hod;
-      const initials = hod ? ((hod.firstName || ' ')[0] + (hod.lastName || ' ')[0]).toUpperCase().trim() : '—';
+      const initials = hod 
+        ? ((hod.firstName || ' ')[0] + (hod.lastName || ' ')[0]).toUpperCase().trim() 
+        : '?';
+      const fullName = hod ? `${hod.firstName || ''} ${hod.lastName || ''}`.trim() : 'No HOD assigned';
 
       return `
-        <div class="hod-dept-card ${vacant ? 'vacant' : ''}">
-          <div class="hdc-head">
-            <span class="hdc-code">${escapeHtml(d.code)}</span>
-            <span class="hdc-school">${escapeHtml(school?.code || '')}</span>
+        <div class="hod-card ${vacant ? 'vacant' : ''}">
+          <div class="hod-head">
+            <span class="hod-code">${escapeHtml(d.code || '')}</span>
+            <span class="hod-school">${escapeHtml(school?.code || '')}</span>
           </div>
-          <h3>${escapeHtml(d.name)}</h3>
-          <div class="hdc-hod ${vacant ? 'vacant' : ''}">
-            <div class="hdc-avatar ${vacant ? 'vacant' : ''}">${hod?.photoUrl ? `<img src="${escapeHtml(hod.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
-            <div class="hdc-hod-info">
-              <div class="hdc-hod-name">${vacant ? 'Vacant' : escapeHtml(`${hod.firstName} ${hod.lastName}`)}</div>
-              <div class="hdc-hod-email">${vacant ? 'No HOD assigned' : escapeHtml(hod.email)}</div>
+          <h3>${escapeHtml(d.name || '')}</h3>
+          <div class="hod-holder">
+            <div class="hod-avatar ${vacant ? 'vacant' : ''}">${escapeHtml(initials)}</div>
+            <div class="hod-info">
+              <div class="hod-name ${vacant ? 'vacant' : ''}">${escapeHtml(fullName)}</div>
+              <div class="hod-email">${escapeHtml(hod?.email || 'Assign a new HOD to activate')}</div>
             </div>
           </div>
-          <div class="hdc-actions">
-            ${vacant
-              ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.assignHodDept(null, ${d.id})">Assign HOD</button>`
-              : `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile', { id: ${hod.id} })">View HOD</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.assignHodDept(null, ${d.id})">Replace</button>`}
+          <div class="hod-actions">
+            ${vacant 
+              ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.replaceHod(${d.id})">+ Assign HOD</button>`
+              : `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.viewHodDetails(${hod.id})">View HOD</button>
+                 <button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.replaceHod(${d.id})">Replace</button>`
+            }
           </div>
         </div>
       `;
     }).join('');
+
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[hods] Error:', err);
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// HODs: View details modal
+// ============================================
+function viewHodDetails(hodId) {
+  const hod = ALL_HODS.find(h => Number(h.id) === Number(hodId));
+  if (!hod) return;
+
+  const fullName = `${hod.firstName || ''} ${hod.lastName || ''}`.trim();
+  const initials = ((hod.firstName || ' ')[0] + (hod.lastName || ' ')[0]).toUpperCase().trim() || 'H';
+  const dept = ALL_DEPTS_HOD.find(d => Number(d.hodUserId) === Number(hodId));
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>HOD Details</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6b21a8,#9333ea);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;margin-bottom:12px;">
+            ${escapeHtml(initials)}
+          </div>
+          <h3 style="margin:0;font-size:1.2rem;color:#0f172a;">${escapeHtml(fullName)}</h3>
+          <div style="color:#6b7280;font-size:13px;margin-top:4px;">${escapeHtml(hod.email || '')}</div>
+        </div>
+        <div style="background:#f8fafc;border-radius:8px;padding:14px;">
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #e2e8f0;font-size:13px;">
+            <span style="color:#64748b;">Department</span>
+            <strong>${escapeHtml(dept?.name || '—')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #e2e8f0;font-size:13px;">
+            <span style="color:#64748b;">Department Code</span>
+            <strong>${escapeHtml(dept?.code || '—')}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+            <span style="color:#64748b;">Phone</span>
+            <strong>${escapeHtml(hod.phone || '—')}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Close</button>
+        <button class="btn btn-primary" onclick="FPU_ADMIN.sendHodEmail(${hod.id})">✉️ Send Email</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+}
+
+// ============================================
+// HODs: Replace HOD modal
+// ============================================
+async function replaceHod(deptId) {
+  const dept = ALL_DEPTS_HOD.find(d => Number(d.id) === Number(deptId));
+  if (!dept) return;
+
+  // Fetch lecturers in this department
+  let lecturers = [];
+  try {
+    const res = await adminFetch(`/api/admin/staff?role=lecturer&departmentId=${deptId}&limit=500`);
+    lecturers = (await res.json()).data || [];
+  } catch (err) {
+    console.error('[replace hod]', err);
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Assign HOD — ${escapeHtml(dept.name || '')}</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <div class="form-group">
+          <label class="form-label">Select new HOD from ${escapeHtml(dept.name || '')}</label>
+          <select class="form-select" id="hod-new-hod">
+            <option value="">— Choose lecturer —</option>
+            ${lecturers.map(l => `
+              <option value="${l.id}">${escapeHtml((l.firstName || '') + ' ' + (l.lastName || ''))} — ${escapeHtml(l.email || '')}</option>
+            `).join('')}
+          </select>
+        </div>
+        <p class="muted small" style="margin-top:8px;">Only lecturers in this department are shown.</p>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn btn-primary" id="hod-save-btn">Assign HOD</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#hod-save-btn').onclick = async () => {
+    const newHodId = Number(backdrop.querySelector('#hod-new-hod').value);
+    if (!newHodId) { showToast('⚠️ Please select a lecturer.', 'warning'); return; }
+
+    try {
+      const res = await adminFetch(`/api/admin/hods/${newHodId}/assign-department`, {
+        method: 'POST',
+        body: JSON.stringify({ departmentId: Number(deptId) }),
+      });
+      if (!res.ok) throw new Error('Failed to assign HOD');
+      showToast('✅ HOD assigned.', 'success');
+      backdrop.remove();
+      loadHodBoard();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+}
+
+// ============================================
+// HODs: Send Email
+// ============================================
+function sendHodEmail(hodId) {
+  const hod = ALL_HODS.find(h => Number(h.id) === Number(hodId));
+  if (!hod || !hod.email) {
+    showToast('⚠️ No email on file for this HOD.', 'warning');
+    return;
+  }
+  const subject = encodeURIComponent('FPU Admin Notification');
+  const body = encodeURIComponent(`Dear ${hod.firstName || 'HOD'},\n\n\n\nRegards,\nFPU Admin`);
+  window.location.href = `mailto:${hod.email}?subject=${subject}&body=${body}`;
+}
+
+// ============================================
+// HODs: Email All HODs at once
+// ============================================
+function emailAllHods() {
+  const emails = ALL_HODS.map(h => h.email).filter(Boolean);
+  if (!emails.length) {
+    showToast('⚠️ No HODs have emails on file.', 'warning');
+    return;
+  }
+  const subject = encodeURIComponent('FPU — Important Message to all HODs');
+  const body = encodeURIComponent(`Dear HODs,\n\n\n\nRegards,\nRegistrar`);
+  window.location.href = `mailto:${emails.join(',')}?subject=${subject}&body=${body}`;
 }
 
 // ============================================
@@ -10074,6 +10232,7 @@ window.FPU_ADMIN = {
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
+  viewHodDetails, replaceHod, sendHodEmail, emailAllHods,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,

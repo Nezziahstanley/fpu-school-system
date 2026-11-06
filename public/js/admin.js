@@ -3675,18 +3675,13 @@ async function loadBorrowsTable() {
     }
 
     tbody.innerHTML = records.map(r => {
-      // 1. EXPLICIT COLUMN MAPPING (Based on your Neon DB structure)
       const rawStatus = String(r.status || 'borrowed').toLowerCase();
-      
-      // Force it to look exactly for due_at / borrowed_at (and fallback to other common names)
-      const rawDue = r.due_at || r.dueDate || r.due_date || r.due;
-      const rawBorrowed = r.borrowed_at || r.borrowedAt || r.borrowed_at || r.created_at;
+      const rawDue = r.due_at;
+      const rawBorrowed = r.borrowed_at;
 
-      // Format Dates
       const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
       const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
 
-      // Calculate Days Left
       let daysHtml = '—';
       let isOverdue = false;
       
@@ -3712,14 +3707,11 @@ async function loadBorrowsTable() {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      // 2. ROBUST BOOK & USER DATA
-      const bookTitle = r.book_title || r.book?.title || r.bookTitle || 'Unknown Book';
-      const bookAuthor = r.book?.author || r.author || '';
-      
-      const fullName = `${r.first_name || r.user?.firstName || ''} ${r.last_name || r.user?.lastName || ''}`.trim() || 'Unknown User';
-      const matric = r.matric_number || r.user?.matricNumber || r.matric_no || '—';
+      const bookTitle = r.book_title || 'Unknown Book';
+      const bookAuthor = r.book_author || '';
+      const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown User';
+      const matric = r.matric_number || '—';
 
-      // 3. ACTIONS
       let actionsHtml = '';
       const isActive = ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus);
       

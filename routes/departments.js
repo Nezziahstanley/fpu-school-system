@@ -12,9 +12,9 @@ const courseQueries = require('../db/queries/courses');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
-// NOTE: We removed the failing `require('../models')` import.
-// We will use the database connection directly instead.
-const db = require('../db'); // Assumes you have a db export here
+// ⚠️ IMPORTANT: UPDATE THIS PATH TO MATCH YOUR ACTUAL DATABASE FILE ⚠️
+// Example: const db = require('../config/database'); or const pool = require('../db');
+const db = require('../db'); 
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'rector', 'hod'];
 
@@ -31,31 +31,33 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 });
 
 // IMPORTANT: /transcript/:userId must be declared BEFORE /:id
+// This endpoint uses raw PostgreSQL syntax specifically for Neon
 router.get('/transcript/:userId', requireRole(STAFF), async (req, res, next) => {
   try {
-    // 1. Fetch student using raw SQL
+    // 1. Fetch student using Postgres syntax ($1)
     const studentQuery = `
-      SELECT u.*, p.name as programmeName, d.name as departmentName 
+      SELECT u.*, p.name as "programmeName", d.name as "departmentName" 
       FROM users u
-      LEFT JOIN programmes p ON u.programmeId = p.id
-      LEFT JOIN departments d ON u.departmentId = d.id
-      WHERE u.id = ?
+      LEFT JOIN programmes p ON u."programmeId" = p.id
+      LEFT JOIN departments d ON u."departmentId" = d.id
+      WHERE u.id = $1
     `;
-    // Use whatever db query method you have (e.g., db.query, pool.query, knex)
-    const [studentRows] = await db.query(studentQuery, [req.params.userId]);
     
-    if (!studentRows || studentRows.length === 0) {
+    const studentResult = await db.query(studentQuery, [req.params.userId]);
+    const student = studentResult.rows[0];
+    
+    if (!student) {
       return res.status(404).json({ success: false, error: 'Student not found.' });
     }
-    const student = studentRows[0];
 
-    // 2. Fetch results using raw SQL
+    // 2. Fetch results (using $1 for Postgres)
     const resultsQuery = `
       SELECT * FROM results 
-      WHERE userId = ? AND published = 1
-      ORDER BY session ASC, semester ASC, courseCode ASC
+      WHERE "userId" = $1 AND published = true
+      ORDER BY session ASC, semester ASC, "courseCode" ASC
     `;
-    const [results] = await db.query(resultsQuery, [student.id]);
+    const resultsResult = await db.query(resultsQuery, [student.id]);
+    const results = resultsResult.rows;
 
     return res.json({ success: true, student, results });
   } catch (err) {

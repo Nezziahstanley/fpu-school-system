@@ -211,15 +211,26 @@ async function list({
 
   const where = conds.length ? and(...conds) : undefined;
 
-  return db
-    .select(SAFE_COLS)
+  // We add the staffProfiles join here
+  const results = await db
+    .select({
+      user: SAFE_COLS,
+      staffProfile: staffProfiles
+    })
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // <--- Added Join
     .where(where)
     .orderBy(desc(users.createdAt))
     .limit(Math.min(Number(limit) || 50, 500))
     .offset(Number(offset) || 0);
+
+  // Flatten the result for the frontend
+  return results.map(r => ({
+    ...r.user,
+    staffProfile: r.staffProfile || null
+  }));
 }
 
 // ------------------------------------------------------------

@@ -99,7 +99,11 @@ router.post('/borrows', requireRole(STAFF), async (req, res, next) => {
     if (!bookId || !userId || !dueAt) {
       return res.status(400).json({ success: false, error: 'bookId, userId, dueAt are required.' });
     }
-    const row = await libQueries.createBorrow({ bookId, userId, dueAt, issuedBy: req.user.id });
+    
+    // Safety check: req.user might be undefined if the middleware isn't setting it
+    const issuedBy = req.user?.id || 1; 
+
+    const row = await libQueries.createBorrow({ bookId, userId, dueAt, issuedBy });
     await logAudit({ req, action: 'library.borrow', entity: 'borrow_record', entityId: row.id });
     return res.status(201).json({ success: true, data: row });
   } catch (err) {

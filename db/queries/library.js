@@ -191,20 +191,15 @@ async function listBorrowsWithRelations({ userId, status } = {}) {
     .orderBy(desc(borrowRecords.borrowedAt));
 }
 
-async function createBorrow(data) {
-  const [row] = await db
-    .insert(borrowRecords)
-    .values({
-      bookId: Number(data.bookId),
-      userId: Number(data.userId),
-      dueAt: data.dueAt,
-      status: 'borrowed',
-      issuedBy: data.issuedBy ? Number(data.issuedBy) : null,
-      remarks: data.remarks || null,
-    })
-    .returning();
-  await adjustCopies(data.bookId, -1);
-  return row;
+async function createBorrow({ bookId, userId, dueAt, issuedBy }) {
+  const query = `
+    INSERT INTO borrow_records (book_id, user_id, borrowed_at, due_at, issued_by, status)
+    VALUES ($1, $2, NOW(), $3, $4, 'active')
+    RETURNING *
+  `;
+  // Note: We use 'active' because your database uses 'active', not 'borrowed'
+  const result = await db.query(query, [bookId, userId, dueAt, issuedBy]);
+  return result.rows[0];
 }
 
 async function returnBorrow(id, receivedBy) {

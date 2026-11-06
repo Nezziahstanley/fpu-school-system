@@ -3477,10 +3477,10 @@ async function loadClearanceDepartments() {
 }
 
 // ============================================
-// CLEARANCES: DRILL-DOWN (Department Details)
+// CLEARANCES: By Department (Drill-down)
 // ============================================
 async function loadDepartmentClearances() {
-  const root = document.getElementById('clr-detail-root');
+  const root = document.getElementById('cdd-tbody');
   if (!root) return;
 
   // Get URL params
@@ -3492,17 +3492,20 @@ async function loadDepartmentClearances() {
   const deptName = params.get('name') || 'Department';
 
   if (!departmentId) {
-    root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No department selected.</div>';
+    root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
     return;
   }
 
-  document.getElementById('clr-detail-title').textContent = deptName;
-  document.getElementById('clr-detail-subtitle').textContent = `Manage clearances for ${deptName}`;
+  // Update page titles
+  const titleEl = document.getElementById('cd-title');
+  const subEl = document.getElementById('cd-subtitle');
+  if (titleEl) titleEl.textContent = deptName;
+  if (subEl) subEl.textContent = `Manage student clearances for ${deptName}`;
 
-  root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading students…</div>';
+  root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    // Load students in this department + all clearances
+    // Fetch students in this department + all clearances
     const [studentsRes, clrRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch(`/api/admin/clearances${session ? '?sessionId='+session : ''}`).catch(() => null),
@@ -3511,99 +3514,134 @@ async function loadDepartmentClearances() {
     const students = studentsRes ? (await studentsRes.json()).data || [] : [];
     const clearances = clrRes ? (await clrRes.json()).data || [] : [];
 
-    // Build map of student → clearance status
+    // Build a map: studentId → clearance record
     const clearanceByStudent = new Map();
     clearances.forEach(c => {
       const row = c.clearance || c;
-      clearanceByStudent.set(row.studentId, row);
+      if (row.studentId || row.student_id) {
+        clearanceByStudent.set(Number(row.studentId || row.student_id), row);
+      }
     });
 
-    if (!students.length) {
-      root.innerHTML = '<div class="empty-state" style="text-align:center; padding:60px;"><div style="font-size:3rem;">👻</div><h3>No students in this department</h3></div>';
-      return;
-    }
+    // Apply client-side filters
+    const statusFilter = document.getElementById('cdd-filter-status')?.value || '';
+    const searchVal = document.getElementById('cdd-search')?.value.toLowerCase() || '';
 
     // Update stats
     let cleared = 0, pending = 0, rejected = 0, missing = 0;
     students.forEach(s => {
-      const clr = clearanceByStudent.get(s.id);
+      const clr = clearanceByStudent.get(Number(s.id));
       if (!clr) missing++;
       else if (clr.status === 'cleared') cleared++;
       else if (clr.status === 'pending') pending++;
       else if (clr.status === 'rejected') rejected++;
     });
 
-    document.getElementById('clr-detail-stats').innerHTML = `
-      <div class="stat-card" style="border-left:4px solid #10b981;">
-        <div class="label">Cleared</div><div class="value">${cleared}</div>
-      </div>
-      <div class="stat-card" style="border-left:4px solid #f59e0b;">
-        <div class="label">Pending</div><div class="value">${pending}</div>
-      </div>
-      <div class="stat-card" style="border-left:4px solid #dc2626;">
-        <div class="label">Rejected</div><div class="value">${rejected}</div>
-      </div>
-      <div class="stat-card" style="border-left:4px solid #94a3b8;">
-        <div class="label">No Record</div><div class="value">${missing}</div>
-      </div>
-    `;
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('cdd-stat-students', students.length);
+    setText('cdd-stat-cleared', cleared);
+    setText('cdd-stat-pending', pending);
+    setText('cdd-stat-rate', students.length ? Math.round((cleared / students.length) * 100) + '%' : '—');
 
-    // Render table
-    root.innerHTML = `
-      <div class="table-wrap" style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden;">
-        <table class="table-admin" style="width:100%;">
-          <thead style="background:#f8fafc; font-size:11px; text-transform:uppercase; color:#64748b;">
-            <tr>
-              <th style="padding:12px 20px;">Student</th>
-              <th style="padding:12px 20px;">Matric</th>
-              <th style="padding:12px 20px;">Level</th>
-              <th style="padding:12px 20px;">Status</th>
-              <th style="padding:12px 20px; text-align:right;">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${students.map(s => {
-              const clr = clearanceByStudent.get(s.id);
-              const status = clr?.status || 'missing';
-              const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim() || 'Unknown';
+    // Filter the student list
+    const filtered = students.filter(s => {
+      const clr = clearanceByStudent.get(Number(s.id));
+      const status = clr?.status || 'missing';
+      const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
+      const matric = String(s.matricNumber || s.matric_number || '').toLowerCase();
 
-              let badgeClass = 'badge-missing';
-              let actions = '';
-              
-              if (status === 'cleared') {
-                badgeClass = 'badge-cleared';
-                actions = `<button class="btn btn-sm btn-outline" disabled>✔ Cleared</button>`;
-              } else if (status === 'pending') {
-                badgeClass = 'badge-pending';
-                actions = `
-                  <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
-                  <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.clearStudent(${s.id}, 'rejected')">✕ Reject</button>
-                `;
-              } else if (status === 'rejected') {
-                badgeClass = 'badge-rejected';
-                actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
-              } else {
-                badgeClass = 'badge-missing';
-                actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">+ Create & Clear</button>`;
-              }
+      if (statusFilter && status !== statusFilter) return false;
+      if (searchVal && !fullName.toLowerCase().includes(searchVal) && !matric.includes(searchVal)) return false;
+      return true;
+    });
 
-              return `
-                <tr>
-                  <td style="padding:12px 20px;">${escapeHtml(fullName)}</td>
-                  <td style="padding:12px 20px;"><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
-                  <td style="padding:12px 20px;">${escapeHtml(s.level || '—')}</td>
-                  <td style="padding:12px 20px;"><span class="badge ${badgeClass}">${status.toUpperCase()}</span></td>
-                  <td style="padding:12px 20px; text-align:right;">${actions}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+    if (!filtered.length) {
+      root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b;">No students match your filters.</td></tr>';
+      return;
+    }
+
+    // Render the table
+    root.innerHTML = filtered.map(s => {
+      const clr = clearanceByStudent.get(Number(s.id));
+      const status = clr?.status || 'missing';
+      const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim() || 'Unknown';
+      
+      let badgeClass = 'badge-missing';
+      let actions = '';
+      
+      if (status === 'cleared') {
+        badgeClass = 'badge-cleared';
+        actions = `<button class="btn btn-sm btn-outline" disabled>✔ Cleared</button>`;
+      } else if (status === 'pending') {
+        badgeClass = 'badge-pending';
+        actions = `
+          <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
+          <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.clearStudent(${s.id}, 'rejected')">✕ Reject</button>
+        `;
+      } else if (status === 'rejected') {
+        badgeClass = 'badge-rejected';
+        actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
+      } else {
+        badgeClass = 'badge-missing';
+        actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">+ Create & Clear</button>`;
+      }
+
+      return `
+        <tr>
+          <td style="padding:12px 20px;"><input type="checkbox" class="clr-student-check" value="${s.id}" style="width:16px; height:16px; accent-color:#065f46;" /></td>
+          <td style="padding:12px 20px;"><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
+          <td style="padding:12px 20px;">${escapeHtml(fullName)}</td>
+          <td style="padding:12px 20px;">${escapeHtml(s.level || '—')}</td>
+          <td style="padding:12px 20px;"><span class="badge ${badgeClass}">${status.toUpperCase()}</span></td>
+          <td style="padding:12px 20px; font-size:12px; color:#64748b;">${escapeHtml(clr?.remarks || '—')}</td>
+          <td style="padding:12px 20px; text-align:right;">${actions}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Update "Showing X" counter
+    setText('cdd-count', `Showing ${filtered.length} of ${students.length} students`);
+
+    // Wire "Select All" checkbox
+    const selectAll = document.getElementById('cd-select-all');
+    if (selectAll && !selectAll.__wired) {
+      selectAll.__wired = true;
+      selectAll.onchange = () => {
+        document.querySelectorAll('.clr-student-check').forEach(cb => cb.checked = selectAll.checked);
+      };
+    }
+
+    // Wire Export CSV button
+    const exportBtn = document.getElementById('cd-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => {
+        const headers = ['Matric', 'Student Name', 'Level', 'Status', 'Remarks'];
+        const rows = filtered.map(s => {
+          const clr = clearanceByStudent.get(Number(s.id));
+          const status = clr?.status || 'missing';
+          const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim() || 'Unknown';
+          return [
+            s.matricNumber || s.matric_number || '',
+            fullName,
+            s.level || '',
+            status,
+            clr?.remarks || ''
+          ];
+        });
+        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clearances-${deptName.replace(/\s/g,'-')}-${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+        showToast('✅ Exported.', 'success');
+      };
+    }
 
   } catch (err) {
-    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+    root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -8809,7 +8847,7 @@ window.FPU_ADMIN = {
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
 
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments,  bulkClearClearances, exportClearanceCSV,
+  loadFeeDepartments, loadPaymentDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
 
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,

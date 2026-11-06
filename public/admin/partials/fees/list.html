@@ -40,6 +40,7 @@
 </div>
 
 <style>
+  /* Card Styles */
   .fee-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -101,6 +102,69 @@
     border-top: 1px solid #f1f5f9;
   }
   .fee-actions .btn { flex: 1; justify-content: center; }
+
+  /* ==========================================
+     FORCE MODAL TO CENTER ON SCREEN
+     ========================================== */
+  .fpu-modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(2px);
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+    padding: 20px;
+  }
+
+  .fpu-modal {
+    background: #fff !important;
+    border-radius: 14px !important;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35) !important;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .fpu-modal-header {
+    padding: 16px 24px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .fpu-modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .fpu-modal-body {
+    padding: 20px 24px !important;
+    overflow-y: auto !important;
+    flex: 1;
+  }
+
+  .fpu-modal-footer {
+    padding: 14px 24px !important;
+    border-top: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
 </style>
 
 <script>

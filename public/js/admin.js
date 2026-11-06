@@ -9608,17 +9608,20 @@ async function loadFeeLevels() {
   }
 }
 
+// ============================================
+// FEES: Add new fee level (Modal)
+// ============================================
 async function openAddFeeModal() {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.innerHTML = `
-    <div class="fpu-modal" style="max-width:480px;">
+    <div class="fpu-modal">
       <div class="fpu-modal-header">
         <h3>Add Fee Level</h3>
         <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
       </div>
       <div class="fpu-modal-body">
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom:16px;">
           <label class="form-label">Level <span class="req">*</span></label>
           <select class="form-select" id="fee-new-level">
             <option value="ND 1">ND 1</option>
@@ -9634,7 +9637,7 @@ async function openAddFeeModal() {
       </div>
       <div class="fpu-modal-footer">
         <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
-        <button class="btn btn-primary" id="fee-save-btn">Save</button>
+        <button class="btn btn-primary" id="fee-save-btn">Save Fee</button>
       </div>
     </div>
   `;
@@ -9659,6 +9662,91 @@ async function openAddFeeModal() {
         throw new Error(err.error || 'Failed to save fee');
       }
       showToast('✅ Fee level added.', 'success');
+      backdrop.remove();
+      loadFeeLevels();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+}
+
+// ============================================
+// FEES: Edit existing fee level (Modal)
+// ============================================
+async function openEditFeeModal(id, level, amount) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Edit Fee — ${escapeHtml(level)}</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <div class="form-group">
+          <label class="form-label">Amount (₦) <span class="req">*</span></label>
+          <input class="form-control" type="number" step="0.01" id="fee-edit-amount" value="${amount}" />
+        </div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn btn-primary" id="fee-update-btn">Update Fee</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#fee-update-btn').onclick = async () => {
+    const newAmount = Number(backdrop.querySelector('#fee-edit-amount').value);
+    if (!newAmount || newAmount <= 0) {
+      showToast('⚠️ Please enter a valid amount.', 'warning');
+      return;
+    }
+
+    try {
+      const res = await adminFetch(`/api/admin/fees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ amount: newAmount }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      showToast('✅ Fee updated.', 'success');
+      backdrop.remove();
+      loadFeeLevels();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+}
+
+// ============================================
+// FEES: Delete fee level (Modal)
+// ============================================
+async function deleteFeeLevel(id, level) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Delete Fee Level</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <p style="margin-bottom: 20px;">Are you sure you want to delete the <strong>${escapeHtml(level)}</strong> fee structure?</p>
+        <p class="muted small">This action cannot be undone. Students won't be able to pay this level anymore.</p>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626;" id="fee-delete-btn">Delete Fee</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#fee-delete-btn').onclick = async () => {
+    try {
+      const res = await adminFetch(`/api/admin/fees/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      showToast('🗑️ Fee level deleted.', 'success');
       backdrop.remove();
       loadFeeLevels();
     } catch (err) {
@@ -9796,7 +9884,7 @@ window.FPU_ADMIN = {
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
   loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
-  
+
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
   deleteNotification, loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats,

@@ -6588,7 +6588,6 @@ async function loadSecurityEvents() {
 // REPORTS
 // ============================================
 async function loadReports() {
-  // Safe fetch helper
   async function safeJson(url) {
     try {
       const res = await adminFetch(url);
@@ -6598,30 +6597,31 @@ async function loadReports() {
     } catch { return null; }
   }
 
-  const [students, applications, programmes, payments] = await Promise.all([
+  const [students, applications, programmes, paymentsRaw] = await Promise.all([
     safeJson('/api/admin/students?limit=5000'),
     safeJson('/api/admin/applications?limit=5000'),
     safeJson('/api/admin/programmes'),
     safeJson('/api/admin/payments?limit=5000'),
   ]);
 
-  // KPIs
+  // Normalize payments: unwrap nested `payment` object if present
+  const payments = Array.isArray(paymentsRaw)
+    ? paymentsRaw.map((row) => row.payment || row)
+    : [];
+
+  // ---------- KPI tiles ----------
   setText('rep-stat-students', Array.isArray(students) ? students.length : 0);
   setText('rep-stat-apps', Array.isArray(applications) ? applications.length : 0);
   setText('rep-stat-progs', Array.isArray(programmes) ? programmes.length : 0);
 
-  let revTotal = 0;
-  if (Array.isArray(payments)) {
-    payments.forEach(p => {
-      if (p.status === 'verified') revTotal += Number(p.amount) || 0;
-    });
-  }
+  const revTotal = payments
+    .filter((p) => p.status === 'verified')
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
   setText('rep-stat-revenue', money(revTotal));
 
-  // If Chart.js isn't available, stop after KPIs
+  // If Chart.js isn't available, stop
   if (typeof Chart === 'undefined') return;
 
-  // Helper to replace canvas with a message if there's no data
   function emptyState(id, msg) {
     const canvas = document.getElementById(id);
     if (canvas && canvas.parentElement) {
@@ -6629,99 +6629,140 @@ async function loadReports() {
     }
   }
 
-  // Chart 1: Admissions
+  // ---------- Chart 1: Admission Trend ----------
   const chartA = document.getElementById('rep-chart-admission');
   if (chartA && Array.isArray(applications) && applications.length > 0) {
     const counts = {};
-    applications.forEach(a => {
+    applications.forEach((a) => {
       if (!a.createdAt) return;
       const d = new Date(a.createdAt);
       const m = d.toLocaleString('default', { month: 'short', year: 'numeric' });
       counts[m] = (counts[m] || 0) + 1;
     });
+    const sortedKeys = Object.keys(counts).sort((a, b) => new Date('1 ' + a) - new Date('1 ' + b));
     new Chart(chartA, {
       type: 'line',
       data: {
-        labels: Object.keys(counts),
-        datasets: [{ data: Object.values(counts), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', fill: true, tension: 0.4 }]
+        labels: sortedKeys,
+        datasets: [{ data: sortedKeys.map((k) => counts[k]), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', fill: true, tension: 0.4, borderWidth: 3 }],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
   } else { emptyState('rep-chart-admission', 'No admissions data.'); }
 
-  // Chart 2: Revenue
+  // ---------- Chart 2: Revenue Trend ----------
   const chartR = document.getElementById('rep-chart-revenue');
-  if (chartR && Array.isArray(payments) && payments.length > 0) {
+  if (chartR && payments.length > 0) {
     const counts = {};
-    payments.forEach(p => {
+    payments.forEach((p) => {
       if (p.status !== 'verified' || !p.createdAt) return;
       const d = new Date(p.createdAt);
       const m = d.toLocaleString('default', { month: 'short', year: 'numeric' });
       counts[m] = (counts[m] || 0) + (Number(p.amount) || 0);
     });
-    new Chart(chartR, {
-      type: 'line',
-      data: {
-        labels: Object.keys(counts),
-        datasets: [{ data: Object.values(counts), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', fill: true, tension: 0.4 }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
-  } else { emptyState('rep-chart-revenue', 'No revenue data.'); }
+    const sortedKeys = Object.keys(counts).sort((a, b) => new Date('1 ' + a) - new Date('1 ' + b));
+    if (sortedKeys.length) {
+      new Chart(chartR, {
+        type: 'line',
+        data: {
+          labels: sortedKeys,
+          datasets: [{ data: sortedKeys.map((k) => counts[k]), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', fill: true, tension: 0.4, borderWidth: 3 }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+      });
+    } else {
+      emptyState('rep-chart-revenue', 'No verified payments yet.');
+    }
+  } else { emptyState('rep-chart-revenue', 'No payments yet.'); }
 
-  // Chart 3: Departments
+  // ---------- Chart 3: Enrollment by Department ----------
   const chartD = document.getElementById('rep-chart-dept');
   if (chartD && Array.isArray(students) && students.length > 0) {
-    // Very simplified grouping since we don't have department names easily mapped here
+    const departments = await safeJson('/api/admin/departments');
+    const deptMap = new Map((departments || []).map((d) => [d.id, d.code || d.name]));
     const counts = {};
-    students.forEach(s => {
-      const dId = s.departmentId || 'Unknown';
-      counts[dId] = (counts[dId] || 0) + 1;
+    students.forEach((s) => {
+      const key = deptMap.get(s.departmentId) || `Dept ${s.departmentId || '?'}`;
+      counts[key] = (counts[key] || 0) + 1;
     });
     new Chart(chartD, {
       type: 'bar',
       data: {
         labels: Object.keys(counts),
-        datasets: [{ data: Object.values(counts), backgroundColor: '#3b82f6', borderRadius: 6 }]
+        datasets: [{ data: Object.values(counts), backgroundColor: '#3b82f6', borderRadius: 6 }],
       },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
     });
   } else { emptyState('rep-chart-dept', 'No department data.'); }
 
-  // Chart 4: App Status
+  // ---------- Chart 4: Applications by Status ----------
   const chartAp = document.getElementById('rep-chart-apps');
   if (chartAp && Array.isArray(applications) && applications.length > 0) {
     const counts = {};
-    applications.forEach(a => {
-      counts[a.status] = (counts[a.status] || 0) + 1;
+    applications.forEach((a) => {
+      const s = a.status || 'unknown';
+      counts[s] = (counts[s] || 0) + 1;
     });
+    const colorMap = {
+      approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6',
+      matriculated: '#3b82f6', pending: '#f59e0b', under_review: '#06b6d4',
+    };
     new Chart(chartAp, {
       type: 'doughnut',
       data: {
         labels: Object.keys(counts),
-        datasets: [{ data: Object.values(counts), backgroundColor: ['#f59e0b', '#3b82f6', '#065f46', '#dc2626'], borderWidth: 0 }]
+        datasets: [{
+          data: Object.values(counts),
+          backgroundColor: Object.keys(counts).map((k) => colorMap[k] || '#64748b'),
+          borderWidth: 0,
+        }],
       },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '70%' }
+      options: { responsive: true, maintainAspectRatio: false, cutout: '70%' },
     });
   } else { emptyState('rep-chart-apps', 'No application data.'); }
 
-  // Tables
+  // ---------- Applications by Status TABLE ----------
   const appTb = document.getElementById('rep-apps-tbody');
   if (appTb && Array.isArray(applications)) {
     const counts = {};
-    applications.forEach(a => { counts[a.status] = (counts[a.status] || 0) + 1; });
-    appTb.innerHTML = Object.entries(counts).map(([st, c]) => `<tr><td>${escapeHtml(st)}</td><td class="num">${c}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">No data.</td></tr>';
+    applications.forEach((a) => { counts[a.status || 'unknown'] = (counts[a.status || 'unknown'] || 0) + 1; });
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    appTb.innerHTML = entries.length
+      ? entries.map(([st, c]) => `<tr><td>${escapeHtml(st)}</td><td class="num">${c}</td></tr>`).join('')
+      : '<tr><td colspan="2" class="empty">No data.</td></tr>';
   }
 
+  // ---------- Payments by Status TABLE ----------
   const payTb = document.getElementById('rep-pay-tbody');
-  if (payTb && Array.isArray(payments)) {
+  if (payTb) {
     const counts = {};
-    payments.forEach(p => {
-      if (!counts[p.status]) counts[p.status] = { c: 0, t: 0 };
-      counts[p.status].c++;
-      counts[p.status].t += Number(p.amount) || 0;
+    payments.forEach((p) => {
+      const st = p.status || 'unknown';
+      if (!counts[st]) counts[st] = { count: 0, total: 0 };
+      counts[st].count++;
+      counts[st].total += Number(p.amount || 0);
     });
-    payTb.innerHTML = Object.entries(counts).map(([st, d]) => `<tr><td>${escapeHtml(st)}</td><td class="num">${d.c}</td><td class="num">${money(d.t)}</td></tr>`).join('') || '<tr><td colspan="3" class="empty">No data.</td></tr>';
+    const entries = Object.entries(counts).sort((a, b) => b[1].count - a[1].count);
+    payTb.innerHTML = entries.length
+      ? entries.map(([st, d]) =>
+          `<tr>
+            <td>${escapeHtml(st)}</td>
+            <td class="num">${d.count}</td>
+            <td class="num">${money(d.total)}</td>
+          </tr>`
+        ).join('')
+      : '<tr><td colspan="3" class="empty">No payments yet.</td></tr>';
+  }
+
+  // ---------- Wire export ----------
+  const exportBtn = document.getElementById('rep-export');
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.onclick = () => {
+      const table = document.getElementById('rep-apps-tbody')?.closest('table');
+      if (table) exportTableAsCSV(table, `reports-${new Date().toISOString().slice(0, 10)}.csv`);
+      else showToast('⚠️ Nothing to export yet.', 'warning');
+    };
   }
 }
 

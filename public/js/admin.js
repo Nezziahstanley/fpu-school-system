@@ -3675,14 +3675,14 @@ async function loadBorrowsTable() {
     }
 
     tbody.innerHTML = records.map(r => {
-      // 1. Robust Status Extraction
-      const rawStatus = String(r.status || r.borrowStatus || r.state || 'borrowed').toLowerCase();
+      // 1. EXPLICIT COLUMN MAPPING (Based on your Neon DB structure)
+      const rawStatus = String(r.status || 'borrowed').toLowerCase();
       
-      // 2. Robust Date Extraction (Handles snake_case, camelCase, etc.)
-      const rawDue = r.dueDate || r.due_date || r.due;
-      const rawBorrowed = r.borrowedAt || r.borrowed_at || r.createdAt || r.created_at || r.borrowDate;
-      
-      // Format dates
+      // Force it to look exactly for due_at / borrowed_at (and fallback to other common names)
+      const rawDue = r.due_at || r.dueDate || r.due_date || r.due;
+      const rawBorrowed = r.borrowed_at || r.borrowedAt || r.borrowed_at || r.created_at;
+
+      // Format Dates
       const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
       const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
 
@@ -3712,18 +3712,14 @@ async function loadBorrowsTable() {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      // 3. Robust Book Extraction
-      const bookTitle = r.book?.title || r.bookTitle || r.title || 'Unknown Book';
+      // 2. ROBUST BOOK & USER DATA
+      const bookTitle = r.book_title || r.book?.title || r.bookTitle || 'Unknown Book';
       const bookAuthor = r.book?.author || r.author || '';
+      
+      const fullName = `${r.first_name || r.user?.firstName || ''} ${r.last_name || r.user?.lastName || ''}`.trim() || 'Unknown User';
+      const matric = r.matric_number || r.user?.matricNumber || r.matric_no || '—';
 
-      // 4. Robust User Extraction
-      const u = r.user || r.student || r.borrower || {};
-      const firstName = u.firstName || u.first_name || '';
-      const lastName = u.lastName || u.last_name || '';
-      const fullName = `${firstName} ${lastName}`.trim() || u.name || 'Unknown User';
-      const matric = u.matricNumber || u.matric_no || u.staffId || '—';
-
-      // 5. Action Buttons
+      // 3. ACTIONS
       let actionsHtml = '';
       const isActive = ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus);
       
@@ -3760,6 +3756,42 @@ async function loadBorrowsTable() {
 
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+function updateBorrowStats(records) {
+  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
+  
+  records.forEach(r => {
+    const s = String(r.status || 'borrowed').toLowerCase();
+    const rawDue = r.due_at || r.dueDate || r.due_date;
+
+    if (['borrowed', 'active', 'issued'].includes(s)) {
+      counts.active++;
+      if (rawDue && new Date(rawDue) < new Date()) {
+        counts.overdue++;
+      }
+    } else if (s === 'overdue') {
+      counts.active++;
+      counts.overdue++;
+    } else if (s === 'returned' || s === 'completed') {
+      counts.returned++;
+    } else if (s === 'lost') {
+      counts.lost++;
+    }
+  });
+
+  if (document.getElementById('bor-stat-total')) {
+    document.getElementById('bor-stat-total').textContent = counts.total;
+    document.getElementById('bor-stat-active').textContent = counts.active;
+    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
+    document.getElementById('bor-stat-returned').textContent = counts.returned;
+    
+    document.getElementById('bor-count-all').textContent = counts.total;
+    document.getElementById('bor-count-borrowed').textContent = counts.active;
+    document.getElementById('bor-count-overdue').textContent = counts.overdue;
+    document.getElementById('bor-count-returned').textContent = counts.returned;
+    document.getElementById('bor-count-lost').textContent = counts.lost;
   }
 }
 

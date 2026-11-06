@@ -8776,7 +8776,7 @@ window.FPU_ADMIN = {
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept,
 
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
+  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
 
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,

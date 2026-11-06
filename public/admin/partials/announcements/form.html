@@ -7,7 +7,7 @@
     <p class="muted small" id="af-subtitle">Publish to your chosen audience</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" id="af-back" onclick="FPU_ADMIN.goBack('announcements')">← Back</button>
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#announcements'">← Back</button>
   </div>
 </section>
 
@@ -50,7 +50,7 @@
         <div class="form-group">
           <label class="form-label">Expires At</label>
           <input class="form-control" type="datetime-local" name="expiresAt" id="af-expires" />
-          <div class="form-help">Optional — the announcement will be hidden from portals after this date</div>
+          <div class="form-help">Optional — the announcement will be hidden after this date.</div>
         </div>
       </div>
 
@@ -73,53 +73,26 @@
 
       <div id="af-validation"></div>
 
-      <div class="form-actions">
+      <div class="form-actions" style="margin-top:20px;">
         <button type="submit" class="btn btn-primary" id="af-submit">Publish</button>
-        <button type="button" class="btn btn-ghost" id="af-cancel" onclick="FPU_ADMIN.goBack('announcements')">Cancel</button>
-        <button type="button" class="btn btn-danger" id="af-delete"
-                style="margin-left:auto;display:none;">Delete</button>
+        <button type="button" class="btn btn-outline" onclick="window.location.hash='#announcements'">Cancel</button>
+        <button type="button" class="btn btn-ghost" style="color:#dc2626; margin-left:auto; display:none;" id="af-delete">Delete</button>
       </div>
     </form>
   </div>
 </div>
 
 <style>
-  .ann-preview {
-    margin-top: 20px;
-    padding: 20px;
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
-    border-radius: 10px;
-  }
-  .ann-preview-label {
-    font-family: 'Poppins', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #94a3b8;
-    margin-bottom: 12px;
-  }
-  .ann-preview-body {
-    background: #fff;
-    border-radius: 10px;
-    padding: 16px 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-    border-left: 4px solid #f59e0b;
-  }
-  .ann-preview-body .anc-badge { margin-right: 6px; }
-  .ann-preview-body h3 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.05rem;
-    color: #0f172a;
-    margin: 10px 0 6px;
-  }
-  .ann-preview-body p {
-    margin: 0;
-    font-size: 13.5px;
-    color: #475569;
-    line-height: 1.6;
-  }
+  .ann-preview { margin-top: 20px; padding: 20px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; }
+  .ann-preview-label { font-family: 'Poppins', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 12px; }
+  .ann-preview-body { background: #fff; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border-left: 4px solid #f59e0b; }
+  .ann-preview-body .anc-badge { margin-right: 6px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .ann-preview-body .anc-badge.priority-normal { background: #dbeafe; color: #1e40af; }
+  .ann-preview-body .anc-badge.priority-high { background: #fee2e2; color: #991b1b; }
+  .ann-preview-body .anc-badge.priority-low { background: #f1f5f9; color: #475569; }
+  .ann-preview-body .anc-badge.audience { background: #ecfdf5; color: #065f46; }
+  .ann-preview-body h3 { font-family: 'Poppins', sans-serif; font-size: 1.05rem; color: #0f172a; margin: 10px 0 6px; }
+  .ann-preview-body p { margin: 0; font-size: 13.5px; color: #475569; line-height: 1.6; }
 </style>
 
 <script>
@@ -137,18 +110,8 @@
       $('af-title').textContent = 'Edit Announcement';
       $('af-subtitle').textContent = 'Update this announcement';
       $('af-submit').textContent = 'Save Changes';
-      $('af-delete').style.display = 'inline-flex';
+      $('af-delete').style.display = 'block';
     }
-
-    function goBack() {
-      if (isEdit) {
-        A.FPU_ADMIN_SPA.navigateToWithQuery('announcement-detail', { id });
-      } else {
-        A.FPU_ADMIN_SPA.navigateTo('announcements');
-      }
-    }
-    $('af-back').onclick = goBack;
-    $('af-cancel').onclick = goBack;
 
     // Live preview
     function updatePreview() {
@@ -162,7 +125,6 @@
       prevPriority.textContent = (priority === 'high' ? '🔴 ' : priority === 'low' ? '📝 ' : '📢 ') + priority;
 
       $('af-prev-audience').textContent = audience === 'all' ? 'Everyone' : audience.charAt(0).toUpperCase() + audience.slice(1);
-
       $('af-prev-title').textContent = title || 'Announcement title…';
       $('af-prev-body').textContent = body || 'Announcement body will appear here…';
     }
@@ -215,8 +177,8 @@
         expiresAt: $('af-expires').value ? new Date($('af-expires').value).toISOString() : null,
       };
 
-      if (!payload.title) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Title is required.</div>'; return; }
-      if (!payload.body) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Body is required.</div>'; return; }
+      if (!payload.title) { valEl.innerHTML = '<div class="alert alert-error" style="margin-bottom:15px; color:#dc2626;">⚠️ Title is required.</div>'; return; }
+      if (!payload.body) { valEl.innerHTML = '<div class="alert alert-error" style="margin-bottom:15px; color:#dc2626;">⚠️ Body is required.</div>'; return; }
 
       const btn = $('af-submit');
       const original = btn.textContent;
@@ -230,11 +192,13 @@
         const json = await res.json();
         if (!json.success) throw new Error(json.error);
 
-        A.showToast(isEdit ? '✅ Updated.' : '✅ Published.');
-        A.FPU_ADMIN_SPA.navigateTo('announcements');
+        A.showToast(isEdit ? '✅ Updated.' : '✅ Published.', 'success');
+        
+        // ✅ FIXED: Use native hash routing instead of navigateTo
+        window.location.hash = '#announcements';
+        
       } catch (err) {
-        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
-      } finally {
+        valEl.innerHTML = `<div class="alert alert-error" style="margin-bottom:15px; color:#dc2626;">❌ ${A.escapeHtml(err.message)}</div>`;
         btn.disabled = false;
         btn.textContent = original;
       }
@@ -248,8 +212,11 @@
         const res = await A.adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
         const json = await res.json();
         if (!json.success) throw new Error(json.error);
-        A.showToast('🗑️ Deleted.');
-        A.FPU_ADMIN_SPA.navigateTo('announcements');
+        A.showToast('🗑️ Deleted.', 'success');
+        
+        // ✅ FIXED: Use native hash routing
+        window.location.hash = '#announcements';
+        
       } catch (err) {
         A.showToast('❌ ' + err.message, 'error');
       }

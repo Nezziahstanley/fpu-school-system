@@ -20,6 +20,7 @@
 </div>
 
 <style>
+  /* ---------- Existing detail card styles ---------- */
   .doc-detail {
     max-width: 720px;
     margin: 0 auto;
@@ -57,10 +58,7 @@
     margin: 0 0 4px;
     line-height: 1.3;
   }
-  .doc-detail-meta .sub {
-    font-size: 13px;
-    color: #6b7280;
-  }
+  .doc-detail-meta .sub { font-size: 13px; color: #6b7280; }
   .doc-detail-body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -93,6 +91,123 @@
     flex-wrap: wrap;
     padding-top: 20px;
     border-top: 1px solid var(--fpu-border);
+  }
+
+  /* ---------- NEW: document preview wrapper ---------- */
+  .doc-preview-wrap {
+    max-width: 840px;
+    margin: 24px auto 0;
+  }
+  .doc-preview-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #065f46;
+    color: #fff;
+    border-radius: 12px 12px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .doc-preview-toolbar .tip { font-weight: 400; opacity: .8; font-size: 12px; }
+  .doc-preview-frame {
+    background: #fff;
+    border: 1px solid var(--fpu-border);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    padding: 36px 40px;
+    box-shadow: 0 4px 20px rgba(15,23,42,0.06);
+  }
+
+  /* ---------- Transcript styles (from your transcript renderer) ---------- */
+  .tx-document { position: relative; font-size: 13px; color: #0f172a; }
+  .tx-watermark {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 220px; font-weight: 900; color: rgba(6,95,70,0.05);
+    pointer-events: none; user-select: none;
+    letter-spacing: 8px;
+    z-index: 0;
+  }
+  .tx-letterhead {
+    display: flex; align-items: center; justify-content: center;
+    gap: 20px; text-align: center; padding-bottom: 18px;
+    border-bottom: 2px solid #065f46; margin-bottom: 22px;
+    position: relative; z-index: 1;
+  }
+  .tx-letterhead-logo { width: 80px; height: auto; }
+  .tx-letterhead-text .institution {
+    font-family: 'Poppins', sans-serif; font-size: 1.2rem;
+    font-weight: 700; color: #065f46; letter-spacing: .3px;
+  }
+  .tx-letterhead-text .motto {
+    font-size: 12px; color: #6b7280; font-style: italic; margin-top: 2px;
+  }
+  .tx-letterhead-text .doc-type {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: #047857; margin-top: 8px;
+  }
+  .tx-header {
+    display: flex; justify-content: space-between; gap: 20px;
+    align-items: flex-start; margin-bottom: 18px; flex-wrap: wrap;
+    position: relative; z-index: 1;
+  }
+  .tx-student-info h2 {
+    font-family: 'Poppins', sans-serif; font-size: 1.1rem;
+    margin: 0 0 6px; color: #0f172a;
+  }
+  .tx-student-info .meta { font-size: 12px; color: #6b7280; margin-top: 3px; }
+  .tx-student-info .matric { font-weight: 700; color: #065f46; }
+  .tx-cgpa-block {
+    text-align: center; background: #ecfdf5; border: 1px solid #a7f3d0;
+    border-radius: 10px; padding: 10px 18px; min-width: 100px;
+  }
+  .tx-cgpa-block .label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .6px;
+    color: #047857; font-weight: 700;
+  }
+  .tx-cgpa-block .value {
+    font-family: 'Poppins', sans-serif; font-size: 1.5rem;
+    font-weight: 700; color: #065f46; line-height: 1.1;
+  }
+  .tx-cgpa-block .class { font-size: 11px; color: #047857; margin-top: 2px; }
+  .tx-summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    margin-bottom: 20px; position: relative; z-index: 1;
+  }
+  .tx-summary-item {
+    background: #f8fafc; border-radius: 8px; padding: 10px;
+    text-align: center;
+  }
+  .tx-summary-item .num {
+    font-family: 'Poppins', sans-serif; font-size: 1.1rem;
+    font-weight: 700; color: #065f46;
+  }
+  .tx-summary-item .lbl {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .6px;
+    color: #94a3b8; font-weight: 700; margin-top: 2px;
+  }
+  .tx-signatures {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 24px; margin-top: 40px;
+    position: relative; z-index: 1;
+  }
+  .tx-sig-block { text-align: center; }
+  .tx-sig-line {
+    border-bottom: 1px solid #0f172a; height: 28px; margin-bottom: 6px;
+  }
+  .tx-sig-role { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
+
+  /* Print: hide everything except the preview */
+  @media print {
+    body * { visibility: hidden; }
+    .doc-preview-frame, .doc-preview-frame * { visibility: visible; }
+    .doc-preview-frame {
+      position: absolute; left: 0; top: 0; width: 100%;
+      box-shadow: none; border: 0; padding: 0;
+    }
+    .doc-preview-toolbar { display: none; }
   }
 </style>
 

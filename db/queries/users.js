@@ -9,7 +9,7 @@
 
 const { db, schema, sql } = require('..');
 const { eq, and, or, ilike, inArray, desc, asc, isNull } = require('drizzle-orm');
-const { users, departments, programmes, schools } = schema;
+const { users, departments, programmes, schools, staffProfiles } = schema;
 
 // ============================================================
 // SAFE SELECT MAPS
@@ -108,37 +108,43 @@ async function findById(id) {
 
 // ------------------------------------------------------------
 // findByIdWithRelations — same as findById, plus nested
-// department/programme/school objects for convenience. Used
-// by portal pages that display the student's academic identity
-// (dashboard, id-card, graduation, profile).
+// department/programme/school/staffProfile objects for convenience. 
+// Used by portal pages that display the staff's identity.
 // ------------------------------------------------------------
 async function findByIdWithRelations(id) {
   if (!id) return null;
 
   const rows = await db
-    .select(SAFE_COLS_FULL)
+    .select({
+      user: SAFE_COLS_FULL,
+      staffProfile: staffProfiles, // <--- ADDED: Fetch the staff profile
+    })
     .from(users)
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .leftJoin(departments, eq(users.departmentId, departments.id))
     .leftJoin(schools, eq(users.schoolId, schools.id))
+    .leftJoin(staffProfiles, eq(users.id, staffProfiles.userId)) // <--- ADDED: Join the table
     .where(eq(users.id, Number(id)))
     .limit(1);
 
   if (!rows.length) return null;
+  
   const row = rows[0];
+  const user = row.user;
 
   // Add nested objects alongside the flat names, so the
   // frontend can use either shape.
   return {
-    ...row,
-    department: row.departmentName
-      ? { id: row.departmentId, name: row.departmentName, code: row.departmentCode }
+    ...user,
+    staffProfile: row.staffProfile || null, // <--- ADDED: Return it to the API
+    department: user.departmentName
+      ? { id: user.departmentId, name: user.departmentName, code: user.departmentCode }
       : null,
-    programme: row.programmeName
-      ? { id: row.programmeId, name: row.programmeName, code: row.programmeCode }
+    programme: user.programmeName
+      ? { id: user.programmeId, name: user.programmeName, code: user.programmeCode }
       : null,
-    school: row.schoolName
-      ? { id: row.schoolId, name: row.schoolName }
+    school: user.schoolName
+      ? { id: user.schoolId, name: user.schoolName }
       : null,
   };
 }
@@ -403,40 +409,24 @@ async function touchLogin(id) {
 }
 
 // ============================================================
+// findHodForDepartment — returns the HOD user for a department
+// ============================================================
+async function findHodForDepartment(departmentId) {
+  if (!departmentId) return null;
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(and(
+      eq(users.role, 'hod'),
+      eq(users.departmentId, Number(departmentId))
+    ))
+    .limit(1);
+  return row || null;
+}
+
+// ============================================================
 // Exports
 // ============================================================
-
-// ============================================================
-// findHodForDepartment — returns the HOD user for a department
-// ============================================================
-async function findHodForDepartment(departmentId) {
-  if (!departmentId) return null;
-  const [row] = await db
-    .select()
-    .from(users)
-    .where(and(
-      eq(users.role, 'hod'),
-      eq(users.departmentId, Number(departmentId))
-    ))
-    .limit(1);
-  return row || null;
-}
-
-// ============================================================
-// findHodForDepartment — returns the HOD user for a department
-// ============================================================
-async function findHodForDepartment(departmentId) {
-  if (!departmentId) return null;
-  const [row] = await db
-    .select()
-    .from(users)
-    .where(and(
-      eq(users.role, 'hod'),
-      eq(users.departmentId, Number(departmentId))
-    ))
-    .limit(1);
-  return row || null;
-}
 module.exports = {
   findById,
   findByIdWithRelations,

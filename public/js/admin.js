@@ -3642,50 +3642,171 @@ async function loadBooksGrid() {
   } catch (err) { grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`; }
 }
 
+// ============================================
+// LIBRARY: BORROWS TABLE & ACTIONS
+// ============================================
 async function loadBorrowsTable() {
   const tbody = document.getElementById('bor-tbody');
   if (!tbody) return;
 
-  const status = (document.getElementById('borrows-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const search = (document.getElementById('bor-search') || {}).value || '';
-  const due = (document.getElementById('bor-due-filter') || {}).value || '';
+  // UI Setup
+  const activeTab = document.querySelector('.staff-role-tab.active');
+  const statusFilter = activeTab ? activeTab.dataset.status : '';
+  const searchVal = document.getElementById('bor-search')?.value || '';
+  const dueFilter = document.getElementById('bor-due-filter')?.value || '';
 
-  const qs = new URLSearchParams();
-  if (status) qs.set('status', status);
-
-  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading records…</td></tr>';
 
   try {
-    const res = await adminFetch(`/api/admin/library/borrows?${qs}`);
-    const json = await res.json();
-    let rows = json.data || [];
+    // Build API query
+    const q = new URLSearchParams();
+    if (statusFilter) q.append('status', statusFilter);
+    if (searchVal) q.append('search', searchVal);
+    if (dueFilter) q.append('due_within', dueFilter);
 
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter((r) => { const user = r.user || {}; const book = r.book || {}; return String(user.firstName || '').toLowerCase().includes(q) || String(user.lastName || '').toLowerCase().includes(q) || String(user.matricNumber || '').toLowerCase().includes(q) || String(book.title || '').toLowerCase().includes(q); });
+    const res = await adminFetch(`/api/admin/library/borrows?${q.toString()}`);
+    if (!res.ok) throw new Error('Failed to load borrows');
+    const data = await res.json();
+    const records = data.data || data || [];
+
+    if (records.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records found.</td></tr>';
+      updateBorrowStats([]);
+      return;
     }
 
-    if (due) {
-      const days = Number(due); const limit = Date.now() + days * 86400000;
-      rows = rows.filter((r) => { const b = r.borrow || r; if (b.status !== 'borrowed') return false; return new Date(b.dueAt).getTime() <= limit; });
-    }
+    // Render Rows
+    tbody.innerHTML = records.map(r => {
+      const status = String(r.status || '').toLowerCase();
+      const isOverdue = status === 'overdue';
+      
+      // Date Calculations
+      const dueDate = new Date(r.dueDate || r.due_date);
+      const now = new Date();
+      const diffTime = dueDate - now;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      let daysHtml = '';
+      if (status === 'returned') {
+        daysHtml = `<span class="days-badge done">Returned</span>`;
+      } else if (status === 'lost') {
+        daysHtml = `<span class="days-badge danger">Lost</span>`;
+      } else if (isOverdue || diffDays < 0) {
+        daysHtml = `<span class="days-badge danger">${Math.abs(diffDays)} Days Overdue</span>`;
+      } else if (diffDays <= 3) {
+        daysHtml = `<span class="days-badge warning">${diffDays}d left</span>`;
+      } else {
+        daysHtml = `<span class="days-badge ok">${diffDays}d left</span>`;
+      }
 
-    const total = rows.length; const active = rows.filter((r) => ['borrowed', 'overdue'].includes((r.borrow || r).status)).length;
-    const overdue = rows.filter((r) => (r.borrow || r).status === 'overdue').length; const returned = rows.filter((r) => (r.borrow || r).status === 'returned').length;
+      // Fines Logic (Calculates based on 100 Naira per day overdue)
+      const fineAmount = (isOverdue || diffDays < 0) ? Math.abs(diffDays) * 100 : 0;
+      const fineHtml = fineAmount > 0 
+        ? `<div style="font-size:11px; color:#dc2626; font-weight:bold; margin-top:4px;">Fine: ₦${fineAmount}</div>` 
+        : '';
 
-    setText('bor-stat-total', total); setText('bor-stat-active', active); setText('bor-stat-overdue', overdue); setText('bor-stat-returned', returned); setText('bor-count', `Showing ${total}`);
+      // Action Buttons
+      let actionsHtml = '';
+      if (status === 'borrowed' || status === 'overdue') {
+        actionsHtml = `
+          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.renewBorrow(${r.id})">Renew</button>
+          <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${r.id}, '${escapeHtml(r.book?.title || r.bookTitle || 'Book')}', ${fineAmount})">Return</button>
+        `;
+      } else {
+        actionsHtml = `<span class="muted small">Completed</span>`;
+      }
 
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrows.</td></tr>'; return; }
-
-    tbody.innerHTML = rows.map((r) => {
-      const b = r.borrow || r; const user = r.user || {}; const book = r.book || {};
-      const overdue = b.status === 'overdue'; const due = new Date(b.dueAt); const daysLeft = Math.ceil((due.getTime() - Date.now()) / 86400000);
-      const daysCls = b.status === 'returned' ? 'done' : overdue ? 'danger' : daysLeft <= 3 ? 'warning' : 'ok';
-      const daysText = b.status === 'returned' ? 'Returned' : overdue ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`;
-
-      return `<tr class="${overdue ? 'borrow-row-overdue' : ''}"><td>${escapeHtml(book.title || '')}</td><td>${escapeHtml((user.firstName || '') + ' ' + (user.lastName || ''))}</td><td>${fmtDate(b.borrowedAt)}</td><td>${fmtDate(b.dueAt)}</td><td>${badge(b.status)}</td><td><span class="days-badge ${daysCls}">${daysText}</span></td><td><div class="row-actions">${b.status === 'borrowed' || b.status === 'overdue' ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.returnBorrow(${b.id})">Return</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.markBorrowLost(${b.id})">Lost</button>` : ''}</div></td></tr>`;
+      return `
+        <tr class="${isOverdue ? 'borrow-row-overdue' : ''}">
+          <td>
+            <div style="font-weight:600;">${escapeHtml(r.book?.title || r.bookTitle || 'Unknown Book')}</div>
+            <div class="muted small">${escapeHtml(r.book?.author || '')}</div>
+          </td>
+          <td>
+            <div>${escapeHtml(r.user?.firstName + ' ' + r.user?.lastName || 'Unknown User')}</div>
+            <div class="muted small">${escapeHtml(r.user?.matricNumber || r.user?.email || '—')}</div>
+          </td>
+          <td>${fmtDate(r.borrowedAt || r.borrowed_at || r.createdAt)}</td>
+          <td>${fmtDate(r.dueDate || r.due_date)}</td>
+          <td>${badge(status)}</td>
+          <td>${daysHtml}${fineHtml}</td>
+          <td>${actionsHtml}</td>
+        </tr>
+      `;
     }).join('');
-  } catch (err) { tbody.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`; }
+
+    updateBorrowStats(records);
+    document.getElementById('bor-count').textContent = `Showing ${records.length}`;
+
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+function updateBorrowStats(records) {
+  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
+  records.forEach(r => {
+    const s = String(r.status || '').toLowerCase();
+    if (s === 'borrowed') counts.active++;
+    else if (s === 'overdue') { counts.active++; counts.overdue++; }
+    else if (s === 'returned') counts.returned++;
+    else if (s === 'lost') counts.lost++;
+  });
+
+  if (document.getElementById('bor-stat-total')) {
+    document.getElementById('bor-stat-total').textContent = counts.total;
+    document.getElementById('bor-stat-active').textContent = counts.active;
+    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
+    document.getElementById('bor-stat-returned').textContent = counts.returned;
+    document.getElementById('bor-count-all').textContent = counts.total;
+    document.getElementById('bor-count-borrowed').textContent = counts.active;
+    document.getElementById('bor-count-overdue').textContent = counts.overdue;
+    document.getElementById('bor-count-returned').textContent = counts.returned;
+    document.getElementById('bor-count-lost').textContent = counts.lost;
+  }
+}
+
+// ============================================
+// LIBRARY ACTIONS (Modals)
+// ============================================
+async function openReturnModal(id, bookTitle, fineAmount) {
+  const message = fineAmount > 0 
+    ? `Return "${bookTitle}"?\n\n⚠️ This book is overdue. A fine of ₦${fineAmount} should be collected from the student before returning.`
+    : `Return "${bookTitle}"?\n\nEnsure the book is in good condition.`;
+    
+  const ok = await window.fpuConfirm(
+    message,
+    { title: 'Return Book', type: 'success', okText: 'Confirm Return' }
+  );
+  
+  if (!ok) return;
+
+  try {
+    const res = await adminFetch(`/api/admin/library/borrows/${id}/return`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to return book');
+    showToast('📚 Book returned successfully.', 'success');
+    loadBorrowsTable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function renewBorrow(id) {
+  const ok = await window.fpuConfirm(
+    'Extend this loan by 14 days?\n\nThis will reset the due date from today.',
+    { title: 'Renew Book', type: 'info', okText: 'Extend 14 Days' }
+  );
+  
+  if (!ok) return;
+
+  try {
+    const res = await adminFetch(`/api/admin/library/borrows/${id}/renew`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to renew book');
+    showToast('🔄 Loan extended by 14 days.', 'success');
+    loadBorrowsTable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
 }
 
 // ============================================
@@ -8024,7 +8145,7 @@ window.FPU_ADMIN = {
   deleteNotification, loadComplaints,
 
   // Library
-  loadBooksGrid, loadBorrowsTable,
+  loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow,
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,

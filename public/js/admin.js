@@ -3165,48 +3165,72 @@ async function loadFeeDepartments() {
 }
 
 // ============================================
-// PAYMENTS
+// PAYMENTS: DEPARTMENTS (list page)
 // ============================================
 async function loadPaymentDepartments() {
   const grid = document.getElementById('pm-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('pm-session') || {}).value || '';
-  const schoolId = (document.getElementById('pm-school') || {}).value || '';
-  const search = (document.getElementById('pm-search') || {}).value || '';
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading payments…</div>';
 
   try {
-    const qs = new URLSearchParams();
-    if (sessionId) qs.set('sessionId', sessionId);
-
-    const [payRes, deptsRes, studentsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/payments?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
+    // Fetch all data
+    const [payRes, deptsRes, studentsRes, schoolsRes, sessionsRes] = await Promise.all([
+      adminFetch('/api/admin/payments').catch(() => null),
+      adminFetch('/api/admin/departments').catch(() => null),
+      adminFetch('/api/admin/students?limit=5000').catch(() => null),
+      adminFetch('/api/admin/schools').catch(() => null),
+      adminFetch('/api/admin/sessions').catch(() => null),
     ]);
+
+    if (!payRes?.ok) throw new Error(`Payments API returned ${payRes?.status}`);
+    if (!deptsRes?.ok) throw new Error(`Departments API returned ${deptsRes?.status}`);
+    if (!studentsRes?.ok) throw new Error(`Students API returned ${studentsRes?.status}`);
 
     const payments = (await payRes.json()).data || [];
     const depts = (await deptsRes.json()).data || [];
     const students = (await studentsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
+    const schools = schoolsRes?.ok ? (await schoolsRes.json()).data || [] : [];
+    const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
 
-    const studentById = new Map(students.map((s) => [s.id, s]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
+    const studentById = new Map(students.map(s => [Number(s.id), s]));
+    const schoolMap = new Map(schools.map(s => [Number(s.id), s]));
+    const currentSession = sessions.find(s => s.isCurrent) || null;
 
+    // Populate session dropdown
+    const sessionSelect = document.getElementById('pm-session');
+    if (sessionSelect && !sessionSelect.__wired) {
+      sessionSelect.__wired = true;
+      sessionSelect.innerHTML = '<option value="">Current session</option>' +
+        sessions.map(s => `<option value="${s.id}"${s.isCurrent ? ' selected' : ''}>${escapeHtml(s.name)}</option>`).join('');
+    }
+
+    // Populate school dropdown
+    const schoolSelect = document.getElementById('pm-school');
+    if (schoolSelect && !schoolSelect.__wired) {
+      schoolSelect.__wired = true;
+      schoolSelect.innerHTML = '<option value="">All schools</option>' +
+        schools.map(s => `<option value="${s.id}">${escapeHtml(s.code || s.name)}</option>`).join('');
+    }
+
+    // Bucket by department
     const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, verified: 0, pending: 0, verifiedAmt: 0, pendingAmt: 0, studentIds: new Set() });
+    depts.forEach(d => byDept.set(Number(d.id), {
+      dept: d,
+      verified: 0, pending: 0,
+      verifiedAmt: 0, pendingAmt: 0,
+      studentIds: new Set(),
+    }));
 
     let totalVerified = 0, totalPendingAmt = 0, pendingCount = 0;
-    for (const p of payments) {
+    payments.forEach(p => {
       const row = p.payment || p;
-      const stu = studentById.get(row.studentId) || p.student;
-      if (!stu) continue;
-      const bucket = byDept.get(stu.departmentId);
-      if (!bucket) continue;
-      bucket.studentIds.add(row.studentId);
+      const sid = Number(row.studentId || row.student_id);
+      const stu = studentById.get(sid) || p.student;
+      if (!stu) return;
+      const bucket = byDept.get(Number(stu.departmentId));
+      if (!bucket) return;
+      bucket.studentIds.add(sid);
       if (row.status === 'verified') {
         bucket.verified++;
         bucket.verifiedAmt += Number(row.amount) || 0;
@@ -3217,73 +3241,473 @@ async function loadPaymentDepartments() {
         totalPendingAmt += Number(row.amount) || 0;
         pendingCount++;
       }
-    }
+    });
 
+    // Stats
     setText('pm-stat-verified', money(totalVerified));
     setText('pm-stat-pending-amt', money(totalPendingAmt));
     setText('pm-stat-pending-count', pendingCount);
     setText('pm-stat-total', payments.length);
 
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
+    // Filters
+    const school = document.getElementById('pm-school')?.value || '';
+    const search = document.getElementById('pm-search')?.value.toLowerCase() || '';
+
+    let visible = [...byDept.values()].filter(b => {
+      if (school && Number(b.dept.schoolId) !== Number(school)) return false;
       if (search) {
         const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
+        return String(b.dept.code || '').toLowerCase().includes(q) ||
+               String(b.dept.name || '').toLowerCase().includes(q);
       }
       return true;
     });
 
+    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+
     if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">💳</div><p>No departments.</p></div>';
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;text-align:center;padding:40px;"><div style="font-size:2rem;margin-bottom:10px;">💳</div><p>No departments match your filters.</p></div>';
       return;
     }
 
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
-
-    grid.innerHTML = visible.map((b) => {
-      const school = schoolMap.get(b.dept.schoolId);
-      const hasPending = b.pending > 0;
-      const totalStudents = students.filter((s) => s.departmentId === b.dept.id).length;
+    // Render cards
+    grid.innerHTML = visible.map(b => {
+      const sch = schoolMap.get(Number(b.dept.schoolId));
+      const totalStudents = students.filter(s => Number(s.departmentId) === Number(b.dept.id)).length;
       const paidCount = b.studentIds.size;
       const rate = totalStudents ? Math.round((paidCount / totalStudents) * 100) : 0;
+      const hasPending = b.pending > 0;
+      const isEmpty = paidCount === 0;
 
       return `
-        <div class="pm-dept-card ${hasPending ? 'has-pending' : ''} ${paidCount === 0 ? 'empty' : ''}" ${paidCount === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
-          <div class="pmd-head">
-            <span class="pmd-code">${escapeHtml(b.dept.code)}</span>
-            <span class="pmd-school">${escapeHtml(school?.code || '')}</span>
+        <div class="pm-dept-card ${hasPending ? 'has-pending' : ''} ${isEmpty ? 'empty' : ''}"
+             data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"
+             style="cursor:pointer;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+            <span style="background:#ecfdf5;color:#065f46;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;">${escapeHtml(b.dept.code || '')}</span>
+            <span style="background:#065f46;color:#fff;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:999px;">${escapeHtml(sch ? sch.code : '—')}</span>
           </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="pmd-amounts">
-            <div class="pmd-amount verified">
-              <span class="num">${money(b.verifiedAmt)}</span>
-              <span class="label">Verified</span>
+          <h3 style="font-size:14px;color:#0f172a;margin:0 0 12px;font-weight:700;">${escapeHtml(b.dept.name || '')}</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+            <div style="background:#ecfdf5;padding:10px;border-radius:8px;text-align:center;">
+              <div style="font-size:14px;font-weight:800;color:#065f46;">${money(b.verifiedAmt)}</div>
+              <div style="font-size:9px;text-transform:uppercase;color:#047857;font-weight:700;">Verified</div>
             </div>
-            <div class="pmd-amount pending">
-              <span class="num">${money(b.pendingAmt)}</span>
-              <span class="label">Pending</span>
+            <div style="background:#fef3c7;padding:10px;border-radius:8px;text-align:center;">
+              <div style="font-size:14px;font-weight:800;color:#b45309;">${money(b.pendingAmt)}</div>
+              <div style="font-size:9px;text-transform:uppercase;color:#92400e;font-weight:700;">Pending</div>
             </div>
           </div>
-          <div class="pmd-split">
-            <div class="item"><span class="n">${b.verified}</span><span class="l">Verified</span></div>
-            <div class="item"><span class="n">${b.pending}</span><span class="l">Pending</span></div>
-            <div class="item"><span class="n">${rate}%</span><span class="l">Coverage</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">
+            <div style="background:#f8fafc;padding:6px;border-radius:6px;">
+              <div style="font-size:1rem;font-weight:800;color:#065f46;">${b.verified}</div>
+              <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">Verified</div>
+            </div>
+            <div style="background:#f8fafc;padding:6px;border-radius:6px;">
+              <div style="font-size:1rem;font-weight:800;color:#b45309;">${b.pending}</div>
+              <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">Pending</div>
+            </div>
+            <div style="background:#f8fafc;padding:6px;border-radius:6px;">
+              <div style="font-size:1rem;font-weight:800;color:#065f46;">${rate}%</div>
+              <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;">Coverage</div>
+            </div>
           </div>
-          <div class="pmd-footer">
-            <span>${paidCount === 0 ? 'No payments' : 'View payments'}</span>
-            <span class="arrow">→</span>
+          <div style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#94a3b8;font-weight:600;">
+            <span>${isEmpty ? 'No payments' : 'View payments'}</span>
+            <span style="color:#f59e0b;font-size:16px;">→</span>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.pm-dept-card[data-dept-id]').forEach((card) => {
+    // Wire card clicks
+    grid.querySelectorAll('.pm-dept-card[data-dept-id]').forEach(card => {
       card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('payments-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, name: card.dataset.deptName });
+        window.location.hash = `#payments-by-dept?departmentId=${card.dataset.deptId}&name=${encodeURIComponent(card.dataset.deptName)}`;
       });
     });
+
+    // Wire export button
+    const exportBtn = document.getElementById('pm-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => {
+        const headers = ['Code', 'Department', 'Verified Amount', 'Pending Amount', 'Verified Count', 'Pending Count', 'Coverage %'];
+        const rows = visible.map(b => {
+          const totalStudents = students.filter(s => Number(s.departmentId) === Number(b.dept.id)).length;
+          const rate = totalStudents ? Math.round((b.studentIds.size / totalStudents) * 100) : 0;
+          return [b.dept.code, b.dept.name, b.verifiedAmt, b.pendingAmt, b.verified, b.pending, rate];
+        });
+        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        showToast('✅ Exported.', 'success');
+      };
+    }
+
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[payments] Error:', err);
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// PAYMENTS: DRILL-DOWN (by department)
+// ============================================
+async function loadDepartmentPayments() {
+  const root = document.getElementById('pd-tbody');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const departmentId = params.get('departmentId');
+  const deptName = params.get('name') || 'Department';
+
+  if (!departmentId) {
+    root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
+    return;
+  }
+
+  const titleEl = document.getElementById('pd-title');
+  const subEl = document.getElementById('pd-subtitle');
+  if (titleEl) titleEl.textContent = deptName;
+  if (subEl) subEl.textContent = `Payment status for ${deptName}`;
+
+  root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
+
+  try {
+    const [studentsRes, payRes] = await Promise.all([
+      adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
+      adminFetch('/api/admin/payments').catch(() => null),
+    ]);
+
+    const students = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
+    const payments = payRes?.ok ? (await payRes.json()).data || [] : [];
+
+    // Map studentId → total paid
+    const paidByStudent = new Map();
+    payments.forEach(p => {
+      const row = p.payment || p;
+      const sid = Number(row.studentId || row.student_id);
+      if (!sid) return;
+      if (row.status === 'verified') {
+        const current = paidByStudent.get(sid) || 0;
+        paidByStudent.set(sid, current + (Number(row.amount) || 0));
+      }
+    });
+
+    // Fee structure per programme (assume fee structure lookup from /fees)
+    const feesRes = await adminFetch('/api/admin/fees').catch(() => null);
+    const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+    const feeByProgramme = new Map();
+    fees.forEach(f => {
+      const progId = f.programmeId || f.programme_id;
+      if (progId && f.total) feeByProgramme.set(Number(progId), Number(f.total));
+    });
+
+    let paid = 0, partial = 0, pending = 0, totalRevenue = 0;
+
+    const enriched = students.map(s => {
+      const sid = Number(s.id);
+      const paidAmt = paidByStudent.get(sid) || 0;
+      const expected = feeByProgramme.get(Number(s.programmeId)) || 0;
+      const outstanding = Math.max(0, expected - paidAmt);
+      let status = 'pending';
+      if (paidAmt > 0 && outstanding === 0) { status = 'paid'; paid++; }
+      else if (paidAmt > 0) { status = 'partial'; partial++; }
+      else { status = 'pending'; pending++; }
+      totalRevenue += paidAmt;
+      return { s, paidAmt, outstanding, status, expected };
+    });
+
+    setText('pd-stat-students', enriched.length);
+    setText('pd-stat-paid', paid);
+    setText('pd-stat-pending', pending + partial);
+    setText('pd-stat-revenue', money(totalRevenue));
+    setText('pd-count', `Showing ${enriched.length} students`);
+
+    // Filter
+    const statusFilter = document.getElementById('pd-filter-status')?.value || '';
+    const search = document.getElementById('pd-search')?.value.toLowerCase() || '';
+
+    const filtered = enriched.filter(({ s, status }) => {
+      if (statusFilter && status !== statusFilter) return false;
+      if (search) {
+        const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.toLowerCase();
+        const mt = String(s.matricNumber || s.matric_number || '').toLowerCase();
+        return fn.includes(search) || mt.includes(search);
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b;">No students match your filters.</td></tr>';
+      return;
+    }
+
+    root.innerHTML = filtered.map(({ s, paidAmt, outstanding, status }) => {
+      const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
+      const badgeCls = `badge-${status}`;
+      const badgeLabel = status === 'paid' ? 'Fully Paid' : status === 'partial' ? 'Partial' : 'Pending';
+
+      return `
+        <tr>
+          <td><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
+          <td>${escapeHtml(fn)}</td>
+          <td>${escapeHtml(s.level || '—')}</td>
+          <td style="text-align:right;font-weight:600;color:#065f46;">${money(paidAmt)}</td>
+          <td style="text-align:right;font-weight:600;color:${outstanding > 0 ? '#dc2626' : '#64748b'};">${outstanding > 0 ? money(outstanding) : '—'}</td>
+          <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
+          <td style="text-align:right;">
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openPaymentHistory(${s.id}, '${escapeQuotes(fn)}')">View History</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire export
+    const exportBtn = document.getElementById('pd-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.onclick = () => {
+        const headers = ['Matric', 'Name', 'Level', 'Total Paid', 'Outstanding', 'Status'];
+        const rows = filtered.map(({ s, paidAmt, outstanding, status }) => [
+          s.matricNumber || s.matric_number || '',
+          `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim(),
+          s.level || '',
+          paidAmt, outstanding, status,
+        ]);
+        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `payments-${deptName.replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        showToast('✅ Exported.', 'success');
+      };
+    }
+
+  } catch (err) {
+    console.error('[payments by dept] Error:', err);
+    root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ============================================
+// PAYMENTS: SEND REMINDER
+// ============================================
+async function sendPaymentReminder(studentId, studentName, amount) {
+  const ok = await window.fpuConfirm(
+    `Send payment reminder to ${studentName}?\n\nAmount: ₦${amount.toLocaleString()}\n\nThis will create an in-app notification.`,
+    { title: 'Send Reminder', type: 'info', okText: 'Send Reminder' }
+  );
+  if (!ok) return;
+
+  try {
+    await adminFetch('/api/admin/notifications', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId: studentId,
+        title: '💰 Payment Reminder',
+        body: `You have an outstanding balance of ₦${amount.toLocaleString()}. Please log in to the portal to make your payment.`,
+        type: 'fee',
+      }),
+    });
+    showToast(`✅ Reminder sent to ${studentName}.`, 'success');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// ============================================
+// PAYMENTS: SEND REMINDER TO ALL DEBTORS IN DEPT
+// ============================================
+async function sendBulkPaymentReminder(departmentId, deptName) {
+  const ok = await window.fpuConfirm(
+    `Send payment reminder to ALL students with pending payments in ${deptName}?\n\nThis will create notifications for every debtor.`,
+    { title: 'Bulk Payment Reminder', type: 'warning', okText: 'Send All' }
+  );
+  if (!ok) return;
+
+  try {
+    const [studentsRes, payRes, feesRes] = await Promise.all([
+      adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`),
+      adminFetch('/api/admin/payments'),
+      adminFetch('/api/admin/fees'),
+    ]);
+
+    const students = (await studentsRes.json()).data || [];
+    const payments = (await payRes.json()).data || [];
+    const fees = (await feesRes.json()).data || [];
+
+    const feeByProg = new Map();
+    fees.forEach(f => {
+      const progId = f.programmeId || f.programme_id;
+      if (progId && f.total) feeByProg.set(Number(progId), Number(f.total));
+    });
+
+    const paidByStudent = new Map();
+    payments.forEach(p => {
+      const row = p.payment || p;
+      const sid = Number(row.studentId || row.student_id);
+      if (row.status === 'verified') {
+        paidByStudent.set(sid, (paidByStudent.get(sid) || 0) + Number(row.amount || 0));
+      }
+    });
+
+    const debtors = students.filter(s => {
+      const paid = paidByStudent.get(Number(s.id)) || 0;
+      const expected = feeByProg.get(Number(s.programmeId)) || 0;
+      return expected > paid;
+    });
+
+    if (!debtors.length) {
+      showToast('⚠️ No debtors found in this department.', 'warning');
+      return;
+    }
+
+    // Send notification to each debtor in parallel
+    const promises = debtors.map(s => {
+      const paid = paidByStudent.get(Number(s.id)) || 0;
+      const expected = feeByProg.get(Number(s.programmeId)) || 0;
+      const outstanding = expected - paid;
+      return adminFetch('/api/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: s.id,
+          title: '💰 Payment Reminder',
+          body: `You have an outstanding balance of ₦${outstanding.toLocaleString()}. Please log in to the portal to make your payment.`,
+          type: 'fee',
+        }),
+      });
+    });
+
+    await Promise.all(promises);
+    showToast(`✅ Reminder sent to ${debtors.length} debtor(s).`, 'success');
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+// ============================================
+// PAYMENTS: VIEW HISTORY (modal)
+// ============================================
+async function openPaymentHistory(studentId, studentName) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="max-width:700px;">
+      <div class="fpu-modal-header">
+        <h3>Payment History — ${escapeHtml(studentName)}</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body" id="payment-history-body" style="max-height:60vh;overflow-y:auto;">
+        <div style="text-align:center;padding:20px;"><span class="spinner"></span> Loading…</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  try {
+    const res = await adminFetch(`/api/admin/payments?studentId=${studentId}`);
+    const json = await res.json();
+    const payments = json.data || [];
+
+    if (!payments.length) {
+      document.getElementById('payment-history-body').innerHTML = '<p style="text-align:center;padding:20px;color:#64748b;">No payments recorded.</p>';
+      return;
+    }
+
+    document.getElementById('payment-history-body').innerHTML = `
+      <table class="table-admin" style="width:100%;">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${payments.map(p => {
+            const row = p.payment || p;
+            return `
+              <tr>
+                <td><code>${escapeHtml(row.reference || '—')}</code></td>
+                <td style="font-weight:700;color:#065f46;">${money(row.amount)}</td>
+                <td>${badge(row.status)}</td>
+                <td class="small muted">${fmtDateTime(row.createdAt)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    document.getElementById('payment-history-body').innerHTML = `<p style="color:#dc2626;">Error: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+// ============================================
+// PAYMENTS: REVENUE TREND CHART
+// ============================================
+async function loadPaymentRevenueTrend() {
+  const el = document.getElementById('pm-chart-revenue');
+  if (!el || typeof Chart === 'undefined') return;
+
+  try {
+    const res = await adminFetch('/api/admin/payments?limit=5000');
+    const json = await res.json();
+    const payments = json.data || [];
+
+    // Group by month (last 6 months)
+    const months = {};
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+      months[key] = 0;
+    }
+
+    payments.forEach(p => {
+      const row = p.payment || p;
+      if (row.status !== 'verified') return;
+      const date = new Date(row.createdAt || row.paidAt);
+      if (isNaN(date)) return;
+      const key = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+      if (months[key] !== undefined) months[key] += Number(row.amount) || 0;
+    });
+
+    new Chart(el, {
+      type: 'line',
+      data: {
+        labels: Object.keys(months),
+        datasets: [{
+          label: 'Verified Revenue (₦)',
+          data: Object.values(months),
+          borderColor: '#065f46',
+          backgroundColor: 'rgba(6,95,70,.1)',
+          tension: 0.4,
+          fill: true,
+          borderWidth: 3,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { ticks: { callback: v => '₦' + (v / 1000).toFixed(0) + 'k' } } },
+      },
+    });
+  } catch (err) {
+    console.warn('[payments chart]', err.message);
   }
 }
 
@@ -8777,7 +9201,7 @@ window.FPU_ADMIN = {
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
-
+  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend,
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
   deleteNotification, loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats,

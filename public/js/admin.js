@@ -2649,115 +2649,98 @@ async function loadExamsIndex() {
 }
 
 // ============================================
-// ATTENDANCE
+// ATTENDANCE: Dashboard Loaders
 // ============================================
+
 async function loadAttendanceDepartments() {
   const grid = document.getElementById('att-dept-grid');
   if (!grid) return;
 
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
 
-  const sessionId = (document.getElementById('att-filter-session') || {}).value || '';
-  const semester = (document.getElementById('att-filter-semester') || {}).value || '';
-  const schoolId = (document.getElementById('att-filter-school') || {}).value || '';
-  const search = (document.getElementById('att-filter-search') || {}).value || '';
-
   try {
-    const qs = new URLSearchParams({ limit: 5000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
+    const res = await adminFetch('/api/admin/attendance/departments');
+    const json = await res.json();
+    const departments = json.data || [];
 
-    const [attRes, deptsRes, coursesRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/attendance?${qs}`),
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/courses?limit=2000'),
-      adminFetch('/api/admin/schools'),
-    ]);
-
-    const records = (await attRes.json()).data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
-    const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, records: [], courses: new Set(), students: new Set(), present: 0, total: 0 });
-
-    for (const r of records) {
-      const course = courseById.get(r.courseId);
-      if (!course) continue;
-      const bucket = byDept.get(course.departmentId);
-      if (!bucket) continue;
-      bucket.records.push(r);
-      bucket.courses.add(course.id);
-      bucket.students.add(r.studentId);
-      bucket.total++;
-      if (r.status === 'present') bucket.present++;
-    }
-
-    let totalRecords = 0, totalPresent = 0;
-    byDept.forEach((b) => { totalRecords += b.total; totalPresent += b.present; });
-
-    setText('att-stat-depts', [...byDept.values()].filter((b) => b.total > 0).length);
-    setText('att-stat-courses', courses.length);
-    setText('att-stat-rate', totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—');
-    setText('att-stat-total', totalRecords);
-
-    const visible = [...byDept.values()].filter((b) => {
-      if (schoolId && Number(b.dept.schoolId) !== Number(schoolId)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
-      }
-      return true;
+    // Update Stats Bar
+    document.getElementById('att-stat-depts').textContent = departments.length;
+    
+    let totalCourses = 0, totalRecords = 0, totalPresent = 0, totalLate = 0;
+    departments.forEach(d => {
+      totalCourses += d.courses || 0;
+      totalRecords += d.records || 0;
+      totalPresent += d.present || 0;
+      totalLate += d.late || 0;
     });
+    
+    document.getElementById('att-stat-courses').textContent = totalCourses;
+    document.getElementById('att-stat-total').textContent = totalRecords;
+    const overallRate = totalRecords > 0 ? Math.round(((totalPresent + totalLate) / totalRecords) * 100) : 0;
+    document.getElementById('att-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📋</div><p>No departments.</p></div>';
+    // Render Cards
+    if (!departments.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No departments found.</div>';
       return;
     }
 
-    visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+    grid.innerHTML = departments.map(d => {
+      // Determine card color based on rate
+      let rateClass = 'empty';
+      if (d.records > 0) {
+        if (d.rate >= 75) rateClass = 'healthy';
+        else if (d.rate >= 50) rateClass = 'warning';
+        else rateClass = 'critical';
+      }
 
-    grid.innerHTML = visible.map((b) => {
-      const rate = b.total ? Math.round((b.present / b.total) * 100) : 0;
-      const cls = b.total === 0 ? 'empty' : rate >= 75 ? 'healthy' : rate >= 50 ? 'warning' : 'critical';
-      const school = schoolMap.get(b.dept.schoolId);
+      const rateText = d.records > 0 ? `${d.rate}%` : '—';
+
       return `
-        <div class="att-dept-card ${cls}" ${b.total === 0 ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
+        <div class="att-dept-card ${rateClass}" onclick="window.location.hash='#attendance-department?id=${d.id}'">
           <div class="adc-head">
-            <span class="adc-code">${escapeHtml(b.dept.code)}</span>
-            <span class="adc-school">${escapeHtml(school?.code || '')}</span>
+            <div class="adc-code">${escapeHtml(d.code)}</div>
+            <div class="adc-school">${escapeHtml(d.schoolName || 'SMT')}</div>
           </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
+          <h3>${escapeHtml(d.name)}</h3>
           <div class="adc-rate">
-            <span class="adc-rate-num ${cls}">${b.total ? rate + '%' : '—'}</span>
-            <span class="label">attendance rate</span>
+            <div class="adc-rate-num ${rateClass}">${rateText}</div>
+            <div class="label">attendance rate</div>
           </div>
           <div class="adc-stats">
-            <div class="adc-stat"><span class="num">${b.courses.size}</span><span class="label">Courses</span></div>
-            <div class="adc-stat"><span class="num">${b.students.size}</span><span class="label">Students</span></div>
-            <div class="adc-stat"><span class="num">${b.total}</span><span class="label">Records</span></div>
+            <div class="adc-stat">
+              <div class="num">${d.courses}</div>
+              <div class="label">Courses</div>
+            </div>
+            <div class="adc-stat">
+              <div class="num">${d.students}</div>
+              <div class="label">Students</div>
+            </div>
+            <div class="adc-stat">
+              <div class="num">${d.records}</div>
+              <div class="label">Records</div>
+            </div>
           </div>
           <div class="adc-footer">
-            <span>${b.total === 0 ? 'No records' : 'View courses'}</span>
+            <span>${d.records === 0 ? 'No records' : 'View Details'}</span>
             <span class="arrow">→</span>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.att-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-dept', { departmentId: Number(card.dataset.deptId), sessionId, semester, name: card.dataset.deptName });
-      });
-    });
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('Failed to load attendance', err);
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Failed to load attendance data.</div>';
   }
 }
+
+// Add to your window.FPU_ADMIN object at the bottom
+window.FPU_ADMIN = {
+  // ... existing ...
+  loadAttendanceDepartments,
+  // ...
+};
 
 // ============================================
 // STAFF (Directory, HODs, Lecturers)

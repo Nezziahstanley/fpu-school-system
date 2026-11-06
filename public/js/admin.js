@@ -3416,74 +3416,172 @@ async function loadClearanceDepartments() {
 // COMMUNICATION (Announcements, Notifications, Complaints)
 // ============================================
 
-async function loadAnnouncements() {
-  const box = document.getElementById("announcements-list");
-  const grid = document.getElementById("ann-list");
-  const target = box || grid;
-  if (!target) return;
+// ============================================
+// ANNOUNCEMENTS
+// ============================================
+let allAnnouncements = [];
 
-  target.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading…</div>';
+async function loadAnnouncements() {
+  const list = document.getElementById('ann-list');
+  if (!list) return;
+
+  list.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading announcements…</div>';
 
   try {
     const res = await adminFetch("/api/admin/announcements");
     const result = await res.json();
-    const rows = extractArray(result);
+    
+    // Deep scan data structure
+    const raw = result.data || result || [];
+    allAnnouncements = raw.map(r => r.announcement || r);
 
-    if (!rows.length) {
-      target.innerHTML = '<p class="muted" style="padding:20px;">No announcements.</p>';
-      return;
+    applyAnnouncementFilters();
+
+    // Wire refresh button
+    const refreshBtn = document.querySelector('.page-head .actions button');
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadAnnouncements();
     }
 
-    if (grid) {
-      target.innerHTML = rows.map((r) => {
-        const a = r.announcement || r;
-        const priority = a.priority || 'normal';
-        const isExpired = a.expiresAt && new Date(a.expiresAt).getTime() < Date.now();
-        return `
-          <div class="ann-card ${priority} ${a.isPublished === false ? 'unpublished' : ''}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('announcement-detail', { id: ${a.id} })">
-            <div class="anc-head">
-              <div class="anc-badges">
-                <span class="anc-badge priority-${priority}">${priority === 'high' ? '🔴 Urgent' : priority === 'low' ? '📝 General' : '📢 Normal'}</span>
-                <span class="anc-badge audience">${escapeHtml(a.audience === 'all' ? 'Everyone' : a.audience || '')}</span>
-                ${a.isPublished === false ? '<span class="anc-badge unpublished">Draft</span>' : ''}
-                ${isExpired ? '<span class="anc-badge expired">Expired</span>' : ''}
-              </div>
-            </div>
-            <h3>${escapeHtml(a.title || '')}</h3>
-            <div class="body">${escapeHtml(a.body || '')}</div>
-            <div class="anc-meta"><span>${fmtDateTime(a.publishedAt || a.createdAt)}</span><span>${a.authorId ? 'Admin #' + a.authorId : ''}</span></div>
-            <div class="anc-actions">
-              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); FPU_ADMIN_SPA.navigateToWithQuery('announcement-form', { id: ${a.id} })">Edit</button>
-              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); FPU_ADMIN.deleteAnnouncement(${a.id})">Delete</button>
-            </div>
-          </div>`;
-      }).join('');
-    } else {
-      target.innerHTML = rows.map((r) => {
-        const a = r.announcement || r;
-        const badgeCls = a.priority === 'high' ? 'danger' : a.priority === 'low' ? 'muted' : 'info';
-        return `<article class="panel" style="margin-bottom:.75rem;"><div class="panel-body"><span class="badge badge-${badgeCls}">${escapeHtml(a.priority || 'normal')}</span><h3 style="margin:.4rem 0;">${escapeHtml(a.title || '')}</h3><p>${escapeHtml(a.body || '')}</p><p class="small muted">${fmtDateTime(a.publishedAt || a.createdAt)}</p></div></article>`;
-      }).join('');
-    }
+    // Wire tabs
+    document.querySelectorAll('#ann-audience-tabs .staff-role-tab').forEach(tab => {
+      if (tab.__wired) return;
+      tab.__wired = true;
+      tab.onclick = () => {
+        document.querySelectorAll('#ann-audience-tabs .staff-role-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        applyAnnouncementFilters();
+      };
+    });
 
-    const total = rows.length;
-    const urgent = rows.filter((r) => (r.announcement || r).priority === 'high').length;
-    const published = rows.filter((r) => (r.announcement || r).isPublished !== false).length;
-    const active = rows.filter((r) => { const a = r.announcement || r; return !a.expiresAt || new Date(a.expiresAt).getTime() > Date.now(); }).length;
-    setText('ann-stat-total', total);
-    setText('ann-stat-urgent', urgent);
-    setText('ann-stat-published', published);
-    setText('ann-stat-active', active);
   } catch (err) {
-    target.innerHTML = `<div class="alert alert-danger">${escapeHtml(err.message)}</div>`;
+    list.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 
+function applyAnnouncementFilters() {
+  const list = document.getElementById('ann-list');
+  
+  // 1. Get Filter Values from HTML
+  const activeTab = document.querySelector('#ann-audience-tabs .staff-role-tab.active');
+  const audienceFilter = activeTab ? activeTab.dataset.audience : '';
+  
+  const priorityFilter = document.getElementById('ann-filter-priority')?.value || '';
+  const periodFilter = document.getElementById('ann-filter-period')?.value || '';
+  const searchVal = document.getElementById('ann-search')?.value.toLowerCase() || '';
+
+  // 2. Filter the Data
+  let filtered = allAnnouncements.filter(a => {
+    const audience = String(a.audience || 'all').toLowerCase();
+    const priority = String(a.priority || 'normal').toLowerCase();
+    const title = String(a.title || '').toLowerCase();
+    const body = String(a.body || '').toLowerCase();
+    const createdAt = a.publishedAt || a.createdAt;
+
+    // Audience match
+    if (audienceFilter && audience !== audienceFilter) return false;
+    // Priority match
+    if (priorityFilter && priority !== priorityFilter) return false;
+    // Search match
+    if (searchVal && !title.includes(searchVal) && !body.includes(searchVal)) return false;
+    // Period match (Today, Week, Month)
+    if (periodFilter && createdAt) {
+      const now = new Date();
+      const date = new Date(createdAt);
+      const diffDays = (now - date) / (1000 * 60 * 60 * 24);
+      if (periodFilter === 'today' && diffDays > 1) return false;
+      if (periodFilter === 'week' && diffDays > 7) return false;
+      if (periodFilter === 'month' && diffDays > 30) return false;
+    }
+
+    return true;
+  });
+
+  // 3. Update Stats & Tabs
+  updateAnnouncementStats(allAnnouncements);
+
+  // 4. Render
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:40px;text-align:center;"><div style="font-size:2rem;margin-bottom:10px;">🔍</div><p>No announcements match your filters.</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(a => {
+    const priority = String(a.priority || 'normal').toLowerCase();
+    const audience = String(a.audience || 'all').toLowerCase();
+    const isExpired = a.expiresAt && new Date(a.expiresAt) < new Date();
+    
+    let pClass = 'priority-normal';
+    let pIcon = '📢';
+    let pLabel = 'Normal';
+    if (priority === 'high') { pClass = 'priority-high'; pIcon = '🔴'; pLabel = 'Urgent'; }
+    if (priority === 'low') { pClass = 'priority-low'; pIcon = '📝'; pLabel = 'General'; }
+
+    const audLabel = audience === 'all' ? 'Everyone' : audience.toUpperCase();
+    const createdDate = a.publishedAt || a.createdAt;
+
+    return `
+      <div class="ann-card ${priority}" onclick="window.location.hash='#announcement-detail?id=${a.id}'">
+        <div class="anc-head">
+          <div class="anc-badges">
+            <span class="anc-badge ${pClass}">${pIcon} ${pLabel}</span>
+            <span class="anc-badge audience">${escapeHtml(audLabel)}</span>
+            ${a.isPublished === false ? '<span class="anc-badge unpublished">Draft</span>' : ''}
+            ${isExpired ? '<span class="anc-badge expired">Expired</span>' : ''}
+          </div>
+        </div>
+        <h3>${escapeHtml(a.title || '')}</h3>
+        <div class="body">${escapeHtml(a.body || '')}</div>
+        <div class="anc-meta">
+          <span>${fmtDateTime(createdDate)}</span>
+          <span>${a.authorId ? 'Admin #' + a.authorId : ''}</span>
+        </div>
+        <div class="anc-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-sm" onclick="window.location.hash='#announcement-form?id=${a.id}'">Edit</button>
+          <button class="btn btn-ghost btn-sm" style="color:#dc2626;" onclick="FPU_ADMIN.deleteAnnouncement(${a.id})">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateAnnouncementStats(records) {
+  const counts = { total: records.length, urgent: 0, published: 0, active: 0 };
+  const audiences = { student: 0, staff: 0, lecturer: 0, hod: 0 };
+  
+  records.forEach(a => {
+    if (String(a.priority).toLowerCase() === 'high') counts.urgent++;
+    if (a.isPublished !== false) counts.published++;
+    if (!a.expiresAt || new Date(a.expiresAt) > new Date()) counts.active++;
+    
+    const aud = String(a.audience || 'all').toLowerCase();
+    if (audiences[aud] !== undefined) audiences[aud]++;
+  });
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Top Stats Cards
+  setText('ann-stat-total', counts.total);
+  setText('ann-stat-urgent', counts.urgent);
+  setText('ann-stat-published', counts.published);
+  setText('ann-stat-active', counts.active);
+  
+  // Tab Counts
+  setText('ann-count-all', counts.total);
+  setText('ann-count-student', audiences.student);
+  setText('ann-count-staff', audiences.staff);
+  setText('ann-count-lecturer', audiences.lecturer);
+  setText('ann-count-hod', audiences.hod);
+}
+
 async function deleteAnnouncement(id) {
-  if (!confirm('Delete this announcement?')) return;
+  const ok = await window.fpuConfirm('Delete this announcement? This cannot be undone.', { title: 'Delete Announcement', type: 'danger', okText: 'Delete' });
+  if (!ok) return;
+  
   try {
     await adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
+    showToast('🗑️ Deleted.', 'success');
     loadAnnouncements();
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }

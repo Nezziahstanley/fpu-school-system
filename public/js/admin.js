@@ -10216,6 +10216,176 @@ async function deleteStaff() {
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
+// ============================================
+// STAFF: Profile Loader
+// ============================================
+async function loadStaffProfile() {
+  // Parse the ID from the URL hash
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const id = params.get('id');
+
+  if (!id) {
+    document.getElementById('sp-name').textContent = 'No staff selected';
+    document.getElementById('sp-contact').innerHTML = '<p class="muted">No staff member selected.</p>';
+    return;
+  }
+
+  try {
+    const res = await adminFetch(`/api/admin/staff/${id}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Staff not found');
+    
+    const user = json.data || {};
+    const sp = user.staffProfile || {};
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+
+    // Update page title
+    const subEl = document.getElementById('sp-subtitle');
+    if (subEl) subEl.textContent = `${user.email || ''} · ${String(user.role || '').replace(/_/g, ' ')}`;
+
+    // Avatar + Identity
+    const avatarEl = document.getElementById('sp-avatar');
+    avatarEl.innerHTML = user.photoUrl 
+      ? `<img src="${escapeHtml(user.photoUrl)}" alt="">` 
+      : escapeHtml(initials);
+    
+    document.getElementById('sp-name').textContent = fullName || 'Unknown Staff';
+    document.getElementById('sp-email').textContent = user.email || '';
+    
+    const badgesEl = document.getElementById('sp-badges');
+    badgesEl.innerHTML = `
+      ${roleBadge(user.role)}
+      ${user.isActive !== false ? badge('active') : badge('inactive')}
+    `;
+
+    // Contact panel
+    const contactEl = document.getElementById('sp-contact');
+    contactEl.innerHTML = `
+      <div class="field-row"><span class="k">Phone</span><span class="v">${escapeHtml(user.phone || '—')}</span></div>
+      <div class="field-row"><span class="k">Gender</span><span class="v">${escapeHtml(user.gender || '—')}</span></div>
+      <div class="field-row"><span class="k">Address</span><span class="v">${escapeHtml(user.address || '—')}</span></div>
+    `;
+
+    // Employment panel
+    const empEl = document.getElementById('sp-employment');
+    empEl.innerHTML = `
+      <div class="field-row"><span class="k">Department</span><span class="v">${escapeHtml(user.departmentName || user.department?.name || '—')}</span></div>
+      <div class="field-row"><span class="k">Rank</span><span class="v">${escapeHtml(sp.rank || '—')}</span></div>
+      <div class="field-row"><span class="k">Specialization</span><span class="v">${escapeHtml(sp.specialization || '—')}</span></div>
+      <div class="field-row"><span class="k">Qualification</span><span class="v">${escapeHtml(sp.qualification || '—')}</span></div>
+      <div class="field-row"><span class="k">Employment Date</span><span class="v">${sp.employmentDate ? fmtDate(sp.employmentDate) : '—'}</span></div>
+    `;
+
+    // Courses taught
+    const coursesEl = document.getElementById('sp-courses');
+    try {
+      const allocsRes = await adminFetch(`/api/admin/allocations?lecturerId=${id}&limit=500`);
+      const allocs = (await allocsRes.json()).data || [];
+      const valid = allocs.filter(a => a.course && a.course.code);
+      
+      document.getElementById('sp-courses-count').textContent = `${valid.length} course${valid.length === 1 ? '' : 's'}`;
+      
+      if (!valid.length) {
+        coursesEl.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No courses allocated yet.</div>';
+      } else {
+        coursesEl.innerHTML = valid.map(a => `
+          <div class="sp-course-row">
+            <span class="code">${escapeHtml(a.course.code)}</span>
+            <span class="title">${escapeHtml(a.course.title || '—')}</span>
+            <span class="units">${Number(a.course.unit) || 0}</span>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      coursesEl.innerHTML = '<div style="padding:20px;text-align:center;color:#dc2626;">Could not load courses.</div>';
+    }
+
+    // Recent activity (audit log)
+    const activityEl = document.getElementById('sp-activity');
+    try {
+      const auditRes = await adminFetch(`/api/admin/audit?userId=${id}&limit=8`);
+      const logs = (await auditRes.json()).data || [];
+      if (!logs.length) {
+        activityEl.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">No recent activity.</div>';
+      } else {
+        activityEl.innerHTML = logs.map(l => {
+          const log = l.log || l;
+          return `
+            <div class="field-row">
+              <span class="k">${escapeHtml(log.action || '')}</span>
+              <span class="v">${timeAgo(log.createdAt)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    } catch {
+      activityEl.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Could not load activity.</div>';
+    }
+
+  } catch (err) {
+    console.error('[staff-profile] Error:', err);
+    document.getElementById('sp-name').textContent = 'Error';
+    document.getElementById('sp-subtitle').textContent = err.message;
+    document.getElementById('sp-contact').innerHTML = `<div style="padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// STAFF PROFILE: Action helpers
+// ============================================
+function getCurrentStaffId() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  return params.get('id');
+}
+
+function editStaffFromProfile() {
+  const id = getCurrentStaffId();
+  if (id) window.location.hash = `#staff-form?id=${id}`;
+}
+
+async function resetStaffPassword() {
+  const id = getCurrentStaffId();
+  if (!id) return;
+  const pwd = await window.fpuPrompt('New password (default: principal1234)', 'Leave blank for default.', 'Reset Password');
+  if (pwd === null) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password: pwd || undefined }),
+    });
+    showToast('✅ Password reset.', 'success');
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function toggleStaffActive() {
+  const id = getCurrentStaffId();
+  if (!id) return;
+  const ok = await window.fpuConfirm("Toggle this staff member's active status?", { title: 'Toggle Status', type: 'warning' });
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}/toggle-active`, { method: 'POST' });
+    showToast('✅ Status updated.', 'success');
+    loadStaffProfile();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
+async function deleteStaff() {
+  const id = getCurrentStaffId();
+  if (!id) return;
+  const ok = await window.fpuConfirm('Delete this staff member? This cannot be undone.', { title: 'Delete Staff', type: 'danger', okText: 'Delete' });
+  if (!ok) return;
+  try {
+    await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Staff deleted.', 'success');
+    window.location.hash = '#staff';
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -10278,7 +10448,8 @@ window.FPU_ADMIN = {
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
-  viewHodDetails, replaceHod, sendHodEmail, emailAllHods,
+  viewHodDetails, replaceHod, sendHodEmail, emailAllHods, loadStaffProfile, editStaffFromProfile,
+  resetStaffPassword, toggleStaffActive, deleteStaff,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,

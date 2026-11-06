@@ -265,7 +265,7 @@
     'lecturers':        { url: '/admin/partials/lecturers/list.html',            title: 'Lecturers',       init: call('loadLecturerGrid') },
 
     // ---------- Finance ----------
-    'fees':             { url: '/admin/partials/fees/list.html',                 title: 'Fee Structures',  init: call('loadFeeDepartments') },
+    'fees':             { url: '/admin/partials/fees/list.html',                 title: 'Fee Structures',  init: call('loadFeeLevels') },
     'fee-form':         { url: '/admin/partials/fees/form.html',                 title: 'New Fee',         init: () => {} },
     'fees-by-dept':     { url: '/admin/partials/fees/by-department.html',        title: 'Department Fees', init: call('loadDepartmentFees') },
 
@@ -273,7 +273,7 @@
     'payment-form':       { url: '/admin/partials/payments/form.html',           title: 'New Payment',     init: () => {} },
     'payment-detail':     { url: '/admin/partials/payments/detail.html',         title: 'Payment Detail',  init: call('loadPaymentDetail') },
     'payments-by-dept':   { url: '/admin/partials/payments/by-department.html',  title: 'Department Payments', init: call('loadDepartmentPayments') },
-    'payments-by-student':{ url: '/admin/partials/payments/by-student.html',     title: 'Student Payments',init: call('loadStudentPayments') },
+    'payments-by-student':{ url: '/admin/partials/payments/by-student.html',     title: 'Student Payment History', init: call('loadStudentPayments') },
 
     'clearances':         { url: '/admin/partials/clearances/list.html',         title: 'Clearances',      init: call('loadClearanceDepartments') },
     'clearances-list':    { url: '/admin/partials/clearances/index.html',        title: 'Clearances',      init: call('loadClearances') },

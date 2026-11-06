@@ -7,8 +7,7 @@
     <p class="muted small">Record a new borrow for a student or staff member</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('library-borrows')">← Back</button>
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash = '#borrows'">← Back</button>
   </div>
 </section>
 
@@ -44,8 +43,7 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">Issue Book</button>
-        <button type="button" class="btn btn-ghost"
-                onclick="FPU_ADMIN_SPA.navigateTo('library-borrows')">Cancel</button>
+        <button type="button" class="btn btn-ghost" onclick="window.location.hash = '#borrows'">Cancel</button>
       </div>
     </form>
   </div>
@@ -66,11 +64,12 @@
     // Load books
     (async function loadBooks() {
       try {
-        const res = await A.adminFetch('/api/admin/library/books?availableOnly=true&limit=1000');
+        // Use the correct fetch method from your global functions
+        const res = await adminFetch('/api/admin/library/books?availableOnly=true&limit=1000');
         const json = await res.json();
         const books = json.data || [];
         $('bi-book').innerHTML = '<option value="">— Choose a book —</option>' +
-          books.map((b) => `<option value="${b.id}">${A.escapeHtml(b.title)}${b.author ? ' — ' + A.escapeHtml(b.author) : ''} (${b.copiesAvailable} available)</option>`).join('');
+          books.map((b) => `<option value="${b.id}">${escapeHtml(b.title)}${b.author ? ' — ' + escapeHtml(b.author) : ''} (${b.copiesAvailable || b.totalCopies || 0} available)</option>`).join('');
       } catch (err) {
         $('bi-book').innerHTML = '<option value="">Could not load books</option>';
       }
@@ -79,16 +78,17 @@
     // Load users
     (async function loadUsers() {
       try {
-        const res = await A.adminFetch('/api/admin/lookups/users');
+        const res = await adminFetch('/api/admin/lookups/users');
         const json = await res.json();
         const users = json.data || [];
         $('bi-user').innerHTML = '<option value="">— Choose a user —</option>' +
-          users.map((u) => `<option value="${u.id}">${A.escapeHtml(`${u.firstName} ${u.lastName}`)} (${A.escapeHtml(u.email || '')})</option>`).join('');
+          users.map((u) => `<option value="${u.id}">${escapeHtml(`${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown')} (${escapeHtml(u.matricNumber || u.email || '')})</option>`).join('');
       } catch (err) {
         $('bi-user').innerHTML = '<option value="">Could not load users</option>';
       }
     })();
 
+    // Handle Submit
     $('borrow-issue-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('bi-validation');
@@ -96,21 +96,50 @@
 
       const bookId = Number($('bi-book').value);
       const userId = Number($('bi-user').value);
-      const dueAt = $('bi-due-date').value;
+      const borrowDate = $('bi-borrow-date').value;
+      const dueDate = $('bi-due-date').value;
 
-      if (!bookId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Choose a book.</div>'; return; }
-      if (!userId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Choose a borrower.</div>'; return; }
-      if (!dueAt) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Due date is required.</div>'; return; }
+      if (!bookId) { valEl.innerHTML = '<div class="alert alert-error" style="color:#dc2626; margin-bottom:12px;">⚠️ Choose a book.</div>'; return; }
+      if (!userId) { valEl.innerHTML = '<div class="alert alert-error" style="color:#dc2626; margin-bottom:12px;">⚠️ Choose a borrower.</div>'; return; }
+      if (!dueDate) { valEl.innerHTML = '<div class="alert alert-error" style="color:#dc2626; margin-bottom:12px;">⚠️ Due date is required.</div>'; return; }
+
+      const submitBtn = document.querySelector('#borrow-issue-form button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Issuing...';
 
       try {
-        await A.adminFetch('/api/admin/library/borrows', {
+        // Send to backend
+        const res = await adminFetch('/api/admin/library/borrows', {
           method: 'POST',
-          body: JSON.stringify({ bookId, userId, dueAt: new Date(dueAt).toISOString() }),
+          body: JSON.stringify({ 
+            bookId, 
+            userId, 
+            dueAt: new Date(dueDate).toISOString(),
+            borrowedAt: borrowDate ? new Date(borrowDate).toISOString() : new Date().toISOString()
+          }),
         });
-        A.showToast('✅ Book issued.');
-        A.FPU_ADMIN_SPA.navigateTo('library-borrows');
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to issue book');
+        }
+
+        showToast('✅ Book issued successfully.', 'success');
+        
+        // Navigate back to the borrows list securely
+        window.location.hash = '#borrows';
+        
+        // Give the SPA 200ms to load the page, then refresh the table
+        setTimeout(() => {
+          if (window.FPU_ADMIN && window.FPU_ADMIN.loadBorrowsTable) {
+            window.FPU_ADMIN.loadBorrowsTable();
+          }
+        }, 300);
+
       } catch (err) {
-        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
+        valEl.innerHTML = `<div class="alert alert-error" style="color:#dc2626; margin-bottom:12px;">❌ ${escapeHtml(err.message)}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Issue Book';
       }
     });
   })();

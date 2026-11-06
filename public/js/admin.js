@@ -8109,6 +8109,63 @@ async function loadStudentTranscript() {
   }
 }
 
+// ============================================
+// LIBRARY: ISSUE BOOK
+// ============================================
+async function submitIssueBookForm() {
+  // 1. Get values from the form (we will add these IDs to the HTML)
+  const bookId = document.getElementById('issue-book-id')?.value;
+  const userId = document.getElementById('issue-user-id')?.value;
+  const borrowDate = document.getElementById('issue-borrow-date')?.value;
+  const dueDate = document.getElementById('issue-due-date')?.value;
+
+  if (!bookId || !userId || !dueDate) {
+    showToast('⚠️ Please select a book, a borrower, and a due date.', 'warning');
+    return;
+  }
+
+  const submitBtn = document.getElementById('issue-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Issuing...';
+  }
+
+  try {
+    // 2. Send data to the backend API
+    const res = await adminFetch('/api/admin/library/borrows', {
+      method: 'POST',
+      body: JSON.stringify({
+        bookId: Number(bookId),
+        userId: Number(userId),
+        dueAt: new Date(dueDate).toISOString(),
+        borrowedAt: borrowDate ? new Date(borrowDate).toISOString() : new Date().toISOString()
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || 'Failed to issue book');
+    }
+
+    showToast('📚 Book issued successfully!', 'success');
+    
+    // 3. Redirect back to the borrows list safely
+    window.location.hash = '#borrows';
+    
+    // 4. Reload the table if the function exists
+    setTimeout(() => {
+      if (typeof loadBorrowsTable === 'function') loadBorrowsTable();
+    }, 200);
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Issue Book';
+    }
+  }
+}
+
 
 window.FPU_ADMIN = {
   // Core Helpers
@@ -8181,7 +8238,7 @@ window.FPU_ADMIN = {
   deleteNotification, loadComplaints,
 
   // Library
-  loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow,
+  loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm,
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,

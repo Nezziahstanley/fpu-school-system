@@ -3649,7 +3649,6 @@ async function loadBorrowsTable() {
   const tbody = document.getElementById('bor-tbody');
   if (!tbody) return;
 
-  // UI Setup
   const activeTab = document.querySelector('.staff-role-tab.active');
   const statusFilter = activeTab ? activeTab.dataset.status : '';
   const searchVal = document.getElementById('bor-search')?.value || '';
@@ -3658,7 +3657,6 @@ async function loadBorrowsTable() {
   tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading records…</td></tr>';
 
   try {
-    // Build API query
     const q = new URLSearchParams();
     if (statusFilter) q.append('status', statusFilter);
     if (searchVal) q.append('search', searchVal);
@@ -3666,70 +3664,92 @@ async function loadBorrowsTable() {
 
     const res = await adminFetch(`/api/admin/library/borrows?${q.toString()}`);
     if (!res.ok) throw new Error('Failed to load borrows');
-    const data = await res.json();
-    const records = data.data || data || [];
+    
+    const json = await res.json();
+    const records = json.data || json.borrows || json || [];
 
-    if (records.length === 0) {
+    if (!Array.isArray(records) || records.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records found.</td></tr>';
       updateBorrowStats([]);
       return;
     }
 
-    // Render Rows
     tbody.innerHTML = records.map(r => {
-      const status = String(r.status || '').toLowerCase();
-      const isOverdue = status === 'overdue';
+      // 1. Robust Status Extraction
+      const rawStatus = String(r.status || r.borrowStatus || r.state || 'borrowed').toLowerCase();
       
-      // Date Calculations
-      const dueDate = new Date(r.dueDate || r.due_date);
-      const now = new Date();
-      const diffTime = dueDate - now;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // 2. Robust Date Extraction (Handles snake_case, camelCase, etc.)
+      const rawDue = r.dueDate || r.due_date || r.due;
+      const rawBorrowed = r.borrowedAt || r.borrowed_at || r.createdAt || r.created_at || r.borrowDate;
       
-      let daysHtml = '';
-      if (status === 'returned') {
+      // Format dates
+      const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
+      const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
+
+      // Calculate Days Left
+      let daysHtml = '—';
+      let isOverdue = false;
+      
+      if (rawDue && ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus)) {
+        const dueDate = new Date(rawDue);
+        const now = new Date();
+        const diffTime = dueDate - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+          isOverdue = true;
+          daysHtml = `<span class="days-badge danger">${Math.abs(diffDays)} Days Overdue</span>`;
+        } else if (diffDays === 0) {
+          daysHtml = `<span class="days-badge warning">Due Today</span>`;
+        } else if (diffDays <= 3) {
+          daysHtml = `<span class="days-badge warning">${diffDays} days left</span>`;
+        } else {
+          daysHtml = `<span class="days-badge ok">${diffDays} days left</span>`;
+        }
+      } else if (['returned', 'completed'].includes(rawStatus)) {
         daysHtml = `<span class="days-badge done">Returned</span>`;
-      } else if (status === 'lost') {
+      } else if (rawStatus === 'lost') {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
-      } else if (isOverdue || diffDays < 0) {
-        daysHtml = `<span class="days-badge danger">${Math.abs(diffDays)} Days Overdue</span>`;
-      } else if (diffDays <= 3) {
-        daysHtml = `<span class="days-badge warning">${diffDays}d left</span>`;
-      } else {
-        daysHtml = `<span class="days-badge ok">${diffDays}d left</span>`;
       }
 
-      // Fines Logic (Calculates based on 100 Naira per day overdue)
-      const fineAmount = (isOverdue || diffDays < 0) ? Math.abs(diffDays) * 100 : 0;
-      const fineHtml = fineAmount > 0 
-        ? `<div style="font-size:11px; color:#dc2626; font-weight:bold; margin-top:4px;">Fine: ₦${fineAmount}</div>` 
-        : '';
+      // 3. Robust Book Extraction
+      const bookTitle = r.book?.title || r.bookTitle || r.title || 'Unknown Book';
+      const bookAuthor = r.book?.author || r.author || '';
 
-      // Action Buttons
+      // 4. Robust User Extraction
+      const u = r.user || r.student || r.borrower || {};
+      const firstName = u.firstName || u.first_name || '';
+      const lastName = u.lastName || u.last_name || '';
+      const fullName = `${firstName} ${lastName}`.trim() || u.name || 'Unknown User';
+      const matric = u.matricNumber || u.matric_no || u.staffId || '—';
+
+      // 5. Action Buttons
       let actionsHtml = '';
-      if (status === 'borrowed' || status === 'overdue') {
+      const isActive = ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus);
+      
+      if (isActive) {
         actionsHtml = `
           <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.renewBorrow(${r.id})">Renew</button>
-          <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${r.id}, '${escapeHtml(r.book?.title || r.bookTitle || 'Book')}', ${fineAmount})">Return</button>
+          <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${r.id}, '${escapeHtml(bookTitle)}')">Return</button>
         `;
       } else {
-        actionsHtml = `<span class="muted small">Completed</span>`;
+        actionsHtml = `<button class="btn btn-sm btn-outline" disabled>Completed</button>`;
       }
 
       return `
         <tr class="${isOverdue ? 'borrow-row-overdue' : ''}">
           <td>
-            <div style="font-weight:600;">${escapeHtml(r.book?.title || r.bookTitle || 'Unknown Book')}</div>
-            <div class="muted small">${escapeHtml(r.book?.author || '')}</div>
+            <div style="font-weight:600;">${escapeHtml(bookTitle)}</div>
+            <div class="muted small">${escapeHtml(bookAuthor)}</div>
           </td>
           <td>
-            <div>${escapeHtml(r.user?.firstName + ' ' + r.user?.lastName || 'Unknown User')}</div>
-            <div class="muted small">${escapeHtml(r.user?.matricNumber || r.user?.email || '—')}</div>
+            <div>${escapeHtml(fullName)}</div>
+            <div class="muted small">${escapeHtml(matric)}</div>
           </td>
-          <td>${fmtDate(r.borrowedAt || r.borrowed_at || r.createdAt)}</td>
-          <td>${fmtDate(r.dueDate || r.due_date)}</td>
-          <td>${badge(status)}</td>
-          <td>${daysHtml}${fineHtml}</td>
+          <td>${borrowedDateStr}</td>
+          <td>${dueDateStr}</td>
+          <td>${badge(rawStatus === 'active' ? 'borrowed' : rawStatus)}</td>
+          <td>${daysHtml}</td>
           <td>${actionsHtml}</td>
         </tr>
       `;
@@ -3740,6 +3760,41 @@ async function loadBorrowsTable() {
 
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+function updateBorrowStats(records) {
+  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
+  
+  records.forEach(r => {
+    const s = String(r.status || r.borrowStatus || r.state || 'borrowed').toLowerCase();
+    if (['borrowed', 'active', 'issued'].includes(s)) {
+      counts.active++;
+      const rawDue = r.dueDate || r.due_date || r.due;
+      if (rawDue && new Date(rawDue) < new Date()) {
+        counts.overdue++;
+      }
+    } else if (s === 'overdue') {
+      counts.active++;
+      counts.overdue++;
+    } else if (s === 'returned' || s === 'completed') {
+      counts.returned++;
+    } else if (s === 'lost') {
+      counts.lost++;
+    }
+  });
+
+  if (document.getElementById('bor-stat-total')) {
+    document.getElementById('bor-stat-total').textContent = counts.total;
+    document.getElementById('bor-stat-active').textContent = counts.active;
+    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
+    document.getElementById('bor-stat-returned').textContent = counts.returned;
+    
+    document.getElementById('bor-count-all').textContent = counts.total;
+    document.getElementById('bor-count-borrowed').textContent = counts.active;
+    document.getElementById('bor-count-overdue').textContent = counts.overdue;
+    document.getElementById('bor-count-returned').textContent = counts.returned;
+    document.getElementById('bor-count-lost').textContent = counts.lost;
   }
 }
 

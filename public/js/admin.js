@@ -10892,7 +10892,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet
+// EXAMS: Load A3 Exam Sheet (Reference Format)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -10901,7 +10901,6 @@ async function loadExamSheet() {
   
   if (!root) return;
 
-  // Parse URL parameters
   const hash = window.location.hash.replace(/^#/, '');
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
@@ -10924,38 +10923,36 @@ async function loadExamSheet() {
     const json = await res.json();
     const exams = json.data || [];
 
+    // Get Year for Title
+    const year = new Date().getFullYear();
+
     subtitleEl.textContent = `${exams.length} exams scheduled`;
 
     if (!exams.length) {
-      root.innerHTML = `
-        <div class="panel" style="text-align:center; padding: 60px 20px;">
-          <h3 style="color: #64748b; margin-bottom: 10px;">No Exams Scheduled</h3>
-          <p class="muted">There are no exams for this school in the selected semester.</p>
-        </div>
-      `;
+      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled</div>`;
       return;
     }
 
-    // Build the A3 HTML
+    // Build the HTML Structure
     root.innerHTML = `
       <div class="ex-sheet" id="a3-sheet">
         <div class="ex-head">
           <div class="ex-head-text">
-            <div class="institution">FEDERAL POLYTECHNIC UGOWOLAWO</div>
-            <div class="faculty">${escapeHtml(schoolName.toUpperCase())}</div>
-            <div class="title-line">${semester.toUpperCase()} SEMESTER EXAMINATION TIMETABLE</div>
-            <div class="level-line">SESSION: ${sessionId || 'Current'}</div>
+            <div class="title-line">${year}_2 E-Examination Draft Timetable</div>
           </div>
         </div>
 
         <table class="ex-table">
           <thead>
             <tr>
-              <th class="col-days">DAYS</th>
-              <th class="col-date">DATE</th>
-              <th class="col-period">MORNING (9:00 - 11:30)</th>
-              <th class="col-period">AFTERNOON (12:00 - 2:30)</th>
-              <th class="col-period">EVENING (3:00 - 5:30)</th>
+              <th class="col-day"></th>
+              <th class="col-date"></th>
+              <th class="col-time"></th>
+              <th class="col-courses">8:30am</th>
+              <th class="col-time"></th>
+              <th class="col-courses">11am</th>
+              <th class="col-time"></th>
+              <th class="col-courses">2pm</th>
             </tr>
           </thead>
           <tbody>
@@ -10965,13 +10962,12 @@ async function loadExamSheet() {
       </div>
     `;
 
-    // Wire up buttons
+    // Wire up buttons (same as before)
     document.getElementById('exsheet-print').onclick = () => window.print();
-    
     document.getElementById('exsheet-export').onclick = () => {
-      let csv = 'Day,Date,Period,Code,Title,Venue,Invigilators\n';
+      let csv = 'Day,Date,Time,Code,Title\n';
       exams.forEach(e => {
-        csv += `"${e.dayName || ''}","${e.examDate || ''}","${e.startTime || ''}","${e.course?.code || ''}","${e.course?.title || ''}","${e.venue || ''}","${e.invigilators || ''}"\n`;
+        csv += `"${e.examDate}","${e.startTime}","${e.course?.code || ''}","${e.course?.title || ''}"\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
@@ -10980,13 +10976,10 @@ async function loadExamSheet() {
       a.download = `Exam_Sheet_${schoolName}.csv`;
       a.click();
     };
-
     document.getElementById('exsheet-draft-toggle').onclick = (e) => {
       const btn = e.target;
       btn.textContent = btn.textContent === 'Mark FINAL' ? 'Mark DRAFT' : 'Mark FINAL';
-      // You can add logic here to save this state to the DB if needed
     };
-
     document.getElementById('exsheet-add').onclick = () => {
       window.location.hash = `#exam-form?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`;
     };
@@ -10996,6 +10989,82 @@ async function loadExamSheet() {
     root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
     subtitleEl.textContent = 'Error';
   }
+}
+
+// Helper to parse and render the complex table rows
+function renderExamTableRows(exams) {
+  const grouped = {};
+  
+  // 1. Group by Date
+  exams.forEach(ex => {
+    let dateStr = ex.examDate ? String(ex.examDate).split('T')[0] : '';
+    if (!dateStr) return; // Skip invalid dates
+
+    if (!grouped[dateStr]) {
+      grouped[dateStr] = { 
+        morning: [], // 8:30am
+        noon: [],    // 11am
+        evening: []  // 2pm
+      };
+    }
+    
+    // 2. Sort into Time Slots based on startTime
+    let time = ex.startTime ? String(ex.startTime).substring(0, 5) : '09:00';
+    
+    if (time < '10:00') grouped[dateStr].morning.push(ex);
+    else if (time < '13:00') grouped[dateStr].noon.push(ex);
+    else grouped[dateStr].evening.push(ex);
+  });
+
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  let dayCount = 1;
+  let html = '';
+
+  // 3. Loop through sorted dates
+  Object.keys(grouped).sort().forEach(dateStr => {
+    const dateObj = new Date(dateStr);
+    const dayName = daysOfWeek[dateObj.getDay()] || 'Unknown';
+    const formattedDate = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const row = grouped[dateStr];
+
+    // Helper to render course lists inside the cell
+    const renderCourses = (arr) => {
+      if (!arr.length) return '';
+      return `<div class="course-list">
+        ${arr.map(ex => `
+          <div class="course-item">
+            <span class="course-code">${escapeHtml(ex.course?.code || 'N/A')}</span>
+            <span class="course-title">${escapeHtml(ex.course?.title || '')}</span>
+          </div>
+        `).join('')}
+      </div>`;
+    };
+
+    // We create a single row per date. If they have multiple periods, we use rowspan? 
+    // Actually, the screenshot shows a single row per date, with the time slots side-by-side.
+    // So we render:
+    // [Day No] [Date] [8:30] [Courses] [11:00] [Courses] [2:00] [Courses]
+    
+    html += `
+      <tr>
+        <td class="col-day">${dayCount}</td>
+        <td class="col-date">${dayName}, ${formattedDate}</td>
+        
+        <td class="col-time">8:30am</td>
+        <td class="col-courses">${renderCourses(row.morning)}</td>
+        
+        <td class="col-time">11am</td>
+        <td class="col-courses">${renderCourses(row.noon)}</td>
+        
+        <td class="col-time">2pm</td>
+        <td class="col-courses">${renderCourses(row.evening)}</td>
+      </tr>
+    `;
+    
+    dayCount++;
+  });
+
+  return html;
 }
 
 // Helper to safely parse dates and slot exams

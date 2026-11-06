@@ -45,7 +45,9 @@
         <div class="form-group">
           <label class="form-label">Fee Structure</label>
           <select class="form-select" id="pf-fee" onchange="applyFeeSelection()">
-            <option value="">— Select to auto-fill amount —</option>
+            <option value="">— Choose a level —</option>
+            <option value="ND" data-amount="53105">ND — ₦53,105</option>
+            <option value="HND" data-amount="66726">HND — ₦66,726</option>
           </select>
         </div>
         <div class="form-group">
@@ -75,32 +77,18 @@
 
     let ALL_STUDENTS = [];
     let ALL_DEPTS = [];
-    let ALL_FEES = [];
-
-    // Helper: deep-scan for the amount field in a fee row
-    function getFeeAmount(f) {
-      return Number(
-        f.amount || f.totalAmount || f.total_amount || f.feeAmount || 
-        f.fee_amount || f.total || f.amountDue || f.amount_due || 0
-      );
-    }
 
     async function loadInitialData() {
       try {
-        const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
+        const [deptsRes, studentsRes, sessionsRes] = await Promise.all([
           A.adminFetch('/api/admin/departments').catch(() => null),
           A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
           A.adminFetch('/api/admin/sessions').catch(() => null),
-          A.adminFetch('/api/admin/fees').catch(() => null),
         ]);
 
         ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
         ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
         const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
-        ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
-
-        console.log('[payment-form] Loaded fees:', ALL_FEES);
-        console.log('[payment-form] Sample fee row:', ALL_FEES[0]);
 
         // Departments dropdown
         $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
@@ -113,17 +101,6 @@
           .sort((a, b) => String(b.name).localeCompare(String(a.name)))
           .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
 
-        // Fees dropdown — with deep-scan for amount
-        $('pf-fee').innerHTML = '<option value="">— Select to auto-fill amount —</option>' +
-          ALL_FEES.map(f => {
-            const amt = getFeeAmount(f);
-            const label = [
-              f.level || f.name || f.programmeName || `Fee #${f.id}`,
-              `₦${amt.toLocaleString()}`
-            ].filter(Boolean).join(' — ');
-            return `<option value="${f.id}" data-amount="${amt}">${A.escapeHtml(label)}</option>`;
-          }).join('');
-
         // Initial student list
         filterStudentsByDept();
 
@@ -133,7 +110,6 @@
       }
     }
 
-    // Filter students by department
     window.filterStudentsByDept = function () {
       const deptId = $('pf-dept-filter').value;
       let filtered = ALL_STUDENTS;
@@ -150,39 +126,28 @@
           const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
           const mt = s.matricNumber || s.matric_number || '';
           const lvl = s.level || '';
-          return `<option value="${s.id}" data-level="${lvl}" data-programme="${s.programmeId || s.programme_id || ''}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
+          return `<option value="${s.id}" data-level="${lvl}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
         }).join('');
     };
 
-    // When a student is selected → auto-select the matching fee
     window.autoFillFeeForStudent = function () {
       const sel = $('pf-student').selectedOptions[0];
       if (!sel) return;
-      const studentLevel = String(sel.dataset.level || '').toUpperCase();
-      const studentProgId = Number(sel.dataset.programme || 0);
-
-      // Try to find a matching fee
-      const match = ALL_FEES.find(f => {
-        const fProgId = Number(f.programmeId || f.programme_id || 0);
-        const fLevel = String(f.level || '').toUpperCase();
-        return (fProgId && fProgId === studentProgId) || (fLevel && fLevel === studentLevel);
-      });
-
-      if (match) {
-        $('pf-fee').value = match.id;
+      const lvl = String(sel.dataset.level || '').toUpperCase();
+      // Auto-select matching fee
+      if (lvl === 'ND' || lvl === 'HND') {
+        $('pf-fee').value = lvl;
         applyFeeSelection();
       }
     };
 
-    // When a fee is selected → auto-fill the amount
     window.applyFeeSelection = function () {
       const sel = $('pf-fee').selectedOptions[0];
-      if (sel && sel.dataset.amount && Number(sel.dataset.amount) > 0) {
+      if (sel && sel.dataset.amount) {
         $('pf-amount').value = sel.dataset.amount;
       }
     };
 
-    // Form submit
     $('payment-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('pf-validation');

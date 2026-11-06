@@ -3541,26 +3541,115 @@ async function deleteNotification(id) {
 }
 
 // ============================================
-// COMPLAINTS
+// COMPLAINTS MANAGEMENT
 // ============================================
-let allComplaints = []; // Store data for local filtering
+let allComplaints = []; // Global store for filtering
 
 async function loadComplaints() {
-  const tbody = document.getElementById('complaints-tbody');
+  const tbody = document.getElementById('cmp-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px;">Loading…</td></tr>';
 
   try {
     const res = await adminFetch('/api/admin/complaints');
     if (!res.ok) throw new Error('Failed to load complaints');
+    
     const json = await res.json();
     allComplaints = json.data || json || [];
     
-    filterComplaints(); // Apply default filters
+    filterComplaints(); // Apply default filters and render
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#dc2626;">Error: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626; text-align:center; padding:20px;">Error: ${err.message}</td></tr>`;
   }
+}
+
+function filterComplaints() {
+  const activeTab = document.querySelector('#cmp-status-tabs .staff-role-tab.active');
+  const statusFilter = activeTab ? activeTab.dataset.status : '';
+  const catFilter = document.getElementById('cmp-filter-category')?.value || '';
+  const searchVal = document.getElementById('cmp-search')?.value.toLowerCase() || '';
+
+  let filtered = allComplaints.filter(c => {
+    const s = String(c.status || 'open').toLowerCase();
+    const cat = String(c.category || '').toLowerCase();
+    const subject = String(c.subject || '').toLowerCase();
+    const body = String(c.body || c.message || '').toLowerCase();
+    
+    if (statusFilter && s !== statusFilter) return false;
+    if (catFilter && cat !== catFilter) return false;
+    if (searchVal && !subject.includes(searchVal) && !body.includes(searchVal)) return false;
+    
+    return true;
+  });
+
+  renderComplaintsTable(filtered);
+  updateComplaintStats(allComplaints);
+}
+
+function renderComplaintsTable(records) {
+  const tbody = document.getElementById('cmp-tbody');
+  if (!tbody) return;
+  
+  if (records.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px; color:#64748b;">No complaints found matching your criteria.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = records.map(c => {
+    const status = String(c.status || 'open').toLowerCase();
+    
+    const created = new Date(c.createdAt || c.created_at || Date.now());
+    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
+    const ageDisplay = diffDays === 0 ? 'Today' : `${diffDays}d`;
+
+    let badgeClass = 'badge-open';
+    if (status === 'resolved') badgeClass = 'badge-resolved';
+    if (status === 'in_review') badgeClass = 'badge-review';
+    if (status === 'closed') badgeClass = 'badge-closed';
+
+    const u = c.user || c.student || {};
+    const fullName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
+
+    return `
+      <tr>
+        <td><div style="font-weight:600; color:#0f172a;">${escapeHtml(c.subject || 'No Subject')}</div></td>
+        <td>${escapeHtml(fullName)}</td>
+        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
+        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
+        <td><span style="font-weight:600; color:${diffDays > 7 && status !== 'resolved' ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm btn-outline" onclick="window.location.hash = '#complaints-view?id=${c.id}'">View</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateComplaintStats(records) {
+  const counts = { total: records.length, open: 0, review: 0, resolved: 0, closed: 0 };
+  
+  records.forEach(c => {
+    const s = String(c.status || 'open').toLowerCase();
+    if (s === 'open') counts.open++;
+    else if (s === 'in_review') counts.review++;
+    else if (s === 'resolved') counts.resolved++;
+    else if (s === 'closed') counts.closed++;
+  });
+
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  
+  setText('cmp-stat-total', counts.total);
+  setText('cmp-stat-open', counts.open);
+  setText('cmp-stat-in-review', counts.review);
+  setText('cmp-stat-resolved', counts.resolved);
+  
+  setText('cmp-count-all', counts.total);
+  setText('cmp-count-open', counts.open);
+  setText('cmp-count-in_review', counts.review);
+  setText('cmp-count-resolved', counts.resolved);
+  setText('cmp-count-closed', counts.closed);
+  setText('cmp-count', `Showing ${records.length}`);
 }
 
 function filterComplaints() {
@@ -8366,7 +8455,7 @@ window.FPU_ADMIN = {
 
   // Communication
   loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
-  deleteNotification, loadComplaints,
+  deleteNotification, loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats,
 
   // Library
   loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm,

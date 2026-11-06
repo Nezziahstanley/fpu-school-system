@@ -17,19 +17,19 @@
 
 <!-- Status tabs -->
 <div class="staff-role-tabs" id="cmp-status-tabs">
-  <button class="staff-role-tab active" data-status="" onclick="FPU_ADMIN.filterComplaints('')">
+  <button class="staff-role-tab active" data-status="" onclick="document.querySelectorAll('#cmp-status-tabs .staff-role-tab').forEach(b=>b.classList.remove('active')); this.classList.add('active'); FPU_ADMIN.filterComplaints();">
     All <span class="tab-count" id="cmp-count-all">—</span>
   </button>
-  <button class="staff-role-tab" data-status="open" onclick="FPU_ADMIN.filterComplaints('open')">
+  <button class="staff-role-tab" data-status="open" onclick="document.querySelectorAll('#cmp-status-tabs .staff-role-tab').forEach(b=>b.classList.remove('active')); this.classList.add('active'); FPU_ADMIN.filterComplaints();">
     Open <span class="tab-count" id="cmp-count-open">—</span>
   </button>
-  <button class="staff-role-tab" data-status="in_review" onclick="FPU_ADMIN.filterComplaints('in_review')">
+  <button class="staff-role-tab" data-status="in_review" onclick="document.querySelectorAll('#cmp-status-tabs .staff-role-tab').forEach(b=>b.classList.remove('active')); this.classList.add('active'); FPU_ADMIN.filterComplaints();">
     In Review <span class="tab-count" id="cmp-count-in_review">—</span>
   </button>
-  <button class="staff-role-tab" data-status="resolved" onclick="FPU_ADMIN.filterComplaints('resolved')">
+  <button class="staff-role-tab" data-status="resolved" onclick="document.querySelectorAll('#cmp-status-tabs .staff-role-tab').forEach(b=>b.classList.remove('active')); this.classList.add('active'); FPU_ADMIN.filterComplaints();">
     Resolved <span class="tab-count" id="cmp-count-resolved">—</span>
   </button>
-  <button class="staff-role-tab" data-status="closed" onclick="FPU_ADMIN.filterComplaints('closed')">
+  <button class="staff-role-tab" data-status="closed" onclick="document.querySelectorAll('#cmp-status-tabs .staff-role-tab').forEach(b=>b.classList.remove('active')); this.classList.add('active'); FPU_ADMIN.filterComplaints();">
     Closed <span class="tab-count" id="cmp-count-closed">—</span>
   </button>
 </div>
@@ -121,5 +121,8 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadComplaints()
+  // Auto-load complaints on page render
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadComplaints) {
+    setTimeout(window.FPU_ADMIN.loadComplaints, 100);
+  }
 </script>

@@ -16,6 +16,7 @@
   <div class="panel-body">
     <form id="payment-form">
       
+      <!-- Student Selection -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Filter by Department</label>
@@ -33,6 +34,7 @@
 
       <hr style="margin:20px 0; border:none; border-top:1px solid #e2e8f0;">
 
+      <!-- Payment Details -->
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Session <span class="req">*</span></label>
@@ -76,69 +78,7 @@
     let ALL_DEPTS = [];
     let ALL_FEES = [];
 
-async function loadInitialData() {
-  try {
-    const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
-      A.adminFetch('/api/admin/departments').catch(() => null),
-      A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
-      A.adminFetch('/api/admin/sessions').catch(() => null),
-      A.adminFetch('/api/admin/fees').catch(() => null),
-    ]);
-
-    ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
-    ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
-    const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
-    ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
-
-    // 🔍 DIAGNOSTIC: Print raw fee data
-    console.log('=== RAW FEES FROM API ===');
-    console.log(ALL_FEES);
-    if (ALL_FEES.length > 0) {
-      console.log('Sample fee:', ALL_FEES[0]);
-      console.log('Available keys:', Object.keys(ALL_FEES[0]));
-    }
-
-    // Departments dropdown
-    $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
-      ALL_DEPTS.sort((a, b) => String(a.code).localeCompare(String(b.code)))
-        .map(d => `<option value="${d.id}">${A.escapeHtml(d.code)} — ${A.escapeHtml(d.name)}</option>`).join('');
-
-    // Sessions dropdown
-    const current = sessions.find(s => s.isCurrent);
-    $('pf-session').innerHTML = sessions
-      .sort((a, b) => String(b.name).localeCompare(String(a.name)))
-      .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
-
-    // 🕵️ FEE DROPDOWN with SUPER DEEP SCAN
-    if (!ALL_FEES.length) {
-      $('pf-fee').innerHTML = '<option value="">⚠️ No fees returned by API</option>';
-    } else {
-      $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
-        ALL_FEES.map(f => {
-          // Try EVERY possible key name for level and amount
-          const level = String(
-            f.level || f.name || f.programmeLevel || f.programme_level || 
-            f.programme?.level || 'Fee'
-          ).toUpperCase();
-          
-          const amount = Number(
-            f.amount || f.totalAmount || f.total_amount || f.feeAmount || 
-            f.fee_amount || f.total || f.amount_due || f.amountDue || 
-            f.fee || 0
-          );
-          
-          const label = `${level} — ₦${amount.toLocaleString()}`;
-          return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(label)}</option>`;
-        }).join('');
-    }
-
-    filterStudentsByDept();
-
-  } catch (err) {
-    console.error('[payment-form]', err);
-    $('pf-validation').innerHTML = `<div style="color:#dc2626;">Load error: ${err.message}</div>`;
-  }
-}
+    async function loadInitialData() {
       try {
         const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
           A.adminFetch('/api/admin/departments').catch(() => null),
@@ -152,7 +92,11 @@ async function loadInitialData() {
         const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
         ALL_FEES = feesRes?.ok ? (await feesRes.json()).data || [] : [];
 
+        // 🔍 DIAGNOSTIC LOG (check F12 console)
         console.log('[payment-form] Loaded fees:', ALL_FEES);
+        if (ALL_FEES.length > 0) {
+          console.log('[payment-form] Sample fee:', ALL_FEES[0]);
+        }
 
         // Departments dropdown
         $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
@@ -165,15 +109,26 @@ async function loadInitialData() {
           .sort((a, b) => String(b.name).localeCompare(String(a.name)))
           .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
 
-        // Fees dropdown
-        if (ALL_FEES.length === 0) {
-          $('pf-fee').innerHTML = '<option value="">⚠️ No fees in database — run the SQL</option>';
+        // 🕵️ FEE DROPDOWN — Deep scan for level and amount
+        if (!ALL_FEES.length) {
+          $('pf-fee').innerHTML = '<option value="">⚠️ No fees found in database</option>';
         } else {
           $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
             ALL_FEES.map(f => {
-              const lvl = String(f.level || '').toUpperCase();
-              const amt = Number(f.amount || f.totalAmount || f.total_amount || 0);
-              return `<option value="${f.id}" data-amount="${amt}" data-level="${lvl}">${A.escapeHtml(lvl)} — ₦${amt.toLocaleString()}</option>`;
+              // Try EVERY possible key name for level and amount
+              const level = String(
+                f.level || f.name || f.programmeLevel || f.programme_level || 
+                f.programme?.level || 'Fee'
+              ).toUpperCase();
+              
+              const amount = Number(
+                f.amount || f.totalAmount || f.total_amount || f.feeAmount || 
+                f.fee_amount || f.total || f.amount_due || f.amountDue || 
+                f.fee || 0
+              );
+              
+              const label = `${level} — ₦${amount.toLocaleString()}`;
+              return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(label)}</option>`;
             }).join('');
         }
 
@@ -186,28 +141,28 @@ async function loadInitialData() {
       }
     }
 
-    // ---- Filter Students ----
+    // Filter students by department
     window.filterStudentsByDept = function () {
       const deptId = $('pf-dept-filter').value;
       let filtered = ALL_STUDENTS;
       if (deptId) filtered = filtered.filter(s => Number(s.departmentId) === Number(deptId));
 
       filtered.sort((a, b) => {
-        const an = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
-        const bn = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
+        const an = `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase();
+        const bn = `${b.firstName || b.first_name || ''} ${b.lastName || b.last_name || ''}`.toLowerCase();
         return an.localeCompare(bn);
       });
 
       $('pf-student').innerHTML = '<option value="">— Choose a student —</option>' +
         filtered.map(s => {
-          const fn = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-          const mt = s.matricNumber || '';
+          const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
+          const mt = s.matricNumber || s.matric_number || '';
           const lvl = s.level || '';
           return `<option value="${s.id}" data-level="${lvl}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
         }).join('');
     };
 
-    // ---- When Student Selected → Auto-fill Fee & Reference ----
+    // When a student is selected: auto-fill fee and reference
     window.onStudentSelected = function () {
       const sel = $('pf-student').selectedOptions[0];
       if (!sel || !sel.value) {
@@ -217,9 +172,12 @@ async function loadInitialData() {
 
       const lvl = String(sel.dataset.level || '').toUpperCase();
 
-      // 1. Auto-select matching fee
+      // 1. Auto-select matching fee (by level)
       if (lvl && ALL_FEES.length) {
-        const match = ALL_FEES.find(f => String(f.level || '').toUpperCase() === lvl);
+        const match = ALL_FEES.find(f => {
+          const fLevel = String(f.level || f.name || f.programmeLevel || '').toUpperCase();
+          return fLevel === lvl;
+        });
         if (match) {
           $('pf-fee').value = match.id;
           applyFeeSelection();
@@ -231,19 +189,19 @@ async function loadInitialData() {
       const dateStr = now.getFullYear().toString() + 
                      String(now.getMonth()+1).padStart(2,'0') + 
                      String(now.getDate()).padStart(2,'0');
-      const rand = Math.floor(1000 + Math.random() * 9000); // 4-digit random
+      const rand = Math.floor(1000 + Math.random() * 9000);
       $('pf-reference').value = `FPU-${dateStr}-${rand}`;
     };
 
-    // ---- Apply fee → fill amount ----
+    // When a fee is selected: auto-fill amount
     window.applyFeeSelection = function () {
       const sel = $('pf-fee').selectedOptions[0];
-      if (sel && sel.dataset.amount) {
+      if (sel && sel.dataset.amount && Number(sel.dataset.amount) > 0) {
         $('pf-amount').value = sel.dataset.amount;
       }
     };
 
-    // ---- Submit ----
+    // Submit form
     $('payment-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const valEl = $('pf-validation');
@@ -274,7 +232,7 @@ async function loadInitialData() {
           throw new Error(err.error || 'Failed to create payment');
         }
 
-        A.showToast('✅ Payment recorded. Reference: ' + reference, 'success');
+        A.showToast('✅ Payment recorded. Ref: ' + reference, 'success');
         setTimeout(() => { window.location.hash = '#payments'; }, 500);
 
       } catch (err) {

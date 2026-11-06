@@ -7085,6 +7085,256 @@ async function markGraduated(id) {
   }
 }
 
+// ============================================
+// TRANSCRIPT — Student transcript view
+// ============================================
+async function loadStudentTranscript() {
+  const root = document.getElementById('tx-root') ||
+                document.querySelector('#page-view .panel-body') ||
+                document.querySelector('#page-view');
+  if (!root) return;
+
+  // Get studentId from URL hash
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const studentId = params.get('studentId');
+
+  // Update subtitle if present
+  const subtitleEl = document.getElementById('page-subtitle') || 
+                     document.getElementById('tx-subtitle') ||
+                     document.querySelector('.page-head .muted');
+
+  if (!studentId) {
+    if (root) root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No student selected. <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo(\'transcript\')">← Back to lookup</button></div>';
+    return;
+  }
+
+  root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading transcript…</div>';
+
+  try {
+    // Fetch student + results in parallel
+    const [studentRes, resultsRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+      adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
+    ]);
+
+    let student = null;
+    try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+
+    let results = [];
+    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
+
+    // If student not found, show error
+    if (!student || !student.id) {
+      root.innerHTML = `
+        <div class="alert alert-danger" style="margin:20px;">
+          <strong>Student not found.</strong> The student with ID ${escapeHtml(studentId)} may have been deleted or the API returned an error.
+          <br/><br/>
+          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">← Back to lookup</button>
+        </div>
+      `;
+      return;
+    }
+
+    // Update subtitle
+    if (subtitleEl) {
+      subtitleEl.textContent = `${student.matricNumber || ''} · ${student.firstName || ''} ${student.lastName || ''}`;
+    }
+
+    // Also update page H2 if it exists and is generic
+    const h2 = document.querySelector('.page-head h2');
+    if (h2 && /transcript/i.test(h2.textContent || '')) {
+      h2.textContent = `Transcript — ${student.firstName || ''} ${student.lastName || ''}`;
+    }
+
+    // Fetch courses for course codes/titles
+    let courseMap = new Map();
+    try {
+      const cRes = await adminFetch('/api/admin/courses?limit=5000');
+      if (cRes.ok) {
+        const cJson = await cRes.json();
+        const courses = cJson.data || cJson || [];
+        courses.forEach((c) => courseMap.set(c.id, c));
+      }
+    } catch {}
+
+    // Group results by session/semester
+    const groups = new Map();
+    results.forEach((r) => {
+      const row = r.result || r;
+      const key = `${row.sessionId || '?'}|${row.semester || '?'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    });
+
+    // Compute summary stats
+    let totalUnits = 0;
+    let totalPoints = 0;
+    let courseCount = 0;
+    results.forEach((r) => {
+      const row = r.result || r;
+      const course = courseMap.get(row.courseId) || r.course || {};
+      const units = Number(course.unit) || Number(row.unit) || 0;
+      const points = Number(row.points) || 0;
+      if (row.status === 'published' || row.status === 'approved') {
+        totalUnits += units;
+        totalPoints += units * points;
+        courseCount++;
+      }
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
+    const classification =
+      cgpa === '—' ? '—' :
+      Number(cgpa) >= 3.50 ? 'Distinction' :
+      Number(cgpa) >= 3.00 ? 'Upper Credit' :
+      Number(cgpa) >= 2.50 ? 'Lower Credit' :
+      Number(cgpa) >= 2.00 ? 'Pass' : 'Fail';
+
+    // Build transcript HTML
+    const initials = ((student.firstName || ' ')[0] + (student.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+
+    const groupsHtml = [...groups.entries()].map(([key, list]) => {
+      const [sessionId, semester] = key.split('|');
+      const sectionUnits = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        return s + (Number(course.unit) || Number(row.unit) || 0);
+      }, 0);
+      const sectionPoints = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        const units = Number(course.unit) || Number(row.unit) || 0;
+        return s + (units * (Number(row.points) || 0));
+      }, 0);
+      const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
+
+      const rowsHtml = list.map((r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        const grade = row.grade || '—';
+        const gradeCls = ['A', 'B', 'C'].includes(grade) ? 'success'
+                       : grade === 'F' ? 'danger'
+                       : grade ? 'warning' : 'muted';
+        return `
+          <tr>
+            <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
+            <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
+            <td class="num">${Number(course.unit) || Number(row.unit) || 0}</td>
+            <td class="num">${row.score != null ? row.score : '—'}</td>
+            <td><span class="badge badge-${gradeCls}">${escapeHtml(grade)}</span></td>
+            <td class="num">${row.points != null ? row.points : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="panel" style="margin-bottom:20px;">
+          <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+            <h3>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</h3>
+            <div style="display:flex;gap:16px;font-size:13px;color:#6b7280;">
+              <span><strong style="color:#0f172a;">${sectionUnits}</strong> units</span>
+              <span>GPA <strong style="color:#065f46;">${gpa}</strong></span>
+            </div>
+          </div>
+          <div class="panel-body flush">
+            <div class="table-wrap">
+              <table class="table-admin">
+                <thead>
+                  <tr>
+                    <th>Course Code</th>
+                    <th>Course Title</th>
+                    <th style="width:60px;">Units</th>
+                    <th style="width:70px;">Score</th>
+                    <th style="width:70px;">Grade</th>
+                    <th style="width:70px;">Points</th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Render the full transcript
+    root.innerHTML = `
+      <div style="max-width:1000px;margin:0 auto;padding:20px;">
+
+        <!-- Student header -->
+        <div class="panel" style="margin-bottom:20px;border-left:4px solid #065f46;">
+          <div class="panel-body">
+            <div style="display:flex;gap:20px;align-items:center;">
+              <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#065f46,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;flex-shrink:0;">
+                ${student.photoUrl ? `<img src="${escapeHtml(student.photoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />` : escapeHtml(initials)}
+              </div>
+              <div style="flex:1;">
+                <h2 style="margin:0 0 4px;">${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
+                <div style="color:#6b7280;font-size:13.5px;">
+                  <code>${escapeHtml(student.matricNumber || '—')}</code> · ${escapeHtml(student.level || '—')} · ${escapeHtml(student.programmeName || student.programme?.name || '—')}
+                </div>
+                <div style="color:#6b7280;font-size:13.5px;margin-top:2px;">
+                  ${escapeHtml(student.email || '')}
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;font-weight:700;">CGPA</div>
+                <div style="font-size:2.2rem;font-weight:800;color:#065f46;line-height:1;">${cgpa}</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(classification)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary stats -->
+        <div class="stats-inline" style="margin-bottom:20px;">
+          <div class="stat-inline"><div class="label">Courses</div><div class="value">${courseCount}</div></div>
+          <div class="stat-inline stat-inline-success"><div class="label">Total Units</div><div class="value">${totalUnits}</div></div>
+          <div class="stat-inline stat-inline-primary"><div class="label">Total Points</div><div class="value">${totalPoints}</div></div>
+          <div class="stat-inline stat-inline-accent"><div class="label">Classification</div><div class="value" style="font-size:1rem;">${escapeHtml(classification)}</div></div>
+        </div>
+
+        <!-- Semester groups -->
+        ${groups.size > 0 ? groupsHtml : `
+          <div class="alert alert-warning">
+            No published results found for this student. Transcript will populate once results are entered and published.
+          </div>
+        `}
+      </div>
+    `;
+
+    // Wire the "Print" and "Export CSV" buttons if they exist
+    const printBtn = document.getElementById('tx-print');
+    if (printBtn) printBtn.onclick = () => window.print();
+
+    const exportBtn = document.getElementById('tx-export');
+    if (exportBtn) {
+      exportBtn.onclick = () => {
+        const table = root.querySelector('.table-admin');
+        if (table) exportTableAsCSV(table, `transcript-${student.matricNumber || student.id}.csv`);
+        else showToast('⚠️ No data to export.', 'warning');
+      };
+    }
+
+    const lookupBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
+      .find((b) => /lookup|back/i.test(b.textContent || ''));
+    if (lookupBtn && !lookupBtn.__wired) {
+      lookupBtn.__wired = true;
+      lookupBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('transcript');
+    }
+
+  } catch (err) {
+    root.innerHTML = `
+      <div class="alert alert-danger" style="margin:20px;">
+        <strong>Failed to load transcript:</strong> ${escapeHtml(err.message)}
+        <br/><br/>
+        <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">← Back to lookup</button>
+      </div>
+    `;
+  }
+}
+
 
 window.FPU_ADMIN = {
   // Core Helpers
@@ -7163,7 +7413,7 @@ window.FPU_ADMIN = {
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
   loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
   loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
-  approveGraduation, rejectGraduation, markGraduated,
+  approveGraduation, rejectGraduation, markGraduated, loadStudentTranscript,
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,

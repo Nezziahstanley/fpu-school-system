@@ -1,104 +1,247 @@
-// ============================================================
-// FPU — Admin fee-structures API
-// Mounted at /api/admin/fees
-// ============================================================
+<!-- ============================================================
+     Admin → Payments → Record Payment
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>New Payment Record</h2>
+    <p class="muted small">For offline / bank deposit entries</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#payments'">← Back</button>
+  </div>
+</section>
 
-'use strict';
+<div class="panel">
+  <div class="panel-head"><h3>Payment Details</h3></div>
+  <div class="panel-body">
+    <form id="payment-form">
+      
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Filter by Department</label>
+          <select class="form-select" id="pf-dept-filter" onchange="filterStudentsByDept()">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Student <span class="req">*</span></label>
+          <select class="form-select" name="studentId" id="pf-student" required onchange="onStudentSelected()">
+            <option value="">— Choose a student —</option>
+          </select>
+        </div>
+      </div>
 
-const express = require('express');
-const router = express.Router();
+      <hr style="margin:20px 0; border:none; border-top:1px solid #e2e8f0;">
 
-const db = require('../db');
-const { requireRole } = require('../middleware/auth');
-const { logAudit } = require('../utils/audit');
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="pf-session" required>
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fee Level</label>
+          <select class="form-select" id="pf-fee" onchange="applyFeeSelection()">
+            <option value="">— Loading fees from DB —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (₦) <span class="req">*</span></label>
+          <input class="form-control" type="number" step="0.01" name="amount" id="pf-amount" required placeholder="e.g. 53105" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reference / Teller No. <span class="req">*</span></label>
+          <input class="form-control" name="reference" id="pf-reference" required readonly style="background:#f8fafc;font-family:monospace;font-weight:600;" />
+        </div>
+      </div>
 
-const STAFF = ['admin', 'bursar', 'registrar', 'rector'];
+      <div id="pf-validation" style="margin-top:16px;"></div>
 
-// GET /api/admin/fees — list all fees
-router.get('/', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const { level, sessionId } = req.query;
-    let query = 'SELECT id, level, amount, session_id, created_at FROM fees';
-    const params = [];
-    const where = [];
+      <div class="form-actions" style="margin-top:24px;">
+        <button type="submit" class="btn btn-primary" id="pf-submit">Create Payment</button>
+        <button type="button" class="btn btn-outline" onclick="window.location.hash='#payments'">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
 
-    if (level) {
-      params.push(level);
-      where.push(`level = $${params.length}`);
+<script>
+  (async function () {
+    const $ = (id) => document.getElementById(id);
+    const A = window.FPU_ADMIN;
+
+    let ALL_STUDENTS = [];
+    let ALL_DEPTS = [];
+    let ALL_FEES = [];
+
+    async function loadInitialData() {
+      try {
+        const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
+          A.adminFetch('/api/admin/departments').catch(() => null),
+          A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
+          A.adminFetch('/api/admin/sessions').catch(() => null),
+          A.adminFetch('/api/admin/fees').catch(() => null),
+        ]);
+
+        ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
+        ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
+        const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
+        
+        const feesJson = feesRes?.ok ? await feesRes.json() : {};
+        ALL_FEES = feesJson.data || [];
+
+        console.log('[payment-form] Fees loaded from DB:', ALL_FEES);
+
+        // Departments dropdown
+        $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
+          ALL_DEPTS.sort((a, b) => String(a.code).localeCompare(String(b.code)))
+            .map(d => `<option value="${d.id}">${A.escapeHtml(d.code)} — ${A.escapeHtml(d.name)}</option>`).join('');
+
+        // Sessions dropdown
+        const current = sessions.find(s => s.isCurrent);
+        $('pf-session').innerHTML = sessions
+          .sort((a, b) => String(b.name).localeCompare(String(a.name)))
+          .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
+
+        // Fees dropdown (from DB)
+        if (!ALL_FEES.length) {
+          $('pf-fee').innerHTML = '<option value="">⚠️ No fees found. Run SQL in Neon.</option>';
+        } else {
+          $('pf-fee').innerHTML = '<option value="">— Choose fee —</option>' +
+            ALL_FEES.map(f => {
+              const level = String(f.level || '').toUpperCase();
+              const amount = Number(f.amount || 0);
+              return `<option value="${f.id}" data-amount="${amount}" data-level="${level}">${A.escapeHtml(level)} — ₦${amount.toLocaleString()}</option>`;
+            }).join('');
+        }
+
+        filterStudentsByDept();
+
+      } catch (err) {
+        console.error('[payment-form] Error:', err);
+      }
     }
-    if (sessionId) {
-      params.push(sessionId);
-      where.push(`session_id = $${params.length}`);
-    }
 
-    if (where.length) query += ' WHERE ' + where.join(' AND ');
-    query += ' ORDER BY level ASC';
+    // Filter students by department
+    window.filterStudentsByDept = function () {
+      const deptId = $('pf-dept-filter').value;
+      let filtered = ALL_STUDENTS;
+      if (deptId) filtered = filtered.filter(s => Number(s.departmentId) === Number(deptId));
 
-    const result = await db.query(query, params);
-    return res.json({ success: true, data: result.rows });
-  } catch (err) {
-    console.error('[fees] GET / error:', err.message);
-    return next(err);
-  }
-});
+      filtered.sort((a, b) => {
+        const an = `${a.firstName || ''} ${a.lastName || ''}`.toLowerCase();
+        const bn = `${b.firstName || ''} ${b.lastName || ''}`.toLowerCase();
+        return an.localeCompare(bn);
+      });
 
-// GET /api/admin/fees/:id
-router.get('/:id', requireRole(STAFF), async (req, res, next) => {
-  try {
-    const result = await db.query('SELECT * FROM fees WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
-    return res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    return next(err);
-  }
-});
+      $('pf-student').innerHTML = '<option value="">— Choose a student —</option>' +
+        filtered.map(s => {
+          const fn = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+          const mt = s.matricNumber || '';
+          const lvl = s.level || '';
+          return `<option value="${s.id}" data-level="${lvl}" data-matric="${mt}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
+        }).join('');
+    };
 
-// POST /api/admin/fees
-router.post('/', requireRole(['admin', 'bursar']), async (req, res, next) => {
-  try {
-    const { level, amount, sessionId } = req.body || {};
-    if (!level || amount === undefined) {
-      return res.status(400).json({ success: false, error: 'level and amount are required.' });
-    }
-    const result = await db.query(
-      'INSERT INTO fees (level, amount, session_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
-      [String(level).toUpperCase(), Number(amount), sessionId || null]
-    );
-    await logAudit({ req, action: 'fee.create', entity: 'fee', entityId: result.rows[0].id });
-    return res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    return next(err);
-  }
-});
+    // When student is selected → auto-pick fee level (ND 1, ND 2, etc) and amount
+    window.onStudentSelected = function () {
+      const sel = $('pf-student').selectedOptions[0];
+      if (!sel || !sel.value) {
+        $('pf-reference').value = '';
+        return;
+      }
 
-// PUT /api/admin/fees/:id
-router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
-  try {
-    const { level, amount, sessionId } = req.body || {};
-    const result = await db.query(
-      `UPDATE fees SET 
-        level = COALESCE($1, level), 
-        amount = COALESCE($2, amount), 
-        session_id = COALESCE($3, session_id)
-       WHERE id = $4 RETURNING *`,
-      [level ? String(level).toUpperCase() : null, amount != null ? Number(amount) : null, sessionId || null, req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
-    return res.json({ success: true, data: result.rows[0] });
-  } catch (err) {
-    return next(err);
-  }
-});
+      const levelStr = String(sel.dataset.level || '').toUpperCase();
+      const matric = String(sel.dataset.matric || '');
 
-// DELETE /api/admin/fees/:id
-router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
-  try {
-    const result = await db.query('DELETE FROM fees WHERE id = $1 RETURNING *', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Fee not found.' });
-    return res.json({ success: true });
-  } catch (err) {
-    return next(err);
-  }
-});
+      // Determine student's year (1 or 2) from matric number
+      // Matric format: FPU/SST/CSC/ND/26/009 → year = 26
+      // If current year is 26 (2026), then "26" → Year 1, "25" → Year 2
+      let yearOfStudy = 1;
+      const matricMatch = matric.match(/\/(\d{2})\//);
+      if (matricMatch) {
+        const matricYear = Number(matricMatch[1]);
+        const currentYear = new Date().getFullYear() % 100;
+        if (matricYear < currentYear) yearOfStudy = 2;
+      }
 
-module.exports = router;
+      // Build the target level string, e.g. "ND 1" or "HND 2"
+      const targetLevel = `${levelStr} ${yearOfStudy}`;
+
+      // Find the matching fee in ALL_FEES
+      const match = ALL_FEES.find(f => String(f.level || '').toUpperCase() === targetLevel);
+
+      if (match) {
+        $('pf-fee').value = match.id;
+        $('pf-amount').value = Number(match.amount || 0);
+      } else {
+        // Fallback: try matching just the level (ND or HND)
+        const fallback = ALL_FEES.find(f => String(f.level || '').toUpperCase().startsWith(levelStr));
+        if (fallback) {
+          $('pf-fee').value = fallback.id;
+          $('pf-amount').value = Number(fallback.amount || 0);
+        }
+      }
+
+      // Auto-generate reference
+      const now = new Date();
+      const dateStr = now.getFullYear().toString() + 
+                     String(now.getMonth()+1).padStart(2,'0') + 
+                     String(now.getDate()).padStart(2,'0');
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      $('pf-reference').value = `FPU-${dateStr}-${rand}`;
+    };
+
+    // When fee is manually selected → update amount
+    window.applyFeeSelection = function () {
+      const sel = $('pf-fee').selectedOptions[0];
+      if (sel && sel.dataset.amount) {
+        $('pf-amount').value = sel.dataset.amount;
+      }
+    };
+
+    // Submit form
+    $('payment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('pf-validation');
+      valEl.innerHTML = '';
+
+      const studentId = Number($('pf-student').value);
+      const sessionId = Number($('pf-session').value);
+      const amount = Number($('pf-amount').value);
+      const reference = $('pf-reference').value.trim();
+
+      if (!studentId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Select a student.</div>'; return; }
+      if (!sessionId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Select a session.</div>'; return; }
+      if (!amount || amount <= 0) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Enter a valid amount.</div>'; return; }
+      if (!reference) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Reference missing.</div>'; return; }
+
+      const submitBtn = $('pf-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating…';
+
+      try {
+        const res = await A.adminFetch('/api/admin/payments', {
+          method: 'POST',
+          body: JSON.stringify({ studentId, sessionId, amount, reference }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to create payment');
+        }
+
+        A.showToast('✅ Payment recorded. Ref: ' + reference, 'success');
+        setTimeout(() => { window.location.hash = '#payments'; }, 500);
+
+      } catch (err) {
+        valEl.innerHTML = `<div style="color:#dc2626;">❌ ${A.escapeHtml(err.message)}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Payment';
+      }
+    });
+
+    loadInitialData();
+  })();
+</script>

@@ -3666,6 +3666,8 @@ async function loadBorrowsTable() {
     if (!res.ok) throw new Error('Failed to load borrows');
     
     const json = await res.json();
+    
+    // The backend returns { success: true, data: [...] }
     const records = json.data || json.borrows || json || [];
 
     if (!Array.isArray(records) || records.length === 0) {
@@ -3676,6 +3678,8 @@ async function loadBorrowsTable() {
 
     tbody.innerHTML = records.map(r => {
       const rawStatus = String(r.status || 'borrowed').toLowerCase();
+      
+      // Dates
       const rawDue = r.due_at;
       const rawBorrowed = r.borrowed_at;
 
@@ -3707,10 +3711,15 @@ async function loadBorrowsTable() {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      const bookTitle = r.book_title || 'Unknown Book';
-      const bookAuthor = r.book_author || '';
-      const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown User';
-      const matric = r.matric_number || '—';
+      // DATA MAPPING (Handles both flat SQL returns and nested Sequelize returns)
+      const bookTitle = r.book_title || r.book?.title || r.Book?.title || 'Unknown Book';
+      const bookAuthor = r.book_author || r.book?.author || r.Book?.author || '';
+      
+      const firstName = r.first_name || r.user?.firstName || r.User?.firstName || '';
+      const lastName = r.last_name || r.user?.lastName || r.User?.lastName || '';
+      const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
+      
+      const matric = r.matric_number || r.user?.matricNumber || r.User?.matricNumber || '—';
 
       let actionsHtml = '';
       const isActive = ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus);

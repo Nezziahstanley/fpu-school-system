@@ -3715,53 +3715,41 @@ async function loadBorrowsTable() {
 }
 
 // ============================================
-// RECORDS (Documents, Graduation)
+// DOCUMENTS — Full-featured loader
 // ============================================
-
 async function loadDocumentsTable() {
   const list = document.getElementById('doc-list');
   if (!list) return;
 
-  list.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading documents…</div>';
+  // Active tab
+  const activeTab = document.querySelector('#doc-status-tabs .staff-role-tab.active, .staff-role-tabs .staff-role-tab.active');
+  const statusFilter = activeTab?.dataset.status || '';
 
-  const status = (document.getElementById('doc-status-tabs')?.querySelector('.active')?.dataset.status) || '';
-  const type = (document.getElementById('doc-filter-type') || {}).value || '';
+  // Filters
+  const typeFilter = (document.getElementById('doc-filter-type') || {}).value || '';
   const search = (document.getElementById('doc-search') || {}).value || '';
 
-  try {
-    const qs = new URLSearchParams();
-    if (status) qs.set('status', status);
-    if (type) qs.set('type', type);
+  list.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading documents…</div>';
 
+  try {
+    // Fetch documents + users in parallel
     const [docsRes, usersRes] = await Promise.all([
-      adminFetch(`/api/admin/documents?${qs}`),
-      adminFetch('/api/admin/user-list?limit=2000'),
+      adminFetch('/api/admin/documents?limit=500').catch(() => null),
+      adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
     ]);
 
-    const docs = (await docsRes.json()).data || [];
-    const users = (await usersRes.json()).data || [];
+    let docs = [];
+    let users = [];
+    try { if (docsRes && docsRes.ok) { const j = await docsRes.json(); docs = j.data || j || []; } } catch {}
+    try { if (usersRes && usersRes.ok) { const j = await usersRes.json(); users = j.data || j || []; } } catch {}
+
     const userById = new Map(users.map((u) => [u.id, u]));
 
-    let visible = docs;
-    if (search) {
-      const q = search.toLowerCase();
-      visible = docs.filter((r) => {
-        const d = r.document || r;
-        const user = r.user || userById.get(d.userId);
-        return (
-          String(d.title || '').toLowerCase().includes(q) ||
-          String(d.type || '').toLowerCase().includes(q) ||
-          String(user?.firstName || '').toLowerCase().includes(q) ||
-          String(user?.lastName || '').toLowerCase().includes(q) ||
-          String(user?.matricNumber || '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    const total = visible.length;
-    const pending = visible.filter((r) => (r.document || r).status === 'pending').length;
-    const issued = visible.filter((r) => (r.document || r).status === 'issued').length;
-    const month = visible.filter((r) => {
+    // Compute stats from FULL set
+    const total = docs.length;
+    const pending = docs.filter((r) => (r.document || r).status === 'pending').length;
+    const issued = docs.filter((r) => (r.document || r).status === 'issued').length;
+    const thisMonth = docs.filter((r) => {
       const d = r.document || r;
       return new Date(d.requestedAt || d.createdAt).getTime() > Date.now() - 30 * 86400000;
     }).length;
@@ -3769,40 +3757,192 @@ async function loadDocumentsTable() {
     setText('doc-stat-total', total);
     setText('doc-stat-pending', pending);
     setText('doc-stat-issued', issued);
-    setText('doc-stat-month', month);
+    setText('doc-stat-month', thisMonth);
+
+    // Apply filters
+    let visible = docs.map((r) => ({
+      document: r.document || r,
+      user: r.user || userById.get((r.document || r).userId) || {},
+    }));
+
+    if (statusFilter) {
+      visible = visible.filter(({ document: d }) => d.status === statusFilter);
+    }
+    if (typeFilter) {
+      visible = visible.filter(({ document: d }) => (d.type || '').toLowerCase() === typeFilter.toLowerCase());
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      visible = visible.filter(({ document: d, user: u }) => (
+        String(d.title || '').toLowerCase().includes(q) ||
+        String(u.firstName || '').toLowerCase().includes(q) ||
+        String(u.lastName || '').toLowerCase().includes(q) ||
+        String(u.matricNumber || '').toLowerCase().includes(q) ||
+        String(u.email || '').toLowerCase().includes(q)
+      ));
+    }
 
     if (!visible.length) {
       list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📄</div><p>No documents match your filters.</p></div>';
       return;
     }
 
-    list.innerHTML = visible.map((r) => {
-      const d = r.document || r;
-      const user = r.user || userById.get(d.userId) || {};
-      const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+    // Sort by requestedAt desc
+    visible.sort((a, b) => {
+      const da = new Date(a.document.requestedAt || a.document.createdAt || 0);
+      const db = new Date(b.document.requestedAt || b.document.createdAt || 0);
+      return db - da;
+    });
+
+    // Render
+    list.innerHTML = visible.map(({ document: d, user: u }) => {
+      const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+      const status = d.status || 'pending';
+      const statusCls =
+        status === 'issued' ? 'success' :
+        status === 'approved' ? 'primary' :
+        status === 'rejected' ? 'danger' :
+        'warning';
+
       return `
-        <div class="doc-card ${d.status}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: ${d.id} })">
+        <div class="doc-card ${status}" data-doc-id="${d.id}">
           <div class="dc-head">
             <span class="dc-type">${escapeHtml(String(d.type || '').replace(/-/g, ' '))}</span>
-            <span class="dc-status ${d.status}">${escapeHtml(d.status)}</span>
+            <span class="dc-status ${status}">${escapeHtml(status)}</span>
           </div>
-          <h3>${escapeHtml(d.title || '')}</h3>
+          <h3>${escapeHtml(d.title || '(No title)')}</h3>
+          ${d.reason && d.reason !== d.title ? `<p class="small muted" style="margin:6px 0;">Reason: ${escapeHtml(d.reason)}</p>` : ''}
           <div class="dc-student">
-            <div class="dc-avatar">${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
+            <div class="dc-avatar">${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
             <div class="dc-student-info">
-              <strong>${escapeHtml((user.firstName || '') + ' ' + (user.lastName || ''))}</strong>
-              <span>${escapeHtml(user.matricNumber || user.email || '')}</span>
+              <strong>${escapeHtml(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || 'Unknown student')}</strong>
+              <span>${escapeHtml(u.matricNumber || u.email || '—')}</span>
             </div>
           </div>
           <div class="dc-footer">
             <span>Requested ${fmtDate(d.requestedAt || d.createdAt)}</span>
-            <span class="arrow">View →</span>
+            <button class="btn btn-sm btn-outline" data-view="${d.id}">View →</button>
           </div>
         </div>
       `;
     }).join('');
+
+    // Wire View buttons
+    list.querySelectorAll('[data-view]').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: Number(btn.dataset.view) });
+      };
+    });
+
+    // Wire tab clicks
+    document.querySelectorAll('#doc-status-tabs .staff-role-tab, .staff-role-tabs .staff-role-tab').forEach((tab) => {
+      if (tab.__wired) return;
+      tab.__wired = true;
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#doc-status-tabs .staff-role-tab, .staff-role-tabs .staff-role-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        loadDocumentsTable();
+      });
+    });
+
+    // Wire refresh
+    const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+    const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+    if (refreshBtn && !refreshBtn.__wired) {
+      refreshBtn.__wired = true;
+      refreshBtn.onclick = () => loadDocumentsTable();
+    }
+
+    // Wire "New Request"
+    const newBtn = buttons.find((b) => /new/i.test(b.textContent || ''));
+    if (newBtn && !newBtn.__wired) {
+      newBtn.__wired = true;
+      newBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('documents-new');
+    }
+
   } catch (err) {
     list.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// DOCUMENTS — Detail view
+// ============================================
+async function loadDocumentDetail() {
+  const root = document.getElementById('dd-root') || document.querySelector('#page-view');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const id = params.get('id');
+
+  if (!id) {
+    root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No document selected.</div>';
+    return;
+  }
+
+  root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading…</div>';
+
+  try {
+    // Fetch the single document + users
+    const [docRes, usersRes] = await Promise.all([
+      adminFetch(`/api/admin/documents/${id}`).catch(() => null),
+      adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
+    ]);
+
+    let doc = null;
+    try { if (docRes && docRes.ok) { const j = await docRes.json(); doc = j.data || j; } } catch {}
+    let users = [];
+    try { if (usersRes && usersRes.ok) { const j = await usersRes.json(); users = j.data || j || []; } } catch {}
+
+    if (!doc) throw new Error('Document not found');
+
+    const user = users.find((u) => u.id === doc.userId) || {};
+
+    const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+    const status = doc.status || 'pending';
+
+    root.innerHTML = `
+      <div style="max-width:800px;margin:20px auto;padding:0 20px;">
+        <div class="panel">
+          <div class="panel-body">
+            <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
+              <div style="width:64px;height:64px;border-radius:50%;background:#065f46;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">
+                ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />` : escapeHtml(initials)}
+              </div>
+              <div style="flex:1;">
+                <h2 style="margin:0 0 4px;font-size:20px;">${escapeHtml(((user.firstName || '') + ' ' + (user.lastName || '')).trim() || 'Unknown')}</h2>
+                <div class="small muted">${escapeHtml(user.matricNumber || '')} · ${escapeHtml(user.email || '')}</div>
+              </div>
+              ${badge(status)}
+            </div>
+
+            <div class="field-row"><span class="k">Type</span><span class="v">${escapeHtml(String(doc.type || '').replace(/-/g, ' '))}</span></div>
+            <div class="field-row"><span class="k">Title</span><span class="v">${escapeHtml(doc.title || '—')}</span></div>
+            ${doc.reason ? `<div class="field-row"><span class="k">Reason</span><span class="v">${escapeHtml(doc.reason)}</span></div>` : ''}
+            <div class="field-row"><span class="k">Requested</span><span class="v">${fmtDateTime(doc.requestedAt || doc.createdAt)}</span></div>
+            ${doc.issuedAt ? `<div class="field-row"><span class="k">Issued</span><span class="v">${fmtDateTime(doc.issuedAt)}</span></div>` : ''}
+            ${doc.remarks ? `<div class="field-row"><span class="k">Remarks</span><span class="v">${escapeHtml(doc.remarks)}</span></div>` : ''}
+
+            <div style="margin-top:24px;display:flex;gap:8px;flex-wrap:wrap;">
+              ${status === 'pending' ? `
+                <button class="btn btn-primary" onclick="FPU_ADMIN.approveDoc(${doc.id})">✅ Approve</button>
+                <button class="btn btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.rejectDoc(${doc.id})">❌ Reject</button>
+              ` : ''}
+              ${status === 'approved' ? `
+                <button class="btn btn-accent" onclick="FPU_ADMIN.issueDoc(${doc.id})">📤 Issue Document</button>
+              ` : ''}
+              <button class="btn btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back to Documents</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -7332,7 +7472,7 @@ async function loadStudentTranscript() {
         </div>
       </div>
     `;
-    
+
     // Wire the "Print" and "Export CSV" buttons if they exist
     const printBtn = document.getElementById('tx-print');
     if (printBtn) printBtn.onclick = () => window.print();
@@ -7442,7 +7582,7 @@ window.FPU_ADMIN = {
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
   loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
   loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
-  approveGraduation, rejectGraduation, markGraduated, loadStudentTranscript,
+  approveGraduation, rejectGraduation, markGraduated, loadStudentTranscript, loadDocumentDetail,
 
   // Users
   loadUsersHub, loadAllUsers, loadAdminAccounts, resetAdminPwd, toggleAdminActive,

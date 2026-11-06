@@ -368,6 +368,18 @@ const feeStructures = pgTable('fee_structures', {
 }));
 
 // ============================================================
+// 13b. FEES (Simple level-based fee structure)
+// Matches the "fees" table in Neon
+// ============================================================
+const fees = pgTable('fees', {
+  id: serial('id').primaryKey(),
+  level: varchar('level', { length: 10 }).notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull().default('0'),
+  sessionId: integer('session_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================================
 // 14. PAYMENTS
 // ============================================================
 const payments = pgTable('payments', {
@@ -953,6 +965,7 @@ module.exports = {
   results,
   gradeScales,
   feeStructures,
+  fees,
   payments,
   clearances,
   applications,

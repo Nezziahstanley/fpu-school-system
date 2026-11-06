@@ -53,16 +53,12 @@
 
   /* The Image Watermark - Now in Color */
   .official-watermark {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 0;
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; z-index: 0;
   }
   .official-watermark img {
     width: 65%;
-    opacity: 0.12; /* Adjusted for color visibility */
+    opacity: 0.08; /* Visible but subtle */
   }
   
   /* Letterhead */
@@ -80,6 +76,37 @@
   .official-signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 80px; position: relative; z-index: 1; }
   .official-sig-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 8px; }
   .official-sig-role { font-size: 14px; font-weight: bold; text-transform: uppercase; text-align: center; }
+
+  /* --- ID Card Specific Styles --- */
+  .id-card-wrapper { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
+  .id-card {
+    width: 340px; height: 540px; background: #fff; border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid #e2e8f0;
+    display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative;
+  }
+  .id-card-header {
+    background: #065f46; padding: 15px; text-align: center; color: #fff;
+    display: flex; align-items: center; gap: 10px; justify-content: center;
+  }
+  .id-card-header img { width: 40px; height: 40px; background: #fff; border-radius: 50%; padding: 2px; }
+  .id-card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 15px; position: relative; z-index: 1; }
+  .id-photo { width: 100px; height: 100px; background: #f1f5f9; border-radius: 12px; margin: 0 auto; display: flex; align-items: center; justify-content: center; border: 2px dashed #cbd5e1; color: #94a3b8; font-size: 12px;}
+  .id-name { text-align: center; font-size: 1.2rem; font-weight: 700; color: #0f172a; margin: 0; }
+  .id-row { display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; font-size: 12px; }
+  .id-row .label { color: #64748b; font-weight: 600; }
+  .id-row .value { color: #0f172a; font-weight: 700; text-align: right; }
+  .id-card-footer { background: #f8fafc; padding: 10px; text-align: center; font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; z-index: 1;}
+
+  /* --- Certificate Specific Styles --- */
+  .cert-border { border: 8px solid #065f46; padding: 40px; height: 100%; text-align: center; position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; }
+  .cert-seal { width: 80px; height: 80px; background: #fbbf24; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; color: #78350f; font-weight: bold; font-size: 24px; border: 4px solid #f59e0b; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+  /* --- Transcript Table Specific Styles --- */
+  .tx-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; font-family: 'Poppins', sans-serif; position: relative; z-index: 1; }
+  .tx-table th { background: #065f46; color: #fff; padding: 10px; text-align: left; border: 1px solid #065f46; }
+  .tx-table td { padding: 10px; border: 1px solid #cbd5e1; }
+  .tx-table tr:nth-child(even) { background: #f8fafc; }
+  .tx-summary-box { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; font-family: 'Poppins', sans-serif; font-size: 14px; position: relative; z-index: 1;}
 
   /* --- Custom Modals --- */
   .fpu-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 9999; animation: fadeIn 0.2s ease-out; }
@@ -102,19 +129,14 @@
     /* Target the paper to print exactly as it looks */
     .official-doc, .official-doc * { visibility: visible; }
     .official-doc { 
-      position: absolute; 
-      left: 0; 
-      top: 0; 
-      width: 210mm; 
-      min-height: 297mm; 
-      box-shadow: none; 
-      border: none;
-      margin: 0;
-      padding: 25mm;
-      /* Force browser to print background images and colors */
-      -webkit-print-color-adjust: exact !important; 
-      print-color-adjust: exact !important; 
+      position: absolute; left: 0; top: 0; width: 210mm; min-height: 297mm; 
+      box-shadow: none; border: none; margin: 0; padding: 25mm;
+      -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; 
     }
+    
+    /* Target ID card for print */
+    .id-card-wrapper, .id-card-wrapper * { visibility: visible; }
+    .id-card-wrapper { position: absolute; top: 50px; left: 0; width: 100%; }
     
     /* Hide UI elements */
     .page-head, .doc-detail, .doc-preview-toolbar, .fpu-modal-backdrop { display: none !important; }

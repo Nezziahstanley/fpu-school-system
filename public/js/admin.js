@@ -3991,121 +3991,234 @@ async function loadDocumentDetail() {
   }
 }
 
-// ============================================
-// NEW: Build the in-page document preview
-// ============================================
 async function renderDocPreview(doc, user) {
   const type = String(doc.type || '').toLowerCase();
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
 
-  // Exclude ID cards
-  if (type === 'id-card') {
-    return `
-      <div class="doc-preview-wrap">
-        <div class="doc-preview-toolbar"><span>ID Card Preview</span></div>
-        <div class="doc-preview-outer">
-          <div class="official-doc" style="text-align:center; padding-top: 100px;">
-            <div style="font-size:4rem; margin-bottom:20px;">🪪</div>
-            <h2 style="font-family:Poppins; color:#0f172a;">ID Card Generation</h2>
-            <p style="font-family:Poppins; color:#6b7280; font-size:16px;">ID Cards are generated as physical assets.<br>Use 🖨 Print to generate a temporary digital pass if needed.</p>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Transcripts (keep your existing renderer if you have one, or this simplified version)
-  if (type === 'transcript') {
-    return `<!-- Your existing transcript HTML -->`;
-  }
-
-  // --- DATA EXTRACTION (Handles both direct props and nested objects) ---
-   const isStaff = user.role === 'staff' || user.role === 'admin' || user.role === 'lecturer' || !!user.staffId;
-  
+  // Data Extraction (Handles missing fields gracefully)
+  const isStaff = user.role === 'staff' || user.role === 'admin' || !!user.staffId;
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
-  const idLabel = isStaff ? 'Staff ID' : 'Matriculation Number';
-  
-  const levelValue = isStaff ? (user.designation || 'Staff') : (user.level ? `Level ${user.level}` : '—');
-  
-  // IMPROVED: Check multiple common names for programme/course
+  const idLabel = isStaff ? 'Staff ID' : 'Matric Number';
+  const progName = user.programme?.name || user.programmeName || '—';
   const deptName = user.department?.name || user.departmentName || '—';
-  const progName = user.programme?.name || user.programmeName || user.course?.name || user.courseOfStudy || '—';
-  
-  // If programme is still missing, fall back to department
-  const courseOfStudy = isStaff ? deptName : (progName !== '—' ? progName : deptName);
+  const level = user.level || '—';
 
-  let title = 'Official Document';
-  let bodyContent = '';
-
-  if (type === 'attestation') {
-    title = 'Attestation Letter';
-    bodyContent = `
-      <p>TO WHOM IT MAY CONCERN</p>
-      <br>
-      <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with ${idLabel} <strong>${escapeHtml(idValue)}</strong> is a bona fide ${isStaff ? 'staff member' : 'student'} of Federal Polytechnic Ugep.</p>
-      <p>${isStaff ? 'They currently serve in the capacity of' : 'They are currently in'} <strong>${escapeHtml(levelValue)}</strong> ${isStaff ? 'within the' : 'studying'} <strong>${escapeHtml(courseOfStudy)}</strong>.</p>
-      <p>This attestation is issued upon their request for whatever legal purpose it may serve.</p>
-    `;
-  } else if (type === 'certificate') {
-    title = isStaff ? 'Certificate of Service' : 'Certificate of Completion';
-    bodyContent = `
-      <p style="text-align:center; font-size:18px;">This is to certify that</p>
-      <h2 style="text-align:center; font-size:28px; margin:30px 0; font-family:'Times New Roman', serif;">${escapeHtml(fullName)}</h2>
-      <p style="text-align:center;">has successfully completed their requirements for</p>
-      <p style="text-align:center; font-weight:bold; font-size:18px;">${escapeHtml(courseOfStudy)}</p>
-    `;
-  } else {
-    title = `${String(doc.type).toUpperCase()} Document`;
-    bodyContent = `<p>This document is officially issued to <strong>${escapeHtml(fullName)}</strong> (${escapeHtml(idValue)}).</p>`;
-  }
-
-  return `
+  // Common Wrapper for A4 Documents
+  const a4Wrapper = (title, bodyHtml) => `
     <div class="doc-preview-wrap">
-      <div class="doc-preview-toolbar">
-        <span>👁 Document Preview (Ready to Issue)</span>
-        <span class="tip">Use 🖨 Print to save as PDF</span>
-      </div>
+      <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        
         <div class="official-doc">
-          <!-- Logo Watermark -->
-          <div class="official-watermark">
-            <img src="/images/logo.png" alt="watermark" onerror="this.style.display='none'" />
-          </div>
-
-          <!-- Letterhead -->
-          <div class="official-letterhead">
-            <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
-            <div>
-              <div class="inst-name">FEDERAL POLYTECHNIC Ugep</div>
-              <div class="inst-motto">Citadel of Technical Excellence</div>
-            </div>
-          </div>
-
-          <div class="official-title">${escapeHtml(title)}</div>
-
-          <div class="official-body">
-            ${bodyContent}
-            <br>
-            <p>Issued on this day, ${dateStr}.</p>
-          </div>
-
-          <div class="official-signatures">
-            <div>
-              <div class="official-sig-line"></div>
-              <div class="official-sig-role">Registrar</div>
-            </div>
-            <div>
-              <div class="official-sig-line"></div>
-              <div class="official-sig-role">Date</div>
-            </div>
-          </div>
+          <div class="official-watermark"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
+          ${bodyHtml}
         </div>
-
       </div>
     </div>
   `;
+
+  // --- 1. ATTESTATION LETTER ---
+  if (type === 'attestation') {
+    return a4Wrapper('Attestation', `
+      <div class="official-letterhead">
+        <img src="/images/logo.png" onerror="this.style.display='none'" />
+        <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">P.M.B. 1038, Ugep, Cross River State, Nigeria</div></div>
+      </div>
+      <div class="official-title">ATTESTATION</div>
+      <div class="official-body">
+        <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with ${idLabel} <strong>${escapeHtml(idValue)}</strong> is a bona fide ${isStaff ? 'staff member' : 'student'} of Federal Polytechnic Ugep, currently enrolled in the following programme:</p>
+        <table style="width:100%; margin: 20px 0; font-size: 15px;">
+          <tr><td style="color:#64748b; width:30%;">Programme:</td><td style="font-weight:bold;">${escapeHtml(progName)}</td></tr>
+          <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${escapeHtml(deptName)}</td></tr>
+          <tr><td style="color:#64748b;">Level:</td><td style="font-weight:bold;">${escapeHtml(level)}</td></tr>
+          <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">2025/2026</td></tr>
+        </table>
+        <p>This document is issued at the request of the student for official purposes.</p>
+        <br><p>Date: ${dateStr}</p>
+      </div>
+      <div class="official-signatures" style="grid-template-columns: 1fr; text-align:right; margin-top:40px;">
+        <div style="display:inline-block; text-align:center;">
+          <div class="official-sig-line" style="width:200px;"></div>
+          <div class="official-sig-role">REGISTRAR<br><span style="font-size:10px; font-weight:normal; text-transform:none;">Signature / Stamp</span></div>
+        </div>
+      </div>
+      <div style="text-align:center; font-size:10px; color:#94a3b8; margin-top:40px;">This is a computer-generated document and is valid without a physical signature.</div>
+    `);
+  }
+
+  // --- 2. STUDENT ID CARD ---
+  if (type === 'id-card') {
+    return `
+      <div class="doc-preview-wrap">
+        <div class="doc-preview-toolbar"><span>👁 ID Card Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
+        <div class="doc-preview-outer" style="background:#1e293b;">
+          <div class="id-card-wrapper">
+            <div class="id-card">
+              <div class="id-card-header">
+                <img src="/images/logo.png" onerror="this.style.display='none'" />
+                <div style="text-align:left;">
+                  <div style="font-size:10px; opacity:0.8;">FEDERAL POLYTECHNIC Ugep</div>
+                  <div style="font-size:14px; font-weight:700;">STUDENT ID CARD</div>
+                </div>
+              </div>
+              <div class="id-card-body">
+                <div class="official-watermark" style="opacity:0.05; z-index:0;"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
+                <div class="id-photo">PHOTO</div>
+                <h2 class="id-name">${escapeHtml(fullName)}</h2>
+                <div class="id-row"><span class="label">Matric</span><span class="value">${escapeHtml(idValue)}</span></div>
+                <div class="id-row"><span class="label">Level</span><span class="value">${escapeHtml(level)}</span></div>
+                <div class="id-row"><span class="label">Programme</span><span class="value">${escapeHtml(progName)}</span></div>
+                <div class="id-row"><span class="label">Dept</span><span class="value">${escapeHtml(deptName)}</span></div>
+              </div>
+              <div class="id-card-footer">VALID UNTIL GRADUATION · ${dateStr.toUpperCase()}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // --- 3. CERTIFICATE OF COMPLETION ---
+  if (type === 'certificate') {
+    return a4Wrapper('Certificate', `
+      <div class="cert-border">
+        <img src="/images/logo.png" style="width:80px;" onerror="this.style.display='none'" />
+        <h2 style="font-family:'Poppins',sans-serif; color:#065f46; margin-top:10px; font-size:28px;">CERTIFICATE OF COMPLETION</h2>
+        <p style="font-size:18px; margin-top:30px;">This is to certify that</p>
+        <h1 style="font-size:40px; margin:20px 0; color:#0f172a; font-family:'Times New Roman', serif;">${escapeHtml(fullName)}</h1>
+        <p style="font-size:18px;">has successfully completed the requirements for</p>
+        <h3 style="font-size:24px; margin:10px 0; color:#065f46;">${escapeHtml(progName)}</h3>
+        <p style="font-size:16px;">in the Department of ${escapeHtml(deptName)}</p>
+        <div class="cert-seal">★</div>
+        <div style="display:flex; justify-content:space-between; margin-top:40px; padding:0 40px;">
+          <div style="text-align:center;">
+            <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
+            <div style="font-size:14px; font-weight:bold;">Rector</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
+            <div style="font-size:14px; font-weight:bold;">Date: ${dateStr}</div>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  // --- 4. CLEARANCE CERTIFICATE ---
+  if (type === 'clearance') {
+    return a4Wrapper('Clearance', `
+      <div class="official-letterhead">
+        <img src="/images/logo.png" onerror="this.style.display='none'" />
+        <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">Office of the Registrar</div></div>
+      </div>
+      <div class="official-title">CLEARANCE CERTIFICATE</div>
+      <div class="official-body">
+        <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with Matric Number <strong>${escapeHtml(idValue)}</strong> has been cleared by the institution.</p>
+        <p>The student has completed all necessary academic and financial requirements for the programme: <strong>${escapeHtml(progName)}</strong> in the <strong>${escapeHtml(deptName)}</strong> department.</p>
+        <p>This clearance is valid for the purpose of NYSC mobilization, graduation, or collection of certificates.</p>
+        
+        <div style="margin-top:60px; display:flex; justify-content:space-between;">
+          <div style="text-align:center;">
+            <div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div>
+            <div style="font-size:14px; font-weight:bold;">Bursar</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div>
+            <div style="font-size:14px; font-weight:bold;">Registrar</div>
+          </div>
+        </div>
+        <p style="margin-top:50px; font-size:14px;">Date: ${dateStr}</p>
+      </div>
+    `);
+  }
+
+  // --- 5. TRANSCRIPT (Dynamic Data) ---
+  if (type === 'transcript') {
+    // Fetch actual results for the transcript
+    let results = [];
+    try {
+      // Note: Ensure this endpoint matches your backend route
+      const res = await adminFetch(`/api/admin/departments/transcript/${user.id}`);
+      if (res.ok) { const j = await res.json(); results = j.results || []; }
+    } catch (e) { console.error("Could not load transcript data", e); }
+
+    let totalUnits = 0;
+    let totalPoints = 0;
+    const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+
+    const rowsHtml = results.map(r => {
+      const units = Number(r.units || r.creditUnits || 0);
+      const grade = String(r.grade || '').toUpperCase();
+      const pts = units * (gradePoints[grade] || 0);
+      totalUnits += units;
+      totalPoints += pts;
+
+      return `
+        <tr>
+          <td>${escapeHtml(r.session)}</td>
+          <td>${escapeHtml(r.semester)}</td>
+          <td>${escapeHtml(r.courseCode)}</td>
+          <td>${escapeHtml(r.courseTitle || '—')}</td>
+          <td style="text-align:center;">${units}</td>
+          <td style="font-weight:bold; text-align:center;">${grade}</td>
+          <td style="text-align:right;">${pts}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const cgpa = totalUnits ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+
+    return a4Wrapper('Transcript', `
+      <div class="official-letterhead">
+        <img src="/images/logo.png" onerror="this.style.display='none'" />
+        <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">Official Academic Transcript</div></div>
+      </div>
+      
+      <div class="tx-summary-box">
+        <div>
+          <div><strong>Name:</strong> ${escapeHtml(fullName)}</div>
+          <div><strong>Matric No:</strong> ${escapeHtml(idValue)}</div>
+          <div><strong>Programme:</strong> ${escapeHtml(progName)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div><strong>Level:</strong> ${escapeHtml(level)}</div>
+          <div><strong>Department:</strong> ${escapeHtml(deptName)}</div>
+          <div><strong>Date:</strong> ${dateStr}</div>
+        </div>
+      </div>
+
+      <table class="tx-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Sem</th>
+            <th>Code</th>
+            <th>Course Title</th>
+            <th style="text-align:center;">Units</th>
+            <th style="text-align:center;">Grade</th>
+            <th style="text-align:right;">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || '<tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">No published results found for this student.</td></tr>'}
+        </tbody>
+      </table>
+
+      <div style="margin-top:20px; text-align:right; font-family:'Poppins',sans-serif; font-size:16px; font-weight:bold;">
+        Total Units: ${totalUnits} &nbsp; | &nbsp; Total Points: ${totalPoints} &nbsp; | &nbsp; CGPA: <span style="color:#065f46;">${cgpa}</span>
+      </div>
+
+      <div style="margin-top:60px; text-align:right; position:relative; z-index:1;">
+        <div style="display:inline-block; text-align:center;">
+          <div class="official-sig-line" style="width:200px;"></div>
+          <div class="official-sig-role">REGISTRAR</div>
+        </div>
+      </div>
+    `);
+  }
+
+  // Fallback
+  return a4Wrapper('Document', `<p>No preview available for this document type.</p>`);
 }
 
 // ---------- Document viewer ----------

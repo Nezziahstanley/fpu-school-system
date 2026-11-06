@@ -3692,24 +3692,25 @@ async function sendBulkPaymentReminder(departmentId, deptName) {
 
 
 // ============================================
-// PAYMENTS: View History Modal (Full Version)
+// PAYMENTS: View History Modal & Print Receipt
 // ============================================
 async function openPaymentHistory(studentId, studentName) {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'payment-history-modal';
   backdrop.innerHTML = `
     <div class="fpu-modal" style="max-width:900px; width:95%;">
       <div class="fpu-modal-header">
         <h3>Payment History — ${escapeHtml(studentName)}</h3>
-        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('payment-history-modal').remove()">×</button>
       </div>
       <div class="fpu-modal-body" style="max-height:70vh; overflow-y:auto;" id="payment-history-body">
         <div style="text-align:center;padding:40px;"><span class="spinner"></span> Loading…</div>
       </div>
       <div class="fpu-modal-footer">
-        <button class="btn btn-outline" onclick="FPU_ADMIN.exportPaymentHistoryPDF(${studentId}, '${escapeQuotes(studentName)}')">⬇ Export CSV</button>
-        <button class="btn btn-outline" onclick="window.print()">🖨 Print</button>
-        <button class="btn btn-primary" onclick="this.closest('.fpu-modal-backdrop').remove()">Close</button>
+        <button class="btn btn-outline" onclick="FPU_ADMIN.exportPaymentHistoryCSV(${studentId}, '${escapeQuotes(studentName)}')">⬇ Export CSV</button>
+        <button class="btn btn-outline" id="btn-print-receipt">🖨 Print Receipt</button>
+        <button class="btn btn-primary" onclick="document.getElementById('payment-history-modal').remove()">Close</button>
       </div>
     </div>
   `;
@@ -3718,15 +3719,22 @@ async function openPaymentHistory(studentId, studentName) {
   const body = document.getElementById('payment-history-body');
 
   try {
-    const [payRes, feesRes, studentRes] = await Promise.all([
+    const [payRes, feesRes, studentRes, settingsRes] = await Promise.all([
       adminFetch('/api/admin/payments').catch(() => null),
       adminFetch('/api/admin/fees').catch(() => null),
       adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+      adminFetch('/api/admin/settings?category=institution').catch(() => null),
     ]);
 
     const allPayments = payRes?.ok ? (await payRes.json()).data || [] : [];
     const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
     const student = studentRes?.ok ? (await studentRes.json()).data || {} : {};
+    const settings = settingsRes?.ok ? (await settingsRes.json()).data || [] : [];
+
+    // Get school name from settings
+    const schoolName = settings.find(s => s.key === 'school_name')?.value || 'Federal Polytechnic Ugep';
+    const schoolAddress = settings.find(s => s.key === 'school_address')?.value || 'P.M.B. 1038, Ugep, Cross River State, Nigeria';
+    const schoolMotto = settings.find(s => s.key === 'school_motto')?.value || 'Citadel of Technical Excellence';
 
     const payments = allPayments
       .map(p => p.payment || p)
@@ -3743,12 +3751,11 @@ async function openPaymentHistory(studentId, studentName) {
       else if (s === 'rejected' || s === 'failed') totalRejected += amt;
     });
 
-    // Fee lookup (with level fallback)
+    // Fee lookup
     const levelUpper = String(student.level || '').toUpperCase();
     const progId = Number(student.programmeId || student.programme_id);
     
     let totalDue = 0;
-    // Try programme_id match
     for (const f of fees) {
       const fProgId = Number(f.programmeId || f.programme_id);
       const fLevel = String(f.level || '').toUpperCase();
@@ -3760,79 +3767,259 @@ async function openPaymentHistory(studentId, studentName) {
 
     const balance = Math.max(0, totalDue - totalVerified);
 
-    if (!payments.length) {
-      body.innerHTML = `
-        <div style="text-align:center;padding:60px 20px;color:#64748b;">
-          <div style="font-size:3rem;margin-bottom:12px;">💳</div>
-          <h3 style="margin:0 0 6px;color:#0f172a;">No payments yet</h3>
-          <p style="margin:0;font-size:13px;">${escapeHtml(studentName)} has not made any payments.</p>
-          <div style="margin-top:20px;padding:16px;background:#f8fafc;border-radius:8px;display:inline-block;">
-            <div style="font-size:11px;text-transform:uppercase;color:#64748b;font-weight:700;">Fee Due</div>
-            <div style="font-size:24px;font-weight:800;color:#0f172a;margin-top:4px;">${money(totalDue)}</div>
-          </div>
-        </div>
-      `;
-      return;
-    }
-
+    // Render the modal body
     body.innerHTML = `
-      <!-- Summary Cards -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border-left:4px solid #065f46;">
-          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Fee Due</div>
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;">Fee Due</div>
           <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px;">${money(totalDue)}</div>
         </div>
         <div style="background:#ecfdf5;padding:14px;border-radius:8px;border-left:4px solid #10b981;">
-          <div style="font-size:10px;text-transform:uppercase;color:#047857;font-weight:700;letter-spacing:0.5px;">Total Paid</div>
+          <div style="font-size:10px;text-transform:uppercase;color:#047857;font-weight:700;">Total Paid</div>
           <div style="font-size:20px;font-weight:800;color:#065f46;margin-top:4px;">${money(totalVerified)}</div>
         </div>
         <div style="background:#fef3c7;padding:14px;border-radius:8px;border-left:4px solid #f59e0b;">
-          <div style="font-size:10px;text-transform:uppercase;color:#92400e;font-weight:700;letter-spacing:0.5px;">Pending</div>
+          <div style="font-size:10px;text-transform:uppercase;color:#92400e;font-weight:700;">Pending</div>
           <div style="font-size:20px;font-weight:800;color:#b45309;margin-top:4px;">${money(totalPending)}</div>
         </div>
         <div style="background:${balance > 0 ? '#fee2e2' : '#ecfdf5'};padding:14px;border-radius:8px;border-left:4px solid ${balance > 0 ? '#dc2626' : '#10b981'};">
-          <div style="font-size:10px;text-transform:uppercase;color:${balance > 0 ? '#991b1b' : '#047857'};font-weight:700;letter-spacing:0.5px;">Balance</div>
+          <div style="font-size:10px;text-transform:uppercase;color:${balance > 0 ? '#991b1b' : '#047857'};font-weight:700;">Balance</div>
           <div style="font-size:20px;font-weight:800;color:${balance > 0 ? '#dc2626' : '#065f46'};margin-top:4px;">${balance > 0 ? money(balance) : '₦0'}</div>
         </div>
       </div>
 
-      <!-- Payment History Table -->
-      <table class="table-admin" style="width:100%;font-size:13px;">
-        <thead>
-          <tr>
-            <th>Reference</th>
-            <th>Description</th>
-            <th style="text-align:right;">Amount</th>
-            <th>Status</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${payments.map(p => {
-            const s = String(p.status || '').toLowerCase();
-            let badgeCls = 'badge-warning';
-            if (['verified', 'approved', 'paid'].includes(s)) badgeCls = 'badge-success';
-            else if (['rejected', 'failed'].includes(s)) badgeCls = 'badge-danger';
-            return `
-              <tr>
-                <td><code>${escapeHtml(p.reference || '—')}</code></td>
-                <td>${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
-                <td style="text-align:right;font-weight:700;color:#065f46;">${money(p.amount)}</td>
-                <td><span class="badge ${badgeCls}">${s.toUpperCase()}</span></td>
-                <td class="small muted">${fmtDateTime(p.createdAt || p.created_at || p.paidAt)}</td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+      ${payments.length === 0 ? `
+        <div style="text-align:center;padding:40px;color:#64748b;">
+          <p>No payments recorded yet.</p>
+        </div>
+      ` : `
+        <table class="table-admin" style="width:100%;font-size:13px;">
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Description</th>
+              <th style="text-align:right;">Amount</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payments.map(p => {
+              const s = String(p.status || '').toLowerCase();
+              let badgeCls = 'badge-warning';
+              if (['verified', 'approved', 'paid'].includes(s)) badgeCls = 'badge-success';
+              else if (['rejected', 'failed'].includes(s)) badgeCls = 'badge-danger';
+              return `
+                <tr>
+                  <td><code>${escapeHtml(p.reference || '—')}</code></td>
+                  <td>${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
+                  <td style="text-align:right;font-weight:700;color:#065f46;">${money(p.amount)}</td>
+                  <td><span class="badge ${badgeCls}">${s.toUpperCase()}</span></td>
+                  <td class="small muted">${fmtDateTime(p.createdAt || p.created_at || p.paidAt)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `}
     `;
 
-    // Store for export
-    window.__lastPaymentHistory = { studentId, studentName, payments, totalDue, totalVerified, balance };
+    // Store data for the print function
+    window.__lastPaymentHistory = { 
+      student, studentName, payments, totalDue, totalVerified, totalPending, balance, 
+      schoolName, schoolAddress, schoolMotto 
+    };
+
+    // Wire the print button
+    document.getElementById('btn-print-receipt').onclick = () => printPaymentReceipt();
 
   } catch (err) {
     body.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ============================================
+// PAYMENTS: Print A4 Receipt
+// ============================================
+function printPaymentReceipt() {
+  const data = window.__lastPaymentHistory;
+  if (!data) return;
+
+  const { student, studentName, payments, totalDue, totalVerified, totalPending, balance, schoolName, schoolAddress, schoolMotto } = data;
+  const matric = student.matricNumber || student.matric_number || '—';
+  const level = student.level || '—';
+  const programme = student.programmeName || '—';
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Create a hidden print container
+  const printContainer = document.createElement('div');
+  printContainer.id = 'print-receipt-container';
+  printContainer.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:999999;padding:0;overflow:hidden;display:none;';
+
+  printContainer.innerHTML = `
+    <div style="width:210mm;min-height:297mm;margin:0 auto;padding:20mm;background:#fff;position:relative;font-family:'Times New Roman',serif;color:#000;">
+      
+      <!-- WATERMARK (School Logo) -->
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;">
+        <img src="/images/logo.png" style="width:70%;opacity:0.06;" onerror="this.style.display='none'" />
+      </div>
+
+      <!-- LETTERHEAD -->
+      <div style="position:relative;z-index:1;display:flex;align-items:center;gap:20px;border-bottom:3px solid #065f46;padding-bottom:16px;margin-bottom:24px;">
+        <img src="/images/logo.png" style="width:80px;" onerror="this.style.display='none'" />
+        <div style="flex:1;text-align:center;">
+          <div style="font-size:24px;font-weight:800;color:#065f46;font-family:'Poppins',sans-serif;">${escapeHtml(schoolName)}</div>
+          <div style="font-size:12px;color:#6b7280;font-style:italic;">${escapeHtml(schoolMotto)}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;">${escapeHtml(schoolAddress)}</div>
+        </div>
+        <div style="width:80px;"></div>
+      </div>
+
+      <!-- TITLE -->
+      <div style="text-align:center;margin-bottom:24px;position:relative;z-index:1;">
+        <div style="font-size:20px;font-weight:800;text-decoration:underline;text-transform:uppercase;letter-spacing:2px;">Official Payment Receipt</div>
+        <div style="font-size:13px;color:#6b7280;margin-top:4px;">Issued: ${dateStr}</div>
+      </div>
+
+      <!-- STUDENT DETAILS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;padding:16px;background:#f8fafc;border-radius:8px;border-left:4px solid #065f46;position:relative;z-index:1;">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Student Name</div>
+          <div style="font-size:15px;font-weight:700;color:#0f172a;margin-top:2px;">${escapeHtml(studentName)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Matric Number</div>
+          <div style="font-size:15px;font-weight:700;color:#0f172a;margin-top:2px;">${escapeHtml(matric)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Level / Programme</div>
+          <div style="font-size:14px;color:#0f172a;margin-top:2px;">${escapeHtml(level)} · ${escapeHtml(programme)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;letter-spacing:0.5px;">Total Paid</div>
+          <div style="font-size:18px;font-weight:800;color:#065f46;margin-top:2px;">${money(totalVerified)}</div>
+        </div>
+      </div>
+
+      <!-- PAYMENT SUMMARY -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;position:relative;z-index:1;">
+        <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:700;">Fee Due</div>
+          <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:2px;">${money(totalDue)}</div>
+        </div>
+        <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:700;">Verified Paid</div>
+          <div style="font-size:16px;font-weight:800;color:#065f46;margin-top:2px;">${money(totalVerified)}</div>
+        </div>
+        <div style="padding:12px;border:1px solid #e2e8f0;border-radius:6px;text-align:center;">
+          <div style="font-size:9px;text-transform:uppercase;color:#64748b;font-weight:700;">Pending</div>
+          <div style="font-size:16px;font-weight:800;color:#b45309;margin-top:2px;">${money(totalPending)}</div>
+        </div>
+        <div style="padding:12px;border:1px solid ${balance > 0 ? '#fecaca' : '#d1fae5'};border-radius:6px;text-align:center;background:${balance > 0 ? '#fef2f2' : '#f0fdf4'};">
+          <div style="font-size:9px;text-transform:uppercase;color:${balance > 0 ? '#991b1b' : '#047857'};font-weight:700;">Balance</div>
+          <div style="font-size:16px;font-weight:800;color:${balance > 0 ? '#dc2626' : '#065f46'};margin-top:2px;">${balance > 0 ? money(balance) : '₦0'}</div>
+        </div>
+      </div>
+
+      <!-- TRANSACTIONS TABLE -->
+      <div style="position:relative;z-index:1;">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#065f46;margin-bottom:8px;border-bottom:2px solid #065f46;padding-bottom:4px;">Transaction Details</div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead>
+            <tr style="background:#f8fafc;">
+              <th style="text-align:left;padding:8px;border:1px solid #e2e8f0;">#</th>
+              <th style="text-align:left;padding:8px;border:1px solid #e2e8f0;">Reference</th>
+              <th style="text-align:left;padding:8px;border:1px solid #e2e8f0;">Description</th>
+              <th style="text-align:right;padding:8px;border:1px solid #e2e8f0;">Amount</th>
+              <th style="text-align:left;padding:8px;border:1px solid #e2e8f0;">Status</th>
+              <th style="text-align:left;padding:8px;border:1px solid #e2e8f0;">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payments.length === 0 ? `<tr><td colspan="6" style="text-align:center;padding:20px;color:#94a3b8;">No payments recorded.</td></tr>` : ''}
+            ${payments.map((p, i) => `
+              <tr>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;">${i + 1}</td>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;font-family:monospace;font-size:10px;">${escapeHtml(p.reference || '—')}</td>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;">${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:700;">${money(p.amount)}</td>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;text-transform:capitalize;">${escapeHtml(p.status || '—')}</td>
+                <td style="padding:6px 8px;border:1px solid #e2e8f0;">${fmtDate(p.createdAt || p.created_at || p.paidAt)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SIGNATURES -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:60px;position:relative;z-index:1;">
+        <div style="text-align:center;">
+          <div style="border-bottom:1px solid #000;height:40px;margin-bottom:6px;"></div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Bursar</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="border-bottom:1px solid #000;height:40px;margin-bottom:6px;"></div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Date</div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="text-align:center;font-size:9px;color:#94a3b8;margin-top:40px;position:relative;z-index:1;">
+        This is a computer-generated receipt and is valid without a physical signature.
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(printContainer);
+  printContainer.style.display = 'block';
+
+  // Trigger print
+  window.print();
+
+  // Hide after print
+  setTimeout(() => {
+    printContainer.style.display = 'none';
+    printContainer.remove();
+  }, 1000);
+}
+
+// ============================================
+// PAYMENTS: Export History as CSV
+// ============================================
+function exportPaymentHistoryCSV(studentId, studentName) {
+  const data = window.__lastPaymentHistory;
+  if (!data || !data.payments || !data.payments.length) {
+    showToast('⚠️ No payments to export.', 'warning');
+    return;
+  }
+
+  const headers = ['Reference', 'Description', 'Amount', 'Status', 'Date'];
+  const rows = data.payments.map(p => [
+    p.reference || '',
+    p.description || p.purpose || 'Fee Payment',
+    Number(p.amount) || 0,
+    p.status || '',
+    fmtDateTime(p.createdAt || p.created_at || p.paidAt),
+  ]);
+
+  const csv = [
+    `Student: "${studentName.replace(/"/g, '""')}"`,
+    `Fee Due: ₦${data.totalDue}`,
+    `Total Paid: ₦${data.totalVerified}`,
+    `Balance: ₦${data.balance}`,
+    '',
+    headers.join(','),
+    ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `payment-history-${studentName.replace(/\s/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ Exported.', 'success');
 }
 
 // ============================================
@@ -9450,8 +9637,8 @@ window.FPU_ADMIN = {
   loadLoginAttempts, addIpBlock, loadIpRules, deleteIpRule,
   loadPasswordPolicy, loadPermissionsMatrix, load2FAConfig, loadBackups, loadCompliance,
 
-  openPaymentHistory, exportPaymentHistoryPDF,
-  
+  openPaymentHistory, exportPaymentHistoryPDF, printPaymentReceipt, exportPaymentHistoryCSV,
+
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear,
 };

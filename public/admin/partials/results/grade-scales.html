@@ -58,7 +58,7 @@
   <div class="panel-head">
     <h3>Add New Band</h3>
     <div class="tools">
-      <button class="btn btn-ghost btn-sm" id="gs-add-cancel" onclick="FPU_ADMIN.goBack('results')">Cancel</button>
+      <button class="btn btn-ghost btn-sm" onclick="FPU_ADMIN.toggleAddBandForm(false)">Cancel</button>
     </div>
   </div>
   <div class="panel-body">
@@ -104,7 +104,7 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" id="gs-add-submit">Add Band</button>
-        <button type="button" class="btn btn-ghost" id="gs-add-cancel-2">Cancel</button>
+        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN.toggleAddBandForm(false)">Cancel</button>
       </div>
     </form>
   </div>
@@ -181,7 +181,7 @@
         <div id="gs-edit-validation"></div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" id="gs-edit-submit">Save Changes</button>
-          <button type="button" class="btn btn-ghost" id="gs-edit-cancel" onclick="FPU_ADMIN.goBack('results')">Cancel</button>
+          <button type="button" class="btn btn-ghost" id="gs-edit-cancel" onclick="document.getElementById('gs-modal').style.display='none'">Cancel</button>
         </div>
       </form>
     </div>
@@ -190,187 +190,45 @@
 
 <style>
   /* ---------- Preview ---------- */
-  .gs-preview {
-    display: flex;
-    gap: 20px;
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-  .gs-preview-input {
-    flex: 0 0 200px;
-  }
-  .gs-preview-input input {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
-    font-weight: 700;
-    text-align: center;
-    padding: 14px;
-  }
-  .gs-preview-result {
-    flex: 1;
-    min-width: 280px;
-    background: #f8fafc;
-    border: 1px dashed var(--fpu-border);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px 24px;
-    min-height: 100px;
-  }
-  .gs-preview-empty {
-    color: #94a3b8;
-    font-size: 13.5px;
-  }
-  .gs-preview-hit {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    width: 100%;
-  }
-  .gs-preview-grade {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.9rem;
-    font-weight: 800;
-    background: #ecfdf5;
-    color: #065f46;
-    flex-shrink: 0;
-  }
-  .gs-preview-grade.F,
-  .gs-preview-grade.fail {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-  .gs-preview-grade.D,
-  .gs-preview-grade.E {
-    background: #fef3c7;
-    color: #92400e;
-  }
-  .gs-preview-meta {
-    flex: 1;
-    min-width: 0;
-  }
-  .gs-preview-meta .label {
-    font-family: 'Poppins', sans-serif;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #6b7280;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-  .gs-preview-meta .value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #0f172a;
-  }
-  .gs-preview-meta .sub {
-    font-size: 12.5px;
-    color: #6b7280;
-    margin-top: 4px;
-  }
-  .gs-preview-miss {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #991b1b;
-    font-weight: 600;
-    font-size: 14px;
-    text-align: center;
-    padding: 20px;
-  }
+  .gs-preview { display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; }
+  .gs-preview-input { flex: 0 0 200px; }
+  .gs-preview-input input { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 700; text-align: center; padding: 14px; }
+  .gs-preview-result { flex: 1; min-width: 280px; background: #f8fafc; border: 1px dashed var(--fpu-border); border-radius: 12px; display: flex; align-items: center; justify-content: center; padding: 16px 24px; min-height: 100px; }
+  .gs-preview-empty { color: #94a3b8; font-size: 13.5px; }
+  .gs-preview-hit { display: flex; align-items: center; gap: 18px; width: 100%; }
+  .gs-preview-grade { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Poppins', sans-serif; font-size: 1.9rem; font-weight: 800; background: #ecfdf5; color: #065f46; flex-shrink: 0; }
+  .gs-preview-grade.F, .gs-preview-grade.fail { background: #fee2e2; color: #991b1b; }
+  .gs-preview-grade.D, .gs-preview-grade.E { background: #fef3c7; color: #92400e; }
+  .gs-preview-meta { flex: 1; min-width: 0; }
+  .gs-preview-meta .label { font-family: 'Poppins', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; font-weight: 700; margin-bottom: 2px; }
+  .gs-preview-meta .value { font-family: 'Poppins', sans-serif; font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+  .gs-preview-meta .sub { font-size: 12.5px; color: #6b7280; margin-top: 4px; }
+  .gs-preview-miss { background: #fef2f2; border-color: #fecaca; color: #991b1b; font-weight: 600; font-size: 14px; text-align: center; padding: 20px; }
 
   /* ---------- Band pills in the table ---------- */
-  .gs-range {
-    font-family: 'Courier New', monospace;
-    font-weight: 700;
-    color: #0f172a;
-    background: #f1f5f9;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 13px;
-  }
-  .gs-points {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 800;
-    color: #f59e0b;
-    font-size: 1.05rem;
-  }
-  .gs-grade-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 36px;
-    height: 36px;
-    padding: 0 8px;
-    border-radius: 8px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 800;
-    font-size: 14px;
-    background: #ecfdf5;
-    color: #065f46;
-  }
-  .gs-grade-chip.F {
-    background: #fee2e2;
-    color: #991b1b;
-  }
-  .gs-grade-chip.D,
-  .gs-grade-chip.E {
-    background: #fef3c7;
-    color: #92400e;
-  }
+  .gs-range { font-family: 'Courier New', monospace; font-weight: 700; color: #0f172a; background: #f1f5f9; padding: 3px 10px; border-radius: 6px; font-size: 13px; }
+  .gs-points { font-family: 'Poppins', sans-serif; font-weight: 800; color: #f59e0b; font-size: 1.05rem; }
+  .gs-grade-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 8px; border-radius: 8px; font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 14px; background: #ecfdf5; color: #065f46; }
+  .gs-grade-chip.F { background: #fee2e2; color: #991b1b; }
+  .gs-grade-chip.D, .gs-grade-chip.E { background: #fef3c7; color: #92400e; }
 
   /* ---------- Health banner ---------- */
-  .gs-health-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
-  }
-  .gs-health-item {
-    text-align: center;
-    padding: 10px 8px;
-    border-radius: 10px;
-    background: #f8fafc;
-  }
-  .gs-health-item .num {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 800;
-    line-height: 1;
-    color: #065f46;
-  }
+  .gs-health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .gs-health-item { text-align: center; padding: 10px 8px; border-radius: 10px; background: #f8fafc; }
+  .gs-health-item .num { font-family: 'Poppins', sans-serif; font-size: 1.6rem; font-weight: 800; line-height: 1; color: #065f46; }
   .gs-health-item .num.warn { color: #b45309; }
   .gs-health-item .num.err  { color: #b91c1c; }
   .gs-health-item .num.ok   { color: #047857; }
-  .gs-health-item .label {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    font-weight: 700;
-    color: #6b7280;
-    margin-top: 4px;
-  }
-  .gs-overlap-list {
-    margin-top: 10px;
-    padding: 10px 12px;
-    background: #fef2f2;
-    border-left: 3px solid #dc2626;
-    border-radius: 6px;
-    font-size: 13px;
-    color: #991b1b;
-    line-height: 1.6;
-  }
+  .gs-health-item .label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #6b7280; margin-top: 4px; }
+  .gs-overlap-list { margin-top: 10px; padding: 10px 12px; background: #fef2f2; border-left: 3px solid #dc2626; border-radius: 6px; font-size: 13px; color: #991b1b; line-height: 1.6; }
 
   /* ---------- Modal ---------- */
   #gs-modal.open { display: flex; }
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadGradeScales()
+  // Initialize the page when loaded
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadGradeScales) {
+    setTimeout(window.FPU_ADMIN.loadGradeScales, 100);
+  }
 </script>

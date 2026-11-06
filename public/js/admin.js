@@ -2191,11 +2191,10 @@ async function loadResultDepartments() {
 }
 
 // ============================================
-// GRADE SCALES
+// GRADE SCALES: Logic, Preview & CRUD
 // ============================================
-// ============================================
-// GRADE SCALES: Logic & Form Handling
-// ============================================
+
+let cachedGradeBands = []; // Store bands globally for the live preview
 
 async function loadGradeScales() {
   const tbody = document.getElementById('grade-scales-tbody');
@@ -2207,10 +2206,27 @@ async function loadGradeScales() {
     const res = await adminFetch('/api/admin/grade-scales');
     const json = await res.json();
     const bands = json.data || [];
+    
+    // Cache for the live preview
+    cachedGradeBands = bands;
 
-    // Update count
+    // Update Stats Bar
     const countEl = document.getElementById('gs-count');
     if (countEl) countEl.textContent = `${bands.length} active bands`;
+
+    // Update Health Banner (Simple version)
+    const healthEl = document.getElementById('gs-health');
+    if (healthEl) {
+      const totalPoints = bands.reduce((sum, b) => sum + Number(b.points || 0), 0);
+      healthEl.innerHTML = `
+        <div class="panel-body">
+          <div class="gs-health-grid">
+            <div class="gs-health-item"><div class="num ok">${bands.length}</div><div class="label">Active Bands</div></div>
+            <div class="gs-health-item"><div class="num warn">${totalPoints.toFixed(1)}</div><div class="label">Total Points</div></div>
+          </div>
+        </div>
+      `;
+    }
 
     if (!bands.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px; color: #64748b;">No grade bands configured yet.</td></tr>';
@@ -2221,7 +2237,6 @@ async function loadGradeScales() {
       const range = `${b.minScore} – ${b.maxScore}`;
       const isActive = b.isActive !== false;
       
-      // Grade chip color class
       let chipClass = '';
       if (b.grade === 'F') chipClass = 'F';
       else if (b.grade === 'D' || b.grade === 'E') chipClass = 'D';
@@ -2245,41 +2260,47 @@ async function loadGradeScales() {
       `;
     }).join('');
 
-    // Update health banner
-    updateGradeHealth(bands);
+    // Attach event listener to preview input
+    const previewInput = document.getElementById('gs-preview-score');
+    if (previewInput) {
+      previewInput.addEventListener('input', (e) => {
+        const score = parseFloat(e.target.value);
+        const resultBox = document.getElementById('gs-preview-result');
+        if (!resultBox) return;
+
+        if (isNaN(score)) {
+          resultBox.innerHTML = '<div class="gs-preview-empty">Enter a score to preview</div>';
+          return;
+        }
+
+        // Find the matching band
+        const match = cachedGradeBands.find(b => score >= b.minScore && score <= b.maxScore);
+
+        if (match) {
+          let gradeClass = '';
+          if (match.grade === 'F') gradeClass = 'F';
+          else if (match.grade === 'D' || match.grade === 'E') gradeClass = 'D';
+
+          resultBox.innerHTML = `
+            <div class="gs-preview-hit">
+              <div class="gs-preview-grade ${gradeClass}">${escapeHtml(match.grade)}</div>
+              <div class="gs-preview-meta">
+                <div class="label">Grade</div>
+                <div class="value">${escapeHtml(match.grade)} — ${escapeHtml(match.remark || '')}</div>
+                <div class="sub">${match.minScore}–${match.maxScore} → ${Number(match.points).toFixed(2)} points</div>
+              </div>
+            </div>
+          `;
+        } else {
+          resultBox.innerHTML = `<div class="gs-preview-miss">No grade band covers a score of ${score}.</div>`;
+        }
+      });
+    }
 
   } catch (err) {
     console.error('Failed to load grade scales:', err);
     tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load bands.</td></tr>';
   }
-}
-
-function updateGradeHealth(bands) {
-  const healthEl = document.getElementById('gs-health');
-  if (!healthEl) return;
-  
-  if (!bands.length) {
-    healthEl.innerHTML = '<div class="panel-body"><span class="muted">No bands configured.</span></div>';
-    return;
-  }
-
-  // Calculate simple stats for the banner
-  const totalPoints = bands.reduce((sum, b) => sum + Number(b.points || 0), 0);
-  
-  healthEl.innerHTML = `
-    <div class="panel-body">
-      <div class="gs-health-grid">
-        <div class="gs-health-item">
-          <div class="num ok">${bands.length}</div>
-          <div class="label">Active Bands</div>
-        </div>
-        <div class="gs-health-item">
-          <div class="num warn">${totalPoints.toFixed(1)}</div>
-          <div class="label">Total Points</div>
-        </div>
-      </div>
-    </div>
-  `;
 }
 
 function toggleAddBandForm(show) {
@@ -2339,12 +2360,13 @@ async function submitAddBand(e) {
   }
 }
 
-// Placeholder for edit/delete (to wire up later)
+// Placeholder functions for Edit/Delete (Wire up if backend supports it)
 function editGradeScale(id) {
-  showToast('Edit logic coming soon for ID: ' + id, 'info');
+  showToast('Edit logic not yet implemented for ID: ' + id, 'info');
 }
+
 async function deleteGradeScale(id) {
-  if (!confirm('Delete this grade band?')) return;
+  if (!confirm('Are you sure you want to delete this grade band?')) return;
   try {
     await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
     showToast('🗑️ Band deleted.', 'success');
@@ -2353,6 +2375,36 @@ async function deleteGradeScale(id) {
     showToast('❌ ' + err.message, 'error');
   }
 }
+
+function updateGradeHealth(bands) {
+  const healthEl = document.getElementById('gs-health');
+  if (!healthEl) return;
+  
+  if (!bands.length) {
+    healthEl.innerHTML = '<div class="panel-body"><span class="muted">No bands configured.</span></div>';
+    return;
+  }
+
+  // Calculate simple stats for the banner
+  const totalPoints = bands.reduce((sum, b) => sum + Number(b.points || 0), 0);
+  
+  healthEl.innerHTML = `
+    <div class="panel-body">
+      <div class="gs-health-grid">
+        <div class="gs-health-item">
+          <div class="num ok">${bands.length}</div>
+          <div class="label">Active Bands</div>
+        </div>
+        <div class="gs-health-item">
+          <div class="num warn">${totalPoints.toFixed(1)}</div>
+          <div class="label">Total Points</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Placeholder for edit/delete (to wire up later)
 function renderGradeScaleHealth(rows) {
   const health = document.getElementById('gs-health');
   if (!health) return;
@@ -2476,13 +2528,24 @@ async function toggleGradeScale(id, nextState) {
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
-async function deleteGradeScale(id) {
-  if (!confirm('Delete this grade band?')) return;
-  try {
-    await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
-    loadGradeScales();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+function handlePreview(e) {
+  const score = parseFloat(e.target.value);
+  const resultBox = document.getElementById('gs-preview-result');
+  if (!resultBox) return;
+
+  if (isNaN(score)) {
+    resultBox.innerHTML = '<div class="gs-preview-empty">Enter a score to preview</div>';
+    return;
+  }
+
+  // Find the matching band
+  const match = cachedGradeBands.find(b => score >= b.minScore && score <= b.maxScore);
+
+  if (match) {
+    // ... render the hit
+  } else {
+    resultBox.innerHTML = `<div class="gs-preview-miss">No grade band covers a score of ${score}.</div>`;
+  }
 }
 
 // ============================================

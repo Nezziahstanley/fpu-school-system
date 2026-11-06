@@ -3635,7 +3635,7 @@ function renderComplaintsTable(records) {
         <td><span class="badge ${badgeClass}">${status.replace(/_/g, ' ').toUpperCase()}</span></td>
         <td><span style="font-weight:600; color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
         <td style="text-align:right;">
-          <button class="btn btn-sm btn-outline" onclick="window.location.hash = '#complaints-view?id=${c.id}'">View</button>
+          <button class="btn btn-sm btn-outline" \onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
         </td>
       </tr>
     `;

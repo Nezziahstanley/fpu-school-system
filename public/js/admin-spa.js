@@ -289,7 +289,7 @@
     'notification-detail':    { url: '/admin/partials/notifications/detail.html',  title: 'Notification',  init: () => {} },
 
     'complaints':      { url: '/admin/partials/complaints/list.html',            title: 'Complaints',      init: call('loadComplaints') },
-    'complaint-view':  { url: '/admin/partials/complaints/view.html',            title: 'Complaint',       init: () => {} },
+    'complaints-view': { url: '/admin/partials/complaints/view.html',            title: 'Complaint',       init: () => {} },
 
     // ---------- Library ----------
     'library':      { url: '/admin/partials/library/books.html',                 title: 'Books',           init: call('loadBooksGrid') },

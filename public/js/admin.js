@@ -3549,30 +3549,64 @@ async function loadComplaints() {
   const tbody = document.getElementById('cmp-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding:20px;">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:20px;">Loading…</td></tr>';
 
   try {
     const res = await adminFetch('/api/admin/complaints');
-    if (!res.ok) throw new Error('Failed to load complaints');
-    
     const json = await res.json();
     
-    // 🚨 DIAGNOSTIC: Print the actual API response to the browser console
-    console.log("=== RAW COMPLAINTS DATA FROM API ===");
-    console.log(json);
+    // The API returns { complaint, user } or a flat object
+    const raw = json.data || json || [];
+    allComplaints = raw.map(r => {
+      if (r.complaint) {
+        return { ...r.complaint, user: r.user || {} };
+      }
+      return r;
+    });
 
-    allComplaints = json.data || json || [];
-    
-    if (allComplaints.length > 0) {
-      console.log("=== FIRST COMPLAINT OBJECT ===");
-      console.log(allComplaints[0]); 
-      console.log("Available Keys:", Object.keys(allComplaints[0]));
-    }
-
-    filterComplaints(); // Apply default filters and render
+    filterComplaints(); 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626; text-align:center; padding:20px;">Error: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${err.message}</td></tr>`;
   }
+}
+
+function renderComplaintsTable(records) {
+  const tbody = document.getElementById('cmp-tbody');
+  if (!tbody) return;
+  
+  if (records.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center;padding:20px;">No complaints found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = records.map(c => {
+    const u = c.user || {};
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown User';
+    const status = String(c.status || 'open').toLowerCase();
+    
+    const rawDate = c.createdAt || c.created_at;
+    const created = new Date(rawDate);
+    const diffDays = Math.floor((new Date() - created) / (1000 * 60 * 60 * 24));
+    const ageDisplay = diffDays <= 0 ? 'Today' : `${diffDays}d`;
+
+    let badgeClass = 'badge-open';
+    if (status.includes('resolve')) badgeClass = 'badge-resolved';
+    if (status.includes('review')) badgeClass = 'badge-review';
+    if (status.includes('close')) badgeClass = 'badge-closed';
+
+    return `
+      <tr>
+        <td><div style="font-weight:600;color:#0f172a;">${escapeHtml(c.subject)}</div></td>
+        <td>${escapeHtml(fullName)}</td>
+        <td><span style="text-transform:capitalize;">${escapeHtml(c.category || 'General')}</span></td>
+        <td><span class="badge ${badgeClass}">${status.replace('_', ' ').toUpperCase()}</span></td>
+        <td><span style="font-weight:600;color:${diffDays > 7 && !status.includes('resolve') ? '#dc2626' : '#64748b'};">${ageDisplay}</span></td>
+        <td style="text-align:right;">
+          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('complaints-view', { id: ${c.id} })">View</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function renderComplaintsTable(records) {
@@ -4007,111 +4041,84 @@ async function loadBorrowsTable() {
   const tbody = document.getElementById('bor-tbody');
   if (!tbody) return;
 
-  const activeTab = document.querySelector('.staff-role-tab.active');
-  let statusFilter = activeTab ? activeTab.dataset.status : '';
-  if (statusFilter === 'active') statusFilter = 'borrowed'; // API fix for tab
+  const status = document.getElementById('bor-status')?.value || '';
+  const search = document.getElementById('bor-search')?.value.trim().toLowerCase() || '';
 
-  const searchVal = document.getElementById('bor-search')?.value || '';
-  const dueFilter = document.getElementById('bor-due-filter')?.value || '';
-
-  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading records…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;">Loading…</td></tr>';
 
   try {
-    const q = new URLSearchParams();
-    if (statusFilter) q.append('status', statusFilter);
-    if (searchVal) q.append('search', searchVal);
-    if (dueFilter) q.append('due_within', dueFilter);
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
 
-    const res = await adminFetch(`/api/admin/library/borrows?${q.toString()}`);
-    if (!res.ok) throw new Error('Failed to load borrows');
-    
+    const res = await adminFetch('/api/admin/library/borrows' + (qs.toString() ? '?' + qs : ''));
     const json = await res.json();
-    const records = json.data || json.borrows || json || [];
+    let rows = json.data || json || [];
+    if (!Array.isArray(rows)) rows = [];
 
-    if (!Array.isArray(records) || records.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">No borrow records found.</td></tr>';
-      updateBorrowStats([]);
+    if (search) {
+      rows = rows.filter(r => {
+        const br = r.borrow || r;
+        const b = r.book || {};
+        const u = r.user || r.student || {};
+        const hay = `${b.title || ''} ${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+        return hay.includes(search);
+      });
+    }
+
+    // Stats
+    let active = 0, overdue = 0, returned = 0;
+    rows.forEach(r => {
+      const br = r.borrow || r;
+      const isOverdue = br.dueAt && new Date(br.dueAt) < new Date() && br.status !== 'returned' && br.status !== 'lost';
+      if (br.status === 'returned') returned++;
+      else if (br.status === 'lost') { /* skip */ }
+      else {
+        active++;
+        if (isOverdue) overdue++;
+      }
+    });
+    
+    setText('bor-c-total', rows.length);
+    setText('bor-c-active', active);
+    setText('bor-c-overdue', overdue);
+    setText('bor-c-returned', returned);
+    setText('bor-count', rows.length + ' records');
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;">No borrow records found.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = records.map(r => {
-      const statusStr = String(r.status || 'active').toLowerCase();
+    tbody.innerHTML = rows.map(r => {
+      const br = r.borrow || r;
+      const b = r.book || {};
+      const u = r.user || r.student || {};
       
-      // EXACT column mapping based on your SQL screenshot
-      const rawDue = r.due_at;
-      const rawBorrowed = r.borrowed_at;
+      const title = b.title || br.bookTitle || 'Unknown Book';
+      const studentName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
+      const isOverdue = br.dueAt && new Date(br.dueAt) < new Date() && br.status !== 'returned' && br.status !== 'lost';
 
-      const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
-      const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
-
-      let daysHtml = '—';
-      let isOverdue = false;
-      
-      // Handles both 'active' and 'borrowed'
-      const isActive = ['active', 'borrowed', 'issued', 'overdue'].includes(statusStr);
-      
-      if (rawDue && isActive) {
-        const dueDate = new Date(rawDue);
-        const now = new Date();
-        const diffTime = dueDate - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays < 0) {
-          isOverdue = true;
-          daysHtml = `<span class="days-badge danger">${Math.abs(diffDays)} Days Overdue</span>`;
-        } else if (diffDays === 0) {
-          daysHtml = `<span class="days-badge warning">Due Today</span>`;
-        } else if (diffDays <= 3) {
-          daysHtml = `<span class="days-badge warning">${diffDays} days left</span>`;
-        } else {
-          daysHtml = `<span class="days-badge ok">${diffDays} days left</span>`;
-        }
-      } else if (['returned', 'completed'].includes(statusStr)) {
-        daysHtml = `<span class="days-badge done">Returned</span>`;
-      } else if (statusStr === 'lost') {
-        daysHtml = `<span class="days-badge danger">Lost</span>`;
-      }
-
-      // User and book mappings (looking at the exact SQL joined names)
-      const bookTitle = r.book_title || r.book?.title || 'Unknown Book';
-      const bookAuthor = r.book_author || r.book?.author || '';
-      const fullName = `${r.first_name || r.user?.firstName || ''} ${r.last_name || r.user?.lastName || ''}`.trim() || 'Unknown User';
-      const matric = r.matric_number || r.user?.matricNumber || '—';
-
-      let actionsHtml = '';
-      if (isActive) {
-        actionsHtml = `
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.renewBorrow(${r.id})">Renew</button>
-          <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${r.id}, '${escapeHtml(bookTitle)}')">Return</button>
-        `;
+      let actions = '';
+      if (br.status === 'borrowed' || br.status === 'overdue' || isOverdue) {
+        actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${br.id}, '${escapeHtml(title)}')">Mark Returned</button>`;
       } else {
-        actionsHtml = `<button class="btn btn-sm btn-outline" disabled>Completed</button>`;
+        actions = `<button class="btn btn-sm btn-outline" disabled>Completed</button>`;
       }
 
       return `
         <tr class="${isOverdue ? 'borrow-row-overdue' : ''}">
-          <td>
-            <div style="font-weight:600;">${escapeHtml(bookTitle)}</div>
-            <div class="muted small">${escapeHtml(bookAuthor)}</div>
-          </td>
-          <td>
-            <div>${escapeHtml(fullName)}</div>
-            <div class="muted small">${escapeHtml(matric)}</div>
-          </td>
-          <td>${borrowedDateStr}</td>
-          <td>${dueDateStr}</td>
-          <td>${badge(statusStr === 'active' ? 'borrowed' : statusStr)}</td>
-          <td>${daysHtml}</td>
-          <td>${actionsHtml}</td>
+          <td>${escapeHtml(title)}</td>
+          <td>${escapeHtml(studentName)}</td>
+          <td>${br.borrowedAt ? new Date(br.borrowedAt).toLocaleDateString() : '—'}</td>
+          <td style="${isOverdue ? 'color:#dc2626;font-weight:bold;' : ''}">${br.dueAt ? new Date(br.dueAt).toLocaleDateString() : '—'}</td>
+          <td>${badge(br.status)}</td>
+          <td>${actions}</td>
         </tr>
       `;
     }).join('');
 
-    updateBorrowStats(records);
-    document.getElementById('bor-count').textContent = `Showing ${records.length}`;
-
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -4207,151 +4214,71 @@ async function renewBorrow(id) {
 // DOCUMENTS — Full-featured loader
 // ============================================
 async function loadDocumentsTable() {
-  const list = document.getElementById('doc-list');
-  if (!list) return;
+  const tbody = document.getElementById('dc-tbody');
+  if (!tbody) return;
 
-  // Active tab
-  const activeTab = document.querySelector('#doc-status-tabs .staff-role-tab.active, .staff-role-tabs .staff-role-tab.active');
-  const statusFilter = activeTab?.dataset.status || '';
-
-  // Filters
-  const typeFilter = (document.getElementById('doc-filter-type') || {}).value || '';
-  const search = (document.getElementById('doc-search') || {}).value || '';
-
-  list.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading documents…</div>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;"><span class="spinner"></span> Loading…</td></tr>';
 
   try {
-    // Fetch documents + users in parallel
-    const [docsRes, usersRes] = await Promise.all([
-      adminFetch('/api/admin/documents?limit=500').catch(() => null),
-      adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
-    ]);
-
-    let docs = [];
-    let users = [];
-    try { if (docsRes && docsRes.ok) { const j = await docsRes.json(); docs = j.data || j || []; } } catch {}
-    try { if (usersRes && usersRes.ok) { const j = await usersRes.json(); users = j.data || j || []; } } catch {}
-
-    const userById = new Map(users.map((u) => [u.id, u]));
-
-    // Compute stats from FULL set
-    const total = docs.length;
-    const pending = docs.filter((r) => (r.document || r).status === 'pending').length;
-    const issued = docs.filter((r) => (r.document || r).status === 'issued').length;
-    const thisMonth = docs.filter((r) => {
-      const d = r.document || r;
-      return new Date(d.requestedAt || d.createdAt).getTime() > Date.now() - 30 * 86400000;
-    }).length;
-
-    setText('doc-stat-total', total);
-    setText('doc-stat-pending', pending);
-    setText('doc-stat-issued', issued);
-    setText('doc-stat-month', thisMonth);
-
-    // Apply filters
-    let visible = docs.map((r) => ({
-      document: r.document || r,
-      user: r.user || userById.get((r.document || r).userId) || {},
-    }));
-
-    if (statusFilter) {
-      visible = visible.filter(({ document: d }) => d.status === statusFilter);
-    }
-    if (typeFilter) {
-      visible = visible.filter(({ document: d }) => (d.type || '').toLowerCase() === typeFilter.toLowerCase());
-    }
-    if (search) {
-      const q = search.toLowerCase();
-      visible = visible.filter(({ document: d, user: u }) => (
-        String(d.title || '').toLowerCase().includes(q) ||
-        String(u.firstName || '').toLowerCase().includes(q) ||
-        String(u.lastName || '').toLowerCase().includes(q) ||
-        String(u.matricNumber || '').toLowerCase().includes(q) ||
-        String(u.email || '').toLowerCase().includes(q)
-      ));
-    }
-
-    if (!visible.length) {
-      list.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📄</div><p>No documents match your filters.</p></div>';
-      return;
-    }
-
-    // Sort by requestedAt desc
-    visible.sort((a, b) => {
-      const da = new Date(a.document.requestedAt || a.document.createdAt || 0);
-      const db = new Date(b.document.requestedAt || b.document.createdAt || 0);
-      return db - da;
-    });
-
-    // Render
-    list.innerHTML = visible.map(({ document: d, user: u }) => {
-      const initials = ((u.firstName || ' ')[0] + (u.lastName || ' ')[0]).toUpperCase().trim() || 'U';
-      const status = d.status || 'pending';
-      const statusCls =
-        status === 'issued' ? 'success' :
-        status === 'approved' ? 'primary' :
-        status === 'rejected' ? 'danger' :
-        'warning';
-
-      return `
-        <div class="doc-card ${status}" data-doc-id="${d.id}">
-          <div class="dc-head">
-            <span class="dc-type">${escapeHtml(String(d.type || '').replace(/-/g, ' '))}</span>
-            <span class="dc-status ${status}">${escapeHtml(status)}</span>
-          </div>
-          <h3>${escapeHtml(d.title || '(No title)')}</h3>
-          ${d.reason && d.reason !== d.title ? `<p class="small muted" style="margin:6px 0;">Reason: ${escapeHtml(d.reason)}</p>` : ''}
-          <div class="dc-student">
-            <div class="dc-avatar">${u.photoUrl ? `<img src="${escapeHtml(u.photoUrl)}" alt="" />` : escapeHtml(initials)}</div>
-            <div class="dc-student-info">
-              <strong>${escapeHtml(((u.firstName || '') + ' ' + (u.lastName || '')).trim() || 'Unknown student')}</strong>
-              <span>${escapeHtml(u.matricNumber || u.email || '—')}</span>
-            </div>
-          </div>
-          <div class="dc-footer">
-            <span>Requested ${fmtDate(d.requestedAt || d.createdAt)}</span>
-            <button class="btn btn-sm btn-outline" data-view="${d.id}">View →</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    // Wire View buttons
-    list.querySelectorAll('[data-view]').forEach((btn) => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: Number(btn.dataset.view) });
+    // Admin uses this endpoint
+    const res = await adminFetch('/api/admin/documents');
+    const payload = res.data || res || {};
+    const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
+    
+    // Unwrap the { document, user } shape from the API
+    const ALL = raw.map(r => {
+      const doc = r.document || r;
+      const stu = r.user || r.student || {};
+      return {
+        id: doc.id,
+        type: (doc.type || doc.documentType || 'other').toLowerCase(),
+        title: doc.title || doc.subject || '',
+        notes: doc.notes || doc.remarks || doc.description || '',
+        status: (doc.status || 'pending').toLowerCase(),
+        requestedAt: doc.requestedAt || doc.createdAt,
+        studentName: `${stu.firstName || stu.first_name || ''} ${stu.lastName || stu.last_name || ''}`.trim() || '—',
+        matric: stu.matricNumber || stu.matric_number || '—',
       };
     });
 
-    // Wire tab clicks
-    document.querySelectorAll('#doc-status-tabs .staff-role-tab, .staff-role-tabs .staff-role-tab').forEach((tab) => {
-      if (tab.__wired) return;
-      tab.__wired = true;
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('#doc-status-tabs .staff-role-tab, .staff-role-tabs .staff-role-tab').forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
-        loadDocumentsTable();
-      });
-    });
+    // Update Stats
+    setText('dc-total', ALL.length);
+    setText('dc-pending', ALL.filter(d => d.status === 'pending').length);
+    setText('dc-approved', ALL.filter(d => d.status === 'approved').length);
+    setText('dc-issued', ALL.filter(d => d.status === 'issued').length);
+    setText('dc-count', ALL.length);
 
-    // Wire refresh
-    const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
-    const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
-    if (refreshBtn && !refreshBtn.__wired) {
-      refreshBtn.__wired = true;
-      refreshBtn.onclick = () => loadDocumentsTable();
+    // Render Table
+    if (!ALL.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;">No document requests found.</td></tr>';
+      return;
     }
 
-    // Wire "New Request"
-    const newBtn = buttons.find((b) => /new/i.test(b.textContent || ''));
-    if (newBtn && !newBtn.__wired) {
-      newBtn.__wired = true;
-      newBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('documents-new');
-    }
+    tbody.innerHTML = ALL.map(d => {
+      let actions = `<button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: ${d.id} })">👁 Preview</button>`;
+      
+      if (d.status === 'pending') {
+        actions += ` <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN.approveDoc(${d.id})">Approve</button>`;
+        actions += ` <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.rejectDoc(${d.id})">Reject</button>`;
+      } else if (d.status === 'approved') {
+        actions += ` <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN.issueDoc(${d.id})">Mark Issued</button>`;
+      }
+
+      return `
+        <tr>
+          <td>${escapeHtml(d.studentName)}</td>
+          <td><code>${escapeHtml(d.matric)}</code></td>
+          <td><span class="badge" style="background:#e2e8f0;color:#334155;">${escapeHtml(d.type)}</span></td>
+          <td>${escapeHtml(d.title || d.notes || '—')}</td>
+          <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
+          <td>${badge(d.status)}</td>
+          <td>${actions}</td>
+        </tr>
+      `;
+    }).join('');
 
   } catch (err) {
-    list.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

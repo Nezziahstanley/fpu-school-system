@@ -8,8 +8,6 @@
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('complaints')">← Back</button>
-    <button class="btn btn-outline btn-sm" id="cv-assign">Assign</button>
-    <button class="btn btn-ghost btn-sm" id="cv-close">Close</button>
   </div>
 </section>
 
@@ -29,7 +27,6 @@
   .cmp-message-meta .detail { font-size: 12px; color: #6b7280; margin-top: 2px; }
   .cmp-message-body { font-size: 14.5px; line-height: 1.75; color: #1f2937; white-space: pre-wrap; }
   .cmp-message-subject { font-family: 'Poppins', sans-serif; font-size: 1.1rem; font-weight: 700; color: #065f46; margin: 0 0 12px; }
-  .cmp-badges { display: flex; gap: 6px; flex-wrap: wrap; }
   .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; display:inline-block; }
   .badge-success { background: #dcfce7; color: #166534; }
   .badge-info { background: #e0f2fe; color: #075985; }
@@ -40,8 +37,6 @@
 <script>
   (async function () {
     const $ = (id) => document.getElementById(id);
-
-    // 1. Get ID from URL Hash
     const hash = window.location.hash.replace(/^#/, '');
     const qIdx = hash.indexOf('?');
     const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
@@ -49,64 +44,32 @@
     const root = $('cv-root');
 
     if (!id || id === 'undefined') {
-      root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No complaint selected. The ID is missing from the URL.</div>';
+      root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No complaint selected.</div>';
       return;
     }
 
-    // 2. Assign handler
-    $('cv-assign').onclick = async () => {
-      try {
-        const res = await adminFetch('/api/admin/user-list?role=admin');
-        const json = await res.json();
-        const admins = json.data || [];
-        const choice = prompt(
-          'Assign to user ID:\n' + admins.slice(0, 10).map((u) => `${u.id} — ${u.firstName} ${u.lastName}`).join('\n')
-        );
-        if (!choice) return;
-        
-        await adminFetch(`/api/admin/complaints/${id}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ status: 'in_review', assignedTo: Number(choice) }),
-        });
-        showToast('✅ Assigned.', 'success');
-        loadComplaint();
-      } catch (err) { showToast('❌ ' + err.message, 'error'); }
-    };
-
-    // 3. Close handler
-    $('cv-close').onclick = async () => {
-      if (!confirm('Close this complaint?')) return;
-      try {
-        await adminFetch(`/api/admin/complaints/${id}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ status: 'closed' }),
-        });
-        showToast('✅ Closed.', 'success');
-        loadComplaint();
-      } catch (err) { showToast('❌ ' + err.message, 'error'); }
-    };
-
-    // 4. Load Data
     async function loadComplaint() {
       root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading…</div>';
       try {
         const res = await adminFetch(`/api/admin/complaints/${id}`);
         const json = await res.json();
         
-        const c = json.data || json; 
+        // Unwrap if API returns { complaint: {...}, user: {...} }
+        let c = json.data || json;
+        if (c.complaint) {
+           c = { ...c.complaint, user: c.user || {} };
+        }
+
         if (!c || !c.id) throw new Error('Complaint not found');
 
-        // Exact database columns
         const subject = c.subject || 'No Subject';
         const message = c.body || c.message || '';
         const status = String(c.status || 'open').toLowerCase();
         const category = c.category || 'General';
         const dateStr = c.created_at || c.createdAt || Date.now();
         
-        const u = c.user || c.student || c;
-        const firstName = u.first_name || u.firstName || '';
-        const lastName = u.last_name || u.lastName || '';
-        const authorName = `${firstName} ${lastName}`.trim() || 'Unknown User';
+        const u = c.user || {};
+        const authorName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
         const authorInitials = authorName !== 'Unknown User' ? authorName.charAt(0).toUpperCase() : 'U';
         const authorEmail = u.email || '';
 
@@ -117,7 +80,6 @@
         if (status.includes('review')) badgeCls = 'info';
         if (status.includes('close')) badgeCls = 'danger';
 
-        // Check for existing response
         const existingResponse = c.response ? `
           <div class="cmp-message response">
             <div class="cmp-message-head">
@@ -133,7 +95,6 @@
 
         root.innerHTML = `
           <div class="cmp-view">
-            <!-- Original message -->
             <div class="cmp-message">
               <div class="cmp-message-head">
                 <div class="cmp-avatar">${authorInitials}</div>
@@ -141,7 +102,7 @@
                   <div class="name">${escapeHtml(authorName)}</div>
                   <div class="detail">${escapeHtml(authorEmail)} · ${fmtDateTime(dateStr)}</div>
                 </div>
-                <div class="cmp-badges">
+                <div>
                   <span class="badge badge-${badgeCls}">${status.replace('_', ' ').toUpperCase()}</span>
                   <span class="badge badge-info">${escapeHtml(category)}</span>
                 </div>
@@ -152,14 +113,13 @@
 
             ${existingResponse}
 
-            <!-- Response form -->
             <div class="panel">
               <div class="panel-head"><h3>Respond to Complaint</h3></div>
               <div class="panel-body">
                 <form id="cv-response-form">
                   <div class="form-group">
                     <label class="form-label">Response <span class="req">*</span></label>
-                    <textarea class="form-control" name="response" rows="4" required placeholder="Type your response to the student..."></textarea>
+                    <textarea class="form-control" name="response" rows="4" required placeholder="Type your response..."></textarea>
                   </div>
                   <div class="form-grid">
                     <div class="form-group">
@@ -180,7 +140,6 @@
           </div>
         `;
 
-        // 5. Handle Response Submit
         $('cv-response-form').addEventListener('submit', async (e) => {
           e.preventDefault();
           const fd = new FormData(e.target);

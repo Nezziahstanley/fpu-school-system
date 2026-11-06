@@ -3761,44 +3761,8 @@ function updateBorrowStats(records) {
   const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
   
   records.forEach(r => {
-    const statusStr = String(r.status || 'borrowed').toLowerCase();
-    const rawDue = r.due_at;
-
-    if (['active', 'borrowed', 'issued'].includes(statusStr)) {
-      counts.active++;
-      if (rawDue && new Date(rawDue) < new Date()) {
-        counts.overdue++;
-      }
-    } else if (statusStr === 'overdue') {
-      counts.active++;
-      counts.overdue++;
-    } else if (statusStr === 'returned' || statusStr === 'completed') {
-      counts.returned++;
-    } else if (statusStr === 'lost') {
-      counts.lost++;
-    }
-  });
-
-  if (document.getElementById('bor-stat-total')) {
-    document.getElementById('bor-stat-total').textContent = counts.total;
-    document.getElementById('bor-stat-active').textContent = counts.active;
-    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
-    document.getElementById('bor-stat-returned').textContent = counts.returned;
-    
-    document.getElementById('bor-count-all').textContent = counts.total;
-    document.getElementById('bor-count-borrowed').textContent = counts.active;
-    document.getElementById('bor-count-overdue').textContent = counts.overdue;
-    document.getElementById('bor-count-returned').textContent = counts.returned;
-    document.getElementById('bor-count-lost').textContent = counts.lost;
-  }
-}
-
-function updateBorrowStats(records) {
-  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
-  
-  records.forEach(r => {
     const s = String(r.status || 'borrowed').toLowerCase();
-    const rawDue = r.due_at || r.dueDate || r.due_date;
+    const rawDue = r.due_at || r.due_date;
 
     if (['borrowed', 'active', 'issued'].includes(s)) {
       counts.active++;
@@ -3815,76 +3779,27 @@ function updateBorrowStats(records) {
     }
   });
 
-  if (document.getElementById('bor-stat-total')) {
-    document.getElementById('bor-stat-total').textContent = counts.total;
-    document.getElementById('bor-stat-active').textContent = counts.active;
-    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
-    document.getElementById('bor-stat-returned').textContent = counts.returned;
-    
-    document.getElementById('bor-count-all').textContent = counts.total;
-    document.getElementById('bor-count-borrowed').textContent = counts.active;
-    document.getElementById('bor-count-overdue').textContent = counts.overdue;
-    document.getElementById('bor-count-returned').textContent = counts.returned;
-    document.getElementById('bor-count-lost').textContent = counts.lost;
-  }
-}
+  // Safe updater helper
+  const setText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
 
-function updateBorrowStats(records) {
-  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
+  // Top Stats Cards
+  setText('bor-stat-total', counts.total);
+  setText('bor-stat-active', counts.active);
+  setText('bor-stat-overdue', counts.overdue);
+  setText('bor-stat-returned', counts.returned);
   
-  records.forEach(r => {
-    const s = String(r.status || r.borrowStatus || r.state || 'borrowed').toLowerCase();
-    if (['borrowed', 'active', 'issued'].includes(s)) {
-      counts.active++;
-      const rawDue = r.dueDate || r.due_date || r.due;
-      if (rawDue && new Date(rawDue) < new Date()) {
-        counts.overdue++;
-      }
-    } else if (s === 'overdue') {
-      counts.active++;
-      counts.overdue++;
-    } else if (s === 'returned' || s === 'completed') {
-      counts.returned++;
-    } else if (s === 'lost') {
-      counts.lost++;
-    }
-  });
-
-  if (document.getElementById('bor-stat-total')) {
-    document.getElementById('bor-stat-total').textContent = counts.total;
-    document.getElementById('bor-stat-active').textContent = counts.active;
-    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
-    document.getElementById('bor-stat-returned').textContent = counts.returned;
-    
-    document.getElementById('bor-count-all').textContent = counts.total;
-    document.getElementById('bor-count-borrowed').textContent = counts.active;
-    document.getElementById('bor-count-overdue').textContent = counts.overdue;
-    document.getElementById('bor-count-returned').textContent = counts.returned;
-    document.getElementById('bor-count-lost').textContent = counts.lost;
-  }
-}
-
-function updateBorrowStats(records) {
-  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
-  records.forEach(r => {
-    const s = String(r.status || '').toLowerCase();
-    if (s === 'borrowed') counts.active++;
-    else if (s === 'overdue') { counts.active++; counts.overdue++; }
-    else if (s === 'returned') counts.returned++;
-    else if (s === 'lost') counts.lost++;
-  });
-
-  if (document.getElementById('bor-stat-total')) {
-    document.getElementById('bor-stat-total').textContent = counts.total;
-    document.getElementById('bor-stat-active').textContent = counts.active;
-    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
-    document.getElementById('bor-stat-returned').textContent = counts.returned;
-    document.getElementById('bor-count-all').textContent = counts.total;
-    document.getElementById('bor-count-borrowed').textContent = counts.active;
-    document.getElementById('bor-count-overdue').textContent = counts.overdue;
-    document.getElementById('bor-count-returned').textContent = counts.returned;
-    document.getElementById('bor-count-lost').textContent = counts.lost;
-  }
+  // Tabs (Using the exact IDs from your HTML)
+  setText('bor-count-all', counts.total);
+  setText('bor-count-active', counts.active);
+  setText('bor-count-overdue', counts.overdue);
+  setText('bor-count-returned', counts.returned);
+  setText('bor-count-lost', counts.lost);
+  
+  // Table Header Count
+  setText('bor-count', `Showing ${counts.total}`);
 }
 
 // ============================================

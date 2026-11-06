@@ -3666,8 +3666,6 @@ async function loadBorrowsTable() {
     if (!res.ok) throw new Error('Failed to load borrows');
     
     const json = await res.json();
-    
-    // The backend returns { success: true, data: [...] }
     const records = json.data || json.borrows || json || [];
 
     if (!Array.isArray(records) || records.length === 0) {
@@ -3677,19 +3675,25 @@ async function loadBorrowsTable() {
     }
 
     tbody.innerHTML = records.map(r => {
-      const rawStatus = String(r.status || 'borrowed').toLowerCase();
+      // 1. Get exact columns from database
+      const statusStr = String(r.status || 'borrowed').toLowerCase();
       
-      // Dates
+      // 2. Map dates directly from your confirmed database columns
       const rawDue = r.due_at;
       const rawBorrowed = r.borrowed_at;
 
       const borrowedDateStr = rawBorrowed ? fmtDate(rawBorrowed) : '—';
       const dueDateStr = rawDue ? fmtDate(rawDue) : '—';
 
+      // 3. Determine if active (handles 'active', 'borrowed', 'issued', 'overdue')
+      const isActive = ['active', 'borrowed', 'issued', 'overdue'].includes(statusStr);
+      const isReturned = statusStr === 'returned';
+      const isLost = statusStr === 'lost';
+
       let daysHtml = '—';
       let isOverdue = false;
       
-      if (rawDue && ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus)) {
+      if (rawDue && isActive) {
         const dueDate = new Date(rawDue);
         const now = new Date();
         const diffTime = dueDate - now;
@@ -3705,25 +3709,26 @@ async function loadBorrowsTable() {
         } else {
           daysHtml = `<span class="days-badge ok">${diffDays} days left</span>`;
         }
-      } else if (['returned', 'completed'].includes(rawStatus)) {
+      } else if (isReturned) {
         daysHtml = `<span class="days-badge done">Returned</span>`;
-      } else if (rawStatus === 'lost') {
+      } else if (isLost) {
         daysHtml = `<span class="days-badge danger">Lost</span>`;
       }
 
-      // DATA MAPPING (Handles both flat SQL returns and nested Sequelize returns)
-      const bookTitle = r.book_title || r.book?.title || r.Book?.title || 'Unknown Book';
-      const bookAuthor = r.book_author || r.book?.author || r.Book?.author || '';
+      // 4. Robust Book and User extraction (works with joined tables or flat data)
+      const bookObj = r.book || r.Book || {};
+      const bookTitle = bookObj.title || bookObj.name || r.book_title || r.bookTitle || r.title || 'Unknown Book';
+      const bookAuthor = bookObj.author || r.author || '';
       
-      const firstName = r.first_name || r.user?.firstName || r.User?.firstName || '';
-      const lastName = r.last_name || r.user?.lastName || r.User?.lastName || '';
+      const u = r.user || r.User || r.student || r.borrower || {};
+      const firstName = u.first_name || u.firstName || r.first_name || r.firstName || '';
+      const lastName = u.last_name || u.lastName || r.last_name || r.lastName || '';
       const fullName = `${firstName} ${lastName}`.trim() || 'Unknown User';
       
-      const matric = r.matric_number || r.user?.matricNumber || r.User?.matricNumber || '—';
+      const matric = u.matric_number || u.matricNumber || r.matric_number || r.matricNumber || '—';
 
+      // 5. Buttons
       let actionsHtml = '';
-      const isActive = ['borrowed', 'active', 'overdue', 'issued'].includes(rawStatus);
-      
       if (isActive) {
         actionsHtml = `
           <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.renewBorrow(${r.id})">Renew</button>
@@ -3745,7 +3750,7 @@ async function loadBorrowsTable() {
           </td>
           <td>${borrowedDateStr}</td>
           <td>${dueDateStr}</td>
-          <td>${badge(rawStatus === 'active' ? 'borrowed' : rawStatus)}</td>
+          <td>${badge(statusStr === 'active' ? 'borrowed' : statusStr)}</td>
           <td>${daysHtml}</td>
           <td>${actionsHtml}</td>
         </tr>
@@ -3757,6 +3762,42 @@ async function loadBorrowsTable() {
 
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">Error: ${err.message}</td></tr>`;
+  }
+}
+
+function updateBorrowStats(records) {
+  const counts = { total: records.length, active: 0, overdue: 0, returned: 0, lost: 0 };
+  
+  records.forEach(r => {
+    const statusStr = String(r.status || 'borrowed').toLowerCase();
+    const rawDue = r.due_at;
+
+    if (['active', 'borrowed', 'issued'].includes(statusStr)) {
+      counts.active++;
+      if (rawDue && new Date(rawDue) < new Date()) {
+        counts.overdue++;
+      }
+    } else if (statusStr === 'overdue') {
+      counts.active++;
+      counts.overdue++;
+    } else if (statusStr === 'returned' || statusStr === 'completed') {
+      counts.returned++;
+    } else if (statusStr === 'lost') {
+      counts.lost++;
+    }
+  });
+
+  if (document.getElementById('bor-stat-total')) {
+    document.getElementById('bor-stat-total').textContent = counts.total;
+    document.getElementById('bor-stat-active').textContent = counts.active;
+    document.getElementById('bor-stat-overdue').textContent = counts.overdue;
+    document.getElementById('bor-stat-returned').textContent = counts.returned;
+    
+    document.getElementById('bor-count-all').textContent = counts.total;
+    document.getElementById('bor-count-borrowed').textContent = counts.active;
+    document.getElementById('bor-count-overdue').textContent = counts.overdue;
+    document.getElementById('bor-count-returned').textContent = counts.returned;
+    document.getElementById('bor-count-lost').textContent = counts.lost;
   }
 }
 

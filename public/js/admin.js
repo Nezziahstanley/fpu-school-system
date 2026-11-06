@@ -3488,33 +3488,59 @@ async function deleteAnnouncement(id) {
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
+// ============================================
+// NOTIFICATIONS
+// ============================================
+let allNotifications = [];
+
 async function loadNotifications() {
-  const list = document.getElementById('notifications-list');
+  const list = document.getElementById('nt-list');
   if (!list) return;
 
-  list.innerHTML = '<div class="loading" style="padding:20px;text-align:center;"><span class="spinner"></span> Loading…</div>';
+  // Get filters
+  const typeFilter = document.getElementById('nt-filter-type')?.value || '';
+  const readFilter = document.getElementById('nt-filter-read')?.value || '';
+  const searchVal = document.getElementById('nt-search')?.value.toLowerCase() || '';
+
+  list.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading notifications…</div>';
 
   try {
     const res = await adminFetch("/api/admin/notifications");
     const result = await res.json();
     
     // Handle different JSON shapes
-    const rows = result.data || result.rows || result || [];
+    allNotifications = result.data || result.rows || result || [];
 
-    if (!rows.length) {
-      list.innerHTML = '<p class="muted" style="padding:20px;">No notifications yet.</p>';
-      updateNotificationStats([]);
+    // Apply filters
+    let filtered = allNotifications.filter(n => {
+      const type = String(n.type || n.category || 'info').toLowerCase();
+      const isRead = n.isRead === true || n.is_read === true || n.status === 'read';
+      const title = String(n.title || n.subject || '').toLowerCase();
+      const body = String(n.message || n.body || n.description || '').toLowerCase();
+
+      if (typeFilter && type !== typeFilter) return false;
+      if (readFilter === 'read' && !isRead) return false;
+      if (readFilter === 'unread' && isRead) return false;
+      if (searchVal && !title.includes(searchVal) && !body.includes(searchVal)) return false;
+      
+      return true;
+    });
+
+    updateNotificationStats(allNotifications);
+
+    if (!filtered.length) {
+      list.innerHTML = '<div style="text-align:center;padding:3rem;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;"><div style="font-size:2rem;margin-bottom:10px;">📭</div>No notifications found matching your criteria.</div>';
       return;
     }
 
     // Render the list
-    list.innerHTML = rows.map(n => {
-      // 🕵️ DEEP SCAN for the actual column names
+    list.innerHTML = filtered.map(n => {
       const title = n.title || n.subject || 'No Title';
       const message = n.message || n.body || n.description || n.text || '';
       const type = String(n.type || n.category || 'info').toLowerCase();
       const isRead = n.isRead === true || n.is_read === true || n.status === 'read';
       const createdAt = n.createdAt || n.created_at || n.date || Date.now();
+      const id = n.id;
 
       // Map icons to types
       let icon = 'ℹ️';
@@ -3524,28 +3550,91 @@ async function loadNotifications() {
       if (type.includes('fee')) icon = '💰';
 
       return `
-        <div class="nt-item ${isRead ? '' : 'unread'}" style="padding:16px; border-bottom:1px solid #e2e8f0; display:flex; gap:16px; background:${isRead ? '#fff' : '#f0fdf4'};">
-          <div class="nt-icon" style="font-size:24px;">${icon}</div>
-          <div class="nt-body" style="flex:1;">
-            <div class="nt-title" style="font-weight:700; color:#0f172a; font-size:14px;">${escapeHtml(title)}</div>
-            <div class="nt-text" style="color:#475569; font-size:13px; margin-top:4px;">${escapeHtml(message)}</div>
-            <div class="nt-meta" style="margin-top:8px; font-size:11px; color:#94a3b8; display:flex; gap:12px;">
+        <div class="nt-item ${isRead ? '' : 'unread'}" onclick="window.location.hash='#notification-detail?id=${id}'">
+          <div class="nt-icon ${type}">${icon}</div>
+          <div class="nt-body">
+            <div class="nt-title">${escapeHtml(title)}</div>
+            <div class="nt-text">${escapeHtml(message)}</div>
+            <div class="nt-meta">
               <span>🕐 ${timeAgo(createdAt)}</span>
-              ${!isRead ? '<span style="color:#065f46; font-weight:700;">● Unread</span>' : ''}
+              ${!isRead ? '<span class="unread-pill">Unread</span>' : ''}
             </div>
           </div>
-          <div class="nt-actions" style="display:flex; flex-direction:column; gap:8px;">
-            ${!isRead ? `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.markNotificationRead(${n.id})">Mark Read</button>` : ''}
-            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteNotification(${n.id})">Delete</button>
+          <div class="nt-actions" onclick="event.stopPropagation()">
+            ${!isRead ? `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.markNotificationRead(${id})">Mark Read</button>` : ''}
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteNotification(${id})">🗑</button>
           </div>
         </div>
       `;
     }).join('');
 
-    updateNotificationStats(rows);
+    // Wire "Mark all read"
+    const markAllBtn = document.getElementById('nt-mark-all-read');
+    if (markAllBtn && !markAllBtn.__wired) {
+      markAllBtn.__wired = true;
+      markAllBtn.onclick = async () => {
+        if (!confirm('Mark all notifications as read?')) return;
+        try {
+          await adminFetch('/api/admin/notifications/read-all', { method: 'POST' });
+          showToast('✅ All marked as read.', 'success');
+          loadNotifications();
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      };
+    }
 
   } catch (err) {
     list.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function updateNotificationStats(records) {
+  const counts = { total: records.length, unread: 0, thisWeek: 0, high: 0 };
+  
+  records.forEach(n => {
+    const isRead = n.isRead === true || n.is_read === true || n.status === 'read';
+    if (!isRead) counts.unread++;
+    
+    const type = String(n.type || n.category || n.priority || '').toLowerCase();
+    if (type.includes('high') || type.includes('warn') || type.includes('urgent')) {
+      counts.high++;
+    }
+
+    const dateStr = n.createdAt || n.created_at || n.date;
+    if (dateStr && new Date(dateStr).getTime() > Date.now() - 7 * 86400000) {
+      counts.thisWeek++;
+    }
+  });
+
+  const setText = (id, val) => { 
+    const el = document.getElementById(id); 
+    if (el) el.textContent = val; 
+  };
+  
+  setText('nt-stat-total', counts.total);
+  setText('nt-stat-unread', counts.unread);
+  setText('nt-stat-week', counts.thisWeek);
+  setText('nt-stat-high', counts.high);
+  setText('nt-count-inbox', counts.total);
+}
+
+async function markNotificationRead(id) {
+  try { 
+    await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }); 
+    showToast('✅ Marked read.', 'success'); 
+    loadNotifications(); 
+  } catch (err) { 
+    showToast('❌ ' + err.message, 'error'); 
+  }
+}
+
+async function deleteNotification(id) {
+  if (!confirm('Delete this notification?')) return;
+  try { 
+    await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); 
+    showToast('🗑️ Deleted.', 'success'); 
+    loadNotifications(); 
+  } catch (err) { 
+    showToast('❌ ' + err.message, 'error'); 
   }
 }
 

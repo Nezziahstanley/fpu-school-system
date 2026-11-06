@@ -3301,42 +3301,50 @@ async function loadClearanceDepartments() {
   const school = document.getElementById('clr-school')?.value || '';
   const search = document.getElementById('clr-search')?.value.toLowerCase() || '';
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1; text-align:center; padding:40px;"><span class="spinner"></span> Loading clearances…</div>';
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1; text-align:center; padding:40px;"><span class="spinner"></span> Loading…</div>';
 
   try {
-    const [clrRes, deptsRes, studentsRes, schoolsRes] = await Promise.all([
-      adminFetch(`/api/admin/clearances${session ? '?sessionId='+session : ''}`).catch(() => null),
-      adminFetch('/api/admin/departments').catch(() => null),
-      adminFetch('/api/admin/students?limit=5000').catch(() => null),
-      adminFetch('/api/admin/schools').catch(() => null),
+    // Fetch all data in parallel, but tolerate failures
+    const [deptsRes, studentsRes, schoolsRes, clrRes] = await Promise.all([
+      adminFetch('/api/admin/departments').catch(e => { console.warn('depts:', e.message); return null; }),
+      adminFetch('/api/admin/students?limit=5000').catch(e => { console.warn('students:', e.message); return null; }),
+      adminFetch('/api/admin/schools').catch(e => { console.warn('schools:', e.message); return null; }),
+      adminFetch('/api/admin/clearances').catch(e => { console.warn('clearances:', e.message); return null; }),
     ]);
 
-    const clearances = clrRes ? (await clrRes.json()).data || [] : [];
-    const depts = deptsRes ? (await deptsRes.json()).data || [] : [];
-    const students = studentsRes ? (await studentsRes.json()).data || [] : [];
-    const schools = schoolsRes ? (await schoolsRes.json()).data || [] : [];
+    const depts = deptsRes && deptsRes.ok ? (await deptsRes.json()).data || [] : [];
+    const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
+    const schools = schoolsRes && schoolsRes.ok ? (await schoolsRes.json()).data || [] : [];
+    const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
 
-    // Build a map: studentId → clearance
+    if (!depts.length) {
+      grid.innerHTML = '<div class="alert alert-warning" style="grid-column:1/-1; margin:20px;">No departments loaded. Check API /api/admin/departments.</div>';
+      return;
+    }
+
+    console.log('[clearances] Loaded', depts.length, 'depts,', students.length, 'students,', clearances.length, 'clearances');
+
+    // Map studentId → clearance
     const clearanceByStudent = new Map();
     clearances.forEach(c => {
       const sid = c.student_id || c.studentId;
       if (sid) clearanceByStudent.set(Number(sid), c);
     });
 
-    const schoolMap = new Map(schools.map(s => [s.id, s]));
+    const schoolMap = new Map(schools.map(s => [Number(s.id), s]));
 
-    // Group students by department
+    // Bucket by department
     const byDept = new Map();
-    depts.forEach(d => byDept.set(d.id, { dept: d, total: 0, cleared: 0, pending: 0, rejected: 0, missing: 0 }));
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, total: 0, cleared: 0, pending: 0, rejected: 0, missing: 0 }));
 
     students.forEach(s => {
-      if (!s.departmentId) return;
-      const bucket = byDept.get(s.departmentId);
+      const did = Number(s.departmentId);
+      if (!did) return;
+      const bucket = byDept.get(did);
       if (!bucket) return;
       
       bucket.total++;
       const clr = clearanceByStudent.get(Number(s.id));
-      
       if (!clr) bucket.missing++;
       else if (clr.status === 'cleared') bucket.cleared++;
       else if (clr.status === 'pending') bucket.pending++;
@@ -3353,7 +3361,7 @@ async function loadClearanceDepartments() {
     setText('clr-stat-pending', totalPending);
     setText('clr-stat-rate', totalStudents ? Math.round((totalCleared / totalStudents) * 100) + '%' : '—');
 
-    // Filter departments
+    // Filter
     let visible = [...byDept.values()].filter(b => {
       if (school && Number(b.dept.schoolId) !== Number(school)) return false;
       if (search) {
@@ -3366,23 +3374,22 @@ async function loadClearanceDepartments() {
     visible.sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
 
     if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1; text-align:center; padding:40px;"><div style="font-size:2rem;margin-bottom:10px;">🎉</div><p>No departments match your filters.</p></div>';
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px;"><p>No departments match your filters.</p></div>';
       return;
     }
 
-    // Render cards
     grid.innerHTML = visible.map(b => {
       const rate = b.total ? Math.round((b.cleared / b.total) * 100) : 0;
       const cls = b.total === 0 ? 'empty' : rate >= 75 ? 'healthy' : rate >= 40 ? 'warning' : 'critical';
-      const sch = schoolMap.get(b.dept.schoolId);
+      const sch = schoolMap.get(Number(b.dept.schoolId));
 
       return `
         <div class="clr-dept-card ${cls}" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}">
           <div class="clr-card-head">
-            <div class="clr-code">${escapeHtml(b.dept.code)}</div>
+            <div class="clr-code">${escapeHtml(b.dept.code || '')}</div>
             <div class="clr-school">${escapeHtml(sch ? sch.code : '—')}</div>
           </div>
-          <h3>${escapeHtml(b.dept.name)}</h3>
+          <h3>${escapeHtml(b.dept.name || '')}</h3>
           <div class="clr-rate ${cls}">${b.total ? rate + '%' : '—'}<span class="clr-rate-label">cleared</span></div>
           <div class="clr-stats">
             <div class="clr-stat cleared"><span class="num">${b.cleared}</span><span class="lbl">Cleared</span></div>
@@ -3397,36 +3404,15 @@ async function loadClearanceDepartments() {
       `;
     }).join('');
 
-    // Wire card clicks
     grid.querySelectorAll('.clr-dept-card').forEach(card => {
       card.addEventListener('click', () => {
         window.location.hash = `#clearances-by-dept?departmentId=${card.dataset.deptId}&session=${session}&name=${encodeURIComponent(card.dataset.deptName)}`;
       });
     });
 
-    // Wire Export button
-    const exportBtn = document.getElementById('clr-export');
-    if (exportBtn && !exportBtn.__wired) {
-      exportBtn.__wired = true;
-      exportBtn.onclick = () => {
-        const headers = ['Code', 'Department', 'Total Students', 'Cleared', 'Pending', 'Rejected', 'Missing', 'Rate %'];
-        const rows = visible.map(b => [
-          b.dept.code, b.dept.name, b.total, b.cleared, b.pending, b.rejected, b.missing,
-          b.total ? Math.round((b.cleared / b.total) * 100) : 0
-        ]);
-        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `clearances-${new Date().toISOString().slice(0,10)}.csv`;
-        a.click();
-        showToast('✅ Exported.', 'success');
-      };
-    }
-
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1; margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+    console.error('[clearances] Fatal error:', err);
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1; margin:20px;"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
   }
 }
 

@@ -105,6 +105,71 @@
   .sp-course-row .units { font-family: 'Poppins', sans-serif; font-weight: 800; color: #f59e0b; min-width: 40px; text-align: right; }
 </style>
 
+<!-- Custom Reset Password Modal -->
+<div id="reset-password-modal" class="fpu-modal-overlay" style="display: none;">
+  <div class="fpu-modal">
+    <div class="fpu-modal-header">
+      <h3>Reset Password</h3>
+      <button class="fpu-modal-close" onclick="FPU_ADMIN.closeResetModal()">&times;</button>
+    </div>
+    <div class="fpu-modal-body">
+      <p class="muted small" style="margin-bottom: 15px;">Enter a new password for this staff member. If left blank, the default password <strong>principal1234</strong> will be used.</p>
+      
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <div style="position: relative;">
+          <input type="password" id="reset-pwd-input" class="form-control" placeholder="Enter new password..." style="padding-right: 40px;">
+          <button type="button" onclick="FPU_ADMIN.togglePasswordVisibility('reset-pwd-input')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px;">👁️</button>
+        </div>
+      </div>
+      
+      <div id="reset-pwd-error" class="text-danger small" style="display: none; margin-top: 5px;"></div>
+    </div>
+    <div class="fpu-modal-footer">
+      <button class="btn btn-outline" onclick="FPU_ADMIN.closeResetModal()">Cancel</button>
+      <button class="btn btn-primary" id="reset-pwd-submit" onclick="FPU_ADMIN.submitResetPassword()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Modal Styles */
+  .fpu-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; opacity: 0; transition: opacity 0.2s ease;
+  }
+  .fpu-modal-overlay.show { opacity: 1; }
+  
+  .fpu-modal {
+    background: #fff; border-radius: 12px; width: 100%; max-width: 420px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15); transform: translateY(20px);
+    transition: transform 0.2s ease; display: flex; flex-direction: column;
+  }
+  .fpu-modal-overlay.show .fpu-modal { transform: translateY(0); }
+
+  .fpu-modal-header {
+    padding: 18px 24px; border-bottom: 1px solid #e2e8f0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .fpu-modal-header h3 { margin: 0; font-family: 'Poppins', sans-serif; font-size: 1.1rem; color: #0f172a; }
+  
+  .fpu-modal-close {
+    background: none; border: none; font-size: 24px; color: #94a3b8;
+    cursor: pointer; line-height: 1; padding: 0;
+  }
+  .fpu-modal-close:hover { color: #0f172a; }
+
+  .fpu-modal-body { padding: 24px; }
+  
+  .fpu-modal-footer {
+    padding: 16px 24px; border-top: 1px solid #e2e8f0;
+    display: flex; justify-content: flex-end; gap: 10px;
+    background: #f8fafc; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;
+  }
+</style>
+
 <script>
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadStaffProfile) {
     setTimeout(window.FPU_ADMIN.loadStaffProfile, 100);

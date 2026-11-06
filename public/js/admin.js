@@ -10178,19 +10178,87 @@ function editStaffFromProfile() {
   if (id) window.location.hash = `#staff-form?id=${id}`;
 }
 
-async function resetStaffPassword() {
-  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+// ============================================
+// STAFF PROFILE: Reset Password Modal Logic
+// ============================================
+function resetStaffPassword() {
+  const id = getCurrentStaffId();
   if (!id) return;
-  const pwd = await window.fpuPrompt('New password (default: principal1234)', 'Leave blank for default.', 'Reset Password');
-  if (pwd === null) return;
+
+  // Reset the form
+  const modal = document.getElementById('reset-password-modal');
+  const input = document.getElementById('reset-pwd-input');
+  const errorBox = document.getElementById('reset-pwd-error');
+  
+  if (!modal || !input) return;
+
+  input.value = '';
+  errorBox.style.display = 'none';
+  
+  // Show modal
+  modal.style.display = 'flex';
+  // Small delay to allow CSS transition to trigger
+  setTimeout(() => modal.classList.add('show'), 10);
+  input.focus();
+}
+
+function closeResetModal() {
+  const modal = document.getElementById('reset-password-modal');
+  if (modal) {
+    modal.classList.remove('show');
+    setTimeout(() => modal.style.display = 'none', 200);
+  }
+}
+
+function togglePasswordVisibility(inputId) {
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.type = input.type === 'password' ? 'text' : 'password';
+  }
+}
+
+async function submitResetPassword() {
+  const id = getCurrentStaffId();
+  if (!id) return;
+
+  const input = document.getElementById('reset-pwd-input');
+  const btn = document.getElementById('reset-pwd-submit');
+  const errorBox = document.getElementById('reset-pwd-error');
+  
+  const newPassword = input.value.trim();
+  
+  // UI Loading state
+  btn.disabled = true;
+  btn.textContent = 'Resetting...';
+  errorBox.style.display = 'none';
+
   try {
     await adminFetch(`/api/admin/staff/${id}/reset-password`, {
       method: 'POST',
-      body: JSON.stringify({ password: pwd || undefined }),
+      body: JSON.stringify({ password: newPassword || undefined }),
     });
-    showToast('✅ Password reset.', 'success');
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+    
+    closeResetModal();
+    showToast('✅ Password reset successfully.', 'success');
+    
+  } catch (err) {
+    errorBox.textContent = err.message || 'Failed to reset password.';
+    errorBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Reset Password';
+  }
 }
+
+// Close modal if clicking outside of it
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('reset-password-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeResetModal();
+    });
+  }
+});
 
 async function toggleStaffActive() {
   const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
@@ -10201,18 +10269,6 @@ async function toggleStaffActive() {
     await adminFetch(`/api/admin/staff/${id}/toggle-active`, { method: 'POST' });
     showToast('✅ Status updated.', 'success');
     if (window.FPU_ADMIN.loadStaffProfile) loadStaffProfile();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function deleteStaff() {
-  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
-  if (!id) return;
-  const ok = await window.fpuConfirm('Delete this staff member? This cannot be undone.', { title: 'Delete Staff', type: 'danger', okText: 'Delete' });
-  if (!ok) return;
-  try {
-    await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
-    showToast('🗑️ Staff deleted.', 'success');
-    window.location.hash = '#staff';
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
@@ -10348,32 +10404,6 @@ function editStaffFromProfile() {
   if (id) window.location.hash = `#staff-form?id=${id}`;
 }
 
-async function resetStaffPassword() {
-  const id = getCurrentStaffId();
-  if (!id) return;
-  const pwd = await window.fpuPrompt('New password (default: principal1234)', 'Leave blank for default.', 'Reset Password');
-  if (pwd === null) return;
-  try {
-    await adminFetch(`/api/admin/staff/${id}/reset-password`, {
-      method: 'POST',
-      body: JSON.stringify({ password: pwd || undefined }),
-    });
-    showToast('✅ Password reset.', 'success');
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function toggleStaffActive() {
-  const id = getCurrentStaffId();
-  if (!id) return;
-  const ok = await window.fpuConfirm("Toggle this staff member's active status?", { title: 'Toggle Status', type: 'warning' });
-  if (!ok) return;
-  try {
-    await adminFetch(`/api/admin/staff/${id}/toggle-active`, { method: 'POST' });
-    showToast('✅ Status updated.', 'success');
-    loadStaffProfile();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
 async function deleteStaff() {
   const id = getCurrentStaffId();
   if (!id) return;
@@ -10496,7 +10526,8 @@ window.FPU_ADMIN = {
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
   viewHodDetails, replaceHod, sendHodEmail, emailAllHods, loadStaffProfile, editStaffFromProfile,
-  resetStaffPassword, toggleStaffActive, deleteStaff,
+  resetStaffPassword, toggleStaffActive, deleteStaff, closeResetModal, togglePasswordVisibility,
+  submitResetPassword,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,

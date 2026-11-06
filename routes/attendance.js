@@ -11,8 +11,70 @@ const router = express.Router();
 const attQueries = require('../db/queries/attendance');
 const { requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
+const { db, schema, sql } = require('../db');
+const { eq, and, desc } = require('drizzle-orm');
 
 const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
+
+// ============================================================
+// GET /api/admin/attendance/stats
+// Dashboard statistics (departments, courses, records)
+// ============================================================
+router.get('/stats', requireRole(STAFF), async (req, res, next) => {
+  try {
+    // This query aggregates data from your departments, courses, and attendance tables
+    const stats = await db
+      .select({
+        departmentId: schema.departments.id,
+        departmentName: schema.departments.name,
+        departmentCode: schema.departments.code,
+        
+        // Count of unique courses with attendance
+        courses: sql`COUNT(DISTINCT ${schema.attendance.courseId})`,
+        
+        // Count of unique students with attendance
+        students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
+        
+        // Total attendance records
+        records: sql`COUNT(${schema.attendance.id})`
+      })
+      .from(schema.departments)
+      .leftJoin(schema.courses, eq(schema.departments.id, schema.courses.departmentId))
+      .leftJoin(schema.attendance, eq(schema.courses.id, schema.attendance.courseId))
+      .groupBy(schema.departments.id, schema.departments.name, schema.departments.code);
+
+    // Calculate overall totals
+    let totalRecords = 0;
+    let totalStudents = 0;
+    let totalCourses = 0;
+
+    stats.forEach(row => {
+      totalRecords += Number(row.records) || 0;
+      totalStudents += Number(row.students) || 0;
+      totalCourses += Number(row.courses) || 0;
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        departments: stats,
+        totals: {
+          departmentsCount: stats.length,
+          coursesCount: totalCourses,
+          studentsCount: totalStudents,
+          recordsCount: totalRecords
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Attendance Stats Error:', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// Standard Attendance Routes
+// ============================================================
 
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -90,7 +152,6 @@ router.delete('/:id', requireRole(['admin', 'lecturer', 'hod']), async (req, res
   }
 });
 
-module.exports = router;
 // ---- /with-student route ----
 // MUST come before any router.get('/:id') handler.
 router.get('/with-student', async (req, res, next) => {
@@ -101,3 +162,4 @@ router.get('/with-student', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+module.exports = router;

@@ -1,39 +1,235 @@
-<!-- Admin → Payments → Form -->
+<!-- ============================================================
+     Admin → Payments → Record Payment
+     ============================================================ -->
 <section class="page-head">
-  <div><h2>New Payment Record</h2><p class="muted small">For offline / bank deposit entries</p></div>
-  <div class="actions"><button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('payments')">← Back</button></div>
+  <div>
+    <h2>New Payment Record</h2>
+    <p class="muted small">For offline / bank deposit entries</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#payments'">← Back</button>
+  </div>
 </section>
 
 <div class="panel">
   <div class="panel-head"><h3>Payment Details</h3></div>
   <div class="panel-body">
     <form id="payment-form">
+      
+      <!-- Student Selection Row -->
       <div class="form-grid">
-        <div class="form-group"><label class="form-label">Student <span class="req">*</span></label>
-          <select class="form-select" name="studentId" data-lookup="students" required></select>
-        </div>
-        <div class="form-group"><label class="form-label">Session <span class="req">*</span></label>
-          <select class="form-select" name="sessionId" data-lookup="sessions" required></select>
-        </div>
-        <div class="form-group"><label class="form-label">Fee Structure (optional)</label>
-          <select class="form-select" name="feeStructureId" data-lookup="fee-structures">
-            <option value="">—</option>
+        <div class="form-group">
+          <label class="form-label">1. Filter by Department</label>
+          <select class="form-select" id="pf-dept-filter" onchange="filterStudentsByDept()">
+            <option value="">All Departments</option>
+            <!-- Populated by JS -->
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Amount <span class="req">*</span></label>
-          <input class="form-control" type="number" step="0.01" name="amount" required />
+        <div class="form-group">
+          <label class="form-label">2. Select Student <span class="req">*</span></label>
+          <select class="form-select" name="studentId" id="pf-student" required>
+            <option value="">— Choose a student —</option>
+            <!-- Populated by JS -->
+          </select>
         </div>
-        <div class="form-group"><label class="form-label">Reference <span class="req">*</span></label>
-          <input class="form-control" name="reference" required />
-        </div>
-        <div class="form-group"><label class="form-label">Bank Name</label><input class="form-control" name="bankName" /></div>
-        <div class="form-group"><label class="form-label">Depositor Name</label><input class="form-control" name="depositorName" /></div>
-        <div class="form-group"><label class="form-label">Deposit Date</label><input class="form-control" type="date" name="depositDate" /></div>
       </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Create Payment</button>
-        <button type="button" class="btn btn-ghost" onclick="FPU_ADMIN_SPA.navigateTo('payments')">Cancel</button>
+
+      <hr style="margin:20px 0; border:none; border-top:1px solid #e2e8f0;">
+
+      <!-- Payment Details Row -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Session <span class="req">*</span></label>
+          <select class="form-select" name="sessionId" id="pf-session" required>
+            <option value="">Loading sessions…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fee Structure (optional)</label>
+          <select class="form-select" name="feeStructureId" id="pf-fee">
+            <option value="">— Select Fee —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Amount (₦) <span class="req">*</span></label>
+          <input class="form-control" type="number" step="0.01" name="amount" id="pf-amount" required placeholder="e.g. 53105" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reference / Teller No. <span class="req">*</span></label>
+          <input class="form-control" name="reference" id="pf-reference" required placeholder="e.g. FPU-2025-0034" />
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Bank Name</label>
+          <input class="form-control" name="bankName" id="pf-bank" placeholder="e.g. Zenith Bank" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Depositor Name</label>
+          <input class="form-control" name="depositorName" id="pf-depositor" placeholder="Name on deposit slip" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Deposit Date</label>
+          <input class="form-control" type="date" name="depositDate" id="pf-deposit-date" />
+        </div>
+      </div>
+
+      <div id="pf-validation" style="margin-top:16px;"></div>
+
+      <div class="form-actions" style="margin-top:24px;">
+        <button type="submit" class="btn btn-primary" id="pf-submit">Create Payment</button>
+        <button type="button" class="btn btn-outline" onclick="window.location.hash='#payments'">Cancel</button>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+  // ============================================
+  // PAYMENT FORM — Init & Logic
+  // ============================================
+  (async function () {
+    const $ = (id) => document.getElementById(id);
+    const A = window.FPU_ADMIN;
+
+    // ---- 1. Load All Data (departments, students, sessions, fees) ----
+    let ALL_STUDENTS = [];
+    let ALL_DEPTS = [];
+
+    async function loadInitialData() {
+      try {
+        const [deptsRes, studentsRes, sessionsRes, feesRes] = await Promise.all([
+          A.adminFetch('/api/admin/departments').catch(() => null),
+          A.adminFetch('/api/admin/students?limit=5000').catch(() => null),
+          A.adminFetch('/api/admin/sessions').catch(() => null),
+          A.adminFetch('/api/admin/fees').catch(() => null),
+        ]);
+
+        ALL_DEPTS = deptsRes?.ok ? (await deptsRes.json()).data || [] : [];
+        ALL_STUDENTS = studentsRes?.ok ? (await studentsRes.json()).data || [] : [];
+        const sessions = sessionsRes?.ok ? (await sessionsRes.json()).data || [] : [];
+        const fees = feesRes?.ok ? (await feesRes.json()).data || [] : [];
+
+        // Populate Department dropdown
+        $('pf-dept-filter').innerHTML = '<option value="">All Departments</option>' +
+          ALL_DEPTS.sort((a, b) => String(a.code).localeCompare(String(b.code)))
+            .map(d => `<option value="${d.id}">${A.escapeHtml(d.code)} — ${A.escapeHtml(d.name)}</option>`).join('');
+
+        // Populate Sessions dropdown
+        const current = sessions.find(s => s.isCurrent);
+        $('pf-session').innerHTML = sessions
+          .sort((a, b) => String(b.name).localeCompare(String(a.name)))
+          .map(s => `<option value="${s.id}" ${s.id === current?.id ? 'selected' : ''}>${A.escapeHtml(s.name)}${s.isCurrent ? ' (Current)' : ''}</option>`).join('');
+
+        // Populate Fee Structure dropdown
+        $('pf-fee').innerHTML = '<option value="">— Select Fee Structure —</option>' +
+          fees.map(f => {
+            const lvl = f.level || '';
+            const amt = Number(f.totalAmount || f.total_amount || f.amount || f.total || 0);
+            return `<option value="${f.id}" data-amount="${amt}">${A.escapeHtml(lvl)} — ₦${amt.toLocaleString()}</option>`;
+          }).join('');
+
+        // Auto-fill amount when fee structure is selected
+        $('pf-fee').onchange = () => {
+          const selected = $('pf-fee').selectedOptions[0];
+          if (selected && selected.dataset.amount) {
+            $('pf-amount').value = selected.dataset.amount;
+          }
+        };
+
+        // Initial student list
+        filterStudentsByDept();
+
+      } catch (err) {
+        console.error('[payment-form] Load error:', err);
+        $('pf-validation').innerHTML = `<div style="color:#dc2626;">Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    // ---- 2. Filter Students by Department ----
+    window.filterStudentsByDept = function () {
+      const deptId = $('pf-dept-filter').value;
+      let filtered = ALL_STUDENTS;
+      if (deptId) {
+        filtered = filtered.filter(s => Number(s.departmentId) === Number(deptId));
+      }
+
+      // Sort by name
+      filtered.sort((a, b) => {
+        const an = `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase();
+        const bn = `${b.firstName || b.first_name || ''} ${b.lastName || b.last_name || ''}`.toLowerCase();
+        return an.localeCompare(bn);
+      });
+
+      $('pf-student').innerHTML = '<option value="">— Choose a student —</option>' +
+        filtered.map(s => {
+          const fn = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
+          const mt = s.matricNumber || s.matric_number || '';
+          const lvl = s.level || '';
+          return `<option value="${s.id}">${A.escapeHtml(fn)} — ${A.escapeHtml(mt)} (${A.escapeHtml(lvl)})</option>`;
+        }).join('');
+    };
+
+    // ---- 3. Handle Form Submit ----
+    $('payment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const valEl = $('pf-validation');
+      valEl.innerHTML = '';
+
+      const studentId = Number($('pf-student').value);
+      const sessionId = Number($('pf-session').value);
+      const amount = Number($('pf-amount').value);
+      const reference = $('pf-reference').value.trim();
+      const feeStructureId = $('pf-fee').value ? Number($('pf-fee').value) : null;
+      const bankName = $('pf-bank').value.trim() || null;
+      const depositorName = $('pf-depositor').value.trim() || null;
+      const depositDate = $('pf-deposit-date').value || null;
+
+      // Validation
+      if (!studentId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please select a student.</div>'; return; }
+      if (!sessionId) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please select a session.</div>'; return; }
+      if (!amount || amount <= 0) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please enter a valid amount.</div>'; return; }
+      if (!reference) { valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please enter a reference/teller number.</div>'; return; }
+
+      const submitBtn = $('pf-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating…';
+
+      try {
+        const res = await A.adminFetch('/api/admin/payments', {
+          method: 'POST',
+          body: JSON.stringify({
+            studentId,
+            sessionId,
+            amount,
+            reference,
+            feeStructureId,
+            bankName,
+            depositorName,
+            depositDate: depositDate ? new Date(depositDate).toISOString() : null,
+            status: 'pending', // Default status; admin will verify
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to create payment');
+        }
+
+        A.showToast('✅ Payment recorded successfully.', 'success');
+
+        // Redirect back to payments
+        setTimeout(() => { window.location.hash = '#payments'; }, 500);
+
+      } catch (err) {
+        valEl.innerHTML = `<div style="color:#dc2626;">❌ ${A.escapeHtml(err.message)}</div>`;
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Create Payment';
+      }
+    });
+
+    // Start loading
+    loadInitialData();
+  })();
+</script>

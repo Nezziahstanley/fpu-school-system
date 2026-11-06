@@ -3870,7 +3870,7 @@ async function loadDocumentsTable() {
 // DOCUMENTS — Detail view
 // ============================================
 async function loadDocumentDetail() {
-  const root = document.getElementById('dd-root') || document.querySelector('#page-view');
+  const root = document.getElementById('dd-root');
   if (!root) return;
 
   const hash = window.location.hash.replace(/^#/, '');
@@ -3886,63 +3886,123 @@ async function loadDocumentDetail() {
   root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading…</div>';
 
   try {
-    // Fetch the single document + users
-    const [docRes, usersRes] = await Promise.all([
-      adminFetch(`/api/admin/documents/${id}`).catch(() => null),
+    // Fetch full list and find the target (works around missing single-doc endpoint)
+    const [docsRes, usersRes] = await Promise.all([
+      adminFetch('/api/admin/documents?limit=500').catch(() => null),
       adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
     ]);
 
-    let doc = null;
-    try { if (docRes && docRes.ok) { const j = await docRes.json(); doc = j.data || j; } } catch {}
+    let docs = [];
     let users = [];
+    try { if (docsRes && docsRes.ok) { const j = await docsRes.json(); docs = j.data || j || []; } } catch {}
     try { if (usersRes && usersRes.ok) { const j = await usersRes.json(); users = j.data || j || []; } } catch {}
 
-    if (!doc) throw new Error('Document not found');
+    const docItem = docs.find((r) => {
+      const doc = r.document || r;
+      return Number(doc.id) === Number(id);
+    });
 
-    const user = users.find((u) => u.id === doc.userId) || {};
+    if (!docItem) throw new Error('Document not found.');
 
-    const initials = ((user.firstName || ' ')[0] + (user.lastName || ' ')[0]).toUpperCase().trim() || 'U';
+    const doc = docItem.document || docItem;
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const user = docItem.user || userById.get(doc.userId) || {};
+
+    // Update subtitle
+    const sub = document.getElementById('dd-subtitle');
+    if (sub) sub.textContent = `Request #${doc.id} · ${String(doc.type || '').replace(/-/g, ' ')}`;
+
     const status = doc.status || 'pending';
 
+    // Icons per type
+    const iconMap = {
+      transcript: '📜',
+      certificate: '🎓',
+      attestation: '📝',
+      'id-card': '🪪',
+      clearance: '✅',
+    };
+    const icon = iconMap[String(doc.type || '').toLowerCase()] || '📄';
+
     root.innerHTML = `
-      <div style="max-width:800px;margin:20px auto;padding:0 20px;">
-        <div class="panel">
-          <div class="panel-body">
-            <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
-              <div style="width:64px;height:64px;border-radius:50%;background:#065f46;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;">
-                ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />` : escapeHtml(initials)}
-              </div>
-              <div style="flex:1;">
-                <h2 style="margin:0 0 4px;font-size:20px;">${escapeHtml(((user.firstName || '') + ' ' + (user.lastName || '')).trim() || 'Unknown')}</h2>
-                <div class="small muted">${escapeHtml(user.matricNumber || '')} · ${escapeHtml(user.email || '')}</div>
-              </div>
-              ${badge(status)}
-            </div>
-
-            <div class="field-row"><span class="k">Type</span><span class="v">${escapeHtml(String(doc.type || '').replace(/-/g, ' '))}</span></div>
-            <div class="field-row"><span class="k">Title</span><span class="v">${escapeHtml(doc.title || '—')}</span></div>
-            ${doc.reason ? `<div class="field-row"><span class="k">Reason</span><span class="v">${escapeHtml(doc.reason)}</span></div>` : ''}
-            <div class="field-row"><span class="k">Requested</span><span class="v">${fmtDateTime(doc.requestedAt || doc.createdAt)}</span></div>
-            ${doc.issuedAt ? `<div class="field-row"><span class="k">Issued</span><span class="v">${fmtDateTime(doc.issuedAt)}</span></div>` : ''}
-            ${doc.remarks ? `<div class="field-row"><span class="k">Remarks</span><span class="v">${escapeHtml(doc.remarks)}</span></div>` : ''}
-
-            <div style="margin-top:24px;display:flex;gap:8px;flex-wrap:wrap;">
-              ${status === 'pending' ? `
-                <button class="btn btn-primary" onclick="FPU_ADMIN.approveDoc(${doc.id})">✅ Approve</button>
-                <button class="btn btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.rejectDoc(${doc.id})">❌ Reject</button>
-              ` : ''}
-              ${status === 'approved' ? `
-                <button class="btn btn-accent" onclick="FPU_ADMIN.issueDoc(${doc.id})">📤 Issue Document</button>
-              ` : ''}
-              <button class="btn btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back to Documents</button>
+      <div class="doc-detail">
+        <div class="doc-detail-head">
+          <div class="doc-detail-icon">${icon}</div>
+          <div class="doc-detail-meta">
+            <h2>${escapeHtml(doc.title || '(No title)')}</h2>
+            <div class="sub">
+              ${escapeHtml(((user.firstName || '') + ' ' + (user.lastName || '')).trim() || 'Unknown student')}
+              · <code>${escapeHtml(user.matricNumber || '—')}</code>
+              · ${badge(status)}
             </div>
           </div>
+        </div>
+
+        <div class="doc-detail-body">
+          <div class="doc-detail-row">
+            <div class="k">Document Type</div>
+            <div class="v" style="text-transform:capitalize;">${escapeHtml(String(doc.type || '').replace(/-/g, ' '))}</div>
+          </div>
+          <div class="doc-detail-row">
+            <div class="k">Email</div>
+            <div class="v">${escapeHtml(user.email || '—')}</div>
+          </div>
+          ${doc.reason && doc.reason !== doc.title ? `
+          <div class="doc-detail-row" style="grid-column:1/-1;">
+            <div class="k">Reason</div>
+            <div class="v">${escapeHtml(doc.reason)}</div>
+          </div>` : ''}
+          <div class="doc-detail-row">
+            <div class="k">Requested</div>
+            <div class="v">${fmtDateTime(doc.requestedAt || doc.createdAt)}</div>
+          </div>
+          ${doc.issuedAt ? `
+          <div class="doc-detail-row">
+            <div class="k">Issued</div>
+            <div class="v">${fmtDateTime(doc.issuedAt)}</div>
+          </div>` : ''}
+          ${doc.remarks ? `
+          <div class="doc-detail-row" style="grid-column:1/-1;">
+            <div class="k">Remarks</div>
+            <div class="v">${escapeHtml(doc.remarks)}</div>
+          </div>` : ''}
+        </div>
+
+        <div class="doc-actions">
+          ${status === 'pending' ? `
+            <button class="btn btn-primary" id="dd-approve">✅ Approve</button>
+            <button class="btn btn-ghost" style="color:#dc2626;" id="dd-reject">❌ Reject</button>
+          ` : ''}
+          ${status === 'approved' ? `
+            <button class="btn btn-primary" style="background:#f59e0b;border-color:#f59e0b;color:#fff;" id="dd-issue">📤 Issue Document</button>
+          ` : ''}
+          <button class="btn btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back to Documents</button>
         </div>
       </div>
     `;
 
+    // Wire buttons
+    const approveBtn = document.getElementById('dd-approve');
+    if (approveBtn) approveBtn.onclick = () => approveDoc(doc.id);
+
+    const rejectBtn = document.getElementById('dd-reject');
+    if (rejectBtn) rejectBtn.onclick = () => rejectDoc(doc.id);
+
+    const issueBtn = document.getElementById('dd-issue');
+    if (issueBtn) issueBtn.onclick = () => issueDoc(doc.id);
+
+    const printBtn = document.getElementById('dd-print');
+    if (printBtn) printBtn.onclick = () => window.print();
+
   } catch (err) {
-    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">${escapeHtml(err.message)}</div>`;
+    root.innerHTML = `
+      <div class="alert alert-danger" style="margin:20px;">
+        <strong>Error:</strong> ${escapeHtml(err.message)}
+        <div style="margin-top:12px;">
+          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('documents')">← Back to Documents</button>
+        </div>
+      </div>
+    `;
   }
 }
 

@@ -15,11 +15,11 @@
 
 <!-- Role Tabs -->
 <div class="staff-role-tabs" id="staff-role-tabs">
-  <button class="staff-role-tab active" data-role="" onclick="FPU_ADMIN.loadStaffDirectory()">All <span class="tab-count" id="staff-count-all">—</span></button>
-  <button class="staff-role-tab" data-role="lecturer" onclick="FPU_ADMIN.loadStaffDirectory()">Lecturers <span class="tab-count" id="staff-count-lecturer">—</span></button>
-  <button class="staff-role-tab" data-role="hod" onclick="FPU_ADMIN.loadStaffDirectory()">HODs <span class="tab-count" id="staff-count-hod">—</span></button>
-  <button class="staff-role-tab" data-role="principal" onclick="FPU_ADMIN.loadStaffDirectory()">Principals <span class="tab-count" id="staff-count-principal">—</span></button>
-  <button class="staff-role-tab" data-role="admin" onclick="FPU_ADMIN.loadStaffDirectory()">Admins <span class="tab-count" id="staff-count-admin">—</span></button>
+  <button class="staff-role-tab active" data-role="" onclick="FPU_ADMIN.loadStaffDirectory('', this)">All <span class="tab-count" id="staff-count-all">—</span></button>
+  <button class="staff-role-tab" data-role="lecturer" onclick="FPU_ADMIN.loadStaffDirectory('lecturer', this)">Lecturers <span class="tab-count" id="staff-count-lecturer">—</span></button>
+  <button class="staff-role-tab" data-role="hod" onclick="FPU_ADMIN.loadStaffDirectory('hod', this)">HODs <span class="tab-count" id="staff-count-hod">—</span></button>
+  <button class="staff-role-tab" data-role="principal" onclick="FPU_ADMIN.loadStaffDirectory('principal', this)">Principals <span class="tab-count" id="staff-count-principal">—</span></button>
+  <button class="staff-role-tab" data-role="admin" onclick="FPU_ADMIN.loadStaffDirectory('admin', this)">Admins <span class="tab-count" id="staff-count-admin">—</span></button>
 </div>
 
 <!-- Filters -->
@@ -117,7 +117,10 @@
 </style>
 
 <script>
+  // Initialize the directory on load
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadStaffDirectory) {
-    setTimeout(window.FPU_ADMIN.loadStaffDirectory, 100);
+    setTimeout(() => {
+      FPU_ADMIN.loadStaffDirectory();
+    }, 100);
   }
 </script>

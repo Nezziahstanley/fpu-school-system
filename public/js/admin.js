@@ -10386,6 +10386,53 @@ async function deleteStaff() {
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
+// ============================================
+// STAFF: Tab Filtering
+// ============================================
+async function filterStaff(role, btnElement) {
+  // 1. Highlight the active tab
+  document.querySelectorAll('.staff-tab').forEach(btn => {
+    btn.classList.remove('btn-primary', 'active');
+    btn.classList.add('btn-outline');
+  });
+  if (btnElement) {
+    btnElement.classList.remove('btn-outline');
+    btnElement.classList.add('btn-primary', 'active');
+  }
+
+  // 2. Update the state or URL so the load function knows what to fetch
+  // If you use a router/hash system, update it:
+  // window.location.hash = role === 'all' ? '#staff' : `#staff?role=${role}`;
+
+  // 3. Fetch the filtered data
+  // NOTE: If your existing loadStaffList() function accepts a role, pass it here.
+  // If not, we need to modify how it fetches.
+  await loadStaffList(role === 'all' ? null : role); 
+}
+
+// Modify your existing loadStaffList function to accept a role parameter
+async function loadStaffList(roleFilter = null) {
+  try {
+    // Build the API URL with the role query parameter
+    let url = '/api/admin/staff';
+    if (roleFilter) {
+      url += `?role=${roleFilter}`;
+    }
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const staffList = json.data || [];
+
+    // Now, render the staffList to the DOM...
+    // (Your existing code that creates the cards goes here)
+    renderStaffCards(staffList);
+
+  } catch (err) {
+    showToast('❌ Could not load staff list.', 'error');
+    console.error(err);
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

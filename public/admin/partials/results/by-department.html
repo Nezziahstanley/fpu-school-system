@@ -1,13 +1,5 @@
 <!-- ============================================================
      Admin → Results → By Department
-     ------------------------------------------------------------
-     Every result in a single department, grouped by course.
-     For each course:
-       • Header shows course code, title, unit, and status split
-       • Table rows = students with their score, grade, status
-       • Multi-select checkboxes for bulk action
-       • "Approve selected" / "Reject selected" per course
-     A "Select All" bar at the top supports whole-page bulk ops.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -101,100 +93,21 @@
 </div>
 
 <style>
-  .res-course-group {
-    margin-bottom: 22px;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #fff;
-  }
-  .res-course-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    background: linear-gradient(90deg,#065f46 0%,#047857 100%);
-    color: #fff;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .res-course-head .code {
-    font-family: 'Courier New', monospace;
-    font-weight: 800;
-    font-size: 13.5px;
-    color: #fef3c7;
-    background: rgba(255,255,255,0.15);
-    padding: 3px 10px;
-    border-radius: 6px;
-  }
-  .res-course-head .title {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    color: #fff;
-  }
-  .res-course-head .meta {
-    font-size: 12px;
-    color: #d1fae5;
-  }
+  /* (Keep all your CSS here as before) */
+  .res-course-group { margin-bottom: 22px; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; }
+  .res-course-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: linear-gradient(90deg,#065f46 0%,#047857 100%); color: #fff; gap: 12px; flex-wrap: wrap; }
+  .res-course-head .code { font-family: 'Courier New', monospace; font-weight: 800; font-size: 13.5px; color: #fef3c7; background: rgba(255,255,255,0.15); padding: 3px 10px; border-radius: 6px; }
+  .res-course-head .title { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 14px; color: #fff; }
+  .res-course-head .meta { font-size: 12px; color: #d1fae5; }
   .res-course-head .meta strong { color: #fef3c7; font-size: 13px; }
-  .res-course-head .head-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-  .res-course-head .head-actions .btn {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
-    font-size: 11.5px;
-    padding: 5px 12px;
-  }
-  .res-course-head .head-actions .btn:hover {
-    background: rgba(255,255,255,0.25);
-    border-color: rgba(255,255,255,0.5);
-  }
-  .res-course-head .head-actions .btn-approve {
-    background: #10b981;
-    border-color: #10b981;
-  }
-  .res-course-head .head-actions .btn-approve:hover {
-    background: #059669;
-    border-color: #059669;
-  }
-  .res-course-head .head-actions .btn-publish {
-    background: #f59e0b;
-    border-color: #f59e0b;
-    color: #1f2937;
-  }
-  .res-course-head .head-actions .btn-publish:hover {
-    background: #d97706;
-    border-color: #d97706;
-    color: #fff;
-  }
-
-  .res-course-group .table-admin {
-    border-radius: 0;
-    border: none;
-  }
-  .res-course-group .table-admin tbody tr.row-rejected {
-    background: #fef2f2;
-  }
-  .res-course-group .table-admin tbody tr.row-published {
-    background: #f0fdf4;
-  }
-
-  .res-score {
-    display: inline-block;
-    min-width: 46px;
-    text-align: right;
-    font-family: 'Courier New', monospace;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  .bulk-bar .btn-ghost { color: #64748b; }
+  .res-course-head .head-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+  .res-course-head .head-actions .btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 11.5px; padding: 5px 12px; }
+  .res-course-head .head-actions .btn-approve { background: #10b981; border-color: #10b981; }
+  .res-course-head .head-actions .btn-publish { background: #f59e0b; border-color: #f59e0b; color: #1f2937; }
+  .res-course-group .table-admin { border-radius: 0; border: none; }
+  .res-course-group .table-admin tbody tr.row-rejected { background: #fef2f2; }
+  .res-course-group .table-admin tbody tr.row-published { background: #f0fdf4; }
+  .res-score { display: inline-block; min-width: 46px; text-align: right; font-family: 'Courier New', monospace; font-weight: 700; color: #0f172a; }
 </style>
 
 <script>

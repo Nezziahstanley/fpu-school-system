@@ -11955,6 +11955,59 @@ async function publishAllApproved() {
 }
 
 // ============================================
+// RESULTS: All Approved View
+// ============================================
+async function loadApprovedResults() {
+  const tbody = document.getElementById('approved-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading approved results...</td></tr>';
+
+  try {
+    // Fetch only results with status 'approved'
+    const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
+    const json = await res.json();
+    const results = json.data || [];
+
+    // Update count in header
+    if (document.getElementById('appr-count')) {
+      document.getElementById('appr-count').textContent = `${results.length} approved results`;
+    }
+
+    if (!results.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;">No approved results found.</td></tr>';
+      return;
+    }
+
+    // Render the table rows
+    tbody.innerHTML = results.map(r => {
+      const student = r.student || {};
+      const course = r.course || {};
+      
+      return `
+        <tr>
+          <td style="font-weight:600; color:#0f172a;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+          <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+          <td>${escapeHtml(course.departmentName || '—')}</td>
+          <td><span style="color:#065f46; font-weight:700;">${escapeHtml(course.code || '—')}</span></td>
+          <td style="font-weight:700; text-align:center;">${r.score || '-'}</td>
+          <td style="font-weight:700; text-align:center;">${escapeHtml(r.grade || '-')}</td>
+          <td>
+            <span style="background:#dcfce7; color:#15803d; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700; text-transform:uppercase;">
+              Approved
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load approved results:', err);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ============================================
 // REGISTRATIONS: By Student View
 // ============================================
 async function loadStudentRegistrations() {
@@ -12183,7 +12236,7 @@ window.FPU_ADMIN = {
   loadRegistrationStudents, loadStudentRegistrations,
 
   // Results
-  loadResultsDashboard, loadDepartmentResults, toggleAllResults,
+  loadResultsDashboard, loadDepartmentResults, loadApprovedResults, toggleAllResults,
   toggleCourseResults, updateBulkBtnState, bulkResultAction, courseBulkAction, publishAllApproved,
 
   // Grade Scales

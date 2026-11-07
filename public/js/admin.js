@@ -3146,7 +3146,8 @@ async function loadAttendanceDepartments() {
     const departments = json.data || [];
 
     // Update Top Stats Bar
-    document.getElementById('att-stat-depts').textContent = departments.length;
+    const statDepts = document.getElementById('att-stat-depts');
+    if (statDepts) statDepts.textContent = departments.length;
     
     let totalCourses = 0, totalRecords = 0, totalPresent = 0, totalLate = 0;
     departments.forEach(d => {
@@ -3156,14 +3157,19 @@ async function loadAttendanceDepartments() {
       totalLate += d.late || 0;
     });
     
-    document.getElementById('att-stat-courses').textContent = totalCourses;
-    document.getElementById('att-stat-total').textContent = totalRecords;
+    const statCourses = document.getElementById('att-stat-courses');
+    if (statCourses) statCourses.textContent = totalCourses;
+    
+    const statTotal = document.getElementById('att-stat-total');
+    if (statTotal) statTotal.textContent = totalRecords;
     
     let overallRate = 0;
     if (totalRecords > 0) {
       overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
-    document.getElementById('att-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+    
+    const statRate = document.getElementById('att-stat-rate');
+    if (statRate) statRate.textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
     if (!departments.length) {
       grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No departments found.</div>';
@@ -3180,37 +3186,37 @@ async function loadAttendanceDepartments() {
 
       const rateText = d.records > 0 ? `${d.rate}%` : '—';
 
-      // CHANGED: Now it opens a modal instead of navigating
+      // CHANGED: Now it opens our new nested modal
       return `
-        <div class="dept-card" onclick="FPU_ADMIN.openDeptModal(${d.id}, '${escapeHtml(d.name)}', '${escapeHtml(d.code)}')">
-          <div class="dept-card-header">
-            <span class="dept-code-badge">${escapeHtml(d.code)}</span>
-            <span class="dept-school-badge" title="${escapeHtml(d.schoolName || '')}">${escapeHtml(d.schoolName || 'N/A')}</span>
+        <div class="dept-card" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${d.id}, '${escapeHtml(d.name)}', '${escapeHtml(d.code)}')" style="cursor: pointer;">
+          <div class="dept-card-header" style="display:flex; justify-content:space-between; margin-bottom:12px;">
+            <span class="dept-code-badge" style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(d.code)}</span>
+            <span class="dept-school-badge" title="${escapeHtml(d.schoolName || '')}" style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700;">${escapeHtml(d.schoolName || 'N/A')}</span>
           </div>
-          <h3 class="dept-name">${escapeHtml(d.name)}</h3>
+          <h3 class="dept-name" style="font-size:1.05rem; font-weight:700; margin:0 0 16px 0;">${escapeHtml(d.name)}</h3>
           
-          <div class="dept-rate-wrap">
-            <span class="dept-rate-number ${rateClass}">${rateText}</span>
-            <span class="dept-rate-label">attendance rate</span>
-          </div>
-          
-          <div class="dept-stats-grid">
-            <div class="dept-stat-box">
-              <div class="dept-stat-val">${d.courses}</div>
-              <div class="dept-stat-lbl">Courses</div>
-            </div>
-            <div class="dept-stat-box">
-              <div class="dept-stat-val">${d.students}</div>
-              <div class="dept-stat-lbl">Students</div>
-            </div>
-            <div class="dept-stat-box">
-              <div class="dept-stat-val">${d.records}</div>
-              <div class="dept-stat-lbl">Records</div>
-            </div>
+          <div class="dept-rate-wrap" style="display:flex; align-items:baseline; gap:8px; margin-bottom:16px;">
+            <span class="dept-rate-number ${rateClass}" style="font-size:2rem; font-weight:800; line-height:1; color:${rateClass === 'healthy' ? '#10b981' : rateClass === 'warning' ? '#f59e0b' : rateClass === 'critical' ? '#ef4444' : '#cbd5e1'};">${rateText}</span>
+            <span class="dept-rate-label" style="font-size:12px; color:#64748b; font-weight:600;">attendance rate</span>
           </div>
           
-          <div class="dept-card-footer">
-            <span>${d.records === 0 ? 'No records yet' : 'View Details'}</span>
+          <div class="dept-stats-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; background:#f8fafc; padding:12px; border-radius:10px; margin-bottom:16px;">
+            <div class="dept-stat-box" style="text-align:center;">
+              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.courses || 0}</div>
+              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Courses</div>
+            </div>
+            <div class="dept-stat-box" style="text-align:center;">
+              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.students || 0}</div>
+              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Students</div>
+            </div>
+            <div class="dept-stat-box" style="text-align:center;">
+              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.records || 0}</div>
+              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Records</div>
+            </div>
+          </div>
+          
+          <div class="dept-card-footer" style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:#065f46;">
+            <span>${d.records === 0 ? 'No records yet' : 'View Courses'}</span>
             <span>→</span>
           </div>
         </div>
@@ -3219,7 +3225,7 @@ async function loadAttendanceDepartments() {
 
   } catch (err) {
     console.error('Failed to load attendance', err);
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data.</div>';
+    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -12217,6 +12223,252 @@ async function openTranscriptModal(studentId) {
   }
 }
 
+// ============================================
+// ATTENDANCE: Department -> Courses Modal
+// ============================================
+async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'attendance-dept-modal';
+  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;`;
+  
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width: 100%; max-width: 1200px; max-height: 90vh; background: #f8fafc; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+      <div class="fpu-modal-header" style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.2rem; color: #0f172a;">${escapeHtml(deptName)} (${escapeHtml(deptCode)})</h3>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Select a course to view attendance</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('attendance-dept-modal').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
+      </div>
+      
+      <div class="fpu-modal-body" id="dept-modal-body" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
+        <div class="loading" style="text-align:center; padding: 40px; color: #94a3b8;">
+          <span class="spinner"></span> Loading courses...
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const body = document.getElementById('dept-modal-body');
+
+  try {
+    const res = await adminFetch(`/api/admin/attendance/department/${deptId}`);
+    const json = await res.json();
+    const courses = json.data || [];
+
+    if (!courses.length) {
+      body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No courses found for this department.</div>';
+      return;
+    }
+
+    // Render the cards inside the modal
+    body.innerHTML = `
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+        ${courses.map(c => {
+          let rateClass = 'empty';
+          if (c.records > 0) {
+            if (c.rate >= 75) rateClass = 'healthy';
+            else if (c.rate >= 50) rateClass = 'warning';
+            else rateClass = 'critical';
+          }
+          const rateText = c.records > 0 ? `${c.rate}%` : '—';
+          
+          return `
+            <div class="course-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; cursor:pointer;" onclick="FPU_ADMIN.openCourseAttendanceModal(${c.id}, '${escapeHtml(c.code)}', '${escapeHtml(c.title)}', ${deptId})">
+              <div class="course-card-header" style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span class="course-code-badge" style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:4px; font-weight:800; font-size:11px;">${escapeHtml(c.code)}</span>
+                <span class="course-level-badge" style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700;">${escapeHtml(c.level || 'N/A')}</span>
+              </div>
+              <h3 class="course-name" style="font-size:14px; margin:8px 0; font-weight:700;">${escapeHtml(c.title)}</h3>
+              
+              <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
+                <span style="font-size:1.5rem; font-weight:800; color:${rateClass === 'healthy' ? '#10b981' : rateClass === 'warning' ? '#f59e0b' : rateClass === 'critical' ? '#ef4444' : '#cbd5e1'};">${rateText}</span>
+                <span style="font-size:11px; color:#64748b; font-weight:600;">rate</span>
+              </div>
+              
+              <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; background:#f8fafc; padding:8px; border-radius:6px;">
+                <span><strong>${c.records || 0}</strong> Records</span>
+                <span><strong>${c.students || 0}</strong> Students</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } catch (err) {
+    body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px;">Error loading courses: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// ATTENDANCE: Course -> Student Roster Modal
+// ============================================
+async function openCourseAttendanceModal(courseId, courseCode, courseTitle, deptId) {
+  // Remove the previous department modal if it's open
+  const oldModal = document.getElementById('attendance-dept-modal');
+  if (oldModal) oldModal.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'attendance-course-modal';
+  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;`;
+  
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width: 100%; max-width: 1000px; max-height: 90vh; background: #f8fafc; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+      <div class="fpu-modal-header" style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${escapeHtml(courseCode)} - ${escapeHtml(courseTitle)}</h3>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Student attendance roster</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('attendance-course-modal').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
+      </div>
+      
+      <div class="fpu-modal-body" id="course-modal-body" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
+        <div class="loading" style="text-align:center; padding: 40px; color: #94a3b8;">
+          <span class="spinner"></span> Loading student roster...
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const body = document.getElementById('course-modal-body');
+
+  try {
+    // Fetch the student attendance roster for this course
+    const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students`);
+    const json = await res.json();
+    const students = json.data || [];
+
+    if (!students.length) {
+      body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No students found.</div>';
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="table-wrap" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow:hidden;">
+        <table class="table-admin" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f8fafc; text-align:left;">
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Matric</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Name</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:center;">Classes</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:center; color:#047857;">Present</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:center; color:#b91c1c;">Absent</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:center;">Rate</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0; text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${students.map(s => {
+              let rateColor = '#065f46';
+              if (s.rate < 50) rateColor = '#dc2626';
+              else if (s.rate < 75) rateColor = '#f59e0b';
+
+              return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                  <td style="padding:12px;"><code>${escapeHtml(s.matricNumber || '—')}</code></td>
+                  <td style="padding:12px; font-weight:600;">${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}</td>
+                  <td style="padding:12px; text-align:center;">${s.totalClasses || 0}</td>
+                  <td style="padding:12px; text-align:center; font-weight:700; color:#047857;">${s.present || 0}</td>
+                  <td style="padding:12px; text-align:center; font-weight:700; color:#b91c1c;">${s.absent || 0}</td>
+                  <td style="padding:12px; text-align:center; font-weight:800; color:${rateColor};">${s.rate ? s.rate + '%' : '—'}</td>
+                  <td style="padding:12px; text-align:right;">
+                    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openStudentAttendanceModal(${s.id}, '${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}', ${courseId}, '${escapeHtml(courseCode)}')">View Details</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (err) {
+    body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px;">Error loading roster: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// ============================================
+// ATTENDANCE: Student Detail Modal (Day-by-Day)
+// ============================================
+async function openStudentAttendanceModal(studentId, studentName, courseId, courseCode) {
+  const oldModal = document.getElementById('attendance-course-modal');
+  if (oldModal) oldModal.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'attendance-student-modal';
+  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;`;
+  
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width: 100%; max-width: 800px; max-height: 90vh; background: #f8fafc; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+      <div class="fpu-modal-header" style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">${escapeHtml(studentName)}</h3>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Attendance for ${escapeHtml(courseCode)}</p>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('attendance-student-modal').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
+      </div>
+      
+      <div class="fpu-modal-body" id="student-modal-body" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
+        <div class="loading" style="text-align:center; padding: 40px; color: #94a3b8;">
+          <span class="spinner"></span> Loading record...
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const body = document.getElementById('student-modal-body');
+
+  try {
+    // Fetch the day-by-day records for this student in this course
+    const res = await adminFetch(`/api/admin/attendance/student/${studentId}/course/${courseId}`);
+    const json = await res.json();
+    const records = json.data || [];
+
+    if (!records.length) {
+      body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No records found.</div>';
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="table-wrap" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow:hidden;">
+        <table class="table-admin" style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f8fafc; text-align:left;">
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Date</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Status</th>
+              <th style="padding:12px; border-bottom:1px solid #e2e8f0;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.map(r => {
+              const d = new Date(r.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+              let badgeClass = 'badge-success';
+              if (r.status === 'absent') badgeClass = 'badge-danger';
+              else if (r.status === 'late') badgeClass = 'badge-warning';
+              else if (r.status === 'excused') badgeClass = 'badge-info';
+
+              return `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                  <td style="padding:12px;">${d}</td>
+                  <td style="padding:12px;"><span class="badge ${badgeClass}">${escapeHtml(r.status.toUpperCase())}</span></td>
+                  <td style="padding:12px; color:#64748b; font-size:13px;">${escapeHtml(r.remarks || '—')}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (err) {
+    body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px;">Error loading details: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -12276,8 +12528,9 @@ window.FPU_ADMIN = {
   // Exams
   loadExamsIndex, loadExamSheet,
 
-  // Attendance
+    // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance,
+  openDepartmentAttendanceModal, openCourseAttendanceModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,

@@ -6360,7 +6360,7 @@ async function loadBorrowsTable() {
       if (br.status === 'returned') {
         returned++;
       } else if (br.status === 'lost') {
-        // Skip lost
+        // Skip
       } else {
         active++;
         if (isOverdue) overdue++;
@@ -6389,25 +6389,26 @@ async function loadBorrowsTable() {
       const studentName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
       const isOverdue = br.dueAt && new Date(br.dueAt) < new Date() && br.status !== 'returned' && br.status !== 'lost';
 
-      // Calculate Days Difference
+      // FIXED: Calculate Days Difference
       let daysDisplay = '—';
       if (br.borrowedAt) {
         const start = new Date(br.borrowedAt);
-        let end;
         
-        if (br.status === 'returned' && br.returnedAt) {
-          // If returned, calculate time between borrow and return
-          end = new Date(br.returnedAt);
-        } else {
-          // If active, calculate time between borrow and today
-          end = new Date(); 
+        if (!isNaN(start.getTime())) {
+          let end;
+          if (br.status === 'returned' && (br.returnedAt || br.updatedAt)) {
+            end = new Date(br.returnedAt || br.updatedAt);
+          } else {
+            end = new Date(); 
+          }
+          
+          if (isNaN(end.getTime())) end = new Date();
+          
+          const diffTime = Math.abs(end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          daysDisplay = diffDays === 0 ? 1 : diffDays;
         }
-        
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // If it's the exact same day, show 1 day, otherwise show the diff
-        daysDisplay = diffDays === 0 ? 1 : diffDays;
       }
 
       let actions = '';
@@ -9140,22 +9141,45 @@ async function deleteBankAccount(idx) {
   } catch (e) { showToast('❌ ' + e.message, 'error'); }
 }
 
+// ============================================
+// LIBRARY: Sweep Overdue
+// ============================================
 async function runLibrarySweep() {
   const btn = document.getElementById('library-sweep-btn');
-  if (!btn || btn.__bound) return;
-  btn.__bound = true;
-  btn.addEventListener('click', async () => {
-    const result = document.getElementById('library-sweep-result');
-    if (!confirm('Run overdue sweep now?')) return;
-    result.innerHTML = '<div class="loading"><span class="spinner"></span> Sweeping…</div>';
-    try {
-      const res = await adminFetch('/api/admin/library/sweep-overdue', { method: 'POST' });
-      const json = await res.json();
-      result.innerHTML = `<div class="alert alert-success">✅ Swept ${json.count || 0} overdue borrow(s).</div>`;
-    } catch (err) {
-      result.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+  
+  const ok = await window.fpuConfirm(
+    'Run overdue sweep now?\n\nThis will scan all active loans and mark any past their due date as OVERDUE.',
+    { title: 'Sweep Overdue', type: 'info', okText: 'Run Sweep' }
+  );
+  if (!ok) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sweeping...';
+  }
+
+  try {
+    const res = await adminFetch('/api/admin/library/sweep-overdue', { method: 'POST' });
+    const json = await res.json();
+    
+    if (!res.ok) {
+      throw new Error(json.error || 'Failed to sweep overdue books');
     }
-  });
+    
+    showToast(`✅ Swept ${json.count || 0} overdue borrow(s).`, 'success');
+    
+    // Reload the table to show the new "Overdue" statuses
+    loadBorrowsTable();
+    
+  } catch (err) {
+    console.error('[Sweep Overdue] Error:', err);
+    showToast('❌ ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🧹 Sweep Overdue';
+    }
+  }
 }
 
 async function sendTestEmail() {

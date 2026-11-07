@@ -10,7 +10,7 @@
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBorrowsTable()">
       Refresh
     </button>
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.runLibrarySweep()">
+    <button class="btn btn-outline btn-sm" id="library-sweep-btn" onclick="FPU_ADMIN.runLibrarySweep()">
       🧹 Sweep Overdue
     </button>
     <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateToWithQuery('borrow-issue', {})">
@@ -47,13 +47,13 @@
           <option>This Month</option>
         </select>
       </div>
-      <!-- Hidden input used by the buttons above -->
+      <!-- Hidden input used by the filter buttons above -->
       <input type="hidden" id="bor-status" value="" />
     </div>
   </div>
 </div>
 
-<!-- Stats Bar (UPDATED IDs to match JS) -->
+<!-- Stats Bar -->
 <div class="stats-inline" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
   <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;">
     <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total</div>

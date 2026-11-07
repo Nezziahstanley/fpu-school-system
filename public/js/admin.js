@@ -5588,14 +5588,13 @@ async function loadDepartmentClearances() {
 // ============================================
 async function clearStudent(studentId, newStatus) {
   try {
-    // 1. Try to CREATE a new record first
-    // This fixes the 500 error if the student doesn't have a record yet
+    // 1. Try to CREATE (POST)
     const createRes = await adminFetch('/api/admin/clearances', {
       method: 'POST',
       body: JSON.stringify({
         studentId: Number(studentId),
         status: newStatus,
-        remarks: newStatus === 'cleared' ? 'Cleared manually' : 'Rejected manually'
+        remarks: newStatus === 'cleared' ? 'Cleared by Admin' : 'Rejected by Admin'
       }),
     });
 
@@ -5605,7 +5604,7 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // 2. If POST fails (e.g., record already exists), try PUT to UPDATE
+    // 2. If POST fails, try UPDATE (PUT)
     const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: newStatus }),
@@ -5617,14 +5616,71 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // 3. If both fail, throw the error
-    const errJson = await updateRes.json().catch(() => ({}));
-    throw new Error(errJson.error || 'Failed to update clearance record');
+    const err = await updateRes.json().catch(() => ({}));
+    throw new Error(err.error || 'Backend failed to create or update clearance');
 
   } catch (err) {
     console.error('[clearStudent] Error:', err);
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+// ============================================
+// CLEARANCES: BULK ACTIONS (Fixed)
+// ============================================
+async function bulkClearClearances(newStatus) {
+  const checkboxes = document.querySelectorAll('.clr-student-check:checked');
+  if (checkboxes.length === 0) {
+    showToast('⚠️ Select at least one student.', 'warning');
+    return;
+  }
+
+  const studentIds = Array.from(checkboxes).map(cb => Number(cb.value));
+  
+  const ok = await window.fpuConfirm(
+    `Mark ${studentIds.length} student(s) as ${newStatus.toUpperCase()}?`,
+    { title: `Bulk ${newStatus}`, type: newStatus === 'rejected' ? 'danger' : 'success', okText: 'Confirm' }
+  );
+  if (!ok) return;
+
+  let success = 0, failed = 0;
+  showToast(`Processing ${studentIds.length} students...`, 'info');
+
+  for (const id of studentIds) {
+    try {
+      // Loop and use our safe individual function
+      await clearStudentSilent(id, newStatus);
+      success++;
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  if (failed === 0) {
+    showToast(`✅ Updated ${success} students.`, 'success');
+  } else {
+    showToast(`⚠️ Updated ${success}, failed ${failed}.`, 'warning');
+  }
+  
+  loadDepartmentClearances();
+}
+
+// Helper for bulk actions (doesn't show individual toasts)
+async function clearStudentSilent(studentId, newStatus) {
+  const createRes = await adminFetch('/api/admin/clearances', {
+    method: 'POST',
+    body: JSON.stringify({ studentId, status: newStatus, remarks: 'Bulk action' }),
+  });
+
+  if (createRes.ok) return;
+
+  const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: newStatus }),
+  });
+
+  if (updateRes.ok) return;
+  throw new Error('Failed');
 }
 
 // ============================================
@@ -12283,7 +12339,7 @@ async function openTranscriptModal(studentId) {
 }
 
 // ============================================
-// ATTENDANCE: Department -> Courses Modal (FIXED STATS)
+// ATTENDANCE: Department -> Courses Modal (FIXED RATES)
 // ============================================
 async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const backdrop = document.createElement('div');
@@ -12313,47 +12369,68 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const body = document.getElementById('dept-modal-body');
 
   try {
-    // Fetch courses for this department AND the attendance stats summary
-    const [coursesRes, statsRes] = await Promise.all([
+    // Fetch courses, all students, and all attendance records
+    const [coursesRes, studentsRes, recordsRes] = await Promise.all([
       adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`).catch(() => null),
-      adminFetch(`/api/admin/attendance/departments`).catch(() => null) // Fetch the global stats summary
+      adminFetch(`/api/admin/students?departmentId=${deptId}&limit=2000`).catch(() => null),
+      adminFetch(`/api/admin/attendance?limit=10000`).catch(() => null)
     ]);
 
-    const coursesJson = await coursesRes.json();
-    const courses = coursesJson.data || [];
-
-    const statsJson = await statsRes.json();
-    const allDeptStats = statsJson.data || [];
-
-    // Find the stats for THIS specific department
-    const currentDeptStats = allDeptStats.find(d => Number(d.id) === Number(deptId)) || { records: 0, students: 0, rate: 0 };
+    const courses = (await coursesRes.json()).data || [];
+    const students = (await studentsRes.json()).data || [];
+    const allRecords = (await recordsRes.json()).data || [];
 
     if (!courses.length) {
       body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No courses found for this department.</div>';
       return;
     }
 
-    // Render the cards
+    // Create maps for fast lookup
+    const studentIdsInDept = new Set(students.map(s => Number(s.id)));
+    const courseIdsInDept = new Set(courses.map(c => Number(c.id)));
+
+    // Filter records to only those belonging to this department
+    const deptRecords = allRecords.filter(r => {
+      const row = r.attendance || r;
+      const cId = Number(row.courseId);
+      const sId = Number(row.studentId);
+      return courseIdsInDept.has(cId) && studentIdsInDept.has(sId);
+    });
+
+    // Calculate stats per course
+    const statsMap = new Map();
+    courses.forEach(c => statsMap.set(Number(c.id), { records: 0, present: 0, studentsSet: new Set() }));
+
+    deptRecords.forEach(r => {
+      const row = r.attendance || r;
+      const cId = Number(row.courseId);
+      const sId = Number(row.studentId);
+      const stat = statsMap.get(cId);
+      
+      if (stat) {
+        stat.records++;
+        stat.studentsSet.add(sId);
+        if (row.status === 'present' || row.status === 'late') {
+          stat.present++;
+        }
+      }
+    });
+
+    // Render the cards with correct per-course stats
     body.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
         ${courses.map(c => {
-          // If this is the main course with records (like CSC), we'd ideally have per-course stats.
-          // Since the API only gives department-level stats, we show the department's overall stats for the courses.
-          // If you want exact per-course stats, the backend needs to provide it.
-          
-          // For now, let's show the department stats on every card, or 0 if it's a fresh course
-          const hasDeptRecords = currentDeptStats.records > 0;
-          const rate = hasDeptRecords ? currentDeptStats.rate : 0;
-          const records = hasDeptRecords ? currentDeptStats.records : 0;
-          const studentsCount = hasDeptRecords ? currentDeptStats.students : 0;
+          const stat = statsMap.get(Number(c.id)) || { records: 0, present: 0, studentsSet: new Set() };
+          const uniqueStudents = stat.studentsSet.size;
+          const rate = stat.records > 0 ? Math.round((stat.present / stat.records) * 100) : 0;
           
           let rateClass = 'empty';
-          if (records > 0) {
+          if (stat.records > 0) {
             if (rate >= 75) rateClass = 'healthy';
             else if (rate >= 50) rateClass = 'warning';
             else rateClass = 'critical';
           }
-          const rateText = records > 0 ? `${rate}%` : '—';
+          const rateText = stat.records > 0 ? `${rate}%` : '—';
           
           return `
             <div class="course-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; cursor:pointer;" onclick="FPU_ADMIN.openCourseAttendanceModal(${c.id}, '${escapeHtml(c.code)}', '${escapeHtml(c.title)}', ${deptId})">
@@ -12369,8 +12446,8 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
               </div>
               
               <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; background:#f8fafc; padding:8px; border-radius:6px;">
-                <span><strong>${records}</strong> Records</span>
-                <span><strong>${studentsCount}</strong> Students</span>
+                <span><strong>${stat.records}</strong> Records</span>
+                <span><strong>${uniqueStudents}</strong> Students</span>
               </div>
             </div>
           `;

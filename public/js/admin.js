@@ -2825,6 +2825,30 @@ async function loadTranscriptView() {
   }
 }
 
+// Wire up the buttons (Run this inside your app initialization)
+function initTranscriptEvents() {
+  const searchBtn = document.getElementById('transcript-search-btn');
+  const searchInput = document.getElementById('transcript-search-input');
+  const refreshBtn = document.getElementById('transcript-refresh');
+
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => loadTranscriptLookup());
+  }
+  
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') loadTranscriptLookup();
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      if (searchInput) searchInput.value = ''; // Clear search on refresh
+      loadTranscriptLookup();
+    });
+  }
+}
+
 // ============================================
 // TIMETABLE
 // ============================================

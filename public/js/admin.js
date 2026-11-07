@@ -5428,7 +5428,7 @@ async function loadDepartmentClearances() {
   root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    // Fetch students and ALL clearances
+    // 1. Fetch students and clearances in parallel
     const [studentsRes, clrRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/clearances').catch(() => null),
@@ -5437,7 +5437,7 @@ async function loadDepartmentClearances() {
     const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
     const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
 
-    // Map existing clearances by student ID
+    // 2. Map existing clearances by student ID for fast lookup
     const clearanceByStudent = new Map();
     clearances.forEach(c => {
       const row = c.clearance || c;
@@ -5445,26 +5445,24 @@ async function loadDepartmentClearances() {
       if (sid) clearanceByStudent.set(sid, row);
     });
 
-    const statusFilter = document.getElementById('cdd-filter-status')?.value || '';
-    const searchVal = document.getElementById('cdd-search')?.value.toLowerCase() || '';
-
+    // 3. Enrich students and calculate stats
     let cleared = 0, pending = 0, rejected = 0;
     
-    // Process students and calculate stats
     const enrichedStudents = students.map(s => {
       const clr = clearanceByStudent.get(Number(s.id));
       // If no record exists, default to 'pending'
       const status = clr?.status ? String(clr.status).toLowerCase() : 'pending';
-      const remarks = clr?.remarks || '';
+      // If no remarks, default to a dash
+      const remarks = clr?.remarks || '—';
 
       if (status === 'cleared') cleared++;
-      else if (status === 'pending') pending++;
       else if (status === 'rejected') rejected++;
+      else pending++;
 
       return { s, status, remarks };
     });
 
-    // Update Header Stats
+    // 4. Update Header Stats
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('cdd-stat-students', students.length);
     setT('cdd-stat-cleared', cleared);
@@ -5472,8 +5470,11 @@ async function loadDepartmentClearances() {
     setT('cdd-stat-rate', students.length ? Math.round((cleared / students.length) * 100) + '%' : '—');
     setT('cdd-count', `Showing ${students.length} students`);
 
-    // Apply Filters
-    const filtered = enrichedStudents.filter(({ s, status, remarks }) => {
+    // 5. Apply Filters (Status and Search)
+    const statusFilter = document.getElementById('cdd-filter-status')?.value || '';
+    const searchVal = document.getElementById('cdd-search')?.value.toLowerCase() || '';
+
+    const filtered = enrichedStudents.filter(({ s, status }) => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim().toLowerCase();
       const matric = String(s.matricNumber || '').toLowerCase();
 
@@ -5487,7 +5488,7 @@ async function loadDepartmentClearances() {
       return;
     }
 
-    // Render Rows
+    // 6. Render Table Rows
     root.innerHTML = filtered.map(({ s, status, remarks }) => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown';
       
@@ -5521,13 +5522,13 @@ async function loadDepartmentClearances() {
               ${status}
             </span>
           </td>
-          <td style="padding:12px 20px; font-size:12px; color:#64748b;">${escapeHtml(remarks || '—')}</td>
-          <td style="padding:12px 20px; text-align:right;">${actions}</td>
+          <td style="padding:12px 20px; font-size:12px; color:#64748b;">${escapeHtml(remarks)}</td>
+          <td style="padding:12px 20px; text-align:right; white-space:nowrap;">${actions}</td>
         </tr>
       `;
     }).join('');
 
-    // Wire Select All
+    // 7. Wire "Select All" Checkbox
     const selectAll = document.getElementById('cd-select-all');
     if (selectAll && !selectAll.__wired) {
       selectAll.__wired = true;
@@ -5536,20 +5537,23 @@ async function loadDepartmentClearances() {
       };
     }
 
-    // Wire Bulk Buttons (Mark Cleared / Mark Rejected)
-    const bulkClearBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Cleared'));
-    const bulkRejectBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Rejected'));
+    // 8. Wire Bulk Buttons (Mark Cleared / Mark Rejected)
+    // We use a slight delay to ensure the DOM has finished updating
+    setTimeout(() => {
+      const bulkClearBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Cleared'));
+      const bulkRejectBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Rejected'));
 
-    if (bulkClearBtn && !bulkClearBtn.__wired) {
-      bulkClearBtn.__wired = true;
-      bulkClearBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('cleared');
-    }
-    if (bulkRejectBtn && !bulkRejectBtn.__wired) {
-      bulkRejectBtn.__wired = true;
-      bulkRejectBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('rejected');
-    }
+      if (bulkClearBtn && !bulkClearBtn.__wired) {
+        bulkClearBtn.__wired = true;
+        bulkClearBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('cleared');
+      }
+      if (bulkRejectBtn && !bulkRejectBtn.__wired) {
+        bulkRejectBtn.__wired = true;
+        bulkRejectBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('rejected');
+      }
+    }, 50);
 
-    // Wire Export
+    // 9. Wire Export CSV
     const exportBtn = document.getElementById('cd-export');
     if (exportBtn && !exportBtn.__wired) {
       exportBtn.__wired = true;
@@ -5585,13 +5589,13 @@ async function loadDepartmentClearances() {
 async function clearStudent(studentId, newStatus) {
   try {
     // 1. Try to CREATE a new record first
-    // This avoids the 500 error if the record doesn't exist yet.
+    // This fixes the 500 error if the student doesn't have a record yet
     const createRes = await adminFetch('/api/admin/clearances', {
       method: 'POST',
       body: JSON.stringify({
         studentId: Number(studentId),
         status: newStatus,
-        remarks: newStatus === 'cleared' ? 'Cleared by Admin' : 'Rejected by Admin'
+        remarks: newStatus === 'cleared' ? 'Cleared manually' : 'Rejected manually'
       }),
     });
 
@@ -5601,7 +5605,7 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // 2. If it failed (e.g., record already exists -> 400 Bad Request), try UPDATE
+    // 2. If POST fails (e.g., record already exists), try PUT to UPDATE
     const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: newStatus }),
@@ -5613,7 +5617,7 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // 3. If both failed, throw the error
+    // 3. If both fail, throw the error
     const errJson = await updateRes.json().catch(() => ({}));
     throw new Error(errJson.error || 'Failed to update clearance record');
 
@@ -10392,7 +10396,7 @@ async function submitIssueBookForm() {
 }
 
 // ============================================
-// CLEARANCES: BULK ACTIONS
+// CLEARANCES: BULK ACTIONS (Fixed)
 // ============================================
 async function bulkClearClearances(newStatus) {
   const checkboxes = document.querySelectorAll('.clr-student-check:checked');
@@ -10409,17 +10413,44 @@ async function bulkClearClearances(newStatus) {
   );
   if (!ok) return;
 
-  try {
-    // Try bulk endpoint first
-    await adminFetch(`/api/admin/clearances/bulk-status`, {
-      method: 'POST',
-      body: JSON.stringify({ studentIds, status: newStatus }),
-    });
-    showToast(`✅ ${studentIds.length} student(s) updated.`, 'success');
-    loadDepartmentClearances();
-  } catch (err) {
-    showToast('❌ ' + err.message, 'error');
+  let success = 0;
+  let failed = 0;
+
+  // Show a loading toast
+  showToast(`Processing ${studentIds.length} students...`, 'info');
+
+  for (const id of studentIds) {
+    try {
+      // We use the individual update function to avoid bulk API errors
+      const res = await adminFetch(`/api/admin/clearances/student/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        success++;
+      } else {
+        // If PUT fails (404), try POST to create it
+        const createRes = await adminFetch('/api/admin/clearances', {
+          method: 'POST',
+          body: JSON.stringify({ studentId: id, status: newStatus, remarks: 'Bulk action' }),
+        });
+        if (createRes.ok) success++;
+        else failed++;
+      }
+    } catch (err) {
+      failed++;
+    }
   }
+
+  if (failed === 0) {
+    showToast(`✅ Successfully updated ${success} students.`, 'success');
+  } else {
+    showToast(`⚠️ Updated ${success}, failed ${failed}.`, 'warning');
+  }
+  
+  // Reload the table to show new stats
+  loadDepartmentClearances();
 }
 
 // ============================================

@@ -11562,42 +11562,51 @@ function renderExamTableRows(exams) {
 }
 
 // ============================================
-// RESULTS: Dashboard & Department Views
+// RESULTS: Dashboard View
 // ============================================
-
-// 1. Load the main Results Dashboard (#results)
 async function loadResultsDashboard() {
   const grid = document.getElementById('res-dept-grid');
   if (!grid) return;
 
+  // Get Filters
   const status = document.getElementById('res-filter-status')?.value || '';
   const semester = document.getElementById('res-filter-semester')?.value || '';
+  const schoolId = document.getElementById('res-filter-school')?.value || '';
 
   grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading results...</div>';
 
   try {
-    // 1. Fetch ALL results to get the true global totals
-    const resAll = await adminFetch(`/api/admin/results?limit=5000`);
+    // 1. Fetch ALL results (no filters) to calculate global stats accurately
+    const resAll = await adminFetch('/api/admin/results?limit=10000');
     const jsonAll = await resAll.json();
     const allResults = jsonAll.data || [];
 
-    let awaiting = 0, readyToPublish = 0;
+    // 2. Calculate true global stats
+    let awaiting = 0, approved = 0, published = 0, rejected = 0;
+    let totalRows = allResults.length;
+
     allResults.forEach(r => {
       if (r.status === 'hod_verified') awaiting++;
-      if (r.status === 'approved') readyToPublish++;
+      else if (r.status === 'approved') approved++;
+      else if (r.status === 'published') published++;
+      else if (r.status === 'admin_rejected' || r.status === 'hod_rejected') rejected++;
     });
 
-    // Always show the true totals in the stats bar
-    if (document.getElementById('res-stat-total')) document.getElementById('res-stat-total').textContent = allResults.length;
-    if (document.getElementById('res-stat-awaiting')) document.getElementById('res-stat-awaiting').textContent = awaiting;
-    if (document.getElementById('res-stat-ready')) document.getElementById('res-stat-ready').textContent = readyToPublish;
+    // 3. Update the top stats bar with true global values
+    if (document.getElementById('res-stat-total')) document.getElementById('res-stat-total').textContent = totalRows;
+    if (document.getElementById('res-stat-pending')) document.getElementById('res-stat-pending').textContent = awaiting;
+    
+    // Safely find the approved/published boxes (their IDs may vary slightly)
+    const approvedBox = document.getElementById('res-stat-approved') || document.getElementById('res-stat-ready');
+    if (approvedBox) approvedBox.textContent = approved;
 
-    // 2. Apply the filter for the department cards below
+    // 4. Apply filters just for the cards below
     let filtered = allResults;
     if (status) filtered = filtered.filter(r => r.status === status);
     if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
+    // (School filter logic omitted, as results API doesn't return school details directly)
 
-    // 3. Group by department
+    // 5. Group filtered results by department
     const deptMap = {};
     filtered.forEach(r => {
       const deptId = r.course?.departmentId;
@@ -11616,18 +11625,18 @@ async function loadResultsDashboard() {
       if (r.status === 'hod_verified') deptMap[deptId].awaiting++;
       if (r.status === 'approved') deptMap[deptId].approved++;
       if (r.status === 'published') deptMap[deptId].published++;
-      if (r.status === 'admin_rejected') deptMap[deptId].rejected++;
+      if (r.status === 'admin_rejected' || r.status === 'hod_rejected') deptMap[deptId].rejected++;
     });
 
     const deptArray = Object.values(deptMap);
     if (document.getElementById('res-stat-depts')) document.getElementById('res-stat-depts').textContent = deptArray.length;
 
+    // 6. Render the Department Cards
     if (!deptArray.length) {
       grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your current filters.</div>';
       return;
     }
 
-    // Render Cards
     grid.innerHTML = deptArray.map(d => `
       <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
@@ -11667,7 +11676,7 @@ async function loadResultsDashboard() {
 
   } catch (err) {
     console.error('Failed to load results dashboard:', err);
-    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#dc2626;">Failed to load results data.</div>';
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:#dc2626;">Failed to load results data: ${escapeHtml(err.message)}</div>`;
   }
 }
 

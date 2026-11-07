@@ -1,8 +1,5 @@
 <!-- ============================================================
      Admin → Results → Detail
-     ------------------------------------------------------------
-     One result: student, course, score, grade, submission chain.
-     Full action set: approve / reject / publish / edit.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -61,105 +58,30 @@
 </div>
 
 <style>
-  .field-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px dashed #e5e7eb;
-    font-size: 13.5px;
-    gap: 12px;
-  }
+  .field-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e5e7eb; font-size: 13.5px; gap: 12px; }
   .field-row:last-child { border-bottom: none; }
   .field-row .k { color: #6b7280; flex-shrink: 0; }
   .field-row .v { color: #0f172a; font-weight: 500; text-align: right; word-break: break-word; }
-
-  .score-display {
-    text-align: center;
-    padding: 12px 0;
-  }
-  .score-display .num {
-    font-family: 'Poppins', sans-serif;
-    font-size: 3.6rem;
-    font-weight: 800;
-    line-height: 1;
-    color: #065f46;
-  }
+  .score-display { text-align: center; padding: 12px 0; }
+  .score-display .num { font-family: 'Poppins', sans-serif; font-size: 3.6rem; font-weight: 800; line-height: 1; color: #065f46; }
   .score-display .num.fail { color: #dc2626; }
-  .score-display .max {
-    font-size: 1rem;
-    color: #6b7280;
-    font-weight: 600;
-    margin-left: 6px;
-  }
-  .score-display .grade-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 800;
-    font-size: 1.15rem;
-    margin-top: 12px;
-    background: #ecfdf5;
-    color: #065f46;
-  }
+  .score-display .max { font-size: 1rem; color: #6b7280; font-weight: 600; margin-left: 6px; }
+  .score-display .grade-badge { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 1.15rem; margin-top: 12px; background: #ecfdf5; color: #065f46; }
   .score-display .grade-badge.F { background: #fee2e2; color: #991b1b; }
-  .score-display .grade-badge.D,
-  .score-display .grade-badge.E { background: #fef3c7; color: #92400e; }
-
-  .workflow-step {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid #f1f5f9;
-  }
+  .score-display .grade-badge.D, .score-display .grade-badge.E { background: #fef3c7; color: #92400e; }
+  .workflow-step { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
   .workflow-step:last-child { border-bottom: none; }
-  .workflow-step .dot {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 800;
-    background: #e5e7eb;
-    color: #94a3b8;
-    flex-shrink: 0;
-  }
-  .workflow-step.done .dot {
-    background: #10b981;
-    color: #fff;
-  }
-  .workflow-step.current .dot {
-    background: #f59e0b;
-    color: #fff;
-    box-shadow: 0 0 0 5px rgba(245,158,11,0.15);
-  }
-  .workflow-step.rejected .dot {
-    background: #dc2626;
-    color: #fff;
-  }
-  .workflow-step .info {
-    flex: 1;
-    min-width: 0;
-  }
-  .workflow-step .info strong {
-    display: block;
-    font-family: 'Poppins', sans-serif;
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
-  }
-  .workflow-step .info small {
-    font-size: 12px;
-    color: #6b7280;
-  }
+  .workflow-step .dot { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: #e5e7eb; color: #94a3b8; flex-shrink: 0; }
+  .workflow-step.done .dot { background: #10b981; color: #fff; }
+  .workflow-step.current .dot { background: #f59e0b; color: #fff; box-shadow: 0 0 0 5px rgba(245,158,11,0.15); }
+  .workflow-step.rejected .dot { background: #dc2626; color: #fff; }
+  .workflow-step .info { flex: 1; min-width: 0; }
+  .workflow-step .info strong { display: block; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700; color: #0f172a; }
+  .workflow-step .info small { font-size: 12px; color: #6b7280; }
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadResultDetail()
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadResultDetail) {
+    setTimeout(window.FPU_ADMIN.loadResultDetail, 100);
+  }
 </script>

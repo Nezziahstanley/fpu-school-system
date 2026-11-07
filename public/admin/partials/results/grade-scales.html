@@ -1,12 +1,5 @@
 <!-- ============================================================
      Admin → Grade Scales
-     ------------------------------------------------------------
-     Full CRUD for the active grade scale.
-       • Inline "Add band" row with live overlap detection
-       • Per-band edit (opens a modal)
-       • Toggle active / delete per band
-       • Live preview: enter a score, see what grade it gets
-       • Sanity check badge: total % coverage of 0–100
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -227,7 +220,6 @@
 </style>
 
 <script>
-  // Initialize the page when loaded
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadGradeScales) {
     setTimeout(window.FPU_ADMIN.loadGradeScales, 100);
   }

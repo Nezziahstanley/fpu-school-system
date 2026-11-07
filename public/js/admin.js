@@ -12419,7 +12419,7 @@ window.FPU_ADMIN = {
   loadAllocationDepartments, loadDepartmentAllocations,
 
   // Registrations
-  loadRegistrationStudents,
+  loadRegistrationStudents, loadStudentRegistrations,
 
   // Results
   loadResultsDashboard, loadDepartmentResults, loadApprovedResults, toggleAllResults, toggleCourseResults,

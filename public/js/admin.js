@@ -11576,7 +11576,7 @@ async function loadResultsDashboard() {
   grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading results...</div>';
 
   try {
-    // 1. Fetch ALL results (no filters) to calculate global stats accurately
+    // 1. Fetch ALL results (no filters) to get true stats
     const resAll = await adminFetch('/api/admin/results?limit=10000');
     const jsonAll = await resAll.json();
     const allResults = jsonAll.data || [];
@@ -11592,23 +11592,17 @@ async function loadResultsDashboard() {
       else if (r.status === 'admin_rejected' || r.status === 'hod_rejected') rejected++;
     });
 
-    // 3. Update the top stats bar with true global values
+    // 3. Update the top stats bar
     if (document.getElementById('res-stat-total')) document.getElementById('res-stat-total').textContent = totalRows;
     if (document.getElementById('res-stat-pending')) document.getElementById('res-stat-pending').textContent = awaiting;
     
-    // Safely find the approved/published boxes (their IDs may vary slightly)
-    const approvedBox = document.getElementById('res-stat-approved') || document.getElementById('res-stat-ready');
-    if (approvedBox) approvedBox.textContent = approved;
+    // Safely update the "Ready to Publish" box (which represents approved)
+    const readyBox = document.getElementById('res-stat-ready') || document.getElementById('res-stat-approved');
+    if (readyBox) readyBox.textContent = approved;
 
-    // 4. Apply filters just for the cards below
-    let filtered = allResults;
-    if (status) filtered = filtered.filter(r => r.status === status);
-    if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
-    // (School filter logic omitted, as results API doesn't return school details directly)
-
-    // 5. Group filtered results by department
+    // 4. Group ALL results by department to build the cards accurately
     const deptMap = {};
-    filtered.forEach(r => {
+    allResults.forEach(r => {
       const deptId = r.course?.departmentId;
       if (!deptId) return;
 
@@ -11629,15 +11623,32 @@ async function loadResultsDashboard() {
     });
 
     const deptArray = Object.values(deptMap);
-    if (document.getElementById('res-stat-depts')) document.getElementById('res-stat-depts').textContent = deptArray.length;
 
-    // 6. Render the Department Cards
-    if (!deptArray.length) {
+    // 5. Apply filters ONLY for which cards to show
+    let visibleDepts = deptArray;
+    
+    // If a specific status is selected, only show departments that have results with that status
+    if (status) {
+      visibleDepts = visibleDepts.filter(d => {
+        if (status === 'hod_verified') return d.awaiting > 0;
+        if (status === 'approved') return d.approved > 0;
+        if (status === 'published') return d.published > 0;
+        if (status === 'admin_rejected') return d.rejected > 0;
+        return true;
+      });
+    }
+
+    if (document.getElementById('res-stat-depts')) {
+      document.getElementById('res-stat-depts').textContent = visibleDepts.length;
+    }
+
+    // 6. Render Cards
+    if (!visibleDepts.length) {
       grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your current filters.</div>';
       return;
     }
 
-    grid.innerHTML = deptArray.map(d => `
+    grid.innerHTML = visibleDepts.map(d => `
       <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
           <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(d.code)}</span>

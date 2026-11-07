@@ -20,9 +20,11 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
 // GET /api/admin/results
 router.get('/', requireRole(STAFF), async (req, res, next) => {
+  // Auto-scope HODs to their own department
   if (req.user && req.user.role === 'hod' && req.user.departmentId) {
     req.query.departmentId = req.user.departmentId;
   }
+  
   try {
     const { studentId, courseId, sessionId, semester, status, departmentId, search, limit = 500, offset = 0 } = req.query;
     
@@ -33,10 +35,23 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
     if (studentId) conds.push(eq(schema.results.studentId, Number(studentId)));
     if (courseId) conds.push(eq(schema.results.courseId, Number(courseId)));
     if (sessionId) conds.push(eq(schema.results.sessionId, Number(sessionId)));
-    if (semester && semester !== 'all') conds.push(eq(schema.results.semester, semester));
-    if (status) conds.push(eq(schema.results.status, status));
-    if (departmentId) conds.push(eq(schema.courses.departmentId, Number(departmentId)));
     
+    // Handle Semester (ignore 'all')
+    if (semester && semester !== 'all') {
+      conds.push(eq(schema.results.semester, semester));
+    }
+    
+    // Handle Status
+    if (status) {
+      conds.push(eq(schema.results.status, status));
+    }
+    
+    // Handle Department
+    if (departmentId) {
+      conds.push(eq(schema.courses.departmentId, Number(departmentId)));
+    }
+    
+    // Handle Search
     if (search) {
       conds.push(or(
         ilike(schema.users.firstName, `%${search}%`),
@@ -48,6 +63,7 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 
     const where = conds.length ? and(...conds) : undefined;
 
+    // Join tables to get student, course, and department details
     const rows = await db
       .select({
         id: schema.results.id,
@@ -68,7 +84,6 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
           code: schema.courses.code,
           title: schema.courses.title,
           unit: schema.courses.unit,
-          // Add Department details here
           departmentId: schema.departments.id,
           departmentName: schema.departments.name,
           departmentCode: schema.departments.code,
@@ -77,7 +92,7 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
       .from(schema.results)
       .leftJoin(schema.users, eq(schema.results.studentId, schema.users.id))
       .leftJoin(schema.courses, eq(schema.results.courseId, schema.courses.id))
-      .leftJoin(schema.departments, eq(schema.courses.departmentId, schema.departments.id)) // Join departments
+      .leftJoin(schema.departments, eq(schema.courses.departmentId, schema.departments.id))
       .where(where)
       .orderBy(desc(schema.results.id))
       .limit(Number(limit))

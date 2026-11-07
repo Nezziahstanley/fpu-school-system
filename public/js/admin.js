@@ -9817,7 +9817,7 @@ async function viewDeployLog(id) {
 }
 
 // ============================================
-// SETTINGS: Advanced (Restlyed)
+// SETTINGS: Advanced (With Clean Bank Account UI)
 // ============================================
 async function loadAdvancedSettings() {
   const tbody = document.getElementById('adv-tbody');
@@ -9850,27 +9850,43 @@ async function loadAdvancedSettings() {
       const rawValue = s.value || '';
       const updated = s.updatedAt || s.updated_at;
 
-      // Try to prettify JSON values
-      let displayValue = rawValue;
-      try {
-        const parsed = JSON.parse(rawValue);
-        if (parsed && typeof parsed === 'object') {
-          // If it's a bank account, display it nicely
-          if (parsed.bank) {
-            displayValue = `${parsed.bank} · ${parsed.accountName || ''} · ${parsed.accountNumber || ''}`;
-          } else {
-            displayValue = Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ');
-          }
-        }
-      } catch { /* not JSON, keep as is */ }
-
       const dateStr = updated
         ? `<strong>${fmtDate(updated)}</strong><br/><span class="small muted">${new Date(updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`
         : '—';
 
-      // Truncate very long values in preview
-      const preview = displayValue.length > 80 ? displayValue.slice(0, 80) + '…' : displayValue;
+      // ==========================================
+      // SPECIAL RENDER FOR BANK ACCOUNTS
+      // ==========================================
+      if (key.startsWith('bank_account_')) {
+        let data = { bank: '', accountName: '', accountNumber: '' };
+        try { data = JSON.parse(rawValue); } catch (e) {}
 
+        return `
+          <tr data-key="${escapeHtml(key)}">
+            <td style="padding: 12px 16px;">
+              <code style="color: #065f46; font-weight: 700;">${escapeHtml(key)}</code><br/>
+              <span class="badge badge-outline" style="font-size: 9px; margin-top: 4px;">Bank Account</span>
+            </td>
+            <td style="padding: 12px 16px;">
+              <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 450px;">
+                <div style="display: flex; gap: 6px;">
+                  <input class="form-control" style="flex: 1;" placeholder="Bank (e.g. OPAY)" data-bank-val="bank" value="${escapeHtml(data.bank || '')}" />
+                  <input class="form-control" style="flex: 1;" placeholder="Account Number" data-bank-val="accountNumber" value="${escapeHtml(data.accountNumber || '')}" />
+                </div>
+                <input class="form-control" placeholder="Account Name" data-bank-val="accountName" value="${escapeHtml(data.accountName || '')}" />
+              </div>
+            </td>
+            <td style="padding: 12px 16px; font-size: 13px;">${dateStr}</td>
+            <td style="padding: 12px 16px; text-align: right;">
+              <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvancedBankAccount('${escapeQuotes(key)}')">Save</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      // ==========================================
+      // STANDARD RENDER FOR NORMAL SETTINGS
+      // ==========================================
       return `
         <tr data-key="${escapeHtml(key)}">
           <td style="padding: 12px 16px;"><code>${escapeHtml(key)}</code></td>
@@ -9890,6 +9906,63 @@ async function loadAdvancedSettings() {
 
   } catch (e) {
     tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#dc2626; text-align:center;">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+// ============================================
+// SETTINGS: Save Advanced Bank Account
+// ============================================
+async function saveAdvancedBankAccount(key) {
+  // Find the row for this specific bank account
+  const row = document.querySelector(`tr[data-key="${key}"]`);
+  if (!row) return;
+
+  // Find the inputs inside this row
+  const bankInput = row.querySelector('[data-bank-val="bank"]');
+  const nameInput = row.querySelector('[data-bank-val="accountName"]');
+  const numInput = row.querySelector('[data-bank-val="accountNumber"]');
+  const btn = row.querySelector('button');
+
+  if (!bankInput || !nameInput || !numInput) return;
+
+  const bank = bankInput.value.trim();
+  const accountName = nameInput.value.trim();
+  const accountNumber = numInput.value.trim();
+
+  if (!bank || !accountName || !accountNumber) {
+    showToast('⚠️ All bank fields are required.', 'warning');
+    return;
+  }
+
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    // Reconstruct the JSON string
+    const jsonValue = JSON.stringify({ bank, accountName, accountNumber });
+
+    await adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: jsonValue }),
+    });
+    
+    showToast('✅ Bank account updated.', 'success');
+    btn.textContent = '✓ Saved';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-outline');
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.classList.remove('btn-outline');
+      btn.classList.add('btn-primary');
+    }, 1500);
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    btn.textContent = originalText;
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -12913,7 +12986,7 @@ window.FPU_ADMIN = {
   loadLoginHistory, loadUserProfile, loadUsersWithPhotos, 
 
   // Settings
-  saveSettingsSection, loadAdvancedSettings, saveAdvSetting, wireSettingsTabExtras,
+  saveSettingsSection, loadAdvancedSettings, saveAdvSetting, saveAdvancedBankAccount, wireSettingsTabExtras,
   loadBankAccounts, addBankAccount, saveBankAccount, deleteBankAccount,
   runLibrarySweep, sendTestEmail, sendTestSMS, initAccountTab, initSystemTab,
 

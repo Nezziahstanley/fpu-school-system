@@ -12224,7 +12224,7 @@ async function openTranscriptModal(studentId) {
 }
 
 // ============================================
-// ATTENDANCE: Department -> Courses Modal (FIXED)
+// ATTENDANCE: Department -> Courses Modal (FIXED STATS)
 // ============================================
 async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const backdrop = document.createElement('div');
@@ -12244,7 +12244,7 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
       
       <div class="fpu-modal-body" id="dept-modal-body" style="padding: 24px; overflow-y: auto; flex-grow: 1;">
         <div class="loading" style="text-align:center; padding: 40px; color: #94a3b8;">
-          <span class="spinner"></span> Loading courses...
+          <span class="spinner"></span> Loading courses and attendance data...
         </div>
       </div>
     </div>
@@ -12254,44 +12254,73 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const body = document.getElementById('dept-modal-body');
 
   try {
-    // 1. Fetch all courses for this department
-    const coursesRes = await adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`);
+    // Fetch courses, all students, and ALL attendance records in parallel
+    const [coursesRes, studentsRes, recordsRes] = await Promise.all([
+      adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`).catch(() => null),
+      adminFetch(`/api/admin/students?departmentId=${deptId}&limit=2000`).catch(() => null),
+      adminFetch(`/api/admin/attendance?limit=10000`).catch(() => null) // Fetches all records
+    ]);
+
     const coursesJson = await coursesRes.json();
     const courses = coursesJson.data || [];
+
+    const studentsJson = await studentsRes.json();
+    const students = studentsJson.data || [];
+
+    const recordsJson = await recordsRes.json();
+    const allRecords = recordsJson.data || [];
 
     if (!courses.length) {
       body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No courses found for this department.</div>';
       return;
     }
 
-    // 2. Fetch the attendance stats for this department
-    // We use the existing stats endpoint, which should return an array of courses with stats
-    let statsMap = new Map();
-    try {
-      const statsRes = await adminFetch(`/api/admin/attendance/department/${deptId}`);
-      if (statsRes.ok) {
-        const statsJson = await statsRes.json();
-        const statsList = statsJson.data || [];
-        statsList.forEach(s => statsMap.set(s.id, s));
-      }
-    } catch (e) {
-      console.warn('Could not load attendance stats, showing courses with 0 stats.', e);
-    }
+    // Create maps for fast lookup
+    const studentIdsInDept = new Set(students.map(s => Number(s.id)));
+    const courseIdsInDept = new Set(courses.map(c => Number(c.id)));
 
-    // 3. Render the cards inside the modal
+    // Filter records to only those belonging to this department's courses and students
+    const deptRecords = allRecords.filter(r => {
+      const row = r.attendance || r; // Handle nested structure
+      const cId = Number(row.courseId);
+      const sId = Number(row.studentId);
+      return courseIdsInDept.has(cId) && studentIdsInDept.has(sId);
+    });
+
+    // Calculate stats per course
+    const statsMap = new Map();
+    courses.forEach(c => statsMap.set(Number(c.id), { records: 0, present: 0, studentsSet: new Set() }));
+
+    deptRecords.forEach(r => {
+      const row = r.attendance || r;
+      const cId = Number(row.courseId);
+      const sId = Number(row.studentId);
+      const stat = statsMap.get(cId);
+      
+      if (stat) {
+        stat.records++;
+        stat.studentsSet.add(sId);
+        if (row.status === 'present' || row.status === 'late') {
+          stat.present++;
+        }
+      }
+    });
+
+    // Render the cards
     body.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
         ${courses.map(c => {
-          // Merge the course data with the attendance stats (if available)
-          const stat = statsMap.get(c.id) || { records: 0, students: 0, rate: 0 };
+          const stat = statsMap.get(Number(c.id)) || { records: 0, present: 0, studentsSet: new Set() };
+          const uniqueStudents = stat.studentsSet.size;
+          const rate = stat.records > 0 ? Math.round((stat.present / stat.records) * 100) : 0;
           
           let rateClass = 'empty';
           if (stat.records > 0) {
-            if (stat.rate >= 75) rateClass = 'healthy';
-            else if (stat.rate >= 50) rateClass = 'warning';
+            if (rate >= 75) rateClass = 'healthy';
+            else if (rate >= 50) rateClass = 'warning';
             else rateClass = 'critical';
           }
-          const rateText = stat.records > 0 ? `${stat.rate}%` : '—';
+          const rateText = stat.records > 0 ? `${rate}%` : '—';
           
           return `
             <div class="course-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; cursor:pointer;" onclick="FPU_ADMIN.openCourseAttendanceModal(${c.id}, '${escapeHtml(c.code)}', '${escapeHtml(c.title)}', ${deptId})">
@@ -12307,8 +12336,8 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
               </div>
               
               <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; background:#f8fafc; padding:8px; border-radius:6px;">
-                <span><strong>${stat.records || 0}</strong> Records</span>
-                <span><strong>${stat.students || 0}</strong> Students</span>
+                <span><strong>${stat.records}</strong> Records</span>
+                <span><strong>${uniqueStudents}</strong> Students</span>
               </div>
             </div>
           `;

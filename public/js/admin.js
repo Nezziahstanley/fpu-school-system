@@ -11803,72 +11803,146 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================
-// TRANSCRIPT MODAL VIEWER
+// TRANSCRIPT MODAL VIEWER (Styled & Watermarked)
 // ============================================
 async function openTranscriptModal(studentId) {
-  // 1. Create the modal shell
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'transcript-modal-backdrop';
   
-  // FORCE the backdrop to be a full-screen overlay
   backdrop.style.cssText = `
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(15, 23, 42, 0.7);
     z-index: 999999;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
+    backdrop-filter: blur(4px);
   `;
   
   backdrop.innerHTML = `
     <div class="fpu-modal" style="
       width: 100%; 
-      max-width: 1000px; 
-      max-height: 90vh; 
-      background: #f8fafc; 
+      max-width: 950px; 
+      max-height: 92vh; 
+      background: #f1f5f9; 
       border-radius: 12px; 
-      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); 
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); 
       display: flex; 
       flex-direction: column; 
       overflow: hidden;
+      border: 1px solid #cbd5e1;
     ">
       <div class="fpu-modal-header" style="
         background: #fff; 
-        padding: 16px 20px; 
+        padding: 16px 24px; 
         border-bottom: 1px solid #e2e8f0; 
         display: flex; 
         justify-content: space-between; 
         align-items: center;
         flex-shrink: 0;
       ">
-        <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Student Transcript</h3>
+        <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a; font-family: 'Poppins', sans-serif;">Student Transcript</h3>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-sm btn-outline" onclick="window.print()">🖨 Print</button>
-          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
+          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.5rem; line-height: 1; padding: 0 8px;">&times;</button>
         </div>
       </div>
       
       <div class="fpu-modal-body" id="tx-modal-body" style="
-        padding: 20px; 
+        padding: 30px 20px; 
         overflow-y: auto; 
         flex-grow: 1;
-        background: #e2e8f0;
+        display: flex;
+        justify-content: center;
       ">
-        <div class="loading" style="padding:60px;text-align:center;">
+        <div class="loading" style="padding:60px;text-align:center; width:100%;">
           <span class="spinner"></span> Loading transcript…
         </div>
       </div>
     </div>
+
+    <style>
+      .tx-document {
+        background: #fff;
+        padding: 40px;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        position: relative;
+        overflow: hidden;
+        font-family: 'Inter', Arial, sans-serif;
+        color: #0f172a;
+        width: 100%;
+        max-width: 800px;
+        min-height: 1000px; /* A4 proportion */
+      }
+      .tx-watermark {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        width: 60%; max-width: 400px; opacity: 0.04; pointer-events: none; z-index: 0;
+      }
+      .tx-content { position: relative; z-index: 1; }
+      
+      .tx-letterhead {
+        display: flex; align-items: center; gap: 20px;
+        padding-bottom: 20px; margin-bottom: 24px;
+        border-bottom: 3px double #065f46;
+      }
+      .tx-letterhead-logo { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
+      .tx-letterhead-text { flex: 1; text-align: center; }
+      .tx-letterhead-text .institution {
+        font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 900;
+        color: #065f46; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1.2;
+      }
+      .tx-letterhead-text .motto { font-size: 12px; color: #6b7280; font-style: italic; margin: 2px 0; }
+      .tx-letterhead-text .doc-type {
+        font-size: 13px; font-weight: 700; color: #0f172a;
+        text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;
+      }
+      
+      .tx-header {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        gap: 24px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 24px;
+      }
+      .tx-student-info h2 { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 800; margin: 0 0 4px; }
+      .tx-student-info .meta { font-size: 12.5px; color: #6b7280; line-height: 1.7; }
+      .tx-student-info .matric { font-family: 'Courier New', monospace; background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+      
+      .tx-cgpa-block { text-align: right; flex-shrink: 0; }
+      .tx-cgpa-block .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #6b7280; }
+      .tx-cgpa-block .value { font-family: 'Poppins', sans-serif; font-size: 2.6rem; font-weight: 800; color: #065f46; line-height: 1; margin: 2px 0; }
+      .tx-cgpa-block .class { font-size: 12px; font-weight: 700; color: #f59e0b; }
+      
+      .tx-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+      .tx-summary-item { background: #f8fafc; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #e2e8f0; }
+      .tx-summary-item .num { font-family: 'Poppins', sans-serif; font-size: 1.3rem; font-weight: 800; color: #065f46; line-height: 1; }
+      .tx-summary-item .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-top: 4px; }
+      
+      .tx-semester { margin-bottom: 24px; }
+      .tx-semester-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #065f46; color: #fff; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 700; }
+      .tx-semester-head .gpa { background: rgba(255,255,255,0.15); padding: 3px 10px; border-radius: 999px; font-size: 11px; }
+      .tx-table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-top: none; }
+      .tx-table th, .tx-table td { padding: 8px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+      .tx-table th { background: #f8fafc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; color: #6b7280; }
+      .tx-table td.num { text-align: right; font-family: 'Courier New', monospace; font-weight: 700; }
+      .tx-table td.center { text-align: center; }
+      .tx-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 4px; font-weight: 800; font-size: 11px; background: #ecfdf5; color: #065f46; }
+      .tx-grade.F { background: #fee2e2; color: #991b1b; }
+      .tx-grade.D, .tx-grade.E { background: #fef3c7; color: #92400e; }
+      
+      .tx-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
+      .tx-sig-block { text-align: center; width: 180px; }
+      .tx-sig-line { border-bottom: 1px solid #0f172a; margin-bottom: 6px; height: 30px; }
+      .tx-sig-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }
+    </style>
   `;
   document.body.appendChild(backdrop);
 
   const root = document.getElementById('tx-modal-body');
 
   try {
-    // 2. Fetch data (using the same logic as loadTranscriptView)
     const [studentRes, resultsRes, coursesRes] = await Promise.all([
       adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
       adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
@@ -11887,7 +11961,6 @@ async function openTranscriptModal(studentId) {
       return;
     }
 
-    // 3. Compute stats & group results
     const groups = new Map();
     results.forEach(r => {
       const row = r.result || r;
@@ -11908,6 +11981,7 @@ async function openTranscriptModal(studentId) {
         courseCount++;
       }
     });
+    
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
     const classification =
       cgpa === '—' ? '—' :
@@ -11916,7 +11990,6 @@ async function openTranscriptModal(studentId) {
       Number(cgpa) >= 2.50 ? 'Lower Credit' :
       Number(cgpa) >= 2.00 ? 'Pass' : 'Fail';
 
-    // 4. Build HTML
     const groupsHtml = [...groups.entries()].map(([key, list]) => {
       const [sessionId, semester] = key.split('|');
       const sectionUnits = list.reduce((s, r) => {
@@ -11975,58 +12048,59 @@ async function openTranscriptModal(studentId) {
         </div>`;
     }).join('');
 
-    // Render full document inside the modal
     root.innerHTML = `
-      <div class="tx-document" style="margin: 0; box-shadow: none; border: 1px solid #e2e8f0;">
-        <div class="tx-watermark">FPU</div>
-
-        <div class="tx-letterhead">
-          <img class="tx-letterhead-logo" src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
-          <div class="tx-letterhead-text">
-            <div class="institution">Federal Polytechnic Ugep</div>
-            <div class="motto">Citadel of Technical Excellence</div>
-            <div class="doc-type">Official Student Transcript</div>
-          </div>
-          <div style="width:80px;"></div>
-        </div>
-
-        <div class="tx-header">
-          <div class="tx-student-info">
-            <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
-            <div class="meta">
-              <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
-              ${escapeHtml(student.level || '—')} ·
-              ${escapeHtml(student.programmeName || student.programme?.name || '—')}
+      <div class="tx-document">
+        <img class="tx-watermark" src="/images/logo.png" onerror="this.style.display='none'" />
+        
+        <div class="tx-content">
+          <div class="tx-letterhead">
+            <img class="tx-letterhead-logo" src="/images/logo.png" onerror="this.style.display='none'" />
+            <div class="tx-letterhead-text">
+              <div class="institution">Federal Polytechnic Ugep</div>
+              <div class="motto">Citadel of Technical Excellence</div>
+              <div class="doc-type">Official Student Transcript</div>
             </div>
-            <div class="meta">
-              ${escapeHtml(student.email || '')}
-              ${student.departmentName ? ' · ' + escapeHtml(student.departmentName) : ''}
+            <div style="width:80px;"></div>
+          </div>
+
+          <div class="tx-header">
+            <div class="tx-student-info">
+              <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
+              <div class="meta">
+                <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
+                ${escapeHtml(student.level || '—')} ·
+                ${escapeHtml(student.programmeName || student.programme?.name || '—')}
+              </div>
+              <div class="meta">
+                ${escapeHtml(student.email || '')}
+                ${student.departmentName ? ' · ' + escapeHtml(student.departmentName) : ''}
+              </div>
+            </div>
+            <div class="tx-cgpa-block">
+              <div class="label">CGPA</div>
+              <div class="value">${cgpa}</div>
+              <div class="class">${escapeHtml(classification)}</div>
             </div>
           </div>
-          <div class="tx-cgpa-block">
-            <div class="label">CGPA</div>
-            <div class="value">${cgpa}</div>
-            <div class="class">${escapeHtml(classification)}</div>
+
+          <div class="tx-summary">
+            <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
+            <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
+            <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
+            <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
           </div>
-        </div>
 
-        <div class="tx-summary">
-          <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
-          <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
-          <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
-          <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
-        </div>
+          ${groups.size > 0 ? groupsHtml : `
+            <div style="background:#fffbeb; border:1px solid #fef3c7; color:#b45309; padding:16px; border-radius:8px; text-align:center; font-weight:600;">
+              No published results found for this student.
+            </div>
+          `}
 
-        ${groups.size > 0 ? groupsHtml : `
-          <div class="alert alert-warning" style="margin:0;">
-            No published results found for this student.
+          <div class="tx-signatures">
+            <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Registrar</div></div>
+            <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Date</div></div>
+            <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Rector</div></div>
           </div>
-        `}
-
-        <div class="tx-signatures">
-          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Registrar</div></div>
-          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Date</div></div>
-          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Rector</div></div>
         </div>
       </div>
     `;
@@ -12034,7 +12108,7 @@ async function openTranscriptModal(studentId) {
   } catch (err) {
     console.error('Transcript Modal Error:', err);
     root.innerHTML = `
-      <div class="alert alert-danger" style="margin:20px;">
+      <div class="alert alert-danger" style="margin:20px; width:100%;">
         <strong>Failed to load transcript:</strong> ${escapeHtml(err.message)}
       </div>`;
   }

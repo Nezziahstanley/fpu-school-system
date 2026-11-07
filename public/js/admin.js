@@ -12193,6 +12193,192 @@ async function loadApprovedResults() {
   }
 }
 
+// ============================================
+// REGISTRATIONS: By Student View
+// ============================================
+async function loadStudentRegistrations() {
+  const root = document.getElementById('reg-stu-groups');
+  if (!root) return;
+
+  // Parse studentId from URL
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const studentId = params.get('studentId');
+
+  if (!studentId) {
+    root.innerHTML = '<div class="alert alert-warning">No student selected. Please go back.</div>';
+    return;
+  }
+
+  root.innerHTML = '<div class="loading" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading registrations...</div>';
+
+  try {
+    // Fetch student + registrations in parallel
+    const [studentRes, regsRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+      adminFetch(`/api/admin/registrations/with-course?studentId=${studentId}`).catch(() => null),
+    ]);
+
+    let student = null;
+    try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+
+    let regs = [];
+    try { if (regsRes && regsRes.ok) { const j = await regsRes.json(); regs = j.data || j || []; } } catch {}
+
+    // Update summary panel
+    if (student) {
+      const summaryPanel = document.getElementById('reg-stu-summary-panel');
+      if (summaryPanel) summaryPanel.style.display = 'block';
+
+      const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim();
+      const initials = ((student.firstName || ' ')[0] + (student.lastName || ' ')[0]).toUpperCase().trim() || 'S';
+
+      document.getElementById('reg-stu-title').textContent = `${fullName} — Registrations`;
+      document.getElementById('reg-stu-subtitle').textContent = `${student.matricNumber || ''} · ${student.level || ''}`;
+      
+      const nameEl = document.getElementById('reg-stu-name');
+      if (nameEl) nameEl.textContent = fullName || 'Unknown Student';
+      
+      const emailEl = document.getElementById('reg-stu-email');
+      if (emailEl) emailEl.textContent = student.email || '';
+
+      const metaEl = document.getElementById('reg-stu-meta');
+      if (metaEl) metaEl.textContent = `${student.programmeName || 'N/A'} · ${student.departmentName || 'N/A'}`;
+
+      const avatarEl = document.getElementById('reg-stu-avatar');
+      if (avatarEl) {
+        avatarEl.innerHTML = student.photoUrl 
+          ? `<img src="${escapeHtml(student.photoUrl)}" alt=""/>` 
+          : escapeHtml(initials);
+      }
+    }
+
+    if (!regs.length) {
+      root.innerHTML = '<div class="alert alert-info" style="margin-top:20px;">This student has no course registrations yet.</div>';
+      return;
+    }
+
+    // Group registrations by semester
+    const grouped = {};
+    let totalUnits = 0;
+
+    regs.forEach(r => {
+      const reg = r.registration || r;
+      const course = r.course || {};
+      
+      // Only count pending/approved towards total units
+      if (reg.status === 'pending' || reg.status === 'approved') {
+        totalUnits += Number(course.unit) || 0;
+      }
+
+      const sem = reg.semester || 'Unknown';
+      if (!grouped[sem]) grouped[sem] = [];
+      grouped[sem].push(r);
+    });
+
+    // Update total units
+    const totalUnitsEl = document.getElementById('reg-stu-total-units');
+    if (totalUnitsEl) totalUnitsEl.textContent = totalUnits;
+
+    // Render semesters
+    let html = '';
+    Object.keys(grouped).forEach(sem => {
+      const items = grouped[sem];
+      const semUnits = items.reduce((sum, r) => {
+        const reg = r.registration || r;
+        if (reg.status === 'pending' || reg.status === 'approved') {
+          return sum + (Number(r.course?.unit) || 0);
+        }
+        return sum;
+      }, 0);
+
+      html += `
+        <div class="sem-group">
+          <div class="sem-group-head">
+            <div>
+              <div class="title" style="text-transform:capitalize;">${escapeHtml(sem)} Semester</div>
+              <div class="subtitle">${items.length} course${items.length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="sem-group-units">
+              <span class="num">${semUnits}</span>
+              <span class="lbl">units</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="table-admin">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Course Title</th>
+                  <th style="width:80px; text-align:center;">Units</th>
+                  <th style="width:120px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(r => {
+                  const reg = r.registration || r;
+                  const course = r.course || {};
+                  
+                  // Status Pill logic
+                  let statusHtml = '';
+                  if (reg.status === 'approved') statusHtml = '<span class="badge badge-success">Approved</span>';
+                  else if (reg.status === 'rejected') statusHtml = '<span class="badge badge-danger">Rejected</span>';
+                  else statusHtml = '<span class="badge badge-warning">Pending</span>';
+
+                  return `
+                    <tr>
+                      <td style="font-weight:700; color:#065f46;">${escapeHtml(course.code || '—')}</td>
+                      <td>${escapeHtml(course.title || '—')}</td>
+                      <td style="text-align:center; font-weight:600;">${course.unit || 0}</td>
+                      <td>${statusHtml}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    });
+
+    root.innerHTML = html;
+
+    // Wire up "Approve All Pending" button
+    const bulkBtn = document.getElementById('reg-stu-bulk-approve');
+    if (bulkBtn && !bulkBtn.__wired) {
+      bulkBtn.__wired = true;
+      bulkBtn.onclick = async () => {
+        if (!confirm(`Approve ALL pending registrations for this student?`)) return;
+        
+        const pendingIds = regs
+          .filter(r => (r.registration || r).status === 'pending')
+          .map(r => (r.registration || r).id);
+
+        if (!pendingIds.length) {
+          showToast('No pending registrations to approve.', 'warning');
+          return;
+        }
+
+        try {
+          // Loop through and approve each
+          for (const id of pendingIds) {
+            await adminFetch(`/api/admin/registrations/${id}/approve`, { method: 'POST' });
+          }
+          showToast(`✅ Approved ${pendingIds.length} registration(s).`, 'success');
+          loadStudentRegistrations(); // Reload
+        } catch (err) {
+          showToast('❌ ' + err.message, 'error');
+        }
+      };
+    }
+
+  } catch (err) {
+    console.error('Failed to load student registrations:', err);
+    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Failed to load: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

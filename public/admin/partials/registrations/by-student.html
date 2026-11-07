@@ -115,5 +115,8 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadStudentRegistrations()
+  // Initialize the page when loaded
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadStudentRegistrations) {
+    setTimeout(window.FPU_ADMIN.loadStudentRegistrations, 100);
+  }
 </script>

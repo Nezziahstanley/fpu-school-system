@@ -1,7 +1,5 @@
 <!-- ============================================================
      Admin → Library → Borrows
-     ------------------------------------------------------------
-     Status tabs + issue/return workflow + overdue highlighting.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -12,72 +10,66 @@
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadBorrowsTable()">
       Refresh
     </button>
-    <button class="btn btn-outline btn-sm" id="borrows-sweep">
-      ⏰ Sweep Overdue
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.runLibrarySweep()">
+      🧹 Sweep Overdue
     </button>
-    <button class="btn btn-primary btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('borrow-issue')">
+    <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN_SPA.navigateToWithQuery('borrow-issue', {})">
       + Issue Book
     </button>
   </div>
 </section>
 
-<!-- Status tabs -->
-<div class="staff-role-tabs" id="borrows-status-tabs">
-  <button class="staff-role-tab active" data-status="">
-    All <span class="tab-count" id="bor-count-all">—</span>
-  </button>
-  <button class="staff-role-tab" data-status="active">
-    Active <span class="tab-count" id="bor-count-active">—</span>
-  </button>
-  <button class="staff-role-tab" data-status="overdue">
-    Overdue <span class="tab-count" id="bor-count-overdue">—</span>
-  </button>
-  <button class="staff-role-tab" data-status="returned">
-    Returned <span class="tab-count" id="bor-count-returned">—</span>
-  </button>
-  <button class="staff-role-tab" data-status="lost">
-    Lost <span class="tab-count" id="bor-count-lost">—</span>
-  </button>
-</div>
-
-<!-- Filters -->
-<div class="filters">
-  <div class="form-group" style="flex:2 1 260px;">
-    <label class="form-label">Search</label>
-    <input class="form-control" id="bor-search"
-           placeholder="Student name, matric, or book title…"
-           onkeydown="if(event.key==='Enter')FPU_ADMIN.loadBorrowsTable()" />
-  </div>
-  <div class="form-group">
-    <label class="form-label">Due within</label>
-    <select class="form-select" id="bor-due-filter"
-            onchange="FPU_ADMIN.loadBorrowsTable()">
-      <option value="">Any time</option>
-      <option value="3">Next 3 days</option>
-      <option value="7">Next 7 days</option>
-      <option value="14">Next 14 days</option>
-    </select>
+<!-- Filter Tabs -->
+<div class="filters" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <button class="btn btn-sm btn-primary" onclick="document.getElementById('bor-status').value=''; FPU_ADMIN.loadBorrowsTable();">All</button>
+    <button class="btn btn-sm btn-outline" onclick="document.getElementById('bor-status').value='borrowed'; FPU_ADMIN.loadBorrowsTable();">Active</button>
+    <button class="btn btn-sm btn-outline" onclick="document.getElementById('bor-status').value='overdue'; FPU_ADMIN.loadBorrowsTable();">Overdue</button>
+    <button class="btn btn-sm btn-outline" onclick="document.getElementById('bor-status').value='returned'; FPU_ADMIN.loadBorrowsTable();">Returned</button>
+    <button class="btn btn-sm btn-outline" onclick="document.getElementById('bor-status').value='lost'; FPU_ADMIN.loadBorrowsTable();">Lost</button>
   </div>
 </div>
 
-<!-- Stats -->
-<div class="stats-inline">
-  <div class="stat-inline">
-    <div class="label">Total</div>
-    <div class="value" id="bor-stat-total">—</div>
+<!-- Search -->
+<div class="panel" style="margin-bottom: 20px;">
+  <div class="panel-body">
+    <div class="filters" style="display: flex; gap: 16px;">
+      <div class="form-group" style="flex: 2;">
+        <label class="form-label">Search</label>
+        <input class="form-control" id="bor-search" placeholder="Student name, matric, or book title…" onkeydown="if(event.key==='Enter') FPU_ADMIN.loadBorrowsTable()" />
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label class="form-label">Due within</label>
+        <select class="form-select">
+          <option>Any time</option>
+          <option>Today</option>
+          <option>This Week</option>
+          <option>This Month</option>
+        </select>
+      </div>
+      <!-- Hidden input used by the buttons above -->
+      <input type="hidden" id="bor-status" value="" />
+    </div>
   </div>
-  <div class="stat-inline stat-inline-primary">
-    <div class="label">Active</div>
-    <div class="value" id="bor-stat-active">—</div>
+</div>
+
+<!-- Stats Bar (UPDATED IDs to match JS) -->
+<div class="stats-inline" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;">
+    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total</div>
+    <div id="bor-stat-total" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
   </div>
-  <div class="stat-inline stat-inline-accent">
-    <div class="label">Overdue</div>
-    <div class="value" id="bor-stat-overdue">—</div>
+  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #10b981;">
+    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Active</div>
+    <div id="bor-stat-active" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
   </div>
-  <div class="stat-inline stat-inline-success">
-    <div class="label">Returned</div>
-    <div class="value" id="bor-stat-returned">—</div>
+  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #ef4444;">
+    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Overdue</div>
+    <div id="bor-stat-overdue" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
+  </div>
+  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #8b5cf6;">
+    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Returned</div>
+    <div id="bor-stat-returned" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
   </div>
 </div>
 
@@ -85,7 +77,7 @@
 <div class="panel">
   <div class="panel-head">
     <h3>Borrows</h3>
-    <span class="small muted" id="bor-count">Loading…</span>
+    <span class="small muted" id="bor-count">—</span>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
@@ -94,11 +86,11 @@
           <tr>
             <th>Book</th>
             <th>Borrower</th>
-            <th style="width:110px;">Borrowed</th>
-            <th style="width:110px;">Due</th>
-            <th style="width:110px;">Status</th>
-            <th style="width:120px;">Days</th>
-            <th style="width:180px;">Actions</th>
+            <th>Borrowed</th>
+            <th>Due</th>
+            <th>Status</th>
+            <th>Days</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="bor-tbody">
@@ -108,31 +100,3 @@
     </div>
   </div>
 </div>
-
-<style>
-  .borrow-row-overdue {
-    background: #fef2f2 !important;
-  }
-  .borrow-row-overdue td:first-child {
-    border-left: 3px solid #dc2626;
-  }
-  .days-badge {
-    display: inline-block;
-    font-family: 'Poppins', sans-serif;
-    font-size: 11.5px;
-    font-weight: 800;
-    padding: 3px 9px;
-    border-radius: 999px;
-  }
-  .days-badge.ok      { background: #ecfdf5; color: #065f46; }
-  .days-badge.warning { background: #fef3c7; color: #92400e; }
-  .days-badge.danger  { background: #fee2e2; color: #991b1b; }
-  .days-badge.done    { background: #f1f5f9; color: #64748b; }
-</style>
-
-<script>
-  // SPA init calls FPU_ADMIN.loadBorrowsTable()
-  if (window.FPU_ADMIN && window.FPU_ADMIN.loadBorrowsTable) {
-    setTimeout(window.FPU_ADMIN.loadBorrowsTable, 100);
-  }
-</script>

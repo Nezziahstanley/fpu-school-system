@@ -6340,6 +6340,7 @@ async function loadBorrowsTable() {
     let rows = json.data || json || [];
     if (!Array.isArray(rows)) rows = [];
 
+    // Apply Client-side Search
     if (search) {
       rows = rows.filter(r => {
         const br = r.borrow || r;
@@ -6350,30 +6351,35 @@ async function loadBorrowsTable() {
       });
     }
 
-    // Stats
+    // --- Calculate Stats ---
     let active = 0, overdue = 0, returned = 0;
     rows.forEach(r => {
       const br = r.borrow || r;
       const isOverdue = br.dueAt && new Date(br.dueAt) < new Date() && br.status !== 'returned' && br.status !== 'lost';
-      if (br.status === 'returned') returned++;
-      else if (br.status === 'lost') { /* skip */ }
-      else {
+      
+      if (br.status === 'returned') {
+        returned++;
+      } else if (br.status === 'lost') {
+        // Skip lost for active counts
+      } else {
         active++;
         if (isOverdue) overdue++;
       }
     });
     
-    setText('bor-c-total', rows.length);
-    setText('bor-c-active', active);
-    setText('bor-c-overdue', overdue);
-    setText('bor-c-returned', returned);
-    setText('bor-count', rows.length + ' records');
+    // Update Top Stats Bar (Make sure these IDs match your HTML!)
+    setText('bor-stat-total', rows.length);
+    setText('bor-stat-active', active);
+    setText('bor-stat-overdue', overdue);
+    setText('bor-stat-returned', returned);
+    setText('bor-count', `${rows.length} records`);
 
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;">No borrow records found.</td></tr>';
       return;
     }
 
+    // Render Table
     tbody.innerHTML = rows.map(r => {
       const br = r.borrow || r;
       const b = r.book || {};
@@ -6397,6 +6403,7 @@ async function loadBorrowsTable() {
           <td>${br.borrowedAt ? new Date(br.borrowedAt).toLocaleDateString() : '—'}</td>
           <td style="${isOverdue ? 'color:#dc2626;font-weight:bold;' : ''}">${br.dueAt ? new Date(br.dueAt).toLocaleDateString() : '—'}</td>
           <td>${badge(br.status)}</td>
+          <td>${br.days || '—'}</td>
           <td>${actions}</td>
         </tr>
       `;

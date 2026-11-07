@@ -19,16 +19,13 @@ const { scoreToGrade, getActiveGradeScale, invalidateCache } = require('../utils
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
 // GET /api/admin/results
-// GET /api/admin/results
 router.get('/', requireRole(STAFF), async (req, res, next) => {
-  // Auto-scope HODs to their own department for regular listing
   if (req.user && req.user.role === 'hod' && req.user.departmentId) {
     req.query.departmentId = req.user.departmentId;
   }
   try {
     const { studentId, courseId, sessionId, semester, status, departmentId, search, limit = 500, offset = 0 } = req.query;
     
-    // Import db, schema and drizzle operators at the top of your file if not already there
     const { db, schema } = require('../db');
     const { eq, and, ilike, or, desc } = require('drizzle-orm');
 
@@ -36,7 +33,7 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
     if (studentId) conds.push(eq(schema.results.studentId, Number(studentId)));
     if (courseId) conds.push(eq(schema.results.courseId, Number(courseId)));
     if (sessionId) conds.push(eq(schema.results.sessionId, Number(sessionId)));
-    if (semester) conds.push(eq(schema.results.semester, semester));
+    if (semester && semester !== 'all') conds.push(eq(schema.results.semester, semester));
     if (status) conds.push(eq(schema.results.status, status));
     if (departmentId) conds.push(eq(schema.courses.departmentId, Number(departmentId)));
     
@@ -51,18 +48,14 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 
     const where = conds.length ? and(...conds) : undefined;
 
-    // JOIN users and courses to return full data
     const rows = await db
       .select({
         id: schema.results.id,
         score: schema.results.score,
         grade: schema.results.grade,
-        points: schema.results.points,
         status: schema.results.status,
         semester: schema.results.semester,
-        sessionId: schema.results.sessionId,
         
-        // Student Details
         student: {
           id: schema.users.id,
           firstName: schema.users.firstName,
@@ -70,17 +63,21 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
           matricNumber: schema.users.matricNumber,
         },
         
-        // Course Details
         course: {
           id: schema.courses.id,
           code: schema.courses.code,
           title: schema.courses.title,
           unit: schema.courses.unit,
+          // Add Department details here
+          departmentId: schema.departments.id,
+          departmentName: schema.departments.name,
+          departmentCode: schema.departments.code,
         }
       })
       .from(schema.results)
       .leftJoin(schema.users, eq(schema.results.studentId, schema.users.id))
       .leftJoin(schema.courses, eq(schema.results.courseId, schema.courses.id))
+      .leftJoin(schema.departments, eq(schema.courses.departmentId, schema.departments.id)) // Join departments
       .where(where)
       .orderBy(desc(schema.results.id))
       .limit(Number(limit))

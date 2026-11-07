@@ -11883,7 +11883,7 @@ async function courseBulkAction(courseId, action) {
 }
 
 async function loadResultsDashboard() {
-  const grid = document.getElementById('res-dept-grid'); // Check your actual grid ID
+  const grid = document.getElementById('res-dept-grid');
   if (!grid) return;
 
   // Get filters
@@ -11891,13 +11891,15 @@ async function loadResultsDashboard() {
   const semester = document.getElementById('res-filter-semester')?.value || '';
   const schoolId = document.getElementById('res-filter-school')?.value || '';
 
+  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading...</div>';
+
   try {
-    // We fetch ALL results to calculate accurate stats, then filter for the cards
+    // Fetch all results (unfiltered) to calculate true global stats
     const res = await adminFetch(`/api/admin/results?limit=5000`);
     const json = await res.json();
-    let allResults = json.data || [];
+    const allResults = json.data || [];
 
-    // 1. Calculate Global Stats (based on ALL data, not filtered)
+    // 1. Calculate Global Stats
     let awaiting = 0, readyToPublish = 0;
     allResults.forEach(r => {
       if (r.status === 'hod_verified') awaiting++;
@@ -11908,27 +11910,27 @@ async function loadResultsDashboard() {
     document.getElementById('res-stat-awaiting').textContent = awaiting;
     document.getElementById('res-stat-ready').textContent = readyToPublish;
 
-    // 2. Filter the data for the cards
+    // 2. Filter the data for the cards (Client-side filtering)
     let filtered = allResults;
     if (status) filtered = filtered.filter(r => r.status === status);
-    if (semester) filtered = filtered.filter(r => r.semester === semester);
-    // Add school/department filtering if needed
+    if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
 
     // 3. Group by Department for the cards
     const deptMap = {};
     filtered.forEach(r => {
-      const deptId = r.course?.departmentId; // Assuming your API returns this
+      const deptId = r.course?.departmentId;
       if (!deptId) return;
-      
+
       if (!deptMap[deptId]) {
-        deptMap[deptId] = { 
-          id: deptId, 
-          name: r.course?.departmentName || 'Department', 
-          code: r.course?.departmentCode || 'DEPT',
-          total: 0, awaiting: 0, approved: 0, published: 0 
+        deptMap[deptId] = {
+          id: deptId,
+          name: r.course.departmentName || 'Unknown Department',
+          code: r.course.departmentCode || 'DEPT',
+          schoolName: 'School of Science', // Placeholder (add school join to backend later if needed)
+          total: 0, awaiting: 0, approved: 0, published: 0
         };
       }
-      
+
       deptMap[deptId].total++;
       if (r.status === 'hod_verified') deptMap[deptId].awaiting++;
       if (r.status === 'approved') deptMap[deptId].approved++;
@@ -11936,7 +11938,6 @@ async function loadResultsDashboard() {
     });
 
     const deptArray = Object.values(deptMap);
-
     document.getElementById('res-stat-depts').textContent = deptArray.length;
 
     if (!deptArray.length) {
@@ -11944,11 +11945,45 @@ async function loadResultsDashboard() {
       return;
     }
 
-    // 4. Render the Department Cards (Keep your existing card HTML here)
-    // grid.innerHTML = deptArray.map(...)
+    // 4. Render Cards
+    grid.innerHTML = deptArray.map(d => `
+      <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'">
+        <div class="dept-card-header">
+          <span class="dept-code-badge">${escapeHtml(d.code)}</span>
+          <span class="dept-school-badge">${escapeHtml(d.schoolName)}</span>
+        </div>
+        <h3 class="dept-name">${escapeHtml(d.name)}</h3>
+        
+        <div class="dept-rate-wrap">
+          <span class="dept-rate-number" style="color:#0f172a;">${d.total}</span>
+          <span class="dept-rate-label">total rows</span>
+        </div>
+        
+        <div class="dept-stats-grid">
+          <div class="dept-stat-box">
+            <div class="dept-stat-val" style="color:#d97706;">${d.awaiting}</div>
+            <div class="dept-stat-lbl">Awaiting</div>
+          </div>
+          <div class="dept-stat-box">
+            <div class="dept-stat-val" style="color:#2563eb;">${d.approved}</div>
+            <div class="dept-stat-lbl">Approved</div>
+          </div>
+          <div class="dept-stat-box">
+            <div class="dept-stat-val" style="color:#059669;">${d.published}</div>
+            <div class="dept-stat-lbl">Published</div>
+          </div>
+        </div>
+        
+        <div class="dept-card-footer">
+          <span>Review results</span>
+          <span>→</span>
+        </div>
+      </div>
+    `).join('');
 
   } catch (err) {
     console.error('Failed to load results dashboard:', err);
+    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#dc2626;">Failed to load results data.</div>';
   }
 }
 

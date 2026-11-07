@@ -290,4 +290,52 @@ router.post('/refresh-scale', requireRole(['admin']), async (_req, res) => {
   return res.json({ success: true });
 });
 
+// POST /api/admin/results/bulk-action
+router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
+  try {
+    const { ids, courseId, action } = req.body || {};
+
+    if (!action) {
+      return res.status(400).json({ success: false, error: 'Action is required.' });
+    }
+
+    const { db, schema } = require('../db');
+    const { eq, inArray, and } = require('drizzle-orm');
+
+    let updatedRows;
+
+    // Determine which rows to update
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      // Update specific IDs selected by checkbox
+      updatedRows = await db
+        .update(schema.results)
+        .set({ status: action, updatedAt: new Date() })
+        .where(inArray(schema.results.id, ids))
+        .returning();
+    } else if (courseId) {
+      // Update ALL results for a specific course (Approve All button)
+      updatedRows = await db
+        .update(schema.results)
+        .set({ status: action, updatedAt: new Date() })
+        .where(eq(schema.results.courseId, Number(courseId)))
+        .returning();
+    } else {
+      return res.status(400).json({ success: false, error: 'ids[] or courseId is required.' });
+    }
+
+    // Log the action to audit trail
+    await logAudit({ 
+      req, 
+      action: `result.bulk_${action}`, 
+      entity: 'result', 
+      after: { count: updatedRows.length, action } 
+    });
+
+    return res.json({ success: true, data: updatedRows, count: updatedRows.length });
+  } catch (err) {
+    console.error('Bulk action error:', err);
+    return next(err);
+  }
+});
+
 module.exports = router;

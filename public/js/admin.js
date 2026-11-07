@@ -2611,91 +2611,98 @@ async function loadTranscriptView() {
   const hash = window.location.hash.replace(/^#/, '');
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
-  const studentId = params.get('id');
+  const studentId = params.get('id') || params.get('studentId');
 
   if (!studentId) {
-    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No student selected.</div>';
+    root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No student selected. Please go back.</div>';
     return;
   }
 
   try {
-    // Fetch student & results
     const res = await adminFetch(`/api/admin/transcripts/${studentId}`);
     const json = await res.json();
-    
     if (!json.success) throw new Error(json.error || 'Transcript not found');
     
     const { student, results } = json.data;
-    document.getElementById('tx-title').textContent = `${student.firstName} ${student.lastName} — Transcript`;
-
-    // Render Transcript HTML
+    
+    // Update header
+    const titleEl = document.getElementById('tx-title');
+    const subtitleEl = document.getElementById('tx-subtitle');
+    if (titleEl) titleEl.textContent = `${student.firstName} ${student.lastName}`;
+    if (subtitleEl) subtitleEl.textContent = `${student.matricNumber || ''} · ${student.programmeName || ''}`;
+    
+    // Render transcript
     root.innerHTML = `
-      <div class="tx-document">
+      <div class="tx-document" style="max-width:900px; margin:0 auto; background:#fff; padding:40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
         <div class="tx-letterhead">
-          <img src="/images/logo.png" alt="Logo" class="tx-letterhead-logo">
-          <div class="tx-letterhead-text">
-            <h1 class="institution">Federal Polytechnic Ugep</h1>
-            <p class="doc-type">Student Academic Transcript</p>
+          <img src="/images/logo.png" style="height:80px; margin-bottom:10px;" onerror="this.style.display='none'">
+          <h1 style="font-size:24px; margin:0; text-transform:uppercase;">Federal Polytechnic Ugep</h1>
+          <p class="doc-type" style="font-size:14px; margin:5px 0;">Official Academic Transcript</p>
+        </div>
+
+        <div class="tx-bio" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+          <div>
+            <div class="row"><span class="k" style="font-weight:600;">Name:</span> <span class="v">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</span></div>
+            <div class="row"><span class="k" style="font-weight:600;">Matric:</span> <span class="v">${escapeHtml(student.matricNumber || '—')}</span></div>
+            <div class="row"><span class="k" style="font-weight:600;">Level:</span> <span class="v">${escapeHtml(student.level || '—')}</span></div>
+          </div>
+          <div>
+            <div class="row"><span class="k" style="font-weight:600;">Programme:</span> <span class="v">${escapeHtml(student.programmeName || '—')}</span></div>
+            <div class="row"><span class="k" style="font-weight:600;">Department:</span> <span class="v">${escapeHtml(student.departmentName || '—')}</span></div>
+            <div class="row"><span class="k" style="font-weight:600;">Status:</span> <span class="v">${student.isActive ? 'Active' : 'Inactive'}</span></div>
           </div>
         </div>
 
-        <div class="tx-header">
-          <div class="tx-student-info">
-            <h2>${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</h2>
-            <div class="meta">
-              <strong>Matric:</strong> ${escapeHtml(student.matricNumber || 'N/A')}<br>
-              <strong>Programme:</strong> ${escapeHtml(student.programmeName || 'N/A')}<br>
-              <strong>Level:</strong> ${escapeHtml(student.level || 'N/A')}
-            </div>
+        <div class="tx-sheet">
+          <div class="tx-sheet-head">
+            <span class="title">Course Results</span>
           </div>
-          <div class="tx-cgpa-block">
-            <div class="label">Status</div>
-            <div class="value" style="font-size: 1.5rem; margin-top: 10px;">${student.isActive ? 'Active' : 'Inactive'}</div>
-          </div>
-        </div>
-
-        <div class="tx-semester">
-          <div class="tx-semester-head">
-            <span>Course Results</span>
-          </div>
-          <table class="tx-table">
-            <thead>
+          <table class="tx-table" style="width:100%; border-collapse:collapse;">
+            <thead style="background:#f8fafc;">
               <tr>
-                <th>Code</th>
-                <th>Title</th>
-                <th class="center">Unit</th>
-                <th class="center">Score</th>
-                <th class="center">Grade</th>
+                <th style="padding:10px; text-align:left; border:1px solid #e2e8f0;">Code</th>
+                <th style="padding:10px; text-align:left; border:1px solid #e2e8f0;">Course Title</th>
+                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Units</th>
+                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Score</th>
+                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Grade</th>
               </tr>
             </thead>
             <tbody>
-              ${results.length === 0 ? '<tr><td colspan="5" class="center">No results found.</td></tr>' : ''}
-              ${results.map(r => `
-                <tr>
-                  <td style="font-weight: 700;">${escapeHtml(r.course?.code || 'N/A')}</td>
-                  <td>${escapeHtml(r.course?.title || 'N/A')}</td>
-                  <td class="center">${r.course?.unit || '-'}</td>
-                  <td class="num">${r.score || '-'}</td>
-                  <td class="center"><span class="tx-grade ${r.grade}">${escapeHtml(r.grade || '-')}</span></td>
-                </tr>
-              `).join('')}
+              ${results.length === 0 
+                ? '<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">No results found.</td></tr>' 
+                : results.map(r => `
+                  <tr>
+                    <td style="padding:10px; border:1px solid #e2e8f0; font-weight:700;">${escapeHtml(r.course?.code || '—')}</td>
+                    <td style="padding:10px; border:1px solid #e2e8f0;">${escapeHtml(r.course?.title || '—')}</td>
+                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0;">${r.course?.unit || 0}</td>
+                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0;">${r.score || '-'}</td>
+                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0; font-weight:700;">${escapeHtml(r.grade || '-')}</td>
+                  </tr>
+                `).join('')}
             </tbody>
           </table>
         </div>
 
-        <div style="margin-top: 50px; display: flex; justify-content: space-between;">
-          <div><div style="border-top: 1px solid #000; width: 200px; margin-top: 40px; text-align: center; padding-top: 5px; font-size: 12px;">Registrar Signature</div></div>
-          <div><div style="border-top: 1px solid #000; width: 200px; margin-top: 40px; text-align: center; padding-top: 5px; font-size: 12px;">Date</div></div>
+        <div class="tx-signature-block">
+          <div>
+            <div class="tx-sig-line"></div>
+            <div class="tx-sig-caption">Registrar Signature</div>
+          </div>
+          <div>
+            <div class="tx-sig-line"></div>
+            <div class="tx-sig-caption">Date</div>
+          </div>
         </div>
       </div>
     `;
 
-    // Wire up print button
-    document.getElementById('tx-print').onclick = () => window.print();
-
+    // Wire print & export
+    const printBtn = document.getElementById('tx-print');
+    if (printBtn) printBtn.onclick = () => window.print();
+    
   } catch (err) {
     console.error('Transcript Error:', err);
-    root.innerHTML = `<div style="text-align:center; padding: 40px; color: #dc2626;">Error: ${escapeHtml(err.message)}</div>`;
+    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 

@@ -18,8 +18,8 @@
 <!-- Search bar -->
 <div class="panel">
   <div class="panel-body">
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <input class="form-control" id="tx-search" style="flex: 1; min-width: 220px; padding: 12px 16px; font-size: 15px;"
+    <div class="tx-search">
+      <input class="form-control" id="tx-search"
              placeholder="Search by matric, name, or email…"
              onkeydown="if(event.key==='Enter')FPU_ADMIN.loadTranscriptLookup()"
              autofocus />
@@ -59,6 +59,20 @@
     </div>
   </div>
 </div>
+
+<style>
+  .tx-search {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tx-search input {
+    flex: 1;
+    min-width: 220px;
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+</style>
 
 <script>
   if (window.FPU_ADMIN && window.FPU_ADMIN.loadTranscriptLookup) {

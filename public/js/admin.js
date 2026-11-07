@@ -11810,19 +11810,53 @@ async function openTranscriptModal(studentId) {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'transcript-modal-backdrop';
-  backdrop.style.zIndex = '99999'; // Ensure it's on top
+  
+  // FORCE the backdrop to be a full-screen overlay
+  backdrop.style.cssText = `
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
   
   backdrop.innerHTML = `
-    <div class="fpu-modal" style="max-width: 1000px; width: 95%; background: #f8fafc; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-      <div class="fpu-modal-header" style="background: #fff; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+    <div class="fpu-modal" style="
+      width: 100%; 
+      max-width: 1000px; 
+      max-height: 90vh; 
+      background: #f8fafc; 
+      border-radius: 12px; 
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); 
+      display: flex; 
+      flex-direction: column; 
+      overflow: hidden;
+    ">
+      <div class="fpu-modal-header" style="
+        background: #fff; 
+        padding: 16px 20px; 
+        border-bottom: 1px solid #e2e8f0; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        flex-shrink: 0;
+      ">
         <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Student Transcript</h3>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-sm btn-outline" onclick="window.print()">🖨 Print</button>
-          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.2rem;">×</button>
+          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
         </div>
       </div>
       
-      <div class="fpu-modal-body" id="tx-modal-body" style="padding: 20px; overflow-y: auto; max-height: 80vh;">
+      <div class="fpu-modal-body" id="tx-modal-body" style="
+        padding: 20px; 
+        overflow-y: auto; 
+        flex-grow: 1;
+        background: #e2e8f0;
+      ">
         <div class="loading" style="padding:60px;text-align:center;">
           <span class="spinner"></span> Loading transcript…
         </div>

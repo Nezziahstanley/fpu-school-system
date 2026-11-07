@@ -11688,6 +11688,200 @@ async function bulkResultAction(action) {
   }
 }
 
+// ============================================
+// RESULTS: Department View Loader
+// ============================================
+async function loadDepartmentResults() {
+  const root = document.getElementById('rd-root');
+  if (!root) return;
+
+  // 1. Get Department ID from URL (#results-by-dept?departmentId=5&name=Computer+Science)
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('departmentId');
+  const deptName = params.get('name') || 'Department';
+
+  if (!deptId) {
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No department selected. Please go back.</div>';
+    return;
+  }
+
+  // Update Header
+  const titleEl = document.getElementById('res-dept-title');
+  const subEl = document.getElementById('res-dept-subtitle');
+  if (titleEl) titleEl.textContent = `${deptName} Results`;
+  if (subEl) subEl.textContent = `Review and publish student results`;
+
+  // 2. Get Filters
+  const status = document.getElementById('rd-filter-status')?.value || '';
+  const semester = document.getElementById('rd-filter-semester')?.value || '';
+  const search = document.getElementById('rd-filter-search')?.value || '';
+
+  root.innerHTML = '<div class="loading" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading results...</div>';
+
+  try {
+    // Build API URL
+    let url = `/api/admin/results?departmentId=${deptId}`;
+    if (status) url += `&status=${status}`;
+    if (semester && semester !== 'all') url += `&semester=${semester}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const results = json.data || [];
+
+    // 3. Update Stats
+    document.getElementById('rd-stat-total').textContent = results.length;
+    let pending = 0, approved = 0, published = 0;
+    results.forEach(r => {
+      if (r.status === 'hod_verified' || r.status === 'pending') pending++;
+      else if (r.status === 'approved') approved++;
+      else if (r.status === 'published') published++;
+    });
+    document.getElementById('rd-stat-pending').textContent = pending;
+    document.getElementById('rd-stat-approved').textContent = approved;
+    document.getElementById('rd-stat-published').textContent = published;
+
+    // 4. Render Table Grouped by Course
+    if (!results.length) {
+      root.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No results found matching your filters.</div>';
+      return;
+    }
+
+    // Group by course
+    const grouped = {};
+    results.forEach(r => {
+      const cid = r.courseId || r.course?.id || 'unknown';
+      if (!grouped[cid]) {
+        grouped[cid] = {
+          course: r.course || { code: 'N/A', title: 'Unknown Course', unit: 0 },
+          results: []
+        };
+      }
+      grouped[cid].results.push(r);
+    });
+
+    let html = '';
+    
+    Object.values(grouped).forEach(group => {
+      const course = group.course;
+      const courseResults = group.results;
+      
+      // Calculate course stats
+      const pendingCount = courseResults.filter(r => r.status === 'hod_verified' || r.status === 'pending').length;
+      
+      html += `
+        <div class="res-course-group">
+          <div class="res-course-head">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="code">${escapeHtml(course.code)}</span>
+              <span class="title">${escapeHtml(course.title)}</span>
+              <span class="meta"><strong>${course.unit || 0}</strong> Units</span>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-sm btn-approve" onclick="FPU_ADMIN.courseBulkAction('${course.id}', 'approved')">Approve All</button>
+              <button class="btn btn-sm btn-publish" onclick="FPU_ADMIN.courseBulkAction('${course.id}', 'published')">Publish All</button>
+            </div>
+          </div>
+          <table class="table-admin">
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="FPU_ADMIN.toggleCourseResults(this, '${course.id}')" /></th>
+                <th>Student</th>
+                <th>Matric No</th>
+                <th>Score</th>
+                <th>Grade</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${courseResults.map(r => {
+                const student = r.student || {};
+                let rowClass = '';
+                if (r.status === 'published') rowClass = 'row-published';
+                if (r.status === 'admin_rejected') rowClass = 'row-rejected';
+
+                return `
+                  <tr class="${rowClass}">
+                    <td><input type="checkbox" class="rd-checkbox course-${course.id}" value="${r.id}" onchange="FPU_ADMIN.updateBulkBtnState()" /></td>
+                    <td style="font-weight:600;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+                    <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+                    <td><span class="res-score">${r.score || '-'}</span></td>
+                    <td style="font-weight:700;">${escapeHtml(r.grade || '-')}</td>
+                    <td>
+                      <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:${r.status === 'published' ? '#059669' : r.status === 'approved' ? '#2563eb' : '#d97706'};">
+                        ${escapeHtml(r.status.replace(/_/g, ' '))}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    });
+
+    root.innerHTML = html;
+
+  } catch (err) {
+    console.error('Failed to load department results:', err);
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results.</div>';
+  }
+}
+
+// ============================================
+// RESULTS: Bulk Actions
+// ============================================
+function toggleAllResults(checked) {
+  document.querySelectorAll('.rd-checkbox').forEach(cb => cb.checked = checked);
+  updateBulkBtnState();
+}
+
+function toggleCourseResults(checkbox, courseId) {
+  document.querySelectorAll(`.course-${courseId}`).forEach(cb => cb.checked = checkbox.checked);
+  updateBulkBtnState();
+}
+
+function updateBulkBtnState() {
+  const checked = document.querySelectorAll('.rd-checkbox:checked').length;
+  // You can add UI logic here to enable/disable bulk buttons if needed
+}
+
+async function bulkResultAction(action) {
+  const selectedIds = Array.from(document.querySelectorAll('.rd-checkbox:checked')).map(cb => cb.value);
+  if (!selectedIds.length) return showToast('Select at least one result.', 'warning');
+  
+  if (!confirm(`Are you sure you want to ${action.replace('_', ' ')} ${selectedIds.length} result(s)?`)) return;
+
+  try {
+    await adminFetch('/api/admin/results/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({ ids: selectedIds, action })
+    });
+    showToast(`✅ Results updated successfully.`, 'success');
+    loadDepartmentResults(); // Refresh
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
+async function courseBulkAction(courseId, action) {
+  if (!confirm(`Apply "${action}" to all results for this course?`)) return;
+  
+  try {
+    await adminFetch('/api/admin/results/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({ courseId, action })
+    });
+    showToast(`✅ Course results updated.`, 'success');
+    loadDepartmentResults();
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -11731,7 +11925,7 @@ window.FPU_ADMIN = {
   loadRegistrationStudents,
 
   // Results
-  loadResultDepartments, loadDeptResults, toggleAllResults, updateBulkBtnState, bulkResultAction,
+  loadResultDepartments, loadDepartmentResults, loadDeptResults, courseBulkAction, toggleAllResults, toggleCourseResults, updateBulkBtnState, bulkResultAction,
 
   // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale, toggleAddBandForm,  submitAddBand,

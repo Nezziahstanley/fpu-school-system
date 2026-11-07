@@ -11681,7 +11681,7 @@ async function loadResultsDashboard() {
 }
 
 // ============================================
-// RESULTS — Department View
+// RESULTS: Department View Loader
 // ============================================
 async function loadDepartmentResults() {
   const root = document.getElementById('rd-root');
@@ -11694,7 +11694,7 @@ async function loadDepartmentResults() {
   const deptName = params.get('name') || 'Department';
 
   if (!deptId) {
-    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">No department selected.</div>';
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No department selected. Please go back.</div>';
     return;
   }
 
@@ -11703,49 +11703,79 @@ async function loadDepartmentResults() {
   if (titleEl) titleEl.textContent = `${deptName} Results`;
   if (subEl) subEl.textContent = `Review and publish student results`;
 
-  const status = document.getElementById('rd-filter-status')?.value || 'hod_verified';
-  const semester = document.getElementById('rd-filter-semester')?.value || '';
-  const search = document.getElementById('rd-filter-search')?.value || '';
+  // Get current filter values
+  const statusFilter = document.getElementById('rd-filter-status')?.value || '';
+  const semesterFilter = document.getElementById('rd-filter-semester')?.value || '';
+  const searchFilter = document.getElementById('rd-filter-search')?.value || '';
 
-  root.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading results...</div>';
+  root.innerHTML = '<div class="loading" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading results...</div>';
 
   try {
-    let url = `/api/admin/results?departmentId=${deptId}&limit=2000`;
-    if (status) url += `&status=${status}`;
-    if (semester && semester !== 'all') url += `&semester=${semester}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
+    // 1. Fetch ALL results for this department (no status filter)
+    // This ensures stats are calculated accurately based on the full dataset
+    let statsUrl = `/api/admin/results?departmentId=${deptId}&limit=5000`;
+    if (semesterFilter && semesterFilter !== 'all') statsUrl += `&semester=${semesterFilter}`;
 
-    const res = await adminFetch(url);
-    const json = await res.json();
-    const results = json.data || [];
+    const statsRes = await adminFetch(statsUrl);
+    const statsJson = await statsRes.json();
+    const allResults = statsJson.data || [];
 
-    if (document.getElementById('rd-stat-total')) document.getElementById('rd-stat-total').textContent = results.length;
-    let pending = 0, approved = 0, published = 0;
-    results.forEach(r => {
-      if (r.status === 'hod_verified') pending++;
+    // 2. Calculate true stats from the full list
+    let total = allResults.length;
+    let pending = 0, approved = 0, published = 0, rejected = 0;
+
+    allResults.forEach(r => {
+      if (r.status === 'hod_verified' || r.status === 'pending') pending++;
       else if (r.status === 'approved') approved++;
       else if (r.status === 'published') published++;
+      else if (r.status === 'admin_rejected' || r.status === 'hod_rejected') rejected++;
     });
+
+    // Update Stat Boxes
+    if (document.getElementById('rd-stat-total')) document.getElementById('rd-stat-total').textContent = total;
     if (document.getElementById('rd-stat-pending')) document.getElementById('rd-stat-pending').textContent = pending;
     if (document.getElementById('rd-stat-approved')) document.getElementById('rd-stat-approved').textContent = approved;
     if (document.getElementById('rd-stat-published')) document.getElementById('rd-stat-published').textContent = published;
 
-    if (!results.length) {
-      root.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;">No results found.</div>';
+    // 3. Now filter the results for the TABLE display based on the user's selection
+    let tableResults = allResults;
+
+    // Apply Status Filter
+    if (statusFilter) {
+      tableResults = tableResults.filter(r => r.status === statusFilter);
+    }
+
+    // Apply Search Filter
+    if (searchFilter) {
+      const q = searchFilter.toLowerCase();
+      tableResults = tableResults.filter(r => {
+        const studentName = `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.toLowerCase();
+        const matric = String(r.student?.matricNumber || '').toLowerCase();
+        const courseCode = String(r.course?.code || '').toLowerCase();
+        return studentName.includes(q) || matric.includes(q) || courseCode.includes(q);
+      });
+    }
+
+    if (!tableResults.length) {
+      root.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No results match your current filters.</div>';
       return;
     }
 
-    // Group by course
+    // 4. Group by course for the table
     const grouped = {};
-    results.forEach(r => {
+    tableResults.forEach(r => {
       const cid = r.courseId || r.course?.id || 'unknown';
       if (!grouped[cid]) {
-        grouped[cid] = { course: r.course || { code: 'N/A', title: 'Unknown', unit: 0 }, results: [] };
+        grouped[cid] = {
+          course: r.course || { code: 'N/A', title: 'Unknown Course', unit: 0 },
+          results: []
+        };
       }
       grouped[cid].results.push(r);
     });
 
     let html = '';
+    
     Object.values(grouped).forEach(group => {
       const course = group.course;
       const courseResults = group.results;
@@ -11780,6 +11810,7 @@ async function loadDepartmentResults() {
                 let rowClass = '';
                 if (r.status === 'published') rowClass = 'row-published';
                 if (r.status === 'admin_rejected') rowClass = 'row-rejected';
+
                 return `
                   <tr class="${rowClass}">
                     <td><input type="checkbox" class="rd-checkbox course-${course.id}" value="${r.id}" onchange="FPU_ADMIN.updateBulkBtnState()" /></td>
@@ -11788,7 +11819,7 @@ async function loadDepartmentResults() {
                     <td><span class="res-score">${r.score || '-'}</span></td>
                     <td style="font-weight:700;">${escapeHtml(r.grade || '-')}</td>
                     <td>
-                      <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:${r.status === 'published' ? '#059669' : r.status === 'approved' ? '#2563eb' : '#d97706'};">
+                      <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:${r.status === 'published' ? '#059669' : r.status === 'approved' ? '#2563eb' : '#d97706'};">
                         ${escapeHtml(r.status.replace(/_/g, ' '))}
                       </span>
                     </td>
@@ -11805,7 +11836,7 @@ async function loadDepartmentResults() {
 
   } catch (err) {
     console.error('Failed to load department results:', err);
-    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;">Failed: ${escapeHtml(err.message)}</div>`;
+    root.innerHTML = `<div style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results: ${escapeHtml(err.message)}</div>`;
   }
 }
 

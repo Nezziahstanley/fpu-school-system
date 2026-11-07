@@ -11665,41 +11665,45 @@ function updateBulkBtnState() {
 }
 
 async function bulkResultAction(action) {
-  // 1. Get selected IDs
-  const selectedIds = Array.from(document.querySelectorAll('.rd-checkbox:checked')).map(cb => cb.value);
-  
-  if (!selectedIds.length) {
-    return showToast('Please select at least one result.', 'warning');
+  console.log('🔵 bulkResultAction called with:', action);
+
+  const checkboxes = document.querySelectorAll('.rd-checkbox:checked');
+  console.log('🔵 Checked boxes:', checkboxes.length);
+
+  if (checkboxes.length === 0) {
+    showToast('Please select at least one result.', 'warning');
+    return;
   }
-  
-  // 2. Confirm with user
+
+  const selectedIds = Array.from(checkboxes).map(cb => cb.value);
   const actionText = action.replace(/_/g, ' ');
+
   if (!confirm(`Are you sure you want to ${actionText} ${selectedIds.length} result(s)?`)) {
+    console.log('🔵 User cancelled.');
     return;
   }
 
   try {
-    // 3. Send request to backend
+    console.log('🔵 Sending POST /api/admin/results/bulk-action ...');
     const res = await adminFetch('/api/admin/results/bulk-action', {
       method: 'POST',
       body: JSON.stringify({ ids: selectedIds, action })
     });
-    
+
+    console.log('🔵 Response status:', res.status);
     const json = await res.json();
-    
+    console.log('🔵 Response body:', json);
+
     if (!json.success) {
       throw new Error(json.error || 'Failed to update results');
     }
 
-    // 4. Show success message
-    showToast(`✅ Successfully ${actionText}d ${selectedIds.length} result(s).`, 'success');
-    
-    // 5. Refresh the table
+    showToast(`✅ ${actionText}d ${selectedIds.length} result(s).`, 'success');
     loadDepartmentResults();
 
   } catch (err) {
-    console.error('Bulk action error:', err);
-    showToast(`❌ Error: ${err.message}`, 'error');
+    console.error('🔴 Bulk action error:', err);
+    showToast(`❌ ${err.message}`, 'error');
   }
 }
 

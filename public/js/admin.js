@@ -2602,7 +2602,7 @@ async function loadTranscriptLookup() {
 }
 
 // ============================================
-// TRANSCRIPT: View
+// TRANSCRIPT: View (FIXED - accepts id AND studentId)
 // ============================================
 async function loadTranscriptView() {
   const root = document.getElementById('tx-root');
@@ -2611,122 +2611,217 @@ async function loadTranscriptView() {
   const hash = window.location.hash.replace(/^#/, '');
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  // Accept EITHER ?id= or ?studentId= (covers both routes)
   const studentId = params.get('id') || params.get('studentId');
 
   if (!studentId) {
-    root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No student selected. Please go back.</div>';
+    root.innerHTML = `
+      <div class="alert alert-warning" style="margin:20px;">
+        No student selected.
+        <button class="btn btn-sm btn-outline" onclick="window.location.hash='#transcript'">← Back to lookup</button>
+      </div>`;
     return;
   }
 
+  root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading transcript…</div>';
+
   try {
-    const res = await adminFetch(`/api/admin/transcripts/${studentId}`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Transcript not found');
-    
-    const { student, results } = json.data;
-    
-    // Update header
+    // Fetch student + results in parallel
+    const [studentRes, resultsRes, coursesRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+      adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
+      adminFetch('/api/admin/courses?limit=5000').catch(() => null),
+    ]);
+
+    let student = null;
+    try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+    let results = [];
+    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
+    let courseMap = new Map();
+    try { if (coursesRes && coursesRes.ok) { const j = await coursesRes.json(); (j.data || []).forEach(c => courseMap.set(c.id, c)); } } catch {}
+
+    if (!student || !student.id) {
+      root.innerHTML = `
+        <div class="alert alert-danger" style="margin:20px;">
+          <strong>Student not found.</strong> (ID: ${escapeHtml(studentId)})
+          <br/><br/>
+          <button class="btn btn-sm btn-outline" onclick="window.location.hash='#transcript'">← Back to lookup</button>
+        </div>`;
+      return;
+    }
+
+    // Update page header
     const titleEl = document.getElementById('tx-title');
     const subtitleEl = document.getElementById('tx-subtitle');
-    if (titleEl) titleEl.textContent = `${student.firstName} ${student.lastName}`;
-    if (subtitleEl) subtitleEl.textContent = `${student.matricNumber || ''} · ${student.programmeName || ''}`;
-    
-    // Render transcript
-    root.innerHTML = `
-      <div class="tx-document" style="max-width:900px; margin:0 auto; background:#fff; padding:40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-        <div class="tx-letterhead">
-          <img src="/images/logo.png" style="height:80px; margin-bottom:10px;" onerror="this.style.display='none'">
-          <h1 style="font-size:24px; margin:0; text-transform:uppercase;">Federal Polytechnic Ugep</h1>
-          <p class="doc-type" style="font-size:14px; margin:5px 0;">Official Academic Transcript</p>
-        </div>
+    if (titleEl) titleEl.textContent = `${student.firstName || ''} ${student.lastName || ''} — Transcript`;
+    if (subtitleEl) subtitleEl.textContent = `${student.matricNumber || ''} · ${student.programmeName || student.programme?.name || ''}`;
 
-        <div class="tx-bio" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
-          <div>
-            <div class="row"><span class="k" style="font-weight:600;">Name:</span> <span class="v">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</span></div>
-            <div class="row"><span class="k" style="font-weight:600;">Matric:</span> <span class="v">${escapeHtml(student.matricNumber || '—')}</span></div>
-            <div class="row"><span class="k" style="font-weight:600;">Level:</span> <span class="v">${escapeHtml(student.level || '—')}</span></div>
-          </div>
-          <div>
-            <div class="row"><span class="k" style="font-weight:600;">Programme:</span> <span class="v">${escapeHtml(student.programmeName || '—')}</span></div>
-            <div class="row"><span class="k" style="font-weight:600;">Department:</span> <span class="v">${escapeHtml(student.departmentName || '—')}</span></div>
-            <div class="row"><span class="k" style="font-weight:600;">Status:</span> <span class="v">${student.isActive ? 'Active' : 'Inactive'}</span></div>
-          </div>
-        </div>
+    // Group results by session/semester
+    const groups = new Map();
+    results.forEach(r => {
+      const row = r.result || r;
+      const key = `${row.sessionId || '?'}|${row.semester || '?'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    });
 
-        <div class="tx-sheet">
-          <div class="tx-sheet-head">
-            <span class="title">Course Results</span>
+    // Compute summary
+    let totalUnits = 0, totalPoints = 0, courseCount = 0;
+    results.forEach(r => {
+      const row = r.result || r;
+      const course = courseMap.get(row.courseId) || r.course || {};
+      const units = Number(course.unit) || Number(row.unit) || 0;
+      const points = Number(row.points) || 0;
+      if (row.status === 'published' || row.status === 'approved') {
+        totalUnits += units;
+        totalPoints += units * points;
+        courseCount++;
+      }
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
+    const classification =
+      cgpa === '—' ? '—' :
+      Number(cgpa) >= 3.50 ? 'Distinction' :
+      Number(cgpa) >= 3.00 ? 'Upper Credit' :
+      Number(cgpa) >= 2.50 ? 'Lower Credit' :
+      Number(cgpa) >= 2.00 ? 'Pass' : 'Fail';
+
+    // Render groups
+    const groupsHtml = [...groups.entries()].map(([key, list]) => {
+      const [sessionId, semester] = key.split('|');
+      const sectionUnits = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        return s + (Number(course.unit) || Number(row.unit) || 0);
+      }, 0);
+      const sectionPoints = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        const units = Number(course.unit) || Number(row.unit) || 0;
+        return s + (units * (Number(row.points) || 0));
+      }, 0);
+      const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
+
+      const rowsHtml = list
+        .sort((a, b) => {
+          const ca = courseMap.get((a.result || a).courseId) || {};
+          const cb = courseMap.get((b.result || b).courseId) || {};
+          return String(ca.code || '').localeCompare(String(cb.code || ''));
+        })
+        .map(r => {
+          const row = r.result || r;
+          const course = courseMap.get(row.courseId) || r.course || {};
+          const grade = row.grade || '—';
+          return `
+            <tr>
+              <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
+              <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
+              <td class="num center">${Number(course.unit) || Number(row.unit) || 0}</td>
+              <td class="num">${row.score != null ? row.score : '—'}</td>
+              <td class="center"><span class="tx-grade ${grade}">${escapeHtml(grade)}</span></td>
+              <td class="num">${row.points != null ? row.points : '—'}</td>
+            </tr>`;
+        }).join('');
+
+      return `
+        <div class="tx-semester">
+          <div class="tx-semester-head">
+            <span>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</span>
+            <span class="gpa">GPA ${gpa} · ${sectionUnits} units</span>
           </div>
-          <table class="tx-table" style="width:100%; border-collapse:collapse;">
-            <thead style="background:#f8fafc;">
+          <table class="tx-table">
+            <thead>
               <tr>
-                <th style="padding:10px; text-align:left; border:1px solid #e2e8f0;">Code</th>
-                <th style="padding:10px; text-align:left; border:1px solid #e2e8f0;">Course Title</th>
-                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Units</th>
-                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Score</th>
-                <th style="padding:10px; text-align:center; border:1px solid #e2e8f0;">Grade</th>
+                <th style="width:100px;">Code</th>
+                <th>Course Title</th>
+                <th style="width:60px;text-align:center;">Units</th>
+                <th style="width:70px;text-align:right;">Score</th>
+                <th style="width:70px;text-align:center;">Grade</th>
+                <th style="width:70px;text-align:right;">Points</th>
               </tr>
             </thead>
-            <tbody>
-              ${results.length === 0 
-                ? '<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">No results found.</td></tr>' 
-                : results.map(r => `
-                  <tr>
-                    <td style="padding:10px; border:1px solid #e2e8f0; font-weight:700;">${escapeHtml(r.course?.code || '—')}</td>
-                    <td style="padding:10px; border:1px solid #e2e8f0;">${escapeHtml(r.course?.title || '—')}</td>
-                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0;">${r.course?.unit || 0}</td>
-                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0;">${r.score || '-'}</td>
-                    <td style="padding:10px; text-align:center; border:1px solid #e2e8f0; font-weight:700;">${escapeHtml(r.grade || '-')}</td>
-                  </tr>
-                `).join('')}
-            </tbody>
+            <tbody>${rowsHtml}</tbody>
           </table>
+        </div>`;
+    }).join('');
+
+    // Render full transcript
+    root.innerHTML = `
+      <div class="tx-document">
+        <div class="tx-watermark">FPU</div>
+
+        <div class="tx-letterhead">
+          <img class="tx-letterhead-logo" src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
+          <div class="tx-letterhead-text">
+            <div class="institution">Federal Polytechnic Ugep</div>
+            <div class="motto">Citadel of Technical Excellence</div>
+            <div class="doc-type">Official Student Transcript</div>
+          </div>
+          <div style="width:80px;"></div>
         </div>
 
-        <div class="tx-signature-block">
-          <div>
-            <div class="tx-sig-line"></div>
-            <div class="tx-sig-caption">Registrar Signature</div>
+        <div class="tx-header">
+          <div class="tx-student-info">
+            <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
+            <div class="meta">
+              <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
+              ${escapeHtml(student.level || '—')} ·
+              ${escapeHtml(student.programmeName || student.programme?.name || '—')}
+            </div>
+            <div class="meta">
+              ${escapeHtml(student.email || '')}
+              ${student.departmentName ? ' · ' + escapeHtml(student.departmentName) : ''}
+            </div>
           </div>
-          <div>
-            <div class="tx-sig-line"></div>
-            <div class="tx-sig-caption">Date</div>
+          <div class="tx-cgpa-block">
+            <div class="label">CGPA</div>
+            <div class="value">${cgpa}</div>
+            <div class="class">${escapeHtml(classification)}</div>
           </div>
+        </div>
+
+        <div class="tx-summary">
+          <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
+          <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
+          <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
+          <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
+        </div>
+
+        ${groups.size > 0 ? groupsHtml : `
+          <div class="alert alert-warning" style="margin:0;">
+            No published results found for this student.
+          </div>
+        `}
+
+        <div class="tx-signatures">
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Registrar</div></div>
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Date</div></div>
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Rector</div></div>
         </div>
       </div>
     `;
 
-    // Wire print & export
+    // Wire print + export
     const printBtn = document.getElementById('tx-print');
     if (printBtn) printBtn.onclick = () => window.print();
-    
+
+    const exportBtn = document.getElementById('tx-export');
+    if (exportBtn) {
+      exportBtn.onclick = () => {
+        const table = root.querySelector('.tx-table');
+        if (table) exportTableAsCSV(table, `transcript-${student.matricNumber || student.id}.csv`);
+        else showToast('⚠️ No data to export.', 'warning');
+      };
+    }
+
   } catch (err) {
     console.error('Transcript Error:', err);
-    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
-  }
-}
-
-// Wire up the buttons (Run this inside your app initialization)
-function initTranscriptEvents() {
-  const searchBtn = document.getElementById('transcript-search-btn');
-  const searchInput = document.getElementById('transcript-search-input');
-  const refreshBtn = document.getElementById('transcript-refresh');
-
-  if (searchBtn) {
-    searchBtn.addEventListener('click', () => loadTranscriptLookup());
-  }
-  
-  if (searchInput) {
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') loadTranscriptLookup();
-    });
-  }
-
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      if (searchInput) searchInput.value = ''; // Clear search on refresh
-      loadTranscriptLookup();
-    });
+    root.innerHTML = `
+      <div class="alert alert-danger" style="margin:20px;">
+        <strong>Failed to load transcript:</strong> ${escapeHtml(err.message)}
+        <br/><br/>
+        <button class="btn btn-sm btn-outline" onclick="window.location.hash='#transcript'">← Back to lookup</button>
+      </div>`;
   }
 }
 
@@ -10130,285 +10225,6 @@ async function markGraduated(id) {
     loadGraduationsTable();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
-  }
-}
-
-// ============================================
-// TRANSCRIPT — Student transcript view
-// ============================================
-async function loadStudentTranscript() {
-  const root = document.getElementById('tx-root') ||
-                document.querySelector('#page-view .panel-body') ||
-                document.querySelector('#page-view');
-  if (!root) return;
-
-  // Get studentId from URL hash
-  const hash = window.location.hash.replace(/^#/, '');
-  const qIdx = hash.indexOf('?');
-  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
-  const studentId = params.get('studentId');
-
-  // Update subtitle if present
-  const subtitleEl = document.getElementById('page-subtitle') || 
-                     document.getElementById('tx-subtitle') ||
-                     document.querySelector('.page-head .muted');
-
-  if (!studentId) {
-    if (root) root.innerHTML = '<div class="alert alert-warning" style="margin:20px;">No student selected. <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo(\'transcript\')">← Back to lookup</button></div>';
-    return;
-  }
-
-  root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading transcript…</div>';
-
-  try {
-    // Fetch student + results in parallel
-    const [studentRes, resultsRes] = await Promise.all([
-      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
-      adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
-    ]);
-
-    let student = null;
-    try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
-
-    let results = [];
-    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
-
-    // If student not found, show error
-    if (!student || !student.id) {
-      root.innerHTML = `
-        <div class="alert alert-danger" style="margin:20px;">
-          <strong>Student not found.</strong> The student with ID ${escapeHtml(studentId)} may have been deleted or the API returned an error.
-          <br/><br/>
-          <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">← Back to lookup</button>
-        </div>
-      `;
-      return;
-    }
-
-    // Update subtitle
-    if (subtitleEl) {
-      subtitleEl.textContent = `${student.matricNumber || ''} · ${student.firstName || ''} ${student.lastName || ''}`;
-    }
-
-    // Also update page H2 if it exists and is generic
-    const h2 = document.querySelector('.page-head h2');
-    if (h2 && /transcript/i.test(h2.textContent || '')) {
-      h2.textContent = `Transcript — ${student.firstName || ''} ${student.lastName || ''}`;
-    }
-
-    // Fetch courses for course codes/titles
-    let courseMap = new Map();
-    try {
-      const cRes = await adminFetch('/api/admin/courses?limit=5000');
-      if (cRes.ok) {
-        const cJson = await cRes.json();
-        const courses = cJson.data || cJson || [];
-        courses.forEach((c) => courseMap.set(c.id, c));
-      }
-    } catch {}
-
-    // Group results by session/semester
-    const groups = new Map();
-    results.forEach((r) => {
-      const row = r.result || r;
-      const key = `${row.sessionId || '?'}|${row.semester || '?'}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(r);
-    });
-
-    // Compute summary stats
-    let totalUnits = 0;
-    let totalPoints = 0;
-    let courseCount = 0;
-    results.forEach((r) => {
-      const row = r.result || r;
-      const course = courseMap.get(row.courseId) || r.course || {};
-      const units = Number(course.unit) || Number(row.unit) || 0;
-      const points = Number(row.points) || 0;
-      if (row.status === 'published' || row.status === 'approved') {
-        totalUnits += units;
-        totalPoints += units * points;
-        courseCount++;
-      }
-    });
-    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
-    const classification =
-      cgpa === '—' ? '—' :
-      Number(cgpa) >= 3.50 ? 'Distinction' :
-      Number(cgpa) >= 3.00 ? 'Upper Credit' :
-      Number(cgpa) >= 2.50 ? 'Lower Credit' :
-      Number(cgpa) >= 2.00 ? 'Pass' : 'Fail';
-
-    // Build transcript HTML
-    const initials = ((student.firstName || ' ')[0] + (student.lastName || ' ')[0]).toUpperCase().trim() || 'S';
-
-    const groupsHtml = [...groups.entries()].map(([key, list]) => {
-      const [sessionId, semester] = key.split('|');
-      const sectionUnits = list.reduce((s, r) => {
-        const row = r.result || r;
-        const course = courseMap.get(row.courseId) || r.course || {};
-        return s + (Number(course.unit) || Number(row.unit) || 0);
-      }, 0);
-      const sectionPoints = list.reduce((s, r) => {
-        const row = r.result || r;
-        const course = courseMap.get(row.courseId) || r.course || {};
-        const units = Number(course.unit) || Number(row.unit) || 0;
-        return s + (units * (Number(row.points) || 0));
-      }, 0);
-      const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
-
-      const rowsHtml = list
-        .sort((a, b) => {
-          const ca = courseMap.get((a.result || a).courseId) || {};
-          const cb = courseMap.get((b.result || b).courseId) || {};
-          return String(ca.code || '').localeCompare(String(cb.code || ''));
-        })
-        .map((r) => {
-          const row = r.result || r;
-          const course = courseMap.get(row.courseId) || r.course || {};
-          const grade = row.grade || '—';
-          const gradeCls = grade || '';
-          return `
-            <tr>
-              <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
-              <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
-              <td class="num center">${Number(course.unit) || Number(row.unit) || 0}</td>
-              <td class="num">${row.score != null ? row.score : '—'}</td>
-              <td class="center"><span class="tx-grade ${gradeCls}">${escapeHtml(grade)}</span></td>
-              <td class="num">${row.points != null ? row.points : '—'}</td>
-            </tr>
-          `;
-        }).join('');
-
-      return `
-        <div class="tx-semester">
-          <div class="tx-semester-head">
-            <span>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</span>
-            <span class="gpa">GPA ${gpa} · ${sectionUnits} units</span>
-          </div>
-          <table class="tx-table">
-            <thead>
-              <tr>
-                <th style="width:100px;">Code</th>
-                <th>Course Title</th>
-                <th style="width:60px;text-align:center;">Units</th>
-                <th style="width:70px;text-align:right;">Score</th>
-                <th style="width:70px;text-align:center;">Grade</th>
-                <th style="width:70px;text-align:right;">Points</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </div>
-      `;
-    }).join('');
-
-    // Update subtitle if it exists (fallback for other layouts)
-    const subEl = document.getElementById('tx-subtitle');
-    if (subEl) {
-      subEl.textContent = `${student.matricNumber || ''} · ${student.firstName || ''} ${student.lastName || ''}`;
-    }
-
-    // Render the full transcript
-    root.innerHTML = `
-      <div class="tx-document">
-
-        <!-- Watermark (print only) -->
-        <div class="tx-watermark">FPU</div>
-
-        <!-- Letterhead -->
-        <div class="tx-letterhead">
-          <img class="tx-letterhead-logo" src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
-          <div class="tx-letterhead-text">
-            <div class="institution">Federal Polytechnic Ugep</div>
-            <div class="motto">Citadel of Technical Excellence</div>
-            <div class="doc-type">Official Student Transcript</div>
-          </div>
-          <div style="width:80px;"></div> <!-- Spacer to center the text -->
-        </div>
-
-        <!-- Student header -->
-        <div class="tx-header">
-          <div class="tx-student-info">
-            <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
-            <div class="meta">
-              <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
-              ${escapeHtml(student.level || '—')} ·
-              ${escapeHtml(student.programmeName || student.programme?.name || '—')}
-            </div>
-            <div class="meta">
-              ${escapeHtml(student.email || '')}
-              ${student.departmentName || student.department?.name ? ' · ' + escapeHtml(student.departmentName || student.department?.name) : ''}
-            </div>
-          </div>
-          <div class="tx-cgpa-block">
-            <div class="label">CGPA</div>
-            <div class="value">${cgpa}</div>
-            <div class="class">${escapeHtml(classification)}</div>
-          </div>
-        </div>
-
-        <!-- Summary stats -->
-        <div class="tx-summary">
-          <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
-          <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
-          <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
-          <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
-        </div>
-
-        <!-- Semester groups -->
-        ${groups.size > 0 ? groupsHtml : `
-          <div class="alert alert-warning" style="margin:0;">
-            No published results found for this student.
-          </div>
-        `}
-
-        <!-- Signature block -->
-        <div class="tx-signatures">
-          <div class="tx-sig-block">
-            <div class="tx-sig-line"></div>
-            <div class="tx-sig-role">Registrar</div>
-          </div>
-          <div class="tx-sig-block">
-            <div class="tx-sig-line"></div>
-            <div class="tx-sig-role">Date</div>
-          </div>
-          <div class="tx-sig-block">
-            <div class="tx-sig-line"></div>
-            <div class="tx-sig-role">Rector</div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Wire the "Print" and "Export CSV" buttons if they exist
-    const printBtn = document.getElementById('tx-print');
-    if (printBtn) printBtn.onclick = () => window.print();
-
-    const exportBtn = document.getElementById('tx-export');
-    if (exportBtn) {
-      exportBtn.onclick = () => {
-        const table = root.querySelector('.table-admin');
-        if (table) exportTableAsCSV(table, `transcript-${student.matricNumber || student.id}.csv`);
-        else showToast('⚠️ No data to export.', 'warning');
-      };
-    }
-
-    const lookupBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
-      .find((b) => /lookup|back/i.test(b.textContent || ''));
-    if (lookupBtn && !lookupBtn.__wired) {
-      lookupBtn.__wired = true;
-      lookupBtn.onclick = () => FPU_ADMIN_SPA.navigateTo('transcript');
-    }
-
-  } catch (err) {
-    root.innerHTML = `
-      <div class="alert alert-danger" style="margin:20px;">
-        <strong>Failed to load transcript:</strong> ${escapeHtml(err.message)}
-        <br/><br/>
-        <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateTo('transcript')">← Back to lookup</button>
-      </div>
-    `;
   }
 }
 

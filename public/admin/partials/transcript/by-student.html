@@ -10,258 +10,106 @@
     <button class="btn btn-outline btn-sm" onclick="window.location.hash='#transcript'">
       ← New Lookup
     </button>
-    <button class="btn btn-outline btn-sm" id="tx-export">
-      Export CSV
-    </button>
-    <button class="btn btn-primary btn-sm" id="tx-print">
-      Print
-    </button>
+    <button class="btn btn-outline btn-sm" id="tx-export">Export CSV</button>
+    <button class="btn btn-primary btn-sm" id="tx-print">Print</button>
   </div>
 </section>
 
-<!-- Transcript body -->
 <div id="tx-root">
-  <div class="loading" style="padding:40px; text-align:center;"><span class="spinner"></span> Loading transcript…</div>
+  <div class="loading" style="padding:40px; text-align:center;">
+    <span class="spinner"></span> Loading transcript…
+  </div>
 </div>
 
 <style>
-  /* ---------- Print styles ---------- */
   @media print {
     .no-print, .sidebar, .topbar { display: none !important; }
     .main { margin: 0 !important; padding: 0 !important; }
     body { background: #fff !important; }
     .tx-letterhead { border-bottom: 3px solid #065f46 !important; }
-    .tx-sheet { page-break-inside: avoid; }
-    .tx-signature-block { page-break-inside: avoid; margin-top: 40px; }
+    .tx-semester { page-break-inside: avoid; }
+    .tx-signatures { page-break-inside: avoid; margin-top: 40px; }
   }
 
-  /* ---------- Letterhead ---------- */
-  .tx-letterhead {
-    text-align: center;
-    padding: 24px 20px;
-    border-bottom: 3px solid #065f46;
-    margin-bottom: 24px;
-  }
-  .tx-letterhead h1 {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.6rem;
-    color: #065f46;
-    margin: 0 0 4px;
-    letter-spacing: 0.5px;
-  }
-  .tx-letterhead .motto {
-    font-style: italic;
-    color: #6b7280;
-    font-size: 13.5px;
-    margin-bottom: 8px;
-  }
-  .tx-letterhead .doc-type {
-    display: inline-block;
-    background: #ecfdf5;
-    color: #065f46;
-    font-family: 'Poppins', sans-serif;
-    font-size: 11.5px;
-    font-weight: 800;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding: 5px 18px;
-    border-radius: 999px;
-    margin-top: 6px;
-  }
-
-  /* ---------- Student bio card ---------- */
-  .tx-bio {
-    display: grid;
-    grid-template-columns: 110px 1fr 1fr;
-    gap: 20px;
-    align-items: start;
-    padding: 20px;
-    background: #f8fafc;
+  .tx-document {
+    max-width: 900px;
+    margin: 0 auto 40px;
+    background: #fff;
+    padding: 40px;
     border-radius: 12px;
-    margin-bottom: 24px;
-  }
-  .tx-bio-photo {
-    width: 110px;
-    height: 130px;
-    border-radius: 8px;
-    background: linear-gradient(135deg,#065f46,#f59e0b);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Poppins', sans-serif;
-    font-size: 2rem;
-    font-weight: 800;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(15,23,42,0.12);
-  }
-  .tx-bio-photo img { width: 100%; height: 100%; object-fit: cover; }
-
-  .tx-bio-fields {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 13.5px;
-  }
-  .tx-bio-fields .row {
-    display: flex;
-    gap: 8px;
-    line-height: 1.5;
-  }
-  .tx-bio-fields .k {
-    color: #6b7280;
-    min-width: 100px;
-    flex-shrink: 0;
-    font-weight: 500;
-  }
-  .tx-bio-fields .v {
+    font-family: 'Inter', Arial, sans-serif;
     color: #0f172a;
-    font-weight: 600;
-    word-break: break-word;
   }
-
-  /* ---------- Summary tiles ---------- */
-  .tx-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
+  .tx-watermark {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-family: 'Poppins', sans-serif; font-size: 120px; font-weight: 900;
+    color: rgba(6,95,70,0.04); pointer-events: none; z-index: 0;
   }
-  .tx-summary-tile {
-    background: #fff;
-    border: 1px solid var(--fpu-border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    text-align: center;
+  .tx-letterhead {
+    display: flex; align-items: center; gap: 20px;
+    padding-bottom: 20px; margin-bottom: 24px;
+    border-bottom: 3px double #065f46;
+    position: relative; z-index: 1;
   }
-  .tx-summary-tile.cgpa {
-    background: linear-gradient(135deg,#065f46,#047857);
-    border-color: #065f46;
-    color: #fff;
+  .tx-letterhead-logo { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
+  .tx-letterhead-text { flex: 1; text-align: center; }
+  .tx-letterhead-text .institution {
+    font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 900;
+    color: #065f46; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1.2;
   }
-  .tx-summary-tile .label {
-    font-size: 10.5px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-    color: #6b7280;
-    margin-bottom: 4px;
+  .tx-letterhead-text .motto { font-size: 12px; color: #6b7280; font-style: italic; margin: 2px 0; }
+  .tx-letterhead-text .doc-type {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;
   }
-  .tx-summary-tile.cgpa .label { color: #d1fae5; }
-  .tx-summary-tile .value {
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1;
+  .tx-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 24px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 24px; position: relative; z-index: 1;
   }
-  .tx-summary-tile.cgpa .value { color: #fef3c7; font-size: 1.8rem; }
-  .tx-summary-tile .sub {
-    font-size: 12px;
-    color: #6b7280;
-    margin-top: 4px;
+  .tx-student-info h2 {
+    font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 800;
+    color: #0f172a; margin: 0 0 4px;
   }
-  .tx-summary-tile.cgpa .sub { color: #d1fae5; }
-
-  /* ---------- Session GPA strip ---------- */
-  .tx-session-strip {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 10px;
-    margin-bottom: 24px;
+  .tx-student-info .meta { font-size: 12.5px; color: #6b7280; line-height: 1.7; }
+  .tx-student-info .matric {
+    font-family: 'Courier New', monospace; background: #ecfdf5; color: #065f46;
+    padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px;
   }
-  .tx-session-pill {
-    background: #fff;
-    border: 1px solid var(--fpu-border);
-    border-left: 4px solid #065f46;
-    border-radius: 8px;
-    padding: 10px 14px;
+  .tx-cgpa-block { text-align: right; flex-shrink: 0; }
+  .tx-cgpa-block .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #6b7280; }
+  .tx-cgpa-block .value { font-family: 'Poppins', sans-serif; font-size: 2.6rem; font-weight: 800; color: #065f46; line-height: 1; margin: 2px 0; }
+  .tx-cgpa-block .class { font-size: 12px; font-weight: 700; color: #f59e0b; }
+  .tx-summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    margin-bottom: 24px; position: relative; z-index: 1;
   }
-  .tx-session-pill .title {
-    font-family: 'Poppins', sans-serif;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #065f46;
-    margin-bottom: 2px;
+  .tx-summary-item { background: #f8fafc; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #e2e8f0; }
+  .tx-summary-item .num { font-family: 'Poppins', sans-serif; font-size: 1.3rem; font-weight: 800; color: #065f46; line-height: 1; }
+  .tx-summary-item .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-top: 4px; }
+  .tx-semester { margin-bottom: 20px; position: relative; z-index: 1; }
+  .tx-semester-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 14px; background: #065f46; color: #fff;
+    border-radius: 6px 6px 0 0; font-family: 'Poppins', sans-serif;
+    font-size: 12px; font-weight: 700;
   }
-  .tx-session-pill .meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11.5px;
-    color: #6b7280;
-  }
-  .tx-session-pill .meta strong {
-    color: #f59e0b;
-    font-family: 'Poppins', sans-serif;
-    font-size: 13px;
-  }
-
-  /* ---------- Result sheet ---------- */
-  .tx-sheet {
-    margin-bottom: 22px;
-    border: 1px solid var(--fpu-border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  .tx-sheet-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 11px 16px;
-    background: linear-gradient(90deg,#065f46 0%,#047857 100%);
-    color: #fff;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .tx-sheet-head .title {
-    font-family: 'Poppins', sans-serif;
-    font-size: 13.5px;
-    font-weight: 700;
-  }
-  .tx-sheet-head .gpa {
-    background: rgba(255,255,255,0.15);
-    padding: 5px 12px;
-    border-radius: 999px;
-    font-size: 12px;
-    color: #d1fae5;
-  }
-  .tx-sheet-head .gpa strong {
-    color: #fef3c7;
-    font-family: 'Poppins', sans-serif;
-    font-size: 14px;
-  }
-
-  /* ---------- Signature block ---------- */
-  .tx-signature-block {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px dashed #cbd5e1;
-    font-size: 13px;
-    color: #475569;
-  }
-  .tx-sig-line {
-    border-top: 1px solid #94a3b8;
-    margin-bottom: 6px;
-    padding-top: 6px;
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    color: #065f46;
-  }
-  .tx-sig-caption {
-    font-size: 11.5px;
-    color: #6b7280;
-  }
-
-  /* ---------- Empty ---------- */
-  .tx-empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: #94a3b8;
-  }
-  .tx-empty .icon { font-size: 3rem; opacity: 0.5; margin-bottom: 12px; }
+  .tx-semester-head .gpa { background: rgba(255,255,255,0.15); padding: 3px 10px; border-radius: 999px; font-size: 11px; }
+  .tx-table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-top: none; }
+  .tx-table th, .tx-table td { padding: 8px 12px; text-align: left; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+  .tx-table th { background: #f8fafc; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; color: #6b7280; }
+  .tx-table td.num { text-align: right; font-family: 'Courier New', monospace; font-weight: 700; }
+  .tx-table td.center { text-align: center; }
+  .tx-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 4px; font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 11px; background: #ecfdf5; color: #065f46; }
+  .tx-grade.F { background: #fee2e2; color: #991b1b; }
+  .tx-grade.D, .tx-grade.E { background: #fef3c7; color: #92400e; }
+  .tx-signatures { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; position: relative; z-index: 1; }
+  .tx-sig-block { text-align: center; width: 180px; }
+  .tx-sig-line { border-bottom: 1px solid #0f172a; margin-bottom: 6px; height: 30px; }
+  .tx-sig-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }
 </style>
 
 <script>

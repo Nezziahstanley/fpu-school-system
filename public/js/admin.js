@@ -11882,6 +11882,105 @@ async function courseBulkAction(courseId, action) {
   }
 }
 
+async function loadResultsDashboard() {
+  const grid = document.getElementById('res-dept-grid'); // Check your actual grid ID
+  if (!grid) return;
+
+  // Get filters
+  const status = document.getElementById('res-filter-status')?.value || '';
+  const semester = document.getElementById('res-filter-semester')?.value || '';
+  const schoolId = document.getElementById('res-filter-school')?.value || '';
+
+  try {
+    // We fetch ALL results to calculate accurate stats, then filter for the cards
+    const res = await adminFetch(`/api/admin/results?limit=5000`);
+    const json = await res.json();
+    let allResults = json.data || [];
+
+    // 1. Calculate Global Stats (based on ALL data, not filtered)
+    let awaiting = 0, readyToPublish = 0;
+    allResults.forEach(r => {
+      if (r.status === 'hod_verified') awaiting++;
+      if (r.status === 'approved') readyToPublish++;
+    });
+
+    document.getElementById('res-stat-total').textContent = allResults.length;
+    document.getElementById('res-stat-awaiting').textContent = awaiting;
+    document.getElementById('res-stat-ready').textContent = readyToPublish;
+
+    // 2. Filter the data for the cards
+    let filtered = allResults;
+    if (status) filtered = filtered.filter(r => r.status === status);
+    if (semester) filtered = filtered.filter(r => r.semester === semester);
+    // Add school/department filtering if needed
+
+    // 3. Group by Department for the cards
+    const deptMap = {};
+    filtered.forEach(r => {
+      const deptId = r.course?.departmentId; // Assuming your API returns this
+      if (!deptId) return;
+      
+      if (!deptMap[deptId]) {
+        deptMap[deptId] = { 
+          id: deptId, 
+          name: r.course?.departmentName || 'Department', 
+          code: r.course?.departmentCode || 'DEPT',
+          total: 0, awaiting: 0, approved: 0, published: 0 
+        };
+      }
+      
+      deptMap[deptId].total++;
+      if (r.status === 'hod_verified') deptMap[deptId].awaiting++;
+      if (r.status === 'approved') deptMap[deptId].approved++;
+      if (r.status === 'published') deptMap[deptId].published++;
+    });
+
+    const deptArray = Object.values(deptMap);
+
+    document.getElementById('res-stat-depts').textContent = deptArray.length;
+
+    if (!deptArray.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your filters.</div>';
+      return;
+    }
+
+    // 4. Render the Department Cards (Keep your existing card HTML here)
+    // grid.innerHTML = deptArray.map(...)
+
+  } catch (err) {
+    console.error('Failed to load results dashboard:', err);
+  }
+}
+
+async function publishAllApproved() {
+  if (!confirm('Are you sure you want to publish ALL approved results? Students will see these immediately.')) return;
+
+  try {
+    // Fetch all approved results first
+    const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
+    const json = await res.json();
+    const approvedResults = json.data || [];
+
+    if (!approvedResults.length) {
+      return showToast('No approved results to publish.', 'warning');
+    }
+
+    const ids = approvedResults.map(r => r.id);
+
+    // Send to bulk action endpoint
+    await adminFetch('/api/admin/results/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({ ids, action: 'published' })
+    });
+
+    showToast(`✅ Published ${ids.length} results successfully.`, 'success');
+    loadResultsDashboard(); // Refresh the page
+
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -11925,7 +12024,8 @@ window.FPU_ADMIN = {
   loadRegistrationStudents,
 
   // Results
-  loadResultDepartments, loadDepartmentResults, loadDeptResults, courseBulkAction, toggleAllResults, toggleCourseResults, updateBulkBtnState, bulkResultAction,
+  loadResultDepartments, loadResultsDashboard, publishAllApproved, loadDepartmentResults,
+  loadDeptResults, courseBulkAction, toggleAllResults, toggleCourseResults, updateBulkBtnState, bulkResultAction,
 
   // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale, toggleAddBandForm,  submitAddBand,

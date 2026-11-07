@@ -5428,6 +5428,7 @@ async function loadDepartmentClearances() {
   root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
+    // Fetch students and ALL clearances
     const [studentsRes, clrRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/clearances').catch(() => null),
@@ -5436,7 +5437,7 @@ async function loadDepartmentClearances() {
     const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
     const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
 
-    // Map student → clearance
+    // Map existing clearances by student ID
     const clearanceByStudent = new Map();
     clearances.forEach(c => {
       const row = c.clearance || c;
@@ -5447,15 +5448,23 @@ async function loadDepartmentClearances() {
     const statusFilter = document.getElementById('cdd-filter-status')?.value || '';
     const searchVal = document.getElementById('cdd-search')?.value.toLowerCase() || '';
 
-    let cleared = 0, pending = 0, rejected = 0, missing = 0;
-    students.forEach(s => {
+    let cleared = 0, pending = 0, rejected = 0;
+    
+    // Process students and calculate stats
+    const enrichedStudents = students.map(s => {
       const clr = clearanceByStudent.get(Number(s.id));
-      if (!clr) missing++;
-      else if (clr.status === 'cleared') cleared++;
-      else if (clr.status === 'pending') pending++;
-      else if (clr.status === 'rejected') rejected++;
+      // If no record exists, default to 'pending'
+      const status = clr?.status ? String(clr.status).toLowerCase() : 'pending';
+      const remarks = clr?.remarks || '';
+
+      if (status === 'cleared') cleared++;
+      else if (status === 'pending') pending++;
+      else if (status === 'rejected') rejected++;
+
+      return { s, status, remarks };
     });
 
+    // Update Header Stats
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('cdd-stat-students', students.length);
     setT('cdd-stat-cleared', cleared);
@@ -5463,11 +5472,10 @@ async function loadDepartmentClearances() {
     setT('cdd-stat-rate', students.length ? Math.round((cleared / students.length) * 100) + '%' : '—');
     setT('cdd-count', `Showing ${students.length} students`);
 
-    const filtered = students.filter(s => {
-      const clr = clearanceByStudent.get(Number(s.id));
-      const status = clr?.status || 'missing';
-      const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim().toLowerCase();
-      const matric = String(s.matricNumber || s.matric_number || '').toLowerCase();
+    // Apply Filters
+    const filtered = enrichedStudents.filter(({ s, status, remarks }) => {
+      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim().toLowerCase();
+      const matric = String(s.matricNumber || '').toLowerCase();
 
       if (statusFilter && status !== statusFilter) return false;
       if (searchVal && !fullName.includes(searchVal) && !matric.includes(searchVal)) return false;
@@ -5479,45 +5487,47 @@ async function loadDepartmentClearances() {
       return;
     }
 
-    root.innerHTML = filtered.map(s => {
-      const clr = clearanceByStudent.get(Number(s.id));
-      const status = clr?.status || 'missing';
-      const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim() || 'Unknown';
-
-      let badgeClass = 'badge-missing';
+    // Render Rows
+    root.innerHTML = filtered.map(({ s, status, remarks }) => {
+      const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown';
+      
+      let badgeClass = 'badge-pending';
       let actions = '';
 
       if (status === 'cleared') {
         badgeClass = 'badge-cleared';
-        actions = `<button class="btn btn-sm btn-outline" disabled>✔ Cleared</button>`;
-      } else if (status === 'pending') {
+        actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')" title="Revert to Pending">↺ Revert</button>`;
+      } else if (status === 'rejected') {
+        badgeClass = 'badge-rejected';
+        actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
+                   <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
+      } else {
+        // Pending (or newly created)
         badgeClass = 'badge-pending';
         actions = `
           <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
           <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.clearStudent(${s.id}, 'rejected')">✕ Reject</button>
         `;
-      } else if (status === 'rejected') {
-        badgeClass = 'badge-rejected';
-        actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
-      } else {
-        badgeClass = 'badge-missing';
-        actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">+ Create & Clear</button>`;
       }
 
       return `
         <tr>
           <td style="padding:12px 20px;"><input type="checkbox" class="clr-student-check" value="${s.id}" style="width:16px;height:16px;accent-color:#065f46;" /></td>
-          <td style="padding:12px 20px;"><code>${escapeHtml(s.matricNumber || s.matric_number || '—')}</code></td>
-          <td style="padding:12px 20px;">${escapeHtml(fullName)}</td>
+          <td style="padding:12px 20px;"><code>${escapeHtml(s.matricNumber || '—')}</code></td>
+          <td style="padding:12px 20px; font-weight:600;">${escapeHtml(fullName)}</td>
           <td style="padding:12px 20px;">${escapeHtml(s.level || '—')}</td>
-          <td style="padding:12px 20px;"><span class="badge ${badgeClass}">${status.toUpperCase()}</span></td>
-          <td style="padding:12px 20px; font-size:12px; color:#64748b;">${escapeHtml(clr?.remarks || '—')}</td>
+          <td style="padding:12px 20px;">
+            <span class="badge ${badgeClass}" style="text-transform:capitalize; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700;">
+              ${status}
+            </span>
+          </td>
+          <td style="padding:12px 20px; font-size:12px; color:#64748b;">${escapeHtml(remarks || '—')}</td>
           <td style="padding:12px 20px; text-align:right;">${actions}</td>
         </tr>
       `;
     }).join('');
 
-    // Select all
+    // Wire Select All
     const selectAll = document.getElementById('cd-select-all');
     if (selectAll && !selectAll.__wired) {
       selectAll.__wired = true;
@@ -5526,18 +5536,32 @@ async function loadDepartmentClearances() {
       };
     }
 
-    // Export
+    // Wire Bulk Buttons (Mark Cleared / Mark Rejected)
+    const bulkClearBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Cleared'));
+    const bulkRejectBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Rejected'));
+
+    if (bulkClearBtn && !bulkClearBtn.__wired) {
+      bulkClearBtn.__wired = true;
+      bulkClearBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('cleared');
+    }
+    if (bulkRejectBtn && !bulkRejectBtn.__wired) {
+      bulkRejectBtn.__wired = true;
+      bulkRejectBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('rejected');
+    }
+
+    // Wire Export
     const exportBtn = document.getElementById('cd-export');
     if (exportBtn && !exportBtn.__wired) {
       exportBtn.__wired = true;
       exportBtn.onclick = () => {
         const headers = ['Matric', 'Name', 'Level', 'Status', 'Remarks'];
-        const rows = filtered.map(s => {
-          const clr = clearanceByStudent.get(Number(s.id));
-          const status = clr?.status || 'missing';
-          const fullName = `${s.firstName || s.first_name || ''} ${s.lastName || s.last_name || ''}`.trim();
-          return [s.matricNumber || s.matric_number || '', fullName, s.level || '', status, clr?.remarks || ''];
-        });
+        const rows = filtered.map(({ s, status, remarks }) => [
+          s.matricNumber || '', 
+          `${s.firstName || ''} ${s.lastName || ''}`.trim(), 
+          s.level || '', 
+          status, 
+          remarks
+        ]);
         const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -5572,7 +5596,7 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // If update 404 → create new
+    // If update fails (404 Not Found), create a new record
     const createRes = await adminFetch('/api/admin/clearances', {
       method: 'POST',
       body: JSON.stringify({

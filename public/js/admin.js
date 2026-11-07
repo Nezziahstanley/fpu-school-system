@@ -2588,7 +2588,7 @@ async function loadTranscriptLookup() {
             : '<span style="background:#fee2e2; color:#b91c1c; padding:4px 10px; border-radius:999px; font-size:10px; font-weight:700;">Inactive</span>'}
         </td>
         <td>
-          <button class="btn btn-outline btn-sm" onclick="window.location.hash='#transcript-student?id=${s.id}'">
+          <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.openTranscriptModal(${s.id})">
             Open
           </button>
         </td>
@@ -3494,13 +3494,6 @@ async function loadDepartmentAttendance() {
     grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load courses.</div>';
   }
 }
-
-// Add to your window.FPU_ADMIN object at the bottom
-window.FPU_ADMIN = {
-  // ... existing ...
-  loadAttendanceDepartments,
-  // ...
-};
 
 // ============================================
 // STAFF (Directory, HODs, Lecturers)
@@ -11809,6 +11802,210 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// ============================================
+// TRANSCRIPT MODAL VIEWER
+// ============================================
+async function openTranscriptModal(studentId) {
+  // 1. Create the modal shell
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'transcript-modal-backdrop';
+  backdrop.style.zIndex = '99999'; // Ensure it's on top
+  
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="max-width: 1000px; width: 95%; background: #f8fafc; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+      <div class="fpu-modal-header" style="background: #fff; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Student Transcript</h3>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm btn-outline" onclick="window.print()">🖨 Print</button>
+          <button class="btn btn-sm btn-ghost" onclick="document.getElementById('transcript-modal-backdrop').remove()" style="font-size: 1.2rem;">×</button>
+        </div>
+      </div>
+      
+      <div class="fpu-modal-body" id="tx-modal-body" style="padding: 20px; overflow-y: auto; max-height: 80vh;">
+        <div class="loading" style="padding:60px;text-align:center;">
+          <span class="spinner"></span> Loading transcript…
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  const root = document.getElementById('tx-modal-body');
+
+  try {
+    // 2. Fetch data (using the same logic as loadTranscriptView)
+    const [studentRes, resultsRes, coursesRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
+      adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
+      adminFetch('/api/admin/courses?limit=5000').catch(() => null),
+    ]);
+
+    let student = null;
+    try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+    let results = [];
+    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
+    let courseMap = new Map();
+    try { if (coursesRes && coursesRes.ok) { const j = await coursesRes.json(); (j.data || []).forEach(c => courseMap.set(c.id, c)); } } catch {}
+
+    if (!student || !student.id) {
+      root.innerHTML = `<div class="alert alert-danger" style="margin:20px;"><strong>Student not found.</strong> (ID: ${studentId})</div>`;
+      return;
+    }
+
+    // 3. Compute stats & group results
+    const groups = new Map();
+    results.forEach(r => {
+      const row = r.result || r;
+      const key = `${row.sessionId || '?'}|${row.semester || '?'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    });
+
+    let totalUnits = 0, totalPoints = 0, courseCount = 0;
+    results.forEach(r => {
+      const row = r.result || r;
+      const course = courseMap.get(row.courseId) || r.course || {};
+      const units = Number(course.unit) || Number(row.unit) || 0;
+      const points = Number(row.points) || 0;
+      if (row.status === 'published' || row.status === 'approved') {
+        totalUnits += units;
+        totalPoints += units * points;
+        courseCount++;
+      }
+    });
+    const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
+    const classification =
+      cgpa === '—' ? '—' :
+      Number(cgpa) >= 3.50 ? 'Distinction' :
+      Number(cgpa) >= 3.00 ? 'Upper Credit' :
+      Number(cgpa) >= 2.50 ? 'Lower Credit' :
+      Number(cgpa) >= 2.00 ? 'Pass' : 'Fail';
+
+    // 4. Build HTML
+    const groupsHtml = [...groups.entries()].map(([key, list]) => {
+      const [sessionId, semester] = key.split('|');
+      const sectionUnits = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        return s + (Number(course.unit) || Number(row.unit) || 0);
+      }, 0);
+      const sectionPoints = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = courseMap.get(row.courseId) || r.course || {};
+        const units = Number(course.unit) || Number(row.unit) || 0;
+        return s + (units * (Number(row.points) || 0));
+      }, 0);
+      const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
+
+      const rowsHtml = list
+        .sort((a, b) => {
+          const ca = courseMap.get((a.result || a).courseId) || {};
+          const cb = courseMap.get((b.result || b).courseId) || {};
+          return String(ca.code || '').localeCompare(String(cb.code || ''));
+        })
+        .map(r => {
+          const row = r.result || r;
+          const course = courseMap.get(row.courseId) || r.course || {};
+          const grade = row.grade || '—';
+          return `
+            <tr>
+              <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
+              <td>${escapeHtml(course.title || row.courseTitle || '—')}</td>
+              <td class="num center">${Number(course.unit) || Number(row.unit) || 0}</td>
+              <td class="num">${row.score != null ? row.score : '—'}</td>
+              <td class="center"><span class="tx-grade ${grade}">${escapeHtml(grade)}</span></td>
+              <td class="num">${row.points != null ? row.points : '—'}</td>
+            </tr>`;
+        }).join('');
+
+      return `
+        <div class="tx-semester">
+          <div class="tx-semester-head">
+            <span>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</span>
+            <span class="gpa">GPA ${gpa} · ${sectionUnits} units</span>
+          </div>
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th style="width:100px;">Code</th>
+                <th>Course Title</th>
+                <th style="width:60px;text-align:center;">Units</th>
+                <th style="width:70px;text-align:right;">Score</th>
+                <th style="width:70px;text-align:center;">Grade</th>
+                <th style="width:70px;text-align:right;">Points</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+
+    // Render full document inside the modal
+    root.innerHTML = `
+      <div class="tx-document" style="margin: 0; box-shadow: none; border: 1px solid #e2e8f0;">
+        <div class="tx-watermark">FPU</div>
+
+        <div class="tx-letterhead">
+          <img class="tx-letterhead-logo" src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'" />
+          <div class="tx-letterhead-text">
+            <div class="institution">Federal Polytechnic Ugep</div>
+            <div class="motto">Citadel of Technical Excellence</div>
+            <div class="doc-type">Official Student Transcript</div>
+          </div>
+          <div style="width:80px;"></div>
+        </div>
+
+        <div class="tx-header">
+          <div class="tx-student-info">
+            <h2>${escapeHtml((student.firstName || '') + ' ' + (student.lastName || ''))}</h2>
+            <div class="meta">
+              <span class="matric">${escapeHtml(student.matricNumber || '—')}</span> ·
+              ${escapeHtml(student.level || '—')} ·
+              ${escapeHtml(student.programmeName || student.programme?.name || '—')}
+            </div>
+            <div class="meta">
+              ${escapeHtml(student.email || '')}
+              ${student.departmentName ? ' · ' + escapeHtml(student.departmentName) : ''}
+            </div>
+          </div>
+          <div class="tx-cgpa-block">
+            <div class="label">CGPA</div>
+            <div class="value">${cgpa}</div>
+            <div class="class">${escapeHtml(classification)}</div>
+          </div>
+        </div>
+
+        <div class="tx-summary">
+          <div class="tx-summary-item"><div class="num">${courseCount}</div><div class="lbl">Courses</div></div>
+          <div class="tx-summary-item"><div class="num">${totalUnits}</div><div class="lbl">Total Units</div></div>
+          <div class="tx-summary-item"><div class="num">${totalPoints}</div><div class="lbl">Total Points</div></div>
+          <div class="tx-summary-item"><div class="num" style="font-size:0.9rem;">${escapeHtml(classification)}</div><div class="lbl">Classification</div></div>
+        </div>
+
+        ${groups.size > 0 ? groupsHtml : `
+          <div class="alert alert-warning" style="margin:0;">
+            No published results found for this student.
+          </div>
+        `}
+
+        <div class="tx-signatures">
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Registrar</div></div>
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Date</div></div>
+          <div class="tx-sig-block"><div class="tx-sig-line"></div><div class="tx-sig-role">Rector</div></div>
+        </div>
+      </div>
+    `;
+
+  } catch (err) {
+    console.error('Transcript Modal Error:', err);
+    root.innerHTML = `
+      <div class="alert alert-danger" style="margin:20px;">
+        <strong>Failed to load transcript:</strong> ${escapeHtml(err.message)}
+      </div>`;
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -11860,7 +12057,7 @@ window.FPU_ADMIN = {
   editGradeScale,
 
   // Transcript
-  loadTranscriptLookup, loadTranscriptView,
+  loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
   loadTimetableIndex,

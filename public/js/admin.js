@@ -2549,30 +2549,85 @@ function handlePreview(e) {
 }
 
 // ============================================
-// TRANSCRIPT: Lookup
+// TRANSCRIPT: Lookup (With Filters)
 // ============================================
 async function loadTranscriptLookup() {
   const tbody = document.getElementById('tx-search-tbody');
   if (!tbody) return;
 
-  const searchInput = document.getElementById('tx-search');
-  const searchTerm = searchInput ? searchInput.value.trim() : '';
+  // 1. Render the filter bar + table structure if it doesn't exist
+  const container = tbody.closest('.panel-body').parentElement;
+  if (!document.getElementById('tx-filters')) {
+    // We inject the filters right above the table
+    const filterHtml = `
+      <div id="tx-filters" class="panel" style="margin-bottom: 20px; padding: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 200px;">
+          <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Search</label>
+          <input class="form-control" id="tx-search" placeholder="Matric, name, or email…" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadTranscriptLookup()" value="${document.getElementById('tx-search')?.value || ''}" />
+        </div>
+        <div style="width: 200px;">
+          <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Department</label>
+          <select class="form-select" id="tx-filter-dept">
+            <option value="">All Departments</option>
+          </select>
+        </div>
+        <div style="width: 150px;">
+          <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Level</label>
+          <select class="form-select" id="tx-filter-level">
+            <option value="">All Levels</option>
+            <option value="ND 1">ND 1</option>
+            <option value="ND 2">ND 2</option>
+            <option value="HND 1">HND 1</option>
+            <option value="HND 2">HND 2</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="FPU_ADMIN.loadTranscriptLookup()" style="height: 38px;">Search</button>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforebegin', filterHtml);
+  }
+
+  const searchTerm = document.getElementById('tx-search')?.value.trim() || '';
+  const deptFilter = document.getElementById('tx-filter-dept')?.value || '';
+  const levelFilter = document.getElementById('tx-filter-level')?.value || '';
 
   tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
+    // 2. Fetch departments for the dropdown (only once)
+    const deptSelect = document.getElementById('tx-filter-dept');
+    if (deptSelect && deptSelect.options.length <= 1) {
+      const dRes = await adminFetch('/api/admin/departments').catch(() => null);
+      if (dRes && dRes.ok) {
+        const dJson = await dRes.json();
+        (dJson.data || []).forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = `${d.code} - ${d.name}`;
+          deptSelect.appendChild(opt);
+        });
+      }
+    }
+
+    // 3. Fetch students
     let url = '/api/admin/students?limit=50';
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+    if (deptFilter) url += `&departmentId=${deptFilter}`;
+    if (levelFilter) url += `&level=${encodeURIComponent(levelFilter)}`;
 
     const res = await adminFetch(url);
     const json = await res.json();
-    const students = json.data || [];
+    let students = json.data || [];
+
+    // Client-side fallback filter if backend doesn't support departmentId/level natively
+    if (deptFilter) students = students.filter(s => Number(s.departmentId) === Number(deptFilter));
+    if (levelFilter) students = students.filter(s => String(s.level).toUpperCase() === levelFilter.toUpperCase());
 
     const countEl = document.getElementById('tx-count');
     if (countEl) countEl.textContent = `${students.length} results`;
 
     if (!students.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No students found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 40px; color: #64748b;">No students match your filters.</td></tr>';
       return;
     }
 
@@ -11803,9 +11858,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================
-// TRANSCRIPT MODAL VIEWER (Styled & Watermarked)
+// TRANSCRIPT MODAL VIEWER (Styled, Watermarked & Print-Ready)
 // ============================================
 async function openTranscriptModal(studentId) {
+  // 1. Create the modal shell
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'transcript-modal-backdrop';
@@ -11865,6 +11921,53 @@ async function openTranscriptModal(studentId) {
     </div>
 
     <style>
+      /* --- PRINT STYLES --- */
+      @media print {
+        body * {
+          visibility: hidden; /* Hide everything on the page */
+        }
+        .tx-document, .tx-document * {
+          visibility: visible; /* Show only the transcript document */
+        }
+        .tx-document {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+          box-shadow: none !important;
+          border: none !important;
+        }
+        /* Hide the modal chrome specifically during print */
+        #transcript-modal-backdrop {
+          position: static !important;
+          background: transparent !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          display: block !important;
+        }
+        .fpu-modal-header, .fpu-modal {
+          background: transparent !important;
+          box-shadow: none !important;
+          border: none !important;
+          max-height: none !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow: visible !important;
+        }
+        .fpu-modal-body {
+          padding: 0 !important;
+          overflow: visible !important;
+          display: block !important;
+        }
+        /* Hide the system sidebar/topbar */
+        .sidebar, .topbar, .page-head {
+          display: none !important;
+        }
+      }
+
+      /* --- SCREEN STYLES --- */
       .tx-document {
         background: #fff;
         padding: 40px;
@@ -11920,7 +12023,7 @@ async function openTranscriptModal(studentId) {
       .tx-summary-item .num { font-family: 'Poppins', sans-serif; font-size: 1.3rem; font-weight: 800; color: #065f46; line-height: 1; }
       .tx-summary-item .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-top: 4px; }
       
-      .tx-semester { margin-bottom: 24px; }
+      .tx-semester { margin-bottom: 24px; page-break-inside: avoid; }
       .tx-semester-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #065f46; color: #fff; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 700; }
       .tx-semester-head .gpa { background: rgba(255,255,255,0.15); padding: 3px 10px; border-radius: 999px; font-size: 11px; }
       .tx-table { width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-top: none; }
@@ -11932,7 +12035,7 @@ async function openTranscriptModal(studentId) {
       .tx-grade.F { background: #fee2e2; color: #991b1b; }
       .tx-grade.D, .tx-grade.E { background: #fef3c7; color: #92400e; }
       
-      .tx-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
+      .tx-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; page-break-inside: avoid; }
       .tx-sig-block { text-align: center; width: 180px; }
       .tx-sig-line { border-bottom: 1px solid #0f172a; margin-bottom: 6px; height: 30px; }
       .tx-sig-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; }

@@ -11787,6 +11787,28 @@ async function loadStudentRegistrations() {
   }
 }
 
+// Auto-run transcript view when hash changes
+window.addEventListener('hashchange', () => {
+  if (window.location.hash.includes('transcript-student')) {
+    setTimeout(() => {
+      if (window.FPU_ADMIN && window.FPU_ADMIN.loadTranscriptView) {
+        window.FPU_ADMIN.loadTranscriptView();
+      }
+    }, 150);
+  }
+});
+
+// Also run on initial load if already on that page
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash.includes('transcript-student')) {
+    setTimeout(() => {
+      if (window.FPU_ADMIN && window.FPU_ADMIN.loadTranscriptView) {
+        window.FPU_ADMIN.loadTranscriptView();
+      }
+    }, 150);
+  }
+});
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

@@ -1,69 +1,47 @@
-<form class="settings-form" data-settings-section="finance" onsubmit="event.preventDefault(); FPU_ADMIN.saveSettingsSection(this)">
-  <div class="panel">
-    <div class="panel-head"><h3>Currency</h3></div>
-    <div class="panel-body">
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Currency</label>
-          <select class="form-select" name="currency">
-            <option value="NGN" selected>Nigerian Naira (₦)</option>
-            <option value="USD">US Dollar ($)</option>
-            <option value="GBP">British Pound (£)</option>
-            <option value="EUR">Euro (€)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Currency Symbol</label>
-          <input class="form-control" name="currency_symbol" value="₦" maxlength="4" />
-        </div>
-      </div>
+<!-- ============================================================
+     Admin → Settings → Finance
+     ============================================================ -->
+<div class="panel">
+  <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center;">
+    <h3>Bank Accounts</h3>
+    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.addBankAccount()">+ Add Account</button>
+  </div>
+  <div class="panel-body">
+    <div id="bank-accounts-list" class="bank-accounts-list">
+      <p class="muted"><span class="spinner"></span> Loading bank accounts…</p>
     </div>
   </div>
+</div>
 
-  <div class="panel">
-    <div class="panel-head"><h3>Payment Rules</h3></div>
-    <div class="panel-body">
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label">Payment Reference Prefix</label>
-          <input class="form-control" name="payment_ref_prefix" value="FPU" maxlength="10" />
-          <div class="form-help">e.g. <code>FPU-2026-0042</code></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" style="display:flex;align-items:center;gap:.5rem;font-weight:400;">
-            <input type="checkbox" name="allow_installments" checked />
-            <span>Allow installment payments</span>
-          </label>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Late Payment Fee (%)</label>
-          <input class="form-control" type="number" step="0.1" name="late_fee_percent" value="5" min="0" max="50" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Auto-Verify Below (₦)</label>
-          <input class="form-control" type="number" name="auto_verify_amount" value="0" min="0" />
-          <div class="form-help">0 = always require manual verification</div>
-        </div>
+<div class="panel" style="margin-top: 20px;">
+  <div class="panel-head">
+    <h3>Payment Rules</h3>
+  </div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Payment Reference Prefix</label>
+        <input class="form-control" name="payment_ref_prefix" value="FPU" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Late Payment Fee (%)</label>
+        <input class="form-control" type="number" name="late_fee_percent" value="5" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Auto-Verify Below (₦)</label>
+        <input class="form-control" type="number" name="auto_verify_amount" value="0" />
+        <div class="small muted" style="margin-top: 4px;">0 = always require manual verification</div>
+      </div>
+      <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 24px;">
+        <input type="checkbox" id="allow_installments" name="allow_installments" checked />
+        <label for="allow_installments" class="form-label" style="margin: 0;">Allow installment payments</label>
       </div>
     </div>
   </div>
+</div>
 
-  <div class="panel">
-    <div class="panel-head">
-      <h3>Bank Accounts</h3>
-      <div class="tools">
-        <button type="button" class="btn btn-outline btn-sm" onclick="FPU_ADMIN.addBankAccount()">+ Add Account</button>
-      </div>
-    </div>
-    <div class="panel-body">
-      <div id="bank-accounts-list">
-        <p class="muted">Loading bank accounts…</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-save-bar">
-    <span class="small muted" id="save-status-finance"></span>
-    <button type="submit" class="btn btn-primary">💾 Save Finance Settings</button>
-  </div>
-</form>
+<div style="margin-top: 24px; text-align: right;">
+  <button class="btn btn-primary" onclick="FPU_ADMIN.saveSettingsSection(this.closest('.tab-content'))">
+    💾 Save Finance Settings
+  </button>
+</div>

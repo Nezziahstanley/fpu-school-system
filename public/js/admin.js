@@ -9058,34 +9058,123 @@ async function loadUsersWithPhotos() {
 }
 
 // ============================================
-// SETTINGS TAB EXTRAS (per-tab bindings)
+// SETTINGS: Bank Accounts (FIXED)
 // ============================================
-
 async function loadBankAccounts() {
   const listEl = document.getElementById('bank-accounts-list');
   if (!listEl) return;
-  listEl.innerHTML = '<p class="muted">Loading bank accounts…</p>';
+  
+  listEl.innerHTML = '<p class="muted"><span class="spinner"></span> Loading bank accounts…</p>';
+  
   try {
-    const res = await adminFetch('/api/admin/settings/banks');
+    // Fetch all settings to find the bank accounts
+    const res = await adminFetch('/api/admin/settings?category=bank');
     const json = await res.json();
-    const banks = json.data || [];
+    let banks = json.data || [];
+
+    // Fallback: If backend doesn't filter by category, filter on frontend
+    if (!banks.length || banks.length > 50) {
+      const allRes = await adminFetch('/api/admin/settings');
+      const allJson = await allRes.json();
+      banks = (allJson.data || []).filter(r => String(r.key).startsWith('bank_account_'));
+    }
+
     if (!banks.length) {
       listEl.innerHTML = '<p class="muted" style="padding:16px;">No bank accounts yet. Click "+ Add Account" above.</p>';
       return;
     }
-    listEl.innerHTML = banks.map((b, idx) => `
-      <div class="form-grid" style="padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;">
-        <div class="form-group"><label class="form-label">Bank</label><input class="form-control" data-bank-bank="${idx}" value="${escapeHtml(b.bank || '')}" /></div>
-        <div class="form-group"><label class="form-label">Account Name</label><input class="form-control" data-bank-name="${idx}" value="${escapeHtml(b.accountName || '')}" /></div>
-        <div class="form-group"><label class="form-label">Account Number</label><input class="form-control" data-bank-num="${idx}" value="${escapeHtml(b.accountNumber || '')}" /></div>
-        <div style="display:flex;gap:6px;align-items:flex-end;">
-          <button type="button" class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveBankAccount(${idx})">Save</button>
-          <button type="button" class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.deleteBankAccount(${idx})">Delete</button>
+
+    // Render the list
+    listEl.innerHTML = banks.map((b, idx) => {
+      let data = {};
+      try { data = JSON.parse(b.value || '{}'); } catch (e) { data = { bank: b.value }; }
+      
+      return `
+        <div class="form-grid" style="padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; position: relative; background: #f8fafc;">
+          <div class="form-group">
+            <label class="form-label">Bank</label>
+            <input class="form-control" data-bank-bank="${idx}" value="${escapeHtml(data.bank || '')}" placeholder="e.g. OPAY" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Name</label>
+            <input class="form-control" data-bank-name="${idx}" value="${escapeHtml(data.accountName || '')}" placeholder="e.g. FPU School" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Number</label>
+            <input class="form-control" data-bank-num="${idx}" value="${escapeHtml(data.accountNumber || '')}" placeholder="0123456789" />
+          </div>
+          <div style="display: flex; gap: 8px; align-items: flex-end;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveBankAccount(${idx}, '${escapeHtml(b.key)}')">Save</button>
+            <button type="button" class="btn btn-sm btn-ghost" style="color: #dc2626;" onclick="FPU_ADMIN.deleteBankAccount('${escapeHtml(b.key)}')">Delete</button>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+    
   } catch (e) {
-    listEl.innerHTML = `<div class="alert alert-danger">${escapeHtml(e.message)}</div>`;
+    console.error('[bank-accounts]', e);
+    listEl.innerHTML = `<div class="alert alert-danger">Failed to load bank accounts: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function addBankAccount() {
+  try {
+    // Find the highest index to create a new unique key
+    const res = await adminFetch('/api/admin/settings');
+    const json = await res.json();
+    const rows = (json.data || []).filter(r => /^bank_account_\d+$/.test(r.key));
+    const nextIdx = rows.length ? Math.max(...rows.map(r => parseInt(r.key.split('_')[2]))) + 1 : 1;
+    
+    const key = 'bank_account_' + nextIdx;
+    
+    // Create it with empty values
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ 
+        value: JSON.stringify({ bank: '', accountName: '', accountNumber: '' }), 
+        category: 'bank' 
+      }),
+    });
+    
+    showToast('✅ New bank account slot added.', 'success');
+    loadBankAccounts();
+  } catch (e) { 
+    showToast('❌ ' + e.message, 'error'); 
+  }
+}
+
+async function saveBankAccount(idx, key) {
+  const bank = document.querySelector(`[data-bank-bank="${idx}"]`).value.trim();
+  const accountName = document.querySelector(`[data-bank-name="${idx}"]`).value.trim();
+  const accountNumber = document.querySelector(`[data-bank-num="${idx}"]`).value.trim();
+
+  if (!bank || !accountName || !accountNumber) {
+    showToast('⚠️ Bank name, account name, and account number are all required.', 'warning');
+    return;
+  }
+
+  try {
+    await adminFetch(`/api/admin/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        value: JSON.stringify({ bank, accountName, accountNumber }),
+        category: 'bank',
+      }),
+    });
+    showToast('✅ Bank saved.', 'success');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+async function deleteBankAccount(key) {
+  if (!confirm('Delete this bank account?')) return;
+  try {
+    await adminFetch(`/api/admin/settings/${key}`, { method: 'DELETE' });
+    showToast('Deleted.', 'success');
+    loadBankAccounts();
+  } catch (e) { 
+    showToast('❌ ' + e.message, 'error'); 
   }
 }
 
@@ -9438,82 +9527,6 @@ async function initSystemTab() {
   }
 }
 
-async function loadAdvancedSettings() {
-  const tbody = document.getElementById('adv-tbody');
-  if (!tbody) return;
-  const search = (document.getElementById('adv-search') || {}).value || '';
-  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
-  try {
-    const url = '/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : '');
-    const res = await adminFetch(url);
-    const json = await res.json();
-    const rows = json.data || [];
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No settings found.</td></tr>';
-      return;
-    }
-
-    // Sort by category, then key
-    rows.sort((a, b) => {
-      const c = String(a.category || 'general').localeCompare(String(b.category || 'general'));
-      if (c !== 0) return c;
-      return String(a.key || '').localeCompare(String(b.key || ''));
-    });
-
-    tbody.innerHTML = rows.map((s) => {
-      const key = s.key;
-      const cat = s.category || 'general';
-      const rawValue = s.value || '';
-      const updated = s.updatedAt || s.updated_at;
-
-      // Try to prettify JSON values (like bank accounts)
-      let displayValue = rawValue;
-      let isJson = false;
-      try {
-        const parsed = JSON.parse(rawValue);
-        if (parsed && typeof parsed === 'object') {
-          isJson = true;
-          // Pretty-print bank accounts and other JSON in a compact way
-          if (parsed.bank) {
-            displayValue = `${parsed.bank} · ${parsed.accountName || ''} · ${parsed.accountNumber || ''}`;
-          } else {
-            displayValue = Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ');
-          }
-        }
-      } catch { /* not JSON */ }
-
-      const dateStr = updated
-        ? `<strong>${fmtDate(updated)}</strong>${new Date(updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
-        : '—';
-
-      // Truncate very long values in preview
-      const preview = displayValue.length > 80 ? displayValue.slice(0, 80) + '…' : displayValue;
-
-      return `
-        <tr data-key="${escapeHtml(key)}">
-          <td><span class="adv-key" title="${escapeHtml(key)}">${escapeHtml(key)}</span></td>
-          <td><span class="adv-cat ${escapeHtml(cat)}">${escapeHtml(cat)}</span></td>
-          <td>
-            <input class="adv-input" data-adv-key="${escapeHtml(key)}"
-                   value="${escapeHtml(rawValue)}"
-                   title="${escapeHtml(rawValue)}" />
-          </td>
-          <td class="adv-date">${dateStr}</td>
-          <td>
-            <button class="btn btn-sm btn-primary"
-                    onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(key)}')">
-              Save
-            </button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-  } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
-  }
-}
-
 async function saveAdvSetting(key) {
   const input = document.querySelector(`[data-adv-key="${key}"]`);
   if (!input) return;
@@ -9551,14 +9564,44 @@ async function saveAdvSetting(key) {
   }
 }
 
+// ============================================
+// SETTINGS: Wire Tab Extras
+// ============================================
 function wireSettingsTabExtras(tab) {
-  if (tab === 'finance') setTimeout(loadBankAccounts, 100);
-  if (tab === 'library') setTimeout(runLibrarySweep, 100);
-  if (tab === 'email') setTimeout(sendTestEmail, 100);
-  if (tab === 'sms') setTimeout(sendTestSMS, 100);
-  if (tab === 'account') setTimeout(initAccountTab, 100);
-  if (tab === 'system') setTimeout(initSystemTab, 100);
-  if (tab === 'advanced') setTimeout(loadAdvancedSettings, 100);
+  // When the Finance tab is loaded, immediately fetch the bank accounts
+  if (tab === 'finance') {
+    setTimeout(loadBankAccounts, 100);
+  }
+  
+  // When the Library tab is loaded, set up the overdue sweep button
+  if (tab === 'library') {
+    setTimeout(runLibrarySweep, 100);
+  }
+  
+  // When the Email tab is loaded, set up the test email button
+  if (tab === 'email') {
+    setTimeout(sendTestEmail, 100);
+  }
+  
+  // When the SMS tab is loaded, set up the test SMS button
+  if (tab === 'sms') {
+    setTimeout(sendTestSMS, 100);
+  }
+  
+  // When the Account tab is loaded, initialize profile photo and password form
+  if (tab === 'account') {
+    setTimeout(initAccountTab, 100);
+  }
+  
+  // When the System tab is loaded, initialize deployment and health stats
+  if (tab === 'system') {
+    setTimeout(initSystemTab, 100);
+  }
+  
+  // When the Advanced tab is loaded, fetch the raw settings table
+  if (tab === 'advanced') {
+    setTimeout(loadAdvancedSettings, 100);
+  }
 }
 
 // ============================================
@@ -9773,30 +9816,118 @@ async function viewDeployLog(id) {
   }
 }
 
+// ============================================
+// SETTINGS: Advanced (Restlyed)
+// ============================================
 async function loadAdvancedSettings() {
   const tbody = document.getElementById('adv-tbody');
   if (!tbody) return;
+  
   const search = (document.getElementById('adv-search') || {}).value || '';
-  tbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="empty" style="text-align:center; padding: 40px;"><span class="spinner"></span> Loading…</td></tr>';
+  
   try {
-    const res = await adminFetch('/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : ''));
+    const url = '/api/admin/settings' + (search ? `?search=${encodeURIComponent(search)}` : '');
+    const res = await adminFetch(url);
     const json = await res.json();
     const rows = json.data || [];
+    
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty">No settings found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty" style="text-align:center;">No settings found.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map((s) => `
-      <tr>
-        <td><code>${escapeHtml(s.key)}</code></td>
-        <td>${escapeHtml(s.category || 'general')}</td>
-        <td><input class="form-control form-control-sm" data-adv-key="${escapeHtml(s.key)}" value="${escapeHtml(s.value || '')}" /></td>
-        <td class="small muted">${s.updatedAt ? fmtDateTime(s.updatedAt) : '—'}</td>
-        <td><button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(s.key)}')">Save</button></td>
-      </tr>
-    `).join('');
+
+    // Sort by category, then key
+    rows.sort((a, b) => {
+      const c = String(a.category || 'general').localeCompare(String(b.category || 'general'));
+      if (c !== 0) return c;
+      return String(a.key || '').localeCompare(String(b.key || ''));
+    });
+
+    tbody.innerHTML = rows.map((s) => {
+      const key = s.key;
+      const cat = s.category || 'general';
+      const rawValue = s.value || '';
+      const updated = s.updatedAt || s.updated_at;
+
+      // Try to prettify JSON values
+      let displayValue = rawValue;
+      try {
+        const parsed = JSON.parse(rawValue);
+        if (parsed && typeof parsed === 'object') {
+          // If it's a bank account, display it nicely
+          if (parsed.bank) {
+            displayValue = `${parsed.bank} · ${parsed.accountName || ''} · ${parsed.accountNumber || ''}`;
+          } else {
+            displayValue = Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(', ');
+          }
+        }
+      } catch { /* not JSON, keep as is */ }
+
+      const dateStr = updated
+        ? `<strong>${fmtDate(updated)}</strong><br/><span class="small muted">${new Date(updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`
+        : '—';
+
+      // Truncate very long values in preview
+      const preview = displayValue.length > 80 ? displayValue.slice(0, 80) + '…' : displayValue;
+
+      return `
+        <tr data-key="${escapeHtml(key)}">
+          <td style="padding: 12px 16px;"><code>${escapeHtml(key)}</code></td>
+          <td style="padding: 12px 16px;"><span class="badge badge-outline" style="text-transform: capitalize;">${escapeHtml(cat)}</span></td>
+          <td style="padding: 12px 16px;">
+            <input class="form-control" style="width: 100%; max-width: 400px;" data-adv-key="${escapeHtml(key)}"
+                   value="${escapeHtml(rawValue)}"
+                   title="${escapeHtml(rawValue)}" />
+          </td>
+          <td style="padding: 12px 16px; font-size: 13px;">${dateStr}</td>
+          <td style="padding: 12px 16px; text-align: right;">
+            <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(key)}')">Save</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#dc2626; text-align:center;">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+async function saveAdvSetting(key) {
+  const input = document.querySelector(`[data-adv-key="${key}"]`);
+  if (!input) return;
+
+  const row = input.closest('tr');
+  const btn = row ? row.querySelector('button') : null;
+  const original = btn ? btn.textContent : 'Save';
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
+
+  try {
+    await adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value: input.value }),
+    });
+    showToast('✅ Saved.', 'success');
+    
+    if (btn) {
+      btn.textContent = '✓ Saved';
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-outline');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('btn-outline');
+        btn.classList.add('btn-primary');
+      }, 1500);
+    }
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    if (btn) btn.textContent = original;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 

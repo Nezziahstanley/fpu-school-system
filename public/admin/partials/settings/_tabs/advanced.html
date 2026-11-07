@@ -1,115 +1,38 @@
-<!-- Settings → Advanced (Raw key-value) -->
-<div class="alert alert-warning" style="margin-bottom:20px; border-left:4px solid #f59e0b;">
-  <strong>⚠️ Advanced:</strong>
-  <span>Raw settings table. Edit only if you know exactly what you're doing. Wrong values can break the app.</span>
+<!-- ============================================================
+     Admin → Settings → Advanced
+     ============================================================ -->
+<div class="alert alert-warning" style="margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-start; background: #fffbeb; border: 1px solid #fef3c7; color: #92400e; padding: 16px; border-radius: 8px;">
+  <div style="font-size: 1.2rem;">⚠️</div>
+  <div>
+    <strong style="display: block; margin-bottom: 4px;">Advanced: Raw Settings Table</strong>
+    <span style="font-size: 13px;">Edit values only if you know exactly what you are doing. Incorrect values can break the application.</span>
+  </div>
 </div>
 
 <div class="panel">
-  <div class="panel-head">
-    <h3>All Settings</h3>
-    <div class="tools" style="display:flex; gap:8px; align-items:center;">
-      <input class="form-control form-control-sm" id="adv-search" placeholder="Search by key or category…"
-             style="max-width:260px;"
-             onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAdvancedSettings()" />
+  <div class="panel-head" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+    <h3 style="margin: 0;">All Settings</h3>
+    <div style="display: flex; gap: 8px;">
+      <input class="form-control" id="adv-search" placeholder="Search by key or category..." style="width: 250px;" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAdvancedSettings()" />
       <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAdvancedSettings()">Search</button>
-      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.exportTableAsCSV(document.querySelector('#adv-tbody').closest('table'), 'settings.csv')">Export CSV</button>
     </div>
   </div>
   <div class="panel-body flush">
     <div class="table-wrap">
-      <table class="table-admin adv-table">
+      <table class="table-admin">
         <thead>
           <tr>
-            <th style="width:260px;">Key</th>
-            <th style="width:110px;">Category</th>
+            <th style="width: 25%;">Key</th>
+            <th style="width: 15%;">Category</th>
             <th>Value</th>
-            <th style="width:120px;">Last Updated</th>
-            <th style="width:80px;">Actions</th>
+            <th style="width: 15%;">Last Updated</th>
+            <th style="width: 80px; text-align: right;">Actions</th>
           </tr>
         </thead>
         <tbody id="adv-tbody">
-          <tr><td colspan="5" class="empty">Loading…</td></tr>
+          <tr><td colspan="5" class="empty" style="text-align: center; padding: 40px; color: #64748b;">Loading settings...</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
-
-<style>
-  .adv-table {
-    table-layout: fixed;
-  }
-  .adv-table td {
-    vertical-align: middle;
-    padding-top: 10px;
-    padding-bottom: 10px;
-  }
-  .adv-table .adv-key {
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    color: #065f46;
-    background: #ecfdf5;
-    padding: 3px 8px;
-    border-radius: 5px;
-    display: inline-block;
-    max-width: 100%;
-    word-break: break-all;
-  }
-  .adv-table .adv-cat {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: #64748b;
-    background: #f1f5f9;
-    padding: 3px 8px;
-    border-radius: 5px;
-    display: inline-block;
-  }
-  .adv-table .adv-cat.auth { background: #fef3c7; color: #92400e; }
-  .adv-table .adv-cat.academic { background: #dbeafe; color: #1e40af; }
-  .adv-table .adv-cat.features { background: #e0e7ff; color: #3730a3; }
-  .adv-table .adv-cat.bank { background: #dcfce7; color: #15803d; }
-  .adv-table .adv-input {
-    width: 100%;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    padding: 8px 10px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    background: #f8fafc;
-  }
-  .adv-table .adv-input:focus {
-    background: #ffffff;
-    border-color: #065f46;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(6, 95, 70, 0.1);
-  }
-  .adv-table .adv-input[readonly] {
-    cursor: not-allowed;
-    opacity: 0.7;
-  }
-  .adv-table .adv-value-preview {
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    color: #0f172a;
-    background: #f8fafc;
-    padding: 8px 10px;
-    border-radius: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border: 1px solid #e2e8f0;
-    cursor: pointer;
-  }
-  .adv-table .adv-date {
-    font-size: 11.5px;
-    color: #64748b;
-    line-height: 1.4;
-  }
-  .adv-table .adv-date strong {
-    display: block;
-    color: #0f172a;
-    font-weight: 600;
-  }
-</style>

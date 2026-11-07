@@ -12224,7 +12224,7 @@ async function openTranscriptModal(studentId) {
 }
 
 // ============================================
-// ATTENDANCE: Department -> Courses Modal
+// ATTENDANCE: Department -> Courses Modal (FIXED)
 // ============================================
 async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const backdrop = document.createElement('div');
@@ -12254,26 +12254,44 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const body = document.getElementById('dept-modal-body');
 
   try {
-    const res = await adminFetch(`/api/admin/attendance/department/${deptId}`);
-    const json = await res.json();
-    const courses = json.data || [];
+    // 1. Fetch all courses for this department
+    const coursesRes = await adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`);
+    const coursesJson = await coursesRes.json();
+    const courses = coursesJson.data || [];
 
     if (!courses.length) {
       body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No courses found for this department.</div>';
       return;
     }
 
-    // Render the cards inside the modal
+    // 2. Fetch the attendance stats for this department
+    // We use the existing stats endpoint, which should return an array of courses with stats
+    let statsMap = new Map();
+    try {
+      const statsRes = await adminFetch(`/api/admin/attendance/department/${deptId}`);
+      if (statsRes.ok) {
+        const statsJson = await statsRes.json();
+        const statsList = statsJson.data || [];
+        statsList.forEach(s => statsMap.set(s.id, s));
+      }
+    } catch (e) {
+      console.warn('Could not load attendance stats, showing courses with 0 stats.', e);
+    }
+
+    // 3. Render the cards inside the modal
     body.innerHTML = `
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
         ${courses.map(c => {
+          // Merge the course data with the attendance stats (if available)
+          const stat = statsMap.get(c.id) || { records: 0, students: 0, rate: 0 };
+          
           let rateClass = 'empty';
-          if (c.records > 0) {
-            if (c.rate >= 75) rateClass = 'healthy';
-            else if (c.rate >= 50) rateClass = 'warning';
+          if (stat.records > 0) {
+            if (stat.rate >= 75) rateClass = 'healthy';
+            else if (stat.rate >= 50) rateClass = 'warning';
             else rateClass = 'critical';
           }
-          const rateText = c.records > 0 ? `${c.rate}%` : '—';
+          const rateText = stat.records > 0 ? `${stat.rate}%` : '—';
           
           return `
             <div class="course-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; cursor:pointer;" onclick="FPU_ADMIN.openCourseAttendanceModal(${c.id}, '${escapeHtml(c.code)}', '${escapeHtml(c.title)}', ${deptId})">
@@ -12281,7 +12299,7 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
                 <span class="course-code-badge" style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:4px; font-weight:800; font-size:11px;">${escapeHtml(c.code)}</span>
                 <span class="course-level-badge" style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700;">${escapeHtml(c.level || 'N/A')}</span>
               </div>
-              <h3 class="course-name" style="font-size:14px; margin:8px 0; font-weight:700;">${escapeHtml(c.title)}</h3>
+              <h3 class="course-name" style="font-size:14px; margin:8px 0; font-weight:700; height: 40px; overflow: hidden;">${escapeHtml(c.title)}</h3>
               
               <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
                 <span style="font-size:1.5rem; font-weight:800; color:${rateClass === 'healthy' ? '#10b981' : rateClass === 'warning' ? '#f59e0b' : rateClass === 'critical' ? '#ef4444' : '#cbd5e1'};">${rateText}</span>
@@ -12289,8 +12307,8 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
               </div>
               
               <div style="display:flex; justify-content:space-between; font-size:11px; color:#64748b; background:#f8fafc; padding:8px; border-radius:6px;">
-                <span><strong>${c.records || 0}</strong> Records</span>
-                <span><strong>${c.students || 0}</strong> Students</span>
+                <span><strong>${stat.records || 0}</strong> Records</span>
+                <span><strong>${stat.students || 0}</strong> Students</span>
               </div>
             </div>
           `;
@@ -12337,13 +12355,18 @@ async function openCourseAttendanceModal(courseId, courseCode, courseTitle, dept
   const body = document.getElementById('course-modal-body');
 
   try {
-    // Fetch the student attendance roster for this course
+    // Try to fetch the student attendance roster for this course
     const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students`);
+    
+    if (!res.ok) {
+      throw new Error(`API route not found (${res.status}). Please ensure backend route exists.`);
+    }
+
     const json = await res.json();
     const students = json.data || [];
 
     if (!students.length) {
-      body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No students found.</div>';
+      body.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No students found in this course.</div>';
       return;
     }
 
@@ -12386,7 +12409,7 @@ async function openCourseAttendanceModal(courseId, courseCode, courseTitle, dept
       </div>
     `;
   } catch (err) {
-    body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px;">Error loading roster: ${escapeHtml(err.message)}</div>`;
+    body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px; background:#fee2e2; border-radius:8px;">Error loading roster: ${escapeHtml(err.message)}</div>`;
   }
 }
 

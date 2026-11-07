@@ -18,9 +18,57 @@ const { scoreToGrade, getActiveGradeScale, invalidateCache } = require('../utils
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
-// GET /api/admin/results
+// ============================================================
+// BULK ACTION — MUST BE BEFORE /:id routes!
+// ============================================================
+router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
+  try {
+    const { ids, courseId, action } = req.body || {};
+
+    if (!action) {
+      return res.status(400).json({ success: false, error: 'Action is required.' });
+    }
+
+    const { db, schema } = require('../db');
+    const { eq, inArray } = require('drizzle-orm');
+
+    let updatedRows;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      updatedRows = await db
+        .update(schema.results)
+        .set({ status: action })
+        .where(inArray(schema.results.id, ids.map(Number)))
+        .returning();
+    } else if (courseId) {
+      updatedRows = await db
+        .update(schema.results)
+        .set({ status: action })
+        .where(eq(schema.results.courseId, Number(courseId)))
+        .returning();
+    } else {
+      return res.status(400).json({ success: false, error: 'No IDs or Course ID provided.' });
+    }
+
+    await logAudit({ 
+      req, 
+      action: `result.bulk_${action}`, 
+      entity: 'result', 
+      after: { count: updatedRows.length, action } 
+    });
+
+    return res.json({ success: true, data: updatedRows, count: updatedRows.length });
+    
+  } catch (err) {
+    console.error('Bulk action error:', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/admin/results — list with joins
+// ============================================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
-  // Auto-scope HODs to their own department
   if (req.user && req.user.role === 'hod' && req.user.departmentId) {
     req.query.departmentId = req.user.departmentId;
   }
@@ -36,22 +84,18 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
     if (courseId) conds.push(eq(schema.results.courseId, Number(courseId)));
     if (sessionId) conds.push(eq(schema.results.sessionId, Number(sessionId)));
     
-    // Handle Semester (ignore 'all')
     if (semester && semester !== 'all') {
       conds.push(eq(schema.results.semester, semester));
     }
     
-    // Handle Status
     if (status) {
       conds.push(eq(schema.results.status, status));
     }
     
-    // Handle Department
     if (departmentId) {
       conds.push(eq(schema.courses.departmentId, Number(departmentId)));
     }
     
-    // Handle Search
     if (search) {
       conds.push(or(
         ilike(schema.users.firstName, `%${search}%`),
@@ -63,7 +107,6 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 
     const where = conds.length ? and(...conds) : undefined;
 
-    // Join tables to get student, course, and department details
     const rows = await db
       .select({
         id: schema.results.id,
@@ -145,6 +188,9 @@ router.get('/pending-admin', requireRole(['admin', 'academic_officer']), async (
   }
 });
 
+// ============================================================
+// SINGLE RESULT routes (must come AFTER bulk-action)
+// ============================================================
 router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
     const row = await resultQueries.findById(req.params.id);
@@ -155,7 +201,6 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   }
 });
 
-// POST /api/admin/results — create or upsert with auto-grade
 router.post('/', requireRole(['admin', 'academic_officer', 'lecturer']), async (req, res, next) => {
   try {
     const { studentId, courseId, sessionId, semester, score } = req.body || {};
@@ -177,7 +222,6 @@ router.post('/', requireRole(['admin', 'academic_officer', 'lecturer']), async (
   }
 });
 
-// PUT /api/admin/results/:id — edit score (recomputes grade)
 router.put('/:id', requireRole(['admin', 'academic_officer', 'lecturer']), async (req, res, next) => {
   try {
     const existing = await resultQueries.findById(req.params.id);
@@ -201,7 +245,6 @@ router.put('/:id', requireRole(['admin', 'academic_officer', 'lecturer']), async
   }
 });
 
-// Submit (lecturer or admin)
 router.post('/:id/submit', requireRole(['lecturer', 'admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.submit(req.params.id, req.user.id);
@@ -213,7 +256,6 @@ router.post('/:id/submit', requireRole(['lecturer', 'admin', 'academic_officer']
   }
 });
 
-// HOD verify / reject
 router.post('/:id/hod-verify', requireRole(['hod', 'admin']), async (req, res, next) => {
   try {
     const row = await resultQueries.hodVerify(req.params.id, req.user.id);
@@ -236,7 +278,6 @@ router.post('/:id/hod-reject', requireRole(['hod', 'admin']), async (req, res, n
   }
 });
 
-// Admin approve / reject
 router.post('/:id/approve', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.adminApprove(req.params.id, req.user.id);
@@ -259,7 +300,6 @@ router.post('/:id/reject', requireRole(['admin', 'academic_officer']), async (re
   }
 });
 
-// Publish single or batch
 router.post('/:id/publish', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.publish(req.params.id);
@@ -296,64 +336,9 @@ router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
   }
 });
 
-// Force refresh of cached grade scale (handy after editing the scale)
 router.post('/refresh-scale', requireRole(['admin']), async (_req, res) => {
   invalidateCache();
   return res.json({ success: true });
-});
-
-// POST /api/admin/results/bulk-action
-router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
-  try {
-    const { ids, courseId, action } = req.body || {};
-
-    if (!action) {
-      return res.status(400).json({ success: false, error: 'Action is required.' });
-    }
-
-    const { db, schema } = require('../db');
-    const { eq, inArray } = require('drizzle-orm');
-
-    let updatedRows;
-
-    if (ids && Array.isArray(ids) && ids.length > 0) {
-      // Update specific selected IDs
-      updatedRows = await db
-        .update(schema.results)
-        .set({ 
-          status: action,
-          updatedAt: new Date() 
-        })
-        .where(inArray(schema.results.id, ids.map(Number)))
-        .returning();
-    } else if (courseId) {
-      // Update entire course
-      updatedRows = await db
-        .update(schema.results)
-        .set({ 
-          status: action,
-          updatedAt: new Date() 
-        })
-        .where(eq(schema.results.courseId, Number(courseId)))
-        .returning();
-    } else {
-      return res.status(400).json({ success: false, error: 'No IDs or Course ID provided.' });
-    }
-
-    // Log to audit
-    await logAudit({ 
-      req, 
-      action: `result.bulk_${action}`, 
-      entity: 'result', 
-      after: { count: updatedRows.length, action } 
-    });
-
-    return res.json({ success: true, data: updatedRows, count: updatedRows.length });
-    
-  } catch (err) {
-    console.error('Bulk action error:', err);
-    return next(err);
-  }
 });
 
 module.exports = router;

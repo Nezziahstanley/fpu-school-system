@@ -1,10 +1,5 @@
 <!-- ============================================================
      Admin → Results → Overview (department-first)
-     ------------------------------------------------------------
-     Shows every department with a breakdown of its results by
-     workflow status. Departments with results awaiting admin
-     approval (status = hod_verified) are highlighted.
-     Click a department → full drill-down by course.
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -14,11 +9,13 @@
     </p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadResultDepartments()">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadResultsDashboard()">
       Refresh
     </button>
-    <button class="btn btn-outline btn-sm"
-            onclick="FPU_ADMIN_SPA.navigateTo('grade-scales')">
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#results-approved'">
+      👁 View All Approved
+    </button>
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#grade-scales'">
       Grade Scales
     </button>
     <button class="btn btn-accent btn-sm" onclick="FPU_ADMIN.publishAllApproved()">
@@ -33,12 +30,12 @@
     <label class="form-label">Session</label>
     <select class="form-select" id="res-filter-session"
             data-lookup="sessions" data-placeholder="Current session"
-            onchange="FPU_ADMIN.loadResultDepartments()"></select>
+            onchange="FPU_ADMIN.loadResultsDashboard()"></select>
   </div>
   <div class="form-group">
     <label class="form-label">Semester</label>
     <select class="form-select" id="res-filter-semester"
-            onchange="FPU_ADMIN.loadResultDepartments()">
+            onchange="FPU_ADMIN.loadResultsDashboard()">
       <option value="">All semesters</option>
       <option value="first">First</option>
       <option value="second">Second</option>
@@ -47,7 +44,7 @@
   <div class="form-group">
     <label class="form-label">Status</label>
     <select class="form-select" id="res-filter-status"
-            onchange="FPU_ADMIN.loadResultDepartments()">
+            onchange="FPU_ADMIN.loadResultsDashboard()">
       <option value="hod_verified">Awaiting admin approval</option>
       <option value="approved">Approved (ready to publish)</option>
       <option value="">All statuses</option>
@@ -62,7 +59,7 @@
     <label class="form-label">School</label>
     <select class="form-select" id="res-filter-school"
             data-lookup="schools" data-placeholder="All schools"
-            onchange="FPU_ADMIN.loadResultDepartments()"></select>
+            onchange="FPU_ADMIN.loadResultsDashboard()"></select>
   </div>
 </div>
 
@@ -235,5 +232,7 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadResultDepartments()
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadResultsDashboard) {
+    setTimeout(window.FPU_ADMIN.loadResultsDashboard, 100);
+  }
 </script>

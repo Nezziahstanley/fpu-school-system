@@ -233,6 +233,7 @@
 
     'results':          { url: '/admin/partials/results/list.html',              title: 'Results',         init: call('loadResultDepartments') },
     'results-by-dept':  { url: '/admin/partials/results/by-department.html',     title: 'Department Results', init: call('loadDepartmentResults') },
+    'results-approved': { url: '/admin/partials/results/approved.html',          title: 'Approved Results', init: call('loadApprovedResults') },
     'result-edit':      { url: '/admin/partials/results/edit.html',              title: 'Edit Result',     init: () => {} },
     'result-detail':    { url: '/admin/partials/results/result-detail.html',     title: 'Result Detail',   init: () => {} },
     'grade-scales':     { url: '/admin/partials/results/grade-scales.html',      title: 'Grade Scales',    init: call('loadGradeScales') },

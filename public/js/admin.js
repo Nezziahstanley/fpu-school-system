@@ -11862,36 +11862,34 @@ async function loadResultsDashboard() {
   const grid = document.getElementById('res-dept-grid');
   if (!grid) return;
 
-  // Get filters
   const status = document.getElementById('res-filter-status')?.value || '';
   const semester = document.getElementById('res-filter-semester')?.value || '';
 
   grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading results...</div>';
 
   try {
-    // Fetch ALL results to calculate true global stats and populate cards
-    const res = await adminFetch('/api/admin/results?limit=5000');
-    const json = await res.json();
-    const allResults = json.data || [];
+    // 1. Fetch ALL results to get the true global totals
+    const resAll = await adminFetch(`/api/admin/results?limit=5000`);
+    const jsonAll = await resAll.json();
+    const allResults = jsonAll.data || [];
 
-    // 1. Calculate Global Stats (based on ALL data, not filtered)
     let awaiting = 0, readyToPublish = 0;
     allResults.forEach(r => {
       if (r.status === 'hod_verified') awaiting++;
       if (r.status === 'approved') readyToPublish++;
     });
 
-    // Update Stats Bar
+    // Always show the true totals in the stats bar
     if (document.getElementById('res-stat-total')) document.getElementById('res-stat-total').textContent = allResults.length;
     if (document.getElementById('res-stat-awaiting')) document.getElementById('res-stat-awaiting').textContent = awaiting;
     if (document.getElementById('res-stat-ready')) document.getElementById('res-stat-ready').textContent = readyToPublish;
 
-    // 2. Filter data for the cards
+    // 2. Apply the filter for the department cards below
     let filtered = allResults;
     if (status) filtered = filtered.filter(r => r.status === status);
     if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
 
-    // 3. Group by Department
+    // 3. Group by department
     const deptMap = {};
     filtered.forEach(r => {
       const deptId = r.course?.departmentId;
@@ -11917,11 +11915,11 @@ async function loadResultsDashboard() {
     if (document.getElementById('res-stat-depts')) document.getElementById('res-stat-depts').textContent = deptArray.length;
 
     if (!deptArray.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your filters.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your current filters.</div>';
       return;
     }
 
-    // 4. Render Cards
+    // Render Cards
     grid.innerHTML = deptArray.map(d => `
       <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
@@ -12167,6 +12165,45 @@ async function publishAllApproved() {
   }
 }
 
+async function loadApprovedResults() {
+  const tbody = document.getElementById('approved-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading approved results...</td></tr>';
+
+  try {
+    const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
+    const json = await res.json();
+    const results = json.data || [];
+
+    if (document.getElementById('appr-count')) document.getElementById('appr-count').textContent = `${results.length} approved results`;
+
+    if (!results.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;">No approved results found.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = results.map(r => {
+      const student = r.student || {};
+      return `
+        <tr>
+          <td style="font-weight:600;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+          <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+          <td>${escapeHtml(r.course?.departmentName || '—')}</td>
+          <td><span style="color:#065f46; font-weight:700;">${escapeHtml(r.course?.code || '—')}</span></td>
+          <td style="font-weight:700;">${r.score || '-'}</td>
+          <td style="font-weight:700;">${escapeHtml(r.grade || '-')}</td>
+          <td><span style="color:#2563eb; font-weight:700; font-size:11px;">APPROVED</span></td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load approved results:', err);
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results.</td></tr>';
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -12210,8 +12247,8 @@ window.FPU_ADMIN = {
   loadRegistrationStudents,
 
   // Results
-  loadResultDepartments, loadResultsDashboard, publishAllApproved, loadDepartmentResults,
-  loadDeptResults, courseBulkAction, toggleAllResults, toggleCourseResults, updateBulkBtnState, bulkResultAction,
+  loadResultsDashboard, loadDepartmentResults, loadApprovedResults, toggleAllResults, toggleCourseResults,
+  updateBulkBtnState, bulkResultAction, courseBulkAction, publishAllApproved,
 
   // Grade Scales
   loadGradeScales, openEditGradeScale, toggleGradeScale, deleteGradeScale, toggleAddBandForm,  submitAddBand,

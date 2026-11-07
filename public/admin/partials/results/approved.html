@@ -1,0 +1,46 @@
+<!-- ============================================================
+     Admin → Results → All Approved
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>All Approved Results</h2>
+    <p class="muted small">Results that have been approved and are ready to be published to students.</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="window.location.hash='#results'">← Back to Results</button>
+    <button class="btn btn-accent btn-sm" onclick="FPU_ADMIN.publishAllApproved()">📢 Publish All Approved</button>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>Approved Results</h3>
+    <span class="small muted" id="appr-count">—</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
+      <table class="table-admin">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Matric No</th>
+            <th>Department</th>
+            <th>Course</th>
+            <th>Score</th>
+            <th>Grade</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="approved-tbody">
+          <tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading approved results...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadApprovedResults) {
+    setTimeout(window.FPU_ADMIN.loadApprovedResults, 100);
+  }
+</script>

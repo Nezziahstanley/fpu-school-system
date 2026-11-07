@@ -11659,12 +11659,6 @@ async function loadDeptResults() {
   }
 }
 
-// Helper functions for the checkboxes and buttons
-function toggleAllResults(checked) {
-  document.querySelectorAll('.rd-checkbox').forEach(cb => cb.checked = checked);
-  updateBulkBtnState();
-}
-
 function updateBulkBtnState() {
   const checked = document.querySelectorAll('.rd-checkbox:checked').length;
   // You can enable/disable bulk buttons here based on selection
@@ -11831,14 +11825,6 @@ async function loadDepartmentResults() {
   }
 }
 
-// ============================================
-// RESULTS: Bulk Actions
-// ============================================
-function toggleAllResults(checked) {
-  document.querySelectorAll('.rd-checkbox').forEach(cb => cb.checked = checked);
-  updateBulkBtnState();
-}
-
 function toggleCourseResults(checkbox, courseId) {
   document.querySelectorAll(`.course-${courseId}`).forEach(cb => cb.checked = checkbox.checked);
   updateBulkBtnState();
@@ -11867,6 +11853,279 @@ async function bulkResultAction(action) {
   }
 }
 
+// ============================================
+// RESULTS: Dashboard & Department Views
+// ============================================
+
+// 1. Load the main Results Dashboard (#results)
+async function loadResultsDashboard() {
+  const grid = document.getElementById('res-dept-grid');
+  if (!grid) return;
+
+  // Get filters
+  const status = document.getElementById('res-filter-status')?.value || '';
+  const semester = document.getElementById('res-filter-semester')?.value || '';
+
+  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading results...</div>';
+
+  try {
+    // Fetch ALL results to calculate true global stats and populate cards
+    const res = await adminFetch('/api/admin/results?limit=5000');
+    const json = await res.json();
+    const allResults = json.data || [];
+
+    // 1. Calculate Global Stats (based on ALL data, not filtered)
+    let awaiting = 0, readyToPublish = 0;
+    allResults.forEach(r => {
+      if (r.status === 'hod_verified') awaiting++;
+      if (r.status === 'approved') readyToPublish++;
+    });
+
+    // Update Stats Bar
+    if (document.getElementById('res-stat-total')) document.getElementById('res-stat-total').textContent = allResults.length;
+    if (document.getElementById('res-stat-awaiting')) document.getElementById('res-stat-awaiting').textContent = awaiting;
+    if (document.getElementById('res-stat-ready')) document.getElementById('res-stat-ready').textContent = readyToPublish;
+
+    // 2. Filter data for the cards
+    let filtered = allResults;
+    if (status) filtered = filtered.filter(r => r.status === status);
+    if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
+
+    // 3. Group by Department
+    const deptMap = {};
+    filtered.forEach(r => {
+      const deptId = r.course?.departmentId;
+      if (!deptId) return;
+
+      if (!deptMap[deptId]) {
+        deptMap[deptId] = { 
+          id: deptId, 
+          name: r.course.departmentName || 'Unknown Department', 
+          code: r.course.departmentCode || 'DEPT',
+          total: 0, awaiting: 0, approved: 0, published: 0, rejected: 0
+        };
+      }
+      
+      deptMap[deptId].total++;
+      if (r.status === 'hod_verified') deptMap[deptId].awaiting++;
+      if (r.status === 'approved') deptMap[deptId].approved++;
+      if (r.status === 'published') deptMap[deptId].published++;
+      if (r.status === 'admin_rejected') deptMap[deptId].rejected++;
+    });
+
+    const deptArray = Object.values(deptMap);
+    if (document.getElementById('res-stat-depts')) document.getElementById('res-stat-depts').textContent = deptArray.length;
+
+    if (!deptArray.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your filters.</div>';
+      return;
+    }
+
+    // 4. Render Cards
+    grid.innerHTML = deptArray.map(d => `
+      <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+          <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(d.code)}</span>
+          <span style="color:#64748b; font-size:11px;">SST</span>
+        </div>
+        <h3 style="font-size:1.05rem; font-weight:700; margin:0 0 12px 0;">${escapeHtml(d.name)}</h3>
+        
+        <div style="font-size:1.8rem; font-weight:800; color:#0f172a; line-height:1;">${d.total}</div>
+        <div style="font-size:11px; color:#64748b; font-weight:600; margin-bottom:16px;">total rows</div>
+        
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
+          <div style="background:#fffbeb; padding:8px; border-radius:8px; text-align:center;">
+            <div style="font-weight:800; color:#d97706;">${d.awaiting}</div>
+            <div style="font-size:9px; font-weight:700; color:#b45309;">AWAITING</div>
+          </div>
+          <div style="background:#eff6ff; padding:8px; border-radius:8px; text-align:center;">
+            <div style="font-weight:800; color:#2563eb;">${d.approved}</div>
+            <div style="font-size:9px; font-weight:700; color:#1d4ed8;">APPROVED</div>
+          </div>
+          <div style="background:#f0fdf4; padding:8px; border-radius:8px; text-align:center;">
+            <div style="font-weight:800; color:#059669;">${d.published}</div>
+            <div style="font-size:9px; font-weight:700; color:#047857;">PUBLISHED</div>
+          </div>
+          <div style="background:#fef2f2; padding:8px; border-radius:8px; text-align:center;">
+            <div style="font-weight:800; color:#dc2626;">${d.rejected}</div>
+            <div style="font-size:9px; font-weight:700; color:#b91c1c;">REJECTED</div>
+          </div>
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f1f5f9; padding-top:12px; font-size:12px; font-weight:700; color:#065f46;">
+          <span>Review results</span>
+          <span>→</span>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    console.error('Failed to load results dashboard:', err);
+    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#dc2626;">Failed to load results data.</div>';
+  }
+}
+
+// 2. Load Department Results Table (#results-by-dept)
+async function loadDepartmentResults() {
+  const root = document.getElementById('rd-root');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('departmentId');
+  const deptName = params.get('name') || 'Department';
+
+  if (!deptId) {
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No department selected. Please go back.</div>';
+    return;
+  }
+
+  const titleEl = document.getElementById('res-dept-title');
+  const subEl = document.getElementById('res-dept-subtitle');
+  if (titleEl) titleEl.textContent = `${deptName} Results`;
+  if (subEl) subEl.textContent = `Review and publish student results`;
+
+  const status = document.getElementById('rd-filter-status')?.value || '';
+  const semester = document.getElementById('rd-filter-semester')?.value || '';
+  const search = document.getElementById('rd-filter-search')?.value || '';
+
+  root.innerHTML = '<div class="loading" style="text-align:center; padding: 40px; color: #64748b;"><span class="spinner"></span> Loading results...</div>';
+
+  try {
+    let url = `/api/admin/results?departmentId=${deptId}`;
+    if (status) url += `&status=${status}`;
+    if (semester && semester !== 'all') url += `&semester=${semester}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const results = json.data || [];
+
+    // Update Stats
+    if (document.getElementById('rd-stat-total')) document.getElementById('rd-stat-total').textContent = results.length;
+    let pending = 0, approved = 0, published = 0;
+    results.forEach(r => {
+      if (r.status === 'hod_verified') pending++;
+      else if (r.status === 'approved') approved++;
+      else if (r.status === 'published') published++;
+    });
+    if (document.getElementById('rd-stat-pending')) document.getElementById('rd-stat-pending').textContent = pending;
+    if (document.getElementById('rd-stat-approved')) document.getElementById('rd-stat-approved').textContent = approved;
+    if (document.getElementById('rd-stat-published')) document.getElementById('rd-stat-published').textContent = published;
+
+    if (!results.length) {
+      root.innerHTML = '<div style="text-align:center; padding: 40px; color: #64748b;">No results found matching your filters.</div>';
+      return;
+    }
+
+    // Group by course
+    const grouped = {};
+    results.forEach(r => {
+      const cid = r.courseId || r.course?.id || 'unknown';
+      if (!grouped[cid]) {
+        grouped[cid] = { course: r.course || { code: 'N/A', title: 'Unknown Course', unit: 0 }, results: [] };
+      }
+      grouped[cid].results.push(r);
+    });
+
+    let html = '';
+    Object.values(grouped).forEach(group => {
+      const course = group.course;
+      const courseResults = group.results;
+      
+      html += `
+        <div class="res-course-group">
+          <div class="res-course-head">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="code">${escapeHtml(course.code)}</span>
+              <span class="title">${escapeHtml(course.title)}</span>
+              <span class="meta"><strong>${course.unit || 0}</strong> Units</span>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-sm btn-approve" onclick="FPU_ADMIN.courseBulkAction('${course.id}', 'approved')">Approve All</button>
+              <button class="btn btn-sm btn-publish" onclick="FPU_ADMIN.courseBulkAction('${course.id}', 'published')">Publish All</button>
+            </div>
+          </div>
+          <table class="table-admin">
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" onchange="FPU_ADMIN.toggleCourseResults(this, '${course.id}')" /></th>
+                <th>Student</th>
+                <th>Matric No</th>
+                <th>Score</th>
+                <th>Grade</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${courseResults.map(r => {
+                const student = r.student || {};
+                let rowClass = '';
+                if (r.status === 'published') rowClass = 'row-published';
+                if (r.status === 'admin_rejected') rowClass = 'row-rejected';
+
+                return `
+                  <tr class="${rowClass}">
+                    <td><input type="checkbox" class="rd-checkbox course-${course.id}" value="${r.id}" onchange="FPU_ADMIN.updateBulkBtnState()" /></td>
+                    <td style="font-weight:600;">${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</td>
+                    <td style="font-family:monospace;">${escapeHtml(student.matricNumber || '—')}</td>
+                    <td><span class="res-score">${r.score || '-'}</span></td>
+                    <td style="font-weight:700;">${escapeHtml(r.grade || '-')}</td>
+                    <td>
+                      <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:${r.status === 'published' ? '#059669' : r.status === 'approved' ? '#2563eb' : '#d97706'};">
+                        ${escapeHtml(r.status.replace(/_/g, ' '))}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    });
+
+    root.innerHTML = html;
+  } catch (err) {
+    console.error('Failed to load department results:', err);
+    root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">Failed to load results.</div>';
+  }
+}
+
+// 3. Bulk Actions & Toggles
+function toggleAllResults(checked) {
+  document.querySelectorAll('.rd-checkbox').forEach(cb => cb.checked = checked);
+  updateBulkBtnState();
+}
+
+function toggleCourseResults(checkbox, courseId) {
+  document.querySelectorAll(`.course-${courseId}`).forEach(cb => cb.checked = checkbox.checked);
+  updateBulkBtnState();
+}
+
+function updateBulkBtnState() {
+  // Optional: Enable/disable bulk buttons based on selection count
+}
+
+async function bulkResultAction(action) {
+  const selectedIds = Array.from(document.querySelectorAll('.rd-checkbox:checked')).map(cb => cb.value);
+  if (!selectedIds.length) return showToast('Select at least one result.', 'warning');
+  
+  if (!confirm(`Are you sure you want to ${action.replace('_', ' ')} ${selectedIds.length} result(s)?`)) return;
+
+  try {
+    await adminFetch('/api/admin/results/bulk-action', {
+      method: 'POST',
+      body: JSON.stringify({ ids: selectedIds, action })
+    });
+    showToast(`✅ Results updated successfully.`, 'success');
+    loadDepartmentResults();
+  } catch (err) {
+    showToast(`❌ ${err.message}`, 'error');
+  }
+}
+
 async function courseBulkAction(courseId, action) {
   if (!confirm(`Apply "${action}" to all results for this course?`)) return;
   
@@ -11882,116 +12141,10 @@ async function courseBulkAction(courseId, action) {
   }
 }
 
-async function loadResultsDashboard() {
-  const grid = document.getElementById('res-dept-grid');
-  if (!grid) return;
-
-  // Get filters
-  const status = document.getElementById('res-filter-status')?.value || '';
-  const semester = document.getElementById('res-filter-semester')?.value || '';
-  const schoolId = document.getElementById('res-filter-school')?.value || '';
-
-  grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading...</div>';
-
-  try {
-    // Fetch all results (unfiltered) to calculate true global stats
-    const res = await adminFetch(`/api/admin/results?limit=5000`);
-    const json = await res.json();
-    const allResults = json.data || [];
-
-    // 1. Calculate Global Stats
-    let awaiting = 0, readyToPublish = 0;
-    allResults.forEach(r => {
-      if (r.status === 'hod_verified') awaiting++;
-      if (r.status === 'approved') readyToPublish++;
-    });
-
-    document.getElementById('res-stat-total').textContent = allResults.length;
-    document.getElementById('res-stat-awaiting').textContent = awaiting;
-    document.getElementById('res-stat-ready').textContent = readyToPublish;
-
-    // 2. Filter the data for the cards (Client-side filtering)
-    let filtered = allResults;
-    if (status) filtered = filtered.filter(r => r.status === status);
-    if (semester && semester !== 'all') filtered = filtered.filter(r => r.semester === semester);
-
-    // 3. Group by Department for the cards
-    const deptMap = {};
-    filtered.forEach(r => {
-      const deptId = r.course?.departmentId;
-      if (!deptId) return;
-
-      if (!deptMap[deptId]) {
-        deptMap[deptId] = {
-          id: deptId,
-          name: r.course.departmentName || 'Unknown Department',
-          code: r.course.departmentCode || 'DEPT',
-          schoolName: 'School of Science', // Placeholder (add school join to backend later if needed)
-          total: 0, awaiting: 0, approved: 0, published: 0
-        };
-      }
-
-      deptMap[deptId].total++;
-      if (r.status === 'hod_verified') deptMap[deptId].awaiting++;
-      if (r.status === 'approved') deptMap[deptId].approved++;
-      if (r.status === 'published') deptMap[deptId].published++;
-    });
-
-    const deptArray = Object.values(deptMap);
-    document.getElementById('res-stat-depts').textContent = deptArray.length;
-
-    if (!deptArray.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;">No results match your filters.</div>';
-      return;
-    }
-
-    // 4. Render Cards
-    grid.innerHTML = deptArray.map(d => `
-      <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'">
-        <div class="dept-card-header">
-          <span class="dept-code-badge">${escapeHtml(d.code)}</span>
-          <span class="dept-school-badge">${escapeHtml(d.schoolName)}</span>
-        </div>
-        <h3 class="dept-name">${escapeHtml(d.name)}</h3>
-        
-        <div class="dept-rate-wrap">
-          <span class="dept-rate-number" style="color:#0f172a;">${d.total}</span>
-          <span class="dept-rate-label">total rows</span>
-        </div>
-        
-        <div class="dept-stats-grid">
-          <div class="dept-stat-box">
-            <div class="dept-stat-val" style="color:#d97706;">${d.awaiting}</div>
-            <div class="dept-stat-lbl">Awaiting</div>
-          </div>
-          <div class="dept-stat-box">
-            <div class="dept-stat-val" style="color:#2563eb;">${d.approved}</div>
-            <div class="dept-stat-lbl">Approved</div>
-          </div>
-          <div class="dept-stat-box">
-            <div class="dept-stat-val" style="color:#059669;">${d.published}</div>
-            <div class="dept-stat-lbl">Published</div>
-          </div>
-        </div>
-        
-        <div class="dept-card-footer">
-          <span>Review results</span>
-          <span>→</span>
-        </div>
-      </div>
-    `).join('');
-
-  } catch (err) {
-    console.error('Failed to load results dashboard:', err);
-    grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#dc2626;">Failed to load results data.</div>';
-  }
-}
-
 async function publishAllApproved() {
   if (!confirm('Are you sure you want to publish ALL approved results? Students will see these immediately.')) return;
 
   try {
-    // Fetch all approved results first
     const res = await adminFetch('/api/admin/results?status=approved&limit=5000');
     const json = await res.json();
     const approvedResults = json.data || [];
@@ -12002,15 +12155,13 @@ async function publishAllApproved() {
 
     const ids = approvedResults.map(r => r.id);
 
-    // Send to bulk action endpoint
     await adminFetch('/api/admin/results/bulk-action', {
       method: 'POST',
       body: JSON.stringify({ ids, action: 'published' })
     });
 
     showToast(`✅ Published ${ids.length} results successfully.`, 'success');
-    loadResultsDashboard(); // Refresh the page
-
+    loadResultsDashboard();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }

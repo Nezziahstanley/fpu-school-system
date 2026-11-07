@@ -6360,14 +6360,14 @@ async function loadBorrowsTable() {
       if (br.status === 'returned') {
         returned++;
       } else if (br.status === 'lost') {
-        // Skip lost for active counts
+        // Skip lost
       } else {
         active++;
         if (isOverdue) overdue++;
       }
     });
     
-    // Update Top Stats Bar (Make sure these IDs match your HTML!)
+    // Update Top Stats Bar
     setText('bor-stat-total', rows.length);
     setText('bor-stat-active', active);
     setText('bor-stat-overdue', overdue);
@@ -6389,6 +6389,27 @@ async function loadBorrowsTable() {
       const studentName = `${u.firstName || u.first_name || ''} ${u.lastName || u.last_name || ''}`.trim() || 'Unknown User';
       const isOverdue = br.dueAt && new Date(br.dueAt) < new Date() && br.status !== 'returned' && br.status !== 'lost';
 
+      // Calculate Days Difference
+      let daysDisplay = '—';
+      if (br.borrowedAt) {
+        const start = new Date(br.borrowedAt);
+        let end;
+        
+        if (br.status === 'returned' && br.returnedAt) {
+          // If returned, calculate time between borrow and return
+          end = new Date(br.returnedAt);
+        } else {
+          // If active, calculate time between borrow and today
+          end = new Date(); 
+        }
+        
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // If it's the exact same day, show 1 day, otherwise show the diff
+        daysDisplay = diffDays === 0 ? 1 : diffDays;
+      }
+
       let actions = '';
       if (br.status === 'borrowed' || br.status === 'overdue' || isOverdue) {
         actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.openReturnModal(${br.id}, '${escapeHtml(title)}')">Mark Returned</button>`;
@@ -6403,7 +6424,7 @@ async function loadBorrowsTable() {
           <td>${br.borrowedAt ? new Date(br.borrowedAt).toLocaleDateString() : '—'}</td>
           <td style="${isOverdue ? 'color:#dc2626;font-weight:bold;' : ''}">${br.dueAt ? new Date(br.dueAt).toLocaleDateString() : '—'}</td>
           <td>${badge(br.status)}</td>
-          <td>${br.days || '—'}</td>
+          <td>${daysDisplay}</td>
           <td>${actions}</td>
         </tr>
       `;

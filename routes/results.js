@@ -312,30 +312,35 @@ router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (r
     }
 
     const { db, schema } = require('../db');
-    const { eq, inArray, and } = require('drizzle-orm');
+    const { eq, inArray } = require('drizzle-orm');
 
     let updatedRows;
 
-    // Determine which rows to update
     if (ids && Array.isArray(ids) && ids.length > 0) {
-      // Update specific IDs selected by checkbox
+      // Update specific selected IDs
       updatedRows = await db
         .update(schema.results)
-        .set({ status: action, updatedAt: new Date() })
-        .where(inArray(schema.results.id, ids))
+        .set({ 
+          status: action,
+          updatedAt: new Date() 
+        })
+        .where(inArray(schema.results.id, ids.map(Number)))
         .returning();
     } else if (courseId) {
-      // Update ALL results for a specific course (Approve All button)
+      // Update entire course
       updatedRows = await db
         .update(schema.results)
-        .set({ status: action, updatedAt: new Date() })
+        .set({ 
+          status: action,
+          updatedAt: new Date() 
+        })
         .where(eq(schema.results.courseId, Number(courseId)))
         .returning();
     } else {
-      return res.status(400).json({ success: false, error: 'ids[] or courseId is required.' });
+      return res.status(400).json({ success: false, error: 'No IDs or Course ID provided.' });
     }
 
-    // Log the action to audit trail
+    // Log to audit
     await logAudit({ 
       req, 
       action: `result.bulk_${action}`, 
@@ -344,6 +349,7 @@ router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (r
     });
 
     return res.json({ success: true, data: updatedRows, count: updatedRows.length });
+    
   } catch (err) {
     console.error('Bulk action error:', err);
     return next(err);

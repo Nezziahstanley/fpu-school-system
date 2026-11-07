@@ -5667,6 +5667,7 @@ async function bulkClearClearances(newStatus) {
 
 // Helper for bulk actions (doesn't show individual toasts)
 async function clearStudentSilent(studentId, newStatus) {
+  // Try POST (Create)
   const createRes = await adminFetch('/api/admin/clearances', {
     method: 'POST',
     body: JSON.stringify({ studentId, status: newStatus, remarks: 'Bulk action' }),
@@ -5674,13 +5675,18 @@ async function clearStudentSilent(studentId, newStatus) {
 
   if (createRes.ok) return;
 
+  // If POST fails, try PUT (Update)
   const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
     method: 'PUT',
     body: JSON.stringify({ status: newStatus }),
   });
 
   if (updateRes.ok) return;
-  throw new Error('Failed');
+
+  // If both fail, log the exact error from the server
+  const errData = await updateRes.json().catch(() => ({}));
+  console.error(`[Clearance Failed for Student ${studentId}]`, errData);
+  throw new Error(errData.error || `Failed to update clearance. Check console.`);
 }
 
 // ============================================

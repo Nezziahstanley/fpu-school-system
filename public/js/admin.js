@@ -5584,7 +5584,24 @@ async function loadDepartmentClearances() {
 // ============================================
 async function clearStudent(studentId, newStatus) {
   try {
-    // Try UPDATE first
+    // 1. Try to CREATE a new record first
+    // This avoids the 500 error if the record doesn't exist yet.
+    const createRes = await adminFetch('/api/admin/clearances', {
+      method: 'POST',
+      body: JSON.stringify({
+        studentId: Number(studentId),
+        status: newStatus,
+        remarks: newStatus === 'cleared' ? 'Cleared by Admin' : 'Rejected by Admin'
+      }),
+    });
+
+    if (createRes.ok) {
+      showToast(`✅ Clearance set to ${newStatus}.`, 'success');
+      loadDepartmentClearances();
+      return;
+    }
+
+    // 2. If it failed (e.g., record already exists -> 400 Bad Request), try UPDATE
     const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
       method: 'PUT',
       body: JSON.stringify({ status: newStatus }),
@@ -5596,23 +5613,10 @@ async function clearStudent(studentId, newStatus) {
       return;
     }
 
-    // If update fails (404 Not Found), create a new record
-    const createRes = await adminFetch('/api/admin/clearances', {
-      method: 'POST',
-      body: JSON.stringify({
-        studentId: Number(studentId),
-        status: newStatus,
-        remarks: 'Created via Admin Dashboard',
-      }),
-    });
+    // 3. If both failed, throw the error
+    const errJson = await updateRes.json().catch(() => ({}));
+    throw new Error(errJson.error || 'Failed to update clearance record');
 
-    if (!createRes.ok) {
-      const err = await createRes.json();
-      throw new Error(err.error || 'Failed to create clearance');
-    }
-
-    showToast(`✅ Clearance created as ${newStatus}.`, 'success');
-    loadDepartmentClearances();
   } catch (err) {
     console.error('[clearStudent] Error:', err);
     showToast('❌ ' + err.message, 'error');

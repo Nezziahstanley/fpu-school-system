@@ -9813,7 +9813,7 @@ async function viewDeployLog(id) {
 }
 
 // ============================================
-// SETTINGS: Advanced (With Clean Bank Account UI)
+// SETTINGS: Advanced (Beautiful UI)
 // ============================================
 async function loadAdvancedSettings() {
   const tbody = document.getElementById('adv-tbody');
@@ -9850,30 +9850,29 @@ async function loadAdvancedSettings() {
         ? `<strong>${fmtDate(updated)}</strong><br/><span class="small muted">${new Date(updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>`
         : '—';
 
-      // ==========================================
-      // SPECIAL RENDER FOR BANK ACCOUNTS
-      // ==========================================
-      if (key.startsWith('bank_account_')) {
-        let data = { bank: '', accountName: '', accountNumber: '' };
-        try { data = JSON.parse(rawValue); } catch (e) {}
+      // Helper to parse JSON safely
+      let parsed = null;
+      try { parsed = JSON.parse(rawValue); } catch (e) {}
 
+      // ==========================================
+      // RENDER: BANK ACCOUNTS
+      // ==========================================
+      if (key.startsWith('bank_account_') && parsed) {
         return `
-          <tr data-key="${escapeHtml(key)}">
-            <td style="padding: 12px 16px;">
-              <code style="color: #065f46; font-weight: 700;">${escapeHtml(key)}</code><br/>
+          <tr data-key="${escapeHtml(key)}" style="vertical-align: middle;">
+            <td style="padding: 16px;">
+              <code style="color: #065f46; font-weight: 700; font-size: 13px;">${escapeHtml(key)}</code><br/>
               <span class="badge badge-outline" style="font-size: 9px; margin-top: 4px;">Bank Account</span>
             </td>
-            <td style="padding: 12px 16px;">
-              <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 450px;">
-                <div style="display: flex; gap: 6px;">
-                  <input class="form-control" style="flex: 1;" placeholder="Bank (e.g. OPAY)" data-bank-val="bank" value="${escapeHtml(data.bank || '')}" />
-                  <input class="form-control" style="flex: 1;" placeholder="Account Number" data-bank-val="accountNumber" value="${escapeHtml(data.accountNumber || '')}" />
-                </div>
-                <input class="form-control" placeholder="Account Name" data-bank-val="accountName" value="${escapeHtml(data.accountName || '')}" />
+            <td style="padding: 16px;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input class="form-control" style="width: 130px;" placeholder="Bank" data-bank-val="bank" value="${escapeHtml(parsed.bank || '')}" />
+                <input class="form-control" style="width: 130px;" placeholder="Account No." data-bank-val="accountNumber" value="${escapeHtml(parsed.accountNumber || '')}" />
+                <input class="form-control" style="flex: 1; min-width: 200px;" placeholder="Account Name" data-bank-val="accountName" value="${escapeHtml(parsed.accountName || '')}" />
               </div>
             </td>
-            <td style="padding: 12px 16px; font-size: 13px;">${dateStr}</td>
-            <td style="padding: 12px 16px; text-align: right;">
+            <td style="padding: 16px; font-size: 13px;">${dateStr}</td>
+            <td style="padding: 16px; text-align: right;">
               <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvancedBankAccount('${escapeQuotes(key)}')">Save</button>
             </td>
           </tr>
@@ -9881,19 +9880,43 @@ async function loadAdvancedSettings() {
       }
 
       // ==========================================
-      // STANDARD RENDER FOR NORMAL SETTINGS
+      // RENDER: 2FA SETTINGS
+      // ==========================================
+      if (key === 'security_2fa' && parsed) {
+        const methods = parsed.methods || [];
+        const roles = parsed.requiredRoles || [];
+        return `
+          <tr data-key="${escapeHtml(key)}" style="vertical-align: middle;">
+            <td style="padding: 16px;">
+              <code style="color: #065f46; font-weight: 700; font-size: 13px;">${escapeHtml(key)}</code><br/>
+              <span class="badge badge-outline" style="font-size: 9px; margin-top: 4px;">Security</span>
+            </td>
+            <td style="padding: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="font-size: 12px;"><strong>Methods:</strong> ${methods.map(m => `<span class="badge badge-info" style="margin-left: 4px;">${escapeHtml(m)}</span>`).join('')}</div>
+                <div style="font-size: 12px;"><strong>Required Roles:</strong> ${roles.map(r => `<span class="badge badge-warning" style="margin-left: 4px;">${escapeHtml(r)}</span>`).join('')}</div>
+              </div>
+            </td>
+            <td style="padding: 16px; font-size: 13px;">${dateStr}</td>
+            <td style="padding: 16px; text-align: right;">
+              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(key)}')" disabled>Edit via Form</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      // ==========================================
+      // RENDER: STANDARD SETTINGS (Strings, Booleans, Numbers)
       // ==========================================
       return `
-        <tr data-key="${escapeHtml(key)}">
-          <td style="padding: 12px 16px;"><code>${escapeHtml(key)}</code></td>
-          <td style="padding: 12px 16px;"><span class="badge badge-outline" style="text-transform: capitalize;">${escapeHtml(cat)}</span></td>
-          <td style="padding: 12px 16px;">
-            <input class="form-control" style="width: 100%; max-width: 400px;" data-adv-key="${escapeHtml(key)}"
-                   value="${escapeHtml(rawValue)}"
-                   title="${escapeHtml(rawValue)}" />
+        <tr data-key="${escapeHtml(key)}" style="vertical-align: middle;">
+          <td style="padding: 16px;"><code>${escapeHtml(key)}</code></td>
+          <td style="padding: 16px;"><span class="badge badge-outline" style="text-transform: capitalize;">${escapeHtml(cat)}</span></td>
+          <td style="padding: 16px;">
+            <input class="form-control" style="width: 100%; max-width: 400px;" data-adv-key="${escapeHtml(key)}" value="${escapeHtml(rawValue)}" />
           </td>
-          <td style="padding: 12px 16px; font-size: 13px;">${dateStr}</td>
-          <td style="padding: 12px 16px; text-align: right;">
+          <td style="padding: 16px; font-size: 13px;">${dateStr}</td>
+          <td style="padding: 16px; text-align: right;">
             <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveAdvSetting('${escapeQuotes(key)}')">Save</button>
           </td>
         </tr>
@@ -9905,25 +9928,14 @@ async function loadAdvancedSettings() {
   }
 }
 
-// ============================================
-// SETTINGS: Save Advanced Bank Account
-// ============================================
 async function saveAdvancedBankAccount(key) {
-  // Find the row for this specific bank account
   const row = document.querySelector(`tr[data-key="${key}"]`);
   if (!row) return;
 
-  // Find the inputs inside this row
-  const bankInput = row.querySelector('[data-bank-val="bank"]');
-  const nameInput = row.querySelector('[data-bank-val="accountName"]');
-  const numInput = row.querySelector('[data-bank-val="accountNumber"]');
+  const bank = row.querySelector('[data-bank-val="bank"]').value.trim();
+  const accountName = row.querySelector('[data-bank-val="accountName"]').value.trim();
+  const accountNumber = row.querySelector('[data-bank-val="accountNumber"]').value.trim();
   const btn = row.querySelector('button');
-
-  if (!bankInput || !nameInput || !numInput) return;
-
-  const bank = bankInput.value.trim();
-  const accountName = nameInput.value.trim();
-  const accountNumber = numInput.value.trim();
 
   if (!bank || !accountName || !accountNumber) {
     showToast('⚠️ All bank fields are required.', 'warning');
@@ -9935,25 +9947,15 @@ async function saveAdvancedBankAccount(key) {
   btn.textContent = 'Saving...';
 
   try {
-    // Reconstruct the JSON string
     const jsonValue = JSON.stringify({ bank, accountName, accountNumber });
-
     await adminFetch(`/api/admin/settings/${encodeURIComponent(key)}`, {
       method: 'PUT',
       body: JSON.stringify({ value: jsonValue }),
     });
-    
     showToast('✅ Bank account updated.', 'success');
     btn.textContent = '✓ Saved';
-    btn.classList.remove('btn-primary');
-    btn.classList.add('btn-outline');
-    
-    setTimeout(() => {
-      btn.textContent = originalText;
-      btn.classList.remove('btn-outline');
-      btn.classList.add('btn-primary');
-    }, 1500);
-
+    btn.classList.replace('btn-primary', 'btn-outline');
+    setTimeout(() => { btn.textContent = originalText; btn.classList.replace('btn-outline', 'btn-primary'); }, 1500);
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
     btn.textContent = originalText;

@@ -12056,6 +12056,7 @@ async function loadExamSheet() {
   document.head.appendChild(style);
 })();
 
+
 // Helper to group exams by date and slot them into periods
 function renderExamTableRows(exams) {
   // Group by Date

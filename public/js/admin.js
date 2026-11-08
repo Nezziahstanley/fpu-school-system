@@ -13683,13 +13683,14 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department A4 Sheet (Classic Grid)
+// TIMETABLE: Load Department A4 Sheet (Isolated)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
   const titleEl = document.getElementById('tsheet-title');
   const subEl = document.getElementById('tsheet-subtitle');
   const printBtn = document.getElementById('tsheet-print');
+  const exportBtn = document.getElementById('tsheet-export');
   const addBtn = document.getElementById('tsheet-add');
 
   if (!root) return;
@@ -13740,7 +13741,6 @@ async function loadTimetableSheet() {
 
     if (subEl) subEl.textContent = `${semester === 'first' ? 'First' : 'Second'} Semester, ${sessionName} Session`;
 
-    // Define the exact hours in the template
     const hours = [
       { label: '8AM-9AM', start: '08:00' },
       { label: '9AM-10AM', start: '09:00' },
@@ -13774,7 +13774,6 @@ async function loadTimetableSheet() {
       for (let i = 0; i < hours.length; i++) {
         const h = hours[i];
 
-        // 1. Draw Break Column
         if (h.isBreak) {
           if (!breakDrawn) {
             gridHtml += `<td rowspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:middle;">BREAK</td>`;
@@ -13783,23 +13782,23 @@ async function loadTimetableSheet() {
           continue;
         }
 
-        // 2. Skip if this column is swallowed by a previous colspan
         if (skipIndices.has(i)) continue;
 
-        // 3. Find if there is a class in this slot
-        let foundSlot = null;
+        // Find slots belonging to THIS department and THIS day/time
         let slotsHere = rawSlots.filter(r => {
           const s = r.slot || r;
           let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
           if (dRaw === 'TUE') dRaw = 'TUES';
           if (dRaw === 'THU') dRaw = 'THURS';
+          
           const st = String(s.startTime || '08:00').substring(0, 5);
-          if (st.startsWith('7:')) return false; // handle 7am separately below
+          if (st.startsWith('7:')) return false; 
 
+          // Check if time falls into this column
           return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
         });
 
-        // Special handling for 7am classes (GNS 102 in template)
+        // Special handling for 7am classes
         if (i === 0) {
           const earlySlots = rawSlots.filter(r => {
              const s = r.slot || r;
@@ -13819,12 +13818,11 @@ async function loadTimetableSheet() {
           const s = r.slot || r;
           const c = courseMap.get(Number(s.courseId)) || r.course || {};
 
-          // Calculate duration in hours to determine colspan
           let st = String(s.startTime || '08:00').substring(0, 5);
           let et = String(s.endTime || '09:00').substring(0, 5);
           
           let durationHours = 1;
-          if (st < '08:00' && et >= '09:00') durationHours = 1; // 7-9 am locks into the 8-9 column
+          if (st < '08:00' && et >= '09:00') durationHours = 1;
           else {
              const startH = parseInt(st.split(':')[0]);
              const endH = parseInt(et.split(':')[0]);
@@ -13833,14 +13831,11 @@ async function loadTimetableSheet() {
 
           let colspan = durationHours;
           
-          // Don't let colspans swallow the BREAK column
           if (i + colspan > 4 && i < 5) colspan = 4 - i; 
           if (i === 5 && colspan > 3) colspan = 3;
 
-          // Mark the swallowed columns to be skipped
           for (let j = 1; j < colspan; j++) skipIndices.add(i + j);
 
-          // Check if it's a practical (PRC) based on the template
           const isPrc = s.venue && (s.venue.includes('Lab') || s.venue.includes('PRC'));
           const suffix = isPrc ? ' (PRC)' : '';
           const timeOverride = st < '08:00' ? ` (7-9am)` : '';
@@ -13849,7 +13844,6 @@ async function loadTimetableSheet() {
             ${escapeHtml(c.code)}${timeOverride}${suffix}
           </td>`;
         } else {
-          // Empty cell
           gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
         }
       }
@@ -13858,7 +13852,7 @@ async function loadTimetableSheet() {
 
     gridHtml += `</tbody></table>`;
 
-    // Details Table
+    // Details Table - STRICTLY ONLY COURSES IN THIS TIMETABLE
     const uniqueCourses = Array.from(new Set(rawSlots.map(s => (s.slot || s).courseId)))
       .map(id => courseMap.get(Number(id)))
       .filter(Boolean)
@@ -13881,6 +13875,7 @@ async function loadTimetableSheet() {
     uniqueCourses.forEach(c => {
       const relatedSlots = rawSlots.filter(r => Number((r.slot || r).courseId) === Number(c.id));
       const rooms = Array.from(new Set(relatedSlots.map(r => (r.slot || r).room || (r.slot || r).venue).filter(Boolean))).join(', ');
+      
       const lecturers = Array.from(new Set(relatedSlots.map(r => {
          const lId = (r.slot || r).lecturerId;
          const l = r.lecturer || staffMap.get(Number(lId));
@@ -13901,9 +13896,9 @@ async function loadTimetableSheet() {
 
     detailsHtml += `</tbody></table>`;
 
-    // Render the final A4 Document
+    // Render the isolated document
     root.innerHTML = `
-      <div class="tt-sheet" style="background:#fff; width:210mm; min-height:297mm; margin:0 auto; padding:12mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif;">
+      <div class="tt-sheet" style="background:#fff; width:210mm; min-height:297mm; margin:0 auto; padding:12mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif; box-shadow: 0 4px 20px rgba(15,23,42,0.12);">
         
         <div style="text-align:center; margin-bottom:24px; position:relative;">
           <img src="/images/logo.png" style="position:absolute; left:0; top:0; width:80px;" onerror="this.style.display='none'" />

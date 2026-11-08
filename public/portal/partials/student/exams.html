@@ -2,7 +2,7 @@
 <div style="padding:0;">
 
   <!-- HEADER BANNER -->
-  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center;">
+  <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%);border-radius:14px;padding:1.25rem 1.5rem;color:#fff;margin-bottom:1.25rem;display:flex;justify-content:space-between;align-items:center; print-color-adjust: exact; -webkit-print-color-adjust: exact;">
     <div style="display:flex;align-items:center;gap:.75rem;">
       <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">📝</div>
       <div>
@@ -44,14 +44,15 @@
     </div>
   </div>
 
-  <!-- TIMETABLE SHEET (MATCHES 2ND IMAGE) -->
+  <!-- TIMETABLE SHEET (MATCHES ADMIN TEMPLATE) -->
   <div id="ex-timetable-container" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:2rem;overflow-x:auto;">
-    <div style="text-align:center;margin-bottom:1.5rem;">
+    <!-- Dynamic Header -->
+    <div style="text-align:center;margin-bottom:1.5rem;" id="ex-sheet-header">
       <h2 style="font-family:'Times New Roman', serif; font-size:1.2rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;">FEDERAL POLYTECHNIC UGEP,</h2>
-      <h3 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;">SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
-      <h3 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;">DEPARTMENT OF COMPUTER SCIENCE</h3>
-      <h4 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;">(HND I), (ND II) & (ND I) FIRST SEMESTER EXAMINATION TIME TABLE</h4>
-      <p style="font-family:'Times New Roman', serif; font-size:0.9rem; font-weight:bold; margin:0; color:#000;">2025/2026 SESSION</p>
+      <h3 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;" id="ex-school-name">SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
+      <h3 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;" id="ex-dept-name">DEPARTMENT</h3>
+      <h4 style="font-family:'Times New Roman', serif; font-size:1rem; font-weight:bold; text-transform:uppercase; margin:0; color:#000;" id="ex-level-name">FIRST SEMESTER EXAMINATION TIME TABLE</h4>
+      <p style="font-family:'Times New Roman', serif; font-size:0.9rem; font-weight:bold; margin:0; color:#000;" id="ex-session-name">2025/2026 SESSION</p>
     </div>
     
     <!-- The generated table will inject here -->
@@ -69,7 +70,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Styles for the Exam Sheet */
+  /* Styles for the Exam Sheet (Exact Match to Admin) */
   .exam-sheet-table {
     width: 100%;
     border-collapse: collapse;
@@ -116,6 +117,7 @@
     #ex-timetable-container, #ex-timetable-container * { visibility: visible; }
     #ex-timetable-container { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; padding: 0; }
     .exam-sheet-table th, .exam-sheet-table td { border: 1px solid #000 !important; }
+    #ex-timetable-container .week-header { color: #000 !important; }
   }
 </style>
 
@@ -125,7 +127,6 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
   let ALL_EXAMS = [];
 
@@ -133,25 +134,25 @@
     $('ex-table-container').innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading timetable...</div>';
     
     try {
-      // 1. Fetch the student's profile using the working ID Card endpoint
+      // 1. Fetch the student's profile to update the headers
       const profileRes = await core.portalFetch('/api/student/id-card');
       const student = profileRes.data || profileRes || {};
       
-      // Update the header with their real Department
-      if (student.departmentName) {
-        document.querySelector('#ex-timetable-container h3:nth-of-type(2)').textContent = `DEPARTMENT OF ${student.departmentName.toUpperCase()}`;
-      }
+      if (student.departmentName) $('ex-dept-name').textContent = `DEPARTMENT OF ${student.departmentName.toUpperCase()}`;
+      if (student.schoolName) $('ex-school-name').textContent = `SCHOOL OF ${student.schoolName.toUpperCase()}`;
+      if (student.level) $('ex-level-name').textContent = `(${student.level} I) FIRST SEMESTER EXAMINATION TIME TABLE`;
+      if (student.sessionName) $('ex-session-name').textContent = `${student.sessionName} SESSION`;
 
-      // 2. Fetch exams from the public/admin endpoint
-      const res = await core.portalFetch('/api/admin/exams?limit=2000');
-      let data = res.data || res || [];
+      // 2. Fetch exams from the working admin endpoint
+      const res = await core.portalFetch('/api/admin/exams?limit=5000');
+      const data = res.data || res || [];
 
       // 3. Filter exams so the student only sees their own department and level
-      // (Assuming your admin exams endpoint returns course details with departmentId)
+      let filtered = data;
+      
       if (student.departmentId) {
-        data = data.filter(ex => {
+        filtered = filtered.filter(ex => {
           const deptId = ex.course?.departmentId || ex.departmentId;
-          // If the exam has no department assigned, we'll show it to avoid hiding everything
           return !deptId || Number(deptId) === Number(student.departmentId);
         });
       }
@@ -159,7 +160,7 @@
       const search = ($('ex-search').value || '').toLowerCase();
       const semester = $('ex-semester').value;
 
-      ALL_EXAMS = data.filter(ex => {
+      ALL_EXAMS = filtered.filter(ex => {
         const matchSearch = !search || 
           String(ex.courseCode || ex.course?.code || '').toLowerCase().includes(search) ||
           String(ex.courseTitle || ex.course?.title || '').toLowerCase().includes(search) ||

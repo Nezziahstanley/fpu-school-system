@@ -6888,46 +6888,35 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD (REAL SCANNABLE QR CODE) ---
+  // --- 2. ID CARD (REAL SCANNABLE QR CODE LINKING TO VERIFY PAGE) ---
   if (type === 'id-card' || type === 'id-letter') {
-    // 1. Build the payload text to be scanned
-    const qrPayload = `FEDERAL POLYTECHNIC UGEP\n` +
-                      `----------------\n` +
-                      `NAME: ${fullName}\n` +
-                      `MATRIC: ${idValue}\n` +
-                      `LEVEL: ${level}\n` +
-                      `SESSION: ${sessionName}\n` +
-                      `PROGRAMME: ${progName}\n` +
-                      `DEPARTMENT: ${deptName}\n` +
-                      `----------------\n` +
-                      `STATUS: VERIFIED ACTIVE STUDENT`;
+    
+    // 1. Build the URL payload
+    const verifyUrl = `${window.location.origin}/verify.html?id=${encodeURIComponent(idValue)}`;
 
     // 2. Render the QR code asynchronously
     setTimeout(() => {
       const qrContainer = document.getElementById('qr-container');
       if (!qrContainer) return;
 
-      // Dynamically load the library if not already loaded
       if (typeof qrcode === 'undefined') {
         const script = document.createElement('script');
         script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
         script.onload = () => {
-          generateQR(qrPayload, qrContainer);
+          generateQR(verifyUrl, qrContainer);
         };
         document.head.appendChild(script);
       } else {
-        generateQR(qrPayload, qrContainer);
+        generateQR(verifyUrl, qrContainer);
       }
 
       function generateQR(text, container) {
-        container.innerHTML = ''; // Clear loading state
+        container.innerHTML = ''; 
         try {
-          // Type 0 = auto-detect size, 'M' = Medium error correction
           const qr = qrcode(0, 'M');
           qr.addData(text);
           qr.make();
-          // Render as an image directly into the container
-          container.innerHTML = qr.createImgTag(4, 0); 
+          container.innerHTML = qr.createImgTag(3, 0); 
         } catch (e) {
           console.error('QR Generation failed', e);
           container.innerHTML = '<div style="font-size:8px; color:#dc2626;">QR Error</div>';

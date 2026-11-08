@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Grouped by Department)
+// EXAMS: Load A3 Exam Sheet (Robust & Grouped)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11842,31 +11842,43 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
-    // Fetch exams, departments, and courses in parallel
-    const [examsRes, deptsRes, coursesRes] = await Promise.all([
-      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
-      adminFetch(`/api/admin/departments`),
-      adminFetch(`/api/admin/courses?limit=5000`),
-    ]);
+    // 1. Fetch everything we need
+    let exams = [], depts = [], courses = [];
 
-    const json = await examsRes.json();
-    const exams = json.data || [];
-    const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
+    try {
+      const examsRes = await adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`);
+      const json = await examsRes.json();
+      exams = json.data || [];
+    } catch (e) { console.warn('Failed to fetch exams', e); }
+
+    try {
+      const deptsRes = await adminFetch(`/api/admin/departments`);
+      const json = await deptsRes.json();
+      depts = json.data || [];
+    } catch (e) { console.warn('Failed to fetch departments', e); }
+
+    try {
+      const coursesRes = await adminFetch(`/api/admin/courses?limit=5000`);
+      const json = await coursesRes.json();
+      courses = json.data || [];
+    } catch (e) { console.warn('Failed to fetch courses', e); }
 
     const year = new Date().getFullYear();
-    subtitleEl.textContent = `${exams.length} exams scheduled across ${depts.length} departments`;
+    subtitleEl.textContent = `${exams.length} exams scheduled`;
 
     if (!exams.length) {
       root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
       return;
     }
 
-    // 1. Build lookups
-    const courseMap = new Map(courses.map(c => [c.id, c]));
-    const deptMap = new Map(depts.map(d => [d.id, d]));
+    // 2. Build lookups securely
+    const courseMap = new Map();
+    courses.forEach(c => { if (c && c.id) courseMap.set(c.id, c); });
+    
+    const deptMap = new Map();
+    depts.forEach(d => { if (d && d.id) deptMap.set(d.id, d); });
 
-    // 2. Group exams by Department
+    // 3. Group exams by Department
     const byDept = new Map();
     
     // Initialize departments that belong to this school
@@ -11889,14 +11901,19 @@ async function loadExamSheet() {
     const activeDepts = [...byDept.values()].filter(d => d.exams.length > 0);
     activeDepts.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
 
-    // 3. Render each department's section
+    if (!activeDepts.length) {
+      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No exams found for any departments in this school.</div>`;
+      return;
+    }
+
+    // 4. Render each department's section
     let allDepartmentsHtml = '';
 
     activeDepts.forEach(({ dept, exams: deptExams }) => {
       // Sort exams by date & time
       const sortedExams = [...deptExams].sort((a, b) => {
-        const dateA = new Date(a.examDate).getTime();
-        const dateB = new Date(b.examDate).getTime();
+        const dateA = new Date(a.examDate).getTime() || 0;
+        const dateB = new Date(b.examDate).getTime() || 0;
         if (dateA !== dateB) return dateA - dateB;
         return (a.startTime || '09:00').localeCompare(b.startTime || '09:00');
       });
@@ -11904,6 +11921,7 @@ async function loadExamSheet() {
       // Group by Week
       function getMonday(d) {
         d = new Date(d);
+        if (isNaN(d.getTime())) return new Date();
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
         return new Date(d.setDate(diff));
@@ -11925,9 +11943,9 @@ async function loadExamSheet() {
         <div class="dept-exam-section">
           <div class="dept-header">
             <div class="institution">FEDERAL POLYTECHNIC UGEP,</div>
-            <div class="faculty">${schoolName.toUpperCase()}</div>
-            <div class="department">DEPARTMENT OF ${dept.name.toUpperCase()}</div>
-            <div class="title-line">${semester.toUpperCase()} SEMESTER EXAMINATION TIME TABLE</div>
+            <div class="faculty">${escapeHtml(schoolName.toUpperCase())}</div>
+            <div class="department">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
+            <div class="title-line">${escapeHtml(semester.toUpperCase())} SEMESTER EXAMINATION TIME TABLE</div>
             <div class="title-line" style="font-size: 12px;">${year}/${year+1} SESSION</div>
           </div>
 
@@ -11959,7 +11977,7 @@ async function loadExamSheet() {
         const days = {};
         week.exams.forEach(ex => {
           const d = new Date(ex.examDate);
-          const dayKey = d.toISOString().split('T')[0];
+          const dayKey = isNaN(d.getTime()) ? 'unknown' : d.toISOString().split('T')[0];
           if (!days[dayKey]) days[dayKey] = [];
           days[dayKey].push(ex);
         });
@@ -11970,7 +11988,7 @@ async function loadExamSheet() {
           const dayExams = days[dayKey];
           const d = new Date(dayKey);
           const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-          const dateStr = `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+          const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
           const morning = [];
           const afternoon = [];
@@ -12022,11 +12040,11 @@ async function loadExamSheet() {
           <div class="dept-footer">
             <div>
               <div class="sig-text">Sign: ______________________</div>
-              <div class="sig-role">HOD, ${dept.name}</div>
+              <div class="sig-role">HOD, ${escapeHtml(dept.name)}</div>
             </div>
             <div>
               <div class="sig-text">Sign: ______________________</div>
-              <div class="sig-role">Dean, ${schoolName}</div>
+              <div class="sig-role">Dean, ${escapeHtml(schoolName)}</div>
             </div>
           </div>
         </div>
@@ -12036,11 +12054,13 @@ async function loadExamSheet() {
     });
 
     root.innerHTML = `<div class="ex-sheet">${allDepartmentsHtml}</div>`;
-    document.getElementById('exsheet-print').onclick = () => window.print();
 
   } catch (err) {
-    console.error('Failed to load exam sheet', err);
-    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
+    console.error('FATAL: Failed to load exam sheet', err);
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;border-radius:8px;margin:20px;">
+      <h3 style="margin-top:0;">Failed to load exam schedule</h3>
+      <p style="font-family:monospace;font-size:13px;">${escapeHtml(err.message)}</p>
+    </div>`;
   }
 }
 

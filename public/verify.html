@@ -6,24 +6,26 @@
   <title>Student Verification - FPU</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; }
     body { font-family: 'Poppins', sans-serif; background: #f1f5f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .card { background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; overflow: hidden; }
-    .header { background: #065f46; padding: 20px; text-align: center; color: #fff; }
-    .header img { width: 60px; margin-bottom: 10px; }
-    .header h1 { margin: 0; font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
-    .header p { margin: 4px 0 0; font-size: 0.8rem; opacity: 0.8; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 420px; overflow: hidden; }
+    .header { background: linear-gradient(135deg, #065f46 0%, #059669 100%); padding: 24px 20px; text-align: center; color: #fff; }
+    .header img { width: 70px; height: 70px; margin-bottom: 12px; border-radius: 50%; background: #fff; padding: 4px; object-fit: contain; }
+    .header h1 { margin: 0; font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; }
+    .header p { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.9; font-weight: 600; }
     .body { padding: 24px; }
-    .avatar-wrap { text-align: center; margin-bottom: 20px; }
-    .avatar { width: 100px; height: 100px; border-radius: 50%; border: 4px solid #ecfdf5; object-fit: cover; background: #e2e8f0; }
-    .name { text-align: center; font-size: 1.4rem; font-weight: 700; color: #0f172a; margin: 0 0 4px; }
-    .matric { text-align: center; font-family: monospace; font-size: 1rem; color: #065f46; background: #ecfdf5; padding: 4px 12px; border-radius: 999px; display: inline-block; margin: 0 auto 20px; font-weight: 600; }
-    .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+    .avatar-wrap { text-align: center; margin-top: -50px; margin-bottom: 20px; }
+    .avatar { width: 100px; height: 100px; border-radius: 50%; border: 4px solid #fff; object-fit: cover; background: #e2e8f0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; color: #94a3b8; }
+    .name { text-align: center; font-size: 1.4rem; font-weight: 800; color: #0f172a; margin: 0 0 6px; }
+    .matric { text-align: center; font-family: monospace; font-size: 1rem; color: #065f46; background: #ecfdf5; padding: 4px 14px; border-radius: 999px; display: block; width: fit-content; margin: 0 auto 24px; font-weight: 700; border: 1px solid #bbf7d0; }
+    .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px dashed #e2e8f0; }
     .info-row:last-child { border-bottom: none; }
-    .info-label { font-size: 0.8rem; color: #64748b; font-weight: 600; }
-    .info-value { font-size: 0.9rem; color: #0f172a; font-weight: 700; text-align: right; }
+    .info-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-value { font-size: 0.95rem; color: #0f172a; font-weight: 700; text-align: right; }
     .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 0.75rem; color: #64748b; border-top: 1px solid #e2e8f0; }
-    .status-badge { display: inline-block; background: #dcfce7; color: #15803d; padding: 4px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; margin-top: 10px; }
-    .loading, .error { text-align: center; padding: 40px 20px; color: #64748b; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #15803d; padding: 6px 16px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; margin-top: 20px; }
+    .loading, .error { text-align: center; padding: 40px 20px; color: #64748b; font-size: 0.9rem; }
+    .error { color: #dc2626; background: #fee2e2; border-radius: 8px; margin: 20px; }
   </style>
 </head>
 <body>
@@ -33,7 +35,7 @@
   </div>
 
   <script>
-    // 1. Get the Matric Number from the URL
+    // 1. Get the Matric Number from the URL query string
     const urlParams = new URLSearchParams(window.location.search);
     const matricId = urlParams.get('id');
     const appContainer = document.getElementById('app');
@@ -41,7 +43,7 @@
     if (!matricId) {
       appContainer.innerHTML = '<div class="error"><h3>Invalid QR Code</h3><p>No ID provided.</p></div>';
     } else {
-      // 2. Fetch the student data from a public endpoint
+      // 2. Fetch the student data from the public API endpoint
       fetch(`/api/public/verify/${encodeURIComponent(matricId)}`)
         .then(res => {
           if (!res.ok) throw new Error('Student not found');
@@ -51,13 +53,14 @@
           const student = json.data || json;
           
           if (!student || !student.firstName) {
-            throw new Error('Invalid data format');
+            throw new Error('Invalid data format received');
           }
 
           const fullName = `${student.firstName} ${student.lastName}`;
+          
           const avatarHtml = student.photoUrl 
-            ? `<img src="${student.photoUrl}" class="avatar" alt="Student Photo">` 
-            : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:2rem;color:#94a3b8;">👤</div>`;
+            ? `<img src="${student.photoUrl}" class="avatar" alt="Student Photo" onerror="this.outerHTML='<div class=\\'avatar\\'>👤</div>'">` 
+            : `<div class="avatar">👤</div>`;
 
           appContainer.innerHTML = `
             <div class="header">
@@ -66,7 +69,9 @@
               <p>Official Student Verification</p>
             </div>
             <div class="body">
-              <div class="avatar-wrap">${avatarHtml}</div>
+              <div class="avatar-wrap">
+                ${avatarHtml}
+              </div>
               <h2 class="name">${fullName}</h2>
               <div style="text-align: center;">
                 <span class="matric">${student.matricNumber || 'N/A'}</span>
@@ -78,18 +83,18 @@
               </div>
               <div class="info-row">
                 <span class="info-label">Programme</span>
-                <span class="info-value">${student.programmeName || student.programme?.name || 'N/A'}</span>
+                <span class="info-value">${student.programmeName || 'N/A'}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Department</span>
-                <span class="info-value">${student.departmentName || student.department?.name || 'N/A'}</span>
+                <span class="info-value">${student.departmentName || 'N/A'}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Session</span>
                 <span class="info-value">${student.sessionName || '2025/2026'}</span>
               </div>
 
-              <div style="text-align: center; margin-top: 20px;">
+              <div style="text-align: center;">
                 <div class="status-badge">✓ Verified Active Student</div>
               </div>
             </div>
@@ -99,7 +104,15 @@
           `;
         })
         .catch(err => {
-          appContainer.innerHTML = `<div class="error"><h3>Verification Failed</h3><p>${err.message}</p><p style="font-size:0.8rem;margin-top:10px;">The student record may have been deleted or the ID is incorrect.</p></div>`;
+          appContainer.innerHTML = `
+            <div class="header">
+              <h1>Verification Failed</h1>
+            </div>
+            <div class="error">
+              <p>${err.message}</p>
+              <p style="font-size:0.8rem; margin-top:10px;">The student record may have been deleted or the ID is incorrect.</p>
+            </div>
+          `;
         });
     }
   </script>

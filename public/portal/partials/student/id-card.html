@@ -199,50 +199,29 @@
         $('id-initials').style.display = 'none';
       }
 
-      // ---------------------------------------------------------
-      // Generate Scannable QR Codes locally
-      // ---------------------------------------------------------
+      // Generate the URL to the public verification page
       const verifyUrl = `${window.location.origin}/verify.html?id=${encodeURIComponent(d.matricNumber)}`;
 
-      if (typeof qrcode === 'undefined') {
-        const script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
-        script.onload = () => {
-          renderQR(verifyUrl, 'qr-front', 50);
-          renderQR(verifyUrl, 'qr-back', 60);
-        };
-        document.head.appendChild(script);
-      } else {
-        renderQR(verifyUrl, 'qr-front', 50);
-        renderQR(verifyUrl, 'qr-back', 60);
+      // Use QRServer API to guarantee a perfectly scannable image with the right margins
+      const qrFrontUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}&color=065f46&bgcolor=ffffff&margin=1`;
+      const qrBackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}&color=065f46&bgcolor=ffffff&margin=1`;
+
+      // Set the images
+      const qrFrontImg = document.getElementById('qr-front-img');
+      const qrBackImg = document.getElementById('qr-back-img');
+      
+      if (qrFrontImg) {
+        qrFrontImg.src = qrFrontUrl;
+        qrFrontImg.style.display = 'block';
+      }
+      if (qrBackImg) {
+        qrBackImg.src = qrBackUrl;
+        qrBackImg.style.display = 'block';
       }
 
     } catch (err) {
       console.error('[student/id-card] Error:', err);
       core.showToast && core.showToast('Failed to load ID card: ' + err.message, 'error');
-    }
-  }
-
-  function renderQR(text, containerId, size) {
-    const container = $(containerId);
-    if (!container) return;
-    container.innerHTML = ''; 
-    
-    try {
-      const qr = qrcode(0, 'M');
-      qr.addData(text);
-      qr.make();
-      const imgTag = qr.createImgTag(3, 0);
-      container.innerHTML = imgTag;
-      const img = container.querySelector('img');
-      if (img) {
-        img.style.width = size + 'px';
-        img.style.height = size + 'px';
-        img.style.display = 'block';
-      }
-    } catch (e) {
-      console.error('QR Generation failed', e);
-      container.innerHTML = '<div style="font-size:8px;color:#dc2626;">Error</div>';
     }
   }
 

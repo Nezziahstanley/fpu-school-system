@@ -120,15 +120,12 @@ try {
   // ipGuard not installed yet — continue without it
 }
 
-// ------------------------------------------------------------
-// Public Verification Route (No Auth Required)
-// ------------------------------------------------------------
+// Add this to your server.js BEFORE the API router
 app.get('/api/public/verify/:matric', async (req, res) => {
   try {
     const matric = req.params.matric;
     
-    // Adjust this SQL query to match your exact database schema
-    // It joins users, students, programmes, and departments
+    // Your database query to find the student
     const result = await require('./db').query(`
       SELECT 
         u.id, 
@@ -151,7 +148,6 @@ app.get('/api/public/verify/:matric', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
-    // Add a default session since we didn't query it
     const studentData = result.rows[0];
     studentData.sessionName = '2025/2026';
 

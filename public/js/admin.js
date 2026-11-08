@@ -11049,16 +11049,16 @@ async function loadExamSheet() {
   }
 
   // Wire Top Buttons
-  addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { schoolId, sessionId, semester });
-  printBtn.onclick = () => window.print();
-  exportBtn.onclick = () => {
+  if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { schoolId, sessionId, semester });
+  if (printBtn) printBtn.onclick = () => window.print();
+  if (exportBtn) exportBtn.onclick = () => {
     const table = document.querySelector('.ex-table');
     if (table) exportTableAsCSV(table, `${schoolName}-Exams.csv`);
     else showToast('⚠️ No table to export.', 'warning');
   };
 
-  titleEl.textContent = `${schoolName} Exam Timetable`;
-  subtitleEl.textContent = `Loading schedules...`;
+  if (titleEl) titleEl.textContent = `${schoolName} Exam Timetable`;
+  if (subtitleEl) subtitleEl.textContent = `Loading schedules...`;
 
   try {
     // 1. Fetch everything once
@@ -11087,9 +11087,11 @@ async function loadExamSheet() {
       return;
     }
 
-    subtitleEl.textContent = `${approvedExams.length} approved exams scheduled`;
-    editBtn.style.display = 'inline-flex';
-    editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: approvedExams[0].exam?.id || approvedExams[0].id });
+    if (subtitleEl) subtitleEl.textContent = `${approvedExams.length} approved exams scheduled`;
+    if (editBtn) {
+      editBtn.style.display = 'inline-flex';
+      editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: approvedExams[0].exam?.id || approvedExams[0].id });
+    }
 
     // 3. Build Course Map for lookups
     const courseMap = new Map(allCourses.map(c => [Number(c.id), c]));
@@ -11150,12 +11152,11 @@ async function loadExamSheet() {
           <table class="ex-table">
             <thead>
               <tr>
-                <th style="width:70px;">TIME</th>
+                <th style="width:100px;" rowspan="2">DATE</th>
                 <th colspan="3" style="text-align:center; font-weight:bold; color:#059669;">9:00 A.M - 11:00 A.M</th>
                 <th colspan="3" style="text-align:center; font-weight:bold; color:#059669;">12:00 NOON - 2:00 P.M</th>
               </tr>
               <tr>
-                <th>DATE</th>
                 <th>COURSE TITLE & CODE</th>
                 <th>VENUE</th>
                 <th>INVIGILATORS</th>
@@ -11171,11 +11172,20 @@ async function loadExamSheet() {
         const dayExams = days[dateKey];
         const d = new Date(dateKey);
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+        
+        // Format: THU <br/> 01/01/26
+        const dateStr = isNaN(d.getTime()) ? 'TBA' : `<strong>${dayNames[d.getDay()]}</strong><br/><span style="font-size:10px;">${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}</span>`;
 
-        // Split by time
-        const morning = dayExams.filter(ex => (ex.startTime || '09:00') < '11:00');
-        const afternoon = dayExams.filter(ex => (ex.startTime || '09:00') >= '11:00');
+        // Split by time. (Anything before noon is morning, noon and after is afternoon)
+        const morning = dayExams.filter(ex => {
+           const time = ex.startTime || '09:00';
+           return time < '12:00'; 
+        });
+        
+        const afternoon = dayExams.filter(ex => {
+           const time = ex.startTime || '09:00';
+           return time >= '12:00'; 
+        });
 
         // Deduplicate
         const uniqueMorning = Array.from(new Map(morning.map(m => [m.courseId, m])).values());
@@ -11188,7 +11198,11 @@ async function loadExamSheet() {
           const a = uniqueAfternoon[i];
 
           tableHtml += `<tr>`;
-          if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
+          
+          // Print the Date cell only on the first row, then span it down
+          if (i === 0) {
+            tableHtml += `<td rowspan="${maxRows}" style="text-align:center; vertical-align:middle; line-height:1.4;">${dateStr}</td>`;
+          }
 
           // Morning
           if (m) {

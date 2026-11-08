@@ -66,16 +66,18 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ------------------------------------------------------------
 // Public Verification Route (Fail-Safe)
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// Public Verification Route (No Auth Required)
+// ------------------------------------------------------------
 app.get('/api/public/verify', async (req, res) => {
   try {
     const matric = req.query.id;
     if (!matric) return res.status(400).json({ success: false, error: 'Missing ID' });
 
-    // FIX: Use the pool to execute the query
-    const db = require('./db'); 
-    const queryRunner = db.query ? db : db.pool; // Handles both module styles
+    // CORRECT FIX: Destructure 'pool' from your exported db module
+    const { pool } = require('./db');
 
-    const result = await queryRunner.query(`
+    const result = await pool.query(`
       SELECT 
         u.id, 
         u.first_name AS "firstName", 

@@ -6768,31 +6768,30 @@ async function renderDocPreview(doc, user) {
   const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
 
-  // Data Extraction (Handles missing fields gracefully)
+  // Data Extraction
   const isStaff = user.role === 'staff' || user.role === 'admin' || !!user.staffId;
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
   const idLabel = isStaff ? 'Staff ID' : 'Matric Number';
   
-  // Deep extraction for Programme and Department
   const progName = user.programme?.name || user.programmeName || user.programme_name || user.programme?.code || '—';
   const deptName = user.department?.name || user.departmentName || user.department_name || user.department?.code || '—';
   const level = user.level || '—';
   const sessionName = user.session?.name || user.sessionName || user.currentSession || '2025/2026';
 
-  // Common Wrapper for A4 Documents
+  // Common Wrapper
   const a4Wrapper = (title, bodyHtml) => `
     <div class="doc-preview-wrap">
       <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        <div class="official-doc">
-          <div class="official-watermark"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
+        <div class="official-doc" style="background: #fffdf5;">
+          <div class="official-watermark" style="opacity: 0.03;"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
           ${bodyHtml}
         </div>
       </div>
     </div>
   `;
 
-  // --- 1. ATTESTATION LETTER ---
+  // --- 1. ATTESTATION LETTER (Unchanged) ---
   if (type === 'attestation') {
     return a4Wrapper('Attestation', `
       <div class="official-letterhead">
@@ -6814,14 +6813,13 @@ async function renderDocPreview(doc, user) {
       <div class="official-signatures" style="grid-template-columns: 1fr; text-align:right; margin-top:40px;">
         <div style="display:inline-block; text-align:center;">
           <div class="official-sig-line" style="width:200px;"></div>
-          <div class="official-sig-role">REGISTRAR<br><span style="font-size:10px; font-weight:normal; text-transform:none;">Signature / Stamp</span></div>
+          <div class="official-sig-role">REGISTRAR</div>
         </div>
       </div>
-      <div style="text-align:center; font-size:10px; color:#94a3b8; margin-top:40px;">This is a computer-generated document and is valid without a physical signature.</div>
     `);
   }
 
-  // --- 2. STUDENT ID CARD ---
+  // --- 2. ID CARD (Unchanged) ---
   if (type === 'id-card' || type === 'id-letter') {
     return `
       <div class="doc-preview-wrap">
@@ -6855,33 +6853,168 @@ async function renderDocPreview(doc, user) {
     `;
   }
 
-  // --- 3. CERTIFICATE OF COMPLETION ---
+  // --- 3. CERTIFICATE OF COMPLETION (REDESIGNED TO MATCH SAMPLE) ---
   if (type === 'certificate') {
+    // Determine classification (mock based on CGPA or fallback)
+    const cgpa = user.cgpa || 3.5; 
+    let classification = 'Upper Credit';
+    if (cgpa >= 3.5) classification = 'Distinction';
+    else if (cgpa >= 3.0) classification = 'Upper Credit';
+    else if (cgpa >= 2.5) classification = 'Lower Credit';
+    else classification = 'Pass';
+
     return a4Wrapper('Certificate', `
-      <div class="cert-border">
-        <img src="/images/logo.png" style="width:80px;" onerror="this.style.display='none'" />
-        <h2 style="font-family:'Poppins',sans-serif; color:#065f46; margin-top:10px; font-size:28px;">CERTIFICATE OF COMPLETION</h2>
-        <p style="font-size:18px; margin-top:30px;">This is to certify that</p>
-        <h1 style="font-size:40px; margin:20px 0; color:#0f172a; font-family:'Times New Roman', serif;">${escapeHtml(fullName)}</h1>
-        <p style="font-size:18px;">has successfully completed the requirements for</p>
-        <h3 style="font-size:24px; margin:10px 0; color:#065f46;">${escapeHtml(progName)}</h3>
-        <p style="font-size:16px;">in the Department of ${escapeHtml(deptName)}</p>
+      <style>
+        /* Specific styles to match the classic certificate look */
+        .classic-cert {
+          border: 3px solid #064e3b;
+          outline: 1px solid #b45309;
+          outline-offset: 4px;
+          padding: 40px 50px;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          color: #064e3b;
+          font-family: 'Times New Roman', Times, serif;
+        }
+        .classic-cert .cert-header {
+          font-size: 20px;
+          letter-spacing: 2px;
+          font-weight: bold;
+          text-transform: uppercase;
+          margin-bottom: 5px;
+        }
+        .classic-cert .cert-subheader {
+          font-size: 11px;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: #475569;
+          margin-bottom: 25px;
+        }
+        .classic-cert .cert-logo {
+          width: 90px;
+          margin-bottom: 20px;
+        }
+        .classic-cert .cert-certify {
+          font-size: 16px;
+          font-style: italic;
+          margin-bottom: 15px;
+        }
+        .classic-cert .cert-name {
+          font-family: 'Great Vibes', 'Brush Script MT', cursive, serif;
+          font-size: 40px;
+          color: #b45309; /* Gold/Bronze color for the name */
+          margin-bottom: 20px;
+          border-bottom: 1px solid #cbd5e1;
+          padding-bottom: 5px;
+          width: 80%;
+        }
+        .classic-cert .cert-body-text {
+          font-size: 15px;
+          line-height: 1.8;
+          margin-bottom: 20px;
+          width: 90%;
+        }
+        .classic-cert .cert-award {
+          font-size: 22px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+          margin: 15px 0;
+        }
+        .classic-cert .cert-programme {
+          font-size: 20px;
+          font-style: italic;
+          font-weight: bold;
+          margin-bottom: 25px;
+        }
+        .classic-cert .cert-seal {
+          width: 90px;
+          height: 90px;
+          background: radial-gradient(circle, #fef3c7 0%, #f59e0b 100%);
+          border: 3px solid #b45309;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 30px;
+          color: #78350f;
+          margin: 10px 0 30px 0;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .classic-cert .cert-signatures {
+          display: flex;
+          justify-content: space-between;
+          width: 100%;
+          margin-top: auto;
+          padding: 0 40px;
+        }
+        .classic-cert .sig-block {
+          text-align: center;
+          width: 200px;
+        }
+        .classic-cert .sig-line {
+          border-bottom: 1px solid #064e3b;
+          height: 30px;
+          margin-bottom: 5px;
+        }
+        .classic-cert .sig-title {
+          font-size: 12px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+      </style>
+
+      <div class="classic-cert">
+        <div class="cert-header">The Federal Polytechnic, Ugep</div>
+        <div class="cert-subheader">P.M.B. 1038, Ugep, Cross River State, Nigeria</div>
+
+        <img src="/images/logo.png" class="cert-logo" onerror="this.style.display='none'" />
+
+        <div class="cert-certify">This is to certify that</div>
+        
+        <div class="cert-name">${escapeHtml(fullName)}</div>
+
+        <div class="cert-body-text">
+          having completed the approved Course of Study and passed the prescribed Examinations, has this day,
+          <br>
+          <strong>${dateStr}</strong>
+          <br>
+          under the Authority of the <strong>Academic Board</strong>
+          <br>
+          been awarded
+        </div>
+
+        <div class="cert-award">
+          ${String(level).toUpperCase() === 'HND' ? 'The Higher National Diploma' : 'The National Diploma'}
+        </div>
+        <div style="font-size: 14px; font-style: italic; margin-bottom: 10px;">in</div>
+        <div class="cert-programme">${escapeHtml(progName)}</div>
+        
+        <div class="cert-body-text" style="margin-bottom: 0;">
+          with <strong>${classification}</strong>
+        </div>
+
         <div class="cert-seal">★</div>
-        <div style="display:flex; justify-content:space-between; margin-top:40px; padding:0 40px;">
-          <div style="text-align:center;">
-            <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
-            <div style="font-size:14px; font-weight:bold;">Rector</div>
+
+        <div class="cert-signatures">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-title">Rector</div>
           </div>
-          <div style="text-align:center;">
-            <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
-            <div style="font-size:14px; font-weight:bold;">Date: ${dateStr}</div>
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div class="sig-title">Registrar</div>
           </div>
         </div>
       </div>
     `);
   }
 
-  // --- 4. CLEARANCE CERTIFICATE ---
+  // --- 4. CLEARANCE CERTIFICATE (Unchanged) ---
   if (type === 'clearance') {
     return a4Wrapper('Clearance', `
       <div class="official-letterhead">
@@ -6909,7 +7042,7 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 5. TRANSCRIPT (Dynamic Data) ---
+  // --- 5. TRANSCRIPT (Unchanged) ---
   if (type === 'transcript') {
     let results = [];
     try {

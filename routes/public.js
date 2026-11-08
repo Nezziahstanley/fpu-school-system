@@ -423,7 +423,7 @@ router.post('/register-token', async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/public/marquee  →  combined marquee items
+// GET /api/public/marquee
 // ============================================================
 router.get('/public/marquee', async (_req, res, next) => {
   try {
@@ -432,7 +432,6 @@ router.get('/public/marquee', async (_req, res, next) => {
       notifQueries.listMarqueeNotifications(10),
     ]);
 
-    // Merge, dedupe by title, sort newest-first
     const seen = new Set();
     const combined = [...anns, ...notifs]
       .filter((r) => {
@@ -478,7 +477,11 @@ router.get('/public/marquee', async (_req, res, next) => {
 // ============================================================
 router.get('/announcements', async (req, res, next) => {
   try {
-    const rows = await notifQueries.listAnnouncementsWithAuthor({ audience: req.query.audience || 'all', isPublished: true });
+    // Only fetch published announcements
+    const rows = await notifQueries.listAnnouncementsWithAuthor({ 
+      audience: req.query.audience || 'all', 
+      isPublished: true 
+    });
     const data = rows.map((r) => ({
       id: r.announcement.id,
       title: r.announcement.title,

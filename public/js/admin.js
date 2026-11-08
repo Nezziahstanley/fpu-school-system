@@ -4892,19 +4892,76 @@ async function sendBulkPaymentReminder(departmentId, deptName) {
 // PAYMENTS: View History Modal & Print Receipt
 // ============================================
 async function openPaymentHistory(studentId, studentName) {
+  // Remove existing modal if open
+  const existing = document.getElementById('payment-history-modal');
+  if (existing) existing.remove();
+
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'payment-history-modal';
+  // Enforce absolute positioning and a dark backdrop inline so it works everywhere
+  backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px);';
+
   backdrop.innerHTML = `
-    <div class="fpu-modal" style="max-width:900px; width:95%;">
-      <div class="fpu-modal-header">
+    <style>
+      .ph-modal-box {
+        background: #fff;
+        width: 100%;
+        max-width: 900px;
+        max-height: 90vh;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        overflow: hidden;
+        animation: phSlideUp 0.3s ease-out;
+      }
+      .ph-modal-header {
+        padding: 16px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+      }
+      .ph-modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #0f172a;
+        font-family: 'Poppins', sans-serif;
+      }
+      .ph-modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex-grow: 1;
+      }
+      .ph-modal-footer {
+        padding: 16px 24px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      @keyframes phSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    </style>
+
+    <div class="ph-modal-box">
+      <div class="ph-modal-header">
         <h3>Payment History — ${escapeHtml(studentName)}</h3>
-        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('payment-history-modal').remove()">×</button>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('payment-history-modal').remove()" style="font-size: 1.5rem; line-height: 1; padding: 0 8px;">&times;</button>
       </div>
-      <div class="fpu-modal-body" style="max-height:70vh; overflow-y:auto;" id="payment-history-body">
-        <div style="text-align:center;padding:40px;"><span class="spinner"></span> Loading…</div>
+      
+      <div class="ph-modal-body" id="payment-history-body">
+        <div style="text-align:center; padding:40px; color:#64748b;">
+          <span class="spinner"></span> Loading payment details...
+        </div>
       </div>
-      <div class="fpu-modal-footer">
+      
+      <div class="ph-modal-footer">
         <button class="btn btn-outline" onclick="FPU_ADMIN.exportPaymentHistoryCSV(${studentId}, '${escapeQuotes(studentName)}')">⬇ Export CSV</button>
         <button class="btn btn-outline" id="btn-print-receipt">🖨 Print Receipt</button>
         <button class="btn btn-primary" onclick="document.getElementById('payment-history-modal').remove()">Close</button>
@@ -4933,6 +4990,7 @@ async function openPaymentHistory(studentId, studentName) {
     const schoolAddress = settings.find(s => s.key === 'school_address')?.value || 'P.M.B. 1038, Ugep, Cross River State, Nigeria';
     const schoolMotto = settings.find(s => s.key === 'school_motto')?.value || 'Citadel of Technical Excellence';
 
+    // Filter payments for this student
     const payments = allPayments
       .map(p => p.payment || p)
       .filter(p => Number(p.studentId || p.student_id) === Number(studentId))
@@ -4966,7 +5024,7 @@ async function openPaymentHistory(studentId, studentName) {
 
     // Render the modal body
     body.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
         <div style="background:#f8fafc;padding:14px;border-radius:8px;border-left:4px solid #065f46;">
           <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;">Fee Due</div>
           <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:4px;">${money(totalDue)}</div>
@@ -4990,29 +5048,30 @@ async function openPaymentHistory(studentId, studentName) {
           <p>No payments recorded yet.</p>
         </div>
       ` : `
-        <table class="table-admin" style="width:100%;font-size:13px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead>
-            <tr>
-              <th>Reference</th>
-              <th>Description</th>
-              <th style="text-align:right;">Amount</th>
-              <th>Status</th>
-              <th>Date</th>
+            <tr style="border-bottom:2px solid #e2e8f0; text-align:left;">
+              <th style="padding:10px;color:#64748b;">Reference</th>
+              <th style="padding:10px;color:#64748b;">Description</th>
+              <th style="padding:10px;color:#64748b;text-align:right;">Amount</th>
+              <th style="padding:10px;color:#64748b;">Status</th>
+              <th style="padding:10px;color:#64748b;">Date</th>
             </tr>
           </thead>
           <tbody>
             ${payments.map(p => {
               const s = String(p.status || '').toLowerCase();
-              let badgeCls = 'badge-warning';
-              if (['verified', 'approved', 'paid'].includes(s)) badgeCls = 'badge-success';
-              else if (['rejected', 'failed'].includes(s)) badgeCls = 'badge-danger';
+              let badgeCls = 'background:#fef3c7;color:#92400e;';
+              if (['verified', 'approved', 'paid'].includes(s)) badgeCls = 'background:#dcfce7;color:#15803d;';
+              else if (['rejected', 'failed'].includes(s)) badgeCls = 'background:#fee2e2;color:#991b1b;';
+              
               return `
-                <tr>
-                  <td><code>${escapeHtml(p.reference || '—')}</code></td>
-                  <td>${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
-                  <td style="text-align:right;font-weight:700;color:#065f46;">${money(p.amount)}</td>
-                  <td><span class="badge ${badgeCls}">${s.toUpperCase()}</span></td>
-                  <td class="small muted">${fmtDateTime(p.createdAt || p.created_at || p.paidAt)}</td>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                  <td style="padding:10px;"><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">${escapeHtml(p.reference || '—')}</code></td>
+                  <td style="padding:10px;">${escapeHtml(p.description || p.purpose || 'Fee Payment')}</td>
+                  <td style="padding:10px;text-align:right;font-weight:700;color:#065f46;">${money(p.amount)}</td>
+                  <td style="padding:10px;"><span style="${badgeCls}padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;text-transform:uppercase;">${s}</span></td>
+                  <td style="padding:10px;color:#64748b;">${fmtDateTime(p.createdAt || p.created_at || p.paidAt)}</td>
                 </tr>
               `;
             }).join('')}
@@ -5031,7 +5090,7 @@ async function openPaymentHistory(studentId, studentName) {
     document.getElementById('btn-print-receipt').onclick = () => printPaymentReceipt();
 
   } catch (err) {
-    body.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+    body.innerHTML = `<div style="padding:20px;background:#fee2e2;color:#991b1b;border-radius:8px;">Error loading payments: ${escapeHtml(err.message)}</div>`;
   }
 }
 

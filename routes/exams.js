@@ -18,11 +18,9 @@ const STAFF = ['admin', 'registrar', 'exam_officer', 'academic_officer', 'hod', 
 
 // ============================================================
 // 1. GET /api/admin/exams/periods
-// Powers the "Exam Periods" section on the dashboard
 // ============================================================
 router.get('/periods', requireRole(STAFF), async (req, res, next) => {
   try {
-    // Standard static periods for the timetable
     const periods = [
       { id: 1, name: 'Morning', start: '09:00', end: '11:00' },
       { id: 2, name: 'Afternoon', start: '12:00', end: '14:00' },
@@ -36,13 +34,11 @@ router.get('/periods', requireRole(STAFF), async (req, res, next) => {
 
 // ============================================================
 // 2. GET /api/admin/exams/schools
-// Powers the School Cards on the dashboard
 // ============================================================
 router.get('/schools', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
-    
-    // Build the query to aggregate exams per school
+
     const stats = await db
       .select({
         id: schema.schools.id,
@@ -94,12 +90,19 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   }
 });
 
-router.post('/', requireRole(['admin', 'exam_officer', 'academic_officer']), async (req, res, next) => {
+router.post('/', requireRole(['admin', 'exam_officer', 'academic_officer', 'hod']), async (req, res, next) => {
   try {
     const { courseId, sessionId, semester, examDate, startTime, endTime } = req.body || {};
     if (!courseId || !sessionId || !semester || !examDate || !startTime || !endTime) {
       return res.status(400).json({ success: false, error: 'courseId, sessionId, semester, examDate, startTime, endTime are required.' });
     }
+
+    // Validate status
+    const validStatuses = ['draft', 'submitted', 'approved'];
+    if (req.body.status && !validStatuses.includes(req.body.status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    }
+
     const row = await examQueries.create(req.body);
     await logAudit({ req, action: 'exam.create', entity: 'exam_schedule', entityId: row.id, after: row });
     return res.status(201).json({ success: true, data: row });
@@ -108,12 +111,20 @@ router.post('/', requireRole(['admin', 'exam_officer', 'academic_officer']), asy
   }
 });
 
-router.put('/:id', requireRole(['admin', 'exam_officer', 'academic_officer']), async (req, res, next) => {
+router.put('/:id', requireRole(['admin', 'exam_officer', 'academic_officer', 'hod']), async (req, res, next) => {
   try {
     const existing = await examQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Exam schedule not found.' });
+
     const patch = { ...req.body };
     delete patch.id;
+
+    // Validate status
+    const validStatuses = ['draft', 'submitted', 'approved'];
+    if (patch.status && !validStatuses.includes(patch.status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    }
+
     const row = await examQueries.update(existing.id, patch);
     await logAudit({ req, action: 'exam.update', entity: 'exam_schedule', entityId: existing.id, before: existing, after: row });
     return res.json({ success: true, data: row });

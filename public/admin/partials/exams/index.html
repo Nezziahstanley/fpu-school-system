@@ -56,7 +56,6 @@
     <span class="small muted">Time columns used on the printed sheet</span>
   </div>
   <div class="panel-body" id="ex-periods-body">
-    <!-- Pre-filled periods to prevent the "Loading..." hang -->
     <div class="period-chips" style="display:flex;gap:10px;">
       <div class="period-chip" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;">
         <span class="label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;">Morning</span>
@@ -94,11 +93,25 @@
   </div>
 </div>
 
+<!-- NEW: Toggle Buttons -->
+<div style="display:flex; gap:10px; margin:20px 0;">
+  <button class="btn btn-primary btn-sm school-btn" onclick="document.getElementById('ex-school-grid').style.display='grid'; document.getElementById('ex-approval-grid').style.display='none'; this.classList.add('btn-primary'); this.classList.remove('btn-outline'); document.querySelector('.approval-btn').classList.add('btn-outline'); document.querySelector('.approval-btn').classList.remove('btn-primary');">
+    🏫 By School
+  </button>
+  <button class="btn btn-outline btn-sm approval-btn" onclick="document.getElementById('ex-school-grid').style.display='none'; document.getElementById('ex-approval-grid').style.display='grid'; this.classList.add('btn-primary'); this.classList.remove('btn-outline'); document.querySelector('.school-btn').classList.add('btn-outline'); document.querySelector('.school-btn').classList.remove('btn-primary'); FPU_ADMIN.loadExamApprovals();">
+    ✅ Approvals
+  </button>
+</div>
+
 <!-- School cards -->
 <div id="ex-school-grid" class="ex-school-grid">
   <div class="loading" style="grid-column:1/-1;">
     <span class="spinner"></span> Loading schools…
   </div>
+</div>
+
+<!-- NEW: Approval Grid -->
+<div id="ex-approval-grid" class="ex-school-grid" style="display:none;">
 </div>
 
 <!-- Edit periods modal -->
@@ -244,7 +257,6 @@
   }
   .esc-footer .arrow { color: #f59e0b; font-family: 'Poppins', sans-serif; }
 
-  /* Periods display */
   .period-chips {
     display: flex;
     gap: 10px;
@@ -275,7 +287,6 @@
     color: #7a1f1f;
   }
 
-  /* Periods editor rows */
   .period-edit-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 40px;
@@ -295,29 +306,28 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize the page
     if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamsIndex) {
       window.FPU_ADMIN.loadExamsIndex();
     }
 
-    // 2. Print All
+    // Print All
     document.getElementById('ex-print-all')?.addEventListener('click', async () => {
       const cards = document.querySelectorAll('.ex-school-card:not(.empty)');
       if (!cards.length) return alert('No exams scheduled to print.');
-      
+
       alert(`This will print ${cards.length} separate exam sheets. You will need to select "Save as PDF" for each one.`);
-      
+
       for (const card of cards) {
-        card.click(); // Navigates to the sheet
-        await new Promise(r => setTimeout(r, 1500)); // Wait for rendering
+        card.click();
+        await new Promise(r => setTimeout(r, 1500));
         window.print();
-        await new Promise(r => setTimeout(r, 1000)); // Wait for print dialog
-        history.back(); // Go back to index
+        await new Promise(r => setTimeout(r, 1000));
+        history.back();
         await new Promise(r => setTimeout(r, 1000));
       }
     });
 
-    // 3. Exam Periods Modal
+    // Exam Periods Modal
     const modal = document.getElementById('ex-periods-modal');
     document.getElementById('ex-edit-periods')?.addEventListener('click', () => {
       modal.style.display = 'flex';

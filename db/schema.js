@@ -1,12 +1,5 @@
 ﻿// ============================================================
 // FPU School Management System — Drizzle schema
-// ------------------------------------------------------------
-// PostgreSQL 16. Every table maps to snake_case in the DB.
-// This file is the single source of truth for:
-//   - db/migrate.js (schema introspection)
-//   - db/queries/* (typed query builders)
-//   - scripts/seed-*.js
-//   - drizzle-kit generate / push
 // ============================================================
 
 'use strict';
@@ -81,9 +74,9 @@ const notifTypeEnum = pgEnum('notification_type', [
   'info', 'warning', 'success', 'complaint', 'fee',
 ]);
 
-  const allocationStatusEnum = pgEnum('allocation_status', [
-    'assigned', 'accepted', 'flagged', 'cancelled',
-  ]);
+const allocationStatusEnum = pgEnum('allocation_status', [
+  'assigned', 'accepted', 'flagged', 'cancelled',
+]);
 
 const registrationStatusEnum = pgEnum('registration_status', [
   'pending', 'approved', 'rejected',
@@ -256,13 +249,13 @@ const courseAllocations = pgTable('course_allocations', {
   sessionId: integer('session_id').notNull(),
   semester: semesterEnum('semester').notNull(),
 
-    status: allocationStatusEnum('status').notNull().default('assigned'),
-    assignedBy: integer('assigned_by'),
-    flagReason: varchar('flag_reason', { length: 80 }),
-    flagNote: text('flag_note'),
-    respondedAt: timestamp('responded_at', { withTimezone: true }),
+  status: allocationStatusEnum('status').notNull().default('assigned'),
+  assignedBy: integer('assigned_by'),
+  flagReason: varchar('flag_reason', { length: 80 }),
+  flagNote: text('flag_note'),
+  respondedAt: timestamp('responded_at', { withTimezone: true }),
 
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   uniqueAlloc: uniqueIndex('uniq_course_allocation')
     .on(t.courseId, t.lecturerId, t.sessionId, t.semester),
@@ -369,7 +362,6 @@ const feeStructures = pgTable('fee_structures', {
 
 // ============================================================
 // 13b. FEES (Simple level-based fee structure)
-// Matches the "fees" table in Neon
 // ============================================================
 const fees = pgTable('fees', {
   id: serial('id').primaryKey(),
@@ -517,6 +509,7 @@ const examSchedules = pgTable('exam_schedules', {
   endTime: time('end_time').notNull(),
   venue: varchar('venue', { length: 120 }),
   invigilators: text('invigilators'),
+  status: varchar('status', { length: 20 }).notNull().default('draft'), // ADDED
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   courseIdx: index('idx_exam_schedules_course').on(t.courseId),

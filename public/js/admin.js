@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Final Fixed Version)
+// EXAMS: Load A3 Exam Sheet (Final - Stable)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11855,8 +11855,9 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
+    // 1. Fetch everything once
     const [examsRes, deptsRes, coursesRes] = await Promise.all([
-      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
+      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}&limit=5000`),
       adminFetch(`/api/admin/departments`),
       adminFetch(`/api/admin/courses?limit=5000`),
     ]);
@@ -11865,39 +11866,50 @@ async function loadExamSheet() {
     const depts = (await deptsRes.json()).data || [];
     const allCourses = (await coursesRes.json()).data || [];
 
-    if (!rawExams.length) {
-      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
+    // 2. Filter to ONLY approved exams (the public sheet only shows approved)
+    const approvedExams = rawExams.filter(e => {
+      const status = e.exam?.status || e.status || 'draft';
+      return status === 'approved';
+    });
+
+    if (!approvedExams.length) {
+      root.innerHTML = `
+        <div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">
+          No approved exams scheduled for this school yet.
+          <br><small style="color:#94a3b8;margin-top:8px;display:block;">HODs must submit their timetables and the Admin must approve them before they appear here.</small>
+        </div>`;
       return;
     }
 
-    // Merge course details into exams safely
-    const courseMap = new Map(allCourses.map(c => [Number(c.id), c]));
-    const exams = rawExams.map(ex => {
-      const course = courseMap.get(Number(ex.courseId)) || {};
-      return {
-        ...ex,
-        course: course,
-        displayTitle: course.title || ex.courseTitle || 'Unknown Course',
-        displayCode: course.code || ex.courseCode || 'N/A',
-        departmentId: course.departmentId || ex.departmentId
-      };
-    });
-
-    subtitleEl.textContent = `${exams.length} exams scheduled`;
+    subtitleEl.textContent = `${approvedExams.length} approved exams scheduled`;
     editBtn.style.display = 'inline-flex';
-    editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: exams[0].id });
+    editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: approvedExams[0].exam?.id || approvedExams[0].id });
 
-    // Group by Department
+    // 3. Build Course Map for lookups
+    const courseMap = new Map(allCourses.map(c => [Number(c.id), c]));
+
+    // 4. Group exams by Department (using the joined course object from the API)
     const byDept = new Map();
+    
+    // Initialize buckets for this school's departments
     depts.forEach(d => {
       if (Number(d.schoolId) === Number(schoolId)) {
         byDept.set(Number(d.id), { dept: d, exams: [] });
       }
     });
 
-    exams.forEach(ex => {
-      if (ex.departmentId && byDept.has(Number(ex.departmentId))) {
-        byDept.get(Number(ex.departmentId)).exams.push(ex);
+    approvedExams.forEach(row => {
+      const ex = row.exam || row;
+      const course = row.course || courseMap.get(Number(ex.courseId)) || {};
+      const deptId = course.departmentId;
+      
+      if (deptId && byDept.has(Number(deptId))) {
+        byDept.get(Number(deptId)).exams.push({
+          ...ex,
+          displayTitle: course.title || 'Unknown',
+          displayCode: course.code || 'N/A',
+          departmentId: Number(deptId)
+        });
       }
     });
 
@@ -11906,7 +11918,10 @@ async function loadExamSheet() {
 
     let allDepartmentsHtml = '';
 
+    // 5. Render Each Department
     activeDepts.forEach(({ dept, exams: deptExams }) => {
+      
+      // Group by date
       const days = {};
       deptExams.forEach(ex => {
         const dateStr = String(ex.examDate).split('T')[0];
@@ -11952,9 +11967,11 @@ async function loadExamSheet() {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
+        // Split by time
         const morning = dayExams.filter(ex => (ex.startTime || '09:00') < '11:00');
         const afternoon = dayExams.filter(ex => (ex.startTime || '09:00') >= '11:00');
 
+        // Deduplicate
         const uniqueMorning = Array.from(new Map(morning.map(m => [m.courseId, m])).values());
         const uniqueAfternoon = Array.from(new Map(afternoon.map(a => [a.courseId, a])).values());
 
@@ -11967,6 +11984,7 @@ async function loadExamSheet() {
           tableHtml += `<tr>`;
           if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
 
+          // Morning
           if (m) {
             tableHtml += `
               <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(m.displayTitle)} (${escapeHtml(m.displayCode)})</td>
@@ -11977,6 +11995,7 @@ async function loadExamSheet() {
             tableHtml += `<td></td><td></td><td></td>`;
           }
 
+          // Afternoon
           if (a) {
             tableHtml += `
               <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(a.displayTitle)} (${escapeHtml(a.displayCode)})</td>
@@ -12006,7 +12025,9 @@ async function loadExamSheet() {
 
   } catch (err) {
     console.error('Failed to load exam sheet', err);
-    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;">
+      <strong>Error:</strong> ${escapeHtml(err.message)}
+    </div>`;
   }
 }
 
@@ -13575,6 +13596,107 @@ async function updateNotificationBadge() {
   } catch (e) {
     console.error('[notif-badge] Sync failed:', e.message);
     return 0;
+  }
+}
+
+// ============================================
+// EXAMS: Approval Dashboard
+// ============================================
+async function loadExamApprovals() {
+  const grid = document.getElementById('ex-approval-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading submissions…</div>';
+
+  try {
+    const [examsRes, deptsRes] = await Promise.all([
+      adminFetch('/api/admin/exams?limit=5000'),
+      adminFetch('/api/admin/departments'),
+    ]);
+
+    const exams = (await examsRes.json()).data || [];
+    const depts = (await deptsRes.json()).data || [];
+
+    const byDept = new Map();
+    depts.forEach(d => byDept.set(d.id, { dept: d, draft: 0, submitted: 0, approved: 0 }));
+
+    exams.forEach(ex => {
+      const bucket = byDept.get(ex.course?.departmentId);
+      if (!bucket) return;
+      const status = ex.exam?.status || 'draft';
+      if (status === 'draft') bucket.draft++;
+      else if (status === 'submitted') bucket.submitted++;
+      else if (status === 'approved') bucket.approved++;
+    });
+
+    const visible = [...byDept.values()].filter(d => d.draft > 0 || d.submitted > 0 || d.approved > 0);
+    visible.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
+
+    if (!visible.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No exams created yet.</div>';
+      return;
+    }
+
+    grid.innerHTML = visible.map(({ dept, draft, submitted, approved }) => {
+      let badgeClass = 'badge-warning', badgeText = 'Draft';
+      if (approved > 0 && submitted === 0 && draft === 0) { badgeClass = 'badge-success'; badgeText = 'Published'; }
+      else if (submitted > 0) { badgeClass = 'badge-info'; badgeText = 'Pending Approval'; }
+
+      return `
+        <div class="dept-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <span class="badge" style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(dept.code)}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <h3 style="font-size:1.05rem; font-weight:700; margin:0;">${escapeHtml(dept.name)}</h3>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+            <div style="background:#f8fafc; padding:8px; border-radius:8px; text-align:center;">
+              <div style="font-weight:800; color:#64748b;">${draft}</div>
+              <div style="font-size:9px; font-weight:700; color:#64748b;">DRAFT</div>
+            </div>
+            <div style="background:#eff6ff; padding:8px; border-radius:8px; text-align:center;">
+              <div style="font-weight:800; color:#2563eb;">${submitted}</div>
+              <div style="font-size:9px; font-weight:700; color:#1d4ed8;">SUBMITTED</div>
+            </div>
+            <div style="background:#f0fdf4; padding:8px; border-radius:8px; text-align:center;">
+              <div style="font-weight:800; color:#059669;">${approved}</div>
+              <div style="font-size:9px; font-weight:700; color:#047857;">APPROVED</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:auto;">
+            ${submitted > 0 ? `<button class="btn btn-sm btn-primary" style="flex:1;" onclick="FPU_ADMIN.approveDepartmentExams(${dept.id})">✅ Approve All</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function approveDepartmentExams(deptId) {
+  const ok = await window.fpuConfirm('Approve ALL submitted exams for this department?', { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' });
+  if (!ok) return;
+
+  try {
+    const res = await adminFetch(`/api/admin/exams?departmentId=${deptId}&limit=5000`);
+    const json = await res.json();
+    const exams = (json.data || []).filter(e => (e.exam?.status || 'draft') === 'submitted');
+
+    if (!exams.length) { showToast('⚠️ No submitted exams found.', 'warning'); return; }
+
+    const promises = exams.map(e => 
+      adminFetch(`/api/admin/exams/${e.exam.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' })
+      })
+    );
+
+    await Promise.all(promises);
+    showToast(`✅ Approved ${exams.length} exams.`, 'success');
+    loadExamApprovals();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 

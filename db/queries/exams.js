@@ -32,6 +32,7 @@ const EXAM_FLAT = {
   endTime: examSchedules.endTime,
   venue: examSchedules.venue,
   invigilators: examSchedules.invigilators,
+  status: examSchedules.status,
   createdAt: examSchedules.createdAt,
   courseCode: courses.code,
   courseTitle: courses.title,
@@ -51,13 +52,14 @@ const ATT_WITH_STUDENT = {
 // ------------------------------------------------------------
 // listWithCourse — schedules joined with course (nested shape)
 // ------------------------------------------------------------
-async function listWithCourse({ sessionId, semester, courseId, departmentId } = {}) {
+async function listWithCourse({ sessionId, semester, courseId, departmentId, status } = {}) {
   const conds = [];
 
   if (sessionId) conds.push(eq(examSchedules.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(examSchedules.semester, semester));
   if (courseId) conds.push(eq(examSchedules.courseId, Number(courseId)));
   if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
+  if (status) conds.push(eq(examSchedules.status, status));
 
   const where = conds.length ? and(...conds) : undefined;
 
@@ -72,11 +74,12 @@ async function listWithCourse({ sessionId, semester, courseId, departmentId } = 
 // ------------------------------------------------------------
 // list — schedules joined with course (flat shape)
 // ------------------------------------------------------------
-async function list({ sessionId, semester, courseId } = {}) {
+async function list({ sessionId, semester, courseId, status } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(examSchedules.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(examSchedules.semester, semester));
   if (courseId) conds.push(eq(examSchedules.courseId, Number(courseId)));
+  if (status) conds.push(eq(examSchedules.status, status));
 
   const where = conds.length ? and(...conds) : undefined;
 
@@ -154,13 +157,14 @@ async function create(data) {
       endTime: data.endTime,
       venue: data.venue || null,
       invigilators: data.invigilators || null,
+      status: data.status || 'draft',
     })
     .returning();
   return row;
 }
 
 async function update(id, data) {
-  const allowed = ['courseId', 'sessionId', 'semester', 'examDate', 'startTime', 'endTime', 'venue', 'invigilators'];
+  const allowed = ['courseId', 'sessionId', 'semester', 'examDate', 'startTime', 'endTime', 'venue', 'invigilators', 'status'];
   const clean = {};
   for (const k of allowed) {
     if (data[k] !== undefined) clean[k] = data[k];
@@ -185,9 +189,6 @@ async function remove(id) {
 // ATTENDANCE
 // ============================================================
 
-// ------------------------------------------------------------
-// listAttendanceWithStudent — attendance + student per schedule
-// ------------------------------------------------------------
 async function listAttendanceWithStudent({ examScheduleId } = {}) {
   if (!examScheduleId) return [];
   return db
@@ -198,9 +199,6 @@ async function listAttendanceWithStudent({ examScheduleId } = {}) {
     .orderBy(asc(users.lastName), asc(users.firstName));
 }
 
-// ------------------------------------------------------------
-// countAttendance — grouped totals for one schedule
-// ------------------------------------------------------------
 async function countAttendance({ examScheduleId } = {}) {
   if (!examScheduleId) return [];
   return db
@@ -213,9 +211,6 @@ async function countAttendance({ examScheduleId } = {}) {
     .groupBy(examAttendance.status);
 }
 
-// ------------------------------------------------------------
-// countAttendanceAggregate — one query, totals across all schedules
-// ------------------------------------------------------------
 async function countAttendanceAggregate({ sessionId } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(examSchedules.sessionId, Number(sessionId)));
@@ -232,9 +227,6 @@ async function countAttendanceAggregate({ sessionId } = {}) {
     .groupBy(examAttendance.status);
 }
 
-// ------------------------------------------------------------
-// countCoveredSchedules — how many schedules have any attendance
-// ------------------------------------------------------------
 async function countCoveredSchedules({ sessionId } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(examSchedules.sessionId, Number(sessionId)));
@@ -249,9 +241,6 @@ async function countCoveredSchedules({ sessionId } = {}) {
   return row?.c || 0;
 }
 
-// ------------------------------------------------------------
-// upsertAttendance — insert or update a single attendance record
-// ------------------------------------------------------------
 async function upsertAttendance({ examScheduleId, studentId, status, invigilatorId, remarks } = {}) {
   const [row] = await db
     .insert(examAttendance)
@@ -274,9 +263,6 @@ async function upsertAttendance({ examScheduleId, studentId, status, invigilator
   return row;
 }
 
-// ------------------------------------------------------------
-// bulkUpsertAttendance — insert/update many at once
-// ------------------------------------------------------------
 async function bulkUpsertAttendance(rows = []) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const values = rows.map((r) => ({
@@ -287,7 +273,6 @@ async function bulkUpsertAttendance(rows = []) {
     remarks: r.remarks || null,
   }));
 
-  // Drizzle doesn't support multi-row upsert directly — do it in a loop
   const results = [];
   for (const v of values) {
     const row = await upsertAttendance(v);
@@ -296,9 +281,6 @@ async function bulkUpsertAttendance(rows = []) {
   return results;
 }
 
-// ------------------------------------------------------------
-// removeAttendance — delete a single record
-// ------------------------------------------------------------
 async function removeAttendance(id) {
   const [row] = await db
     .delete(examAttendance)
@@ -311,7 +293,6 @@ async function removeAttendance(id) {
 // EXPORTS
 // ============================================================
 module.exports = {
-  // schedules
   list,
   listWithCourse,
   listUpcoming,
@@ -320,8 +301,6 @@ module.exports = {
   create,
   update,
   remove,
-
-  // attendance
   listAttendanceWithStudent,
   countAttendance,
   countAttendanceAggregate,

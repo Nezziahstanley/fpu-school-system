@@ -6830,38 +6830,30 @@ async function renderDocPreview(doc, user) {
 
   // --- 2. ID CARD (NO WATERMARK INCLUDED) ---
   if (type === 'id-card' || type === 'id-letter') {
-    // We explicitly pass `false` to the wrapper to hide the watermark
     return a4Wrapper('ID Card', `
       <style>
-        .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; }
-        .portal-id-card { width: 500px; height: 280px; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
-        .pic-header { background: #065f46; height: 50px; padding: 0 20px; display: flex; align-items: center; gap: 12px; color: #fff; }
-        .pic-header img { width: 32px; height: 32px; background: #fff; border-radius: 50%; padding: 2px; }
+        .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; }
+        /* Fixed dimensions to prevent stretching */
+        .portal-id-card { width: 450px !important; height: 260px !important; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
+        .pic-header { background: #065f46; height: 50px; padding: 0 20px; display: flex; align-items: center; gap: 12px; color: #fff; flex-shrink: 0; }
+        .pic-header img { width: 32px; height: 32px; background: #fff; border-radius: 50%; padding: 2px; object-fit: contain; }
         .pic-header-text { display: flex; flex-direction: column; line-height: 1.2; }
         .pic-header-text .inst { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
         .pic-header-text .state { font-size: 9px; font-weight: 600; letter-spacing: 1px; opacity: 0.8; }
-        .pic-body { display: flex; padding: 16px 20px; gap: 16px; flex: 1; }
-        .pic-photo { width: 85px; height: 105px; background: #f1f5f9; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .pic-body { display: flex; padding: 15px 20px; gap: 15px; flex: 1; overflow: hidden; }
+        .pic-photo { width: 75px; height: 95px; flex-shrink: 0; background: #f1f5f9; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .pic-photo img { width: 100%; height: 100%; object-fit: cover; }
-        .pic-details { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 4px; }
-        .pic-row { display: flex; flex-direction: column; margin-bottom: 4px; }
+        .pic-details { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 0; }
+        .pic-row { display: flex; flex-direction: column; margin-bottom: 2px; }
         .pic-row-flex { display: flex; gap: 20px; }
         .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-        .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; }
-        .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; }
+        .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
         
-        /* Realistic QR Code Pattern */
-        .qr-pattern {
-          width: 50px; height: 50px;
-          background-image: 
-            linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46),
-            linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46);
-          background-size: 10px 10px;
-          background-position: 0 0, 5px 5px;
-          border: 2px solid #065f46;
-          border-radius: 4px;
-        }
-        .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; }
+        /* SVG QR Code Container */
+        .qr-svg { width: 50px; height: 50px; }
+        
+        .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
       </style>
 
       <div class="portal-id-container">
@@ -6900,16 +6892,20 @@ async function renderDocPreview(doc, user) {
               </div>
               <div class="pic-row">
                 <span class="pic-label">Programme</span>
-                <span class="pic-value">${escapeHtml(progName)}</span>
+                <span class="pic-value" title="${escapeHtml(progName)}">${escapeHtml(progName)}</span>
               </div>
               <div class="pic-row">
                 <span class="pic-label">Department</span>
-                <span class="pic-value">${escapeHtml(deptName)}</span>
+                <span class="pic-value" title="${escapeHtml(deptName)}">${escapeHtml(deptName)}</span>
               </div>
             </div>
 
             <div class="pic-qr">
-              <div class="qr-pattern"></div>
+              <!-- Inline SVG for the QR code so it renders perfectly -->
+              <svg class="qr-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" fill="#fff" />
+                <path fill="#065f46" d="M10,10 h30 v30 h-30 z M20,20 h10 v10 h-10 z M60,10 h30 v30 h-30 z M70,20 h10 v10 h-10 z M10,60 h30 v30 h-30 z M20,70 h10 v10 h-10 z M50,50 h10 v10 h-10 z M70,50 h20 v10 h-20 z M50,70 h10 v20 h-10 z M70,70 h10 v10 h-10 z M90,70 h10 v10 h-10 z M10,50 h20 v10 h-20 z M40,50 h10 v20 h-10 z M60,90 h20 v10 h-20 z M90,90 h10 v10 h-10 z M90,50 h10 v10 h-10 z M50,90 h10 v10 h-10 z"/>
+              </svg>
               <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
             </div>
           </div>

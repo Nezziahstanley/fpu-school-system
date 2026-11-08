@@ -47,7 +47,6 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       .groupBy(schema.departments.id, schema.departments.name, schema.departments.code, schema.schools.name)
       .orderBy(schema.departments.name);
 
-    // Fix the math by explicitly parsing to Numbers
     const formatted = stats.map(row => {
       const recs = Number(row.records) || 0;
       const p = Number(row.present) || 0;
@@ -69,8 +68,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admin/attendance/course/:id 
-// (Kept for backwards compatibility - old route)
+// GET /api/admin/attendance/course/:id (Legacy route)
 // ============================================================
 router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -130,7 +128,7 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
 
 // ============================================================
 // GET /api/admin/attendance/course/:courseId/students
-// Returns the roster of students for a specific course
+// Returns the roster of students registered for a specific course
 // ============================================================
 router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -166,21 +164,15 @@ router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, ne
       .from(schema.attendance)
       .where(eq(schema.attendance.courseId, courseId));
 
-    // 4. Map the stats
+    // 4. Map stats per student
     const data = students.map(s => {
-      const studentRecords = records.filter(r => r.studentId === s.id);
+      const studentRecords = records.filter(r => Number(r.studentId) === Number(s.id));
       const totalClasses = studentRecords.length;
       const present = studentRecords.filter(r => r.status === 'present' || r.status === 'late').length;
       const absent = studentRecords.filter(r => r.status === 'absent').length;
       const rate = totalClasses > 0 ? Math.round((present / totalClasses) * 100) : 0;
 
-      return {
-        ...s,
-        totalClasses,
-        present,
-        absent,
-        rate
-      };
+      return { ...s, totalClasses, present, absent, rate };
     });
 
     return res.json({ success: true, data });
@@ -193,7 +185,7 @@ router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, ne
 
 // ============================================================
 // GET /api/admin/attendance/student/:studentId/course/:courseId
-// Returns day-by-day attendance for a specific student
+// Returns day-by-day attendance for a specific student in a course
 // ============================================================
 router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -201,7 +193,12 @@ router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (re
     const courseId = Number(req.params.courseId);
 
     const records = await db
-      .select()
+      .select({
+        id: schema.attendance.id,
+        date: schema.attendance.date,
+        status: schema.attendance.status,
+        remarks: schema.attendance.remarks,
+      })
       .from(schema.attendance)
       .where(and(
         eq(schema.attendance.studentId, studentId),

@@ -12429,7 +12429,7 @@ async function openTranscriptModal(studentId) {
       if (sessionsRes && sessionsRes.ok) {
         const j = await sessionsRes.json();
         const sessions = j.data || j || [];
-        sessions.forEach(s => sessionMap.set(s.id, s.name));
+        sessions.forEach(s => sessionMap.set(Number(s.id), s.name));
       }
     } catch {}
 
@@ -12438,7 +12438,6 @@ async function openTranscriptModal(studentId) {
       return;
     }
 
-    // Fallback grade points if the backend doesn't provide them
     const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
 
     const groups = new Map();
@@ -12451,14 +12450,15 @@ async function openTranscriptModal(studentId) {
 
     let totalUnits = 0, totalPoints = 0, courseCount = 0;
     
+    // FIXED: Include ALL results with a grade, not just 'published'
     results.forEach(r => {
       const row = r.result || r;
       const course = courseMap.get(row.courseId) || r.course || {};
       const units = Number(course.unit) || Number(row.unit) || 0;
-      // Use points from DB, or calculate from grade
       const points = row.points != null ? Number(row.points) : (gradePoints[String(row.grade).toUpperCase()] || 0);
       
-      if (row.status === 'published' || row.status === 'approved') {
+      // Only skip if there's no grade at all
+      if (row.grade) {
         totalUnits += units;
         totalPoints += units * points;
         courseCount++;
@@ -12475,8 +12475,13 @@ async function openTranscriptModal(studentId) {
 
     const groupsHtml = [...groups.entries()].map(([key, list]) => {
       const [sessionId, semester] = key.split('|');
-      // Map session ID to name, fallback to ID if not found
-      const sessionName = sessionMap.get(Number(sessionId)) || `Session ${sessionId}`;
+      
+      // FIXED: Try to get session name from map, or directly from the result row
+      const firstRow = list[0]?.result || list[0] || {};
+      const sessionName = sessionMap.get(Number(sessionId)) 
+          || firstRow.sessionName 
+          || firstRow.session?.name 
+          || `Session ${sessionId !== '?' ? sessionId : 'Current'}`;
       
       const sectionUnits = list.reduce((s, r) => {
         const row = r.result || r;

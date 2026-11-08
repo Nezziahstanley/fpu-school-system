@@ -13711,8 +13711,8 @@ async function loadTimetableSheet() {
   if (titleEl) titleEl.textContent = `${deptName} Timetable`;
   if (subEl) subEl.textContent = `Loading...`;
   
+  // A3 LANDSCAPE PRINT LOGIC
   if (printBtn) printBtn.onclick = () => {
-    // Dynamically inject A3 Landscape print styles before printing
     const style = document.createElement('style');
     style.id = 'print-a3-style';
     style.innerHTML = `
@@ -13790,7 +13790,7 @@ async function loadTimetableSheet() {
         { label: '9AM-10AM', start: '09:00' },
         { label: '10AM-11AM', start: '10:00' },
         { label: '11am-12pm', start: '11:00' },
-        { label: 'BREAK', start: '12:00', isBreak: true },
+        { label: '12pm-1pm', start: '12:00', isBreak: true },
         { label: '1pm-2pm', start: '13:00' },
         { label: '2pm-3pm', start: '14:00' },
         { label: '3pm-4pm', start: '15:00' },
@@ -13799,20 +13799,19 @@ async function loadTimetableSheet() {
       const daysOfWeek = ['MON', 'TUES', 'WED', 'THURS', 'FRI'];
 
       let gridHtml = `
-        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:2px solid #000; margin-bottom:20px; font-size:12px; font-family:'Times New Roman', Times, serif;">
+        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:30px; font-size:14px; font-family:'Times New Roman', Times, serif;">
           <thead>
             <tr>
-              <th style="border:2px solid #000; padding:8px; width:70px; text-align:center; font-weight:bold; font-size:14px;">DAYS/ TIME</th>
-              ${hours.map(h => `<th style="border:2px solid #000; padding:8px; text-align:center; font-weight:bold; width:${h.isBreak ? '60px' : '120px'}; font-size:14px;">${h.label}</th>`).join('')}
+              <th style="border:1px solid #000; padding:8px; width:100px; text-align:center; font-weight:bold; font-size:15px;">DAYS/ TIME</th>
+              ${hours.map(h => `<th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold; width:${h.isBreak ? '80px' : '140px'}; font-size:15px;">${h.label}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
       `;
 
       daysOfWeek.forEach(day => {
-        gridHtml += `<tr><td style="border:2px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:14px;">${day}</td>`;
+        gridHtml += `<tr><td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; font-size:16px;">${day}</td>`;
         
-        let skipIndices = new Set();
         let breakDrawn = false;
 
         for (let i = 0; i < hours.length; i++) {
@@ -13820,13 +13819,11 @@ async function loadTimetableSheet() {
 
           if (h.isBreak) {
             if (!breakDrawn) {
-              gridHtml += `<td rowspan="5" style="border:2px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:14px; writing-mode:vertical-rl; text-orientation:upright;">BREAK</td>`;
+              gridHtml += `<td rowspan="5" style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:16px;">BREAK</td>`;
               breakDrawn = true;
             }
             continue;
           }
-
-          if (skipIndices.has(i)) continue;
 
           let slotsHere = levelSlots.filter(r => {
             const s = r.slot || r;
@@ -13835,65 +13832,26 @@ async function loadTimetableSheet() {
             if (dRaw === 'THU') dRaw = 'THURS';
             
             const st = String(s.startTime || '08:00').substring(0, 5);
-            if (st.startsWith('7:')) return false; 
-
+            
+            if (i === 0 && st < '08:00') return dRaw === day;
             return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
           });
-
-          if (i === 0) {
-            const earlySlots = levelSlots.filter(r => {
-               const s = r.slot || r;
-               let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
-               if (dRaw === 'TUE') dRaw = 'TUES';
-               if (dRaw === 'THU') dRaw = 'THURS';
-               const st = String(s.startTime || '').substring(0, 5);
-               return dRaw === day && st < '08:00';
-            });
-            if (earlySlots.length > 0) slotsHere = earlySlots;
-          }
 
           if (slotsHere.length > 0) {
             const r = slotsHere[0];
             const s = r.slot || r;
+            const c = courseMap.get(Number(s.courseId)) || r.course || {};
             
             let st = String(s.startTime || '08:00').substring(0, 5);
-            let et = String(s.endTime || '09:00').substring(0, 5);
-            
-            let durationHours = 1;
-            if (st < '08:00' && et >= '09:00') {
-               durationHours = 1; 
-            } else {
-               const startH = parseInt(st.split(':')[0]);
-               const endH = parseInt(et.split(':')[0]);
-               durationHours = Math.max(1, endH - startH);
-            }
+            const isPrc = s.venue && (s.venue.includes('Lab') || s.venue.includes('PRC'));
+            const suffix = isPrc ? ' (PRC)' : '';
+            const timeOverride = st < '08:00' ? ` (7-9am)` : '';
 
-            // PERFECT COLSPAN MATH
-            let colspan = 1;
-            if (i < 4) {
-              colspan = Math.min(durationHours, 4 - i);
-            } else if (i > 4) {
-              colspan = Math.min(durationHours, 7 - i);
-            }
-
-            for (let j = 1; j < colspan; j++) skipIndices.add(i + j);
-
-            // Render courses (Stacked if multiple in same slot)
-            let coursesHtml = '';
-            slotsHere.forEach((slotRow, idx) => {
-              const c2 = courseMap.get(Number((slotRow.slot || slotRow).courseId)) || slotRow.course || {};
-              const isPrc = (slotRow.slot || slotRow).venue && ((slotRow.slot || slotRow).venue.includes('Lab') || (slotRow.slot || slotRow).venue.includes('PRC'));
-              const suffix = isPrc ? ' (PRC)' : '';
-              const timeOverride = idx === 0 && st < '08:00' ? ` (7-9am)` : '';
-              
-              coursesHtml += `<div style="margin-bottom: 4px; font-size: 12px; font-weight:bold; text-align:center;">${escapeHtml(c2.code)}${timeOverride}${suffix}</div>`;
-            });
-
-            gridHtml += `<td colspan="${colspan}" style="border:2px solid #000; padding:6px; vertical-align:top;">
-              ${coursesHtml}
+            gridHtml += `<td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:14px;">
+              ${escapeHtml(c.code)}${timeOverride}${suffix}
             </td>`;
           } else {
-            gridHtml += `<td style="border:2px solid #000; padding:6px;"></td>`;
+            gridHtml += `<td style="border:1px solid #000; padding:8px;"></td>`;
           }
         }
         gridHtml += `</tr>`;
@@ -13907,14 +13865,14 @@ async function loadTimetableSheet() {
         .sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
       let detailsHtml = `
-        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:2px solid #000; font-size:12px; font-family:'Times New Roman', Times, serif;">
+        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:13px; font-family:'Times New Roman', Times, serif;">
           <thead>
             <tr>
-              <th style="border:2px solid #000; padding:8px; width:100px; text-align:center; font-weight:bold;">COURSES<br/>CODE</th>
-              <th style="border:2px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE TITLE</th>
-              <th style="border:2px solid #000; padding:8px; width:80px; text-align:center; font-weight:bold;">COURSE<br/>UNIT</th>
-              <th style="border:2px solid #000; padding:8px; width:150px; text-align:center; font-weight:bold;">LECTURE<br/>HALL</th>
-              <th style="border:2px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE LECTURER(S)</th>
+              <th style="border:1px solid #000; padding:8px; width:120px; text-align:center; font-weight:bold;">COURSES<br/>CODE</th>
+              <th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE TITLE</th>
+              <th style="border:1px solid #000; padding:8px; width:80px; text-align:center; font-weight:bold;">COURSE<br/>UNIT</th>
+              <th style="border:1px solid #000; padding:8px; width:160px; text-align:center; font-weight:bold;">LECTURE<br/>HALL</th>
+              <th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE LECTURER(S)</th>
             </tr>
           </thead>
           <tbody>
@@ -13933,38 +13891,39 @@ async function loadTimetableSheet() {
 
         detailsHtml += `
           <tr>
-            <td style="border:2px solid #000; padding:8px; font-weight:bold;">${escapeHtml(c.code)}</td>
-            <td style="border:2px solid #000; padding:8px; text-transform:uppercase;">${escapeHtml(c.title)}</td>
-            <td style="border:2px solid #000; padding:8px; text-align:center;">${c.unit || 0}</td>
-            <td style="border:2px solid #000; padding:8px; text-align:center;">${escapeHtml(rooms || '—')}</td>
-            <td style="border:2px solid #000; padding:8px;">${escapeHtml(lecturers || '—')}</td>
+            <td style="border:1px solid #000; padding:8px; font-weight:bold;">${escapeHtml(c.code)}</td>
+            <td style="border:1px solid #000; padding:8px; text-transform:uppercase;">${escapeHtml(c.title)}</td>
+            <td style="border:1px solid #000; padding:8px; text-align:center;">${c.unit || 0}</td>
+            <td style="border:1px solid #000; padding:8px; text-align:center;">${escapeHtml(rooms || '—')}</td>
+            <td style="border:1px solid #000; padding:8px;">${escapeHtml(lecturers || '—')}</td>
           </tr>
         `;
       });
 
       detailsHtml += `</tbody></table>`;
 
+      // A3 LANDSCAPE WRAPPER
       return `
-        <div class="tt-a3-wrapper" style="background:#fff; width:100%; max-width:1200px; min-height:800px; margin:0 auto; padding:10mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif; box-shadow: 0 4px 20px rgba(15,23,42,0.12); margin-bottom: 30px; border-radius:8px;">
-          <div style="text-align:center; margin-bottom:24px; position:relative;">
-            <img src="/images/logo.png" style="position:absolute; left:0; top:0; width:90px;" onerror="this.style.display='none'" />
-            <div style="font-size:20px; font-weight:bold; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</div>
-            <div style="font-size:18px; font-weight:bold; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
-            <div style="font-size:18px; font-weight:bold; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
+        <div class="tt-a3-wrapper" style="background:#fff; width:420mm; min-height:297mm; margin:0 auto; padding:15mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif; box-shadow: 0 4px 20px rgba(15,23,42,0.12); margin-bottom: 30px;">
+          <div style="text-align:center; margin-bottom:30px; position:relative;">
+            <img src="/images/logo.png" style="position:absolute; left:0; top:0; width:110px;" onerror="this.style.display='none'" />
+            <div style="font-size:22px; font-weight:bold; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</div>
+            <div style="font-size:20px; font-weight:bold; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
+            <div style="font-size:20px; font-weight:bold; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
             <div style="font-size:16px; font-weight:bold; text-transform:uppercase; margin-top:6px;">${level.replace(/(\D+)(\d)/, '$1 $2')} FULL TIME SEMESTER ${semester === 'first' ? 'ONE (1)' : 'TWO (2)'} LECTURES TIME TABLE</div>
             <div style="font-size:16px; font-weight:bold; text-transform:uppercase;">${sessionName} SESSION</div>
-            <div style="position:absolute; right:0; top:10px; color:#3b82f6; font-size:32px; font-weight:bold;">${level.replace(/(\D+)(\d)/, '$1 $2')}</div>
+            <div style="position:absolute; right:0; top:10px; color:#3b82f6; font-size:36px; font-weight:bold;">${level.replace(/(\D+)(\d)/, '$1 $2')}</div>
           </div>
 
           ${gridHtml}
           
-          <div style="margin-top:30px;">
+          <div style="margin-top:40px;">
             ${detailsHtml}
           </div>
 
-          <div style="margin-top:40px; margin-left:20px;">
+          <div style="margin-top:50px; margin-left:20px;">
             <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">Signed:</div>
-            <div style="font-family:'Brush Script MT', cursive; font-size:24px; font-weight:bold; margin-bottom:2px;">Cajtp Martin Omini Ariko</div>
+            <div style="font-family:'Brush Script MT', cursive; font-size:26px; font-weight:bold; margin-bottom:2px;">Cajtp Martin Omini Ariko</div>
             <div style="font-size:14px;">HOD, ${escapeHtml(dept.name)}</div>
           </div>
         </div>

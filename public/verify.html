@@ -4,259 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Student Verification - FPU</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --primary: #065f46;
-      --primary-light: #059669;
-      --accent: #fbbf24;
-      --bg: #f1f5f9;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --border: #e2e8f0;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: var(--bg);
-      color: var(--text-main);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
-      background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-      background-size: 20px 20px;
-    }
-
-    .verify-container {
-      width: 100%;
-      max-width: 420px;
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
-      overflow: hidden;
-      position: relative;
-      animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      opacity: 0;
-      transform: translateY(20px);
-    }
-
-    @keyframes slideUp {
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-      padding: 30px 20px;
-      text-align: center;
-      color: #fff;
-      position: relative;
-    }
-
-    .header::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 20px;
-      background: #fff;
-      border-radius: 20px 20px 0 0;
-    }
-
-    .logo-wrap {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 12px;
-      background: #fff;
-      border-radius: 50%;
-      padding: 4px;
-      border: 3px solid var(--accent);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    .logo-wrap img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 50%;
-    }
-
-    .header h1 {
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-
-    .header p {
-      font-size: 0.8rem;
-      color: #d1fae5;
-      font-weight: 500;
-    }
-
-    .body {
-      padding: 0 24px 24px;
-      position: relative;
-      z-index: 2;
-    }
-
-    .photo-container {
-      text-align: center;
-      margin-top: -50px;
-      margin-bottom: 16px;
-    }
-
-    .student-photo {
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      border: 5px solid #fff;
-      object-fit: cover;
-      background: var(--bg);
-      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.5rem;
-      color: var(--text-muted);
-    }
-
-    .student-name {
-      text-align: center;
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: var(--text-main);
-      margin-bottom: 6px;
-      line-height: 1.2;
-    }
-
-    .matric-pill-wrap {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .matric-pill {
-      display: inline-block;
-      font-family: 'Courier New', monospace;
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--primary);
-      background: #ecfdf5;
-      padding: 6px 16px;
-      border-radius: 999px;
-      border: 1px solid #a7f3d0;
-      letter-spacing: 0.5px;
-    }
-
-    .details-list {
-      background: #f8fafc;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      padding: 4px 16px;
-      margin-bottom: 24px;
-    }
-
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px dashed var(--border);
-    }
-
-    .detail-row:last-child {
-      border-bottom: none;
-    }
-
-    .detail-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    .detail-value {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--text-main);
-      text-align: right;
-    }
-
-    .status-wrap {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #dcfce7;
-      color: #15803d;
-      padding: 8px 20px;
-      border-radius: 999px;
-      font-size: 0.85rem;
-      font-weight: 800;
-      border: 1px solid #bbf7d0;
-    }
-
-    .status-badge svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .footer {
-      text-align: center;
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      padding: 16px;
-      background: #f8fafc;
-      border-top: 1px solid var(--border);
-      line-height: 1.5;
-    }
-
-    .loading-state, .error-state {
-      padding: 60px 20px;
-      text-align: center;
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid #e2e8f0;
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
-    }
-
+    :root { --primary: #065f46; --primary-light: #059669; --accent: #fbbf24; --bg: #f1f5f9; --text-main: #0f172a; --text-muted: #64748b; --border: #e2e8f0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }
+    .verify-container { width: 100%; max-width: 420px; background: #fff; border-radius: 20px; box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1); overflow: hidden; position: relative; animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(20px); }
+    @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+    .header { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); padding: 30px 20px; text-align: center; color: #fff; position: relative; }
+    .header::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 20px; background: #fff; border-radius: 20px 20px 0 0; }
+    .logo-wrap { width: 80px; height: 80px; margin: 0 auto 12px; background: #fff; border-radius: 50%; padding: 4px; border: 3px solid var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+    .header h1 { font-size: 1.15rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .header p { font-size: 0.8rem; color: #d1fae5; font-weight: 500; }
+    .body { padding: 0 24px 24px; position: relative; z-index: 2; }
+    .photo-container { text-align: center; margin-top: -50px; margin-bottom: 16px; }
+    .student-photo { width: 110px; height: 110px; border-radius: 50%; border: 5px solid #fff; object-fit: cover; background: var(--bg); box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15); display: inline-flex; align-items: center; justify-content: center; font-size: 2.5rem; color: var(--text-muted); }
+    .student-name { text-align: center; font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 6px; line-height: 1.2; }
+    .matric-pill-wrap { text-align: center; margin-bottom: 24px; }
+    .matric-pill { display: inline-block; font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: 700; color: var(--primary); background: #ecfdf5; padding: 6px 16px; border-radius: 999px; border: 1px solid #a7f3d0; letter-spacing: 0.5px; }
+    .details-list { background: #f8fafc; border-radius: 14px; border: 1px solid var(--border); padding: 4px 16px; margin-bottom: 24px; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--border); }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; }
+    .detail-value { font-size: 0.9rem; font-weight: 700; color: var(--text-main); text-align: right; }
+    .status-wrap { text-align: center; margin-bottom: 24px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #15803d; padding: 8px 20px; border-radius: 999px; font-size: 0.85rem; font-weight: 800; border: 1px solid #bbf7d0; }
+    .status-badge svg { width: 16px; height: 16px; }
+    .footer { text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 16px; background: #f8fafc; border-top: 1px solid var(--border); line-height: 1.5; }
+    .loading-state, .error-state { padding: 60px 20px; text-align: center; }
+    .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .error-state h2 {
-      color: #b91c1c;
-      font-size: 1.2rem;
-      margin-bottom: 8px;
-    }
-
-    .error-state p {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
+    .error-state h2 { color: #b91c1c; font-size: 1.2rem; margin-bottom: 8px; }
+    .error-state p { color: var(--text-muted); font-size: 0.9rem; }
   </style>
 </head>
 <body>
-
   <div class="verify-container" id="app">
     <div class="loading-state">
       <div class="spinner"></div>
@@ -270,26 +53,16 @@
     const appContainer = document.getElementById('app');
 
     if (!matricId) {
-      appContainer.innerHTML = `
-        <div class="error-state">
-          <h2>Invalid QR Code</h2>
-          <p>No student ID was provided in the link.</p>
-        </div>
-      `;
+      appContainer.innerHTML = `<div class="error-state"><h2>Invalid QR Code</h2><p>No student ID was provided in the link.</p></div>`;
     } else {
-      // THE FIX: Use query parameters instead of path parameters
       fetch(`/api/public/verify?id=${encodeURIComponent(matricId)}`)
-        .then(res => {
-          if (!res.ok) throw new Error('Student not found');
-          return res.json();
-        })
-        .then(json => {
-          const student = json.data || json;
-          
-          if (!student || !student.firstName) {
-            throw new Error('Invalid data format received');
+        .then(res => res.json().then(data => ({ status: res.status, data })))
+        .then(({ status, data }) => {
+          if (status !== 200 || !data.success) {
+            throw new Error(data.error || 'Student not found');
           }
 
+          const student = data.data;
           const fullName = `${student.firstName} ${student.lastName}`;
           
           const photoHtml = student.photoUrl 
@@ -298,65 +71,34 @@
 
           appContainer.innerHTML = `
             <div class="header">
-              <div class="logo-wrap">
-                <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'">
-              </div>
+              <div class="logo-wrap"><img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'"></div>
               <h1>FEDERAL POLYTECHNIC UGEP</h1>
               <p>Official Student Verification</p>
             </div>
-            
             <div class="body">
-              <div class="photo-container">
-                ${photoHtml}
-              </div>
-              
+              <div class="photo-container">${photoHtml}</div>
               <h2 class="student-name">${fullName}</h2>
-              
-              <div class="matric-pill-wrap">
-                <span class="matric-pill">${student.matricNumber || 'N/A'}</span>
-              </div>
-
+              <div class="matric-pill-wrap"><span class="matric-pill">${student.matricNumber || 'N/A'}</span></div>
               <div class="details-list">
-                <div class="detail-row">
-                  <span class="detail-label">Level</span>
-                  <span class="detail-value">${student.level || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Programme</span>
-                  <span class="detail-value">${student.programmeName || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Department</span>
-                  <span class="detail-value">${student.departmentName || 'N/A'}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">Session</span>
-                  <span class="detail-value">${student.sessionName || '2025/2026'}</span>
-                </div>
+                <div class="detail-row"><span class="detail-label">Level</span><span class="detail-value">${student.level || 'N/A'}</span></div>
+                <div class="detail-row"><span class="detail-label">Programme</span><span class="detail-value">${student.programmeName || 'N/A'}</span></div>
+                <div class="detail-row"><span class="detail-label">Department</span><span class="detail-value">${student.departmentName || 'N/A'}</span></div>
+                <div class="detail-row"><span class="detail-label">Session</span><span class="detail-value">${student.sessionName || '2025/2026'}</span></div>
               </div>
-
               <div class="status-wrap">
                 <div class="status-badge">
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                   Verified Active Student
                 </div>
               </div>
             </div>
-
-            <div class="footer">
-              This is a computer-generated verification page.<br>
-              Valid without signature.
-            </div>
+            <div class="footer">This is a computer-generated verification page.<br>Valid without signature.</div>
           `;
         })
         .catch(err => {
           appContainer.innerHTML = `
             <div class="header">
-              <div class="logo-wrap">
-                <img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'">
-              </div>
+              <div class="logo-wrap"><img src="/images/logo.png" alt="FPU Logo" onerror="this.style.display='none'"></div>
               <h1>Verification Failed</h1>
             </div>
             <div class="error-state">

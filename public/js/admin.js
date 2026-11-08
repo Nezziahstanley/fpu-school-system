@@ -13690,7 +13690,6 @@ async function loadTimetableSheet() {
   const titleEl = document.getElementById('tsheet-title');
   const subEl = document.getElementById('tsheet-subtitle');
   const printBtn = document.getElementById('tsheet-print');
-  const exportBtn = document.getElementById('tsheet-export');
   const addBtn = document.getElementById('tsheet-add');
 
   if (!root) return;
@@ -13736,116 +13735,144 @@ async function loadTimetableSheet() {
     const staffMap = new Map(staff.map(s => [Number(s.id), s]));
     const dept = depts.find(d => Number(d.id) === Number(deptId)) || { name: deptName };
     
-    // Get Session Name
     const currentSession = sessions.find(s => Number(s.id) === Number(sessionId)) || sessions.find(s => s.isCurrent);
     const sessionName = currentSession ? currentSession.name : '2025/2026';
 
     if (subEl) subEl.textContent = `${semester === 'first' ? 'First' : 'Second'} Semester, ${sessionName} Session`;
 
-    // Grid Headers
-    const timeSlots = [
-      { label: '8AM-9AM', start: '08:00', end: '09:00' },
-      { label: '9AM-10AM', start: '09:00', end: '10:00' },
-      { label: '10AM-11AM', start: '10:00', end: '11:00' },
-      { label: '11am-12pm', start: '11:00', end: '12:00' },
-      { label: 'BREAK', start: '12:00', end: '13:00', isBreak: true },
-      { label: '1pm-2pm', start: '13:00', end: '14:00' },
-      { label: '2pm-3pm', start: '14:00', end: '15:00' },
-      { label: '3pm-4pm', start: '15:00', end: '16:00' },
+    // Define the exact hours in the template
+    const hours = [
+      { label: '8AM-9AM', start: '08:00' },
+      { label: '9AM-10AM', start: '09:00' },
+      { label: '10AM-11AM', start: '10:00' },
+      { label: '11am-12pm', start: '11:00' },
+      { label: 'BREAK', start: '12:00', isBreak: true },
+      { label: '1pm-2pm', start: '13:00' },
+      { label: '2pm-3pm', start: '14:00' },
+      { label: '3pm-4pm', start: '15:00' },
     ];
 
     const daysOfWeek = ['MON', 'TUES', 'WED', 'THURS', 'FRI'];
 
-    // Build Matrix
-    const grid = {};
-    daysOfWeek.forEach(d => {
-      grid[d] = {};
-      timeSlots.forEach((_, i) => grid[d][i] = []);
-    });
-
-    rawSlots.forEach(row => {
-      const slot = row.slot || row;
-      const c = courseMap.get(Number(slot.courseId)) || row.course;
-      if (!c) return;
-
-      let dayRaw = String(slot.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
-      if (dayRaw === 'TUE') dayRaw = 'TUES';
-      if (dayRaw === 'THU') dayRaw = 'THURS';
-      
-      if (!grid[dayRaw]) return;
-
-      let startTime = String(slot.startTime || '08:00').substring(0, 5);
-      if (startTime.startsWith('7:')) startTime = '07:' + startTime.split(':')[1]; 
-      
-      let colIndex = timeSlots.findIndex(ts => startTime >= ts.start && startTime < ts.end);
-      if (colIndex === -1 && startTime >= '07:00' && startTime < '08:00') colIndex = 0; 
-      if (colIndex === -1 && startTime >= '16:00') colIndex = 7; 
-
-      if (colIndex !== -1) {
-        grid[dayRaw][colIndex].push({ slot, course: c, raw: row });
-      }
-    });
-
-    // Generate Grid HTML
     let gridHtml = `
-      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:20px; font-size:12px;">
+      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:20px; font-size:11px; font-family:'Times New Roman', Times, serif;">
         <thead>
           <tr>
-            <th style="border:1px solid #000; padding:6px; width:80px;">DAYS/ TIME</th>
-            ${timeSlots.map(ts => `<th style="border:1px solid #000; padding:6px;">${ts.label}</th>`).join('')}
+            <th style="border:1px solid #000; padding:6px; width:70px; text-align:center; font-weight:bold;">DAYS/ TIME</th>
+            ${hours.map(h => `<th style="border:1px solid #000; padding:6px; text-align:center; font-weight:bold; width:${h.isBreak ? '50px' : '110px'};">${h.label}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
     `;
 
     daysOfWeek.forEach(day => {
-      gridHtml += `<tr><td style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:middle;">${day}</td>`;
+      gridHtml += `<tr><td style="border:1px solid #000; padding:6px; font-weight:bold; text-align:left;">${day}</td>`;
       
+      let skipIndices = new Set();
       let breakDrawn = false;
-      timeSlots.forEach((ts, colIndex) => {
-        if (ts.isBreak) {
+
+      for (let i = 0; i < hours.length; i++) {
+        const h = hours[i];
+
+        // 1. Draw Break Column
+        if (h.isBreak) {
           if (!breakDrawn) {
             gridHtml += `<td rowspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:middle;">BREAK</td>`;
             breakDrawn = true;
           }
-          return;
+          continue;
         }
 
-        const cellSlots = grid[day][colIndex];
-        
-        if (cellSlots.length === 0) {
-          gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
-        } else {
-          gridHtml += `<td style="border:1px solid #000; padding:6px; vertical-align:top;">`;
-          cellSlots.forEach(({ slot, course }) => {
-            const code = course.code || 'N/A';
-            const suffix = slot.room ? ` (${slot.room})` : '';
-            const timeOverride = slot.startTime < '08:00' ? ` (${slot.startTime.substring(0,5)}-${slot.endTime.substring(0,5)})` : '';
-            gridHtml += `<div style="font-weight:bold; margin-bottom:4px;">${escapeHtml(code)}${escapeHtml(timeOverride)}${escapeHtml(suffix)}</div>`;
+        // 2. Skip if this column is swallowed by a previous colspan
+        if (skipIndices.has(i)) continue;
+
+        // 3. Find if there is a class in this slot
+        let foundSlot = null;
+        let slotsHere = rawSlots.filter(r => {
+          const s = r.slot || r;
+          let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
+          if (dRaw === 'TUE') dRaw = 'TUES';
+          if (dRaw === 'THU') dRaw = 'THURS';
+          const st = String(s.startTime || '08:00').substring(0, 5);
+          if (st.startsWith('7:')) return false; // handle 7am separately below
+
+          return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
+        });
+
+        // Special handling for 7am classes (GNS 102 in template)
+        if (i === 0) {
+          const earlySlots = rawSlots.filter(r => {
+             const s = r.slot || r;
+             let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
+             if (dRaw === 'TUE') dRaw = 'TUES';
+             if (dRaw === 'THU') dRaw = 'THURS';
+             const st = String(s.startTime || '').substring(0, 5);
+             return dRaw === day && st < '08:00';
           });
-          gridHtml += `</td>`;
+          if (earlySlots.length > 0) {
+             slotsHere = earlySlots;
+          }
         }
-      });
+
+        if (slotsHere.length > 0) {
+          const r = slotsHere[0];
+          const s = r.slot || r;
+          const c = courseMap.get(Number(s.courseId)) || r.course || {};
+
+          // Calculate duration in hours to determine colspan
+          let st = String(s.startTime || '08:00').substring(0, 5);
+          let et = String(s.endTime || '09:00').substring(0, 5);
+          
+          let durationHours = 1;
+          if (st < '08:00' && et >= '09:00') durationHours = 1; // 7-9 am locks into the 8-9 column
+          else {
+             const startH = parseInt(st.split(':')[0]);
+             const endH = parseInt(et.split(':')[0]);
+             durationHours = Math.max(1, endH - startH);
+          }
+
+          let colspan = durationHours;
+          
+          // Don't let colspans swallow the BREAK column
+          if (i + colspan > 4 && i < 5) colspan = 4 - i; 
+          if (i === 5 && colspan > 3) colspan = 3;
+
+          // Mark the swallowed columns to be skipped
+          for (let j = 1; j < colspan; j++) skipIndices.add(i + j);
+
+          // Check if it's a practical (PRC) based on the template
+          const isPrc = s.venue && (s.venue.includes('Lab') || s.venue.includes('PRC'));
+          const suffix = isPrc ? ' (PRC)' : '';
+          const timeOverride = st < '08:00' ? ` (7-9am)` : '';
+
+          gridHtml += `<td colspan="${colspan}" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:top;">
+            ${escapeHtml(c.code)}${timeOverride}${suffix}
+          </td>`;
+        } else {
+          // Empty cell
+          gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
+        }
+      }
       gridHtml += `</tr>`;
     });
 
     gridHtml += `</tbody></table>`;
 
-    // Generate Details Table
+    // Details Table
     const uniqueCourses = Array.from(new Set(rawSlots.map(s => (s.slot || s).courseId)))
       .map(id => courseMap.get(Number(id)))
       .filter(Boolean)
       .sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
     let detailsHtml = `
-      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:12px;">
+      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:11px; font-family:'Times New Roman', Times, serif;">
         <thead>
           <tr>
-            <th style="border:1px solid #000; padding:6px; width:80px;">COURSES CODE</th>
-            <th style="border:1px solid #000; padding:6px;">COURSE TITLE</th>
-            <th style="border:1px solid #000; padding:6px; width:60px;">COURSE UNIT</th>
-            <th style="border:1px solid #000; padding:6px; width:120px;">LECTURE HALL</th>
-            <th style="border:1px solid #000; padding:6px;">COURSE LECTURER(S)</th>
+            <th style="border:1px solid #000; padding:6px; width:80px; text-align:center; font-weight:bold;">COURSES<br/>CODE</th>
+            <th style="border:1px solid #000; padding:6px; text-align:center; font-weight:bold;">COURSE TITLE</th>
+            <th style="border:1px solid #000; padding:6px; width:60px; text-align:center; font-weight:bold;">COURSE<br/>UNIT</th>
+            <th style="border:1px solid #000; padding:6px; width:120px; text-align:center; font-weight:bold;">LECTURE<br/>HALL</th>
+            <th style="border:1px solid #000; padding:6px; text-align:center; font-weight:bold;">COURSE LECTURER(S)</th>
           </tr>
         </thead>
         <tbody>
@@ -13857,7 +13884,7 @@ async function loadTimetableSheet() {
       const lecturers = Array.from(new Set(relatedSlots.map(r => {
          const lId = (r.slot || r).lecturerId;
          const l = r.lecturer || staffMap.get(Number(lId));
-         if (l) return `C. ${l.firstName} ${l.lastName}`;
+         if (l) return `C.${l.firstName} ${l.lastName}`;
          return null;
       }).filter(Boolean))).join(', ');
 
@@ -13880,11 +13907,12 @@ async function loadTimetableSheet() {
         
         <div style="text-align:center; margin-bottom:24px; position:relative;">
           <img src="/images/logo.png" style="position:absolute; left:0; top:0; width:80px;" onerror="this.style.display='none'" />
-          <h2 style="font-size:16pt; margin:0; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</h2>
-          <h3 style="font-size:14pt; margin:2px 0; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
-          <h4 style="font-size:14pt; margin:2px 0; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</h4>
-          <h5 style="font-size:12pt; margin:2px 0; text-transform:uppercase;">${semester === 'first' ? 'FIRST' : 'SECOND'} SEMESTER LECTURES TIME TABLE</h5>
-          <h5 style="font-size:12pt; margin:2px 0; text-transform:uppercase;">${sessionName} SESSION</h5>
+          <div style="font-size:16px; font-weight:bold; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</div>
+          <div style="font-size:15px; font-weight:bold; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
+          <div style="font-size:15px; font-weight:bold; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
+          <div style="font-size:13px; font-weight:bold; text-transform:uppercase; margin-top:4px;">ND I FULL TIME SEMESTER TWO (2) LECTURES TIME TABLE</div>
+          <div style="font-size:13px; font-weight:bold; text-transform:uppercase;">${sessionName} SESSION</div>
+          <div style="position:absolute; right:0; top:10px; color:#3b82f6; font-size:26px; font-weight:bold;">ND I</div>
         </div>
 
         ${gridHtml}
@@ -13893,12 +13921,10 @@ async function loadTimetableSheet() {
           ${detailsHtml}
         </div>
 
-        <div style="margin-top:60px;">
-          <div style="width:250px;">
-            <div style="border-bottom:1px solid #000; height:30px; margin-bottom:6px;"></div>
-            <div style="font-family:'Brush Script MT', cursive; font-size:16pt; font-weight:bold;">Cajtp Martin Omini Ariko</div>
-            <div style="font-size:10pt; font-weight:bold; text-transform:uppercase;">HOD, ${escapeHtml(dept.name)}</div>
-          </div>
+        <div style="margin-top:40px; margin-left:20px;">
+          <div style="font-size:12px; font-weight:bold; margin-bottom:4px;">Signed:</div>
+          <div style="font-family:'Brush Script MT', cursive; font-size:20px; font-weight:bold; margin-bottom:2px;">Cajtp Martin Omini Ariko</div>
+          <div style="font-size:12px;">HOD, ${escapeHtml(dept.name)}</div>
         </div>
 
       </div>

@@ -13683,10 +13683,16 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department Grid (Classic Format)
+// TIMETABLE: Load Department A4 Sheet (Classic Grid)
 // ============================================
-async function loadDepartmentTimetable() {
-  const root = document.getElementById('tt-root');
+async function loadTimetableSheet() {
+  const root = document.getElementById('tsheet-root');
+  const titleEl = document.getElementById('tsheet-title');
+  const subEl = document.getElementById('tsheet-subtitle');
+  const printBtn = document.getElementById('tsheet-print');
+  const exportBtn = document.getElementById('tsheet-export');
+  const addBtn = document.getElementById('tsheet-add');
+
   if (!root) return;
 
   const hash = window.location.hash.replace(/^#/, '');
@@ -13703,33 +13709,40 @@ async function loadDepartmentTimetable() {
     return;
   }
 
-  // Update page headers
-  const titleEl = document.getElementById('tt-title');
-  const subEl = document.getElementById('tt-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} Timetable`;
-  if (subEl) subEl.textContent = `Weekly lecture schedule for ${deptName}`;
-
-  root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading grid...</div>';
+  if (subEl) subEl.textContent = `Loading...`;
+  
+  if (printBtn) printBtn.onclick = () => window.print();
+  if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId: deptId, sessionId, semester });
+  
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading timetable...</div>';
 
   try {
-    // 1. Fetch all necessary data
-    const [slotsRes, coursesRes, deptsRes, staffRes] = await Promise.all([
+    const [slotsRes, coursesRes, deptsRes, staffRes, sessionsRes] = await Promise.all([
       adminFetch(`/api/admin/timetable?departmentId=${deptId}&sessionId=${sessionId}&semester=${semester}&limit=1000`),
       adminFetch('/api/admin/courses?limit=2000'),
       adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/staff?role=lecturer&limit=1000').catch(() => null)
+      adminFetch('/api/admin/staff?role=lecturer&limit=1000').catch(() => null),
+      adminFetch('/api/admin/sessions').catch(() => null)
     ]);
 
     const rawSlots = (await slotsRes.json()).data || [];
     const courses = (await coursesRes.json()).data || [];
     const depts = (await deptsRes.json()).data || [];
     const staff = staffRes ? ((await staffRes.json()).data || []) : [];
+    const sessions = sessionsRes ? ((await sessionsRes.json()).data || []) : [];
 
     const courseMap = new Map(courses.map(c => [Number(c.id), c]));
     const staffMap = new Map(staff.map(s => [Number(s.id), s]));
-    const dept = depts.find(d => Number(d.id) === Number(deptId)) || { name: deptName, code: 'DEPT' };
+    const dept = depts.find(d => Number(d.id) === Number(deptId)) || { name: deptName };
+    
+    // Get Session Name
+    const currentSession = sessions.find(s => Number(s.id) === Number(sessionId)) || sessions.find(s => s.isCurrent);
+    const sessionName = currentSession ? currentSession.name : '2025/2026';
 
-    // 2. Setup the Time Slots (Standard School Hours)
+    if (subEl) subEl.textContent = `${semester === 'first' ? 'First' : 'Second'} Semester, ${sessionName} Session`;
+
+    // Grid Headers
     const timeSlots = [
       { label: '8AM-9AM', start: '08:00', end: '09:00' },
       { label: '9AM-10AM', start: '09:00', end: '10:00' },
@@ -13743,8 +13756,7 @@ async function loadDepartmentTimetable() {
 
     const daysOfWeek = ['MON', 'TUES', 'WED', 'THURS', 'FRI'];
 
-    // 3. Build the Grid Matrix
-    // Structure: grid[day][timeSlotIndex] = [slots...]
+    // Build Matrix
     const grid = {};
     daysOfWeek.forEach(d => {
       grid[d] = {};
@@ -13756,23 +13768,17 @@ async function loadDepartmentTimetable() {
       const c = courseMap.get(Number(slot.courseId)) || row.course;
       if (!c) return;
 
-      // Normalize day (e.g., "Monday" -> "MON")
       let dayRaw = String(slot.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
       if (dayRaw === 'TUE') dayRaw = 'TUES';
       if (dayRaw === 'THU') dayRaw = 'THURS';
       
       if (!grid[dayRaw]) return;
 
-      // Normalize time (e.g., "08:00:00" -> "08:00")
       let startTime = String(slot.startTime || '08:00').substring(0, 5);
       if (startTime.startsWith('7:')) startTime = '07:' + startTime.split(':')[1]; 
       
-      // Find which column this time falls into
       let colIndex = timeSlots.findIndex(ts => startTime >= ts.start && startTime < ts.end);
-      
-      // Edge case for 7am-8am classes (slot them into the first column if needed)
       if (colIndex === -1 && startTime >= '07:00' && startTime < '08:00') colIndex = 0; 
-      // Edge case for late classes
       if (colIndex === -1 && startTime >= '16:00') colIndex = 7; 
 
       if (colIndex !== -1) {
@@ -13780,53 +13786,42 @@ async function loadDepartmentTimetable() {
       }
     });
 
-    // 4. Generate the Grid HTML
+    // Generate Grid HTML
     let gridHtml = `
-      <div class="tt-grid-wrap">
-        <table class="tt-classic-table">
-          <thead>
-            <tr>
-              <th style="width: 90px;">DAYS/ TIME</th>
-              ${timeSlots.map(ts => `<th>${ts.label}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
+      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:20px; font-size:12px;">
+        <thead>
+          <tr>
+            <th style="border:1px solid #000; padding:6px; width:80px;">DAYS/ TIME</th>
+            ${timeSlots.map(ts => `<th style="border:1px solid #000; padding:6px;">${ts.label}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
     `;
 
     daysOfWeek.forEach(day => {
-      gridHtml += `<tr><td class="tt-day">${day}</td>`;
+      gridHtml += `<tr><td style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:middle;">${day}</td>`;
       
       let breakDrawn = false;
       timeSlots.forEach((ts, colIndex) => {
-        // Handle the BREAK column
         if (ts.isBreak) {
           if (!breakDrawn) {
-            gridHtml += `<td rowspan="5" class="tt-break">BREAK</td>`;
+            gridHtml += `<td rowspan="5" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:middle;">BREAK</td>`;
             breakDrawn = true;
           }
-          return; // skip rendering normal cell for break
+          return;
         }
 
         const cellSlots = grid[day][colIndex];
         
         if (cellSlots.length === 0) {
-          gridHtml += `<td></td>`;
+          gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
         } else {
-          gridHtml += `<td>`;
+          gridHtml += `<td style="border:1px solid #000; padding:6px; vertical-align:top;">`;
           cellSlots.forEach(({ slot, course }) => {
-            // Extract course code and Title
             const code = course.code || 'N/A';
-            // Format: "COM 123 (PRC)" if there's a room/type attached in the slot
             const suffix = slot.room ? ` (${slot.room})` : '';
-            
-            // Check if there's a time override (e.g., GNS 102 7-9am)
             const timeOverride = slot.startTime < '08:00' ? ` (${slot.startTime.substring(0,5)}-${slot.endTime.substring(0,5)})` : '';
-
-            gridHtml += `
-              <div class="tt-cell-item">
-                ${escapeHtml(code)}${escapeHtml(timeOverride)}${escapeHtml(suffix)}
-              </div>
-            `;
+            gridHtml += `<div style="font-weight:bold; margin-bottom:4px;">${escapeHtml(code)}${escapeHtml(timeOverride)}${escapeHtml(suffix)}</div>`;
           });
           gridHtml += `</td>`;
         }
@@ -13834,42 +13829,32 @@ async function loadDepartmentTimetable() {
       gridHtml += `</tr>`;
     });
 
-    gridHtml += `
-          </tbody>
-        </table>
-      </div>
-    `;
+    gridHtml += `</tbody></table>`;
 
-    // 5. Generate the Course Details Table
-    // We get a unique list of all courses in this timetable
+    // Generate Details Table
     const uniqueCourses = Array.from(new Set(rawSlots.map(s => (s.slot || s).courseId)))
       .map(id => courseMap.get(Number(id)))
       .filter(Boolean)
       .sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
     let detailsHtml = `
-      <div class="tt-details-wrap">
-        <table class="tt-classic-table">
-          <thead>
-            <tr>
-              <th style="width: 80px;">COURSES CODE</th>
-              <th>COURSE TITLE</th>
-              <th style="width: 60px; text-align:center;">COURSE UNIT</th>
-              <th style="width: 120px;">LECTURE HALL</th>
-              <th>COURSE LECTURER(S)</th>
-            </tr>
-          </thead>
-          <tbody>
+      <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:12px;">
+        <thead>
+          <tr>
+            <th style="border:1px solid #000; padding:6px; width:80px;">COURSES CODE</th>
+            <th style="border:1px solid #000; padding:6px;">COURSE TITLE</th>
+            <th style="border:1px solid #000; padding:6px; width:60px;">COURSE UNIT</th>
+            <th style="border:1px solid #000; padding:6px; width:120px;">LECTURE HALL</th>
+            <th style="border:1px solid #000; padding:6px;">COURSE LECTURER(S)</th>
+          </tr>
+        </thead>
+        <tbody>
     `;
 
     uniqueCourses.forEach(c => {
-      // Find a slot for this course to get the room and lecturer
       const relatedSlots = rawSlots.filter(r => Number((r.slot || r).courseId) === Number(c.id));
-      
       const rooms = Array.from(new Set(relatedSlots.map(r => (r.slot || r).room || (r.slot || r).venue).filter(Boolean))).join(', ');
-      
       const lecturers = Array.from(new Set(relatedSlots.map(r => {
-         // Try to get lecturer name from the joined row, or lookup map
          const lId = (r.slot || r).lecturerId;
          const l = r.lecturer || staffMap.get(Number(lId));
          if (l) return `C. ${l.firstName} ${l.lastName}`;
@@ -13878,50 +13863,41 @@ async function loadDepartmentTimetable() {
 
       detailsHtml += `
         <tr>
-          <td style="font-weight: 700;">${escapeHtml(c.code)}</td>
-          <td style="text-transform: uppercase;">${escapeHtml(c.title)}</td>
-          <td style="text-align:center;">${c.unit || 0}</td>
-          <td>${escapeHtml(rooms || '—')}</td>
-          <td>${escapeHtml(lecturers || '—')}</td>
+          <td style="border:1px solid #000; padding:6px; font-weight:bold;">${escapeHtml(c.code)}</td>
+          <td style="border:1px solid #000; padding:6px; text-transform:uppercase;">${escapeHtml(c.title)}</td>
+          <td style="border:1px solid #000; padding:6px; text-align:center;">${c.unit || 0}</td>
+          <td style="border:1px solid #000; padding:6px;">${escapeHtml(rooms || '—')}</td>
+          <td style="border:1px solid #000; padding:6px;">${escapeHtml(lecturers || '—')}</td>
         </tr>
       `;
     });
 
-    detailsHtml += `
-          </tbody>
-        </table>
-      </div>
-    `;
+    detailsHtml += `</tbody></table>`;
 
-    // 6. Inject the entire document
+    // Render the final A4 Document
     root.innerHTML = `
-      <div class="tt-document">
+      <div class="tt-sheet" style="background:#fff; width:210mm; min-height:297mm; margin:0 auto; padding:12mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif;">
         
-        <div class="tt-letterhead">
-          <img src="/images/logo.png" alt="Logo" onerror="this.style.display='none'" />
-          <div class="tt-header-text">
-            <h2>FEDERAL POLYTECHNIC UGEP,</h2>
-            <h3>SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
-            <h4>DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</h4>
-            <h5>${String(dept.level || 'ND I').toUpperCase()} FULL TIME SEMESTER ${semester === 'first' ? 'ONE (1)' : 'TWO (2)'} LECTURES TIME TABLE</h5>
-            <h5>2025/2026 SESSION</h5>
-          </div>
-          <div class="tt-level-badge">${escapeHtml(dept.level || 'ND I')}</div>
+        <div style="text-align:center; margin-bottom:24px; position:relative;">
+          <img src="/images/logo.png" style="position:absolute; left:0; top:0; width:80px;" onerror="this.style.display='none'" />
+          <h2 style="font-size:16pt; margin:0; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</h2>
+          <h3 style="font-size:14pt; margin:2px 0; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
+          <h4 style="font-size:14pt; margin:2px 0; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</h4>
+          <h5 style="font-size:12pt; margin:2px 0; text-transform:uppercase;">${semester === 'first' ? 'FIRST' : 'SECOND'} SEMESTER LECTURES TIME TABLE</h5>
+          <h5 style="font-size:12pt; margin:2px 0; text-transform:uppercase;">${sessionName} SESSION</h5>
         </div>
 
         ${gridHtml}
         
-        <div style="margin-top: 30px;">
+        <div style="margin-top:30px;">
           ${detailsHtml}
         </div>
 
-        <div class="tt-footer">
-          <div class="tt-sig">
-            <div class="tt-sig-line">
-              <!-- Placeholder for actual signature image if you have one -->
-            </div>
-            <div class="tt-sig-name">Cajtp Martin Omini Ariko</div>
-            <div class="tt-sig-title">HOD, ${escapeHtml(dept.name)}</div>
+        <div style="margin-top:60px;">
+          <div style="width:250px;">
+            <div style="border-bottom:1px solid #000; height:30px; margin-bottom:6px;"></div>
+            <div style="font-family:'Brush Script MT', cursive; font-size:16pt; font-weight:bold;">Cajtp Martin Omini Ariko</div>
+            <div style="font-size:10pt; font-weight:bold; text-transform:uppercase;">HOD, ${escapeHtml(dept.name)}</div>
           </div>
         </div>
 
@@ -14028,7 +14004,7 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex, loadDepartmentTimetable,
+  loadTimetableIndex, loadTimetableSheet,
 
   // Exams
   loadExamsIndex, loadExamSheet,

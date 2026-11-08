@@ -13965,21 +13965,52 @@ async function loadTimetableSheet() {
   }
 }
 
+// Inject CSS for Timetable A3 Landscape Printing
 (function injectTimetablePrintCSS() {
   const style = document.createElement('style');
   style.textContent = `
+    /* --- PRINT STYLES FOR A3 LANDSCAPE --- */
     @media print {
-      body * { visibility: hidden; }
-      .tt-sheet-printable, .tt-sheet-printable * { visibility: visible; }
-      .tt-sheet-printable { 
-        position: relative; 
-        page-break-after: always; 
-        box-shadow: none !important; 
-        margin: 0 !important; 
+      /* 1. Hide everything on the page */
+      body * {
+        visibility: hidden;
+      }
+      
+      /* 2. Show only the timetable wrapper */
+      .tt-a3-wrapper, .tt-a3-wrapper * {
+        visibility: visible;
+      }
+      
+      /* 3. Position the wrapper to take up the full A3 page */
+      .tt-a3-wrapper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 10mm !important;
+        box-shadow: none !important;
         border: none !important;
       }
-      .no-print { display: none !important; }
-      .page-head, .sidebar, .topbar { display: none !important; }
+
+      /* 4. Hide navigation UI */
+      .no-print, 
+      .sidebar, 
+      .topbar, 
+      .page-head, 
+      .toast-wrap,
+      .tt-level-tabs {
+        display: none !important;
+      }
+
+      /* 5. Ensure page breaks */
+      .tt-a3-wrapper {
+        page-break-after: always;
+      }
+      
+      .tt-a3-wrapper:last-child {
+        page-break-after: auto;
+      }
     }
   `;
   document.head.appendChild(style);

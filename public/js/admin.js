@@ -12017,6 +12017,7 @@ async function loadExamSheet() {
     root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
   }
 }
+
 // Inject CSS for the A3 Exam Sheet
 (function injectExamSheetCSS() {
   const style = document.createElement('style');

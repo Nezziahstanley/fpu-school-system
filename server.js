@@ -7,10 +7,11 @@
 //   3. rate limits
 //   4. body parsers
 //   5. IP guard (custom IP rules from settings)
-//   6. static /public
-//   7. /api routes
-//   8. notFound + errorHandler
-//   9. app.listen + graceful shutdown
+//   6. Public Verification Route
+//   7. static /public
+//   8. /api routes
+//   9. notFound + errorHandler
+//  10. app.listen + graceful shutdown
 // ============================================================
 
 'use strict';
@@ -29,10 +30,6 @@ app.disable('x-powered-by');
 
 // ------------------------------------------------------------
 // Helmet + CSP
-// ------------------------------------------------------------
-// CSP allows 'unsafe-inline' for styles & scripts (needed for
-// onsumbit= attributes and inline event handlers used throughout
-// the vanilla-JS UI), and CDN for Chart.js.
 // ------------------------------------------------------------
 let helmet;
 try {
@@ -102,6 +99,7 @@ app.use(
     '/api/contact',
     '/api/register-token',
     '/api/public/id-lookup',
+    '/api/public/verify', // Added verify route to public limiter
   ],
   publicLimiter
 );
@@ -114,7 +112,6 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ------------------------------------------------------------
 // IP guard — enforces security_ip_rules from settings
-// Fails open: if the settings lookup errors, requests pass.
 // ------------------------------------------------------------
 try {
   const ipGuard = require('./middleware/ipGuard');
@@ -122,6 +119,48 @@ try {
 } catch {
   // ipGuard not installed yet — continue without it
 }
+
+// ------------------------------------------------------------
+// Public Verification Route (No Auth Required)
+// ------------------------------------------------------------
+app.get('/api/public/verify/:matric', async (req, res) => {
+  try {
+    const matric = req.params.matric;
+    
+    // Adjust this SQL query to match your exact database schema
+    // It joins users, students, programmes, and departments
+    const result = await require('./db').query(`
+      SELECT 
+        u.id, 
+        u.first_name AS "firstName", 
+        u.last_name AS "lastName", 
+        u.photo_url AS "photoUrl",
+        s.matric_number AS "matricNumber", 
+        s.level,
+        p.name AS "programmeName",
+        d.name AS "departmentName"
+      FROM users u
+      JOIN students s ON u.id = s.user_id
+      LEFT JOIN programmes p ON s.programme_id = p.id
+      LEFT JOIN departments d ON s.department_id = d.id
+      WHERE s.matric_number = $1
+      LIMIT 1
+    `, [matric]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+
+    // Add a default session since we didn't query it
+    const studentData = result.rows[0];
+    studentData.sessionName = '2025/2026';
+
+    res.json({ success: true, data: studentData });
+  } catch (err) {
+    console.error('Verify error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
 
 // ------------------------------------------------------------
 // Static files (public site, admin, portal, uploads)

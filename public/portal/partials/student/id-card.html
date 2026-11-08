@@ -175,10 +175,6 @@
     $('id-card').style.transform = FLIPPED ? 'rotateY(180deg)' : 'rotateY(0deg)';
   }
 
-  function generateQRDataUrl(text, size) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&color=065f46&bgcolor=ffffff&margin=2`;
-  }
-
   async function load() {
     try {
       const res = await core.portalFetch('/api/student/id-card');
@@ -201,19 +197,57 @@
         $('id-initials').style.display = 'none';
       }
 
-      if (d.verifyUrl) {
-        $('qr-front').src = generateQRDataUrl(d.verifyUrl, 55);
-        $('qr-back').src = generateQRDataUrl(d.verifyUrl, 65);
+      // ---------------------------------------------------------
+      // Generate Scannable QR Codes pointing to the verify page
+      // ---------------------------------------------------------
+      const verifyUrl = `${window.location.origin}/verify.html?id=${encodeURIComponent(d.matricNumber)}`;
+
+      if (typeof qrcode === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+        script.onload = () => {
+          renderQR(verifyUrl, 'qr-front', 55);
+          renderQR(verifyUrl, 'qr-back', 65);
+        };
+        document.head.appendChild(script);
+      } else {
+        renderQR(verifyUrl, 'qr-front', 55);
+        renderQR(verifyUrl, 'qr-back', 65);
       }
+
     } catch (err) {
       console.error('[student/id-card] Error:', err);
       core.showToast && core.showToast('Failed to load ID card: ' + err.message, 'error');
     }
   }
 
+  function renderQR(text, containerId, size) {
+    const container = $(containerId);
+    if (!container) return;
+    container.innerHTML = ''; 
+    
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      const imgTag = qr.createImgTag(3, 0);
+      container.innerHTML = imgTag;
+      const img = container.querySelector('img');
+      if (img) {
+        img.style.width = size + 'px';
+        img.style.height = size + 'px';
+        img.style.display = 'block';
+      }
+    } catch (e) {
+      console.error('QR Generation failed', e);
+      container.innerHTML = '<div style="font-size:8px;color:#dc2626;">Error</div>';
+    }
+  }
+
   $('idc-refresh')?.addEventListener('click', load);
   $('idc-flip')?.addEventListener('click', flipCard);
   $('idc-print')?.addEventListener('click', () => window.print());
+  
   load();
 })();
 </script>

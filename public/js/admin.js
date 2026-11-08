@@ -12001,25 +12001,12 @@ async function loadExamSheet() {
   }
 }
 
-
 // Inject CSS for the A3 Exam Sheet
 (function injectExamSheetCSS() {
   const style = document.createElement('style');
   style.textContent = `
-    .ex-sheet {
-      background: #fff;
-      padding: 30px;
-      font-family: 'Times New Roman', Times, serif;
-      color: #000;
-      max-width: 1200px;
-      margin: 0 auto;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .dept-exam-section {
-      margin-bottom: 50px;
-      page-break-after: always;
-    }
+    .ex-sheet { background: #fff; padding: 30px; font-family: 'Times New Roman', Times, serif; color: #000; max-width: 1200px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .dept-exam-section { margin-bottom: 50px; page-break-after: always; }
     .dept-exam-section:last-child { page-break-after: auto; }
 
     .dept-header { text-align: center; margin-bottom: 20px; }
@@ -12045,11 +12032,6 @@ async function loadExamSheet() {
       .ex-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
       .ex-table th, .ex-table td { border: 1px solid #000 !important; }
       .dept-exam-section { page-break-after: always; }
-      
-      /* Hide the edit buttons and their action columns when printing */
-      .ex-table td button { display: none !important; }
-      .ex-table th:last-child, .ex-table th:nth-last-child(3) { display: none !important; }
-      .ex-table td:last-child, .ex-table td:nth-last-child(3) { display: none !important; }
     }
   `;
   document.head.appendChild(style);

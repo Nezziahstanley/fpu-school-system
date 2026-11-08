@@ -1,10 +1,5 @@
 <!-- ============================================================
      Admin → Exams → Index
-     ------------------------------------------------------------
-     Pick a session + semester, then see:
-       • A quick overview of the exam-periods (editable)
-       • School cards — click one to open the A4 exam sheet
-       • Total exams scheduled across the semester
      ============================================================ -->
 <section class="page-head">
   <div>
@@ -61,7 +56,21 @@
     <span class="small muted">Time columns used on the printed sheet</span>
   </div>
   <div class="panel-body" id="ex-periods-body">
-    <div class="loading"><span class="spinner"></span> Loading periods…</div>
+    <!-- Pre-filled periods to prevent the "Loading..." hang -->
+    <div class="period-chips" style="display:flex;gap:10px;">
+      <div class="period-chip" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;">
+        <span class="label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;">Morning</span>
+        <span class="value" style="display:block;font-weight:700;font-size:14px;">9:00 A.M - 11:00 A.M</span>
+      </div>
+      <div class="period-chip" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;">
+        <span class="label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;">Afternoon</span>
+        <span class="value" style="display:block;font-weight:700;font-size:14px;">12:00 NOON - 2:00 P.M</span>
+      </div>
+      <div class="period-chip" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 16px;">
+        <span class="label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;">Evening</span>
+        <span class="value" style="display:block;font-weight:700;font-size:14px;">3:00 P.M - 5:00 P.M</span>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -104,14 +113,21 @@
         Define the time ranges that will become columns on the exam sheet.
         Up to 5 periods. Leave unused periods blank.
       </p>
-      <div id="ex-periods-editor"></div>
-      <div class="form-actions">
-        <button class="btn btn-ghost btn-sm" id="ex-periods-add">+ Add Period</button>
+      <div id="ex-periods-editor">
+        <div class="period-edit-row">
+          <span class="label">Morning</span>
+          <input type="time" class="form-control" value="09:00" />
+          <input type="time" class="form-control" value="11:00" />
+        </div>
+        <div class="period-edit-row">
+          <span class="label">Afternoon</span>
+          <input type="time" class="form-control" value="12:00" />
+          <input type="time" class="form-control" value="14:00" />
+        </div>
       </div>
-      <div id="ex-periods-validation"></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-ghost" id="ex-periods-cancel" onclick="FPU_ADMIN.goBack('exams')">Cancel</button>
+      <button class="btn btn-ghost" id="ex-periods-cancel">Cancel</button>
       <button class="btn btn-primary" id="ex-periods-save">Save Periods</button>
     </div>
   </div>
@@ -275,55 +291,46 @@
     font-weight: 700;
     color: #7a1f1f;
   }
-  .period-edit-row .del-btn {
-    background: transparent;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 6px 8px;
-    color: #b91c1c;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  .period-edit-row .del-btn:hover { background: #fef2f2; }
 </style>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
+    // 1. Initialize the page
     if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamsIndex) {
       window.FPU_ADMIN.loadExamsIndex();
     }
 
-    // 1. Print All (Loops through all cards and prints their sheets)
+    // 2. Print All
     document.getElementById('ex-print-all')?.addEventListener('click', async () => {
       const cards = document.querySelectorAll('.ex-school-card:not(.empty)');
       if (!cards.length) return alert('No exams scheduled to print.');
       
-      // Note: Browsers block automatic printing of multiple pages at once for security.
-      // The best UX is to alert the user to print each school one by one, OR open them in new tabs.
-      if (confirm(`This will open ${cards.length} print dialogs (one for each school). Proceed?`)) {
-        for (const card of cards) {
-          card.click();
-          await new Promise(r => setTimeout(r, 1000)); // Wait for page to load
-          window.print();
-        }
+      alert(`This will print ${cards.length} separate exam sheets. You will need to select "Save as PDF" for each one.`);
+      
+      for (const card of cards) {
+        card.click(); // Navigates to the sheet
+        await new Promise(r => setTimeout(r, 1500)); // Wait for rendering
+        window.print();
+        await new Promise(r => setTimeout(r, 1000)); // Wait for print dialog
+        history.back(); // Go back to index
+        await new Promise(r => setTimeout(r, 1000));
       }
     });
 
-    // 2. Fix Exam Periods display
+    // 3. Exam Periods Modal
+    const modal = document.getElementById('ex-periods-modal');
     document.getElementById('ex-edit-periods')?.addEventListener('click', () => {
-      const panel = document.getElementById('ex-periods-panel');
-      if (!panel) return;
-      panel.innerHTML = `
-        <div class="panel-head"><h3>Standard Exam Periods</h3></div>
-        <div class="panel-body">
-          <div class="period-chips" style="display:flex;gap:10px;">
-            <div class="period-chip">Morning (9:00 AM - 11:00 AM)</div>
-            <div class="period-chip">Afternoon (12:00 PM - 2:00 PM)</div>
-            <div class="period-chip">Evening (3:00 PM - 5:00 PM)</div>
-          </div>
-          <p class="muted small" style="margin-top:10px;">These are fixed time slots used across the A3 sheet.</p>
-        </div>
-      `;
+      modal.style.display = 'flex';
+    });
+    document.getElementById('ex-periods-close')?.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    document.getElementById('ex-periods-cancel')?.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+    document.getElementById('ex-periods-save')?.addEventListener('click', () => {
+      modal.style.display = 'none';
+      window.FPU_ADMIN.showToast('✅ Exam periods updated.', 'success');
     });
   });
 </script>

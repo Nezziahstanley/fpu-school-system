@@ -7427,10 +7427,13 @@ async function loadReportsWithCharts() {
   }
 }
 
+// ============================================
+// AUDIT LOGS
+// ============================================
 async function loadAuditTable() {
   const container = document.getElementById('audit-tbody');
   if (!container) return;
-  container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+  container.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center; padding: 40px;"><span class="spinner"></span> Loading audit logs…</td></tr>';
 
   const action = (document.getElementById('audit-action') || {}).value || '';
   const entity = (document.getElementById('audit-entity') || {}).value || '';
@@ -7451,8 +7454,34 @@ async function loadAuditTable() {
     setText('audit-count', `Showing ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}`);
 
     if (!rows.length) {
-      container.innerHTML = '<tr><td colspan="7" class="empty">No audit entries match your filters.</td></tr>';
+      container.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;">No audit entries match your filters.</td></tr>';
       return;
+    }
+
+    // Helper function to render JSON beautifully
+    function renderJSON(data) {
+      if (!data) return '';
+      let parsed = data;
+      
+      // If the payload has a nested JSON string (like { value: "{...}" }), parse it
+      if (typeof data === 'object' && data.value && typeof data.value === 'string') {
+        try { parsed = JSON.parse(data.value); } catch (e) {}
+      }
+
+      if (typeof parsed !== 'object' || parsed === null) {
+        return `<div style="background:#fff; border:1px solid #e2e8f0; padding:12px; border-radius:6px; font-family:monospace; font-size:12px;">${escapeHtml(String(parsed))}</div>`;
+      }
+
+      return `
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+          ${Object.entries(parsed).map(([k, v]) => `
+            <div style="display:flex; border-bottom:1px solid #f1f5f9; font-size:13px;">
+              <div style="width:30%; background:#f8fafc; padding:8px 12px; font-weight:600; color:#475569; border-right:1px solid #e2e8f0;">${escapeHtml(k)}</div>
+              <div style="width:70%; padding:8px 12px; color:#0f172a; font-family:monospace;">${escapeHtml(String(v))}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
     // Build expandable rows
@@ -7467,7 +7496,7 @@ async function loadAuditTable() {
       return `
         <tr class="audit-row" data-id="${logId}">
           <td>
-            <button class="btn btn-sm btn-ghost" data-toggle="${logId}" ${!hasPayload ? 'disabled' : ''}>
+            <button class="btn btn-sm btn-ghost" data-toggle="${logId}" ${!hasPayload ? 'disabled' : ''} style="padding: 0 8px;">
               ${hasPayload ? '▸' : '·'}
             </button>
           </td>
@@ -7479,15 +7508,27 @@ async function loadAuditTable() {
           <td class="small muted">${fmtDateTime(log.createdAt)}</td>
         </tr>
         <tr class="audit-detail-row" data-detail="${logId}" style="display:none;">
-          <td colspan="7" style="background:#f8fafc;padding:16px;">
-            ${
-              hasPayload
-                ? `
-                  ${log.before ? `<div style="margin-bottom:12px;"><strong style="color:#dc2626;">Before:</strong><pre style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-top:6px;font-size:12px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(log.before, null, 2))}</pre></div>` : ''}
-                  ${log.after ? `<div><strong style="color:#047857;">After:</strong><pre style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;margin-top:6px;font-size:12px;max-height:200px;overflow:auto;">${escapeHtml(JSON.stringify(log.after, null, 2))}</pre></div>` : ''}
-                `
-                : '<em style="color:#94a3b8;">No payload recorded for this entry.</em>'
-            }
+          <td colspan="7" style="background:#f8fafc; padding:20px; border-bottom: 1px solid #e2e8f0;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+              ${log.before ? `
+                <div>
+                  <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#dc2626; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span style="background:#fee2e2; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;">−</span> Before
+                  </div>
+                  ${renderJSON(log.before)}
+                </div>
+              ` : ''}
+              
+              ${log.after ? `
+                <div>
+                  <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#047857; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                    <span style="background:#d1fae5; width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;">+</span> After
+                  </div>
+                  ${renderJSON(log.after)}
+                </div>
+              ` : ''}
+            </div>
+            ${!log.before && !log.after ? '<em style="color:#94a3b8;">No payload recorded for this entry.</em>' : ''}
           </td>
         </tr>
       `;
@@ -7505,27 +7546,27 @@ async function loadAuditTable() {
       };
     });
 
-    // Wire refresh & export
-    const refreshBtn = document.querySelector('.page-head .actions button');
-    if (refreshBtn && !refreshBtn.__wired) {
-      refreshBtn.__wired = true;
-      refreshBtn.onclick = () => loadAuditTable();
-    }
+    // Wire the Refresh & Export buttons
+    setTimeout(() => {
+      const refreshBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Refresh'));
+      if (refreshBtn && !refreshBtn.__wired) {
+        refreshBtn.__wired = true;
+        refreshBtn.onclick = () => loadAuditTable();
+      }
 
-    const exportBtn = Array.from(document.querySelectorAll('.page-head .actions button'))
-      .find((b) => /export/i.test(b.textContent || ''));
-    if (exportBtn && !exportBtn.__wired) {
-      exportBtn.__wired = true;
-      exportBtn.onclick = () => exportTableAsCSV(container.closest('table'), 'audit-log.csv');
-    }
+      const exportBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Export CSV'));
+      if (exportBtn && !exportBtn.__wired) {
+        exportBtn.__wired = true;
+        exportBtn.onclick = () => exportTableAsCSV(container.closest('table'), 'audit-log.csv');
+      }
+    }, 50);
 
     // Wire tabs (Audit Log / Login History)
-    const tabs = document.querySelectorAll('.staff-role-tabs .staff-role-tab, #audit-tabs .staff-role-tab');
-    tabs.forEach((tab) => {
+    document.querySelectorAll('.staff-role-tabs .staff-role-tab, #audit-tabs .staff-role-tab').forEach((tab) => {
       if (tab.__wired) return;
       tab.__wired = true;
       tab.onclick = () => {
-        tabs.forEach((t) => t.classList.remove('active'));
+        document.querySelectorAll('.staff-role-tabs .staff-role-tab, #audit-tabs .staff-role-tab').forEach((t) => t.classList.remove('active'));
         tab.classList.add('active');
         const which = tab.dataset.tab || tab.textContent.trim().toLowerCase();
         if (which.includes('login')) loadLoginHistoryIntoAudit();
@@ -7534,7 +7575,7 @@ async function loadAuditTable() {
     });
 
   } catch (err) {
-    container.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;">${escapeHtml(err.message)}</td></tr>`;
+    container.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626; text-align:center;">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

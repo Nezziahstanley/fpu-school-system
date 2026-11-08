@@ -13027,6 +13027,54 @@ function openComposeAnnouncementModal() {
   };
 }
 
+// ============================================
+// NOTIFICATIONS — Topbar Badge Sync
+// ============================================
+async function updateNotificationBadge() {
+  try {
+    const res = await adminFetch('/api/admin/notifications');
+    const json = await res.json();
+    const all = json.data || [];
+    
+    // Count only unread notifications
+    const unreadCount = all.filter(n => !n.isRead && !n.is_read).length;
+    
+    // Try to find the badge in several common places
+    const badgeSelectors = [
+      '.notif-badge',
+      '#notif-badge',
+      '[data-badge="notifications"]',
+      '.topbar .badge',
+      '#notifications-badge',
+    ];
+    
+    let found = false;
+    badgeSelectors.forEach(sel => {
+      const el = document.querySelector(sel);
+      if (el) {
+        found = true;
+        if (unreadCount > 0) {
+          el.textContent = unreadCount > 99 ? '99+' : unreadCount;
+          el.style.display = 'inline-flex';
+        } else {
+          el.style.display = 'none';
+        }
+      }
+    });
+    
+    // Persist to localStorage so the shell doesn't show stale data
+    localStorage.setItem('fpu_notif_count', unreadCount);
+    localStorage.setItem('notifCount', unreadCount);
+    localStorage.setItem('unreadCount', unreadCount);
+    
+    console.debug('[notif-badge] Synced:', unreadCount, 'badgeFound:', found);
+    return unreadCount;
+  } catch (e) {
+    console.error('[notif-badge] Sync failed:', e.message);
+    return 0;
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -13102,7 +13150,7 @@ window.FPU_ADMIN = {
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 
   // Communication
-  loadAnnouncements, deleteAnnouncement, openComposeAnnouncementModal, loadNotifications, markNotificationRead, deleteNotification,
+  loadAnnouncements, deleteAnnouncement, openComposeAnnouncementModal, loadNotifications, markNotificationRead, deleteNotification,updateNotificationBadge,
   loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats, openComposeNotificationModal,
 
   // Library

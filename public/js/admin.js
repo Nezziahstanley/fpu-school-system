@@ -13683,7 +13683,7 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department A4 Sheet (Multi-Level)
+// TIMETABLE: Load Department A4 Sheet (Exact Template Match)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
@@ -13717,7 +13717,6 @@ async function loadTimetableSheet() {
   root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading timetable...</div>';
 
   try {
-    // Fetch ALL data for this department once
     const [slotsRes, coursesRes, deptsRes, staffRes, sessionsRes] = await Promise.all([
       adminFetch(`/api/admin/timetable?departmentId=${deptId}&sessionId=${sessionId}&semester=${semester}&limit=1000`),
       adminFetch('/api/admin/courses?limit=2000'),
@@ -13745,17 +13744,28 @@ async function loadTimetableSheet() {
 
     // Function to render a specific level's timetable
     function renderLevel(level) {
-      // Filter slots strictly for this level
-      // Note: We check if the course level matches (ND/HND) AND the yearOfStudy matches (1 or 2)
+      // 1. Strictly filter by Course Level, Year of Study, and Semester
       const levelSlots = rawSlots.filter(r => {
-        const c = courseMap.get(Number((r.slot || r).courseId));
+        const s = r.slot || r;
+        const c = courseMap.get(Number(s.courseId));
         if (!c) return false;
         
-        const cLevel = String(c.level || '').toUpperCase(); // 'ND' or 'HND'
-        const cYear = Number(c.yearOfStudy) || (String(c.code).match(/^\D+(\d)/) ? Number(String(c.code).match(/^\D+(\d)/)[1]) : 1);
+        // Check Semester match
+        const slotSem = String(s.semester || '').toLowerCase();
+        const courseSem = String(c.semester || '').toLowerCase();
+        const targetSem = semester.toLowerCase();
+        if (slotSem !== targetSem && courseSem !== targetSem) return false;
+
+        // Determine Level (ND or HND) and Year (1 or 2)
+        const cLevel = String(c.level || '').toUpperCase(); 
+        let cYear = Number(c.yearOfStudy);
+        if (!cYear) {
+           const match = String(c.code).match(/^\D+(\d)/);
+           cYear = match ? Number(match[1]) : 1;
+        }
         
-        const targetLevel = level.substring(0, 3); // 'ND' or 'HND'
-        const targetYear = Number(level.slice(-1)); // 1 or 2
+        const targetLevel = level.substring(0, level.length - 1); // 'ND' or 'HND'
+        const targetYear = Number(level.slice(-1));
 
         return cLevel === targetLevel && cYear === targetYear;
       });
@@ -13778,7 +13788,7 @@ async function loadTimetableSheet() {
           <thead>
             <tr>
               <th style="border:1px solid #000; padding:6px; width:70px; text-align:center; font-weight:bold;">DAYS/ TIME</th>
-              ${hours.map(h => `<th style="border:1px solid #000; padding:6px; text-align:center; font-weight:bold; width:${h.isBreak ? '50px' : '110px'};">${h.label}</th>`).join('')}
+              ${hours.map(h => `<th style="border:1px solid #000; padding:6px; text-align:center; font-weight:bold; width:${h.isBreak ? '50px' : '100px'};">${h.label}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -13815,6 +13825,7 @@ async function loadTimetableSheet() {
             return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
           });
 
+          // Handle 7am-9am classes (like GNS 102)
           if (i === 0) {
             const earlySlots = levelSlots.filter(r => {
                const s = r.slot || r;
@@ -13835,15 +13846,19 @@ async function loadTimetableSheet() {
             let st = String(s.startTime || '08:00').substring(0, 5);
             let et = String(s.endTime || '09:00').substring(0, 5);
             
+            // Calculate duration to merge columns
             let durationHours = 1;
-            if (st < '08:00' && et >= '09:00') durationHours = 1;
-            else {
+            if (st < '08:00' && et >= '09:00') {
+               durationHours = 1; // 7am-9am occupies only the 8am-9am block visually
+            } else {
                const startH = parseInt(st.split(':')[0]);
                const endH = parseInt(et.split(':')[0]);
                durationHours = Math.max(1, endH - startH);
             }
 
             let colspan = durationHours;
+            
+            // Prevent overflow past the break
             if (i + colspan > 4 && i < 5) colspan = 4 - i; 
             if (i === 5 && colspan > 3) colspan = 3;
 
@@ -13915,9 +13930,9 @@ async function loadTimetableSheet() {
             <div style="font-size:16px; font-weight:bold; text-transform:uppercase;">FEDERAL POLYTECHNIC UGEP,</div>
             <div style="font-size:15px; font-weight:bold; text-transform:uppercase;">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
             <div style="font-size:15px; font-weight:bold; text-transform:uppercase;">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
-            <div style="font-size:13px; font-weight:bold; text-transform:uppercase; margin-top:4px;">${level} FULL TIME SEMESTER ${semester === 'first' ? 'ONE (1)' : 'TWO (2)'} LECTURES TIME TABLE</div>
+            <div style="font-size:13px; font-weight:bold; text-transform:uppercase; margin-top:4px;">${level.replace(/(\D+)(\d)/, '$1 $2')} FULL TIME SEMESTER ${semester === 'first' ? 'ONE (1)' : 'TWO (2)'} LECTURES TIME TABLE</div>
             <div style="font-size:13px; font-weight:bold; text-transform:uppercase;">${sessionName} SESSION</div>
-            <div style="position:absolute; right:0; top:10px; color:#3b82f6; font-size:26px; font-weight:bold;">${level}</div>
+            <div style="position:absolute; right:0; top:10px; color:#3b82f6; font-size:26px; font-weight:bold;">${level.replace(/(\D+)(\d)/, '$1 $2')}</div>
           </div>
 
           ${gridHtml}
@@ -13939,7 +13954,7 @@ async function loadTimetableSheet() {
     root.innerHTML = `
       <div class="no-print" style="display:flex; gap:8px; margin-bottom:20px; justify-content:center; flex-wrap:wrap;">
         ${levels.map(lvl => `
-          <button class="btn btn-outline tt-level-tab" data-level="${lvl}" style="padding:8px 20px; font-weight:bold; border-radius:6px;">${lvl.replace('1', ' 1').replace('2', ' 2')}</button>
+          <button class="btn btn-outline tt-level-tab" data-level="${lvl}" style="padding:8px 20px; font-weight:bold; border-radius:6px;">${lvl.replace(/(\D+)(\d)/, '$1 $2')}</button>
         `).join('')}
       </div>
       

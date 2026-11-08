@@ -6783,15 +6783,17 @@ async function renderDocPreview(doc, user) {
     <div class="doc-preview-wrap">
       <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        <div class="official-doc" style="background: ${type === 'certificate' ? '#fdfbf7' : '#fff'}; padding: 20mm;">
+        <!-- Notice we set position: relative here so the watermark stays inside this box -->
+        <div class="official-doc" style="background: ${type === 'certificate' ? '#fdfbf7' : '#fff'}; padding: 20mm; position: relative; overflow: hidden;">
           
           ${includeWatermark ? `
-            <!-- Background Watermark (Disabled for ID Cards) -->
-            <div class="official-watermark" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; opacity: 0.04; pointer-events: none;">
-              <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 75%; max-width: 500px;" />
+            <!-- Background Watermark -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; pointer-events: none;">
+              <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 75%; max-width: 500px; opacity: 0.06; filter: grayscale(100%);" />
             </div>
           ` : ''}
 
+          <!-- Content sits above the watermark -->
           <div style="position: relative; z-index: 1;">
             ${bodyHtml}
           </div>
@@ -6833,7 +6835,6 @@ async function renderDocPreview(doc, user) {
     return a4Wrapper('ID Card', `
       <style>
         .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; }
-        /* Fixed dimensions to prevent stretching */
         .portal-id-card { width: 450px !important; height: 260px !important; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
         .pic-header { background: #065f46; height: 50px; padding: 0 20px; display: flex; align-items: center; gap: 12px; color: #fff; flex-shrink: 0; }
         .pic-header img { width: 32px; height: 32px; background: #fff; border-radius: 50%; padding: 2px; object-fit: contain; }
@@ -6849,10 +6850,7 @@ async function renderDocPreview(doc, user) {
         .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
-        
-        /* SVG QR Code Container */
         .qr-svg { width: 50px; height: 50px; }
-        
         .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
       </style>
 
@@ -6916,7 +6914,7 @@ async function renderDocPreview(doc, user) {
           </div>
         </div>
       </div>
-    `, false); // <--- Pass false to hide watermark
+    `, false); // <--- Pass false to hide watermark on ID cards
   }
 
   // --- 3. CERTIFICATE (CLASSIC VINTAGE) ---

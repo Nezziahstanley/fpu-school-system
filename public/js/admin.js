@@ -12577,7 +12577,7 @@ async function openTranscriptModal(studentId) {
 }
 
 // ============================================
-// ATTENDANCE: Department -> Courses Modal (REDESIGNED)
+// ATTENDANCE: Department -> Courses Modal
 // ============================================
 async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const backdrop = document.createElement('div');
@@ -12587,8 +12587,6 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   
   backdrop.innerHTML = `
     <div class="fpu-modal" style="width: 100%; max-width: 1100px; max-height: 90vh; background: #fff; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); border: 1px solid #e2e8f0;">
-      
-      <!-- HEADER -->
       <div class="fpu-modal-header" style="background: #fff; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
           <h3 style="margin: 0; font-size: 1.4rem; color: #0f172a; font-family: 'Poppins', sans-serif; font-weight: 700;">${escapeHtml(deptName)}</h3>
@@ -12597,7 +12595,6 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
         <button class="btn btn-sm btn-ghost" onclick="document.getElementById('attendance-dept-modal').remove()" style="font-size: 1.8rem; line-height: 1; padding: 0; color: #94a3b8;">&times;</button>
       </div>
       
-      <!-- BODY -->
       <div class="fpu-modal-body" id="dept-modal-body" style="padding: 24px; overflow-y: auto; background: #f8fafc; flex-grow: 1;">
         <div class="loading" style="text-align:center; padding: 40px; color: #94a3b8;">
           <span class="spinner"></span> Loading courses and attendance data...
@@ -12610,7 +12607,6 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const body = document.getElementById('dept-modal-body');
 
   try {
-    // Fetch courses, students, and records
     const [coursesRes, studentsRes, recordsRes] = await Promise.all([
       adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`).catch(() => null),
       adminFetch(`/api/admin/students?departmentId=${deptId}&limit=2000`).catch(() => null),
@@ -12621,7 +12617,7 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
     const students = (await studentsRes.json()).data || [];
     const allRecords = (await recordsRes.json()).data || [];
 
-    // Client-side filter to ensure only this department's courses are shown
+    // Ensure only courses for this department are shown
     const courses = rawCourses.filter(c => Number(c.departmentId) === Number(deptId));
 
     if (!courses.length) {
@@ -12629,11 +12625,12 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
       return;
     }
 
-    // Create maps for fast lookup
+    // 1. Build a fast lookup for students in this department
     const studentIdsInDept = new Set(students.map(s => Number(s.id)));
+    // 2. Build a fast lookup for course IDs in this department
     const courseIdsInDept = new Set(courses.map(c => Number(c.id)));
 
-    // Filter records to only those belonging to this department
+    // 3. Filter all attendance records to only those relevant to this department
     const deptRecords = allRecords.filter(r => {
       const row = r.attendance || r;
       const cId = Number(row.courseId);
@@ -12641,7 +12638,7 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
       return courseIdsInDept.has(cId) && studentIdsInDept.has(sId);
     });
 
-    // Calculate stats per course
+    // 4. Calculate stats PER COURSE, not per department
     const statsMap = new Map();
     courses.forEach(c => statsMap.set(Number(c.id), { records: 0, present: 0, studentsSet: new Set() }));
 
@@ -12660,22 +12657,21 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
       }
     });
 
-    // Sort courses by code
     courses.sort((a, b) => String(a.code || '').localeCompare(String(b.code || '')));
 
-    // Render the beautiful table
+    // Render the beautiful table with PER-COURSE data
     body.innerHTML = `
       <div style="background:#fff; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
         <table style="width:100%; border-collapse:collapse; text-align:left;">
           <thead>
             <tr style="background:#f1f5f9; border-bottom:2px solid #e2e8f0;">
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Course Code</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Course Title</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Level</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Records</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Students</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Attendance Rate</th>
-              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:right;">Action</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase;">Course Code</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase;">Course Title</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; text-align:center;">Level</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; text-align:center;">Records</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; text-align:center;">Students</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase;">Attendance Rate</th>
+              <th style="padding:14px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; text-align:right;">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -12684,15 +12680,13 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
               const uniqueStudents = stat.studentsSet.size;
               const rate = stat.records > 0 ? Math.round((stat.present / stat.records) * 100) : 0;
               
-              // Determine color based on rate
               let barColor = '#cbd5e1';
               let textColor = '#64748b';
-              let rateLabel = 'No data';
               
               if (stat.records > 0) {
-                if (rate >= 75) { barColor = '#10b981'; textColor = '#065f46'; rateLabel = 'Healthy'; }
-                else if (rate >= 50) { barColor = '#f59e0b'; textColor = '#b45309'; rateLabel = 'Warning'; }
-                else { barColor = '#ef4444'; textColor = '#991b1b'; rateLabel = 'Critical'; }
+                if (rate >= 75) { barColor = '#10b981'; textColor = '#065f46'; }
+                else if (rate >= 50) { barColor = '#f59e0b'; textColor = '#b45309'; }
+                else { barColor = '#ef4444'; textColor = '#991b1b'; }
               }
 
               return `

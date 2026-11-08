@@ -12607,17 +12607,9 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
   const body = document.getElementById('dept-modal-body');
 
   try {
-    const [coursesRes, studentsRes, recordsRes] = await Promise.all([
-      adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`).catch(() => null),
-      adminFetch(`/api/admin/students?departmentId=${deptId}&limit=2000`).catch(() => null),
-      adminFetch(`/api/admin/attendance?limit=10000`).catch(() => null)
-    ]);
-
+    // Fetch all courses in this department
+    const coursesRes = await adminFetch(`/api/admin/courses?departmentId=${deptId}&limit=500`);
     const rawCourses = (await coursesRes.json()).data || [];
-    const students = (await studentsRes.json()).data || [];
-    const allRecords = (await recordsRes.json()).data || [];
-
-    // Ensure only courses for this department are shown
     const courses = rawCourses.filter(c => Number(c.departmentId) === Number(deptId));
 
     if (!courses.length) {
@@ -12625,39 +12617,27 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
       return;
     }
 
-    // 1. Build a fast lookup for students in this department
-    const studentIdsInDept = new Set(students.map(s => Number(s.id)));
-    // 2. Build a fast lookup for course IDs in this department
-    const courseIdsInDept = new Set(courses.map(c => Number(c.id)));
-
-    // 3. Filter all attendance records to only those relevant to this department
-    const deptRecords = allRecords.filter(r => {
-      const row = r.attendance || r;
-      const cId = Number(row.courseId);
-      const sId = Number(row.studentId);
-      return courseIdsInDept.has(cId) && studentIdsInDept.has(sId);
-    });
-
-    // 4. Calculate stats PER COURSE, not per department
-    const statsMap = new Map();
-    courses.forEach(c => statsMap.set(Number(c.id), { records: 0, present: 0, studentsSet: new Set() }));
-
-    deptRecords.forEach(r => {
-      const row = r.attendance || r;
-      const cId = Number(row.courseId);
-      const sId = Number(row.studentId);
-      const stat = statsMap.get(cId);
-      
-      if (stat) {
-        stat.records++;
-        stat.studentsSet.add(sId);
-        if (row.status === 'present' || row.status === 'late') {
-          stat.present++;
-        }
+    // Fetch the roster for EACH course in parallel
+    const courseStats = await Promise.all(courses.map(async (c) => {
+      try {
+        const res = await adminFetch(`/api/admin/attendance/course/${c.id}/students`);
+        const json = await res.json();
+        const roster = json.data || [];
+        
+        // Aggregate stats from the roster
+        const totalRecords = roster.reduce((sum, s) => sum + (s.totalClasses || 0), 0);
+        const totalPresent = roster.reduce((sum, s) => sum + (s.present || 0), 0);
+        const uniqueStudents = roster.length;
+        const rate = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
+        
+        return { course: c, records: totalRecords, students: uniqueStudents, rate };
+      } catch (e) {
+        return { course: c, records: 0, students: 0, rate: 0 };
       }
-    });
+    }));
 
-    courses.sort((a, b) => String(a.code || '').localeCompare(String(b.code || '')));
+    // Sort by course code
+    courseStats.sort((a, b) => String(a.course.code || '').localeCompare(String(b.course.code || '')));
 
     // Render the beautiful table with PER-COURSE data
     body.innerHTML = `
@@ -12675,15 +12655,11 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
             </tr>
           </thead>
           <tbody>
-            ${courses.map(c => {
-              const stat = statsMap.get(Number(c.id)) || { records: 0, present: 0, studentsSet: new Set() };
-              const uniqueStudents = stat.studentsSet.size;
-              const rate = stat.records > 0 ? Math.round((stat.present / stat.records) * 100) : 0;
-              
+            ${courseStats.map(({ course: c, records, students, rate }) => {
               let barColor = '#cbd5e1';
               let textColor = '#64748b';
               
-              if (stat.records > 0) {
+              if (records > 0) {
                 if (rate >= 75) { barColor = '#10b981'; textColor = '#065f46'; }
                 else if (rate >= 50) { barColor = '#f59e0b'; textColor = '#b45309'; }
                 else { barColor = '#ef4444'; textColor = '#991b1b'; }
@@ -12701,17 +12677,17 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
                     <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:700;">${escapeHtml(c.level || 'N/A')}</span>
                   </td>
                   <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a; font-size:14px;">
-                    ${stat.records}
+                    ${records}
                   </td>
                   <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a; font-size:14px;">
-                    ${uniqueStudents}
+                    ${students}
                   </td>
                   <td style="padding:16px 20px;">
                     <div style="display:flex; align-items:center; gap:12px;">
                       <div style="flex:1; height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden; min-width:80px;">
                         <div style="width:${rate}%; height:100%; background:${barColor}; border-radius:999px; transition:width 0.5s ease;"></div>
                       </div>
-                      <span style="font-size:13px; font-weight:800; color:${textColor}; width:45px; text-align:right;">${stat.records > 0 ? rate + '%' : '—'}</span>
+                      <span style="font-size:13px; font-weight:800; color:${textColor}; width:45px; text-align:right;">${records > 0 ? rate + '%' : '—'}</span>
                     </div>
                   </td>
                   <td style="padding:16px 20px; text-align:right;">

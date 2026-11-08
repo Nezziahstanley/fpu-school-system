@@ -99,7 +99,8 @@ app.use(
     '/api/contact',
     '/api/register-token',
     '/api/public/id-lookup',
-    '/api/public/verify', // Added verify route to public limiter
+    '/api/public/verify',
+    '/api/public/debug',
   ],
   publicLimiter
 );
@@ -120,12 +121,15 @@ try {
   // ipGuard not installed yet — continue without it
 }
 
-// Add this to your server.js BEFORE the API router
+// ------------------------------------------------------------
+// Public Verification Route (No Auth Required)
+// ------------------------------------------------------------
 app.get('/api/public/verify/:matric', async (req, res) => {
   try {
     const matric = req.params.matric;
     
-    // Your database query to find the student
+    // Adjust this SQL query to match your exact database schema
+    // It joins users, students, programmes, and departments
     const result = await require('./db').query(`
       SELECT 
         u.id, 
@@ -148,6 +152,7 @@ app.get('/api/public/verify/:matric', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
+    // Add a default session since we didn't query it
     const studentData = result.rows[0];
     studentData.sessionName = '2025/2026';
 
@@ -155,6 +160,58 @@ app.get('/api/public/verify/:matric', async (req, res) => {
   } catch (err) {
     console.error('Verify error:', err);
     res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// ------------------------------------------------------------
+// TEMPORARY DEBUG ROUTE
+// ------------------------------------------------------------
+app.get('/api/public/debug/:matric', async (req, res) => {
+  try {
+    const matric = req.params.matric;
+    const db = require('./db');
+    
+    // 1. Check if the student exists in the students table
+    const studentCheck = await db.query(`SELECT * FROM students WHERE matric_number = $1 LIMIT 1`, [matric]);
+    
+    if (studentCheck.rows.length === 0) {
+      return res.json({ 
+        success: false, 
+        step: 'students_table', 
+        message: 'Student not found in students table by matric_number.', 
+        received_matric: matric 
+      });
+    }
+
+    const student = studentCheck.rows[0];
+    
+    // 2. Check if the user exists
+    const userCheck = await db.query(`SELECT * FROM users WHERE id = $1 LIMIT 1`, [student.user_id]);
+    
+    if (userCheck.rows.length === 0) {
+      return res.json({ 
+        success: false, 
+        step: 'users_table', 
+        message: 'User not found in users table.', 
+        student_user_id: student.user_id 
+      });
+    }
+
+    // 3. Return success with all raw data so we can see what's happening
+    return res.json({
+      success: true,
+      message: 'Found student successfully',
+      student_record: student,
+      user_record: userCheck.rows[0]
+    });
+
+  } catch (err) {
+    return res.json({ 
+      success: false, 
+      step: 'database_error', 
+      error: err.message,
+      hint: 'Check your table names and column names.'
+    });
   }
 });
 

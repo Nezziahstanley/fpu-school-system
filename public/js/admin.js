@@ -6786,9 +6786,9 @@ async function renderDocPreview(doc, user) {
         <div class="official-doc" style="background: ${type === 'certificate' ? '#fdfbf7' : '#fff'}; padding: 20mm; position: relative; overflow: hidden;">
           
           ${includeWatermark ? `
-            <!-- Background Watermark -->
+            <!-- Colored Background Watermark -->
             <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; pointer-events: none;">
-              <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 75%; max-width: 500px; opacity: 0.06; filter: grayscale(100%);" />
+              <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 75%; max-width: 500px; opacity: 0.08;" />
             </div>
           ` : ''}
 
@@ -6829,33 +6829,38 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD (REAL QR CODE) ---
+  // --- 2. ID CARD (REAL QR CODE - FIXED) ---
   if (type === 'id-card' || type === 'id-letter') {
-    // Generate a unique URL for the QR code to point to
     const verifyUrl = `https://fpu-school-systems.onrender.com/verify?id=${idValue}`;
 
-    // We use a tiny script to generate the QR code, then call a global function to inject it
-    setTimeout(() => {
-      if (typeof QRCode !== 'undefined') {
-        const qrContainer = document.getElementById('qr-container');
-        if (qrContainer) {
-          qrContainer.innerHTML = ''; // clear previous
-          new QRCode(qrContainer, {
-            text: verifyUrl,
-            width: 50,
-            height: 50,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.M
-          });
-        }
+    // 1. Dynamically load the library and WAIT for it
+    setTimeout(async () => {
+      if (typeof QRCode === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      // 2. Generate the QR Code
+      const qrContainer = document.getElementById('qr-container');
+      if (qrContainer && typeof QRCode !== 'undefined') {
+        qrContainer.innerHTML = ''; // clear loading state
+        new QRCode(qrContainer, {
+          text: verifyUrl,
+          width: 50,
+          height: 50,
+          colorDark : "#000000",
+          colorLight : "#ffffff",
+          correctLevel : QRCode.CorrectLevel.M
+        });
       }
     }, 100);
 
     return a4Wrapper('ID Card', `
-      <!-- Load QR Code Library -->
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
       <style>
         .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; }
         .portal-id-card { width: 450px !important; height: 260px !important; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
@@ -6873,8 +6878,11 @@ async function renderDocPreview(doc, user) {
         .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
+        
+        /* QR Code Container */
         .qr-container { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
-        .qr-container img { width: 50px; height: 50px; }
+        .qr-container img { width: 50px; height: 50px; display: block; }
+        
         .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
       </style>
 
@@ -6923,8 +6931,10 @@ async function renderDocPreview(doc, user) {
             </div>
 
             <div class="pic-qr">
-              <!-- The QR code script will inject the real code here -->
-              <div class="qr-container" id="qr-container"></div>
+              <div class="qr-container" id="qr-container">
+                <!-- Optional loading text until script runs -->
+                <div style="width: 50px; height: 50px; background: #e2e8f0; border-radius: 4px;"></div>
+              </div>
               <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
             </div>
           </div>

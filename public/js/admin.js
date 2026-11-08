@@ -3113,6 +3113,7 @@ async function loadExamsIndex() {
   }
 }
 
+
 // ============================================
 // 1. ATTENDANCE: Overview (Departments)
 // ============================================
@@ -3324,6 +3325,121 @@ document.addEventListener('click', (e) => {
     closeDeptModal();
   }
 });
+
+// ============================================
+// 2. ATTENDANCE: By Department (Courses)
+// ============================================
+async function loadDepartmentAttendance() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const deptId = params.get('id');
+
+  const grid = document.getElementById('abd-course-grid');
+  if (!grid) return;
+
+  if (!deptId) {
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">No department selected. Please go back and click a department.</div>';
+    return;
+  }
+
+  grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading courses…</div>';
+
+  // Gather filters
+  const level = document.getElementById('abd-filter-level')?.value || '';
+  const semester = document.getElementById('abd-filter-semester')?.value || '';
+  const search = document.getElementById('abd-filter-search')?.value || '';
+
+  try {
+    let url = `/api/admin/attendance/department/${deptId}?`;
+    if (level) url += `level=${level}&`;
+    if (semester) url += `semester=${semester}&`;
+    if (search) url += `search=${encodeURIComponent(search)}&`;
+
+    const res = await adminFetch(url);
+    const json = await res.json();
+    const courses = json.data || [];
+
+    // Update Stats
+    let totalRecords = 0, totalPresent = 0, totalLate = 0, totalStudents = 0, coursesWithRecords = 0;
+    
+    courses.forEach(c => {
+      totalRecords += c.records || 0;
+      totalPresent += c.present || 0;
+      totalLate += c.late || 0;
+      totalStudents += c.students || 0;
+      if (c.records > 0) coursesWithRecords++;
+    });
+
+    document.getElementById('abdc-stat-courses').textContent = coursesWithRecords;
+    document.getElementById('abdc-stat-records').textContent = totalRecords;
+    document.getElementById('abdc-stat-students').textContent = totalStudents;
+    
+    let overallRate = 0;
+    if (totalRecords > 0) {
+      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
+    }
+    document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+
+    if (!courses.length) {
+      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No courses found in this department.</div>';
+      return;
+    }
+
+    // Render Course Cards
+    grid.innerHTML = courses.map(c => {
+      let rateClass = 'empty';
+      if (c.records > 0) {
+        if (c.rate >= 75) rateClass = 'healthy';
+        else if (c.rate >= 50) rateClass = 'warning';
+        else rateClass = 'critical';
+      }
+
+      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const lvlClass = c.level ? c.level.toLowerCase() : 'other';
+      const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
+
+      return `
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+          <div class="course-card-header">
+            <span class="course-code-badge">${escapeHtml(c.code)}</span>
+            <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
+          </div>
+          <h3 class="course-name">${escapeHtml(c.title)}</h3>
+          
+          <div class="course-rate-wrap">
+            <span class="course-rate-number ${rateClass}">${rateText}</span>
+            <span class="course-rate-label">attendance rate</span>
+          </div>
+          
+          <div class="course-stats-grid">
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.records}</div>
+              <div class="course-stat-lbl">Records</div>
+            </div>
+            <div class="course-stat-box">
+              <div class="course-stat-val">${c.students}</div>
+              <div class="course-stat-lbl">Students</div>
+            </div>
+            <div class="course-stat-box" title="Last Class: ${lastDate}">
+              <div class="course-stat-val" style="font-size: 0.85rem; padding-top: 4px;">${lastDate}</div>
+              <div class="course-stat-lbl">Last Class</div>
+            </div>
+          </div>
+          
+          <div class="course-card-footer">
+            <span>${c.records === 0 ? 'No records yet' : 'View Roster'}</span>
+            <span>→</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Failed to load department courses', err);
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load courses.</div>';
+  }
+}
 
 // ============================================
 // 2. ATTENDANCE: By Department (Courses)
@@ -4637,6 +4753,11 @@ async function loadStudentPayments() {
   }
 }
 
+// Simple redirect for "View History" button
+function openPaymentHistory(studentId, studentName) {
+  window.location.hash = `#payments-history?studentId=${studentId}`;
+}
+
 // ============================================
 // PAYMENTS: SEND REMINDER
 // ============================================
@@ -5518,6 +5639,46 @@ async function clearStudent(studentId, newStatus) {
     console.error('[clearStudent] Error:', err);
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+// ============================================
+// CLEARANCES: BULK ACTIONS (Fixed)
+// ============================================
+async function bulkClearClearances(newStatus) {
+  const checkboxes = document.querySelectorAll('.clr-student-check:checked');
+  if (checkboxes.length === 0) {
+    showToast('⚠️ Select at least one student.', 'warning');
+    return;
+  }
+
+  const studentIds = Array.from(checkboxes).map(cb => Number(cb.value));
+  
+  const ok = await window.fpuConfirm(
+    `Mark ${studentIds.length} student(s) as ${newStatus.toUpperCase()}?`,
+    { title: `Bulk ${newStatus}`, type: newStatus === 'rejected' ? 'danger' : 'success', okText: 'Confirm' }
+  );
+  if (!ok) return;
+
+  let success = 0, failed = 0;
+  showToast(`Processing ${studentIds.length} students...`, 'info');
+
+  for (const id of studentIds) {
+    try {
+      // Loop and use our safe individual function
+      await clearStudentSilent(id, newStatus);
+      success++;
+    } catch (e) {
+      failed++;
+    }
+  }
+
+  if (failed === 0) {
+    showToast(`✅ Updated ${success} students.`, 'success');
+  } else {
+    showToast(`⚠️ Updated ${success}, failed ${failed}.`, 'warning');
+  }
+  
+  loadDepartmentClearances();
 }
 
 // Helper for bulk actions (doesn't show individual toasts)
@@ -7218,6 +7379,328 @@ function openDocEditModal(doc) {
   };
 }
 
+async function loadGraduationsTable() {
+  const tbody = document.getElementById('grad-tbody');
+  if (!tbody) return;
+
+  const status = (document.getElementById('grad-status-tabs')?.querySelector('.active')?.dataset.status) || '';
+  const sessionId = (document.getElementById('grad-filter-session') || {}).value || '';
+  const classification = (document.getElementById('grad-filter-class') || {}).value || '';
+  const search = (document.getElementById('grad-search') || {}).value || '';
+
+  const qs = new URLSearchParams();
+  if (status) qs.set('status', status);
+  if (sessionId) qs.set('sessionId', sessionId);
+
+  tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
+
+  try {
+    const res = await adminFetch(`/api/admin/graduation?${qs}`);
+    const json = await res.json();
+    let rows = json.data || [];
+
+    if (classification) rows = rows.filter((r) => (r.graduation || r).classification === classification);
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter((r) => {
+        const s = r.student || {};
+        return String(s.matricNumber || '').toLowerCase().includes(q) || String(s.firstName || '').toLowerCase().includes(q) || String(s.lastName || '').toLowerCase().includes(q);
+      });
+    }
+
+    const total = rows.length;
+    const pending = rows.filter((r) => (r.graduation || r).status === 'pending').length;
+    const graduated = rows.filter((r) => (r.graduation || r).status === 'graduated').length;
+    const dist = rows.filter((r) => (r.graduation || r).classification === 'Distinction').length;
+    
+    setText('grad-stat-total', total);
+    setText('grad-stat-pending', pending);
+    setText('grad-stat-graduated', graduated);
+    setText('grad-stat-dist', dist);
+    setText('grad-count', `Showing ${total}`);
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">No records.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map((r) => {
+      const g = r.graduation || r;
+      const s = r.student || {};
+      const clsName = g.classification === 'Distinction' ? 'distinction' : g.classification === 'Upper Credit' ? 'upper' : g.classification === 'Lower Credit' ? 'lower' : g.classification === 'Pass' ? 'pass' : 'fail';
+      const canApprove = g.status === 'pending';
+      const canGraduate = g.status === 'approved';
+
+      return `
+        <tr>
+          <td><input type="checkbox" class="grad-check" data-id="${g.id}" /></td>
+          <td><code>${escapeHtml(s.matricNumber || '')}</code></td>
+          <td>${escapeHtml((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
+          <td>${escapeHtml(g.level || '')}</td>
+          <td class="num">${g.cgpa || '—'}</td>
+          <td><span class="grad-class ${clsName}">${escapeHtml(g.classification || '—')}</span></td>
+          <td>${badge(g.status)}</td>
+          <td>
+            <div class="row-actions">
+              ${canApprove ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveGraduation(${g.id})">Approve</button><button class="btn btn-sm btn-ghost" onclick="FPU_ADMIN.rejectGraduation(${g.id})">Reject</button>` : ''}
+              ${canGraduate ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>` : ''}
+              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${g.studentId} })">Transcript</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const selectAll = document.getElementById('grad-select-all');
+    if (selectAll) {
+      selectAll.onchange = () => {
+        tbody.querySelectorAll('.grad-check').forEach((cb) => { cb.checked = selectAll.checked; });
+      };
+    }
+
+    const bulkBtn = document.getElementById('grad-bulk-approve');
+    if (bulkBtn) {
+      bulkBtn.onclick = async () => {
+        const ids = Array.from(tbody.querySelectorAll('.grad-check:checked')).map((c) => Number(c.dataset.id));
+        if (!ids.length) { showToast('Select students first.', 'warning'); return; }
+        if (!confirm(`Approve ${ids.length} graduation record(s)?`)) return;
+        let ok = 0, failed = 0;
+        for (const id of ids) {
+          try { await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
+        }
+        showToast(`✅ Approved ${ok}${failed ? `, ${failed} failed` : ''}.`);
+        loadGraduationsTable();
+      };
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function loadReportsWithCharts() {
+  const days = (document.getElementById('rep-range') || {}).value || 365;
+  const rangeQs = days === 'all' ? '' : `?days=${days}`;
+
+  async function safeJson(url) {
+    try {
+      const res = await adminFetch(url);
+      if (!res.ok) return null;
+      const j = await res.json();
+      return j.data || j || [];
+    } catch { return null; }
+  }
+
+  // ---------- KPI tiles ----------
+  // Try the reports overview endpoint first
+  const overview = await safeJson('/api/admin/reports/overview');
+  if (overview && typeof overview === 'object' && !Array.isArray(overview)) {
+    setText('rep-stat-students', overview.students || 0);
+    setText('rep-stat-apps', overview.totalApplications || 0);
+    setText('rep-stat-revenue', money(overview.totalRevenue || 0));
+    setText('rep-stat-progs', overview.totalProgrammes || 0);
+  } else {
+    // Fallback: compute from the working endpoints
+    const [students, applications, programmes, payments] = await Promise.all([
+      safeJson('/api/admin/students?limit=5000'),
+      safeJson('/api/admin/applications?limit=5000'),
+      safeJson('/api/admin/programmes'),
+      safeJson('/api/admin/payments?limit=5000'),
+    ]);
+    const studentCount = Array.isArray(students) ? students.length : 0;
+    const appCount = Array.isArray(applications) ? applications.length : 0;
+    const progCount = Array.isArray(programmes) ? programmes.length : 0;
+    const revenue = Array.isArray(payments)
+      ? payments.filter((p) => (p.payment || p).status === 'verified')
+               .reduce((s, p) => s + Number((p.payment || p).amount || 0), 0)
+      : 0;
+    setText('rep-stat-students', studentCount);
+    setText('rep-stat-apps', appCount);
+    setText('rep-stat-revenue', money(revenue));
+    setText('rep-stat-progs', progCount);
+  }
+
+  // If Chart.js isn't loaded, stop (KPI tiles already work above)
+  if (typeof Chart === 'undefined') {
+    console.warn('[reports] Chart.js not loaded — skipping charts');
+    return;
+  }
+
+  // Helper: replace canvas with message if no data
+  function emptyState(canvasId, msg) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (parent) parent.innerHTML = `<p class="muted" style="padding:40px;text-align:center;color:#94a3b8;">${msg}</p>`;
+  }
+
+  // ---------- Chart 1: Admission Trend ----------
+  const admissions = await safeJson(`/api/admin/reports/admission-trend${rangeQs}`);
+  const chartA = document.getElementById('rep-chart-admission');
+  if (chartA && Array.isArray(admissions) && admissions.length) {
+    new Chart(chartA, {
+      type: 'line',
+      data: {
+        labels: admissions.map((r) => r.month),
+        datasets: [{ data: admissions.map((r) => r.count), borderColor: '#065f46', backgroundColor: 'rgba(6,95,70,.1)', tension: 0.4, fill: true, borderWidth: 3 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    emptyState('rep-chart-admission', 'No admission trend data yet. Add applications to see this chart.');
+  }
+
+  // ---------- Chart 2: Revenue Trend ----------
+  const revenue = await safeJson(`/api/admin/reports/revenue-trend${rangeQs}`);
+  const chartR = document.getElementById('rep-chart-revenue');
+  if (chartR && Array.isArray(revenue) && revenue.length) {
+    new Chart(chartR, {
+      type: 'line',
+      data: {
+        labels: revenue.map((r) => r.month),
+        datasets: [{ data: revenue.map((r) => Number(r.total || 0)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.15)', tension: 0.4, fill: true, borderWidth: 3 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    emptyState('rep-chart-revenue', 'No revenue trend data yet. Verify payments to see this chart.');
+  }
+
+  // ---------- Chart 3: Enrollment by Department ----------
+  const depts = await safeJson('/api/admin/reports/enrollment-by-department');
+  const chartD = document.getElementById('rep-chart-dept');
+  if (chartD && Array.isArray(depts) && depts.length) {
+    const top = depts.slice(0, 10);
+    new Chart(chartD, {
+      type: 'bar',
+      data: {
+        labels: top.map((r) => r.name),
+        datasets: [{ data: top.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+    });
+  } else {
+    // Fallback: compute dept enrollment from /students + /departments
+    const [students, departments] = await Promise.all([
+      safeJson('/api/admin/students?limit=5000'),
+      safeJson('/api/admin/departments'),
+    ]);
+    if (Array.isArray(students) && Array.isArray(departments)) {
+      const byDept = new Map();
+      departments.forEach((d) => byDept.set(d.id, { name: d.code || d.name, count: 0 }));
+      students.forEach((s) => {
+        const bucket = byDept.get(s.departmentId);
+        if (bucket) bucket.count++;
+      });
+      const sorted = [...byDept.values()].filter((d) => d.count > 0).sort((a, b) => b.count - a.count).slice(0, 10);
+      if (sorted.length && chartD) {
+        new Chart(chartD, {
+          type: 'bar',
+          data: {
+            labels: sorted.map((r) => r.name),
+            datasets: [{ data: sorted.map((r) => r.count), backgroundColor: '#065f46', borderRadius: 6 }],
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+        });
+      } else {
+        emptyState('rep-chart-dept', 'No enrollment data yet.');
+      }
+    } else {
+      emptyState('rep-chart-dept', 'No enrollment data yet.');
+    }
+  }
+
+  // ---------- Chart 4: Applications by Status ----------
+  const appStatus = await safeJson('/api/admin/reports/applications-by-status');
+  const chartAp = document.getElementById('rep-chart-apps');
+  if (chartAp && Array.isArray(appStatus) && appStatus.length) {
+    const colorMap = { pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6' };
+    new Chart(chartAp, {
+      type: 'doughnut',
+      data: {
+        labels: appStatus.map((r) => (r.status || '').replace(/_/g, ' ')),
+        datasets: [{ data: appStatus.map((r) => r.count), backgroundColor: appStatus.map((r) => colorMap[r.status] || '#64748b'), borderColor: '#fff', borderWidth: 3 }],
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
+    });
+  } else {
+    // Fallback: compute status counts from /applications
+    const apps = await safeJson('/api/admin/applications?limit=5000');
+    if (Array.isArray(apps) && apps.length) {
+      const counts = {};
+      apps.forEach((a) => { counts[a.status || 'unknown'] = (counts[a.status || 'unknown'] || 0) + 1; });
+      const rows = Object.entries(counts).map(([status, count]) => ({ status, count }));
+      const colorMap = { pending: '#f59e0b', under_review: '#3b82f6', approved: '#065f46', rejected: '#dc2626', registered: '#8b5cf6' };
+      if (chartAp) {
+        new Chart(chartAp, {
+          type: 'doughnut',
+          data: {
+            labels: rows.map((r) => r.status.replace(/_/g, ' ')),
+            datasets: [{ data: rows.map((r) => r.count), backgroundColor: rows.map((r) => colorMap[r.status] || '#64748b'), borderColor: '#fff', borderWidth: 3 }],
+          },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '62%' },
+        });
+      }
+    } else {
+      emptyState('rep-chart-apps', 'No applications yet.');
+    }
+  }
+
+  // ---------- Applications by Status TABLE ----------
+  const appsTbody = document.getElementById('rep-apps-tbody');
+  if (appsTbody) {
+    const apps = await safeJson('/api/admin/applications?limit=5000');
+    if (Array.isArray(apps) && apps.length) {
+      const counts = {};
+      apps.forEach((a) => { counts[a.status || 'unknown'] = (counts[a.status || 'unknown'] || 0) + 1; });
+      appsTbody.innerHTML = Object.entries(counts).map(([status, count]) => `
+        <tr><td>${escapeHtml(status)}</td><td class="num">${count}</td></tr>
+      `).join('');
+    } else {
+      appsTbody.innerHTML = '<tr><td colspan="2" class="empty">No data available.</td></tr>';
+    }
+  }
+
+  // ---------- Payments by Status TABLE ----------
+  const payTbody = document.getElementById('rep-pay-tbody');
+  if (payTbody) {
+    const payments = await safeJson('/api/admin/payments?limit=5000');
+    if (Array.isArray(payments) && payments.length) {
+      const counts = {};
+      payments.forEach((p) => {
+        const row = p.payment || p;
+        const status = row.status || 'unknown';
+        if (!counts[status]) counts[status] = { count: 0, total: 0 };
+        counts[status].count++;
+        counts[status].total += Number(row.amount || 0);
+      });
+      payTbody.innerHTML = Object.entries(counts).map(([status, data]) => `
+        <tr><td>${escapeHtml(status)}</td><td class="num">${data.count}</td><td class="num">${money(data.total)}</td></tr>
+      `).join('');
+    } else {
+      payTbody.innerHTML = '<tr><td colspan="3" class="empty">No data available.</td></tr>';
+    }
+  }
+
+  // ---------- Wire buttons ----------
+  const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+  const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+  if (refreshBtn && !refreshBtn.__wired) {
+    refreshBtn.__wired = true;
+    refreshBtn.onclick = () => loadReportsWithCharts();
+  }
+  const exportBtn = document.getElementById('rep-export');
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.onclick = () => {
+      const tables = ['rep-apps-tbody', 'rep-pay-tbody']
+        .map((id) => document.getElementById(id)?.closest('table'))
+        .filter(Boolean);
+      if (!tables.length) { showToast('⚠️ Nothing to export yet.', 'warning'); return; }
+      exportTableAsCSV(tables[0], `reports-${new Date().toISOString().slice(0, 10)}.csv`);
+    };
+  }
+}
+
 // ============================================
 // AUDIT LOGS
 // ============================================
@@ -8152,6 +8635,53 @@ function wireSecurityCards() {
       }
     });
   });
+}
+
+function wireSecurityActions() {
+  // Refresh button
+  const buttons = Array.from(document.querySelectorAll('.page-head .actions button'));
+  const refreshBtn = buttons.find((b) => /refresh/i.test(b.textContent || ''));
+  if (refreshBtn && !refreshBtn.__wired) {
+    refreshBtn.__wired = true;
+    refreshBtn.onclick = () => loadSecurityDashboard();
+  }
+
+  // Lockdown button
+  const lockdownBtn = document.getElementById('sec-lockdown');
+  if (lockdownBtn && !lockdownBtn.__wired) {
+    lockdownBtn.__wired = true;
+    lockdownBtn.onclick = async () => {
+      const ok = await window.fpuConfirm(
+        'Lock down ALL active sessions?\n\nAll users except you will be logged out immediately.',
+        { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down All' }
+      );
+      if (!ok) return;
+
+      try {
+        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.error || 'Lockdown endpoint not available');
+        showToast('🔒 All sessions locked down.', 'success');
+        loadSecurityDashboard();
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+      }
+    };
+  }
+
+  // Export Report button — fallback to CSV of the events table
+  const exportBtn = buttons.find((b) => /export/i.test(b.textContent || ''));
+  if (exportBtn && !exportBtn.__wired) {
+    exportBtn.__wired = true;
+    exportBtn.onclick = () => {
+      const table = document.querySelector('#sec-recent-events')?.closest('table');
+      if (table) {
+        exportTableAsCSV(table, `security-events-${new Date().toISOString().slice(0, 10)}.csv`);
+      } else {
+        showToast('⚠️ Nothing to export yet.', 'warning');
+      }
+    };
+  }
 }
 
 function wireSecurityActions() {
@@ -9252,6 +9782,145 @@ function initAccountTab() {
         e.target.reset();
       } catch (err) {
         if (valEl) valEl.innerHTML = '<div class="alert alert-error">❌ ' + A.escapeHtml(err.message) + '</div>';
+      }
+    };
+  }
+}
+
+async function initSystemTab() {
+  try {
+    const res = await adminFetch('/api/health').catch(() => null);
+    if (res && res.ok) {
+      const h = await res.json();
+      setText('sys-name', h.app || 'FPU School Management System');
+      setText('sys-version', h.version || '1.0.0');
+      setText('sys-env', h.env || 'production');
+      setText('sys-node', h.node || 'server');
+    }
+  } catch (e) { console.debug('[system] health:', e.message); }
+
+  const deployBtn = document.getElementById('deploy-now-btn');
+  if (deployBtn && !deployBtn.__bound) {
+    deployBtn.__bound = true;
+    deployBtn.onclick = async () => {
+      const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
+      const notes = (document.getElementById('deploy-notes') || {}).value || '';
+      if (!confirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`)) return;
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Triggering deployment…</div>';
+      try {
+        const res = await adminFetch('/api/admin/system/deploy', {
+          method: 'POST',
+          body: JSON.stringify({ branch, notes }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error);
+        status.innerHTML = `<div class="alert alert-success">✅ ${escapeHtml(json.message || 'Deploy triggered.')}</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  const checkBtn = document.getElementById('deploy-check-btn');
+  if (checkBtn && !checkBtn.__bound) {
+    checkBtn.__bound = true;
+    checkBtn.onclick = async () => {
+      const status = document.getElementById('deploy-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking GitHub…</div>';
+      try {
+        const res = await adminFetch('/api/admin/system/github-status');
+        const json = await res.json();
+        status.innerHTML = `<div class="alert alert-info">🔍 Latest commit: <strong>${escapeHtml(json.commit || '—')}</strong> by ${escapeHtml(json.author || '—')} (${json.date ? fmtDateTime(json.date) : '—'})</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-warning">⚠️ ${escapeHtml(err.message)}</div>`;
+      }
+    };
+  }
+
+  // Deploy history
+  const histTbody = document.getElementById('deploy-history-tbody');
+  if (histTbody) {
+    try {
+      const res = await adminFetch('/api/admin/system/deployments?limit=10').catch(() => null);
+      if (res && res.ok) {
+        const json = await res.json();
+        const rows = json.data || [];
+        histTbody.innerHTML = rows.length ? rows.map((d) => `
+          <tr>
+            <td><code>${escapeHtml(d.commit || d.id || '—')}</code></td>
+            <td>${escapeHtml(d.branch || 'main')}</td>
+            <td>${badge(d.status || 'triggered')}</td>
+            <td class="small muted">${fmtDateTime(d.created_at || d.createdAt)}</td>
+          </tr>
+        `).join('') : '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>';
+      } else {
+        histTbody.innerHTML = '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>';
+      }
+    } catch (e) { histTbody.innerHTML = '<tr><td colspan="4" class="empty">No deployments yet.</td></tr>'; }
+  }
+
+  // Backups
+  const backupNow = document.getElementById('sys-backup-now');
+  const backupRefresh = document.getElementById('sys-backup-refresh');
+  const backupTbody = document.getElementById('sys-backup-tbody');
+  const loadBackups = async () => {
+    if (!backupTbody) return;
+    backupTbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+    try {
+      const res = await adminFetch('/api/admin/security/backups');
+      const json = await res.json();
+      const rows = json.data || [];
+      backupTbody.innerHTML = rows.length ? rows.map((b) => `
+        <tr>
+          <td>${escapeHtml(b.kind || 'full')}</td>
+          <td>${badge(b.status)}</td>
+          <td>${b.size ? (b.size / 1024 / 1024).toFixed(1) + ' MB' : '—'}</td>
+          <td class="small muted">${fmtDateTime(b.startedAt)}</td>
+          <td class="small muted">${b.completedAt ? fmtDateTime(b.completedAt) : '—'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="5" class="empty">No backups yet.</td></tr>';
+    } catch (e) {
+      backupTbody.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(e.message)}</td></tr>`;
+    }
+  };
+  if (backupNow && !backupNow.__bound) {
+    backupNow.__bound = true;
+    backupNow.onclick = async () => {
+      if (!confirm('Trigger backup now?')) return;
+      try {
+        await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
+        showToast('Backup triggered.', 'success');
+        loadBackups();
+      } catch (e) { showToast('❌ ' + e.message, 'error'); }
+    };
+  }
+  if (backupRefresh && !backupRefresh.__bound) {
+    backupRefresh.__bound = true;
+    backupRefresh.onclick = loadBackups;
+  }
+  loadBackups();
+
+  // Migrations and health
+  const migBtn = document.getElementById('sys-run-migrations');
+  if (migBtn && !migBtn.__bound) {
+    migBtn.__bound = true;
+    migBtn.onclick = () => {
+      document.getElementById('sys-upgrade-status').innerHTML = '<div class="alert alert-info">ℹ️ Migrations run automatically when the server restarts. Deploy to trigger.</div>';
+    };
+  }
+  const healthBtn = document.getElementById('sys-health-check');
+  if (healthBtn && !healthBtn.__bound) {
+    healthBtn.__bound = true;
+    healthBtn.onclick = async () => {
+      const status = document.getElementById('sys-upgrade-status');
+      status.innerHTML = '<div class="loading"><span class="spinner"></span> Checking…</div>';
+      try {
+        const res = await adminFetch('/api/health');
+        const json = await res.json();
+        status.innerHTML = `<div class="alert alert-success">✅ Healthy — v${escapeHtml(json.version || '1.0.0')}, ${escapeHtml(json.env || 'production')}</div>`;
+      } catch (err) {
+        status.innerHTML = `<div class="alert alert-danger">❌ ${escapeHtml(err.message)}</div>`;
       }
     };
   }
@@ -10589,6 +11258,91 @@ async function openAddFeeModal() {
   };
 }
 
+// ============================================
+// FEES: Edit existing fee level (Modal)
+// ============================================
+async function openEditFeeModal(id, level, amount) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Edit Fee — ${escapeHtml(level)}</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <div class="form-group">
+          <label class="form-label">Amount (₦) <span class="req">*</span></label>
+          <input class="form-control" type="number" step="0.01" id="fee-edit-amount" value="${amount}" />
+        </div>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn btn-primary" id="fee-update-btn">Update Fee</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#fee-update-btn').onclick = async () => {
+    const newAmount = Number(backdrop.querySelector('#fee-edit-amount').value);
+    if (!newAmount || newAmount <= 0) {
+      showToast('⚠️ Please enter a valid amount.', 'warning');
+      return;
+    }
+
+    try {
+      const res = await adminFetch(`/api/admin/fees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ amount: newAmount }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      showToast('✅ Fee updated.', 'success');
+      backdrop.remove();
+      loadFeeLevels();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+}
+
+// ============================================
+// FEES: Delete fee level (Modal)
+// ============================================
+async function deleteFeeLevel(id, level) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="fpu-modal">
+      <div class="fpu-modal-header">
+        <h3>Delete Fee Level</h3>
+        <button class="btn btn-sm btn-ghost" onclick="this.closest('.fpu-modal-backdrop').remove()">×</button>
+      </div>
+      <div class="fpu-modal-body">
+        <p style="margin-bottom: 20px;">Are you sure you want to delete the <strong>${escapeHtml(level)}</strong> fee structure?</p>
+        <p class="muted small">This action cannot be undone. Students won't be able to pay this level anymore.</p>
+      </div>
+      <div class="fpu-modal-footer">
+        <button class="btn btn-outline" onclick="this.closest('.fpu-modal-backdrop').remove()">Cancel</button>
+        <button class="btn" style="background:#dc2626;color:#fff;border-color:#dc2626;" id="fee-delete-btn">Delete Fee</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#fee-delete-btn').onclick = async () => {
+    try {
+      const res = await adminFetch(`/api/admin/fees/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      showToast('🗑️ Fee level deleted.', 'success');
+      backdrop.remove();
+      loadFeeLevels();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+}
+
 async function openEditFeeModal(id, level, amount) {
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
@@ -10649,6 +11403,14 @@ async function deleteFeeLevel(id, level) {
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
+}
+
+// ============================================
+// STAFF PROFILE: Action helpers
+// ============================================
+function editStaffFromProfile() {
+  const id = new URLSearchParams(window.location.hash.split('?')[1] || '').get('id');
+  if (id) window.location.hash = `#staff-form?id=${id}`;
 }
 
 // ============================================
@@ -13022,7 +13784,7 @@ window.FPU_ADMIN = {
   loadLoginAttempts, addIpBlock, loadIpRules, deleteIpRule, openAddIpModal,
   loadPasswordPolicy, loadPermissionsMatrix, load2FAConfig, loadBackups, loadCompliance,
 
- exportPaymentHistoryPDF, printPaymentReceipt, exportPaymentHistoryCSV,
+  openPaymentHistory, exportPaymentHistoryPDF, printPaymentReceipt, exportPaymentHistoryCSV,
 
   // Courses
   loadCourseDepartments, loadDepartmentCourses, inferCourseYear,

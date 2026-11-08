@@ -250,8 +250,8 @@
     body.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Generating document...</div>';
 
     try {
-      // Use the correct profile endpoint that is guaranteed to work
-      const studentRes = await core.portalFetch('/api/student/profile'); 
+      // CORRECTED ENDPOINT: Use id-card which works
+      const studentRes = await core.portalFetch('/api/student/id-card'); 
       const student = studentRes.data || studentRes || {};
       
       const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';

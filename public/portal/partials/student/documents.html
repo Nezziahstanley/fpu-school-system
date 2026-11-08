@@ -138,14 +138,51 @@
   .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
   .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
 
+  /* BACK OF ID CARD */
+  .portal-id-card-back { width: 450px !important; height: 260px !important; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; padding: 8px; }
+  .pic-back-inner { border: 3px solid #065f46; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; height: 100%; }
+  .pic-back-text { text-align: center; margin-top: 6px; font-family: 'Times New Roman', serif; font-size: 8px; color: #475569; line-height: 1.4; }
+  .pic-back-return { text-align: center; margin-top: 5px; font-size: 7px; color: #475569; line-height: 1.5; }
+  .pic-back-sign { text-align: center; margin-top: auto; }
+
+  /* PRINT STYLES */
   @media print {
     body * { visibility: hidden; }
     #view-doc-body, #view-doc-body * { visibility: visible; }
-    #view-doc-body { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; background: #fff !important; display: block !important; }
+    #view-doc-body { 
+      position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; background: #fff !important; display: block !important; 
+    }
+    
+    /* Hide the UI header */
     #view-doc-modal { position: static !important; background: transparent !important; padding: 0 !important; }
     #view-doc-modal > div { box-shadow: none !important; border-radius: 0 !important; height: auto !important; max-width: 100% !important; }
     #view-doc-modal > div > div:first-child { display: none !important; }
+    
+    /* Reset A4 doc */
     .official-doc { box-shadow: none !important; padding: 0 !important; width: 100% !important; min-height: auto !important; }
+
+    /* Perfect ID Card Printing */
+    .portal-id-container, .portal-id-container-back {
+      padding: 0 !important;
+      margin: 0 !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      height: 100vh !important; 
+      background: transparent !important;
+    }
+
+    .portal-id-card, .portal-id-card-back {
+      box-shadow: none !important;
+      border: 1px solid #cbd5e1 !important;
+      page-break-inside: avoid !important;
+    }
+
+    /* Force the back of the card onto Page 2 */
+    .page-break {
+      page-break-after: always !important;
+      display: block !important;
+    }
   }
 </style>
 
@@ -176,7 +213,6 @@
         badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Pending</span>';
       } else if (d.status === 'approved' || d.status === 'issued' || d.status === 'ready') {
         badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Ready</span>';
-        // Force it to use the View Modal for ALL ready documents
         actionHtml = `<button onclick="window.viewStudentDoc(${d.id}, '${esc(d.type)}', '${esc(d.title)}')" style="padding:.3rem .6rem;font-size:.75rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">👁 View</button>`;
       } else if (d.status === 'rejected') {
         badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Rejected</span>';
@@ -250,7 +286,6 @@
     body.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Generating document...</div>';
 
     try {
-      // CORRECTED ENDPOINT: Use id-card which works
       const studentRes = await core.portalFetch('/api/student/id-card'); 
       const student = studentRes.data || studentRes || {};
       
@@ -311,37 +346,72 @@
         const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}&color=065f46&bgcolor=ffffff&margin=1`;
         
         html = `
-          <div class="portal-id-container">
-            <div class="portal-id-card">
-              <div class="pic-header">
-                <img src="/images/logo.png" onerror="this.style.display='none'" />
-                <div class="pic-header-text">
-                  <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
-                  <div class="state">CROSS RIVER STATE</div>
-                </div>
-              </div>
-              <div class="pic-body">
-                <div class="pic-photo">
-                  ${student.photoUrl ? `<img src="${esc(student.photoUrl)}" style="width: 100%; height: 100%; object-fit: cover;" />` : ''}
-                </div>
-                <div class="pic-details">
-                  <div class="pic-row"><span class="pic-label">Student Name</span><span class="pic-value" style="font-size: 14px;">${esc(fullName)}</span></div>
-                  <div class="pic-row"><span class="pic-label">Matric Number</span><span class="pic-value">${esc(idValue)}</span></div>
-                  <div class="pic-row-flex" style="display:flex; gap:20px;">
-                    <div class="pic-row" style="flex: 1;"><span class="pic-label">Level</span><span class="pic-value">${esc(level)}</span></div>
-                    <div class="pic-row" style="flex: 1;"><span class="pic-label">Session</span><span class="pic-value">${esc(sessionName)}</span></div>
+          <div class="page-break">
+            <div class="portal-id-container">
+              <div class="portal-id-card">
+                <div class="pic-header">
+                  <img src="/images/logo.png" onerror="this.style.display='none'" />
+                  <div class="pic-header-text">
+                    <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
+                    <div class="state">CROSS RIVER STATE</div>
                   </div>
-                  <div class="pic-row"><span class="pic-label">Programme</span><span class="pic-value">${esc(progName)}</span></div>
-                  <div class="pic-row"><span class="pic-label">Department</span><span class="pic-value">${esc(deptName)}</span></div>
                 </div>
-                <div class="pic-qr">
-                  <img src="${qrImageUrl}" style="width: 55px; height: 55px; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px;" />
-                  <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
+                <div class="pic-body">
+                  <div class="pic-photo">
+                    ${student.photoUrl ? `<img src="${esc(student.photoUrl)}" style="width: 100%; height: 100%; object-fit: cover;" />` : ''}
+                  </div>
+                  <div class="pic-details">
+                    <div class="pic-row"><span class="pic-label">Student Name</span><span class="pic-value" style="font-size: 14px;">${esc(fullName)}</span></div>
+                    <div class="pic-row"><span class="pic-label">Matric Number</span><span class="pic-value">${esc(idValue)}</span></div>
+                    <div class="pic-row-flex" style="display:flex; gap:20px;">
+                      <div class="pic-row" style="flex: 1;"><span class="pic-label">Level</span><span class="pic-value">${esc(level)}</span></div>
+                      <div class="pic-row" style="flex: 1;"><span class="pic-label">Session</span><span class="pic-value">${esc(sessionName)}</span></div>
+                    </div>
+                    <div class="pic-row"><span class="pic-label">Programme</span><span class="pic-value">${esc(progName)}</span></div>
+                    <div class="pic-row"><span class="pic-label">Department</span><span class="pic-value">${esc(deptName)}</span></div>
+                  </div>
+                  <div class="pic-qr">
+                    <img src="${qrImageUrl}" style="width: 55px; height: 55px; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px;" />
+                    <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
+                  </div>
+                </div>
+                <div class="pic-footer">
+                  <span>OFFICIAL STUDENT ID</span>
+                  <span>FPU/ID/${String(student.id || 0).padStart(4, '0')}</span>
                 </div>
               </div>
-              <div class="pic-footer">
-                <span>OFFICIAL STUDENT ID</span>
-                <span>FPU/ID/${String(student.id || 0).padStart(4, '0')}</span>
+            </div>
+          </div>
+
+          <div class="portal-id-container-back">
+            <div class="portal-id-card-back">
+              <div class="pic-back-inner">
+                <div style="display: flex; align-items: flex-start; gap: 14px;">
+                  <div style="width: 50px; height: 50px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #065f46; overflow: hidden; flex-shrink: 0;">
+                    <img src="/images/logo.png" alt="FPU" style="width: 100%; height: 100%; object-fit: contain;" />
+                  </div>
+                  <div style="flex-shrink: 0;">
+                    <img src="${qrImageUrl}" style="width: 65px; height: 65px; border-radius: 4px;" />
+                  </div>
+                  <div style="flex: 1; text-align: right; font-size: 8px; color: #475569; line-height: 1.4;">
+                    <div style="font-weight: 800; color: #065f46; font-size: 10px;">FEDERAL POLYTECHNIC, UGEP</div>
+                    <div style="font-size: 7px; color: #64748b;">Cross River State</div>
+                  </div>
+                </div>
+
+                <div class="pic-back-text">
+                  <div>The person whose Photograph appears overleaf is a Student of the above Mentioned</div>
+                  <div style="font-size: 10px; font-weight: 900; color: #065f46; margin-top: 3px; letter-spacing: .5px;">FEDERAL POLYTECHNIC, UGEP</div>
+                </div>
+
+                <div class="pic-back-return">
+                  If found, please return to the<br>nearest police station OR<br>Contact <strong>07069096879</strong><br>Email: <strong>contact@fedpolyugep.edu.ng</strong>
+                </div>
+
+                <div class="pic-back-sign">
+                  <div style="font-family: 'Brush Script MT', cursive; font-size: 16px; color: #1e3a8a; transform: rotate(-5deg);">Fed Poly</div>
+                  <div style="border-top: 1px solid #0f172a; width: 110px; margin: 3px auto 0; padding-top: 2px; font-size: 6px; color: #475569; font-weight: 700;">Authorized Signature</div>
+                </div>
               </div>
             </div>
           </div>

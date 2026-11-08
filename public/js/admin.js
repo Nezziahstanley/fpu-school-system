@@ -12319,11 +12319,9 @@ async function openTranscriptModal(studentId) {
     return;
   }
 
-  // Remove existing modal if open
   const existing = document.getElementById('transcript-modal-backdrop');
   if (existing) existing.remove();
 
-  // Create the modal shell
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'transcript-modal-backdrop';
@@ -12398,10 +12396,11 @@ async function openTranscriptModal(studentId) {
   const root = document.getElementById('tx-modal-body');
 
   try {
-    const [studentRes, resultsRes, coursesRes] = await Promise.all([
+    const [studentRes, resultsRes, coursesRes, sessionsRes] = await Promise.all([
       adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
       adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/courses?limit=5000').catch(() => null),
+      adminFetch('/api/admin/sessions').catch(() => null),
     ]);
 
     let student = null;
@@ -12425,10 +12424,22 @@ async function openTranscriptModal(studentId) {
       } 
     } catch {}
 
+    let sessionMap = new Map();
+    try {
+      if (sessionsRes && sessionsRes.ok) {
+        const j = await sessionsRes.json();
+        const sessions = j.data || j || [];
+        sessions.forEach(s => sessionMap.set(s.id, s.name));
+      }
+    } catch {}
+
     if (!student || !student.id) {
       root.innerHTML = `<div class="alert alert-danger" style="margin:20px;"><strong>Student not found.</strong> (ID: ${studentId})</div>`;
       return;
     }
+
+    // Fallback grade points if the backend doesn't provide them
+    const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
 
     const groups = new Map();
     results.forEach(r => {
@@ -12444,7 +12455,8 @@ async function openTranscriptModal(studentId) {
       const row = r.result || r;
       const course = courseMap.get(row.courseId) || r.course || {};
       const units = Number(course.unit) || Number(row.unit) || 0;
-      const points = Number(row.points) || 0;
+      // Use points from DB, or calculate from grade
+      const points = row.points != null ? Number(row.points) : (gradePoints[String(row.grade).toUpperCase()] || 0);
       
       if (row.status === 'published' || row.status === 'approved') {
         totalUnits += units;
@@ -12463,6 +12475,8 @@ async function openTranscriptModal(studentId) {
 
     const groupsHtml = [...groups.entries()].map(([key, list]) => {
       const [sessionId, semester] = key.split('|');
+      // Map session ID to name, fallback to ID if not found
+      const sessionName = sessionMap.get(Number(sessionId)) || `Session ${sessionId}`;
       
       const sectionUnits = list.reduce((s, r) => {
         const row = r.result || r;
@@ -12474,7 +12488,8 @@ async function openTranscriptModal(studentId) {
         const row = r.result || r;
         const course = courseMap.get(row.courseId) || r.course || {};
         const units = Number(course.unit) || Number(row.unit) || 0;
-        return s + (units * (Number(row.points) || 0));
+        const points = row.points != null ? Number(row.points) : (gradePoints[String(row.grade).toUpperCase()] || 0);
+        return s + (units * points);
       }, 0);
       
       const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
@@ -12488,7 +12503,8 @@ async function openTranscriptModal(studentId) {
         .map(r => {
           const row = r.result || r;
           const course = courseMap.get(row.courseId) || r.course || {};
-          const grade = row.grade || '—';
+          const grade = String(row.grade || '—').toUpperCase();
+          const points = row.points != null ? Number(row.points) : (gradePoints[grade] || 0);
           return `
             <tr>
               <td><code>${escapeHtml(course.code || row.courseCode || `#${row.courseId}`)}</code></td>
@@ -12496,14 +12512,14 @@ async function openTranscriptModal(studentId) {
               <td class="num center">${Number(course.unit) || Number(row.unit) || 0}</td>
               <td class="num">${row.score != null ? row.score : '—'}</td>
               <td class="center"><span class="tx-grade ${grade}">${escapeHtml(grade)}</span></td>
-              <td class="num">${row.points != null ? row.points : '—'}</td>
+              <td class="num">${points}</td>
             </tr>`;
         }).join('');
 
       return `
         <div class="tx-semester">
           <div class="tx-semester-head">
-            <span>Session ${escapeHtml(sessionId)} — ${escapeHtml(semester)} Semester</span>
+            <span>${escapeHtml(sessionName)} — ${escapeHtml(semester)} Semester</span>
             <span class="gpa">GPA ${gpa} · ${sectionUnits} units</span>
           </div>
           <table class="tx-table">

@@ -8,63 +8,69 @@
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadAttendanceDepartments()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;"><path d="M21 2v6h-6M3 12a9 9 0 1 0 2.64-6.36L21 8"/></svg>
       Refresh
     </button>
   </div>
 </section>
 
 <!-- Filters -->
-<div class="filters" style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap;">
-  <div class="form-group" style="flex: 1; min-width: 150px;">
+<div class="filters" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+  <div class="form-group">
     <label class="form-label">Session</label>
-    <select class="form-select" id="att-filter-session" onchange="FPU_ADMIN.loadAttendanceDepartments()">
+    <select class="form-select" id="att-filter-session">
       <option value="">Current Session</option>
     </select>
   </div>
-  <div class="form-group" style="flex: 1; min-width: 150px;">
+  <div class="form-group">
     <label class="form-label">Semester</label>
-    <select class="form-select" id="att-filter-semester" onchange="FPU_ADMIN.loadAttendanceDepartments()">
+    <select class="form-select" id="att-filter-semester">
       <option value="">All Semesters</option>
-      <option value="first">First</option>
-      <option value="second">Second</option>
+      <option value="first">First Semester</option>
+      <option value="second">Second Semester</option>
     </select>
   </div>
-  <div class="form-group" style="flex: 1; min-width: 150px;">
+  <div class="form-group">
     <label class="form-label">School</label>
-    <select class="form-select" id="att-filter-school" onchange="FPU_ADMIN.loadAttendanceDepartments()">
+    <select class="form-select" id="att-filter-school">
       <option value="">All Schools</option>
     </select>
   </div>
-  <div class="form-group" style="flex: 2; min-width: 200px;">
+  <div class="form-group">
     <label class="form-label">Search</label>
-    <input class="form-control" id="att-filter-search" placeholder="Department code or name…" onkeydown="if(event.key==='Enter')FPU_ADMIN.loadAttendanceDepartments()" />
+    <input class="form-control" id="att-search" placeholder="Department code or name…" />
   </div>
 </div>
 
-<!-- Stats Bar -->
-<div class="stats-inline" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
-  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #3b82f6;">
-    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Departments Tracked</div>
-    <div id="att-stat-depts" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
+<!-- Stats -->
+<div class="stats-inline" style="margin-bottom: 20px;">
+  <div class="stat-inline">
+    <div class="label">Departments Tracked</div>
+    <div class="value" id="att-stat-depts">—</div>
   </div>
-  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #8b5cf6;">
-    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Courses</div>
-    <div id="att-stat-courses" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
+  <div class="stat-inline stat-inline-primary">
+    <div class="label">Courses</div>
+    <div class="value" id="att-stat-courses">—</div>
   </div>
-  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #10b981;">
-    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Overall Rate</div>
-    <div id="att-stat-rate" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Overall Rate</div>
+    <div class="value" id="att-stat-rate">—</div>
   </div>
-  <div style="background: #fff; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; border-left: 4px solid #f59e0b;">
-    <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Records</div>
-    <div id="att-stat-total" style="font-size: 1.8rem; font-weight: 800; color: #0f172a; margin-top: 4px;">—</div>
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Total Records</div>
+    <div class="value" id="att-stat-total">—</div>
   </div>
 </div>
 
-<!-- Department Grid -->
-<div id="att-dept-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
-  <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">
-    <span class="spinner"></span> Loading departments…
+<!-- Data Grid Container -->
+<div id="att-dept-grid" style="display: block; width: 100%;">
+  <div class="loading" style="text-align:center;padding:40px;color:#94a3b8;">
+    <span class="spinner"></span> Loading attendance data…
   </div>
 </div>
+
+<script>
+  if (window.FPU_ADMIN && window.FPU_ADMIN.loadAttendanceDepartments) {
+    setTimeout(window.FPU_ADMIN.loadAttendanceDepartments, 100);
+  }
+</script>

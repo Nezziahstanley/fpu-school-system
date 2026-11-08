@@ -3160,16 +3160,16 @@ async function loadAttendanceDepartments() {
     const json = await res.json();
     const departments = json.data || [];
 
-    // Update Top Stats Bar
+    // Update Top Stats Bar (with safe number conversion)
     const statDepts = document.getElementById('att-stat-depts');
     if (statDepts) statDepts.textContent = departments.length;
     
     let totalCourses = 0, totalRecords = 0, totalPresent = 0, totalLate = 0;
     departments.forEach(d => {
-      totalCourses += d.courses || 0;
-      totalRecords += d.records || 0;
-      totalPresent += d.present || 0;
-      totalLate += d.late || 0;
+      totalCourses += Number(d.courses) || 0;
+      totalRecords += Number(d.records) || 0;
+      totalPresent += Number(d.present) || 0;
+      totalLate += Number(d.late) || 0;
     });
     
     const statCourses = document.getElementById('att-stat-courses');
@@ -3191,52 +3191,71 @@ async function loadAttendanceDepartments() {
       return;
     }
 
-    grid.innerHTML = departments.map(d => {
-      let rateClass = 'empty';
-      if (d.records > 0) {
-        if (d.rate >= 75) rateClass = 'healthy';
-        else if (d.rate >= 50) rateClass = 'warning';
-        else rateClass = 'critical';
-      }
+    // RENDER AS A CLEAN DATA TABLE
+    grid.innerHTML = `
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <table style="width:100%; border-collapse:collapse; text-align:left;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Department</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">School</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Courses</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Students</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Records</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Attendance Rate</th>
+              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${departments.map(d => {
+              const rate = Number(d.rate) || 0;
+              const hasRecords = Number(d.records) > 0;
+              
+              let barColor = '#cbd5e1';
+              let textColor = '#64748b';
+              
+              if (hasRecords) {
+                if (rate >= 75) { barColor = '#10b981'; textColor = '#065f46'; }
+                else if (rate >= 50) { barColor = '#f59e0b'; textColor = '#b45309'; }
+                else { barColor = '#ef4444'; textColor = '#991b1b'; }
+              }
 
-      const rateText = d.records > 0 ? `${d.rate}%` : '—';
-
-      // CHANGED: Now it opens our new nested modal
-      return `
-        <div class="dept-card" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${d.id}, '${escapeHtml(d.name)}', '${escapeHtml(d.code)}')" style="cursor: pointer;">
-          <div class="dept-card-header" style="display:flex; justify-content:space-between; margin-bottom:12px;">
-            <span class="dept-code-badge" style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(d.code)}</span>
-            <span class="dept-school-badge" title="${escapeHtml(d.schoolName || '')}" style="background:#f1f5f9; color:#475569; padding:4px 8px; border-radius:999px; font-size:10px; font-weight:700;">${escapeHtml(d.schoolName || 'N/A')}</span>
-          </div>
-          <h3 class="dept-name" style="font-size:1.05rem; font-weight:700; margin:0 0 16px 0;">${escapeHtml(d.name)}</h3>
-          
-          <div class="dept-rate-wrap" style="display:flex; align-items:baseline; gap:8px; margin-bottom:16px;">
-            <span class="dept-rate-number ${rateClass}" style="font-size:2rem; font-weight:800; line-height:1; color:${rateClass === 'healthy' ? '#10b981' : rateClass === 'warning' ? '#f59e0b' : rateClass === 'critical' ? '#ef4444' : '#cbd5e1'};">${rateText}</span>
-            <span class="dept-rate-label" style="font-size:12px; color:#64748b; font-weight:600;">attendance rate</span>
-          </div>
-          
-          <div class="dept-stats-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; background:#f8fafc; padding:12px; border-radius:10px; margin-bottom:16px;">
-            <div class="dept-stat-box" style="text-align:center;">
-              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.courses || 0}</div>
-              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Courses</div>
-            </div>
-            <div class="dept-stat-box" style="text-align:center;">
-              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.students || 0}</div>
-              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Students</div>
-            </div>
-            <div class="dept-stat-box" style="text-align:center;">
-              <div class="dept-stat-val" style="font-size:1.1rem; font-weight:800; color:#0f172a;">${d.records || 0}</div>
-              <div class="dept-stat-lbl" style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:2px;">Records</div>
-            </div>
-          </div>
-          
-          <div class="dept-card-footer" style="display:flex; justify-content:space-between; font-size:12px; font-weight:700; color:#065f46;">
-            <span>${d.records === 0 ? 'No records yet' : 'View Courses'}</span>
-            <span>→</span>
-          </div>
-        </div>
-      `;
-    }).join('');
+              return `
+                <tr style="border-bottom:1px solid #e2e8f0; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                  <td style="padding:16px 20px;">
+                    <span style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:6px; font-weight:800; font-size:11px; font-family:monospace; margin-right:8px;">${escapeHtml(d.code || '')}</span>
+                    <span style="font-weight:700; color:#0f172a; font-size:14px;">${escapeHtml(d.name || '')}</span>
+                  </td>
+                  <td style="padding:16px 20px; color:#64748b; font-size:13px;">
+                    ${escapeHtml(d.schoolName || 'N/A')}
+                  </td>
+                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
+                    ${Number(d.courses) || 0}
+                  </td>
+                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
+                    ${Number(d.students) || 0}
+                  </td>
+                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
+                    ${Number(d.records) || 0}
+                  </td>
+                  <td style="padding:16px 20px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <div style="flex:1; height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden; min-width:80px;">
+                        <div style="width:${rate}%; height:100%; background:${barColor}; border-radius:999px; transition:width 0.5s ease;"></div>
+                      </div>
+                      <span style="font-size:13px; font-weight:800; color:${textColor}; width:40px; text-align:right;">${hasRecords ? rate + '%' : '—'}</span>
+                    </div>
+                  </td>
+                  <td style="padding:16px 20px; text-align:right;">
+                    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${d.id}, '${escapeQuotes(d.name)}', '${escapeQuotes(d.code)}')" style="font-weight: 600;">Manage</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
 
   } catch (err) {
     console.error('Failed to load attendance', err);

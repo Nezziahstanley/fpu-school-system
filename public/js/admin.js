@@ -6891,38 +6891,11 @@ async function renderDocPreview(doc, user) {
   // --- 2. ID CARD (REAL SCANNABLE QR CODE LINKING TO VERIFY PAGE) ---
   if (type === 'id-card' || type === 'id-letter') {
     
-    // 1. Build the URL payload
+    // 1. Build the URL to the verify page
     const verifyUrl = `${window.location.origin}/verify.html?id=${encodeURIComponent(idValue)}`;
-
-    // 2. Render the QR code asynchronously
-    setTimeout(() => {
-      const qrContainer = document.getElementById('qr-container');
-      if (!qrContainer) return;
-
-      if (typeof qrcode === 'undefined') {
-        const script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
-        script.onload = () => {
-          generateQR(verifyUrl, qrContainer);
-        };
-        document.head.appendChild(script);
-      } else {
-        generateQR(verifyUrl, qrContainer);
-      }
-
-      function generateQR(text, container) {
-        container.innerHTML = ''; 
-        try {
-          const qr = qrcode(0, 'M');
-          qr.addData(text);
-          qr.make();
-          container.innerHTML = qr.createImgTag(3, 0); 
-        } catch (e) {
-          console.error('QR Generation failed', e);
-          container.innerHTML = '<div style="font-size:8px; color:#dc2626;">QR Error</div>';
-        }
-      }
-    }, 50);
+    
+    // 2. Use QRServer API for a perfectly scannable image
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}&color=065f46&bgcolor=ffffff&margin=1`;
 
     return a4Wrapper('ID Card', `
       <style>
@@ -6941,12 +6914,8 @@ async function renderDocPreview(doc, user) {
         .pic-row-flex { display: flex; gap: 20px; }
         .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
         .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
-        
-        /* QR Container */
-        .qr-container { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
-        .qr-container img { width: 50px; height: 50px; display: block; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px; background: #fff; }
-        
+        .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 65px; flex-shrink: 0; margin-left: 5px; }
+        .pic-qr img { width: 55px; height: 55px; display: block; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px; background: #fff; }
         .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
       </style>
 
@@ -6995,10 +6964,8 @@ async function renderDocPreview(doc, user) {
             </div>
 
             <div class="pic-qr">
-              <!-- Target container for the real QR code -->
-              <div class="qr-container" id="qr-container">
-                <div style="width: 50px; height: 50px; background: #e2e8f0; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
-              </div>
+              <!-- Real scannable QR code image -->
+              <img src="${qrImageUrl}" alt="QR Code" />
               <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
             </div>
           </div>

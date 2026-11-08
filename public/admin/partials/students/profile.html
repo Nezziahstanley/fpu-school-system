@@ -334,9 +334,13 @@
         // --- View Transcript ---
         $('stu-goto-transcript').onclick = () => {
           A.showToast('Opening transcript…', 'info');
-          if (A.FPU_ADMIN_SPA && A.FPU_ADMIN_SPA.navigateToWithQuery) {
-            A.FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: id });
+          // Call the beautiful modal transcript function directly
+          if (typeof A.openTranscriptModal === 'function') {
+            A.openTranscriptModal(id);
+          } else if (typeof window.openTranscriptModal === 'function') {
+            window.openTranscriptModal(id);
           } else {
+            // Fallback if the function isn't exported to the window scope
             window.location.hash = `#transcript-by-student?studentId=${id}`;
           }
         };

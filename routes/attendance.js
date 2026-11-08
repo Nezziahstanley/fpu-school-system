@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, schema, sql } = require('../db');
-const { eq, and, or, ilike, desc } = require('drizzle-orm');
+const { eq, and, or, ilike, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
 
 const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
@@ -12,7 +12,6 @@ const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
 // GET /api/admin/attendance/departments
 // Returns a flat array of departments with their stats
 // ============================================================
-// Inside routes/attendance.js
 router.get('/departments', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, semester, schoolId, search } = req.query;
@@ -70,7 +69,8 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/admin/attendance/course/:id (For later use)
+// GET /api/admin/attendance/course/:id 
+// (Kept for backwards compatibility - old route)
 // ============================================================
 router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -124,6 +124,94 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
 
     return res.json({ success: true, data: formatted });
   } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/admin/attendance/course/:courseId/students
+// Returns the roster of students for a specific course
+// ============================================================
+router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+
+    // 1. Fetch all students registered for this course
+    const registrations = await db
+      .select({ studentId: schema.courseRegistrations.studentId })
+      .from(schema.courseRegistrations)
+      .where(eq(schema.courseRegistrations.courseId, courseId));
+
+    if (!registrations.length) return res.json({ success: true, data: [] });
+
+    const studentIds = registrations.map(r => r.studentId);
+
+    // 2. Fetch student details
+    const students = await db
+      .select({
+        id: schema.users.id,
+        firstName: schema.users.firstName,
+        lastName: schema.users.lastName,
+        matricNumber: schema.users.matricNumber,
+      })
+      .from(schema.users)
+      .where(inArray(schema.users.id, studentIds));
+
+    // 3. Fetch all attendance records for this course
+    const records = await db
+      .select({
+        studentId: schema.attendance.studentId,
+        status: schema.attendance.status
+      })
+      .from(schema.attendance)
+      .where(eq(schema.attendance.courseId, courseId));
+
+    // 4. Map the stats
+    const data = students.map(s => {
+      const studentRecords = records.filter(r => r.studentId === s.id);
+      const totalClasses = studentRecords.length;
+      const present = studentRecords.filter(r => r.status === 'present' || r.status === 'late').length;
+      const absent = studentRecords.filter(r => r.status === 'absent').length;
+      const rate = totalClasses > 0 ? Math.round((present / totalClasses) * 100) : 0;
+
+      return {
+        ...s,
+        totalClasses,
+        present,
+        absent,
+        rate
+      };
+    });
+
+    return res.json({ success: true, data });
+
+  } catch (err) {
+    console.error('Error fetching course roster:', err);
+    return next(err);
+  }
+});
+
+// ============================================================
+// GET /api/admin/attendance/student/:studentId/course/:courseId
+// Returns day-by-day attendance for a specific student
+// ============================================================
+router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    const courseId = Number(req.params.courseId);
+
+    const records = await db
+      .select()
+      .from(schema.attendance)
+      .where(and(
+        eq(schema.attendance.studentId, studentId),
+        eq(schema.attendance.courseId, courseId)
+      ))
+      .orderBy(desc(schema.attendance.date));
+
+    return res.json({ success: true, data: records });
+  } catch (err) {
+    console.error('Error fetching student attendance:', err);
     return next(err);
   }
 });

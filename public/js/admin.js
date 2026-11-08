@@ -13683,7 +13683,7 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department A4 Sheet (Strict Isolation)
+// TIMETABLE: Load Department A4 Sheet (Exact Template Match)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
@@ -13718,7 +13718,7 @@ async function loadTimetableSheet() {
 
   try {
     const [slotsRes, coursesRes, deptsRes, staffRes, sessionsRes] = await Promise.all([
-      adminFetch(`/api/admin/timetable?sessionId=${sessionId}&semester=${semester}&limit=5000`), // Fetch ALL slots
+      adminFetch(`/api/admin/timetable?sessionId=${sessionId}&semester=${semester}&limit=5000`), 
       adminFetch('/api/admin/courses?limit=5000'),
       adminFetch('/api/admin/departments'),
       adminFetch('/api/admin/staff?role=lecturer&limit=1000').catch(() => null),
@@ -13743,8 +13743,7 @@ async function loadTimetableSheet() {
     const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
     function renderLevel(level) {
-      
-      // 1. FILTER: Strictly match Department, Semester, and Level
+      // 1. Filter strictly by Department, Semester, and Level
       const levelSlots = rawSlots.filter(r => {
         const s = r.slot || r;
         const c = courseMap.get(Number(s.courseId)) || r.course;
@@ -13753,16 +13752,15 @@ async function loadTimetableSheet() {
         // A. Must belong to this exact Department
         if (Number(c.departmentId) !== Number(deptId)) return false;
 
-        // B. Must match the Semester (if explicitly set)
+        // B. Must match the Semester
         const slotSem = String(s.semester || semester).toLowerCase();
         const courseSem = String(c.semester || semester).toLowerCase();
         if (slotSem !== semester.toLowerCase() && courseSem !== semester.toLowerCase()) return false;
 
-        // C. Must match the Level (ND/HND) and Year (1/2)
+        // C. Must match Level (ND/HND) and Year (1/2)
         const cLevel = String(c.level || '').toUpperCase(); 
         let cYear = Number(c.yearOfStudy);
         
-        // Fallback if yearOfStudy isn't set in DB: try to extract from course code (e.g., COM 111 -> 1)
         if (!cYear) {
            const match = String(c.code).match(/^\D+(\d)/);
            cYear = match ? Number(match[1]) : 1;
@@ -13844,8 +13842,7 @@ async function loadTimetableSheet() {
           if (slotsHere.length > 0) {
             const r = slotsHere[0];
             const s = r.slot || r;
-            const c = courseMap.get(Number(s.courseId)) || r.course || {};
-
+            
             let st = String(s.startTime || '08:00').substring(0, 5);
             let et = String(s.endTime || '09:00').substring(0, 5);
             
@@ -13858,21 +13855,34 @@ async function loadTimetableSheet() {
                durationHours = Math.max(1, endH - startH);
             }
 
-            let colspan = durationHours;
-            if (i + colspan > 4 && i < 5) colspan = 4 - i; 
-            if (i === 5 && colspan > 3) colspan = 3;
+            // PERFECT COLSPAN MATH
+            let colspan = 1;
+            if (i < 4) {
+              // Morning classes can stretch up to the break (max 4 cols)
+              colspan = Math.min(durationHours, 4 - i);
+            } else if (i > 4) {
+              // Afternoon classes can stretch up to the end (max 3 cols)
+              colspan = Math.min(durationHours, 7 - i);
+            }
 
             for (let j = 1; j < colspan; j++) skipIndices.add(i + j);
 
-            const isPrc = s.venue && (s.venue.includes('Lab') || s.venue.includes('PRC'));
-            const suffix = isPrc ? ' (PRC)' : '';
-            const timeOverride = st < '08:00' ? ` (7-9am)` : '';
+            // RENDER ALL COURSES IN THIS SLOT (Stacked)
+            let coursesHtml = '';
+            slotsHere.forEach((slotRow, idx) => {
+              const c2 = courseMap.get(Number((slotRow.slot || slotRow).courseId)) || slotRow.course || {};
+              const isPrc = (slotRow.slot || slotRow).venue && ((slotRow.slot || slotRow).venue.includes('Lab') || (slotRow.slot || slotRow).venue.includes('PRC'));
+              const suffix = isPrc ? ' (PRC)' : '';
+              const timeOverride = idx === 0 && st < '08:00' ? ` (7-9am)` : '';
+              
+              coursesHtml += `<div style="margin-bottom: 2px;">${escapeHtml(c2.code)}${timeOverride}${suffix}</div>`;
+            });
 
-            gridHtml += `<td colspan="${colspan}" style="border:1px solid #000; padding:6px; font-weight:bold; text-align:center; vertical-align:top;">
-              ${escapeHtml(c.code)}${timeOverride}${suffix}
+            gridHtml += `<td colspan="${colspan}" style="border:1px solid #000; padding:4px; font-weight:bold; text-align:center; vertical-align:top;">
+              ${coursesHtml}
             </td>`;
           } else {
-            gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
+            gridHtml += `<td style="border:1px solid #000; padding:4px;"></td>`;
           }
         }
         gridHtml += `</tr>`;

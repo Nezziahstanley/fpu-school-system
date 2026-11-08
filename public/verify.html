@@ -33,7 +33,6 @@
       align-items: center;
       min-height: 100vh;
       padding: 20px;
-      /* Subtle background pattern */
       background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
       background-size: 20px 20px;
     }
@@ -55,7 +54,6 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* HEADER */
     .header {
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
       padding: 30px 20px;
@@ -106,7 +104,6 @@
       font-weight: 500;
     }
 
-    /* BODY */
     .body {
       padding: 0 24px 24px;
       position: relative;
@@ -161,7 +158,6 @@
       letter-spacing: 0.5px;
     }
 
-    /* DETAILS LIST */
     .details-list {
       background: #f8fafc;
       border-radius: 14px;
@@ -197,7 +193,6 @@
       text-align: right;
     }
 
-    /* STATUS BADGE */
     .status-wrap {
       text-align: center;
       margin-bottom: 24px;
@@ -221,7 +216,6 @@
       height: 16px;
     }
 
-    /* FOOTER */
     .footer {
       text-align: center;
       font-size: 0.7rem;
@@ -232,7 +226,6 @@
       line-height: 1.5;
     }
 
-    /* LOADING / ERROR STATES */
     .loading-state, .error-state {
       padding: 60px 20px;
       text-align: center;
@@ -272,7 +265,6 @@
   </div>
 
   <script>
-    // 1. Get the Matric Number from the URL
     const urlParams = new URLSearchParams(window.location.search);
     const matricId = urlParams.get('id');
     const appContainer = document.getElementById('app');
@@ -285,8 +277,8 @@
         </div>
       `;
     } else {
-      // 2. Fetch the student data from the public API
-      fetch(`/api/public/verify/${encodeURIComponent(matricId)}`)
+      // THE FIX: Use query parameters instead of path parameters
+      fetch(`/api/public/verify?id=${encodeURIComponent(matricId)}`)
         .then(res => {
           if (!res.ok) throw new Error('Student not found');
           return res.json();
@@ -300,7 +292,6 @@
 
           const fullName = `${student.firstName} ${student.lastName}`;
           
-          // Handle missing photo gracefully
           const photoHtml = student.photoUrl 
             ? `<img src="${student.photoUrl}" class="student-photo" alt="Student Photo" onerror="this.outerHTML='<div class=\\'student-photo\\'>👤</div>'">` 
             : `<div class="student-photo">👤</div>`;

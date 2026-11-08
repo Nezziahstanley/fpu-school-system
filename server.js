@@ -100,7 +100,6 @@ app.use(
     '/api/register-token',
     '/api/public/id-lookup',
     '/api/public/verify',
-    '/api/public/debug',
   ],
   publicLimiter
 );
@@ -123,13 +122,16 @@ try {
 
 // ------------------------------------------------------------
 // Public Verification Route (No Auth Required)
+// Uses Query Parameter (?id=...) to bypass URL encoding issues
 // ------------------------------------------------------------
-app.get('/api/public/verify/:matric', async (req, res) => {
+app.get('/api/public/verify', async (req, res) => {
   try {
-    // 1. Decode the matric number to handle %2F -> /
-    const matric = decodeURIComponent(req.params.matric);
-    
-    // 2. Use UPPER() to make the search case-insensitive
+    const matric = req.query.id;
+
+    if (!matric) {
+      return res.status(400).json({ success: false, error: 'Missing student ID' });
+    }
+
     const result = await require('./db').query(`
       SELECT 
         u.id, 
@@ -159,58 +161,6 @@ app.get('/api/public/verify/:matric', async (req, res) => {
   } catch (err) {
     console.error('Verify error:', err);
     res.status(500).json({ success: false, error: 'Server error' });
-  }
-});
-
-// ------------------------------------------------------------
-// TEMPORARY DEBUG ROUTE
-// ------------------------------------------------------------
-app.get('/api/public/debug/:matric', async (req, res) => {
-  try {
-    const matric = req.params.matric;
-    const db = require('./db');
-    
-    // 1. Check if the student exists in the students table
-    const studentCheck = await db.query(`SELECT * FROM students WHERE matric_number = $1 LIMIT 1`, [matric]);
-    
-    if (studentCheck.rows.length === 0) {
-      return res.json({ 
-        success: false, 
-        step: 'students_table', 
-        message: 'Student not found in students table by matric_number.', 
-        received_matric: matric 
-      });
-    }
-
-    const student = studentCheck.rows[0];
-    
-    // 2. Check if the user exists
-    const userCheck = await db.query(`SELECT * FROM users WHERE id = $1 LIMIT 1`, [student.user_id]);
-    
-    if (userCheck.rows.length === 0) {
-      return res.json({ 
-        success: false, 
-        step: 'users_table', 
-        message: 'User not found in users table.', 
-        student_user_id: student.user_id 
-      });
-    }
-
-    // 3. Return success with all raw data so we can see what's happening
-    return res.json({
-      success: true,
-      message: 'Found student successfully',
-      student_record: student,
-      user_record: userCheck.rows[0]
-    });
-
-  } catch (err) {
-    return res.json({ 
-      success: false, 
-      step: 'database_error', 
-      error: err.message,
-      hint: 'Check your table names and column names.'
-    });
   }
 });
 

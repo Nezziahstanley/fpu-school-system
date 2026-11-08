@@ -6829,43 +6829,52 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD (PURE SVG QR CODE) ---
+  // --- 2. ID CARD (REAL SCANNABLE QR CODE) ---
   if (type === 'id-card' || type === 'id-letter') {
-    // Standard 21x21 QR Code Matrix (Version 1)
-    // 1 = black block, 0 = white space. This draws a realistic, scannable pattern.
-    const qrMatrix = [
-      "111111101010111111101",
-      "100000101110100000101",
-      "101110101000101110101",
-      "101110100100101110101",
-      "101110101010101110101",
-      "100000100110100000101",
-      "111111101010111111101",
-      "000000001110000000001",
-      "110101110001011010110",
-      "010010001110100101001",
-      "111011101010111011101",
-      "000000001010000000001",
-      "111111101110111111101",
-      "100000100010100000101",
-      "101110101110101110101",
-      "101110100010101110101",
-      "101110101110101110101",
-      "100000101000100000101",
-      "111111101010111111101",
-      "000000001110000000001",
-      "111111101010111111101"
-    ];
+    // 1. Build the payload text to be scanned
+    const qrPayload = `FEDERAL POLYTECHNIC UGEP\n` +
+                      `----------------\n` +
+                      `NAME: ${fullName}\n` +
+                      `MATRIC: ${idValue}\n` +
+                      `LEVEL: ${level}\n` +
+                      `SESSION: ${sessionName}\n` +
+                      `PROGRAMME: ${progName}\n` +
+                      `DEPARTMENT: ${deptName}\n` +
+                      `----------------\n` +
+                      `STATUS: VERIFIED ACTIVE STUDENT`;
 
-    // Convert matrix to a single SVG path
-    let qrPath = "";
-    for (let r = 0; r < 21; r++) {
-      for (let c = 0; c < 21; c++) {
-        if (qrMatrix[r][c] === '1') {
-          qrPath += `M${c * 4},${r * 4}h4v4h-4z `;
+    // 2. Render the QR code asynchronously
+    setTimeout(() => {
+      const qrContainer = document.getElementById('qr-container');
+      if (!qrContainer) return;
+
+      // Dynamically load the library if not already loaded
+      if (typeof qrcode === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+        script.onload = () => {
+          generateQR(qrPayload, qrContainer);
+        };
+        document.head.appendChild(script);
+      } else {
+        generateQR(qrPayload, qrContainer);
+      }
+
+      function generateQR(text, container) {
+        container.innerHTML = ''; // Clear loading state
+        try {
+          // Type 0 = auto-detect size, 'M' = Medium error correction
+          const qr = qrcode(0, 'M');
+          qr.addData(text);
+          qr.make();
+          // Render as an image directly into the container
+          container.innerHTML = qr.createImgTag(4, 0); 
+        } catch (e) {
+          console.error('QR Generation failed', e);
+          container.innerHTML = '<div style="font-size:8px; color:#dc2626;">QR Error</div>';
         }
       }
-    }
+    }, 50);
 
     return a4Wrapper('ID Card', `
       <style>
@@ -6886,8 +6895,9 @@ async function renderDocPreview(doc, user) {
         .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60px; flex-shrink: 0; margin-left: 5px; }
         
-        /* Pure SVG QR Container */
-        .qr-svg-box { width: 50px; height: 50px; background: #fff; padding: 2px; border-radius: 4px; border: 1px solid #e2e8f0; }
+        /* QR Container */
+        .qr-container { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; }
+        .qr-container img { width: 50px; height: 50px; display: block; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px; background: #fff; }
         
         .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
       </style>
@@ -6937,12 +6947,9 @@ async function renderDocPreview(doc, user) {
             </div>
 
             <div class="pic-qr">
-              <div class="qr-svg-box">
-                <!-- Pure SVG QR Code generation -->
-                <svg width="100%" height="100%" viewBox="0 0 84 84" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="84" height="84" fill="#ffffff" />
-                  <path d="${qrPath}" fill="#000000" />
-                </svg>
+              <!-- Target container for the real QR code -->
+              <div class="qr-container" id="qr-container">
+                <div style="width: 50px; height: 50px; background: #e2e8f0; border-radius: 4px; animation: pulse 1.5s infinite;"></div>
               </div>
               <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
             </div>

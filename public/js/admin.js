@@ -2657,7 +2657,7 @@ async function loadTranscriptLookup() {
 }
 
 // ============================================
-// TRANSCRIPT: View (FIXED - accepts id AND studentId)
+// TRANSCRIPT: View
 // ============================================
 async function loadTranscriptView() {
   const root = document.getElementById('tx-root');
@@ -2666,7 +2666,6 @@ async function loadTranscriptView() {
   const hash = window.location.hash.replace(/^#/, '');
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
-  // Accept EITHER ?id= or ?studentId= (covers both routes)
   const studentId = params.get('id') || params.get('studentId');
 
   if (!studentId) {
@@ -2681,7 +2680,7 @@ async function loadTranscriptView() {
   root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading transcript…</div>';
 
   try {
-    // Fetch student + results in parallel
+    // Fetch student, results, and all courses in parallel
     const [studentRes, resultsRes, coursesRes] = await Promise.all([
       adminFetch(`/api/admin/students/${studentId}`).catch(() => null),
       adminFetch(`/api/admin/results?studentId=${studentId}&limit=5000`).catch(() => null),
@@ -2690,19 +2689,28 @@ async function loadTranscriptView() {
 
     let student = null;
     try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+    
     let results = [];
-    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
+    try { 
+      if (resultsRes && resultsRes.ok) { 
+        const j = await resultsRes.json(); 
+        results = j.data || j || []; 
+        // Handle case where backend returns { data: { rows: [...] } }
+        if (results.rows) results = results.rows;
+      } 
+    } catch {}
+    
     let courseMap = new Map();
-    try { if (coursesRes && coursesRes.ok) { const j = await coursesRes.json(); (j.data || []).forEach(c => courseMap.set(c.id, c)); } } catch {}
+    try { 
+      if (coursesRes && coursesRes.ok) { 
+        const j = await coursesRes.json(); 
+        const courses = j.data || j || [];
+        courses.forEach(c => courseMap.set(c.id, c)); 
+      } 
+    } catch {}
 
     if (!student || !student.id) {
-      root.innerHTML = `
-        <div class="alert alert-danger" style="margin:20px;">
-          <strong>Student not found.</strong> (ID: ${escapeHtml(studentId)})
-          <br/><br/>
-          <button class="btn btn-sm btn-outline" onclick="window.location.hash='#transcript'">← Back to lookup</button>
-        </div>`;
-      return;
+      throw new Error('Student not found.');
     }
 
     // Update page header
@@ -2722,17 +2730,21 @@ async function loadTranscriptView() {
 
     // Compute summary
     let totalUnits = 0, totalPoints = 0, courseCount = 0;
+    
     results.forEach(r => {
       const row = r.result || r;
+      // Find course details from our map
       const course = courseMap.get(row.courseId) || r.course || {};
       const units = Number(course.unit) || Number(row.unit) || 0;
       const points = Number(row.points) || 0;
+      
       if (row.status === 'published' || row.status === 'approved') {
         totalUnits += units;
         totalPoints += units * points;
         courseCount++;
       }
     });
+    
     const cgpa = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '—';
     const classification =
       cgpa === '—' ? '—' :
@@ -2744,17 +2756,20 @@ async function loadTranscriptView() {
     // Render groups
     const groupsHtml = [...groups.entries()].map(([key, list]) => {
       const [sessionId, semester] = key.split('|');
+      
       const sectionUnits = list.reduce((s, r) => {
         const row = r.result || r;
         const course = courseMap.get(row.courseId) || r.course || {};
         return s + (Number(course.unit) || Number(row.unit) || 0);
       }, 0);
+      
       const sectionPoints = list.reduce((s, r) => {
         const row = r.result || r;
         const course = courseMap.get(row.courseId) || r.course || {};
         const units = Number(course.unit) || Number(row.unit) || 0;
         return s + (units * (Number(row.points) || 0));
       }, 0);
+      
       const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
 
       const rowsHtml = list

@@ -10595,7 +10595,7 @@ async function loadGraduationsTable() {
                 ? `<button class="btn btn-sm btn-accent" onclick="FPU_ADMIN.markGraduated(${g.id})">Graduate</button>`
                 : ''}
               <button class="btn btn-sm btn-outline"
-                onclick="FPU_ADMIN_SPA.navigateToWithQuery('transcript-by-student', { studentId: ${s.id || g.studentId} })">
+                onclick="FPU_ADMIN.openTranscriptModal(${s.id || g.studentId})">
                 Transcript
               </button>
             </div>

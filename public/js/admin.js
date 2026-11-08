@@ -6622,24 +6622,36 @@ async function loadDocumentDetail() {
   root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading…</div>';
 
   try {
-    const [docsRes, usersRes] = await Promise.all([
-      adminFetch('/api/admin/documents?limit=500').catch(() => null),
-      adminFetch('/api/admin/user-list?limit=2000').catch(() => null),
-    ]);
-
-    let docs = [], users = [];
-    try { if (docsRes && docsRes.ok) { const j = await docsRes.json(); docs = j.data || j || []; } } catch {}
-    try { if (usersRes && usersRes.ok) { const j = await usersRes.json(); users = j.data || j || []; } } catch {}
+    // 1. Fetch the specific document
+    const docsRes = await adminFetch('/api/admin/documents?limit=500');
+    const docsJson = await docsRes.json();
+    const docs = docsJson.data || docsJson || [];
 
     const docItem = docs.find((r) => {
       const doc = r.document || r;
       return Number(doc.id) === Number(id);
     });
+    
     if (!docItem) throw new Error('Document not found.');
 
-    const doc  = docItem.document || docItem;
-    const userById = new Map(users.map((u) => [u.id, u]));
-    const user = docItem.user || userById.get(doc.userId) || {};
+    const doc = docItem.document || docItem;
+    let user = docItem.user || docItem.student || {};
+
+    // 2. CRITICAL FIX: Fetch the FULL student profile to get Programme & Department
+    if (user.id || doc.userId) {
+      const userId = user.id || doc.userId;
+      try {
+        const studentRes = await adminFetch(`/api/admin/students/${userId}`);
+        if (studentRes.ok) {
+          const studentJson = await studentRes.json();
+          const fullProfile = studentJson.data || studentJson;
+          // Merge the full profile with the basic user data
+          user = { ...user, ...fullProfile };
+        }
+      } catch (e) {
+        console.warn('Could not fetch full student profile for document preview', e);
+      }
+    }
 
     const sub = document.getElementById('dd-subtitle');
     if (sub) sub.textContent = `Request #${doc.id} · ${String(doc.type || '').replace(/-/g, ' ')}`;
@@ -6652,7 +6664,7 @@ async function loadDocumentDetail() {
     const icon = iconMap[String(doc.type || '').toLowerCase()] || '📄';
 
     // ------------------------------------------------------------------
-    // 1) Detail card (metadata + action buttons) — same as before
+    // 1) Detail card (metadata + action buttons)
     // ------------------------------------------------------------------
     const cardHtml = `
       <div class="doc-detail">
@@ -6714,15 +6726,13 @@ async function loadDocumentDetail() {
     `;
 
     // ------------------------------------------------------------------
-    // 2) NEW: Document preview (rendered transcript) — reuses your
-    //    transcript renderer. Shown ONLY when the doc is a transcript
-    //    AND the student has results. Otherwise a helpful hint.
+    // 2) Document preview
     // ------------------------------------------------------------------
     const previewHtml = await renderDocPreview(doc, user);
 
     root.innerHTML = cardHtml + previewHtml;
 
-    // Wire metadata action buttons (same as before)
+    // Wire metadata action buttons
     const approveBtn = document.getElementById('dd-approve');
     if (approveBtn) approveBtn.onclick = () => approveDoc(doc.id);
 
@@ -6762,9 +6772,12 @@ async function renderDocPreview(doc, user) {
   const isStaff = user.role === 'staff' || user.role === 'admin' || !!user.staffId;
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
   const idLabel = isStaff ? 'Staff ID' : 'Matric Number';
-  const progName = user.programme?.name || user.programmeName || '—';
-  const deptName = user.department?.name || user.departmentName || '—';
+  
+  // Deep extraction for Programme and Department
+  const progName = user.programme?.name || user.programmeName || user.programme_name || user.programme?.code || '—';
+  const deptName = user.department?.name || user.departmentName || user.department_name || user.department?.code || '—';
   const level = user.level || '—';
+  const sessionName = user.session?.name || user.sessionName || user.currentSession || '2025/2026';
 
   // Common Wrapper for A4 Documents
   const a4Wrapper = (title, bodyHtml) => `
@@ -6793,7 +6806,7 @@ async function renderDocPreview(doc, user) {
           <tr><td style="color:#64748b; width:30%;">Programme:</td><td style="font-weight:bold;">${escapeHtml(progName)}</td></tr>
           <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${escapeHtml(deptName)}</td></tr>
           <tr><td style="color:#64748b;">Level:</td><td style="font-weight:bold;">${escapeHtml(level)}</td></tr>
-          <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">2025/2026</td></tr>
+          <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">${escapeHtml(sessionName)}</td></tr>
         </table>
         <p>This document is issued at the request of the student for official purposes.</p>
         <br><p>Date: ${dateStr}</p>
@@ -6809,7 +6822,7 @@ async function renderDocPreview(doc, user) {
   }
 
   // --- 2. STUDENT ID CARD ---
-  if (type === 'id-card') {
+  if (type === 'id-card' || type === 'id-letter') {
     return `
       <div class="doc-preview-wrap">
         <div class="doc-preview-toolbar"><span>👁 ID Card Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
@@ -6825,7 +6838,9 @@ async function renderDocPreview(doc, user) {
               </div>
               <div class="id-card-body">
                 <div class="official-watermark" style="opacity:0.05; z-index:0;"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
-                <div class="id-photo">PHOTO</div>
+                <div class="id-photo">
+                  ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" style="width:100%; height:100%; object-fit:cover; border-radius:10px;" />` : 'PHOTO'}
+                </div>
                 <h2 class="id-name">${escapeHtml(fullName)}</h2>
                 <div class="id-row"><span class="label">Matric</span><span class="value">${escapeHtml(idValue)}</span></div>
                 <div class="id-row"><span class="label">Level</span><span class="value">${escapeHtml(level)}</span></div>
@@ -6896,10 +6911,8 @@ async function renderDocPreview(doc, user) {
 
   // --- 5. TRANSCRIPT (Dynamic Data) ---
   if (type === 'transcript') {
-    // Fetch actual results for the transcript
     let results = [];
     try {
-      // Note: Ensure this endpoint matches your backend route
       const res = await adminFetch(`/api/admin/departments/transcript/${user.id}`);
       if (res.ok) { const j = await res.json(); results = j.results || []; }
     } catch (e) { console.error("Could not load transcript data", e); }

@@ -122,7 +122,6 @@ try {
 
 // ------------------------------------------------------------
 // Public Verification Route (No Auth Required)
-// Uses Query Parameter (?id=...) to bypass URL encoding issues
 // ------------------------------------------------------------
 app.get('/api/public/verify', async (req, res) => {
   try {
@@ -132,21 +131,21 @@ app.get('/api/public/verify', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing student ID' });
     }
 
+    // Query the "users" table directly (there is no students table)
     const result = await require('./db').query(`
       SELECT 
         u.id, 
         u.first_name AS "firstName", 
         u.last_name AS "lastName", 
-        u.photo_url AS "photoUrl",
-        s.matric_number AS "matricNumber", 
-        s.level,
+        COALESCE(u.id_card_photo_url, u.photo_url) AS "photoUrl",
+        u.matric_number AS "matricNumber", 
+        u.level,
         p.name AS "programmeName",
         d.name AS "departmentName"
       FROM users u
-      JOIN students s ON u.id = s.user_id
-      LEFT JOIN programmes p ON s.programme_id = p.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      WHERE UPPER(s.matric_number) = UPPER($1)
+      LEFT JOIN programmes p ON u.programme_id = p.id
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE UPPER(u.matric_number) = UPPER($1)
       LIMIT 1
     `, [matric]);
 

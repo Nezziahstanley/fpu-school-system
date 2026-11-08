@@ -6765,7 +6765,11 @@ async function loadDocumentDetail() {
 
 async function renderDocPreview(doc, user) {
   const type = String(doc.type || '').toLowerCase();
-  const dateStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateObj = new Date();
+  const day = dateObj.getDate();
+  const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
+  const year = dateObj.getFullYear();
+  const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
 
   // Data Extraction
@@ -6775,23 +6779,36 @@ async function renderDocPreview(doc, user) {
   
   const progName = user.programme?.name || user.programmeName || user.programme_name || user.programme?.code || '—';
   const deptName = user.department?.name || user.departmentName || user.department_name || user.department?.code || '—';
-  const level = user.level || '—';
+  const level = user.level || 'ND';
   const sessionName = user.session?.name || user.sessionName || user.currentSession || '2025/2026';
+
+  // Determine classification
+  const cgpa = user.cgpa || 3.5; 
+  let classification = 'Upper Credit';
+  if (cgpa >= 3.5) classification = 'Distinction';
+  else if (cgpa >= 3.0) classification = 'Upper Credit';
+  else if (cgpa >= 2.5) classification = 'Lower Credit';
+  else classification = 'Pass';
 
   // Common Wrapper
   const a4Wrapper = (title, bodyHtml) => `
     <div class="doc-preview-wrap">
       <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        <div class="official-doc" style="background: #fffdf5;">
-          <div class="official-watermark" style="opacity: 0.03;"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
-          ${bodyHtml}
+        <div class="official-doc" style="background: #fdfbf7; padding: 20mm;">
+          <!-- Main Background Watermark -->
+          <div class="official-watermark" style="opacity: 0.03; z-index: 0;">
+            <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 80%;" />
+          </div>
+          <div style="position: relative; z-index: 1;">
+            ${bodyHtml}
+          </div>
         </div>
       </div>
     </div>
   `;
 
-  // --- 1. ATTESTATION LETTER (Unchanged) ---
+  // --- 1. ATTESTATION LETTER ---
   if (type === 'attestation') {
     return a4Wrapper('Attestation', `
       <div class="official-letterhead">
@@ -6819,7 +6836,7 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD (Unchanged) ---
+  // --- 2. ID CARD ---
   if (type === 'id-card' || type === 'id-letter') {
     return `
       <div class="doc-preview-wrap">
@@ -6853,168 +6870,180 @@ async function renderDocPreview(doc, user) {
     `;
   }
 
-  // --- 3. CERTIFICATE OF COMPLETION (REDESIGNED TO MATCH SAMPLE) ---
+  // --- 3. CERTIFICATE OF COMPLETION (VINTAGE REDESIGN) ---
   if (type === 'certificate') {
-    // Determine classification (mock based on CGPA or fallback)
-    const cgpa = user.cgpa || 3.5; 
-    let classification = 'Upper Credit';
-    if (cgpa >= 3.5) classification = 'Distinction';
-    else if (cgpa >= 3.0) classification = 'Upper Credit';
-    else if (cgpa >= 2.5) classification = 'Lower Credit';
-    else classification = 'Pass';
-
     return a4Wrapper('Certificate', `
       <style>
-        /* Specific styles to match the classic certificate look */
-        .classic-cert {
-          border: 3px solid #064e3b;
-          outline: 1px solid #b45309;
-          outline-offset: 4px;
-          padding: 40px 50px;
-          height: 100%;
+        .vintage-cert {
+          font-family: 'Times New Roman', Times, serif;
+          color: #1a1a1a;
+          text-align: center;
           display: flex;
           flex-direction: column;
           align-items: center;
-          text-align: center;
-          color: #064e3b;
-          font-family: 'Times New Roman', Times, serif;
+          padding-top: 10mm;
         }
-        .classic-cert .cert-header {
-          font-size: 20px;
+        
+        .vintage-cert .vc-header {
+          font-size: 22px;
           letter-spacing: 2px;
-          font-weight: bold;
           text-transform: uppercase;
           margin-bottom: 5px;
+          font-weight: normal;
         }
-        .classic-cert .cert-subheader {
-          font-size: 11px;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          color: #475569;
-          margin-bottom: 25px;
-        }
-        .classic-cert .cert-logo {
-          width: 90px;
-          margin-bottom: 20px;
-        }
-        .classic-cert .cert-certify {
-          font-size: 16px;
-          font-style: italic;
-          margin-bottom: 15px;
-        }
-        .classic-cert .cert-name {
-          font-family: 'Great Vibes', 'Brush Script MT', cursive, serif;
-          font-size: 40px;
-          color: #b45309; /* Gold/Bronze color for the name */
-          margin-bottom: 20px;
-          border-bottom: 1px solid #cbd5e1;
-          padding-bottom: 5px;
-          width: 80%;
-        }
-        .classic-cert .cert-body-text {
-          font-size: 15px;
-          line-height: 1.8;
-          margin-bottom: 20px;
-          width: 90%;
-        }
-        .classic-cert .cert-award {
-          font-size: 22px;
-          font-weight: bold;
-          text-transform: uppercase;
+        .vintage-cert .vc-subheader {
+          font-size: 12px;
           letter-spacing: 2px;
-          margin: 15px 0;
+          text-transform: uppercase;
+          color: #444;
+          margin-bottom: 30px;
         }
-        .classic-cert .cert-programme {
-          font-size: 20px;
+        
+        .vintage-cert .vc-logo {
+          width: 110px;
+          margin-bottom: 40px;
+        }
+
+        .vintage-cert .vc-text {
+          font-size: 18px;
+          line-height: 1.6;
           font-style: italic;
+          margin-bottom: 10px;
+        }
+
+        .vintage-cert .vc-name {
+          font-family: 'Brush Script MT', 'Great Vibes', cursive;
+          font-size: 42px;
+          color: #000;
+          margin: 10px 0 20px 0;
+          border-bottom: 1px solid #999;
+          padding: 0 40px;
+          display: inline-block;
+          min-width: 60%;
+        }
+
+        .vintage-cert .vc-body {
+          font-size: 17px;
+          line-height: 1.8;
+          max-width: 85%;
+          margin: 0 auto;
+        }
+
+        .vintage-cert .vc-fill-line {
+          border-bottom: 1px solid #999;
+          display: inline-block;
+          padding: 0 10px;
+          min-width: 120px;
           font-weight: bold;
-          margin-bottom: 25px;
+          font-style: normal;
         }
-        .classic-cert .cert-seal {
-          width: 90px;
-          height: 90px;
-          background: radial-gradient(circle, #fef3c7 0%, #f59e0b 100%);
-          border: 3px solid #b45309;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 30px;
-          color: #78350f;
-          margin: 10px 0 30px 0;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+
+        .vintage-cert .vc-caps {
+          text-transform: uppercase;
+          font-size: 20px;
+          letter-spacing: 1px;
+          margin: 25px 0;
+          line-height: 1.4;
         }
-        .classic-cert .cert-signatures {
+
+        .vintage-cert .vc-signatures {
           display: flex;
           justify-content: space-between;
           width: 100%;
-          margin-top: auto;
+          margin-top: 60px;
           padding: 0 40px;
         }
-        .classic-cert .sig-block {
+
+        .vintage-cert .vc-sig-block {
           text-align: center;
           width: 200px;
         }
-        .classic-cert .sig-line {
-          border-bottom: 1px solid #064e3b;
-          height: 30px;
+
+        .vintage-cert .vc-sig-img {
+          font-family: 'Brush Script MT', cursive;
+          font-size: 28px;
+          color: #333;
+          height: 40px;
+          margin-bottom: -10px;
+          transform: rotate(-5deg);
+        }
+
+        .vintage-cert .vc-sig-line {
+          border-bottom: 1px solid #000;
           margin-bottom: 5px;
         }
-        .classic-cert .sig-title {
+
+        .vintage-cert .vc-sig-title {
           font-size: 12px;
           font-weight: bold;
-          text-transform: uppercase;
           letter-spacing: 1px;
+        }
+
+        .vintage-cert .vc-footer {
+          margin-top: 50px;
+          font-size: 13px;
+          text-align: right;
+          width: 100%;
+          padding-right: 40px;
+          font-weight: bold;
         }
       </style>
 
-      <div class="classic-cert">
-        <div class="cert-header">The Federal Polytechnic, Ugep</div>
-        <div class="cert-subheader">P.M.B. 1038, Ugep, Cross River State, Nigeria</div>
-
-        <img src="/images/logo.png" class="cert-logo" onerror="this.style.display='none'" />
-
-        <div class="cert-certify">This is to certify that</div>
+      <div class="vintage-cert">
+        <div class="vc-header">The Federal Polytechnic</div>
+        <div class="vc-subheader">Ugep, Cross River State, Nigeria</div>
         
-        <div class="cert-name">${escapeHtml(fullName)}</div>
+        <img src="/images/logo.png" class="vc-logo" onerror="this.style.display='none'" />
 
-        <div class="cert-body-text">
+        <div class="vc-text">This is to certify that</div>
+        
+        <div class="vc-name">${escapeHtml(fullName)}</div>
+
+        <div class="vc-body">
           having completed the approved Course of Study and passed the prescribed Examinations, has this day,
-          <br>
-          <strong>${dateStr}</strong>
-          <br>
-          under the Authority of the <strong>Academic Board</strong>
-          <br>
+          <br><br>
+          the <span class="vc-fill-line">${day}${day === 1 || day === 21 || day === 31 ? 'st' : (day === 2 || day === 22 ? 'nd' : (day === 3 || day === 23 ? 'rd' : 'th'))}</span> 
+          of <span class="vc-fill-line">${month}</span>, 
+          <span class="vc-fill-line">${year}</span>
+          <br><br>
+          under the Authority of the<br>
+          <span class="vc-caps">Academic Board</span>
           been awarded
         </div>
 
-        <div class="cert-award">
+        <div class="vc-caps">
           ${String(level).toUpperCase() === 'HND' ? 'The Higher National Diploma' : 'The National Diploma'}
-        </div>
-        <div style="font-size: 14px; font-style: italic; margin-bottom: 10px;">in</div>
-        <div class="cert-programme">${escapeHtml(progName)}</div>
-        
-        <div class="cert-body-text" style="margin-bottom: 0;">
-          with <strong>${classification}</strong>
+          <br>
+          <span style="font-size: 14px; font-style: italic; text-transform: lowercase; letter-spacing: normal;">in</span>
+          <br>
+          <span style="text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; font-style: italic;">${escapeHtml(progName)}</span>
         </div>
 
-        <div class="cert-seal">★</div>
+        <div class="vc-text" style="font-size: 16px;">
+          with <span class="vc-fill-line">${classification}</span>
+        </div>
 
-        <div class="cert-signatures">
-          <div class="sig-block">
-            <div class="sig-line"></div>
-            <div class="sig-title">Rector</div>
+        <div class="vc-signatures">
+          <div class="vc-sig-block">
+            <div class="vc-sig-img">J. Akande</div>
+            <div class="vc-sig-line"></div>
+            <div class="vc-sig-title">RECTOR</div>
           </div>
-          <div class="sig-block">
-            <div class="sig-line"></div>
-            <div class="sig-title">Registrar</div>
+          <div class="vc-sig-block">
+            <div class="vc-sig-img">M. Bello</div>
+            <div class="vc-sig-line"></div>
+            <div class="vc-sig-title">REGISTRAR</div>
           </div>
+        </div>
+
+        <div class="vc-footer">
+          Certificate No. FPU/${level}/HND/${new Date().getFullYear().toString().slice(-2)}/${String(user.id || 0).padStart(5, '0')}
         </div>
       </div>
     `);
   }
 
-  // --- 4. CLEARANCE CERTIFICATE (Unchanged) ---
+  // --- 4. CLEARANCE CERTIFICATE ---
   if (type === 'clearance') {
     return a4Wrapper('Clearance', `
       <div class="official-letterhead">
@@ -7042,7 +7071,7 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 5. TRANSCRIPT (Unchanged) ---
+  // --- 5. TRANSCRIPT ---
   if (type === 'transcript') {
     let results = [];
     try {

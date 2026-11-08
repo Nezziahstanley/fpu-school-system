@@ -79,9 +79,10 @@
 </div>
 
 <!-- MODAL: View Document -->
-<div id="view-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#f8fafc;border-radius:12px;max-width:800px;width:100%;height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+<div id="view-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:99999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#f1f5f9;border-radius:12px;max-width:900px;width:100%;height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 60px rgba(0,0,0,.3);">
     
+    <!-- Modal Header -->
     <div style="padding:1rem 1.5rem;background:#fff;border-bottom:1px solid #e2e8f0;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center;">
       <h3 style="margin:0;color:#0f172a;font-size:1.1rem;font-weight:800;">Your Document</h3>
       <div style="display:flex;gap:0.5rem;">
@@ -90,6 +91,7 @@
       </div>
     </div>
 
+    <!-- Document Body -->
     <div id="view-doc-body" style="flex-grow:1;overflow-y:auto;padding:2rem;display:flex;justify-content:center;align-items:flex-start;">
       <!-- Document injects here -->
     </div>
@@ -104,6 +106,48 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* CSS for the exact Document Layout */
+  .official-doc {
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    padding: 20mm;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .official-watermark {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: center; justify-content: center; z-index: 0;
+  }
+  .official-watermark img { width: 75%; max-width: 500px; opacity: 0.08; }
+  
+  .official-letterhead { display: flex; align-items: center; justify-content: center; gap: 20px; text-align: center; padding-bottom: 15px; border-bottom: 3px solid #065f46; margin-bottom: 40px; position: relative; z-index: 1; }
+  .official-letterhead img { width: 90px; height: auto; }
+  .official-letterhead .inst-name { font-size: 26px; font-weight: bold; color: #065f46; letter-spacing: 1px; font-family: 'Poppins', sans-serif; }
+  .official-letterhead .inst-motto { font-size: 14px; color: #6b7280; font-style: italic; margin-top: 4px; }
+  
+  .official-title { text-align: center; font-size: 20px; font-weight: bold; text-decoration: underline; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 40px; position: relative; z-index: 1; }
+  .official-body { line-height: 2; position: relative; z-index: 1; font-size: 16px; text-align: justify; font-family: 'Times New Roman', Times, serif; }
+  
+  .official-signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 80px; position: relative; z-index: 1; }
+  .official-sig-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 8px; }
+  .official-sig-role { font-size: 14px; font-weight: bold; text-transform: uppercase; text-align: center; }
+
+  /* ID Card specific */
+  .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; }
+  .portal-id-card { width: 450px; height: 260px; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; }
+  .pic-header { background: #065f46; height: 50px; padding: 0 20px; display: flex; align-items: center; gap: 12px; color: #fff; }
+  .pic-header img { width: 32px; height: 32px; background: #fff; border-radius: 50%; padding: 2px; }
+  .pic-header-text .inst { font-size: 13px; font-weight: 800; }
+  .pic-body { display: flex; padding: 15px 20px; gap: 15px; flex: 1; }
+  .pic-photo { width: 75px; height: 95px; border-radius: 6px; border: 1px dashed #cbd5e1; }
+  .pic-details { flex: 1; }
+  .pic-row { display: flex; flex-direction: column; margin-bottom: 2px; }
+  .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+  .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; }
+
   /* Print Styles */
   @media print {
     body * { visibility: hidden; }
@@ -112,6 +156,7 @@
     #view-doc-modal { position: static !important; background: transparent !important; padding: 0 !important; }
     #view-doc-modal > div { box-shadow: none !important; border-radius: 0 !important; height: auto !important; max-width: 100% !important; }
     #view-doc-modal > div > div:first-child { display: none !important; }
+    .official-doc { box-shadow: none !important; padding: 0 !important; width: 100% !important; min-height: auto !important; }
   }
 </style>
 
@@ -142,7 +187,6 @@
         badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Pending</span>';
       } else if (d.status === 'approved' || d.status === 'issued' || d.status === 'ready') {
         badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Ready</span>';
-        // Add the View button for Ready documents
         actionHtml = `<button onclick="window.viewStudentDoc(${d.id}, '${esc(d.type)}', '${esc(d.title)}')" style="padding:.3rem .6rem;font-size:.75rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">👁 View</button>`;
       } else if (d.status === 'rejected') {
         badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Rejected</span>';
@@ -150,7 +194,6 @@
         badge = `<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">${esc(d.status)}</span>`;
       }
 
-      // If there's a direct file URL (like a PDF upload), show a download link
       if (d.fileUrl && d.status !== 'pending' && d.status !== 'rejected') {
          actionHtml = `<a href="${esc(d.fileUrl)}" target="_blank" style="display:inline-block;padding:.3rem .6rem;font-size:.75rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;text-decoration:none;">⬇ Download</a>`;
       }
@@ -213,76 +256,166 @@
     }
   }
 
-  // --- VIEW DOCUMENT LOGIC ---
+  // --- VIEW DOCUMENT LOGIC (Matched to Admin Dashboard styling) ---
   window.viewStudentDoc = async function(docId, type, title) {
     const modal = $('view-doc-modal');
     const body = $('view-doc-body');
     modal.style.display = 'flex';
-    body.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading document...</div>';
+    body.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Generating document...</div>';
 
     try {
-      const studentRes = await core.portalFetch('/api/student/id-card'); // Get student profile
+      const studentRes = await core.portalFetch('/api/student/id-card'); 
       const student = studentRes.data || {};
       const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';
-
-      // Generate beautiful document HTML based on type
-      let html = '';
+      
+      const dateObj = new Date();
+      const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      
+      const progName = student.programmeName || '—';
+      const deptName = student.departmentName || '—';
+      const level = student.level || 'ND';
+      const sessionName = student.sessionName || '2025/2026';
+      const idValue = student.matricNumber || '—';
       const t = String(type).toLowerCase();
 
-      if (t.includes('id-card') || t.includes('id card') || t.includes('id-letter')) {
-        html = `
-          <div style="background:#fff; width:440px; height:280px; border-radius:16px; box-shadow:0 10px 25px rgba(0,0,0,0.15); overflow:hidden; display:flex; flex-direction:column; margin:auto; position:relative;">
-            <div style="background:linear-gradient(135deg,#065f46,#059669); padding:12px 20px; display:flex; align-items:center; gap:12px;">
-              <img src="/images/logo.png" style="width:36px; height:36px; background:#fff; border-radius:50%; padding:2px;" />
-              <div>
-                <div style="color:#fff; font-weight:900; font-size:14px; letter-spacing:0.5px;">FEDERAL POLYTECHNIC UGEP</div>
-                <div style="color:#fef08a; font-size:9px; font-weight:700;">CROSS RIVER STATE</div>
-              </div>
+      // Helper to wrap A4 Documents
+      const a4Wrapper = (bodyHtml, includeWatermark = true) => `
+        <div class="official-doc">
+          ${includeWatermark ? `
+            <div class="official-watermark">
+              <img src="/images/logo.png" onerror="this.style.display='none'" />
             </div>
-            <div style="padding:16px 20px; display:flex; gap:16px; flex:1;">
-              <div style="width:75px; height:95px; background:#f1f5f9; border:2px solid #065f46; border-radius:6px; overflow:hidden;">
-                ${student.photoUrl ? `<img src="${student.photoUrl}" style="width:100%; height:100%; object-fit:cover;" />` : ''}
+          ` : ''}
+          <div style="position: relative; z-index: 1;">
+            ${bodyHtml}
+          </div>
+        </div>
+      `;
+
+      let html = '';
+
+      if (t.includes('attestation')) {
+        html = a4Wrapper(`
+          <div class="official-letterhead">
+            <img src="/images/logo.png" onerror="this.style.display='none'" />
+            <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">P.M.B. 1038, Ugep, Cross River State, Nigeria</div></div>
+          </div>
+          <div class="official-title">ATTESTATION</div>
+          <div class="official-body">
+            <p>This is to certify that <strong>${esc(fullName)}</strong> with Matric Number <strong>${esc(idValue)}</strong> is a bona fide student of Federal Polytechnic Ugep, currently enrolled in the following programme:</p>
+            <table style="width:100%; margin: 20px 0; font-size: 15px;">
+              <tr><td style="color:#64748b; width:30%;">Programme:</td><td style="font-weight:bold;">${esc(progName)}</td></tr>
+              <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${esc(deptName)}</td></tr>
+              <tr><td style="color:#64748b;">Level:</td><td style="font-weight:bold;">${esc(level)}</td></tr>
+              <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">${esc(sessionName)}</td></tr>
+            </table>
+            <p>This document is issued at the request of the student for official purposes.</p>
+            <br><p>Date: ${dateStr}</p>
+          </div>
+          <div class="official-signatures" style="grid-template-columns: 1fr; text-align:right; margin-top:40px;">
+            <div style="display:inline-block; text-align:center;">
+              <div class="official-sig-line" style="width:200px;"></div>
+              <div class="official-sig-role">REGISTRAR</div>
+            </div>
+          </div>
+        `);
+      } 
+      else if (t.includes('id-card') || t.includes('id card')) {
+        const verifyUrl = `${window.location.origin}/verify.html?id=${encodeURIComponent(idValue)}`;
+        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verifyUrl)}&color=065f46&bgcolor=ffffff&margin=1`;
+        
+        html = `
+          <div class="portal-id-container">
+            <div class="portal-id-card">
+              <div class="pic-header">
+                <img src="/images/logo.png" onerror="this.style.display='none'" />
+                <div class="pic-header-text">
+                  <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
+                  <div style="font-size: 9px; font-weight: 600; opacity: 0.8;">CROSS RIVER STATE</div>
+                </div>
               </div>
-              <div style="flex:1;">
-                <div style="font-size:8px; color:#64748b; font-weight:700; text-transform:uppercase;">Student Name</div>
-                <div style="font-size:15px; font-weight:900; color:#0f172a; margin-bottom:6px;">${fullName}</div>
-                <div style="font-size:8px; color:#64748b; font-weight:700; text-transform:uppercase;">Matric Number</div>
-                <div style="font-size:12px; font-weight:800; color:#065f46; font-family:monospace;">${student.matricNumber || 'N/A'}</div>
-                <div style="font-size:8px; color:#64748b; font-weight:700; text-transform:uppercase; margin-top:6px;">Programme</div>
-                <div style="font-size:11px; font-weight:700;">${student.programmeName || 'N/A'}</div>
+              <div class="pic-body">
+                <div class="pic-photo">
+                  ${student.photoUrl ? `<img src="${esc(student.photoUrl)}" style="width: 100%; height: 100%; object-fit: cover;" />` : ''}
+                </div>
+                <div class="pic-details">
+                  <div class="pic-row"><span class="pic-label">Student Name</span><span class="pic-value" style="font-size: 14px;">${esc(fullName)}</span></div>
+                  <div class="pic-row"><span class="pic-label">Matric Number</span><span class="pic-value">${esc(idValue)}</span></div>
+                  <div class="pic-row-flex" style="display:flex; gap:20px;">
+                    <div class="pic-row" style="flex: 1;"><span class="pic-label">Level</span><span class="pic-value">${esc(level)}</span></div>
+                    <div class="pic-row" style="flex: 1;"><span class="pic-label">Session</span><span class="pic-value">${esc(sessionName)}</span></div>
+                  </div>
+                  <div class="pic-row"><span class="pic-label">Programme</span><span class="pic-value">${esc(progName)}</span></div>
+                  <div class="pic-row"><span class="pic-label">Department</span><span class="pic-value">${esc(deptName)}</span></div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                  <img src="${qrImageUrl}" style="width: 55px; height: 55px; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px;" />
+                  <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
+                </div>
+              </div>
+              <div style="background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; margin-top:auto;">
+                <span>OFFICIAL STUDENT ID</span>
+                <span>FPU/ID/${String(student.id || 0).padStart(4, '0')}</span>
               </div>
             </div>
           </div>
         `;
-      } else {
-        // Generic Certificate/Transcript/Attestation style
-        html = `
-          <div style="background:#fff; padding:40px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:100%; max-width:700px; min-height:800px; font-family:'Times New Roman', serif; text-align:center; border: 4px solid #065f46;">
-            <h1 style="color:#065f46; font-size:28px; margin-bottom:30px;">FEDERAL POLYTECHNIC UGEP</h1>
-            <h2 style="text-transform:uppercase; font-size:20px; margin-bottom:40px;">${t.replace('-', ' ')}</h2>
-            
-            <p style="font-size:18px; margin-bottom:20px;">This is to certify that</p>
-            <h3 style="font-size:24px; margin-bottom:20px; border-bottom:1px solid #000; display:inline-block; padding:0 20px;">${fullName}</h3>
-            <p style="font-size:18px;">with Matric Number <strong>${student.matricNumber || 'N/A'}</strong></p>
-            <p style="font-size:18px; margin-bottom:40px;">has successfully fulfilled the requirements for the above document.</p>
-            
+      } 
+      else if (t.includes('transcript')) {
+        html = a4Wrapper(`
+          <div class="official-letterhead" style="border-bottom: 2px solid #065f46; padding-bottom: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px;">
+            <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 70px;" />
+            <div style="text-align: left;">
+              <div style="font-family:'Poppins', sans-serif; font-size: 22px; font-weight: 800; color: #065f46; letter-spacing: 1px;">FEDERAL POLYTECHNIC UGEP</div>
+              <div style="font-size: 11px; color: #6b7280; font-style: italic;">Citadel of Technical Excellence</div>
+              <div style="font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;">Official Student Transcript</div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px;">
+            <div>
+              <h2 style="font-family:'Poppins', sans-serif; font-size: 24px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">${esc(fullName)}</h2>
+              <div style="font-size: 13px; color: #475569; font-family: monospace; margin-bottom: 4px; background: #ecfdf5; color: #065f46; display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
+                ${esc(idValue)}
+              </div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+                ${esc(level)} · ${esc(progName)}<br>
+                ${esc(student.email || '')} ${deptName !== '—' ? ' · ' + esc(deptName) : ''}
+              </div>
+            </div>
+          </div>
+          <div style="text-align: center; padding: 40px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #b45309; font-weight: 600;">
+            Transcript data is being processed. Please check back later or contact the registry.
+          </div>
+          <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 0 20px;">
+            <div style="text-align: center;"><div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Registrar</div></div>
+            <div style="text-align: center;"><div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Date</div></div>
+          </div>
+        `);
+      } 
+      else {
+        // Generic Document (Certificate, Clearance)
+        html = a4Wrapper(`
+          <div class="official-letterhead">
+            <img src="/images/logo.png" onerror="this.style.display='none'" />
+            <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">Office of the Registrar</div></div>
+          </div>
+          <div class="official-title">${t.replace('-', ' ')}</div>
+          <div class="official-body">
+            <p>This is to certify that <strong>${esc(fullName)}</strong> with Matric Number <strong>${esc(idValue)}</strong> has fulfilled the requirements for this document.</p>
+            <p>The student is currently enrolled in the programme: <strong>${esc(progName)}</strong> in the <strong>${esc(deptName)}</strong> department.</p>
+            <p>This document is valid for official use.</p>
             <div style="margin-top:60px; display:flex; justify-content:space-between;">
-              <div style="text-align:center;">
-                <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
-                <div>Registrar</div>
-              </div>
-              <div style="text-align:center;">
-                <div style="border-bottom:1px solid #000; width:150px; margin-bottom:5px;"></div>
-                <div>Date</div>
-              </div>
+              <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Bursar</div></div>
+              <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Registrar</div></div>
             </div>
+            <p style="margin-top:50px; font-size:14px;">Date: ${dateStr}</p>
           </div>
-        `;
+        `);
       }
 
       body.innerHTML = html;
     } catch (err) {
-      body.innerHTML = `<div style="color:#dc2626; padding:20px; background:#fee2e2; border-radius:8px;">Failed to load document: ${err.message}</div>`;
+      body.innerHTML = `<div style="color:#dc2626; padding:20px; background:#fee2e2; border-radius:8px;">Failed to generate document: ${err.message}</div>`;
     }
   };
 

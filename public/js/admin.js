@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Strictly Grouped & Editable)
+// EXAMS: Load A3 Exam Sheet (Complete Department Courses)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11842,58 +11842,73 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
+    // 1. Fetch all data in parallel
     const [examsRes, deptsRes, coursesRes] = await Promise.all([
       adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
       adminFetch(`/api/admin/departments`),
-      adminFetch(`/api/admin/courses?limit=5000`),
+      adminFetch(`/api/admin/courses?limit=5000`), // Fetch ALL courses
     ]);
 
     const exams = (await examsRes.json()).data || [];
     const depts = (await deptsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
+    const allCourses = (await coursesRes.json()).data || [];
 
     const year = new Date().getFullYear();
-    subtitleEl.textContent = `${exams.length} exams scheduled`;
 
-    if (!exams.length) {
-      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
+    // Create a map of scheduled exams by courseId for quick lookup
+    const examByCourse = new Map();
+    exams.forEach(ex => examByCourse.set(ex.courseId, ex));
+
+    // 2. Filter departments to this school
+    const schoolDepts = depts.filter(d => Number(d.schoolId) === Number(schoolId));
+    schoolDepts.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+    if (!schoolDepts.length) {
+      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;">No departments found for this school.</div>`;
       return;
     }
 
-    const courseMap = new Map(courses.map(c => [c.id, c]));
-    const byDept = new Map();
-    
-    // Initialize empty buckets for the departments in this school
-    depts.forEach(d => {
-      if (Number(d.schoolId) === Number(schoolId)) {
-        byDept.set(d.id, { dept: d, exams: [] });
-      }
-    });
-
-    // Group exams strictly by their course's department
-    exams.forEach(ex => {
-      const course = courseMap.get(ex.courseId) || ex.course || {};
-      const deptId = course.departmentId;
-      
-      // Only push if the department belongs to this school
-      if (deptId && byDept.has(deptId)) {
-        byDept.get(deptId).exams.push(ex);
-      }
-    });
-
-    const activeDepts = [...byDept.values()].filter(d => d.exams.length > 0);
-    activeDepts.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
-
     let allDepartmentsHtml = '';
 
-    activeDepts.forEach(({ dept, exams: deptExams }) => {
+    // 3. Render a section for EACH department
+    schoolDepts.forEach(dept => {
       
-      // Group by Date
+      // Find all courses belonging to this department AND matching the selected semester
+      const deptCourses = allCourses.filter(c => {
+        if (Number(c.departmentId) !== Number(dept.id)) return false;
+        const cSem = String(c.semester || c.semesterName || 'first').toLowerCase();
+        return cSem === semester.toLowerCase() || cSem.includes(semester.toLowerCase());
+      });
+
+      // If the department has no courses for this semester, skip it
+      if (deptCourses.length === 0) return;
+
+      // 4. Group courses by Week (based on their scheduled exam date, if it exists)
+      // We need to build a fake "exam" object for courses that don't have one yet
+      const enrichedCourses = deptCourses.map(course => {
+        const existingExam = examByCourse.get(course.id);
+        return {
+          course: course,
+          exam: existingExam || null,
+          // If no exam, treat it as TBA
+          examDate: existingExam ? existingExam.examDate : null,
+          startTime: existingExam ? existingExam.startTime : (course.level === 'HND' ? '09:00' : '12:00'), // Fallback heuristic
+        };
+      });
+
+      // Separate courses that have dates vs those that don't (TBA)
+      const datedCourses = enrichedCourses.filter(c => c.examDate);
+      const tbaCourses = enrichedCourses.filter(c => !c.examDate);
+
+      // Sort dated courses by date
+      datedCourses.sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime());
+
+      // Group dated courses by day
       const days = {};
-      deptExams.forEach(ex => {
-        const dateStr = String(ex.examDate).split('T')[0];
+      datedCourses.forEach(c => {
+        const dateStr = String(c.examDate).split('T')[0];
         if (!days[dateStr]) days[dateStr] = [];
-        days[dateStr].push(ex);
+        days[dateStr].push(c);
       });
 
       const dayKeys = Object.keys(days).sort();
@@ -11930,58 +11945,47 @@ async function loadExamSheet() {
             <tbody>
       `;
 
+      // 5. Render Days that have exams
       dayKeys.forEach(dateKey => {
-        const dayExams = days[dateKey];
+        const dayCourses = days[dateKey];
         const d = new Date(dateKey);
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+        const dateStr = `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split exams
-        const morning = dayExams.filter(ex => (ex.startTime || '09:00') < '11:00');
-        const afternoon = dayExams.filter(ex => (ex.startTime || '09:00') >= '11:00');
+        const morning = dayCourses.filter(c => c.startTime < '11:00');
+        const afternoon = dayCourses.filter(c => c.startTime >= '11:00');
 
-        // Deduplicate by course ID
-        const uniqueMorning = Array.from(new Map(morning.map(m => [m.courseId, m])).values());
-        const uniqueAfternoon = Array.from(new Map(afternoon.map(a => [a.courseId, a])).values());
-
-        // Calculate rowspan to span the max number of courses in either slot
-        const maxRows = Math.max(uniqueMorning.length, uniqueAfternoon.length, 1);
+        const maxRows = Math.max(morning.length, afternoon.length, 1);
 
         for (let i = 0; i < maxRows; i++) {
-          const m = uniqueMorning[i];
-          const a = uniqueAfternoon[i];
+          const m = morning[i];
+          const a = afternoon[i];
 
           tableHtml += `<tr>`;
-          
-          // Date cell only on the first row
-          if (i === 0) {
-            tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
-          }
+          if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
 
-          // Morning Columns
+          // Morning slot
           if (m) {
-            const c = m.course || courseMap.get(m.courseId) || {};
             tableHtml += `
-              <td style="text-align:left;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
-              <td class="col-venue">${escapeHtml(m.venue || '—')}</td>
-              <td>${escapeHtml(m.invigilators || '—')}</td>
+              <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(m.course.title)} (${escapeHtml(m.course.code)})</td>
+              <td class="col-venue">${escapeHtml(m.exam.venue || '—')}</td>
+              <td>${escapeHtml(m.exam.invigilators || '—')}</td>
               <td style="text-align:center;">
-                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${m.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${m.exam.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
               </td>
             `;
           } else {
             tableHtml += `<td></td><td></td><td></td><td></td>`;
           }
 
-          // Afternoon Columns
+          // Afternoon slot
           if (a) {
-            const c = a.course || courseMap.get(a.courseId) || {};
             tableHtml += `
-              <td style="text-align:left;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
-              <td class="col-venue">${escapeHtml(a.venue || '—')}</td>
-              <td>${escapeHtml(a.invigilators || '—')}</td>
+              <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(a.course.title)} (${escapeHtml(a.course.code)})</td>
+              <td class="col-venue">${escapeHtml(a.exam.venue || '—')}</td>
+              <td>${escapeHtml(a.exam.invigilators || '—')}</td>
               <td style="text-align:center;">
-                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${a.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${a.exam.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
               </td>
             `;
           } else {
@@ -11991,6 +11995,49 @@ async function loadExamSheet() {
           tableHtml += `</tr>`;
         }
       });
+
+      // 6. Render TBA (Unscheduled) Courses
+      if (tbaCourses.length > 0) {
+        const morningTba = tbaCourses.filter(c => c.startTime < '11:00');
+        const afternoonTba = tbaCourses.filter(c => c.startTime >= '11:00');
+        const maxRows = Math.max(morningTba.length, afternoonTba.length, 1);
+
+        for (let i = 0; i < maxRows; i++) {
+          const m = morningTba[i];
+          const a = afternoonTba[i];
+
+          tableHtml += `<tr>`;
+          if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold; color:#dc2626;">TBA</td>`;
+
+          if (m) {
+            tableHtml += `
+              <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(m.course.title)} (${escapeHtml(m.course.code)})</td>
+              <td class="col-venue">—</td>
+              <td>—</td>
+              <td style="text-align:center;">
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { departmentId: ${dept.id}, semester: '${semester}' })" style="padding:2px 6px; font-size:10px;">+ Add</button>
+              </td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td><td></td>`;
+          }
+
+          if (a) {
+            tableHtml += `
+              <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(a.course.title)} (${escapeHtml(a.course.code)})</td>
+              <td class="col-venue">—</td>
+              <td>—</td>
+              <td style="text-align:center;">
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { departmentId: ${dept.id}, semester: '${semester}' })" style="padding:2px 6px; font-size:10px;">+ Add</button>
+              </td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td><td></td>`;
+          }
+
+          tableHtml += `</tr>`;
+        }
+      }
 
       tableHtml += `
             </tbody>

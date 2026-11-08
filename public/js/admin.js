@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Deduplicated & Clean)
+// EXAMS: Load A3 Exam Sheet (Strictly Grouped & Editable)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11853,7 +11853,7 @@ async function loadExamSheet() {
     const courses = (await coursesRes.json()).data || [];
 
     const year = new Date().getFullYear();
-    subtitleEl.textContent = `${exams.length} exams scheduled across ${depts.length} departments`;
+    subtitleEl.textContent = `${exams.length} exams scheduled`;
 
     if (!exams.length) {
       root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
@@ -11863,15 +11863,19 @@ async function loadExamSheet() {
     const courseMap = new Map(courses.map(c => [c.id, c]));
     const byDept = new Map();
     
+    // Initialize empty buckets for the departments in this school
     depts.forEach(d => {
       if (Number(d.schoolId) === Number(schoolId)) {
         byDept.set(d.id, { dept: d, exams: [] });
       }
     });
 
+    // Group exams strictly by their course's department
     exams.forEach(ex => {
       const course = courseMap.get(ex.courseId) || ex.course || {};
       const deptId = course.departmentId;
+      
+      // Only push if the department belongs to this school
       if (deptId && byDept.has(deptId)) {
         byDept.get(deptId).exams.push(ex);
       }
@@ -11884,7 +11888,7 @@ async function loadExamSheet() {
 
     activeDepts.forEach(({ dept, exams: deptExams }) => {
       
-      // 1. Group all exams by Date
+      // Group by Date
       const days = {};
       deptExams.forEach(ex => {
         const dateStr = String(ex.examDate).split('T')[0];
@@ -11908,17 +11912,19 @@ async function loadExamSheet() {
             <thead>
               <tr>
                 <th style="width:70px;">TIME</th>
-                <th colspan="3" style="text-align:center; font-weight:bold;">9:00 A.M - 11:00 A.M</th>
-                <th colspan="4" style="text-align:center; font-weight:bold;">12:00 NOON - 2:00 P.M</th>
+                <th colspan="4" style="text-align:center; font-weight:bold; color:#059669;">9:00 A.M - 11:00 A.M</th>
+                <th colspan="4" style="text-align:center; font-weight:bold; color:#059669;">12:00 NOON - 2:00 P.M</th>
               </tr>
               <tr>
                 <th>DATE</th>
                 <th>COURSE TITLE & CODE</th>
                 <th>VENUE</th>
                 <th>INVIGILATORS</th>
+                <th>ACTION</th>
                 <th>COURSE TITLE & CODE</th>
                 <th>VENUE</th>
                 <th>INVIGILATORS</th>
+                <th>ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -11930,81 +11936,60 @@ async function loadExamSheet() {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // 2. Split into Morning and Afternoon
-        const morning = [];
-        const afternoon = [];
-        
-        dayExams.forEach(ex => {
-          const time = ex.startTime || '09:00';
-          if (time < '11:00') morning.push(ex);
-          else afternoon.push(ex);
-        });
+        // Split exams
+        const morning = dayExams.filter(ex => (ex.startTime || '09:00') < '11:00');
+        const afternoon = dayExams.filter(ex => (ex.startTime || '09:00') >= '11:00');
 
-        // 3. Deduplicate by Course ID (just in case the DB has duplicates)
-        const uniqueMorning = [];
-        const morningIds = new Set();
-        morning.forEach(m => {
-          if (!morningIds.has(m.courseId)) {
-            morningIds.add(m.courseId);
-            uniqueMorning.push(m);
+        // Deduplicate by course ID
+        const uniqueMorning = Array.from(new Map(morning.map(m => [m.courseId, m])).values());
+        const uniqueAfternoon = Array.from(new Map(afternoon.map(a => [a.courseId, a])).values());
+
+        // Calculate rowspan to span the max number of courses in either slot
+        const maxRows = Math.max(uniqueMorning.length, uniqueAfternoon.length, 1);
+
+        for (let i = 0; i < maxRows; i++) {
+          const m = uniqueMorning[i];
+          const a = uniqueAfternoon[i];
+
+          tableHtml += `<tr>`;
+          
+          // Date cell only on the first row
+          if (i === 0) {
+            tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
           }
-        });
 
-        const uniqueAfternoon = [];
-        const afternoonIds = new Set();
-        afternoon.forEach(a => {
-          if (!afternoonIds.has(a.courseId)) {
-            afternoonIds.add(a.courseId);
-            uniqueAfternoon.push(a);
-          }
-        });
-
-        // 4. Build Morning Cells
-        let mCourseHtml = '';
-        let mVenueHtml = '';
-        let mInvHtml = '';
-        
-        if (uniqueMorning.length > 0) {
-          mCourseHtml = uniqueMorning.map(m => {
+          // Morning Columns
+          if (m) {
             const c = m.course || courseMap.get(m.courseId) || {};
-            return `<div style="margin-bottom:4px;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</div>`;
-          }).join('');
-          
-          mVenueHtml = uniqueMorning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.venue || 'TBA')}</div>`).join('');
-          mInvHtml = uniqueMorning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.invigilators || '—')}</div>`).join('');
-        } else {
-          mCourseHtml = '<div style="font-style:italic; color:#94a3b8; text-align:center;">—</div>';
-        }
+            tableHtml += `
+              <td style="text-align:left;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
+              <td class="col-venue">${escapeHtml(m.venue || '—')}</td>
+              <td>${escapeHtml(m.invigilators || '—')}</td>
+              <td style="text-align:center;">
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${m.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
+              </td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td><td></td>`;
+          }
 
-        // 5. Build Afternoon Cells
-        let aCourseHtml = '';
-        let aVenueHtml = '';
-        let aInvHtml = '';
-        
-        if (uniqueAfternoon.length > 0) {
-          aCourseHtml = uniqueAfternoon.map(a => {
+          // Afternoon Columns
+          if (a) {
             const c = a.course || courseMap.get(a.courseId) || {};
-            return `<div style="margin-bottom:4px;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</div>`;
-          }).join('');
-          
-          aVenueHtml = uniqueAfternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.venue || 'TBA')}</div>`).join('');
-          aInvHtml = uniqueAfternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.invigilators || '—')}</div>`).join('');
-        } else {
-          aCourseHtml = '<div style="font-style:italic; color:#94a3b8; text-align:center;">—</div>';
-        }
+            tableHtml += `
+              <td style="text-align:left;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
+              <td class="col-venue">${escapeHtml(a.venue || '—')}</td>
+              <td>${escapeHtml(a.invigilators || '—')}</td>
+              <td style="text-align:center;">
+                <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: ${a.id} })" style="padding:2px 6px; font-size:10px;">✏️</button>
+              </td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td><td></td>`;
+          }
 
-        // 6. Render the complete row
-        tableHtml += `
-          <tr>
-            <td class="col-date" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>
-            <td style="vertical-align:top; text-align:left;">${mCourseHtml}</td>
-            <td class="col-venue" style="vertical-align:top;">${mVenueHtml}</td>
-            <td style="vertical-align:top;">${mInvHtml}</td>
-            <td style="vertical-align:top; text-align:left;">${aCourseHtml}</td>
-            <td class="col-venue" style="vertical-align:top;">${aVenueHtml}</td>
-            <td style="vertical-align:top;">${aInvHtml}</td>
-          </tr>
-        `;
+          tableHtml += `</tr>`;
+        }
       });
 
       tableHtml += `
@@ -12079,6 +12064,11 @@ async function loadExamSheet() {
       .ex-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
       .ex-table th, .ex-table td { border: 1px solid #000 !important; }
       .dept-exam-section { page-break-after: always; }
+      
+      /* Hide the edit buttons and their action columns when printing */
+      .ex-table td button { display: none !important; }
+      .ex-table th:last-child, .ex-table th:nth-last-child(3) { display: none !important; }
+      .ex-table td:last-child, .ex-table td:nth-last-child(3) { display: none !important; }
     }
   `;
   document.head.appendChild(style);

@@ -6766,37 +6766,24 @@ async function loadDocumentDetail() {
 async function renderDocPreview(doc, user) {
   const type = String(doc.type || '').toLowerCase();
   const dateObj = new Date();
-  const day = dateObj.getDate();
-  const month = dateObj.toLocaleDateString('en-GB', { month: 'long' });
-  const year = dateObj.getFullYear();
   const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User';
 
   // Data Extraction
   const isStaff = user.role === 'staff' || user.role === 'admin' || !!user.staffId;
   const idValue = isStaff ? (user.staffId || user.id) : (user.matricNumber || '—');
-  const idLabel = isStaff ? 'Staff ID' : 'Matric Number';
   
   const progName = user.programme?.name || user.programmeName || user.programme_name || user.programme?.code || '—';
   const deptName = user.department?.name || user.departmentName || user.department_name || user.department?.code || '—';
   const level = user.level || 'ND';
   const sessionName = user.session?.name || user.sessionName || user.currentSession || '2025/2026';
 
-  // Determine classification
-  const cgpa = user.cgpa || 3.5; 
-  let classification = 'Upper Credit';
-  if (cgpa >= 3.5) classification = 'Distinction';
-  else if (cgpa >= 3.0) classification = 'Upper Credit';
-  else if (cgpa >= 2.5) classification = 'Lower Credit';
-  else classification = 'Pass';
-
   // Common Wrapper
   const a4Wrapper = (title, bodyHtml) => `
     <div class="doc-preview-wrap">
       <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        <div class="official-doc" style="background: #fdfbf7; padding: 20mm;">
-          <!-- Main Background Watermark -->
+        <div class="official-doc" style="background: #fff; padding: 20mm;">
           <div class="official-watermark" style="opacity: 0.03; z-index: 0;">
             <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 80%;" />
           </div>
@@ -6817,7 +6804,7 @@ async function renderDocPreview(doc, user) {
       </div>
       <div class="official-title">ATTESTATION</div>
       <div class="official-body">
-        <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with ${idLabel} <strong>${escapeHtml(idValue)}</strong> is a bona fide ${isStaff ? 'staff member' : 'student'} of Federal Polytechnic Ugep, currently enrolled in the following programme:</p>
+        <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with Matric Number <strong>${escapeHtml(idValue)}</strong> is a bona fide ${isStaff ? 'staff member' : 'student'} of Federal Polytechnic Ugep, currently enrolled in the following programme:</p>
         <table style="width:100%; margin: 20px 0; font-size: 15px;">
           <tr><td style="color:#64748b; width:30%;">Programme:</td><td style="font-weight:bold;">${escapeHtml(progName)}</td></tr>
           <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${escapeHtml(deptName)}</td></tr>
@@ -6870,175 +6857,58 @@ async function renderDocPreview(doc, user) {
     `;
   }
 
-  // --- 3. CERTIFICATE OF COMPLETION (VINTAGE REDESIGN) ---
+  // --- 3. CERTIFICATE (CLASSIC VINTAGE) ---
   if (type === 'certificate') {
+    const cgpa = user.cgpa || 3.5; 
+    let classification = 'Upper Credit';
+    if (cgpa >= 3.5) classification = 'Distinction';
+    else if (cgpa >= 3.0) classification = 'Upper Credit';
+    else if (cgpa >= 2.5) classification = 'Lower Credit';
+    else classification = 'Pass';
+
     return a4Wrapper('Certificate', `
       <style>
-        .vintage-cert {
-          font-family: 'Times New Roman', Times, serif;
-          color: #1a1a1a;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding-top: 10mm;
-        }
-        
-        .vintage-cert .vc-header {
-          font-size: 22px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-bottom: 5px;
-          font-weight: normal;
-        }
-        .vintage-cert .vc-subheader {
-          font-size: 12px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #444;
-          margin-bottom: 30px;
-        }
-        
-        .vintage-cert .vc-logo {
-          width: 110px;
-          margin-bottom: 40px;
-        }
-
-        .vintage-cert .vc-text {
-          font-size: 18px;
-          line-height: 1.6;
-          font-style: italic;
-          margin-bottom: 10px;
-        }
-
-        .vintage-cert .vc-name {
-          font-family: 'Brush Script MT', 'Great Vibes', cursive;
-          font-size: 42px;
-          color: #000;
-          margin: 10px 0 20px 0;
-          border-bottom: 1px solid #999;
-          padding: 0 40px;
-          display: inline-block;
-          min-width: 60%;
-        }
-
-        .vintage-cert .vc-body {
-          font-size: 17px;
-          line-height: 1.8;
-          max-width: 85%;
-          margin: 0 auto;
-        }
-
-        .vintage-cert .vc-fill-line {
-          border-bottom: 1px solid #999;
-          display: inline-block;
-          padding: 0 10px;
-          min-width: 120px;
-          font-weight: bold;
-          font-style: normal;
-        }
-
-        .vintage-cert .vc-caps {
-          text-transform: uppercase;
-          font-size: 20px;
-          letter-spacing: 1px;
-          margin: 25px 0;
-          line-height: 1.4;
-        }
-
-        .vintage-cert .vc-signatures {
-          display: flex;
-          justify-content: space-between;
-          width: 100%;
-          margin-top: 60px;
-          padding: 0 40px;
-        }
-
-        .vintage-cert .vc-sig-block {
-          text-align: center;
-          width: 200px;
-        }
-
-        .vintage-cert .vc-sig-img {
-          font-family: 'Brush Script MT', cursive;
-          font-size: 28px;
-          color: #333;
-          height: 40px;
-          margin-bottom: -10px;
-          transform: rotate(-5deg);
-        }
-
-        .vintage-cert .vc-sig-line {
-          border-bottom: 1px solid #000;
-          margin-bottom: 5px;
-        }
-
-        .vintage-cert .vc-sig-title {
-          font-size: 12px;
-          font-weight: bold;
-          letter-spacing: 1px;
-        }
-
-        .vintage-cert .vc-footer {
-          margin-top: 50px;
-          font-size: 13px;
-          text-align: right;
-          width: 100%;
-          padding-right: 40px;
-          font-weight: bold;
-        }
+        .vintage-cert { font-family: 'Times New Roman', Times, serif; color: #1a1a1a; text-align: center; display: flex; flex-direction: column; align-items: center; padding-top: 10mm; }
+        .vintage-cert .vc-header { font-size: 22px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; font-weight: normal; }
+        .vintage-cert .vc-subheader { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #444; margin-bottom: 30px; }
+        .vintage-cert .vc-logo { width: 110px; margin-bottom: 40px; }
+        .vintage-cert .vc-text { font-size: 18px; line-height: 1.6; font-style: italic; margin-bottom: 10px; }
+        .vintage-cert .vc-name { font-family: 'Brush Script MT', cursive; font-size: 42px; color: #000; margin: 10px 0 20px 0; border-bottom: 1px solid #999; padding: 0 40px; display: inline-block; min-width: 60%; }
+        .vintage-cert .vc-body { font-size: 17px; line-height: 1.8; max-width: 85%; margin: 0 auto; }
+        .vintage-cert .vc-fill-line { border-bottom: 1px solid #999; display: inline-block; padding: 0 10px; min-width: 120px; font-weight: bold; font-style: normal; }
+        .vintage-cert .vc-caps { text-transform: uppercase; font-size: 20px; letter-spacing: 1px; margin: 25px 0; line-height: 1.4; }
+        .vintage-cert .vc-signatures { display: flex; justify-content: space-between; width: 100%; margin-top: 60px; padding: 0 40px; }
+        .vintage-cert .vc-sig-block { text-align: center; width: 200px; }
+        .vintage-cert .vc-sig-img { font-family: 'Brush Script MT', cursive; font-size: 28px; color: #333; height: 40px; margin-bottom: -10px; transform: rotate(-5deg); }
+        .vintage-cert .vc-sig-line { border-bottom: 1px solid #000; margin-bottom: 5px; }
+        .vintage-cert .vc-sig-title { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+        .vintage-cert .vc-footer { margin-top: 50px; font-size: 13px; text-align: right; width: 100%; padding-right: 40px; font-weight: bold; }
       </style>
 
       <div class="vintage-cert">
         <div class="vc-header">The Federal Polytechnic</div>
         <div class="vc-subheader">Ugep, Cross River State, Nigeria</div>
-        
         <img src="/images/logo.png" class="vc-logo" onerror="this.style.display='none'" />
-
         <div class="vc-text">This is to certify that</div>
-        
         <div class="vc-name">${escapeHtml(fullName)}</div>
-
         <div class="vc-body">
           having completed the approved Course of Study and passed the prescribed Examinations, has this day,
           <br><br>
-          the <span class="vc-fill-line">${day}${day === 1 || day === 21 || day === 31 ? 'st' : (day === 2 || day === 22 ? 'nd' : (day === 3 || day === 23 ? 'rd' : 'th'))}</span> 
-          of <span class="vc-fill-line">${month}</span>, 
-          <span class="vc-fill-line">${year}</span>
+          the <span class="vc-fill-line">${dateObj.getDate()}th</span> of <span class="vc-fill-line">${dateObj.toLocaleDateString('en-GB', { month: 'long' })}</span>, <span class="vc-fill-line">${dateObj.getFullYear()}</span>
           <br><br>
-          under the Authority of the<br>
-          <span class="vc-caps">Academic Board</span>
-          been awarded
+          under the Authority of the<br><span class="vc-caps">Academic Board</span> been awarded
         </div>
-
         <div class="vc-caps">
-          ${String(level).toUpperCase() === 'HND' ? 'The Higher National Diploma' : 'The National Diploma'}
-          <br>
-          <span style="font-size: 14px; font-style: italic; text-transform: lowercase; letter-spacing: normal;">in</span>
-          <br>
+          ${String(level).toUpperCase() === 'HND' ? 'The Higher National Diploma' : 'The National Diploma'}<br>
+          <span style="font-size: 14px; font-style: italic; text-transform: lowercase; letter-spacing: normal;">in</span><br>
           <span style="text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 4px; font-style: italic;">${escapeHtml(progName)}</span>
         </div>
-
-        <div class="vc-text" style="font-size: 16px;">
-          with <span class="vc-fill-line">${classification}</span>
-        </div>
-
+        <div class="vc-text" style="font-size: 16px;">with <span class="vc-fill-line">${classification}</span></div>
         <div class="vc-signatures">
-          <div class="vc-sig-block">
-            <div class="vc-sig-img">J. Akande</div>
-            <div class="vc-sig-line"></div>
-            <div class="vc-sig-title">RECTOR</div>
-          </div>
-          <div class="vc-sig-block">
-            <div class="vc-sig-img">M. Bello</div>
-            <div class="vc-sig-line"></div>
-            <div class="vc-sig-title">REGISTRAR</div>
-          </div>
+          <div class="vc-sig-block"><div class="vc-sig-img">J. Akande</div><div class="vc-sig-line"></div><div class="vc-sig-title">RECTOR</div></div>
+          <div class="vc-sig-block"><div class="vc-sig-img">M. Bello</div><div class="vc-sig-line"></div><div class="vc-sig-title">REGISTRAR</div></div>
         </div>
-
-        <div class="vc-footer">
-          Certificate No. FPU/${level}/HND/${new Date().getFullYear().toString().slice(-2)}/${String(user.id || 0).padStart(5, '0')}
-        </div>
+        <div class="vc-footer">Certificate No. FPU/${level}/HND/${new Date().getFullYear().toString().slice(-2)}/${String(user.id || 0).padStart(5, '0')}</div>
       </div>
     `);
   }
@@ -7055,100 +6925,193 @@ async function renderDocPreview(doc, user) {
         <p>This is to certify that <strong>${escapeHtml(fullName)}</strong> with Matric Number <strong>${escapeHtml(idValue)}</strong> has been cleared by the institution.</p>
         <p>The student has completed all necessary academic and financial requirements for the programme: <strong>${escapeHtml(progName)}</strong> in the <strong>${escapeHtml(deptName)}</strong> department.</p>
         <p>This clearance is valid for the purpose of NYSC mobilization, graduation, or collection of certificates.</p>
-        
         <div style="margin-top:60px; display:flex; justify-content:space-between;">
-          <div style="text-align:center;">
-            <div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div>
-            <div style="font-size:14px; font-weight:bold;">Bursar</div>
-          </div>
-          <div style="text-align:center;">
-            <div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div>
-            <div style="font-size:14px; font-weight:bold;">Registrar</div>
-          </div>
+          <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Bursar</div></div>
+          <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Registrar</div></div>
         </div>
         <p style="margin-top:50px; font-size:14px;">Date: ${dateStr}</p>
       </div>
     `);
   }
 
-  // --- 5. TRANSCRIPT ---
+  // --- 5. TRANSCRIPT (MODERN STYLE - MATCHES THE SECOND IMAGE) ---
   if (type === 'transcript') {
     let results = [];
     try {
-      const res = await adminFetch(`/api/admin/departments/transcript/${user.id}`);
-      if (res.ok) { const j = await res.json(); results = j.results || []; }
+      // Fetch results specific to this student
+      const res = await adminFetch(`/api/admin/results?studentId=${user.id}&limit=5000`);
+      if (res.ok) { 
+        const j = await res.json(); 
+        results = j.data || j || []; 
+        if (results.rows) results = results.rows;
+      }
     } catch (e) { console.error("Could not load transcript data", e); }
 
-    let totalUnits = 0;
-    let totalPoints = 0;
     const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+    
+    // Group by Session and Semester
+    const groups = new Map();
+    results.forEach(r => {
+      const row = r.result || r;
+      const key = `${row.sessionId || row.session || 'Current'}|${row.semester || 'First'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    });
 
-    const rowsHtml = results.map(r => {
-      const units = Number(r.units || r.creditUnits || 0);
-      const grade = String(r.grade || '').toUpperCase();
-      const pts = units * (gradePoints[grade] || 0);
-      totalUnits += units;
-      totalPoints += pts;
+    let totalUnits = 0, totalPoints = 0, courseCount = 0;
+    
+    // Calculate totals
+    results.forEach(r => {
+      const row = r.result || r;
+      const course = r.course || {};
+      const units = Number(course.unit) || Number(row.unit) || 0;
+      const grade = String(row.grade || 'F').toUpperCase();
+      const points = row.points != null ? Number(row.points) : (gradePoints[grade] || 0);
+      
+      if (row.grade) {
+        totalUnits += units;
+        totalPoints += units * points;
+        courseCount++;
+      }
+    });
+    
+    const cgpaVal = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
+    const classification = cgpaVal === '0.00' ? '—' : Number(cgpaVal) >= 3.50 ? 'Distinction' : Number(cgpaVal) >= 3.00 ? 'Upper Credit' : Number(cgpaVal) >= 2.50 ? 'Lower Credit' : Number(cgpaVal) >= 2.00 ? 'Pass' : 'Fail';
+
+    // Render Semester Blocks
+    const semesterBlocksHtml = [...groups.entries()].map(([key, list]) => {
+      const [session, semester] = key.split('|');
+      
+      const sectionUnits = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = r.course || {};
+        return s + (Number(course.unit) || Number(row.unit) || 0);
+      }, 0);
+      
+      const sectionPoints = list.reduce((s, r) => {
+        const row = r.result || r;
+        const course = r.course || {};
+        const units = Number(course.unit) || Number(row.unit) || 0;
+        const grade = String(row.grade || 'F').toUpperCase();
+        const points = row.points != null ? Number(row.points) : (gradePoints[grade] || 0);
+        return s + (units * points);
+      }, 0);
+      
+      const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
+
+      const rowsHtml = list.map(r => {
+        const row = r.result || r;
+        const course = r.course || {};
+        const grade = String(row.grade || '—').toUpperCase();
+        const points = row.points != null ? Number(row.points) : (gradePoints[grade] || 0);
+        
+        // Grade badge colors
+        let badgeColor = '#065f46'; // Default A
+        if (grade === 'B') badgeColor = '#3b82f6';
+        if (grade === 'C') badgeColor = '#f59e0b';
+        if (grade === 'D' || grade === 'E') badgeColor = '#ea580c';
+        if (grade === 'F') badgeColor = '#dc2626';
+
+        return `
+          <tr>
+            <td style="font-family:monospace; font-weight:600; color:#0f172a;">${escapeHtml(course.code || '—')}</td>
+            <td style="color:#475569;">${escapeHtml(course.title || '—')}</td>
+            <td style="text-align:center; font-weight:600; color:#334155;">${course.unit || 0}</td>
+            <td style="text-align:right; color:#475569;">${row.score || '—'}</td>
+            <td style="text-align:center;">
+              <span style="display:inline-block; padding:2px 8px; border-radius:4px; background:${badgeColor}20; color:${badgeColor}; font-weight:800; font-size:11px;">${grade}</span>
+            </td>
+            <td style="text-align:right; font-weight:600; color:#475569;">${points}</td>
+          </tr>
+        `;
+      }).join('');
 
       return `
-        <tr>
-          <td>${escapeHtml(r.session)}</td>
-          <td>${escapeHtml(r.semester)}</td>
-          <td>${escapeHtml(r.courseCode)}</td>
-          <td>${escapeHtml(r.courseTitle || '—')}</td>
-          <td style="text-align:center;">${units}</td>
-          <td style="font-weight:bold; text-align:center;">${grade}</td>
-          <td style="text-align:right;">${pts}</td>
-        </tr>
+        <div style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <div style="background: #065f46; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; color: #fff;">
+            <span style="font-weight: 700; font-size: 13px; text-transform: capitalize;">${escapeHtml(session)} — ${escapeHtml(semester)} Semester</span>
+            <span style="background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;">GPA ${gpa} · ${sectionUnits} Units</span>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; background: #fff;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b;">Code</th>
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b;">Course Title</th>
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b; text-align:center;">Units</th>
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b; text-align:right;">Score</th>
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b; text-align:center;">Grade</th>
+                <th style="padding: 10px 16px; font-size:10px; text-transform:uppercase; color:#64748b; text-align:right;">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
       `;
     }).join('');
 
-    const cgpa = totalUnits ? (totalPoints / totalUnits).toFixed(2) : '0.00';
-
     return a4Wrapper('Transcript', `
-      <div class="official-letterhead">
-        <img src="/images/logo.png" onerror="this.style.display='none'" />
-        <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">Official Academic Transcript</div></div>
+      <div class="official-letterhead" style="border-bottom: 2px solid #065f46; padding-bottom: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px;">
+        <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 70px;" />
+        <div style="text-align: left;">
+          <div style="font-family:'Poppins', sans-serif; font-size: 22px; font-weight: 800; color: #065f46; letter-spacing: 1px;">FEDERAL POLYTECHNIC UGEP</div>
+          <div style="font-size: 11px; color: #6b7280; font-style: italic;">Citadel of Technical Excellence</div>
+          <div style="font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;">Official Student Transcript</div>
+        </div>
       </div>
-      
-      <div class="tx-summary-box">
+
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px;">
         <div>
-          <div><strong>Name:</strong> ${escapeHtml(fullName)}</div>
-          <div><strong>Matric No:</strong> ${escapeHtml(idValue)}</div>
-          <div><strong>Programme:</strong> ${escapeHtml(progName)}</div>
+          <h2 style="font-family:'Poppins', sans-serif; font-size: 24px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">${escapeHtml(fullName)}</h2>
+          <div style="font-size: 13px; color: #475569; font-family: monospace; margin-bottom: 4px; background: #ecfdf5; color: #065f46; display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
+            ${escapeHtml(idValue)}
+          </div>
+          <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
+            ${escapeHtml(level)} · ${escapeHtml(progName)}<br>
+            ${escapeHtml(user.email || '')} ${deptName !== '—' ? ' · ' + escapeHtml(deptName) : ''}
+          </div>
         </div>
-        <div style="text-align:right;">
-          <div><strong>Level:</strong> ${escapeHtml(level)}</div>
-          <div><strong>Department:</strong> ${escapeHtml(deptName)}</div>
-          <div><strong>Date:</strong> ${dateStr}</div>
+        <div style="text-align: right;">
+          <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">CGPA</div>
+          <div style="font-family:'Poppins', sans-serif; font-size: 36px; font-weight: 800; color: #065f46; line-height: 1;">${cgpaVal}</div>
+          <div style="font-size: 12px; font-weight: 700; color: #d97706; margin-top: 4px;">${classification}</div>
         </div>
       </div>
 
-      <table class="tx-table">
-        <thead>
-          <tr>
-            <th>Session</th>
-            <th>Sem</th>
-            <th>Code</th>
-            <th>Course Title</th>
-            <th style="text-align:center;">Units</th>
-            <th style="text-align:center;">Grade</th>
-            <th style="text-align:right;">Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml || '<tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">No published results found for this student.</td></tr>'}
-        </tbody>
-      </table>
-
-      <div style="margin-top:20px; text-align:right; font-family:'Poppins',sans-serif; font-size:16px; font-weight:bold;">
-        Total Units: ${totalUnits} &nbsp; | &nbsp; Total Points: ${totalPoints} &nbsp; | &nbsp; CGPA: <span style="color:#065f46;">${cgpa}</span>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 30px;">
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <div style="font-family:'Poppins', sans-serif; font-size: 20px; font-weight: 800; color: #065f46;">${courseCount}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px;">Courses</div>
+        </div>
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <div style="font-family:'Poppins', sans-serif; font-size: 20px; font-weight: 800; color: #065f46;">${totalUnits}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px;">Total Units</div>
+        </div>
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <div style="font-family:'Poppins', sans-serif; font-size: 20px; font-weight: 800; color: #065f46;">${totalPoints}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px;">Total Points</div>
+        </div>
+        <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; text-align: center; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+          <div style="font-family:'Poppins', sans-serif; font-size: 14px; font-weight: 800; color: #065f46; padding-top: 4px;">${classification}</div>
+          <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px;">Classification</div>
+        </div>
       </div>
 
-      <div style="margin-top:60px; text-align:right; position:relative; z-index:1;">
-        <div style="display:inline-block; text-align:center;">
-          <div class="official-sig-line" style="width:200px;"></div>
-          <div class="official-sig-role">REGISTRAR</div>
+      ${groups.size > 0 ? semesterBlocksHtml : `
+        <div style="text-align: center; padding: 40px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #b45309; font-weight: 600;">
+          No published results found for this student.
+        </div>
+      `}
+
+      <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 0 20px;">
+        <div style="text-align: center;">
+          <div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div>
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Registrar</div>
+        </div>
+        <div style="text-align: center;">
+          <div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div>
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Date</div>
         </div>
       </div>
     `);

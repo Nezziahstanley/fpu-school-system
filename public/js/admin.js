@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Matches Official Template)
+// EXAMS: Load A3 Exam Sheet (Grouped by Department)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11842,174 +11842,200 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
-    const res = await adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`);
-    const json = await res.json();
+    // Fetch exams, departments, and courses in parallel
+    const [examsRes, deptsRes, coursesRes] = await Promise.all([
+      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
+      adminFetch(`/api/admin/departments`),
+      adminFetch(`/api/admin/courses?limit=5000`),
+    ]);
+
+    const json = await examsRes.json();
     const exams = json.data || [];
+    const depts = (await deptsRes.json()).data || [];
+    const courses = (await coursesRes.json()).data || [];
 
     const year = new Date().getFullYear();
-    subtitleEl.textContent = `${exams.length} exams scheduled`;
+    subtitleEl.textContent = `${exams.length} exams scheduled across ${depts.length} departments`;
 
     if (!exams.length) {
-      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled</div>`;
+      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
       return;
     }
 
-    // 1. Sort exams by Date and Time
-    const sortedExams = [...exams].sort((a, b) => {
-      const dateA = new Date(a.examDate).getTime();
-      const dateB = new Date(b.examDate).getTime();
-      if (dateA !== dateB) return dateA - dateB;
-      
-      const timeA = a.startTime || '09:00';
-      const timeB = b.startTime || '09:00';
-      return timeA.localeCompare(timeB);
-    });
+    // 1. Build lookups
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+    const deptMap = new Map(depts.map(d => [d.id, d]));
 
-    // 2. Group by Week
-    function getMonday(d) {
-      d = new Date(d);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      return new Date(d.setDate(diff));
-    }
-
-    const weeks = {};
-    sortedExams.forEach(ex => {
-      const d = new Date(ex.examDate);
-      const monday = getMonday(d);
-      const weekKey = monday.toISOString().split('T')[0];
-      
-      if (!weeks[weekKey]) {
-        weeks[weekKey] = { monday: monday, exams: [] };
+    // 2. Group exams by Department
+    const byDept = new Map();
+    
+    // Initialize departments that belong to this school
+    depts.forEach(d => {
+      if (Number(d.schoolId) === Number(schoolId)) {
+        byDept.set(d.id, { dept: d, exams: [] });
       }
-      weeks[weekKey].exams.push(ex);
     });
 
-    const weekKeys = Object.keys(weeks).sort();
-    let weekCounter = 1;
+    // Push exams into their respective departments
+    exams.forEach(ex => {
+      const course = courseMap.get(ex.courseId) || ex.course || {};
+      const deptId = course.departmentId;
+      if (deptId && byDept.has(deptId)) {
+        byDept.get(deptId).exams.push(ex);
+      }
+    });
 
-    // 3. Build HTML Table
-    let tableHtml = `
-      <table class="ex-table">
-        <thead>
-          <tr>
-            <th style="width:70px;">TIME</th>
-            <th colspan="3" style="text-align:center; font-weight:bold;">9:00 A.M - 11:00 A.M</th>
-            <th colspan="4" style="text-align:center; font-weight:bold;">12:00 NOON - 2:00 P.M</th>
-          </tr>
-          <tr>
-            <th>DATE</th>
-            <th>COURSE TITLE & CODE</th>
-            <th>VENUE</th>
-            <th>INVIGILATORS</th>
-            <th>COURSE TITLE & CODE</th>
-            <th>VENUE</th>
-            <th>INVIGILATORS</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    // Filter out empty departments
+    const activeDepts = [...byDept.values()].filter(d => d.exams.length > 0);
+    activeDepts.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
 
-    weekKeys.forEach(weekKey => {
-      const week = weeks[weekKey];
-      
-      tableHtml += `<tr><td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td></tr>`;
-      weekCounter++;
+    // 3. Render each department's section
+    let allDepartmentsHtml = '';
 
-      const days = {};
-      week.exams.forEach(ex => {
-        const d = new Date(ex.examDate);
-        const dayKey = d.toISOString().split('T')[0];
-        if (!days[dayKey]) days[dayKey] = [];
-        days[dayKey].push(ex);
+    activeDepts.forEach(({ dept, exams: deptExams }) => {
+      // Sort exams by date & time
+      const sortedExams = [...deptExams].sort((a, b) => {
+        const dateA = new Date(a.examDate).getTime();
+        const dateB = new Date(b.examDate).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        return (a.startTime || '09:00').localeCompare(b.startTime || '09:00');
       });
 
-      const dayKeys = Object.keys(days).sort();
+      // Group by Week
+      function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
+      }
 
-      dayKeys.forEach(dayKey => {
-        const dayExams = days[dayKey];
-        const d = new Date(dayKey);
-        
-        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const dayName = dayNames[d.getDay()];
-        const dateStr = `${dayName} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+      const weeks = {};
+      sortedExams.forEach(ex => {
+        const d = new Date(ex.examDate);
+        const monday = getMonday(d);
+        const weekKey = monday.toISOString().split('T')[0];
+        if (!weeks[weekKey]) weeks[weekKey] = { monday, exams: [] };
+        weeks[weekKey].exams.push(ex);
+      });
 
-        const morning = [];
-        const afternoon = [];
+      const weekKeys = Object.keys(weeks).sort();
+      let weekCounter = 1;
 
-        dayExams.forEach(ex => {
-          const time = ex.startTime || '09:00';
-          if (time < '11:00') morning.push(ex);
-          else afternoon.push(ex);
+      let tableHtml = `
+        <div class="dept-exam-section">
+          <div class="dept-header">
+            <div class="institution">FEDERAL POLYTECHNIC UGEP,</div>
+            <div class="faculty">${schoolName.toUpperCase()}</div>
+            <div class="department">DEPARTMENT OF ${dept.name.toUpperCase()}</div>
+            <div class="title-line">${semester.toUpperCase()} SEMESTER EXAMINATION TIME TABLE</div>
+            <div class="title-line" style="font-size: 12px;">${year}/${year+1} SESSION</div>
+          </div>
+
+          <table class="ex-table">
+            <thead>
+              <tr>
+                <th style="width:70px;">TIME</th>
+                <th colspan="3" style="text-align:center; font-weight:bold;">9:00 A.M - 11:00 A.M</th>
+                <th colspan="4" style="text-align:center; font-weight:bold;">12:00 NOON - 2:00 P.M</th>
+              </tr>
+              <tr>
+                <th>DATE</th>
+                <th>COURSE TITLE & CODE</th>
+                <th>VENUE</th>
+                <th>INVIGILATORS</th>
+                <th>COURSE TITLE & CODE</th>
+                <th>VENUE</th>
+                <th>INVIGILATORS</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      weekKeys.forEach(weekKey => {
+        const week = weeks[weekKey];
+        tableHtml += `<tr><td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td></tr>`;
+        weekCounter++;
+
+        const days = {};
+        week.exams.forEach(ex => {
+          const d = new Date(ex.examDate);
+          const dayKey = d.toISOString().split('T')[0];
+          if (!days[dayKey]) days[dayKey] = [];
+          days[dayKey].push(ex);
         });
 
-        const maxRows = Math.max(morning.length, afternoon.length, 1);
+        const dayKeys = Object.keys(days).sort();
 
-        for (let i = 0; i < maxRows; i++) {
-          const m = morning[i];
-          const a = afternoon[i];
+        dayKeys.forEach(dayKey => {
+          const dayExams = days[dayKey];
+          const d = new Date(dayKey);
+          const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+          const dateStr = `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-          tableHtml += `<tr>`;
-          
-          if (i === 0) {
-            tableHtml += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
+          const morning = [];
+          const afternoon = [];
+
+          dayExams.forEach(ex => {
+            const time = ex.startTime || '09:00';
+            if (time < '11:00') morning.push(ex);
+            else afternoon.push(ex);
+          });
+
+          const maxRows = Math.max(morning.length, afternoon.length, 1);
+
+          for (let i = 0; i < maxRows; i++) {
+            const m = morning[i];
+            const a = afternoon[i];
+
+            tableHtml += `<tr>`;
+            if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
+
+            if (m) {
+              const c = m.course || courseMap.get(m.courseId) || {};
+              tableHtml += `
+                <td>${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
+                <td class="col-venue">${escapeHtml(m.venue || '')}</td>
+                <td>${escapeHtml(m.invigilators || '')}</td>
+              `;
+            } else {
+              tableHtml += `<td></td><td></td><td></td>`;
+            }
+
+            if (a) {
+              const c = a.course || courseMap.get(a.courseId) || {};
+              tableHtml += `
+                <td>${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
+                <td class="col-venue">${escapeHtml(a.venue || '')}</td>
+                <td>${escapeHtml(a.invigilators || '')}</td>
+              `;
+            } else {
+              tableHtml += `<td></td><td></td><td></td>`;
+            }
+            tableHtml += `</tr>`;
           }
-
-          if (m) {
-            const c = m.course || {};
-            tableHtml += `
-              <td>${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
-              <td class="col-venue">${escapeHtml(m.venue || '')}</td>
-              <td>${escapeHtml(m.invigilators || '')}</td>
-            `;
-          } else {
-            tableHtml += `<td></td><td></td><td></td>`;
-          }
-
-          if (a) {
-            const c = a.course || {};
-            tableHtml += `
-              <td>${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
-              <td class="col-venue">${escapeHtml(a.venue || '')}</td>
-              <td>${escapeHtml(a.invigilators || '')}</td>
-            `;
-          } else {
-            tableHtml += `<td></td><td></td><td></td>`;
-          }
-
-          tableHtml += `</tr>`;
-        }
+        });
       });
+
+      tableHtml += `
+            </tbody>
+          </table>
+          <div class="dept-footer">
+            <div>
+              <div class="sig-text">Sign: ______________________</div>
+              <div class="sig-role">HOD, ${dept.name}</div>
+            </div>
+            <div>
+              <div class="sig-text">Sign: ______________________</div>
+              <div class="sig-role">Dean, ${schoolName}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      allDepartmentsHtml += tableHtml;
     });
 
-    tableHtml += `</tbody></table>`;
-
-    root.innerHTML = `
-      <div class="ex-sheet" id="a3-sheet">
-        <div class="ex-head">
-          <img src="/images/logo.png" alt="Logo" class="ex-logo">
-          <div class="ex-head-text">
-            <div class="institution">FEDERAL POLYTECHNIC UGEP,</div>
-            <div class="faculty">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
-            <div class="faculty">DEPARTMENT OF COMPUTER SCIENCE</div>
-            <div class="title-line">(HND I), (ND II) & (ND I) ${semester.toUpperCase()} SEMESTER EXAMINATION TIME TABLE</div>
-            <div class="title-line" style="font-size: 12px; margin-top: 4px;">${year}/${year+1} SESSION</div>
-          </div>
-        </div>
-        ${tableHtml}
-        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px;">
-          <div>
-            <div style="font-family: 'Brush Script MT', cursive; font-size: 20px; color: #1e3a8a; transform: rotate(-5deg);">Martin Omini Arikpo</div>
-            <div style="border-top: 1px solid #000; width: 180px; padding-top: 4px; font-weight: bold; font-size: 12px;">Sign: Martin Omini Arikpo</div>
-          </div>
-          <div style="text-align: right; font-weight: bold; font-size: 12px;">
-            ................................<br>
-            HOD, Computer Science
-          </div>
-        </div>
-      </div>
-    `;
-
+    root.innerHTML = `<div class="ex-sheet">${allDepartmentsHtml}</div>`;
     document.getElementById('exsheet-print').onclick = () => window.print();
 
   } catch (err) {
@@ -12031,13 +12057,21 @@ async function loadExamSheet() {
       margin: 0 auto;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-    .ex-head { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px; }
-    .ex-logo { width: 80px; height: auto; }
-    .ex-head-text { text-align: center; }
-    .ex-head-text .institution { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
-    .ex-head-text .faculty { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
-    .ex-head-text .title-line { font-size: 14px; font-weight: bold; margin-top: 6px; }
     
+    .dept-exam-section {
+      margin-bottom: 50px;
+      page-break-after: always; /* Force each department to a new page */
+    }
+    .dept-exam-section:last-child {
+      page-break-after: auto;
+    }
+
+    .dept-header { text-align: center; margin-bottom: 20px; }
+    .dept-header .institution { font-size: 16px; font-weight: bold; }
+    .dept-header .faculty { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+    .dept-header .department { font-size: 16px; font-weight: bold; text-transform: uppercase; margin: 4px 0; }
+    .dept-header .title-line { font-size: 12px; font-weight: bold; }
+
     .ex-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .ex-table th, .ex-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
     .ex-table th { text-align: center; text-transform: uppercase; }
@@ -12045,17 +12079,21 @@ async function loadExamSheet() {
     .ex-table .col-date { text-align: center; vertical-align: middle; }
     .ex-table .col-venue { text-align: center; }
 
+    .dept-footer { display: flex; justify-content: space-between; margin-top: 30px; padding: 0 20px; }
+    .dept-footer .sig-text { font-size: 12px; font-family: 'Brush Script MT', cursive; }
+    .dept-footer .sig-role { font-size: 12px; font-weight: bold; }
+
     @media print {
       @page { size: landscape; margin: 10mm; }
       body * { visibility: hidden; }
-      #a3-sheet, #a3-sheet * { visibility: visible; }
-      #a3-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
+      .ex-sheet, .ex-sheet * { visibility: visible; }
+      .ex-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
       .ex-table th, .ex-table td { border: 1px solid #000 !important; }
+      .dept-exam-section { page-break-after: always; }
     }
   `;
   document.head.appendChild(style);
 })();
-
 
 // Helper to group exams by date and slot them into periods
 function renderExamTableRows(exams) {

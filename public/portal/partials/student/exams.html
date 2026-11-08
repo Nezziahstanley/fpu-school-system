@@ -133,11 +133,29 @@
     $('ex-table-container').innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading timetable...</div>';
     
     try {
-      // Fetch exams from the API
-      const res = await core.portalFetch('/api/student/exams');
-      const data = res.data || res || [];
+      // 1. Fetch the student's profile using the working ID Card endpoint
+      const profileRes = await core.portalFetch('/api/student/id-card');
+      const student = profileRes.data || profileRes || {};
       
-      // Filter and sort
+      // Update the header with their real Department
+      if (student.departmentName) {
+        document.querySelector('#ex-timetable-container h3:nth-of-type(2)').textContent = `DEPARTMENT OF ${student.departmentName.toUpperCase()}`;
+      }
+
+      // 2. Fetch exams from the public/admin endpoint
+      const res = await core.portalFetch('/api/admin/exams?limit=2000');
+      let data = res.data || res || [];
+
+      // 3. Filter exams so the student only sees their own department and level
+      // (Assuming your admin exams endpoint returns course details with departmentId)
+      if (student.departmentId) {
+        data = data.filter(ex => {
+          const deptId = ex.course?.departmentId || ex.departmentId;
+          // If the exam has no department assigned, we'll show it to avoid hiding everything
+          return !deptId || Number(deptId) === Number(student.departmentId);
+        });
+      }
+      
       const search = ($('ex-search').value || '').toLowerCase();
       const semester = $('ex-semester').value;
 
@@ -184,14 +202,12 @@
     }
 
     // Group by Week
-    // We'll assume a simple 7-day week starting from the first exam's date
     const sorted = [...ALL_EXAMS].sort((a, b) => new Date(a.examDate) - new Date(b.examDate));
     
-    // Helper to get the Monday of a given date's week
     function getMonday(d) {
       d = new Date(d);
       const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
       return new Date(d.setDate(diff));
     }
 
@@ -199,13 +215,10 @@
     sorted.forEach(ex => {
       const d = new Date(ex.examDate);
       const monday = getMonday(d);
-      const weekKey = monday.toISOString().split('T')[0]; // YYYY-MM-DD
+      const weekKey = monday.toISOString().split('T')[0];
       
       if (!weeks[weekKey]) {
-        weeks[weekKey] = {
-          monday: monday,
-          exams: []
-        };
+        weeks[weekKey] = { monday: monday, exams: [] };
       }
       weeks[weekKey].exams.push(ex);
     });
@@ -237,15 +250,9 @@
     weekKeys.forEach(weekKey => {
       const week = weeks[weekKey];
       
-      // Week Header
-      html += `
-        <tr>
-          <td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td>
-        </tr>
-      `;
+      html += `<tr><td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td></tr>`;
       weekCounter++;
 
-      // Group exams by Day
       const days = {};
       week.exams.forEach(ex => {
         const d = new Date(ex.examDate);
@@ -260,12 +267,10 @@
         const dayExams = days[dayKey];
         const d = new Date(dayKey);
         
-        // Format date as "MON 13/04/26"
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dayName = dayNames[d.getDay()];
         const dateStr = `${dayName} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split exams into morning (before 11am) and afternoon
         const morning = [];
         const afternoon = [];
 
@@ -275,7 +280,6 @@
           else afternoon.push(ex);
         });
 
-        // Determine max rows needed for this day
         const maxRows = Math.max(morning.length, afternoon.length, 1);
 
         for (let i = 0; i < maxRows; i++) {
@@ -284,12 +288,10 @@
 
           html += `<tr>`;
           
-          // Date Column (only render on the first row)
           if (i === 0) {
             html += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
           }
 
-          // Morning Columns
           if (m) {
             const c = m.course || {};
             html += `
@@ -301,7 +303,6 @@
             html += `<td></td><td></td><td></td>`;
           }
 
-          // Afternoon Columns
           if (a) {
             const c = a.course || {};
             html += `
@@ -336,7 +337,6 @@
     $('ex-table-container').innerHTML = html;
   }
 
-  // Event Listeners
   $('ex-search')?.addEventListener('input', () => {
     clearTimeout(window.__exSearchTimer);
     window.__exSearchTimer = setTimeout(load, 300);

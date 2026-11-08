@@ -71,8 +71,11 @@ app.get('/api/public/verify', async (req, res) => {
     const matric = req.query.id;
     if (!matric) return res.status(400).json({ success: false, error: 'Missing ID' });
 
-    // We use LEFT JOINs and a COALESCE fallback just in case the columns are slightly different in your DB
-    const result = await require('./db').query(`
+    // FIX: Use the pool to execute the query
+    const db = require('./db'); 
+    const queryRunner = db.query ? db : db.pool; // Handles both module styles
+
+    const result = await queryRunner.query(`
       SELECT 
         u.id, 
         u.first_name AS "firstName", 
@@ -90,23 +93,12 @@ app.get('/api/public/verify', async (req, res) => {
     `, [matric]);
 
     if (result.rows.length === 0) {
-      // Fallback: Try querying JUST the users table in case the JOINs are throwing a silent error
-      const fallback = await require('./db').query(`SELECT * FROM users WHERE UPPER(matric_number) = UPPER($1) LIMIT 1`, [matric]);
-      if (fallback.rows.length === 0) return res.status(404).json({ success: false, error: 'Student not found' });
-      
-      const u = fallback.rows[0];
-      return res.json({ 
-        success: true, 
-        data: {
-          firstName: u.first_name, lastName: u.last_name, matricNumber: u.matric_number,
-          level: u.level, photoUrl: u.id_card_photo_url || u.photo_url,
-          programmeName: 'N/A', departmentName: 'N/A', sessionName: '2025/2026'
-        } 
-      });
+      return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
     const studentData = result.rows[0];
     studentData.sessionName = '2025/2026';
+
     res.json({ success: true, data: studentData });
   } catch (err) {
     console.error('Verify error:', err);

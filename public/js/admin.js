@@ -13683,7 +13683,7 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department A4 Sheet (Exact Template Match)
+// TIMETABLE: Load Department A4 Sheet (Strict Isolation)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
@@ -13718,8 +13718,8 @@ async function loadTimetableSheet() {
 
   try {
     const [slotsRes, coursesRes, deptsRes, staffRes, sessionsRes] = await Promise.all([
-      adminFetch(`/api/admin/timetable?departmentId=${deptId}&sessionId=${sessionId}&semester=${semester}&limit=1000`),
-      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch(`/api/admin/timetable?sessionId=${sessionId}&semester=${semester}&limit=5000`), // Fetch ALL slots
+      adminFetch('/api/admin/courses?limit=5000'),
       adminFetch('/api/admin/departments'),
       adminFetch('/api/admin/staff?role=lecturer&limit=1000').catch(() => null),
       adminFetch('/api/admin/sessions').catch(() => null)
@@ -13742,30 +13742,34 @@ async function loadTimetableSheet() {
 
     const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
-    // Function to render a specific level's timetable
     function renderLevel(level) {
-      // 1. Strictly filter by Course Level, Year of Study, and Semester
+      
+      // 1. FILTER: Strictly match Department, Semester, and Level
       const levelSlots = rawSlots.filter(r => {
         const s = r.slot || r;
-        const c = courseMap.get(Number(s.courseId));
+        const c = courseMap.get(Number(s.courseId)) || r.course;
         if (!c) return false;
-        
-        // Check Semester match
-        const slotSem = String(s.semester || '').toLowerCase();
-        const courseSem = String(c.semester || '').toLowerCase();
-        const targetSem = semester.toLowerCase();
-        if (slotSem !== targetSem && courseSem !== targetSem) return false;
 
-        // Determine Level (ND or HND) and Year (1 or 2)
+        // A. Must belong to this exact Department
+        if (Number(c.departmentId) !== Number(deptId)) return false;
+
+        // B. Must match the Semester (if explicitly set)
+        const slotSem = String(s.semester || semester).toLowerCase();
+        const courseSem = String(c.semester || semester).toLowerCase();
+        if (slotSem !== semester.toLowerCase() && courseSem !== semester.toLowerCase()) return false;
+
+        // C. Must match the Level (ND/HND) and Year (1/2)
         const cLevel = String(c.level || '').toUpperCase(); 
         let cYear = Number(c.yearOfStudy);
+        
+        // Fallback if yearOfStudy isn't set in DB: try to extract from course code (e.g., COM 111 -> 1)
         if (!cYear) {
            const match = String(c.code).match(/^\D+(\d)/);
            cYear = match ? Number(match[1]) : 1;
         }
-        
+
         const targetLevel = level.substring(0, level.length - 1); // 'ND' or 'HND'
-        const targetYear = Number(level.slice(-1));
+        const targetYear = Number(level.slice(-1)); // 1 or 2
 
         return cLevel === targetLevel && cYear === targetYear;
       });
@@ -13825,7 +13829,6 @@ async function loadTimetableSheet() {
             return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
           });
 
-          // Handle 7am-9am classes (like GNS 102)
           if (i === 0) {
             const earlySlots = levelSlots.filter(r => {
                const s = r.slot || r;
@@ -13846,10 +13849,9 @@ async function loadTimetableSheet() {
             let st = String(s.startTime || '08:00').substring(0, 5);
             let et = String(s.endTime || '09:00').substring(0, 5);
             
-            // Calculate duration to merge columns
             let durationHours = 1;
             if (st < '08:00' && et >= '09:00') {
-               durationHours = 1; // 7am-9am occupies only the 8am-9am block visually
+               durationHours = 1; 
             } else {
                const startH = parseInt(st.split(':')[0]);
                const endH = parseInt(et.split(':')[0]);
@@ -13857,8 +13859,6 @@ async function loadTimetableSheet() {
             }
 
             let colspan = durationHours;
-            
-            // Prevent overflow past the break
             if (i + colspan > 4 && i < 5) colspan = 4 - i; 
             if (i === 5 && colspan > 3) colspan = 3;
 
@@ -13950,7 +13950,6 @@ async function loadTimetableSheet() {
       `;
     }
 
-    // Render Level Navigation + Container
     root.innerHTML = `
       <div class="no-print" style="display:flex; gap:8px; margin-bottom:20px; justify-content:center; flex-wrap:wrap;">
         ${levels.map(lvl => `
@@ -13958,15 +13957,12 @@ async function loadTimetableSheet() {
         `).join('')}
       </div>
       
-      <div id="tt-level-content">
-        <!-- Content will be injected here -->
-      </div>
+      <div id="tt-level-content"></div>
     `;
 
     const contentContainer = document.getElementById('tt-level-content');
     const tabs = root.querySelectorAll('.tt-level-tab');
 
-    // Handle tab switching
     tabs.forEach(tab => {
       tab.onclick = () => {
         tabs.forEach(t => {
@@ -13976,12 +13972,10 @@ async function loadTimetableSheet() {
         tab.classList.add('btn-primary');
         tab.classList.remove('btn-outline');
         
-        const level = tab.dataset.level;
-        contentContainer.innerHTML = renderLevel(level);
+        contentContainer.innerHTML = renderLevel(tab.dataset.level);
       };
     });
 
-    // Default to ND1 on load
     const defaultTab = root.querySelector('.tt-level-tab[data-level="ND1"]');
     if (defaultTab) defaultTab.click();
 

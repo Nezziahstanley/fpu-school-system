@@ -288,20 +288,42 @@
 </style>
 
 <script>
-  // Initialize on load
-  if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamsIndex) {
-    setTimeout(window.FPU_ADMIN.loadExamsIndex, 100);
-  }
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.FPU_ADMIN && window.FPU_ADMIN.loadExamsIndex) {
+      window.FPU_ADMIN.loadExamsIndex();
+    }
 
-  // Wire up "Print All" button
-  document.getElementById('ex-print-all')?.addEventListener('click', () => {
-    window.print();
-  });
+    // 1. Print All (Loops through all cards and prints their sheets)
+    document.getElementById('ex-print-all')?.addEventListener('click', async () => {
+      const cards = document.querySelectorAll('.ex-school-card:not(.empty)');
+      if (!cards.length) return alert('No exams scheduled to print.');
+      
+      // Note: Browsers block automatic printing of multiple pages at once for security.
+      // The best UX is to alert the user to print each school one by one, OR open them in new tabs.
+      if (confirm(`This will open ${cards.length} print dialogs (one for each school). Proceed?`)) {
+        for (const card of cards) {
+          card.click();
+          await new Promise(r => setTimeout(r, 1000)); // Wait for page to load
+          window.print();
+        }
+      }
+    });
 
-  // Wire up "Exam Periods" button (Shows a simple alert for now, or opens modal)
-  document.getElementById('ex-edit-periods')?.addEventListener('click', () => {
-    // If you want to open the modal, add logic here.
-    // For now, it just shows the periods in an alert.
-    alert('Periods are standard: Morning (9-11), Afternoon (12-2), Evening (3-5)');
+    // 2. Fix Exam Periods display
+    document.getElementById('ex-edit-periods')?.addEventListener('click', () => {
+      const panel = document.getElementById('ex-periods-panel');
+      if (!panel) return;
+      panel.innerHTML = `
+        <div class="panel-head"><h3>Standard Exam Periods</h3></div>
+        <div class="panel-body">
+          <div class="period-chips" style="display:flex;gap:10px;">
+            <div class="period-chip">Morning (9:00 AM - 11:00 AM)</div>
+            <div class="period-chip">Afternoon (12:00 PM - 2:00 PM)</div>
+            <div class="period-chip">Evening (3:00 PM - 5:00 PM)</div>
+          </div>
+          <p class="muted small" style="margin-top:10px;">These are fixed time slots used across the A3 sheet.</p>
+        </div>
+      `;
+    });
   });
 </script>

@@ -1,13 +1,11 @@
-<!-- ============================================================
-     Admin → Exams → Form (Create / Edit)
-     ============================================================ -->
+<!-- Admin → Exams → Form -->
 <section class="page-head">
   <div>
     <h2 id="exf-title">New Exam Schedule</h2>
     <p class="muted small" id="exf-subtitle">Add an exam to the timetable</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" id="exf-back" onclick="FPU_ADMIN.goBack('exams')">← Back</button>
+    <button class="btn btn-outline btn-sm" id="exf-back">← Back</button>
   </div>
 </section>
 
@@ -18,8 +16,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Session <span class="req">*</span></label>
-          <select class="form-select" name="sessionId" id="exf-session"
-                  data-lookup="sessions" required></select>
+          <select class="form-select" name="sessionId" id="exf-session" required></select>
         </div>
         <div class="form-group">
           <label class="form-label">Semester <span class="req">*</span></label>
@@ -30,30 +27,16 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">School</label>
-          <select class="form-select" id="exf-school"
-                  data-lookup="schools" data-placeholder="Select school…"></select>
+          <label class="form-label">School <span class="req">*</span></label>
+          <select class="form-select" id="exf-school" required></select>
         </div>
         <div class="form-group">
-          <label class="form-label">Department</label>
-          <select class="form-select" id="exf-dept"
-                  data-lookup="departments"
-                  data-depends-on="exf-school"
-                  data-param="schoolId"
-                  data-placeholder="Select school first…">
-            <option value="">Select school first…</option>
-          </select>
+          <label class="form-label">Department <span class="req">*</span></label>
+          <select class="form-select" id="exf-dept" required></select>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column: span 2;">
           <label class="form-label">Course <span class="req">*</span></label>
-          <select class="form-select" name="courseId" id="exf-course"
-                  data-lookup="courses"
-                  data-depends-on="exf-dept"
-                  data-param="departmentId"
-                  data-placeholder="Select department first…"
-                  required>
-            <option value="">Select department first…</option>
-          </select>
+          <select class="form-select" name="courseId" id="exf-course" required></select>
         </div>
 
         <div class="form-group">
@@ -69,16 +52,29 @@
           <input class="form-control" type="time" name="endTime" id="exf-end" required />
         </div>
 
+        <!-- NEW: Venue and Invigilators Dropdowns -->
         <div class="form-group">
-          <label class="form-label">Venue</label>
-          <input class="form-control" name="venue" id="exf-venue"
-                 placeholder="e.g. COMP HALL 1" />
+          <label class="form-label">Venue <span class="req">*</span></label>
+          <select class="form-select" name="venue" id="exf-venue" required>
+            <option value="">Select Venue...</option>
+            <option value="COMP HALL 1">COMP HALL 1</option>
+            <option value="COMP HALL 2">COMP HALL 2</option>
+            <option value="MAIN AUDITORIUM">MAIN AUDITORIUM</option>
+            <option value="LAB A">LAB A</option>
+            <option value="LAB B">LAB B</option>
+            <option value="TBA">To Be Announced</option>
+          </select>
         </div>
-        <div class="form-group" style="grid-column:span 2;">
-          <label class="form-label">Invigilators</label>
-          <input class="form-control" name="invigilators" id="exf-inv"
-                 placeholder="e.g. Dr. Ubi, S. I.; Ojo, E. A." />
-          <div class="form-help">Comma or semicolon separated</div>
+        <div class="form-group">
+          <label class="form-label">Invigilators <span class="req">*</span></label>
+          <select class="form-select" name="invigilators" id="exf-inv" required>
+            <option value="">Select Invigilator...</option>
+            <option value="Dr. Ubi, S. I.">Dr. Ubi, S. I.</option>
+            <option value="Ojo, E. A.">Ojo, E. A.</option>
+            <option value="Martin Arikpo">Martin Arikpo</option>
+            <option value="Patrick Ebri">Patrick Ebri</option>
+            <option value="TBA">To Be Announced</option>
+          </select>
         </div>
       </div>
 
@@ -86,9 +82,8 @@
 
       <div class="form-actions">
         <button type="submit" class="btn btn-primary" id="exf-submit">Create Exam</button>
-        <button type="button" class="btn btn-ghost" id="exf-cancel" onclick="FPU_ADMIN.goBack('exams')">Cancel</button>
-        <button type="button" class="btn btn-danger" id="exf-delete"
-                style="margin-left:auto;display:none;">Delete Exam</button>
+        <button type="button" class="btn btn-ghost" id="exf-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="exf-delete" style="margin-left:auto;display:none;">Delete Exam</button>
       </div>
     </form>
   </div>
@@ -98,103 +93,94 @@
   (function () {
     const A = window.FPU_ADMIN;
     const $ = (id) => document.getElementById(id);
-
     const hash = window.location.hash.replace(/^#/, '');
     const qIdx = hash.indexOf('?');
     const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
     const id = params.get('id');
     const prefillDept = params.get('departmentId');
-    const prefillSession = params.get('sessionId');
-    const prefillSemester = params.get('semester');
-    const prefillDate = params.get('date');
-    const prefillPeriodStart = params.get('startTime');
-    const prefillPeriodEnd = params.get('endTime');
     const isEdit = !!id;
 
     if (isEdit) {
       $('exf-title').textContent = 'Edit Exam Schedule';
-      $('exf-subtitle').textContent = 'Update this exam';
       $('exf-submit').textContent = 'Save Changes';
       $('exf-delete').style.display = 'inline-flex';
     }
 
-    function goBack() {
-      const sessId = $('exf-session').value || prefillSession;
-      const sem = $('exf-semester').value || prefillSemester || 'first';
-      const schoolId = $('exf-school').value;
-      A.FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', {
-        schoolId: schoolId || '',
-        sessionId: sessId || '',
-        semester: sem,
-        name: params.get('name') || 'School',
-      });
-    }
-    $('exf-back').addEventListener('click', goBack);
-    $('exf-cancel').addEventListener('click', goBack);
-
-    async function loadExisting() {
-      if (!isEdit) return;
+    // 1. Load Sessions, Schools
+    async function loadDropdowns() {
       try {
-        const res = await A.adminFetch(`/api/admin/exams/${id}`);
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error);
-        const ex = json.data;
+        const [sessRes, schoolRes, deptRes, courseRes] = await Promise.all([
+          A.adminFetch('/api/admin/sessions'), A.adminFetch('/api/admin/schools'),
+          A.adminFetch('/api/admin/departments'), A.adminFetch('/api/admin/courses?limit=5000')
+        ]);
+        const sessions = (await sessRes.json()).data || [];
+        const schools = (await schoolRes.json()).data || [];
+        const depts = (await deptRes.json()).data || [];
+        const courses = (await courseRes.json()).data || [];
 
-        $('exf-semester').value = ex.semester || 'first';
-        $('exf-date').value = ex.examDate ? String(ex.examDate).slice(0, 10) : '';
-        $('exf-start').value = ex.startTime || '';
-        $('exf-end').value = ex.endTime || '';
-        $('exf-venue').value = ex.venue || '';
-        $('exf-inv').value = ex.invigilators || '';
+        $('exf-session').innerHTML = '<option value="">Select...</option>' + sessions.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        $('exf-school').innerHTML = '<option value="">Select...</option>' + schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
 
-        setTimeout(() => {
-          if ($('exf-session') && ex.sessionId) $('exf-session').value = String(ex.sessionId);
-        }, 400);
+        // 2. Handle cascading Dropdowns
+        $('exf-school').onchange = () => {
+          const sid = Number($('exf-school').value);
+          const filteredDepts = depts.filter(d => Number(d.schoolId) === sid);
+          $('exf-dept').innerHTML = '<option value="">Select...</option>' + filteredDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+          $('exf-course').innerHTML = '<option value="">Select Department first...</option>';
+        };
 
-        if (ex.courseId) {
-          try {
-            const cRes = await A.adminFetch(`/api/admin/courses/${ex.courseId}`);
-            const cJson = await cRes.json();
-            if (cJson.success && cJson.data?.departmentId) {
-              setTimeout(() => {
-                $('exf-dept').value = String(cJson.data.departmentId);
-                $('exf-dept').dispatchEvent(new Event('change'));
-              }, 700);
-              setTimeout(() => {
-                if ($('exf-course')) $('exf-course').value = String(ex.courseId);
-              }, 1100);
+        $('exf-dept').onchange = () => {
+          const did = Number($('exf-dept').value);
+          const filteredCourses = courses.filter(c => Number(c.departmentId) === did);
+          $('exf-course').innerHTML = '<option value="">Select Course...</option>' + filteredCourses.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+        };
+
+        // 3. Pre-fill if editing or coming from TBA
+        if (isEdit) {
+          const res = await A.adminFetch(`/api/admin/exams/${id}`);
+          const json = await res.json();
+          if (json.success) {
+            const ex = json.data;
+            $('exf-session').value = ex.sessionId;
+            $('exf-semester').value = ex.semester;
+            $('exf-date').value = ex.examDate;
+            $('exf-start').value = ex.startTime;
+            $('exf-end').value = ex.endTime;
+            $('exf-venue').value = ex.venue || '';
+            $('exf-inv').value = ex.invigilators || '';
+            
+            // Find and set School -> Dept -> Course
+            const course = courses.find(c => c.id === ex.courseId);
+            if (course) {
+              const dept = depts.find(d => d.id === course.departmentId);
+              if (dept) {
+                $('exf-school').value = dept.schoolId;
+                $('exf-school').dispatchEvent(new Event('change'));
+                setTimeout(() => {
+                  $('exf-dept').value = dept.id;
+                  $('exf-dept').dispatchEvent(new Event('change'));
+                  setTimeout(() => { $('exf-course').value = ex.courseId; }, 100);
+                }, 100);
+              }
             }
-          } catch { /* silent */ }
+          }
+        } else if (prefillDept) {
+          const dept = depts.find(d => d.id === Number(prefillDept));
+          if (dept) {
+            $('exf-school').value = dept.schoolId;
+            $('exf-school').dispatchEvent(new Event('change'));
+            setTimeout(() => {
+              $('exf-dept').value = dept.id;
+              $('exf-dept').dispatchEvent(new Event('change'));
+            }, 100);
+          }
         }
-      } catch (err) {
-        A.showToast('❌ ' + err.message, 'error');
-      }
+      } catch (err) { console.error(err); }
     }
 
-    function applyPrefill() {
-      if (isEdit) return;
-      if (prefillSemester) $('exf-semester').value = prefillSemester;
-      if (prefillDate) $('exf-date').value = prefillDate;
-      if (prefillPeriodStart) $('exf-start').value = prefillPeriodStart;
-      if (prefillPeriodEnd) $('exf-end').value = prefillPeriodEnd;
-
-      setTimeout(() => {
-        if (prefillSession && $('exf-session')) $('exf-session').value = String(prefillSession);
-      }, 300);
-
-      setTimeout(() => {
-        if (prefillDept && $('exf-dept')) {
-          $('exf-dept').value = String(prefillDept);
-          $('exf-dept').dispatchEvent(new Event('change'));
-        }
-      }, 600);
-    }
-
-    $('exam-form').addEventListener('submit', async (e) => {
+    // 4. Handle Form Submit
+    $('exam-form').onsubmit = async (e) => {
       e.preventDefault();
-      const valEl = $('exf-validation');
-      valEl.innerHTML = '';
-
       const payload = {
         sessionId: Number($('exf-session').value),
         semester: $('exf-semester').value,
@@ -202,51 +188,38 @@
         examDate: $('exf-date').value,
         startTime: $('exf-start').value,
         endTime: $('exf-end').value,
-        venue: String($('exf-venue').value || '').trim() || null,
-        invigilators: String($('exf-inv').value || '').trim() || null,
+        venue: $('exf-venue').value,
+        invigilators: $('exf-inv').value,
       };
 
-      if (!payload.sessionId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Session is required.</div>'; return; }
-      if (!payload.courseId) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Course is required.</div>'; return; }
-      if (!payload.examDate) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Exam date is required.</div>'; return; }
-      if (!payload.startTime || !payload.endTime) { valEl.innerHTML = '<div class="alert alert-error">⚠️ Start and end times are required.</div>'; return; }
-
       const btn = $('exf-submit');
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = isEdit ? 'Saving…' : 'Creating…';
+      btn.disabled = true; btn.textContent = 'Saving...';
 
       try {
         const url = isEdit ? `/api/admin/exams/${id}` : '/api/admin/exams';
         const method = isEdit ? 'PUT' : 'POST';
         const res = await A.adminFetch(url, { method, body: JSON.stringify(payload) });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error);
-        A.showToast(isEdit ? '✅ Exam updated.' : '✅ Exam created.');
-        goBack();
-      } catch (err) {
-        valEl.innerHTML = `<div class="alert alert-error">❌ ${A.escapeHtml(err.message)}</div>`;
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original;
-      }
-    });
-
-    $('exf-delete').addEventListener('click', async () => {
-      if (!isEdit) return;
-      if (!confirm('Delete this exam schedule?')) return;
-      try {
-        const res = await A.adminFetch(`/api/admin/exams/${id}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (!json.success) throw new Error(json.error);
-        A.showToast('🗑️ Exam deleted.');
-        goBack();
+        if (!res.ok) throw new Error('Failed to save exam');
+        A.showToast('✅ Exam saved successfully.', 'success');
+        history.back(); // Go back
       } catch (err) {
         A.showToast('❌ ' + err.message, 'error');
+        btn.disabled = false; btn.textContent = 'Save Changes';
       }
-    });
+    };
 
-    loadExisting();
-    applyPrefill();
+    // 5. Handle Cancel / Back / Delete
+    $('exf-cancel').onclick = () => history.back();
+    $('exf-back').onclick = () => history.back();
+    $('exf-delete').onclick = async () => {
+      if (!confirm('Delete this exam?')) return;
+      try {
+        await A.adminFetch(`/api/admin/exams/${id}`, { method: 'DELETE' });
+        A.showToast('🗑️ Exam deleted.', 'success');
+        history.back();
+      } catch (err) { A.showToast('❌ ' + err.message, 'error'); }
+    };
+
+    loadDropdowns();
   })();
 </script>

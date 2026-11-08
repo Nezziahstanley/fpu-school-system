@@ -12901,6 +12901,183 @@ async function openStudentAttendanceModal(studentId, studentName, courseId, cour
   }
 }
 
+// ============================================
+// NOTIFICATIONS — Compose Modal
+// ============================================
+function openComposeNotificationModal() {
+  if (document.getElementById('nc-modal')) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'nc-modal';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width:100%;max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+      <div class="fpu-modal-header" style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+        <h3 style="margin:0;font-size:1.1rem;color:#0f172a;">Compose Notification</h3>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('nc-modal').remove()" style="font-size:1.5rem;line-height:1;padding:0 8px;">&times;</button>
+      </div>
+      <div class="fpu-modal-body" style="padding:24px;">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" id="nc-title" placeholder="e.g. Campus Update" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-control" id="nc-body" rows="4" placeholder="Type your message…"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+          <div class="form-group">
+            <label class="form-label">Audience</label>
+            <select class="form-select" id="nc-audience">
+              <option value="all">Everyone (General)</option>
+              <option value="student">Students Only</option>
+              <option value="staff">Staff Only</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="nc-type">
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="success">Success</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="nc-marquee" style="width:16px;height:16px;accent-color:#065f46;cursor:pointer;" />
+          <label for="nc-marquee" style="font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;">Show on Public Marquee (Scrolling Text)</label>
+        </div>
+      </div>
+      <div class="fpu-modal-footer" style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">
+        <button class="btn btn-outline" onclick="document.getElementById('nc-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" id="nc-save-btn">Send Notification</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#nc-save-btn').onclick = async () => {
+    const title = backdrop.querySelector('#nc-title').value.trim();
+    const body = backdrop.querySelector('#nc-body').value.trim();
+    const audience = backdrop.querySelector('#nc-audience').value;
+    const type = backdrop.querySelector('#nc-type').value;
+    const showOnMarquee = backdrop.querySelector('#nc-marquee').checked;
+
+    if (!title) { showToast('⚠️ Title is required.', 'warning'); return; }
+
+    const btn = backdrop.querySelector('#nc-save-btn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+
+    try {
+      await adminFetch('/api/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ title, body, type, audience, showOnMarquee }),
+      });
+      showToast('✅ Notification sent.', 'success');
+      backdrop.remove();
+      loadNotifications();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Send Notification';
+    }
+  };
+}
+
+// ============================================
+// ANNOUNCEMENTS — Compose Modal
+// ============================================
+function openComposeAnnouncementModal() {
+  if (document.getElementById('ac-modal')) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'ac-modal';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width:100%;max-width:600px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+      <div class="fpu-modal-header" style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">
+        <h3 style="margin:0;font-size:1.1rem;color:#0f172a;">New Announcement</h3>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('ac-modal').remove()" style="font-size:1.5rem;line-height:1;padding:0 8px;">&times;</button>
+      </div>
+      <div class="fpu-modal-body" style="padding:24px;">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-control" id="ac-title" placeholder="e.g. Resumption Date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Body <span class="req">*</span></label>
+          <textarea class="form-control" id="ac-body" rows="4" placeholder="Write your announcement…"></textarea>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+          <div class="form-group">
+            <label class="form-label">Audience</label>
+            <select class="form-select" id="ac-audience">
+              <option value="all">Everyone (General)</option>
+              <option value="student">Students Only</option>
+              <option value="staff">Staff Only</option>
+              <option value="lecturer">Lecturers Only</option>
+              <option value="hod">HODs Only</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select class="form-select" id="ac-priority">
+              <option value="normal">Normal</option>
+              <option value="high">High (Urgent)</option>
+              <option value="low">Low (General)</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="ac-publish" checked style="width:16px;height:16px;accent-color:#065f46;cursor:pointer;" />
+            <label for="ac-publish" style="font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;">Publish immediately</label>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="checkbox" id="ac-marquee" style="width:16px;height:16px;accent-color:#065f46;cursor:pointer;" />
+            <label for="ac-marquee" style="font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;">Show on Public Marquee (Scrolling Text)</label>
+          </div>
+        </div>
+      </div>
+      <div class="fpu-modal-footer" style="padding:16px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">
+        <button class="btn btn-outline" onclick="document.getElementById('ac-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" id="ac-save-btn">Publish</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+
+  backdrop.querySelector('#ac-save-btn').onclick = async () => {
+    const title = backdrop.querySelector('#ac-title').value.trim();
+    const body = backdrop.querySelector('#ac-body').value.trim();
+    const audience = backdrop.querySelector('#ac-audience').value;
+    const priority = backdrop.querySelector('#ac-priority').value;
+    const isPublished = backdrop.querySelector('#ac-publish').checked;
+    const showOnMarquee = backdrop.querySelector('#ac-marquee').checked;
+
+    if (!title || !body) { showToast('⚠️ Title and body are required.', 'warning'); return; }
+
+    const btn = backdrop.querySelector('#ac-save-btn');
+    btn.disabled = true; btn.textContent = 'Publishing...';
+
+    try {
+      await adminFetch('/api/admin/announcements', {
+        method: 'POST',
+        body: JSON.stringify({ title, body, audience, priority, isPublished, showOnMarquee }),
+      });
+      showToast('✅ Announcement published.', 'success');
+      backdrop.remove();
+      loadAnnouncements();
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Publish';
+    }
+  };
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -12976,8 +13153,8 @@ window.FPU_ADMIN = {
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 
   // Communication
-  loadAnnouncements, deleteAnnouncement, loadNotifications, markNotificationRead,
-  deleteNotification, loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats,
+  loadAnnouncements, deleteAnnouncement, openComposeAnnouncementModal, loadNotifications, markNotificationRead, deleteNotification,
+  loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats, openComposeNotificationModal,
 
   // Library
   loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm,

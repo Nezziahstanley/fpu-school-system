@@ -423,6 +423,57 @@ router.post('/register-token', async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/public/marquee  →  combined marquee items
+// ============================================================
+router.get('/public/marquee', async (_req, res, next) => {
+  try {
+    const [anns, notifs] = await Promise.all([
+      notifQueries.listMarqueeAnnouncements(10),
+      notifQueries.listMarqueeNotifications(10),
+    ]);
+
+    // Merge, dedupe by title, sort newest-first
+    const seen = new Set();
+    const combined = [...anns, ...notifs]
+      .filter((r) => {
+        if (seen.has(r.title)) return false;
+        seen.add(r.title);
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10)
+      .map((r) => ({ id: r.id, title: r.title }));
+
+    return res.json({ success: true, data: combined });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
+// GET /api/public/marquee  →  combined marquee items
+// ============================================================
+router.get('/public/marquee', async (_req, res, next) => {
+  try {
+    const [anns, notifs] = await Promise.all([
+      notifQueries.listMarqueeAnnouncements(10),
+      notifQueries.listMarqueeNotifications(10),
+    ]);
+
+    const seen = new Set();
+    const combined = [...anns, ...notifs]
+      .filter((r) => {
+        if (seen.has(r.title)) return false;
+        seen.add(r.title);
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10)
+      .map((r) => ({ id: r.id, title: r.title }));
+
+    return res.json({ success: true, data: combined });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // GET /api/announcements
 // ============================================================
 router.get('/announcements', async (req, res, next) => {

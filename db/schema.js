@@ -777,6 +777,7 @@ const notifications = pgTable('notifications', {
   title: varchar('title', { length: 200 }).notNull(),
   body: text('body'),
   type: notifTypeEnum('type').default('info'),
+  showOnMarquee: boolean('show_on_marquee').notNull().default(false),
   link: text('link'),
   isRead: boolean('is_read').notNull().default(false),
   readAt: timestamp('read_at', { withTimezone: true }),
@@ -797,6 +798,7 @@ const announcements = pgTable('announcements', {
   priority: announcementPriorityEnum('priority').notNull().default('normal'),
   authorId: integer('author_id').notNull(),
   isPublished: boolean('is_published').notNull().default(true),
+  showOnMarquee: boolean('show_on_marquee').notNull().default(false),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
 }, (t) => ({

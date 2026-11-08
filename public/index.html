@@ -759,37 +759,34 @@
       const bar = document.getElementById('marqueeBar');
       const track = document.getElementById('marqueeContent');
       if (!bar || !track) return;
-      let cachedItems = [];
+
       async function loadMarquee() {
         try {
-          const res = await fetch('/api/announcements');
+          const res = await fetch('/api/public/marquee');
           const json = await res.json();
-          cachedItems = (json.data || []).map(a => ({
-            title: a.title, body: a.body || '', priority: a.priority || 'normal',
-          }));
-          if (cachedItems.length === 0) { bar.style.display = 'none'; return; }
-          renderMarquee();
+          const items = (json.data || []);
+          if (!items.length) { bar.style.display = 'none'; return; }
+
+          const parts = items.map((item) => `
+            <span class="marquee-item">
+              <span class="marquee-icon">📢</span>
+              <strong>${escapeHtml(item.title)}</strong>
+              <span class="marquee-separator">◆</span>
+            </span>
+          `);
+
+          track.innerHTML = parts.join('') + parts.join('');
+          const textLength = parts.join('').length;
+          track.style.animationDuration = Math.max(30, Math.min(120, textLength / 15)) + 's';
           bar.style.display = 'flex';
         } catch { bar.style.display = 'none'; }
       }
-      function renderMarquee() {
-        const parts = cachedItems.map((item) => {
-          const icon = item.priority === 'high' ? '🔴' : item.priority === 'low' ? '📝' : '📢';
-          return `<span class="marquee-item">
-            <span class="marquee-icon">${icon}</span>
-            <strong>${escapeHtml(item.title)}</strong>
-            ${item.body ? `<span class="marquee-body">— ${escapeHtml((item.body || '').slice(0, 120))}${item.body.length > 120 ? '…' : ''}</span>` : ''}
-            <span class="marquee-separator">◆</span>
-          </span>`;
-        });
-        track.innerHTML = parts.join('') + parts.join('');
-        const textLength = parts.join('').length;
-        track.style.animationDuration = Math.max(30, Math.min(120, textLength / 15)) + 's';
-      }
+
       function escapeHtml(str) {
         if (str === null || str === undefined) return '';
         return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
+
       await loadMarquee();
       setInterval(loadMarquee, 60_000);
     })();

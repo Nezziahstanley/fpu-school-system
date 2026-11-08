@@ -11842,7 +11842,6 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
-    // 1. Fetch data
     const [examsRes, deptsRes, coursesRes] = await Promise.all([
       adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
       adminFetch(`/api/admin/departments`),
@@ -11861,12 +11860,9 @@ async function loadExamSheet() {
       return;
     }
 
-    // 2. Build lookups
     const courseMap = new Map(courses.map(c => [c.id, c]));
-    const deptMap = new Map(depts.map(d => [d.id, d]));
-
-    // 3. Group by Department
     const byDept = new Map();
+    
     depts.forEach(d => {
       if (Number(d.schoolId) === Number(schoolId)) {
         byDept.set(d.id, { dept: d, exams: [] });
@@ -11886,13 +11882,11 @@ async function loadExamSheet() {
 
     let allDepartmentsHtml = '';
 
-    // 4. Render each department
     activeDepts.forEach(({ dept, exams: deptExams }) => {
       
-      // Group by Date (YYYY-MM-DD)
+      // Group by Date only (YYYY-MM-DD)
       const days = {};
       deptExams.forEach(ex => {
-        // Handle potential string formatting from DB
         const dateStr = String(ex.examDate).split('T')[0];
         if (!days[dateStr]) days[dateStr] = [];
         days[dateStr].push(ex);
@@ -11930,14 +11924,13 @@ async function loadExamSheet() {
             <tbody>
       `;
 
-      // Render one row per day
       dayKeys.forEach(dateKey => {
         const dayExams = days[dateKey];
         const d = new Date(dateKey);
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split into Morning and Afternoon
+        // Split into morning and afternoon
         const morning = [];
         const afternoon = [];
 
@@ -11947,62 +11940,43 @@ async function loadExamSheet() {
           else afternoon.push(ex);
         });
 
-        // Render the row
+        // Get invigilators (shared for the whole day)
+        const allInvs = [...new Set(dayExams.map(e => e.invigilators).filter(Boolean))];
+        const invigilatorsHtml = allInvs.length ? allInvs.join(', ') : '—';
+
+        // Build the Morning Column
+        let morningCourseHtml = '<div style="font-style:italic;color:#94a3b8;">—</div>';
+        let morningVenueHtml = '';
+        if (morning.length > 0) {
+          morningCourseHtml = morning.map(m => {
+            const c = m.course || courseMap.get(m.courseId) || {};
+            return `<div style="margin-bottom:4px;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</div>`;
+          }).join('');
+          
+          morningVenueHtml = morning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.venue || 'TBA')}</div>`).join('');
+        }
+
+        // Build the Afternoon Column
+        let afternoonCourseHtml = '<div style="font-style:italic;color:#94a3b8;">—</div>';
+        let afternoonVenueHtml = '';
+        if (afternoon.length > 0) {
+          afternoonCourseHtml = afternoon.map(a => {
+            const c = a.course || courseMap.get(a.courseId) || {};
+            return `<div style="margin-bottom:4px;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</div>`;
+          }).join('');
+          
+          afternoonVenueHtml = afternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.venue || 'TBA')}</div>`).join('');
+        }
+
+        // Render the whole day as one row
         tableHtml += `<tr>`;
         tableHtml += `<td class="col-date" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
-
-        // Morning Column
-        if (morning.length > 0) {
-          const blocks = morning.map(m => {
-            const c = m.course || courseMap.get(m.courseId) || {};
-            return `
-              <div style="margin-bottom: 6px;">
-                <div style="font-weight:bold;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</div>
-                <div style="font-size: 10px; color: #555;">Venue: ${escapeHtml(m.venue || 'TBA')}</div>
-              </div>
-            `;
-          }).join('');
-          tableHtml += `<td>${blocks}</td>`;
-        } else {
-          tableHtml += `<td></td>`;
-        }
-
-        // Venue & Invigilators for Morning
-        if (morning.length > 0) {
-          const venues = [...new Set(morning.map(m => m.venue).filter(Boolean))].join(', ');
-          const invs = [...new Set(morning.map(m => m.invigilators).filter(Boolean))].join(', ');
-          tableHtml += `<td class="col-venue">${escapeHtml(venues || 'TBA')}</td>`;
-          tableHtml += `<td>${escapeHtml(invs || '—')}</td>`;
-        } else {
-          tableHtml += `<td></td><td></td>`;
-        }
-
-        // Afternoon Column
-        if (afternoon.length > 0) {
-          const blocks = afternoon.map(a => {
-            const c = a.course || courseMap.get(a.courseId) || {};
-            return `
-              <div style="margin-bottom: 6px;">
-                <div style="font-weight:bold;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</div>
-                <div style="font-size: 10px; color: #555;">Venue: ${escapeHtml(a.venue || 'TBA')}</div>
-              </div>
-            `;
-          }).join('');
-          tableHtml += `<td>${blocks}</td>`;
-        } else {
-          tableHtml += `<td></td>`;
-        }
-
-        // Venue & Invigilators for Afternoon
-        if (afternoon.length > 0) {
-          const venues = [...new Set(afternoon.map(a => a.venue).filter(Boolean))].join(', ');
-          const invs = [...new Set(afternoon.map(a => a.invigilators).filter(Boolean))].join(', ');
-          tableHtml += `<td class="col-venue">${escapeHtml(venues || 'TBA')}</td>`;
-          tableHtml += `<td>${escapeHtml(invs || '—')}</td>`;
-        } else {
-          tableHtml += `<td></td><td></td>`;
-        }
-
+        tableHtml += `<td style="vertical-align:top;">${morningCourseHtml}</td>`;
+        tableHtml += `<td class="col-venue" style="vertical-align:top;">${morningVenueHtml}</td>`;
+        tableHtml += `<td style="vertical-align:top;">${morning.length > 0 ? invigilatorsHtml : ''}</td>`;
+        tableHtml += `<td style="vertical-align:top;">${afternoonCourseHtml}</td>`;
+        tableHtml += `<td class="col-venue" style="vertical-align:top;">${afternoonVenueHtml}</td>`;
+        tableHtml += `<td style="vertical-align:top;">${afternoon.length > 0 ? invigilatorsHtml : ''}</td>`;
         tableHtml += `</tr>`;
       });
 
@@ -12051,11 +12025,9 @@ async function loadExamSheet() {
     
     .dept-exam-section {
       margin-bottom: 50px;
-      page-break-after: always; /* Force each department to a new page */
+      page-break-after: always;
     }
-    .dept-exam-section:last-child {
-      page-break-after: auto;
-    }
+    .dept-exam-section:last-child { page-break-after: auto; }
 
     .dept-header { text-align: center; margin-bottom: 20px; }
     .dept-header .institution { font-size: 16px; font-weight: bold; }
@@ -12064,9 +12036,8 @@ async function loadExamSheet() {
     .dept-header .title-line { font-size: 12px; font-weight: bold; }
 
     .ex-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-    .ex-table th, .ex-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
+    .ex-table th, .ex-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: top; }
     .ex-table th { text-align: center; text-transform: uppercase; }
-    .ex-table .week-header { background: #fff; color: #059669; font-weight: bold; text-align: center; font-size: 12px; padding: 6px; }
     .ex-table .col-date { text-align: center; vertical-align: middle; }
     .ex-table .col-venue { text-align: center; }
 

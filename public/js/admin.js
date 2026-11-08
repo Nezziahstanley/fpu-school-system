@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Fixed Data Merging)
+// EXAMS: Load A3 Exam Sheet (Final Fixed Version)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11855,7 +11855,6 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
-    // Fetch everything in parallel
     const [examsRes, deptsRes, coursesRes] = await Promise.all([
       adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
       adminFetch(`/api/admin/departments`),
@@ -11871,15 +11870,12 @@ async function loadExamSheet() {
       return;
     }
 
-    // --- CRITICAL FIX: Merge course details into the exams array ---
+    // Merge course details into exams safely
     const courseMap = new Map(allCourses.map(c => [Number(c.id), c]));
-    
     const exams = rawExams.map(ex => {
-      // Look up the course using the ID from the exam
       const course = courseMap.get(Number(ex.courseId)) || {};
       return {
         ...ex,
-        // Attach the full course object and fallback title/code
         course: course,
         displayTitle: course.title || ex.courseTitle || 'Unknown Course',
         displayCode: course.code || ex.courseCode || 'N/A',
@@ -11887,14 +11883,9 @@ async function loadExamSheet() {
       };
     });
 
-    // Update subtitle with the actual count
     subtitleEl.textContent = `${exams.length} exams scheduled`;
-
-    // Show the Edit button (links to the first exam for quick editing)
-    if (exams.length > 0) {
-      editBtn.style.display = 'inline-flex';
-      editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: exams[0].id });
-    }
+    editBtn.style.display = 'inline-flex';
+    editBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { id: exams[0].id });
 
     // Group by Department
     const byDept = new Map();
@@ -11916,7 +11907,6 @@ async function loadExamSheet() {
     let allDepartmentsHtml = '';
 
     activeDepts.forEach(({ dept, exams: deptExams }) => {
-      // Group by Date
       const days = {};
       deptExams.forEach(ex => {
         const dateStr = String(ex.examDate).split('T')[0];
@@ -11962,7 +11952,6 @@ async function loadExamSheet() {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split into Morning and Afternoon
         const morning = dayExams.filter(ex => (ex.startTime || '09:00') < '11:00');
         const afternoon = dayExams.filter(ex => (ex.startTime || '09:00') >= '11:00');
 
@@ -11978,7 +11967,6 @@ async function loadExamSheet() {
           tableHtml += `<tr>`;
           if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
 
-          // Morning Slot
           if (m) {
             tableHtml += `
               <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(m.displayTitle)} (${escapeHtml(m.displayCode)})</td>
@@ -11989,7 +11977,6 @@ async function loadExamSheet() {
             tableHtml += `<td></td><td></td><td></td>`;
           }
 
-          // Afternoon Slot
           if (a) {
             tableHtml += `
               <td style="text-align:left; font-weight:bold; color:#065f46;">${escapeHtml(a.displayTitle)} (${escapeHtml(a.displayCode)})</td>
@@ -12022,6 +12009,7 @@ async function loadExamSheet() {
     root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
   }
 }
+
 // Inject CSS for the A3 Exam Sheet
 (function injectExamSheetCSS() {
   const style = document.createElement('style');

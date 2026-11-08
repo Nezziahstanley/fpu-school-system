@@ -81,11 +81,11 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 
-    // FIXED: Added ON CONFLICT (student_id, session_id) to prevent 500 errors
+    // THE FIX IS HERE: ${status}::clearance_status forces PostgreSQL to cast the string properly
     const query = `
       INSERT INTO clearances 
         (student_id, session_id, type, status, remarks, cleared_by, cleared_at, created_at)
-      VALUES ($1, $2, 'general', $3, $4, $5, $6, NOW())
+      VALUES ($1, $2, 'general', $3::clearance_status, $4, $5, $6, NOW())
       ON CONFLICT (student_id, session_id) 
       DO UPDATE SET 
         status = EXCLUDED.status, 
@@ -97,6 +97,7 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     const result = await db.query(query, [
       studentId, sessionId, status, remarks || null, clearedBy, clearedAt
     ]);
+    
     await logAudit({ req, action: 'clearance.upsert', entity: 'clearance', entityId: result.rows[0].id });
     return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) {

@@ -5402,9 +5402,6 @@ async function loadClearanceDepartments() {
   }
 }
 
-// ============================================
-// CLEARANCES (Drill-down by Department)
-// ============================================
 async function loadDepartmentClearances() {
   const root = document.getElementById('cdd-tbody');
   if (!root) return;
@@ -5428,7 +5425,7 @@ async function loadDepartmentClearances() {
   root.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;"><span class="spinner"></span> Loading students…</td></tr>';
 
   try {
-    // 1. Fetch students and clearances in parallel
+    // Fetch students and clearances
     const [studentsRes, clrRes] = await Promise.all([
       adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
       adminFetch('/api/admin/clearances').catch(() => null),
@@ -5437,7 +5434,7 @@ async function loadDepartmentClearances() {
     const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
     const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
 
-    // 2. Map existing clearances by student ID for fast lookup
+    // Match clearances to students
     const clearanceByStudent = new Map();
     clearances.forEach(c => {
       const row = c.clearance || c;
@@ -5445,14 +5442,11 @@ async function loadDepartmentClearances() {
       if (sid) clearanceByStudent.set(sid, row);
     });
 
-    // 3. Enrich students and calculate stats
     let cleared = 0, pending = 0, rejected = 0;
     
     const enrichedStudents = students.map(s => {
       const clr = clearanceByStudent.get(Number(s.id));
-      // If no record exists, default to 'pending'
       const status = clr?.status ? String(clr.status).toLowerCase() : 'pending';
-      // If no remarks, default to a dash
       const remarks = clr?.remarks || '—';
 
       if (status === 'cleared') cleared++;
@@ -5462,7 +5456,7 @@ async function loadDepartmentClearances() {
       return { s, status, remarks };
     });
 
-    // 4. Update Header Stats
+    // Update Stats (Top cards)
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('cdd-stat-students', students.length);
     setT('cdd-stat-cleared', cleared);
@@ -5470,7 +5464,7 @@ async function loadDepartmentClearances() {
     setT('cdd-stat-rate', students.length ? Math.round((cleared / students.length) * 100) + '%' : '—');
     setT('cdd-count', `Showing ${students.length} students`);
 
-    // 5. Apply Filters (Status and Search)
+    // Apply Filters
     const statusFilter = document.getElementById('cdd-filter-status')?.value || '';
     const searchVal = document.getElementById('cdd-search')?.value.toLowerCase() || '';
 
@@ -5488,7 +5482,7 @@ async function loadDepartmentClearances() {
       return;
     }
 
-    // 6. Render Table Rows
+    // Render rows
     root.innerHTML = filtered.map(({ s, status, remarks }) => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown';
       
@@ -5497,13 +5491,12 @@ async function loadDepartmentClearances() {
 
       if (status === 'cleared') {
         badgeClass = 'badge-cleared';
-        actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')" title="Revert to Pending">↺ Revert</button>`;
+        actions = `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">↺ Revert</button>`;
       } else if (status === 'rejected') {
         badgeClass = 'badge-rejected';
         actions = `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
                    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.clearStudent(${s.id}, 'pending')">Re-open</button>`;
       } else {
-        // Pending (or newly created)
         badgeClass = 'badge-pending';
         actions = `
           <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.clearStudent(${s.id}, 'cleared')">✓ Clear</button>
@@ -5528,57 +5521,19 @@ async function loadDepartmentClearances() {
       `;
     }).join('');
 
-    // 7. Wire "Select All" Checkbox
-    const selectAll = document.getElementById('cd-select-all');
-    if (selectAll && !selectAll.__wired) {
-      selectAll.__wired = true;
-      selectAll.onchange = () => {
-        document.querySelectorAll('.clr-student-check').forEach(cb => cb.checked = selectAll.checked);
-      };
-    }
-
-    // 8. Wire Bulk Buttons (Mark Cleared / Mark Rejected)
-    // We use a slight delay to ensure the DOM has finished updating
+    // Wire buttons and checkboxes safely
     setTimeout(() => {
-      const bulkClearBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Cleared'));
-      const bulkRejectBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Mark Rejected'));
-
-      if (bulkClearBtn && !bulkClearBtn.__wired) {
-        bulkClearBtn.__wired = true;
-        bulkClearBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('cleared');
-      }
-      if (bulkRejectBtn && !bulkRejectBtn.__wired) {
-        bulkRejectBtn.__wired = true;
-        bulkRejectBtn.onclick = () => window.FPU_ADMIN.bulkClearClearances('rejected');
+      const selectAll = document.getElementById('cd-select-all');
+      if (selectAll && !selectAll.__wired) {
+        selectAll.__wired = true;
+        selectAll.onchange = () => {
+          document.querySelectorAll('.clr-student-check').forEach(cb => cb.checked = selectAll.checked);
+        };
       }
     }, 50);
 
-    // 9. Wire Export CSV
-    const exportBtn = document.getElementById('cd-export');
-    if (exportBtn && !exportBtn.__wired) {
-      exportBtn.__wired = true;
-      exportBtn.onclick = () => {
-        const headers = ['Matric', 'Name', 'Level', 'Status', 'Remarks'];
-        const rows = filtered.map(({ s, status, remarks }) => [
-          s.matricNumber || '', 
-          `${s.firstName || ''} ${s.lastName || ''}`.trim(), 
-          s.level || '', 
-          status, 
-          remarks
-        ]);
-        const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `clearances-${deptName.replace(/\s/g,'-')}-${new Date().toISOString().slice(0,10)}.csv`;
-        a.click();
-        showToast('✅ Exported.', 'success');
-      };
-    }
-
   } catch (err) {
-    console.error('[clearances] Drill-down error:', err);
+    console.error('[clearances] Error:', err);
     root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
 }

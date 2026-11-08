@@ -260,11 +260,84 @@ router.post('/:id/hod-verify', requireRole(['hod', 'admin']), async (req, res, n
   try {
     const row = await resultQueries.hodVerify(req.params.id, req.user.id);
     if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    // ✅ FIX: Private notification to just this student (no announcement spam)
+    try {
+      const notifQueries = require('../db/queries/notifications');
+      const { schema, db } = require('../db');
+      const { eq } = require('drizzle-orm');
+      const [c] = await db.select({ code: schema.courses.code })
+        .from(schema.courses).where(eq(schema.courses.id, row.courseId)).limit(1);
+
+      await notifQueries.createNotification({
+        userId: row.studentId,
+        title: 'Result Verified',
+        body: `Your result for ${c?.code || 'course'} has been verified by the HOD.`,
+        type: 'success',
+        link: '#results',
+        showOnMarquee: false, // NEVER on public marquee
+      });
+    } catch (e) { console.error('[result.hod-verify] notif failed:', e.message); }
+
     await logAudit({ req, action: 'result.hod_verify', entity: 'result', entityId: row.id });
     return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
+  } catch (err) { return next(err); }
+});
+
+router.post('/:id/approve', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
+  try {
+    const row = await resultQueries.adminApprove(req.params.id, req.user.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    // ✅ FIX: Private notification only
+    try {
+      const notifQueries = require('../db/queries/notifications');
+      const { schema, db } = require('../db');
+      const { eq } = require('drizzle-orm');
+      const [c] = await db.select({ code: schema.courses.code })
+        .from(schema.courses).where(eq(schema.courses.id, row.courseId)).limit(1);
+
+      await notifQueries.createNotification({
+        userId: row.studentId,
+        title: 'Result Approved',
+        body: `Your result for ${c?.code || 'course'} has been approved by the academic office.`,
+        type: 'success',
+        link: '#results',
+        showOnMarquee: false,
+      });
+    } catch (e) { console.error('[result.approve] notif failed:', e.message); }
+
+    await logAudit({ req, action: 'result.approve', entity: 'result', entityId: row.id });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
+});
+
+router.post('/:id/publish', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
+  try {
+    const row = await resultQueries.publish(req.params.id);
+    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+
+    // ✅ FIX: Private notification only
+    try {
+      const notifQueries = require('../db/queries/notifications');
+      const { schema, db } = require('../db');
+      const { eq } = require('drizzle-orm');
+      const [c] = await db.select({ code: schema.courses.code })
+        .from(schema.courses).where(eq(schema.courses.id, row.courseId)).limit(1);
+
+      await notifQueries.createNotification({
+        userId: row.studentId,
+        title: 'Result Published',
+        body: `Your result for ${c?.code || 'course'} has been published. You can now view it on your portal.`,
+        type: 'success',
+        link: '#results',
+        showOnMarquee: false,
+      });
+    } catch (e) { console.error('[result.publish] notif failed:', e.message); }
+
+    await logAudit({ req, action: 'result.publish', entity: 'result', entityId: row.id });
+    return res.json({ success: true, data: row });
+  } catch (err) { return next(err); }
 });
 
 router.post('/:id/hod-reject', requireRole(['hod', 'admin']), async (req, res, next) => {
@@ -294,17 +367,6 @@ router.post('/:id/reject', requireRole(['admin', 'academic_officer']), async (re
     const row = await resultQueries.adminReject(req.params.id, req.user.id, req.body?.reason);
     if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
     await logAudit({ req, action: 'result.admin_reject', entity: 'result', entityId: row.id, after: { reason: req.body?.reason } });
-    return res.json({ success: true, data: row });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-router.post('/:id/publish', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
-  try {
-    const row = await resultQueries.publish(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
-    await logAudit({ req, action: 'result.publish', entity: 'result', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);

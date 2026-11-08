@@ -5838,7 +5838,6 @@ async function loadNotifications() {
   const list = document.getElementById('nt-list');
   if (!list) return;
 
-  // Get filters
   const typeFilter = document.getElementById('nt-filter-type')?.value || '';
   const readFilter = document.getElementById('nt-filter-read')?.value || '';
   const searchVal = document.getElementById('nt-search')?.value.toLowerCase() || '';
@@ -5846,14 +5845,16 @@ async function loadNotifications() {
   list.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading notifications…</div>';
 
   try {
+    // Pass no userId so admin gets ALL notifications
     const res = await adminFetch("/api/admin/notifications");
     const result = await res.json();
-    
-    // Handle different JSON shapes
     allNotifications = result.data || result.rows || result || [];
 
-    // Apply filters
-    let filtered = allNotifications.filter(n => {
+    // Update stats based on the full list
+    updateNotificationStats(allNotifications);
+
+    // Apply filters for display only
+    const filtered = allNotifications.filter(n => {
       const type = String(n.type || n.category || 'info').toLowerCase();
       const isRead = n.isRead === true || n.is_read === true || n.status === 'read';
       const title = String(n.title || n.subject || '').toLowerCase();
@@ -5863,18 +5864,14 @@ async function loadNotifications() {
       if (readFilter === 'read' && !isRead) return false;
       if (readFilter === 'unread' && isRead) return false;
       if (searchVal && !title.includes(searchVal) && !body.includes(searchVal)) return false;
-      
       return true;
     });
-
-    updateNotificationStats(allNotifications);
 
     if (!filtered.length) {
       list.innerHTML = '<div style="text-align:center;padding:3rem;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;color:#64748b;"><div style="font-size:2rem;margin-bottom:10px;">📭</div>No notifications found matching your criteria.</div>';
       return;
     }
 
-    // Render the list
     list.innerHTML = filtered.map(n => {
       const title = n.title || n.subject || 'No Title';
       const message = n.message || n.body || n.description || n.text || '';
@@ -5883,7 +5880,6 @@ async function loadNotifications() {
       const createdAt = n.createdAt || n.created_at || n.date || Date.now();
       const id = n.id;
 
-      // Map icons to types
       let icon = 'ℹ️';
       if (type.includes('warn')) icon = '⚠️';
       if (type.includes('success')) icon = '✅';
@@ -5891,7 +5887,7 @@ async function loadNotifications() {
       if (type.includes('fee')) icon = '💰';
 
       return `
-        <div class="nt-item ${isRead ? '' : 'unread'}" onclick="window.location.hash='#notification-detail?id=${id}'">
+        <div class="nt-item ${isRead ? '' : 'unread'}">
           <div class="nt-icon ${type}">${icon}</div>
           <div class="nt-body">
             <div class="nt-title">${escapeHtml(title)}</div>
@@ -5901,7 +5897,7 @@ async function loadNotifications() {
               ${!isRead ? '<span class="unread-pill">Unread</span>' : ''}
             </div>
           </div>
-          <div class="nt-actions" onclick="event.stopPropagation()">
+          <div class="nt-actions">
             ${!isRead ? `<button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.markNotificationRead(${id})">Mark Read</button>` : ''}
             <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteNotification(${id})">🗑</button>
           </div>
@@ -5925,6 +5921,27 @@ async function loadNotifications() {
 
   } catch (err) {
     list.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function markNotificationRead(id) {
+  try {
+    await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' });
+    showToast('✅ Marked read.', 'success');
+    loadNotifications();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function deleteNotification(id) {
+  if (!confirm('Delete this notification?')) return;
+  try {
+    await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Deleted.', 'success');
+    loadNotifications();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
@@ -5956,74 +5973,6 @@ function updateNotificationStats(records) {
   setText('nt-stat-week', counts.thisWeek);
   setText('nt-stat-high', counts.high);
   setText('nt-count-inbox', counts.total);
-}
-
-async function markNotificationRead(id) {
-  try { 
-    await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }); 
-    showToast('✅ Marked read.', 'success'); 
-    loadNotifications(); 
-  } catch (err) { 
-    showToast('❌ ' + err.message, 'error'); 
-  }
-}
-
-async function deleteNotification(id) {
-  if (!confirm('Delete this notification?')) return;
-  try { 
-    await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); 
-    showToast('🗑️ Deleted.', 'success'); 
-    loadNotifications(); 
-  } catch (err) { 
-    showToast('❌ ' + err.message, 'error'); 
-  }
-}
-
-function updateNotificationStats(records) {
-  const counts = { total: records.length, unread: 0, thisWeek: 0, high: 0 };
-  
-  records.forEach(n => {
-    // Deep scan for unread
-    if (!(n.isRead === true || n.is_read === true || n.status === 'read')) {
-      counts.unread++;
-    }
-    
-    // Deep scan for high priority
-    const type = String(n.type || n.category || n.priority || '').toLowerCase();
-    if (type.includes('high') || type.includes('warn') || type.includes('urgent')) {
-      counts.high++;
-    }
-
-    // Deep scan for date (within last 7 days)
-    const dateStr = n.createdAt || n.created_at || n.date;
-    if (dateStr && new Date(dateStr).getTime() > Date.now() - 7 * 86400000) {
-      counts.thisWeek++;
-    }
-  });
-
-  // Safe setter to prevent crashes if an ID is missing
-  const setText = (id, val) => { 
-    const el = document.getElementById(id); 
-    if (el) el.textContent = val; 
-    else console.warn(`[Notifications] Missing ID: ${id}`);
-  };
-  
-  setText('nt-stat-total', counts.total);
-  setText('nt-stat-unread', counts.unread);
-  setText('nt-stat-week', counts.thisWeek);
-  setText('nt-stat-high', counts.high);
-  
-  // Update tab counts if they exist
-  setText('nt-count-all', counts.total);
-}
-
-async function markNotificationRead(id) {
-  try { await adminFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }); showToast('Marked read.', 'success'); loadNotifications(); } catch (err) { showToast('❌ ' + err.message, 'error'); }
-}
-
-async function deleteNotification(id) {
-  if (!confirm('Delete this notification?')) return;
-  try { await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' }); showToast('Deleted.', 'success'); loadNotifications(); } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
 // ============================================

@@ -6823,35 +6823,216 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD ---
+  // --- 2. ID CARD (PORTAL DESIGN MATCH) ---
   if (type === 'id-card' || type === 'id-letter') {
     return `
+      <style>
+        /* Custom CSS specifically for the Portal-style ID card */
+        .portal-id-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 40px 0;
+          background: #f8fafc;
+          border-radius: 8px;
+        }
+        .portal-id-card {
+          width: 500px;
+          height: 280px;
+          background: #fff;
+          border-radius: 12px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          overflow: hidden;
+          border: 1px solid #e2e8f0;
+          display: flex;
+          flex-direction: column;
+          font-family: 'Poppins', sans-serif;
+          position: relative;
+        }
+        .pic-header {
+          background: #065f46;
+          height: 50px;
+          padding: 0 20px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          color: #fff;
+        }
+        .pic-header img {
+          width: 32px;
+          height: 32px;
+          background: #fff;
+          border-radius: 50%;
+          padding: 2px;
+        }
+        .pic-header-text {
+          display: flex;
+          flex-direction: column;
+          line-height: 1.2;
+        }
+        .pic-header-text .inst {
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        }
+        .pic-header-text .state {
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 1px;
+          opacity: 0.8;
+        }
+        .pic-body {
+          display: flex;
+          padding: 16px 20px;
+          gap: 16px;
+          flex: 1;
+        }
+        .pic-photo {
+          width: 85px;
+          height: 105px;
+          background: #f1f5f9;
+          border-radius: 6px;
+          border: 1px dashed #cbd5e1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .pic-photo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .pic-details {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding-top: 4px;
+        }
+        .pic-row {
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 4px;
+        }
+        .pic-row-flex {
+          display: flex;
+          gap: 20px;
+        }
+        .pic-label {
+          font-size: 8px;
+          font-weight: 700;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .pic-value {
+          font-size: 12px;
+          font-weight: 700;
+          color: #0f172a;
+          line-height: 1.2;
+        }
+        .pic-qr {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          width: 60px;
+        }
+        .pic-qr-box {
+          width: 50px;
+          height: 50px;
+          border: 1px solid #065f46;
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #065f46;
+          font-size: 24px;
+        }
+        .pic-footer {
+          background: #065f46;
+          height: 24px;
+          padding: 0 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          color: #fff;
+          font-size: 8px;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+        }
+      </style>
+
       <div class="doc-preview-wrap">
         <div class="doc-preview-toolbar"><span>👁 ID Card Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
-        <div class="doc-preview-outer" style="background:#1e293b;">
-          <div class="id-card-wrapper">
-            <div class="id-card">
-              <div class="id-card-header">
-                <img src="/images/logo.png" onerror="this.style.display='none'" />
-                <div style="text-align:left;">
-                  <div style="font-size:10px; opacity:0.8;">FEDERAL POLYTECHNIC Ugep</div>
-                  <div style="font-size:14px; font-weight:700;">STUDENT ID CARD</div>
+        <div class="portal-id-container">
+          
+          <div class="portal-id-card">
+            <!-- Header -->
+            <div class="pic-header">
+              <img src="/images/logo.png" onerror="this.style.display='none'" />
+              <div class="pic-header-text">
+                <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
+                <div class="state">CROSS RIVER STATE</div>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="pic-body">
+              <!-- Photo -->
+              <div class="pic-photo">
+                ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : ''}
+              </div>
+
+              <!-- Details -->
+              <div class="pic-details">
+                <div class="pic-row">
+                  <span class="pic-label">Student Name</span>
+                  <span class="pic-value" style="font-size: 14px;">${escapeHtml(fullName)}</span>
+                </div>
+                
+                <div class="pic-row">
+                  <span class="pic-label">Matric Number</span>
+                  <span class="pic-value">${escapeHtml(idValue)}</span>
+                </div>
+
+                <div class="pic-row-flex">
+                  <div class="pic-row" style="flex: 1;">
+                    <span class="pic-label">Level</span>
+                    <span class="pic-value">${escapeHtml(level)}</span>
+                  </div>
+                  <div class="pic-row" style="flex: 1;">
+                    <span class="pic-label">Session</span>
+                    <span class="pic-value">${escapeHtml(sessionName)}</span>
+                  </div>
+                </div>
+
+                <div class="pic-row">
+                  <span class="pic-label">Programme</span>
+                  <span class="pic-value">${escapeHtml(progName)}</span>
+                </div>
+
+                <div class="pic-row">
+                  <span class="pic-label">Department</span>
+                  <span class="pic-value">${escapeHtml(deptName)}</span>
                 </div>
               </div>
-              <div class="id-card-body">
-                <div class="official-watermark" style="opacity:0.05; z-index:0;"><img src="/images/logo.png" onerror="this.style.display='none'" /></div>
-                <div class="id-photo">
-                  ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" style="width:100%; height:100%; object-fit:cover; border-radius:10px;" />` : 'PHOTO'}
-                </div>
-                <h2 class="id-name">${escapeHtml(fullName)}</h2>
-                <div class="id-row"><span class="label">Matric</span><span class="value">${escapeHtml(idValue)}</span></div>
-                <div class="id-row"><span class="label">Level</span><span class="value">${escapeHtml(level)}</span></div>
-                <div class="id-row"><span class="label">Programme</span><span class="value">${escapeHtml(progName)}</span></div>
-                <div class="id-row"><span class="label">Dept</span><span class="value">${escapeHtml(deptName)}</span></div>
+
+              <!-- QR Code Placeholder -->
+              <div class="pic-qr">
+                <div class="pic-qr-box">▦</div>
+                <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
               </div>
-              <div class="id-card-footer">VALID UNTIL GRADUATION · ${dateStr.toUpperCase()}</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="pic-footer">
+              <span>OFFICIAL STUDENT ID</span>
+              <span>FPU/ID/${String(user.id || 0).padStart(4, '0')}</span>
             </div>
           </div>
+
         </div>
       </div>
     `;
@@ -6934,11 +7115,10 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 5. TRANSCRIPT (MODERN STYLE - MATCHES THE SECOND IMAGE) ---
+  // --- 5. TRANSCRIPT ---
   if (type === 'transcript') {
     let results = [];
     try {
-      // Fetch results specific to this student
       const res = await adminFetch(`/api/admin/results?studentId=${user.id}&limit=5000`);
       if (res.ok) { 
         const j = await res.json(); 
@@ -6948,9 +7128,8 @@ async function renderDocPreview(doc, user) {
     } catch (e) { console.error("Could not load transcript data", e); }
 
     const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
-    
-    // Group by Session and Semester
     const groups = new Map();
+    
     results.forEach(r => {
       const row = r.result || r;
       const key = `${row.sessionId || row.session || 'Current'}|${row.semester || 'First'}`;
@@ -6960,7 +7139,6 @@ async function renderDocPreview(doc, user) {
 
     let totalUnits = 0, totalPoints = 0, courseCount = 0;
     
-    // Calculate totals
     results.forEach(r => {
       const row = r.result || r;
       const course = r.course || {};
@@ -6978,7 +7156,6 @@ async function renderDocPreview(doc, user) {
     const cgpaVal = totalUnits > 0 ? (totalPoints / totalUnits).toFixed(2) : '0.00';
     const classification = cgpaVal === '0.00' ? '—' : Number(cgpaVal) >= 3.50 ? 'Distinction' : Number(cgpaVal) >= 3.00 ? 'Upper Credit' : Number(cgpaVal) >= 2.50 ? 'Lower Credit' : Number(cgpaVal) >= 2.00 ? 'Pass' : 'Fail';
 
-    // Render Semester Blocks
     const semesterBlocksHtml = [...groups.entries()].map(([key, list]) => {
       const [session, semester] = key.split('|');
       
@@ -7005,8 +7182,7 @@ async function renderDocPreview(doc, user) {
         const grade = String(row.grade || '—').toUpperCase();
         const points = row.points != null ? Number(row.points) : (gradePoints[grade] || 0);
         
-        // Grade badge colors
-        let badgeColor = '#065f46'; // Default A
+        let badgeColor = '#065f46';
         if (grade === 'B') badgeColor = '#3b82f6';
         if (grade === 'C') badgeColor = '#f59e0b';
         if (grade === 'D' || grade === 'E') badgeColor = '#ea580c';

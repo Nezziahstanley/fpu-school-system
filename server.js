@@ -126,10 +126,10 @@ try {
 // ------------------------------------------------------------
 app.get('/api/public/verify/:matric', async (req, res) => {
   try {
-    const matric = req.params.matric;
+    // 1. Decode the matric number to handle %2F -> /
+    const matric = decodeURIComponent(req.params.matric);
     
-    // Adjust this SQL query to match your exact database schema
-    // It joins users, students, programmes, and departments
+    // 2. Use UPPER() to make the search case-insensitive
     const result = await require('./db').query(`
       SELECT 
         u.id, 
@@ -144,7 +144,7 @@ app.get('/api/public/verify/:matric', async (req, res) => {
       JOIN students s ON u.id = s.user_id
       LEFT JOIN programmes p ON s.programme_id = p.id
       LEFT JOIN departments d ON s.department_id = d.id
-      WHERE s.matric_number = $1
+      WHERE UPPER(s.matric_number) = UPPER($1)
       LIMIT 1
     `, [matric]);
 
@@ -152,7 +152,6 @@ app.get('/api/public/verify/:matric', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
 
-    // Add a default session since we didn't query it
     const studentData = result.rows[0];
     studentData.sessionName = '2025/2026';
 

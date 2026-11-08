@@ -7919,12 +7919,13 @@ function addIpBlock(ip) {
 }
 
 // ============================================
-// SECURITY: IP Rules Table
+// SECURITY: IP Rules Table & Buttons
 // ============================================
 async function loadIpRules() {
   const tbody = document.getElementById('ip-tbody');
   if (!tbody) return;
 
+  // Show loading spinner
   tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; padding: 40px;"><span class="spinner"></span> Loading IP rules…</td></tr>';
 
   try {
@@ -7932,7 +7933,7 @@ async function loadIpRules() {
     const json = await res.json();
     const rows = json.data || [];
 
-    // Calculate Stats
+    // 1. Calculate Stats
     const allow = rows.filter((r) => r.rule === 'allow').length;
     const block = rows.filter((r) => r.rule === 'block').length;
     const soon = rows.filter((r) => {
@@ -7941,56 +7942,71 @@ async function loadIpRules() {
       return diff > 0 && diff < 24 * 3600 * 1000;
     }).length;
 
-    // Update Top Stat Cards
+    // 2. Update Top Stat Cards
     setText('ip-stat-total', rows.length);
     setText('ip-stat-allow', allow);
     setText('ip-stat-block', block);
     setText('ip-stat-expiring', soon);
 
+    // 3. Render Table Body
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; color: #64748b;">No IP rules configured yet.</td></tr>';
-      return;
+      tbody.innerHTML = '<tr><td colspan="6" class="empty" style="text-align:center; color: #64748b; padding: 40px;">No IP rules configured yet.</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map((r) => `
+        <tr>
+          <td><code>${escapeHtml(r.ipAddress)}</code></td>
+          <td>${r.rule === 'allow' ? '<span class="badge badge-success">Allow</span>' : '<span class="badge badge-danger">Block</span>'}</td>
+          <td>${escapeHtml(r.reason || '—')}</td>
+          <td>${r.expiresAt ? fmtDateTime(r.expiresAt) : '<span class="muted">Never</span>'}</td>
+          <td class="small muted">${fmtDateTime(r.createdAt)}</td>
+          <td style="text-align:right;">
+            <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteIpRule(${r.id})">Delete</button>
+          </td>
+        </tr>
+      `).join('');
     }
 
-    // Render Table Rows
-    tbody.innerHTML = rows.map((r) => `
-      <tr>
-        <td><code>${escapeHtml(r.ipAddress)}</code></td>
-        <td>${r.rule === 'allow' ? badge('active') : badge('rejected')}</td>
-        <td>${escapeHtml(r.reason || '—')}</td>
-        <td>${r.expiresAt ? fmtDateTime(r.expiresAt) : '—'}</td>
-        <td class="small muted">${fmtDateTime(r.createdAt)}</td>
-        <td style="text-align:right;">
-          <button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteIpRule(${r.id})">Delete</button>
-        </td>
-      </tr>
-    `).join('');
-
     // ==========================================
-    // WIRE THE "+ ADD IP RULE" BUTTON AT THE TOP
+    // 4. WIRE THE BUTTONS (+ ADD IP RULE & REFRESH)
     // ==========================================
     setTimeout(() => {
-      const addButton = Array.from(document.querySelectorAll('.page-head .actions button'))
+      // Find the Add IP Rule button in the header
+      const addButton = Array.from(document.querySelectorAll('button'))
         .find(b => b.textContent.includes('Add IP Rule'));
         
       if (addButton && !addButton.__wired) {
         addButton.__wired = true;
-        addButton.onclick = () => openAddIpModal(); // Calls the modal function
+        addButton.onclick = (e) => {
+          e.preventDefault();
+          FPU_ADMIN.openAddIpModal(); // Calls the modal
+        };
+      }
+
+      // Find the Refresh button in the header
+      const refreshButton = Array.from(document.querySelectorAll('button'))
+        .find(b => b.textContent.includes('Refresh'));
+        
+      if (refreshButton && !refreshButton.__wired) {
+        refreshButton.__wired = true;
+        refreshButton.onclick = (e) => {
+          e.preventDefault();
+          loadIpRules();
+        };
       }
     }, 50);
 
     // ==========================================
-    // Handle deep-linking prefill (e.g. ?ip=1.2.3.4)
+    // 5. Handle deep-linking prefill (e.g. ?ip=1.2.3.4)
     // ==========================================
     const hash = window.location.hash.replace(/^#/, '');
     const qIdx = hash.indexOf('?');
     const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
     const ip = params.get('ip');
     
-    // If the URL has a specific IP, pre-fill the modal and open it
+    // If the URL has a specific IP (e.g., from clicking "Block IP" in Login History), pre-fill it
     if (ip) {
       setTimeout(() => {
-        openAddIpModal();
+        FPU_ADMIN.openAddIpModal();
         setTimeout(() => {
           const input = document.getElementById('ip-address');
           if (input) input.value = ip;
@@ -7999,17 +8015,115 @@ async function loadIpRules() {
     }
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626; text-align:center;">Error: ${escapeHtml(err.message)}</td></tr>`;
+    console.error('[ip-rules] Error:', err);
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626; text-align:center; padding: 20px;">Error loading rules: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
 async function deleteIpRule(id) {
-  if (!confirm('Delete this IP rule?')) return;
+  if (!confirm('Are you sure you want to delete this IP rule?')) return;
   try {
     await adminFetch(`/api/admin/security/ip-rules/${id}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
+    showToast('✅ IP rule deleted.', 'success');
     loadIpRules();
-  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+  } catch (err) { 
+    showToast('❌ ' + err.message, 'error'); 
+  }
+}
+
+// ============================================
+// SECURITY: Add IP Rule Modal
+// ============================================
+function openAddIpModal() {
+  // Prevent duplicate modals
+  if (document.getElementById('ip-rule-modal')) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'ip-rule-modal';
+  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px);`;
+  
+  backdrop.innerHTML = `
+    <div class="fpu-modal" style="width: 100%; max-width: 500px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); animation: fpu-modal-in 0.2s ease-out;">
+      <div class="fpu-modal-header" style="padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+        <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Add IP Rule</h3>
+        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('ip-rule-modal').remove()" style="font-size: 1.5rem; line-height: 1; padding: 0 8px; color: #64748b;">&times;</button>
+      </div>
+      
+      <div class="fpu-modal-body" style="padding: 24px;">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" style="font-weight: 600; font-size: 13px;">IP Address <span class="req" style="color:#dc2626;">*</span></label>
+          <input class="form-control" id="ip-address" placeholder="e.g. 192.168.1.1 or 105.112.0.0/16" style="height: 42px;" />
+          <div class="small muted" style="margin-top: 4px; font-size: 11px;">Supports single IPs (192.168.1.1) or CIDR ranges.</div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" style="font-weight: 600; font-size: 13px;">Rule Type <span class="req" style="color:#dc2626;">*</span></label>
+          <select class="form-select" id="ip-rule" style="height: 42px;">
+            <option value="allow">Whitelist (Allow Access)</option>
+            <option value="block">Blacklist (Block Access)</option>
+          </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" style="font-weight: 600; font-size: 13px;">Expires At (Optional)</label>
+          <input class="form-control" type="datetime-local" id="ip-expires" style="height: 42px;" />
+          <div class="small muted" style="margin-top: 4px; font-size: 11px;">Leave blank for a permanent rule.</div>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-weight: 600; font-size: 13px;">Reason (Optional)</label>
+          <input class="form-control" id="ip-reason" placeholder="e.g. Suspicious activity, or Admin VPN" style="height: 42px;" />
+        </div>
+      </div>
+      
+      <div class="fpu-modal-footer" style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="document.getElementById('ip-rule-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" id="ip-save-btn" style="background: #065f46; border-color: #065f46; color: white;">Save Rule</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(backdrop);
+
+  // Focus the input automatically
+  setTimeout(() => document.getElementById('ip-address').focus(), 100);
+
+  // Handle the save button click
+  document.getElementById('ip-save-btn').onclick = async () => {
+    const addr = document.getElementById('ip-address').value.trim();
+    const rule = document.getElementById('ip-rule').value;
+    const expires = document.getElementById('ip-expires').value || null;
+    const reason = document.getElementById('ip-reason').value.trim();
+    
+    if (!addr) { 
+      showToast('⚠️ IP address is required.', 'warning'); 
+      return; 
+    }
+
+    const btn = document.getElementById('ip-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      await adminFetch('/api/admin/security/ip-rules', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          ipAddress: addr, 
+          rule, 
+          expiresAt: expires, 
+          reason 
+        }),
+      });
+      showToast('✅ IP Rule added successfully.', 'success');
+      document.getElementById('ip-rule-modal').remove();
+      loadIpRules(); // Refresh the table
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Save Rule';
+    }
+  };
 }
 
 async function loadPasswordPolicy() {
@@ -12844,88 +12958,6 @@ async function openStudentAttendanceModal(studentId, studentName, courseId, cour
   } catch (err) {
     body.innerHTML = `<div style="color:#dc2626; text-align:center; padding:20px;">Error loading details: ${escapeHtml(err.message)}</div>`;
   }
-}
-
-// ============================================
-// SECURITY: Add IP Rule Modal
-// ============================================
-function openAddIpModal() {
-  const backdrop = document.createElement('div');
-  backdrop.className = 'fpu-modal-backdrop';
-  backdrop.id = 'ip-rule-modal';
-  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;`;
-  
-  backdrop.innerHTML = `
-    <div class="fpu-modal" style="width: 100%; max-width: 500px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
-      <div class="fpu-modal-header" style="padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a;">Add IP Rule</h3>
-        <button class="btn btn-sm btn-ghost" onclick="document.getElementById('ip-rule-modal').remove()" style="font-size: 1.5rem; line-height: 1;">&times;</button>
-      </div>
-      
-      <div class="fpu-modal-body" style="padding: 24px;">
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label">IP Address <span class="req">*</span></label>
-          <input class="form-control" id="ip-address" placeholder="e.g. 192.168.1.1" />
-        </div>
-        
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label">Rule Type <span class="req">*</span></label>
-          <select class="form-select" id="ip-rule">
-            <option value="allow">Whitelist (Allow)</option>
-            <option value="block">Blacklist (Block)</option>
-          </select>
-        </div>
-        
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label class="form-label">Expires At (Optional)</label>
-          <input class="form-control" type="datetime-local" id="ip-expires" />
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label">Reason</label>
-          <input class="form-control" id="ip-reason" placeholder="e.g. Suspicious activity" />
-        </div>
-      </div>
-      
-      <div class="fpu-modal-footer" style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px;">
-        <button class="btn btn-outline" onclick="document.getElementById('ip-rule-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" id="ip-save">Save Rule</button>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(backdrop);
-
-  // Handle the save button click
-  backdrop.querySelector('#ip-save').onclick = async () => {
-    const addr = backdrop.querySelector('#ip-address').value.trim();
-    const rule = backdrop.querySelector('#ip-rule').value;
-    const expires = backdrop.querySelector('#ip-expires').value || null;
-    const reason = backdrop.querySelector('#ip-reason').value.trim();
-    
-    if (!addr) { 
-      showToast('⚠️ IP address is required.', 'warning'); 
-      return; 
-    }
-
-    const btn = backdrop.querySelector('#ip-save');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
-    try {
-      await adminFetch('/api/admin/security/ip-rules', {
-        method: 'POST',
-        body: JSON.stringify({ ipAddress: addr, rule, expiresAt: expires, reason }),
-      });
-      showToast('✅ IP Rule added successfully.', 'success');
-      backdrop.remove();
-      loadIpRules(); // Refresh the table
-    } catch (err) {
-      showToast('❌ ' + err.message, 'error');
-      btn.disabled = false;
-      btn.textContent = 'Save Rule';
-    }
-  };
 }
 
 window.FPU_ADMIN = {

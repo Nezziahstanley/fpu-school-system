@@ -13682,6 +13682,298 @@ async function approveDepartmentExams(deptId) {
   }
 }
 
+// ============================================
+// TIMETABLE: Load Department Grid (Classic Format)
+// ============================================
+async function loadDepartmentTimetable() {
+  const root = document.getElementById('tt-root');
+  if (!root) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  
+  const deptId = params.get('departmentId');
+  const deptName = params.get('name') || 'Department';
+  const sessionId = params.get('sessionId') || '';
+  const semester = params.get('semester') || 'first';
+
+  if (!deptId) {
+    root.innerHTML = '<div class="alert alert-danger">No department selected.</div>';
+    return;
+  }
+
+  // Update page headers
+  const titleEl = document.getElementById('tt-title');
+  const subEl = document.getElementById('tt-subtitle');
+  if (titleEl) titleEl.textContent = `${deptName} Timetable`;
+  if (subEl) subEl.textContent = `Weekly lecture schedule for ${deptName}`;
+
+  root.innerHTML = '<div class="loading" style="padding:60px;text-align:center;"><span class="spinner"></span> Loading grid...</div>';
+
+  try {
+    // 1. Fetch all necessary data
+    const [slotsRes, coursesRes, deptsRes, staffRes] = await Promise.all([
+      adminFetch(`/api/admin/timetable?departmentId=${deptId}&sessionId=${sessionId}&semester=${semester}&limit=1000`),
+      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/staff?role=lecturer&limit=1000').catch(() => null)
+    ]);
+
+    const rawSlots = (await slotsRes.json()).data || [];
+    const courses = (await coursesRes.json()).data || [];
+    const depts = (await deptsRes.json()).data || [];
+    const staff = staffRes ? ((await staffRes.json()).data || []) : [];
+
+    const courseMap = new Map(courses.map(c => [Number(c.id), c]));
+    const staffMap = new Map(staff.map(s => [Number(s.id), s]));
+    const dept = depts.find(d => Number(d.id) === Number(deptId)) || { name: deptName, code: 'DEPT' };
+
+    // 2. Setup the Time Slots (Standard School Hours)
+    const timeSlots = [
+      { label: '8AM-9AM', start: '08:00', end: '09:00' },
+      { label: '9AM-10AM', start: '09:00', end: '10:00' },
+      { label: '10AM-11AM', start: '10:00', end: '11:00' },
+      { label: '11am-12pm', start: '11:00', end: '12:00' },
+      { label: 'BREAK', start: '12:00', end: '13:00', isBreak: true },
+      { label: '1pm-2pm', start: '13:00', end: '14:00' },
+      { label: '2pm-3pm', start: '14:00', end: '15:00' },
+      { label: '3pm-4pm', start: '15:00', end: '16:00' },
+    ];
+
+    const daysOfWeek = ['MON', 'TUES', 'WED', 'THURS', 'FRI'];
+
+    // 3. Build the Grid Matrix
+    // Structure: grid[day][timeSlotIndex] = [slots...]
+    const grid = {};
+    daysOfWeek.forEach(d => {
+      grid[d] = {};
+      timeSlots.forEach((_, i) => grid[d][i] = []);
+    });
+
+    rawSlots.forEach(row => {
+      const slot = row.slot || row;
+      const c = courseMap.get(Number(slot.courseId)) || row.course;
+      if (!c) return;
+
+      // Normalize day (e.g., "Monday" -> "MON")
+      let dayRaw = String(slot.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
+      if (dayRaw === 'TUE') dayRaw = 'TUES';
+      if (dayRaw === 'THU') dayRaw = 'THURS';
+      
+      if (!grid[dayRaw]) return;
+
+      // Normalize time (e.g., "08:00:00" -> "08:00")
+      let startTime = String(slot.startTime || '08:00').substring(0, 5);
+      if (startTime.startsWith('7:')) startTime = '07:' + startTime.split(':')[1]; 
+      
+      // Find which column this time falls into
+      let colIndex = timeSlots.findIndex(ts => startTime >= ts.start && startTime < ts.end);
+      
+      // Edge case for 7am-8am classes (slot them into the first column if needed)
+      if (colIndex === -1 && startTime >= '07:00' && startTime < '08:00') colIndex = 0; 
+      // Edge case for late classes
+      if (colIndex === -1 && startTime >= '16:00') colIndex = 7; 
+
+      if (colIndex !== -1) {
+        grid[dayRaw][colIndex].push({ slot, course: c, raw: row });
+      }
+    });
+
+    // 4. Generate the Grid HTML
+    let gridHtml = `
+      <div class="tt-grid-wrap">
+        <table class="tt-classic-table">
+          <thead>
+            <tr>
+              <th style="width: 90px;">DAYS/ TIME</th>
+              ${timeSlots.map(ts => `<th>${ts.label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    daysOfWeek.forEach(day => {
+      gridHtml += `<tr><td class="tt-day">${day}</td>`;
+      
+      let breakDrawn = false;
+      timeSlots.forEach((ts, colIndex) => {
+        // Handle the BREAK column
+        if (ts.isBreak) {
+          if (!breakDrawn) {
+            gridHtml += `<td rowspan="5" class="tt-break">BREAK</td>`;
+            breakDrawn = true;
+          }
+          return; // skip rendering normal cell for break
+        }
+
+        const cellSlots = grid[day][colIndex];
+        
+        if (cellSlots.length === 0) {
+          gridHtml += `<td></td>`;
+        } else {
+          gridHtml += `<td>`;
+          cellSlots.forEach(({ slot, course }) => {
+            // Extract course code and Title
+            const code = course.code || 'N/A';
+            // Format: "COM 123 (PRC)" if there's a room/type attached in the slot
+            const suffix = slot.room ? ` (${slot.room})` : '';
+            
+            // Check if there's a time override (e.g., GNS 102 7-9am)
+            const timeOverride = slot.startTime < '08:00' ? ` (${slot.startTime.substring(0,5)}-${slot.endTime.substring(0,5)})` : '';
+
+            gridHtml += `
+              <div class="tt-cell-item">
+                ${escapeHtml(code)}${escapeHtml(timeOverride)}${escapeHtml(suffix)}
+              </div>
+            `;
+          });
+          gridHtml += `</td>`;
+        }
+      });
+      gridHtml += `</tr>`;
+    });
+
+    gridHtml += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // 5. Generate the Course Details Table
+    // We get a unique list of all courses in this timetable
+    const uniqueCourses = Array.from(new Set(rawSlots.map(s => (s.slot || s).courseId)))
+      .map(id => courseMap.get(Number(id)))
+      .filter(Boolean)
+      .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+    let detailsHtml = `
+      <div class="tt-details-wrap">
+        <table class="tt-classic-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">COURSES CODE</th>
+              <th>COURSE TITLE</th>
+              <th style="width: 60px; text-align:center;">COURSE UNIT</th>
+              <th style="width: 120px;">LECTURE HALL</th>
+              <th>COURSE LECTURER(S)</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    uniqueCourses.forEach(c => {
+      // Find a slot for this course to get the room and lecturer
+      const relatedSlots = rawSlots.filter(r => Number((r.slot || r).courseId) === Number(c.id));
+      
+      const rooms = Array.from(new Set(relatedSlots.map(r => (r.slot || r).room || (r.slot || r).venue).filter(Boolean))).join(', ');
+      
+      const lecturers = Array.from(new Set(relatedSlots.map(r => {
+         // Try to get lecturer name from the joined row, or lookup map
+         const lId = (r.slot || r).lecturerId;
+         const l = r.lecturer || staffMap.get(Number(lId));
+         if (l) return `C. ${l.firstName} ${l.lastName}`;
+         return null;
+      }).filter(Boolean))).join(', ');
+
+      detailsHtml += `
+        <tr>
+          <td style="font-weight: 700;">${escapeHtml(c.code)}</td>
+          <td style="text-transform: uppercase;">${escapeHtml(c.title)}</td>
+          <td style="text-align:center;">${c.unit || 0}</td>
+          <td>${escapeHtml(rooms || '—')}</td>
+          <td>${escapeHtml(lecturers || '—')}</td>
+        </tr>
+      `;
+    });
+
+    detailsHtml += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    // 6. Inject the entire document
+    root.innerHTML = `
+      <div class="tt-document">
+        
+        <div class="tt-letterhead">
+          <img src="/images/logo.png" alt="Logo" onerror="this.style.display='none'" />
+          <div class="tt-header-text">
+            <h2>FEDERAL POLYTECHNIC UGEP,</h2>
+            <h3>SCHOOL OF SCIENCE AND TECHNOLOGY</h3>
+            <h4>DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</h4>
+            <h5>${String(dept.level || 'ND I').toUpperCase()} FULL TIME SEMESTER ${semester === 'first' ? 'ONE (1)' : 'TWO (2)'} LECTURES TIME TABLE</h5>
+            <h5>2025/2026 SESSION</h5>
+          </div>
+          <div class="tt-level-badge">${escapeHtml(dept.level || 'ND I')}</div>
+        </div>
+
+        ${gridHtml}
+        
+        <div style="margin-top: 30px;">
+          ${detailsHtml}
+        </div>
+
+        <div class="tt-footer">
+          <div class="tt-sig">
+            <div class="tt-sig-line">
+              <!-- Placeholder for actual signature image if you have one -->
+            </div>
+            <div class="tt-sig-name">Cajtp Martin Omini Ariko</div>
+            <div class="tt-sig-title">HOD, ${escapeHtml(dept.name)}</div>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+  } catch (err) {
+    console.error('[Timetable] Error:', err);
+    root.innerHTML = `<div class="alert alert-danger" style="margin:20px;">Failed to load timetable: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Inject CSS for Timetable
+(function injectTimetableCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .tt-document { background: #fff; padding: 40px; max-width: 1200px; margin: 0 auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-family: 'Times New Roman', Times, serif; color: #000; }
+    
+    .tt-letterhead { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; position: relative; }
+    .tt-letterhead img { width: 80px; position: absolute; left: 0; top: 0; }
+    .tt-header-text { text-align: center; width: 100%; }
+    .tt-header-text h2 { font-size: 18px; margin: 0; font-weight: bold; text-transform: uppercase; }
+    .tt-header-text h3 { font-size: 16px; margin: 2px 0; font-weight: bold; text-transform: uppercase; }
+    .tt-header-text h4 { font-size: 16px; margin: 2px 0; font-weight: bold; text-transform: uppercase; }
+    .tt-header-text h5 { font-size: 14px; margin: 2px 0; font-weight: bold; text-transform: uppercase; }
+    .tt-level-badge { position: absolute; right: 0; top: 0; color: #3b82f6; font-size: 24px; font-weight: bold; text-transform: uppercase; }
+
+    .tt-classic-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+    .tt-classic-table th, .tt-classic-table td { border: 1px solid #000; padding: 6px; vertical-align: top; }
+    .tt-classic-table th { text-align: center; font-weight: bold; background: #fff; text-transform: uppercase; }
+    .tt-classic-table .tt-day { font-weight: bold; text-align: center; vertical-align: middle; }
+    .tt-classic-table .tt-break { font-weight: bold; text-align: center; vertical-align: middle; font-size: 14px; letter-spacing: 2px; }
+    
+    .tt-cell-item { margin-bottom: 4px; font-weight: bold; }
+    .tt-cell-item:last-child { margin-bottom: 0; }
+
+    .tt-footer { margin-top: 40px; }
+    .tt-sig { width: 250px; }
+    .tt-sig-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 6px; position: relative; }
+    .tt-sig-name { font-weight: bold; font-size: 14px; font-family: 'Brush Script MT', cursive; text-transform: capitalize; }
+    .tt-sig-title { font-size: 12px; font-weight: bold; text-transform: uppercase; }
+
+    @media print {
+      body * { visibility: hidden; }
+      .tt-document, .tt-document * { visibility: visible; }
+      .tt-document { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
+      .tt-classic-table th, .tt-classic-table td { border: 1px solid #000 !important; }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
@@ -13736,7 +14028,7 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex,
+  loadTimetableIndex, loadDepartmentTimetable,
 
   // Exams
   loadExamsIndex, loadExamSheet,

@@ -1,5 +1,5 @@
 // ============================================================
-// FPU — Admin clearances API
+// FPU — Admin clearances API (FIXED)
 // Mounted at /api/admin/clearances
 // ============================================================
 
@@ -45,7 +45,7 @@ router.get('/stats', requireRole(STAFF), async (req, res, next) => {
   }
 });
 
-// GET /api/admin/clearances/student/:studentId — MUST be before /:id
+// GET /api/admin/clearances/student/:studentId
 router.get('/student/:studentId', requireRole(STAFF), async (req, res, next) => {
   try {
     const result = await db.query(
@@ -61,7 +61,7 @@ router.get('/student/:studentId', requireRole(STAFF), async (req, res, next) => 
   }
 });
 
-// POST /api/admin/clearances — create
+// POST /api/admin/clearances — create or update (Upsert)
 router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
     const { studentId, status = 'pending', remarks } = req.body || {};
@@ -73,29 +73,39 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     const sessionRes = await db.query(
       'SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1'
     );
-    const sessionId = sessionRes.rows.length ? sessionRes.rows[0].id : null;
+    if (sessionRes.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No active academic session found.' });
+    }
+    const sessionId = sessionRes.rows[0].id;
 
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 
+    // FIXED: Added ON CONFLICT (student_id, session_id) to prevent 500 errors
     const query = `
       INSERT INTO clearances 
         (student_id, session_id, type, status, remarks, cleared_by, cleared_at, created_at)
       VALUES ($1, $2, 'general', $3, $4, $5, $6, NOW())
+      ON CONFLICT (student_id, session_id) 
+      DO UPDATE SET 
+        status = EXCLUDED.status, 
+        remarks = EXCLUDED.remarks, 
+        cleared_by = EXCLUDED.cleared_by, 
+        cleared_at = EXCLUDED.cleared_at
       RETURNING *;
     `;
     const result = await db.query(query, [
       studentId, sessionId, status, remarks || null, clearedBy, clearedAt
     ]);
-    await logAudit({ req, action: 'clearance.create', entity: 'clearance', entityId: result.rows[0].id });
-    return res.status(201).json({ success: true, data: result.rows[0] });
+    await logAudit({ req, action: 'clearance.upsert', entity: 'clearance', entityId: result.rows[0].id });
+    return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error('[clearances] POST / error:', err.message);
     return next(err);
   }
 });
 
-// PUT /api/admin/clearances/student/:studentId — MUST be before /:id
+// PUT /api/admin/clearances/student/:studentId
 router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
     const { status, remarks } = req.body || {};
@@ -139,18 +149,35 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
       return res.status(400).json({ success: false, error: 'status is required.' });
     }
 
+    // Get current session
+    const sessionRes = await db.query(
+      'SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1'
+    );
+    if (sessionRes.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No active academic session found.' });
+    }
+    const sessionId = sessionRes.rows[0].id;
+
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 
+    // FIXED: Added session_id, type, and ON CONFLICT to the bulk insert
     const query = `
-      INSERT INTO clearances (student_id, status, remarks, cleared_by, cleared_at, created_at)
-      SELECT unnest($1::int[]), $2, 'Bulk action', $3, $4, NOW()
+      INSERT INTO clearances (student_id, session_id, type, status, remarks, cleared_by, cleared_at, created_at)
+      SELECT unnest($1::int[]), $2, 'general', $3, 'Bulk action', $4, $5, NOW()
+      ON CONFLICT (student_id, session_id) 
+      DO UPDATE SET 
+        status = EXCLUDED.status, 
+        remarks = EXCLUDED.remarks, 
+        cleared_by = EXCLUDED.cleared_by, 
+        cleared_at = EXCLUDED.cleared_at
       RETURNING *;
     `;
-    const result = await db.query(query, [studentIds, status, clearedBy, clearedAt]);
+    const result = await db.query(query, [studentIds, sessionId, status, clearedBy, clearedAt]);
     await logAudit({ req, action: 'clearance.bulk', after: { count: result.rowCount, status } });
     return res.json({ success: true, count: result.rowCount, data: result.rows });
   } catch (err) {
+    console.error('[clearances] POST /bulk-status error:', err.message);
     return next(err);
   }
 });

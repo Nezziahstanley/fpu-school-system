@@ -6463,19 +6463,19 @@ async function renewBorrow(id) {
 }
 
 // ============================================
-// DOCUMENTS — Full-featured loader (FIXED)
+// DOCUMENTS — Full-featured loader (CARD LAYOUT)
 // ============================================
 async function loadDocumentsTable() {
-  const tbody = document.getElementById('dc-tbody');
-  if (!tbody) return;
+  const listContainer = document.getElementById('doc-list');
+  if (!listContainer) return;
 
-  tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading…</td></tr>';
+  // 1. Show loading state
+  listContainer.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading documents…</div>';
 
   try {
-    // Admin uses this endpoint
+    // 2. Fetch data from API
     const res = await adminFetch('/api/admin/documents');
     
-    // CRITICAL FIX: Handle 500 errors so we don't get stuck
     if (!res.ok) {
       const errText = await res.text();
       throw new Error(`HTTP ${res.status}: ${errText.slice(0, 100)}`);
@@ -6484,61 +6484,121 @@ async function loadDocumentsTable() {
     const json = await res.json();
     const raw = json.data || json.rows || json.documents || [];
     
-    // Unwrap the { document, user } shape from the API
+    // 3. Normalize data structure
     const ALL = raw.map(r => {
       const doc = r.document || r;
       const stu = r.user || r.student || {};
       return {
         id: doc.id,
-        type: (doc.type || doc.documentType || 'other').toLowerCase(),
-        title: doc.title || doc.subject || '',
-        notes: doc.notes || doc.remarks || doc.description || '',
+        type: (doc.type || 'other').toLowerCase(),
+        title: doc.title || 'Untitled Request',
         status: (doc.status || 'pending').toLowerCase(),
         requestedAt: doc.requestedAt || doc.createdAt,
-        studentName: `${stu.firstName || stu.first_name || ''} ${stu.lastName || stu.last_name || ''}`.trim() || '—',
-        matric: stu.matricNumber || stu.matric_number || '—',
+        studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || 'Unknown',
+        matric: stu.matricNumber || '—',
+        photoUrl: stu.photoUrl || null
       };
     });
 
-    // Update Stats
-    setText('dc-total', ALL.length);
-    setText('dc-pending', ALL.filter(d => d.status === 'pending').length);
-    setText('dc-approved', ALL.filter(d => d.status === 'approved').length);
-    setText('dc-issued', ALL.filter(d => d.status === 'issued').length);
-    setText('dc-count', ALL.length);
+    // 4. Update Top Stats (Using the correct IDs from index.html)
+    setText('doc-stat-total', ALL.length);
+    setText('doc-stat-pending', ALL.filter(d => d.status === 'pending').length);
+    setText('doc-stat-issued', ALL.filter(d => d.status === 'issued').length);
+    
+    // Calculate "This Month"
+    const thisMonth = ALL.filter(d => {
+      if (!d.requestedAt) return false;
+      const date = new Date(d.requestedAt);
+      const now = new Date();
+      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }).length;
+    setText('doc-stat-month', thisMonth);
 
-    // Render Table
-    if (!ALL.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:40px;color:#64748b;">No document requests found.</td></tr>';
+    // Update Tab Counts
+    setText('doc-count-all', ALL.length);
+    setText('doc-count-pending', ALL.filter(d => d.status === 'pending').length);
+    setText('doc-count-approved', ALL.filter(d => d.status === 'approved').length);
+    setText('doc-count-issued', ALL.filter(d => d.status === 'issued').length);
+    setText('doc-count-rejected', ALL.filter(d => d.status === 'rejected').length);
+
+    // 5. Apply Filters
+    const typeFilter = (document.getElementById('doc-filter-type') || {}).value || '';
+    const searchQuery = (document.getElementById('doc-search') || {}).value.toLowerCase() || '';
+    const activeTab = document.querySelector('#doc-status-tabs .staff-role-tab.active');
+    const statusFilter = activeTab ? activeTab.dataset.status : '';
+
+    let filtered = ALL;
+    
+    if (typeFilter) {
+      filtered = filtered.filter(d => d.type === typeFilter);
+    }
+    if (searchQuery) {
+      filtered = filtered.filter(d => 
+        d.studentName.toLowerCase().includes(searchQuery) || 
+        d.matric.toLowerCase().includes(searchQuery) || 
+        d.title.toLowerCase().includes(searchQuery)
+      );
+    }
+    if (statusFilter) {
+      filtered = filtered.filter(d => d.status === statusFilter);
+    }
+
+    // 6. Handle Empty State
+    if (!filtered.length) {
+      listContainer.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No document requests match your filters.</div>';
       return;
     }
 
-    tbody.innerHTML = ALL.map(d => {
-      let actions = `<button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: ${d.id} })">👁 Preview</button>`;
+    // 7. Render Cards
+    listContainer.innerHTML = filtered.map(d => {
+      const initials = d.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+      const dateStr = d.requestedAt ? new Date(d.requestedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
       
-      if (d.status === 'pending') {
-        actions += ` <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN.approveDoc(${d.id})">Approve</button>`;
-        actions += ` <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.rejectDoc(${d.id})">Reject</button>`;
-      } else if (d.status === 'approved') {
-        actions += ` <button class="btn btn-primary btn-sm" onclick="FPU_ADMIN.issueDoc(${d.id})">Mark Issued</button>`;
-      }
+      // Format type for display (e.g., "id-letter" -> "id letter")
+      const displayType = d.type.replace('-', ' ');
 
       return `
-        <tr>
-          <td>${escapeHtml(d.studentName)}</td>
-          <td><code>${escapeHtml(d.matric)}</code></td>
-          <td><span class="badge" style="background:#e2e8f0;color:#334155;">${escapeHtml(d.type)}</span></td>
-          <td>${escapeHtml(d.title || d.notes || '—')}</td>
-          <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
-          <td>${badge(d.status)}</td>
-          <td>${actions}</td>
-        </tr>
+        <div class="doc-card ${d.status}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('documents-detail', { id: ${d.id} })">
+          <div class="dc-head">
+            <span class="dc-type">${escapeHtml(displayType)}</span>
+            <span class="dc-status ${d.status}">${escapeHtml(d.status)}</span>
+          </div>
+          <h3>${escapeHtml(d.title)}</h3>
+          <div class="dc-student">
+            <div class="dc-avatar">
+              ${d.photoUrl ? `<img src="${escapeHtml(d.photoUrl)}" alt="">` : initials}
+            </div>
+            <div class="dc-student-info">
+              <strong>${escapeHtml(d.studentName)}</strong>
+              <span>${escapeHtml(d.matric)}</span>
+            </div>
+          </div>
+          <div class="dc-footer">
+            <span>${dateStr}</span>
+            <span class="arrow">→</span>
+          </div>
+        </div>
       `;
     }).join('');
 
+    // 8. Wire up the tabs (Only do this once per page load)
+    if (!window.__docTabsWired) {
+      window.__docTabsWired = true;
+      document.querySelectorAll('#doc-status-tabs .staff-role-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          // Remove active class from all tabs
+          document.querySelectorAll('#doc-status-tabs .staff-role-tab').forEach(t => t.classList.remove('active'));
+          // Add active class to clicked tab
+          e.currentTarget.classList.add('active');
+          // Re-run the loader (which will apply the new filter)
+          loadDocumentsTable();
+        });
+      });
+    }
+
   } catch (err) {
     console.error('[Documents] Error:', err);
-    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626; text-align:center; padding:20px;"><strong>Error:</strong> ${escapeHtml(err.message)}</td></tr>`;
+    listContainer.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;background:#fee2e2;border-radius:8px;"><strong>Error:</strong> ${escapeHtml(err.message)}</div>`;
   }
 }
 

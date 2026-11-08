@@ -43,8 +43,7 @@
 <div class="filters">
   <div class="form-group">
     <label class="form-label">Type</label>
-    <select class="form-select" id="doc-filter-type"
-            onchange="FPU_ADMIN.loadDocumentsTable()">
+    <select class="form-select" id="doc-filter-type" onchange="FPU_ADMIN.loadDocumentsTable()">
       <option value="">All types</option>
       <option value="transcript">Transcript</option>
       <option value="certificate">Certificate</option>
@@ -81,7 +80,7 @@
   </div>
 </div>
 
-<!-- Documents list -->
+<!-- Documents list (Container for the cards) -->
 <div id="doc-list" class="doc-list">
   <div class="loading" style="grid-column:1/-1;">
     <span class="spinner"></span> Loading documents…
@@ -97,7 +96,7 @@
   }
   .doc-card {
     background: #fff;
-    border: 1px solid var(--fpu-border);
+    border: 1px solid var(--fpu-border, #e2e8f0);
     border-radius: 14px;
     padding: 18px;
     display: flex;
@@ -212,5 +211,5 @@
 </style>
 
 <script>
-  // SPA init calls FPU_ADMIN.loadDocumentsTable()
+  // SPA router automatically calls FPU_ADMIN.loadDocumentsTable()
 </script>

@@ -12311,48 +12311,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================
-// TRANSCRIPT MODAL VIEWER (Styled, Watermarked & Print-Ready)
+// TRANSCRIPT MODAL VIEWER (Styled & Print-Ready)
 // ============================================
 async function openTranscriptModal(studentId) {
-  // 1. Create the modal shell
+  if (!studentId) {
+    showToast('⚠️ No student ID provided.', 'warning');
+    return;
+  }
+
+  // Remove existing modal if open
+  const existing = document.getElementById('transcript-modal-backdrop');
+  if (existing) existing.remove();
+
+  // Create the modal shell
   const backdrop = document.createElement('div');
   backdrop.className = 'fpu-modal-backdrop';
   backdrop.id = 'transcript-modal-backdrop';
-  
-  backdrop.style.cssText = `
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(15, 23, 42, 0.7);
-    z-index: 999999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    backdrop-filter: blur(4px);
-  `;
+  backdrop.style.cssText = `position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px);`;
   
   backdrop.innerHTML = `
-    <div class="fpu-modal" style="
-      width: 100%; 
-      max-width: 950px; 
-      max-height: 92vh; 
-      background: #f1f5f9; 
-      border-radius: 12px; 
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); 
-      display: flex; 
-      flex-direction: column; 
-      overflow: hidden;
-      border: 1px solid #cbd5e1;
-    ">
-      <div class="fpu-modal-header" style="
-        background: #fff; 
-        padding: 16px 24px; 
-        border-bottom: 1px solid #e2e8f0; 
-        display: flex; 
-        justify-content: space-between; 
-        align-items: center;
-        flex-shrink: 0;
-      ">
+    <div class="fpu-modal" style="width: 100%; max-width: 950px; max-height: 92vh; background: #f1f5f9; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1;">
+      <div class="fpu-modal-header" style="background: #fff; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
         <h3 style="margin: 0; font-size: 1.1rem; color: #0f172a; font-family: 'Poppins', sans-serif;">Student Transcript</h3>
         <div style="display: flex; gap: 8px;">
           <button class="btn btn-sm btn-outline" onclick="window.print()">🖨 Print</button>
@@ -12360,122 +12339,43 @@ async function openTranscriptModal(studentId) {
         </div>
       </div>
       
-      <div class="fpu-modal-body" id="tx-modal-body" style="
-        padding: 30px 20px; 
-        overflow-y: auto; 
-        flex-grow: 1;
-        display: flex;
-        justify-content: center;
-      ">
-        <div class="loading" style="padding:60px;text-align:center; width:100%;">
-          <span class="spinner"></span> Loading transcript…
-        </div>
+      <div class="fpu-modal-body" id="tx-modal-body" style="padding: 30px 20px; overflow-y: auto; flex-grow: 1; display: flex; justify-content: center;">
+        <div class="loading" style="padding:60px;text-align:center; width:100%;"><span class="spinner"></span> Loading transcript…</div>
       </div>
     </div>
 
     <style>
-      /* --- PRINT STYLES --- */
       @media print {
-        body * {
-          visibility: hidden; /* Hide everything on the page */
-        }
-        .tx-document, .tx-document * {
-          visibility: visible; /* Show only the transcript document */
-        }
-        .tx-document {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          margin: 0;
-          padding: 0;
-          box-shadow: none !important;
-          border: none !important;
-        }
-        /* Hide the modal chrome specifically during print */
-        #transcript-modal-backdrop {
-          position: static !important;
-          background: transparent !important;
-          padding: 0 !important;
-          margin: 0 !important;
-          display: block !important;
-        }
-        .fpu-modal-header, .fpu-modal {
-          background: transparent !important;
-          box-shadow: none !important;
-          border: none !important;
-          max-height: none !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          overflow: visible !important;
-        }
-        .fpu-modal-body {
-          padding: 0 !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        /* Hide the system sidebar/topbar */
-        .sidebar, .topbar, .page-head {
-          display: none !important;
-        }
+        body * { visibility: hidden; }
+        .tx-document, .tx-document * { visibility: visible; }
+        .tx-document { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; box-shadow: none !important; border: none !important; }
+        #transcript-modal-backdrop { position: static !important; background: transparent !important; padding: 0 !important; margin: 0 !important; display: block !important; }
+        .fpu-modal-header, .fpu-modal { background: transparent !important; box-shadow: none !important; border: none !important; max-height: none !important; width: 100% !important; max-width: 100% !important; overflow: visible !important; }
+        .fpu-modal-body { padding: 0 !important; overflow: visible !important; display: block !important; }
+        .sidebar, .topbar, .page-head { display: none !important; }
       }
 
-      /* --- SCREEN STYLES --- */
-      .tx-document {
-        background: #fff;
-        padding: 40px;
-        border-radius: 4px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        position: relative;
-        overflow: hidden;
-        font-family: 'Inter', Arial, sans-serif;
-        color: #0f172a;
-        width: 100%;
-        max-width: 800px;
-        min-height: 1000px; /* A4 proportion */
-      }
-      .tx-watermark {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-        width: 60%; max-width: 400px; opacity: 0.04; pointer-events: none; z-index: 0;
-      }
+      .tx-document { background: #fff; padding: 40px; border-radius: 4px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); position: relative; overflow: hidden; font-family: 'Inter', Arial, sans-serif; color: #0f172a; width: 100%; max-width: 800px; min-height: 1000px; }
+      .tx-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 60%; max-width: 400px; opacity: 0.04; pointer-events: none; z-index: 0; }
       .tx-content { position: relative; z-index: 1; }
-      
-      .tx-letterhead {
-        display: flex; align-items: center; gap: 20px;
-        padding-bottom: 20px; margin-bottom: 24px;
-        border-bottom: 3px double #065f46;
-      }
+      .tx-letterhead { display: flex; align-items: center; gap: 20px; padding-bottom: 20px; margin-bottom: 24px; border-bottom: 3px double #065f46; }
       .tx-letterhead-logo { width: 80px; height: 80px; object-fit: contain; flex-shrink: 0; }
       .tx-letterhead-text { flex: 1; text-align: center; }
-      .tx-letterhead-text .institution {
-        font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 900;
-        color: #065f46; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1.2;
-      }
+      .tx-letterhead-text .institution { font-family: 'Poppins', sans-serif; font-size: 22px; font-weight: 900; color: #065f46; text-transform: uppercase; letter-spacing: 1px; margin: 0; line-height: 1.2; }
       .tx-letterhead-text .motto { font-size: 12px; color: #6b7280; font-style: italic; margin: 2px 0; }
-      .tx-letterhead-text .doc-type {
-        font-size: 13px; font-weight: 700; color: #0f172a;
-        text-transform: uppercase; letter-spacing: 2px; margin-top: 4px;
-      }
-      
-      .tx-header {
-        display: flex; justify-content: space-between; align-items: flex-start;
-        gap: 24px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0;
-        margin-bottom: 24px;
-      }
+      .tx-letterhead-text .doc-type { font-size: 13px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 2px; margin-top: 4px; }
+      .tx-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 24px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; }
       .tx-student-info h2 { font-family: 'Poppins', sans-serif; font-size: 1.4rem; font-weight: 800; margin: 0 0 4px; }
       .tx-student-info .meta { font-size: 12.5px; color: #6b7280; line-height: 1.7; }
       .tx-student-info .matric { font-family: 'Courier New', monospace; background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
-      
       .tx-cgpa-block { text-align: right; flex-shrink: 0; }
       .tx-cgpa-block .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #6b7280; }
       .tx-cgpa-block .value { font-family: 'Poppins', sans-serif; font-size: 2.6rem; font-weight: 800; color: #065f46; line-height: 1; margin: 2px 0; }
       .tx-cgpa-block .class { font-size: 12px; font-weight: 700; color: #f59e0b; }
-      
       .tx-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
       .tx-summary-item { background: #f8fafc; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid #e2e8f0; }
       .tx-summary-item .num { font-family: 'Poppins', sans-serif; font-size: 1.3rem; font-weight: 800; color: #065f46; line-height: 1; }
       .tx-summary-item .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-top: 4px; }
-      
       .tx-semester { margin-bottom: 24px; page-break-inside: avoid; }
       .tx-semester-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; background: #065f46; color: #fff; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 700; }
       .tx-semester-head .gpa { background: rgba(255,255,255,0.15); padding: 3px 10px; border-radius: 999px; font-size: 11px; }
@@ -12487,7 +12387,6 @@ async function openTranscriptModal(studentId) {
       .tx-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 22px; padding: 0 6px; border-radius: 4px; font-weight: 800; font-size: 11px; background: #ecfdf5; color: #065f46; }
       .tx-grade.F { background: #fee2e2; color: #991b1b; }
       .tx-grade.D, .tx-grade.E { background: #fef3c7; color: #92400e; }
-      
       .tx-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; page-break-inside: avoid; }
       .tx-sig-block { text-align: center; width: 180px; }
       .tx-sig-line { border-bottom: 1px solid #0f172a; margin-bottom: 6px; height: 30px; }
@@ -12507,10 +12406,24 @@ async function openTranscriptModal(studentId) {
 
     let student = null;
     try { if (studentRes && studentRes.ok) { const j = await studentRes.json(); student = j.data || j; } } catch {}
+    
     let results = [];
-    try { if (resultsRes && resultsRes.ok) { const j = await resultsRes.json(); results = j.data || j || []; } } catch {}
+    try { 
+      if (resultsRes && resultsRes.ok) { 
+        const j = await resultsRes.json(); 
+        results = j.data || j || []; 
+        if (results.rows) results = results.rows;
+      } 
+    } catch {}
+    
     let courseMap = new Map();
-    try { if (coursesRes && coursesRes.ok) { const j = await coursesRes.json(); (j.data || []).forEach(c => courseMap.set(c.id, c)); } } catch {}
+    try { 
+      if (coursesRes && coursesRes.ok) { 
+        const j = await coursesRes.json(); 
+        const courses = j.data || j || [];
+        courses.forEach(c => courseMap.set(c.id, c)); 
+      } 
+    } catch {}
 
     if (!student || !student.id) {
       root.innerHTML = `<div class="alert alert-danger" style="margin:20px;"><strong>Student not found.</strong> (ID: ${studentId})</div>`;
@@ -12526,11 +12439,13 @@ async function openTranscriptModal(studentId) {
     });
 
     let totalUnits = 0, totalPoints = 0, courseCount = 0;
+    
     results.forEach(r => {
       const row = r.result || r;
       const course = courseMap.get(row.courseId) || r.course || {};
       const units = Number(course.unit) || Number(row.unit) || 0;
       const points = Number(row.points) || 0;
+      
       if (row.status === 'published' || row.status === 'approved') {
         totalUnits += units;
         totalPoints += units * points;
@@ -12548,17 +12463,20 @@ async function openTranscriptModal(studentId) {
 
     const groupsHtml = [...groups.entries()].map(([key, list]) => {
       const [sessionId, semester] = key.split('|');
+      
       const sectionUnits = list.reduce((s, r) => {
         const row = r.result || r;
         const course = courseMap.get(row.courseId) || r.course || {};
         return s + (Number(course.unit) || Number(row.unit) || 0);
       }, 0);
+      
       const sectionPoints = list.reduce((s, r) => {
         const row = r.result || r;
         const course = courseMap.get(row.courseId) || r.course || {};
         const units = Number(course.unit) || Number(row.unit) || 0;
         return s + (units * (Number(row.points) || 0));
       }, 0);
+      
       const gpa = sectionUnits > 0 ? (sectionPoints / sectionUnits).toFixed(2) : '—';
 
       const rowsHtml = list
@@ -12607,7 +12525,6 @@ async function openTranscriptModal(studentId) {
     root.innerHTML = `
       <div class="tx-document">
         <img class="tx-watermark" src="/images/logo.png" onerror="this.style.display='none'" />
-        
         <div class="tx-content">
           <div class="tx-letterhead">
             <img class="tx-letterhead-logo" src="/images/logo.png" onerror="this.style.display='none'" />

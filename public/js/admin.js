@@ -11869,7 +11869,7 @@ async function loadExamSheet() {
     function getMonday(d) {
       d = new Date(d);
       const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
       return new Date(d.setDate(diff));
     }
 
@@ -11877,7 +11877,7 @@ async function loadExamSheet() {
     sortedExams.forEach(ex => {
       const d = new Date(ex.examDate);
       const monday = getMonday(d);
-      const weekKey = monday.toISOString().split('T')[0]; // YYYY-MM-DD
+      const weekKey = monday.toISOString().split('T')[0];
       
       if (!weeks[weekKey]) {
         weeks[weekKey] = { monday: monday, exams: [] };
@@ -11913,15 +11913,9 @@ async function loadExamSheet() {
     weekKeys.forEach(weekKey => {
       const week = weeks[weekKey];
       
-      // Week Header Row
-      tableHtml += `
-        <tr>
-          <td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td>
-        </tr>
-      `;
+      tableHtml += `<tr><td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td></tr>`;
       weekCounter++;
 
-      // Group by Day
       const days = {};
       week.exams.forEach(ex => {
         const d = new Date(ex.examDate);
@@ -11936,12 +11930,10 @@ async function loadExamSheet() {
         const dayExams = days[dayKey];
         const d = new Date(dayKey);
         
-        // Format Date "MON 13/04/26"
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dayName = dayNames[d.getDay()];
         const dateStr = `${dayName} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split into Morning (before 11am) and Afternoon (after 11am)
         const morning = [];
         const afternoon = [];
 
@@ -11959,12 +11951,10 @@ async function loadExamSheet() {
 
           tableHtml += `<tr>`;
           
-          // Date column only on the first row
           if (i === 0) {
             tableHtml += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
           }
 
-          // Morning Column
           if (m) {
             const c = m.course || {};
             tableHtml += `
@@ -11976,7 +11966,6 @@ async function loadExamSheet() {
             tableHtml += `<td></td><td></td><td></td>`;
           }
 
-          // Afternoon Column
           if (a) {
             const c = a.course || {};
             tableHtml += `
@@ -11993,12 +11982,8 @@ async function loadExamSheet() {
       });
     });
 
-    tableHtml += `
-        </tbody>
-      </table>
-    `;
+    tableHtml += `</tbody></table>`;
 
-    // 4. Render full document
     root.innerHTML = `
       <div class="ex-sheet" id="a3-sheet">
         <div class="ex-head">
@@ -12011,9 +11996,7 @@ async function loadExamSheet() {
             <div class="title-line" style="font-size: 12px; margin-top: 4px;">${year}/${year+1} SESSION</div>
           </div>
         </div>
-
         ${tableHtml}
-
         <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px;">
           <div>
             <div style="font-family: 'Brush Script MT', cursive; font-size: 20px; color: #1e3a8a; transform: rotate(-5deg);">Martin Omini Arikpo</div>
@@ -12034,6 +12017,43 @@ async function loadExamSheet() {
     root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">Failed to load exam schedule.</div>';
   }
 }
+// Inject CSS for the A3 Exam Sheet
+(function injectExamSheetCSS() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .ex-sheet {
+      background: #fff;
+      padding: 30px;
+      font-family: 'Times New Roman', Times, serif;
+      color: #000;
+      max-width: 1200px;
+      margin: 0 auto;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .ex-head { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 20px; }
+    .ex-logo { width: 80px; height: auto; }
+    .ex-head-text { text-align: center; }
+    .ex-head-text .institution { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+    .ex-head-text .faculty { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+    .ex-head-text .title-line { font-size: 14px; font-weight: bold; margin-top: 6px; }
+    
+    .ex-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .ex-table th, .ex-table td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
+    .ex-table th { text-align: center; text-transform: uppercase; }
+    .ex-table .week-header { background: #fff; color: #059669; font-weight: bold; text-align: center; font-size: 12px; padding: 6px; }
+    .ex-table .col-date { text-align: center; vertical-align: middle; }
+    .ex-table .col-venue { text-align: center; }
+
+    @media print {
+      @page { size: landscape; margin: 10mm; }
+      body * { visibility: hidden; }
+      #a3-sheet, #a3-sheet * { visibility: visible; }
+      #a3-sheet { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; padding: 0; }
+      .ex-table th, .ex-table td { border: 1px solid #000 !important; }
+    }
+  `;
+  document.head.appendChild(style);
+})();
 
 // Helper to group exams by date and slot them into periods
 function renderExamTableRows(exams) {

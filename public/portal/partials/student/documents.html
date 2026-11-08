@@ -119,22 +119,6 @@
   .official-signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 80px; position: relative; z-index: 1; }
   .official-sig-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 8px; }
   .official-sig-role { font-size: 14px; font-weight: bold; text-transform: uppercase; text-align: center; }
-  
-  .vintage-cert { font-family: 'Times New Roman', Times, serif; color: #1a1a1a; text-align: center; display: flex; flex-direction: column; align-items: center; padding-top: 10mm; }
-  .vintage-cert .vc-header { font-size: 22px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; font-weight: normal; }
-  .vintage-cert .vc-subheader { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #444; margin-bottom: 30px; }
-  .vintage-cert .vc-logo { width: 110px; margin-bottom: 40px; }
-  .vintage-cert .vc-text { font-size: 18px; line-height: 1.6; font-style: italic; margin-bottom: 10px; }
-  .vintage-cert .vc-name { font-family: 'Brush Script MT', cursive; font-size: 42px; color: #000; margin: 10px 0 20px 0; border-bottom: 1px solid #999; padding: 0 40px; display: inline-block; min-width: 60%; }
-  .vintage-cert .vc-body { font-size: 17px; line-height: 1.8; max-width: 85%; margin: 0 auto; }
-  .vintage-cert .vc-fill-line { border-bottom: 1px solid #999; display: inline-block; padding: 0 10px; min-width: 120px; font-weight: bold; font-style: normal; }
-  .vintage-cert .vc-caps { text-transform: uppercase; font-size: 20px; letter-spacing: 1px; margin: 25px 0; line-height: 1.4; }
-  .vintage-cert .vc-signatures { display: flex; justify-content: space-between; width: 100%; margin-top: 60px; padding: 0 40px; }
-  .vintage-cert .vc-sig-block { text-align: center; width: 200px; }
-  .vintage-cert .vc-sig-img { font-family: 'Brush Script MT', cursive; font-size: 28px; color: #333; height: 40px; margin-bottom: -10px; transform: rotate(-5deg); }
-  .vintage-cert .vc-sig-line { border-bottom: 1px solid #000; margin-bottom: 5px; }
-  .vintage-cert .vc-sig-title { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
-  .vintage-cert .vc-footer { margin-top: 50px; font-size: 13px; text-align: right; width: 100%; padding-right: 40px; font-weight: bold; }
 
   .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; overflow: hidden; }
   .portal-id-card { width: 450px !important; height: 260px !important; flex-shrink: 0; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
@@ -192,15 +176,12 @@
         badge = '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Pending</span>';
       } else if (d.status === 'approved' || d.status === 'issued' || d.status === 'ready') {
         badge = '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Ready</span>';
+        // Force it to use the View Modal for ALL ready documents
         actionHtml = `<button onclick="window.viewStudentDoc(${d.id}, '${esc(d.type)}', '${esc(d.title)}')" style="padding:.3rem .6rem;font-size:.75rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">👁 View</button>`;
       } else if (d.status === 'rejected') {
         badge = '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">Rejected</span>';
       } else {
         badge = `<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:5px;font-weight:800;font-size:.68rem;text-transform:capitalize;">${esc(d.status)}</span>`;
-      }
-
-      if (d.fileUrl && d.status !== 'pending' && d.status !== 'rejected') {
-         actionHtml = `<a href="${esc(d.fileUrl)}" target="_blank" style="display:inline-block;padding:.3rem .6rem;font-size:.75rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;text-decoration:none;">⬇ Download</a>`;
       }
 
       return `
@@ -269,15 +250,16 @@
     body.innerHTML = '<div style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Generating document...</div>';
 
     try {
-      const studentRes = await core.portalFetch('/api/student/id-card'); 
-      const student = studentRes.data || {};
-      const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';
+      // Use the correct profile endpoint that is guaranteed to work
+      const studentRes = await core.portalFetch('/api/student/profile'); 
+      const student = studentRes.data || studentRes || {};
       
+      const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';
       const dateObj = new Date();
       const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
       
-      const progName = student.programmeName || '—';
-      const deptName = student.departmentName || '—';
+      const progName = student.programmeName || student.programme?.name || '—';
+      const deptName = student.departmentName || student.department?.name || '—';
       const level = student.level || 'ND';
       const sessionName = student.sessionName || '2025/2026';
       const idValue = student.matricNumber || '—';

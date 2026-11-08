@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Matches Official Template)
+// EXAMS: Load A3 Exam Sheet (Deduplicated & Clean)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11884,7 +11884,7 @@ async function loadExamSheet() {
 
     activeDepts.forEach(({ dept, exams: deptExams }) => {
       
-      // Group by Date only (YYYY-MM-DD)
+      // 1. Group all exams by Date
       const days = {};
       deptExams.forEach(ex => {
         const dateStr = String(ex.examDate).split('T')[0];
@@ -11930,54 +11930,81 @@ async function loadExamSheet() {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        // Split into morning and afternoon
+        // 2. Split into Morning and Afternoon
         const morning = [];
         const afternoon = [];
-
+        
         dayExams.forEach(ex => {
           const time = ex.startTime || '09:00';
           if (time < '11:00') morning.push(ex);
           else afternoon.push(ex);
         });
 
-        // Get invigilators (shared for the whole day)
-        const allInvs = [...new Set(dayExams.map(e => e.invigilators).filter(Boolean))];
-        const invigilatorsHtml = allInvs.length ? allInvs.join(', ') : '—';
+        // 3. Deduplicate by Course ID (just in case the DB has duplicates)
+        const uniqueMorning = [];
+        const morningIds = new Set();
+        morning.forEach(m => {
+          if (!morningIds.has(m.courseId)) {
+            morningIds.add(m.courseId);
+            uniqueMorning.push(m);
+          }
+        });
 
-        // Build the Morning Column
-        let morningCourseHtml = '<div style="font-style:italic;color:#94a3b8;">—</div>';
-        let morningVenueHtml = '';
-        if (morning.length > 0) {
-          morningCourseHtml = morning.map(m => {
+        const uniqueAfternoon = [];
+        const afternoonIds = new Set();
+        afternoon.forEach(a => {
+          if (!afternoonIds.has(a.courseId)) {
+            afternoonIds.add(a.courseId);
+            uniqueAfternoon.push(a);
+          }
+        });
+
+        // 4. Build Morning Cells
+        let mCourseHtml = '';
+        let mVenueHtml = '';
+        let mInvHtml = '';
+        
+        if (uniqueMorning.length > 0) {
+          mCourseHtml = uniqueMorning.map(m => {
             const c = m.course || courseMap.get(m.courseId) || {};
             return `<div style="margin-bottom:4px;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</div>`;
           }).join('');
           
-          morningVenueHtml = morning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.venue || 'TBA')}</div>`).join('');
+          mVenueHtml = uniqueMorning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.venue || 'TBA')}</div>`).join('');
+          mInvHtml = uniqueMorning.map(m => `<div style="margin-bottom:4px;">${escapeHtml(m.invigilators || '—')}</div>`).join('');
+        } else {
+          mCourseHtml = '<div style="font-style:italic; color:#94a3b8; text-align:center;">—</div>';
         }
 
-        // Build the Afternoon Column
-        let afternoonCourseHtml = '<div style="font-style:italic;color:#94a3b8;">—</div>';
-        let afternoonVenueHtml = '';
-        if (afternoon.length > 0) {
-          afternoonCourseHtml = afternoon.map(a => {
+        // 5. Build Afternoon Cells
+        let aCourseHtml = '';
+        let aVenueHtml = '';
+        let aInvHtml = '';
+        
+        if (uniqueAfternoon.length > 0) {
+          aCourseHtml = uniqueAfternoon.map(a => {
             const c = a.course || courseMap.get(a.courseId) || {};
             return `<div style="margin-bottom:4px;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</div>`;
           }).join('');
           
-          afternoonVenueHtml = afternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.venue || 'TBA')}</div>`).join('');
+          aVenueHtml = uniqueAfternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.venue || 'TBA')}</div>`).join('');
+          aInvHtml = uniqueAfternoon.map(a => `<div style="margin-bottom:4px;">${escapeHtml(a.invigilators || '—')}</div>`).join('');
+        } else {
+          aCourseHtml = '<div style="font-style:italic; color:#94a3b8; text-align:center;">—</div>';
         }
 
-        // Render the whole day as one row
-        tableHtml += `<tr>`;
-        tableHtml += `<td class="col-date" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
-        tableHtml += `<td style="vertical-align:top;">${morningCourseHtml}</td>`;
-        tableHtml += `<td class="col-venue" style="vertical-align:top;">${morningVenueHtml}</td>`;
-        tableHtml += `<td style="vertical-align:top;">${morning.length > 0 ? invigilatorsHtml : ''}</td>`;
-        tableHtml += `<td style="vertical-align:top;">${afternoonCourseHtml}</td>`;
-        tableHtml += `<td class="col-venue" style="vertical-align:top;">${afternoonVenueHtml}</td>`;
-        tableHtml += `<td style="vertical-align:top;">${afternoon.length > 0 ? invigilatorsHtml : ''}</td>`;
-        tableHtml += `</tr>`;
+        // 6. Render the complete row
+        tableHtml += `
+          <tr>
+            <td class="col-date" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>
+            <td style="vertical-align:top; text-align:left;">${mCourseHtml}</td>
+            <td class="col-venue" style="vertical-align:top;">${mVenueHtml}</td>
+            <td style="vertical-align:top;">${mInvHtml}</td>
+            <td style="vertical-align:top; text-align:left;">${aCourseHtml}</td>
+            <td class="col-venue" style="vertical-align:top;">${aVenueHtml}</td>
+            <td style="vertical-align:top;">${aInvHtml}</td>
+          </tr>
+        `;
       });
 
       tableHtml += `

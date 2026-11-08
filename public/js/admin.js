@@ -6778,15 +6778,20 @@ async function renderDocPreview(doc, user) {
   const level = user.level || 'ND';
   const sessionName = user.session?.name || user.sessionName || user.currentSession || '2025/2026';
 
-  // Common Wrapper
-  const a4Wrapper = (title, bodyHtml) => `
+  // Common Wrapper (Includes the Watermark by default)
+  const a4Wrapper = (title, bodyHtml, includeWatermark = true) => `
     <div class="doc-preview-wrap">
       <div class="doc-preview-toolbar"><span>👁 ${title} Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
       <div class="doc-preview-outer">
-        <div class="official-doc" style="background: #fff; padding: 20mm;">
-          <div class="official-watermark" style="opacity: 0.03; z-index: 0;">
-            <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 80%;" />
-          </div>
+        <div class="official-doc" style="background: ${type === 'certificate' ? '#fdfbf7' : '#fff'}; padding: 20mm;">
+          
+          ${includeWatermark ? `
+            <!-- Background Watermark (Disabled for ID Cards) -->
+            <div class="official-watermark" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; z-index: 0; opacity: 0.04; pointer-events: none;">
+              <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 75%; max-width: 500px;" />
+            </div>
+          ` : ''}
+
           <div style="position: relative; z-index: 1;">
             ${bodyHtml}
           </div>
@@ -6823,219 +6828,99 @@ async function renderDocPreview(doc, user) {
     `);
   }
 
-  // --- 2. ID CARD (PORTAL DESIGN MATCH) ---
+  // --- 2. ID CARD (NO WATERMARK INCLUDED) ---
   if (type === 'id-card' || type === 'id-letter') {
-    return `
+    // We explicitly pass `false` to the wrapper to hide the watermark
+    return a4Wrapper('ID Card', `
       <style>
-        /* Custom CSS specifically for the Portal-style ID card */
-        .portal-id-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 40px 0;
-          background: #f8fafc;
-          border-radius: 8px;
-        }
-        .portal-id-card {
-          width: 500px;
-          height: 280px;
-          background: #fff;
-          border-radius: 12px;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-          overflow: hidden;
-          border: 1px solid #e2e8f0;
-          display: flex;
-          flex-direction: column;
-          font-family: 'Poppins', sans-serif;
-          position: relative;
-        }
-        .pic-header {
-          background: #065f46;
-          height: 50px;
-          padding: 0 20px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: #fff;
-        }
-        .pic-header img {
-          width: 32px;
-          height: 32px;
-          background: #fff;
-          border-radius: 50%;
-          padding: 2px;
-        }
-        .pic-header-text {
-          display: flex;
-          flex-direction: column;
-          line-height: 1.2;
-        }
-        .pic-header-text .inst {
-          font-size: 13px;
-          font-weight: 800;
-          letter-spacing: 0.5px;
-        }
-        .pic-header-text .state {
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 1px;
-          opacity: 0.8;
-        }
-        .pic-body {
-          display: flex;
-          padding: 16px 20px;
-          gap: 16px;
-          flex: 1;
-        }
-        .pic-photo {
-          width: 85px;
-          height: 105px;
-          background: #f1f5f9;
-          border-radius: 6px;
-          border: 1px dashed #cbd5e1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-        }
-        .pic-photo img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        .pic-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding-top: 4px;
-        }
-        .pic-row {
-          display: flex;
-          flex-direction: column;
-          margin-bottom: 4px;
-        }
-        .pic-row-flex {
-          display: flex;
-          gap: 20px;
-        }
-        .pic-label {
-          font-size: 8px;
-          font-weight: 700;
-          color: #64748b;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .pic-value {
-          font-size: 12px;
-          font-weight: 700;
-          color: #0f172a;
-          line-height: 1.2;
-        }
-        .pic-qr {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          width: 60px;
-        }
-        .pic-qr-box {
-          width: 50px;
-          height: 50px;
-          border: 1px solid #065f46;
+        .portal-id-container { display: flex; justify-content: center; align-items: center; padding: 40px 0; background: #f8fafc; border-radius: 8px; }
+        .portal-id-card { width: 500px; height: 280px; background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e2e8f0; display: flex; flex-direction: column; font-family: 'Poppins', sans-serif; position: relative; }
+        .pic-header { background: #065f46; height: 50px; padding: 0 20px; display: flex; align-items: center; gap: 12px; color: #fff; }
+        .pic-header img { width: 32px; height: 32px; background: #fff; border-radius: 50%; padding: 2px; }
+        .pic-header-text { display: flex; flex-direction: column; line-height: 1.2; }
+        .pic-header-text .inst { font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
+        .pic-header-text .state { font-size: 9px; font-weight: 600; letter-spacing: 1px; opacity: 0.8; }
+        .pic-body { display: flex; padding: 16px 20px; gap: 16px; flex: 1; }
+        .pic-photo { width: 85px; height: 105px; background: #f1f5f9; border-radius: 6px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .pic-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .pic-details { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding-top: 4px; }
+        .pic-row { display: flex; flex-direction: column; margin-bottom: 4px; }
+        .pic-row-flex { display: flex; gap: 20px; }
+        .pic-label { font-size: 8px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+        .pic-value { font-size: 12px; font-weight: 700; color: #0f172a; line-height: 1.2; }
+        .pic-qr { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; }
+        
+        /* Realistic QR Code Pattern */
+        .qr-pattern {
+          width: 50px; height: 50px;
+          background-image: 
+            linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46),
+            linear-gradient(45deg, #065f46 25%, transparent 25%, transparent 75%, #065f46 75%, #065f46);
+          background-size: 10px 10px;
+          background-position: 0 0, 5px 5px;
+          border: 2px solid #065f46;
           border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #065f46;
-          font-size: 24px;
         }
-        .pic-footer {
-          background: #065f46;
-          height: 24px;
-          padding: 0 20px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          color: #fff;
-          font-size: 8px;
-          font-weight: 700;
-          letter-spacing: 0.5px;
-        }
+        .pic-footer { background: #065f46; height: 24px; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: 0.5px; }
       </style>
 
-      <div class="doc-preview-wrap">
-        <div class="doc-preview-toolbar"><span>👁 ID Card Preview</span><span class="tip">Use 🖨 Print to save as PDF</span></div>
-        <div class="portal-id-container">
-          
-          <div class="portal-id-card">
-            <!-- Header -->
-            <div class="pic-header">
-              <img src="/images/logo.png" onerror="this.style.display='none'" />
-              <div class="pic-header-text">
-                <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
-                <div class="state">CROSS RIVER STATE</div>
-              </div>
-            </div>
-
-            <!-- Body -->
-            <div class="pic-body">
-              <!-- Photo -->
-              <div class="pic-photo">
-                ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : ''}
-              </div>
-
-              <!-- Details -->
-              <div class="pic-details">
-                <div class="pic-row">
-                  <span class="pic-label">Student Name</span>
-                  <span class="pic-value" style="font-size: 14px;">${escapeHtml(fullName)}</span>
-                </div>
-                
-                <div class="pic-row">
-                  <span class="pic-label">Matric Number</span>
-                  <span class="pic-value">${escapeHtml(idValue)}</span>
-                </div>
-
-                <div class="pic-row-flex">
-                  <div class="pic-row" style="flex: 1;">
-                    <span class="pic-label">Level</span>
-                    <span class="pic-value">${escapeHtml(level)}</span>
-                  </div>
-                  <div class="pic-row" style="flex: 1;">
-                    <span class="pic-label">Session</span>
-                    <span class="pic-value">${escapeHtml(sessionName)}</span>
-                  </div>
-                </div>
-
-                <div class="pic-row">
-                  <span class="pic-label">Programme</span>
-                  <span class="pic-value">${escapeHtml(progName)}</span>
-                </div>
-
-                <div class="pic-row">
-                  <span class="pic-label">Department</span>
-                  <span class="pic-value">${escapeHtml(deptName)}</span>
-                </div>
-              </div>
-
-              <!-- QR Code Placeholder -->
-              <div class="pic-qr">
-                <div class="pic-qr-box">▦</div>
-                <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
-              </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="pic-footer">
-              <span>OFFICIAL STUDENT ID</span>
-              <span>FPU/ID/${String(user.id || 0).padStart(4, '0')}</span>
+      <div class="portal-id-container">
+        <div class="portal-id-card">
+          <div class="pic-header">
+            <img src="/images/logo.png" onerror="this.style.display='none'" />
+            <div class="pic-header-text">
+              <div class="inst">FEDERAL POLYTECHNIC UGEP</div>
+              <div class="state">CROSS RIVER STATE</div>
             </div>
           </div>
 
+          <div class="pic-body">
+            <div class="pic-photo">
+              ${user.photoUrl ? `<img src="${escapeHtml(user.photoUrl)}" alt="" />` : ''}
+            </div>
+
+            <div class="pic-details">
+              <div class="pic-row">
+                <span class="pic-label">Student Name</span>
+                <span class="pic-value" style="font-size: 14px;">${escapeHtml(fullName)}</span>
+              </div>
+              <div class="pic-row">
+                <span class="pic-label">Matric Number</span>
+                <span class="pic-value">${escapeHtml(idValue)}</span>
+              </div>
+              <div class="pic-row-flex">
+                <div class="pic-row" style="flex: 1;">
+                  <span class="pic-label">Level</span>
+                  <span class="pic-value">${escapeHtml(level)}</span>
+                </div>
+                <div class="pic-row" style="flex: 1;">
+                  <span class="pic-label">Session</span>
+                  <span class="pic-value">${escapeHtml(sessionName)}</span>
+                </div>
+              </div>
+              <div class="pic-row">
+                <span class="pic-label">Programme</span>
+                <span class="pic-value">${escapeHtml(progName)}</span>
+              </div>
+              <div class="pic-row">
+                <span class="pic-label">Department</span>
+                <span class="pic-value">${escapeHtml(deptName)}</span>
+              </div>
+            </div>
+
+            <div class="pic-qr">
+              <div class="qr-pattern"></div>
+              <div style="font-size: 6px; color: #64748b; font-weight: 700; margin-top: 4px; text-align: center;">SCAN TO<br>VERIFY</div>
+            </div>
+          </div>
+
+          <div class="pic-footer">
+            <span>OFFICIAL STUDENT ID</span>
+            <span>FPU/ID/${String(user.id || 0).padStart(4, '0')}</span>
+          </div>
         </div>
       </div>
-    `;
+    `, false); // <--- Pass false to hide watermark
   }
 
   // --- 3. CERTIFICATE (CLASSIC VINTAGE) ---

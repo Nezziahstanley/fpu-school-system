@@ -240,7 +240,9 @@
           fieldRow('Enrolled', A.fmtDate(u.createdAt)),
         ].join('');
 
+        // ============================================================
         // Fees (async)
+        // ============================================================
         A.adminFetch(`/api/admin/payments?studentId=${id}&limit=500`).then(async (r) => {
           const j = await r.json();
           const payments = j.data || [];
@@ -250,14 +252,32 @@
             ? verified.map(p => (p.payment || p).createdAt).sort().slice(-1)[0]
             : null;
 
+          const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Student';
+
           $('stu-fees').innerHTML = [
             fieldRow('Verified Payments', verified.length),
             fieldRow('Total Verified', A.money(totalVerified)),
             fieldRow('Last Payment', lastPayment ? A.fmtDate(lastPayment) : '—'),
           ].join('') + `<div style="margin-top:12px;">
-            <a class="btn btn-sm btn-outline"
-               href="#payments-by-student?studentId=${id}">View all payments →</a>
+            <button type="button" class="btn btn-sm btn-outline" id="stu-view-payments-btn">
+              View all payments →
+            </button>
           </div>`;
+
+          // Wire up the button to open the beautiful payment history modal
+          const viewPaymentsBtn = document.getElementById('stu-view-payments-btn');
+          if (viewPaymentsBtn) {
+            viewPaymentsBtn.onclick = () => {
+              if (typeof A.openPaymentHistory === 'function') {
+                A.openPaymentHistory(id, fullName);
+              } else if (typeof window.openPaymentHistory === 'function') {
+                window.openPaymentHistory(id, fullName);
+              } else {
+                A.showToast('Payment history modal not loaded.', 'error');
+              }
+            };
+          }
+
         }).catch(() => {
           $('stu-fees').innerHTML = '<p class="muted">Could not load fees.</p>';
         });

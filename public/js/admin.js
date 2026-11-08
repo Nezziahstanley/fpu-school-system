@@ -9054,21 +9054,21 @@ async function loadUsersWithPhotos() {
 }
 
 // ============================================
-// SETTINGS: Bank Accounts (FIXED)
+// SETTINGS: Finance Tab (Bank Accounts & Payment Rules)
 // ============================================
+
 async function loadBankAccounts() {
   const listEl = document.getElementById('bank-accounts-list');
   if (!listEl) return;
   
-  listEl.innerHTML = '<p class="muted"><span class="spinner"></span> Loading bank accounts…</p>';
+  listEl.innerHTML = '<p class="muted" style="padding:16px;"><span class="spinner"></span> Loading bank accounts…</p>';
   
   try {
-    // Fetch all settings to find the bank accounts
     const res = await adminFetch('/api/admin/settings?category=bank');
     const json = await res.json();
     let banks = json.data || [];
 
-    // Fallback: If backend doesn't filter by category, filter on frontend
+    // Fallback: If backend doesn't filter by category properly
     if (!banks.length || banks.length > 50) {
       const allRes = await adminFetch('/api/admin/settings');
       const allJson = await allRes.json();
@@ -9080,26 +9080,32 @@ async function loadBankAccounts() {
       return;
     }
 
-    // Render the list
+    // Sort by key so they stay in order
+    banks.sort((a, b) => String(a.key).localeCompare(String(b.key)));
+
     listEl.innerHTML = banks.map((b, idx) => {
       let data = {};
-      try { data = JSON.parse(b.value || '{}'); } catch (e) { data = { bank: b.value }; }
+      try { 
+        data = JSON.parse(b.value || '{}'); 
+      } catch (e) { 
+        data = { bank: b.value, accountName: '', accountNumber: '' }; 
+      }
       
       return `
-        <div class="form-grid" style="padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; position: relative; background: #f8fafc;">
-          <div class="form-group">
-            <label class="form-label">Bank</label>
-            <input class="form-control" data-bank-bank="${idx}" value="${escapeHtml(data.bank || '')}" placeholder="e.g. OPAY" />
+        <div class="form-grid" style="padding: 16px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px; position: relative; background: #f8fafc; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Bank Name</label>
+            <input class="form-control" data-bank-bank="${idx}" value="${escapeHtml(data.bank || '')}" placeholder="e.g. OPAY" style="height: 38px;" />
           </div>
-          <div class="form-group">
-            <label class="form-label">Account Name</label>
-            <input class="form-control" data-bank-name="${idx}" value="${escapeHtml(data.accountName || '')}" placeholder="e.g. FPU School" />
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Account Name</label>
+            <input class="form-control" data-bank-name="${idx}" value="${escapeHtml(data.accountName || '')}" placeholder="e.g. FPU School" style="height: 38px;" />
           </div>
-          <div class="form-group">
-            <label class="form-label">Account Number</label>
-            <input class="form-control" data-bank-num="${idx}" value="${escapeHtml(data.accountNumber || '')}" placeholder="0123456789" />
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Account Number</label>
+            <input class="form-control" data-bank-num="${idx}" value="${escapeHtml(data.accountNumber || '')}" placeholder="0123456789" style="height: 38px;" />
           </div>
-          <div style="display: flex; gap: 8px; align-items: flex-end;">
+          <div style="display: flex; gap: 8px;">
             <button type="button" class="btn btn-sm btn-primary" onclick="FPU_ADMIN.saveBankAccount(${idx}, '${escapeHtml(b.key)}')">Save</button>
             <button type="button" class="btn btn-sm btn-ghost" style="color: #dc2626;" onclick="FPU_ADMIN.deleteBankAccount('${escapeHtml(b.key)}')">Delete</button>
           </div>
@@ -9109,21 +9115,26 @@ async function loadBankAccounts() {
     
   } catch (e) {
     console.error('[bank-accounts]', e);
-    listEl.innerHTML = `<div class="alert alert-danger">Failed to load bank accounts: ${escapeHtml(e.message)}</div>`;
+    listEl.innerHTML = `<div class="alert alert-danger" style="margin:16px;">Failed to load bank accounts: ${escapeHtml(e.message)}</div>`;
   }
 }
 
 async function addBankAccount() {
   try {
-    // Find the highest index to create a new unique key
-    const res = await adminFetch('/api/admin/settings');
+    const res = await adminFetch('/api/admin/settings?category=bank');
     const json = await res.json();
     const rows = (json.data || []).filter(r => /^bank_account_\d+$/.test(r.key));
-    const nextIdx = rows.length ? Math.max(...rows.map(r => parseInt(r.key.split('_')[2]))) + 1 : 1;
+    
+    // Find the highest index to create a new unique key
+    let nextIdx = 1;
+    if (rows.length > 0) {
+      const indices = rows.map(r => parseInt(r.key.split('_')[2]) || 0);
+      nextIdx = Math.max(...indices) + 1;
+    }
     
     const key = 'bank_account_' + nextIdx;
     
-    // Create it with empty values
+    // Upsert with empty values
     await adminFetch(`/api/admin/settings/${key}`, {
       method: 'PUT',
       body: JSON.stringify({ 
@@ -9137,6 +9148,76 @@ async function addBankAccount() {
   } catch (e) { 
     showToast('❌ ' + e.message, 'error'); 
   }
+}
+
+// ============================================
+// SETTINGS: Wire Tab Extras (This triggers the load)
+// ============================================
+function wireSettingsTabExtras(tab) {
+  // Finance Tab
+  if (tab === 'finance') {
+    setTimeout(() => {
+      loadBankAccounts();
+      
+      // Wire the "Add Account" button
+      const addBtn = Array.from(document.querySelectorAll('.panel-head button, .page-head button')).find(b => b.textContent.includes('Add Account'));
+      if (addBtn && !addBtn.__wired) {
+        addBtn.__wired = true;
+        addBtn.onclick = () => addBankAccount();
+      }
+
+      // Wire the "Save Finance Settings" button at the bottom
+      const saveFinanceBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Save Finance Settings'));
+      if (saveFinanceBtn && !saveFinanceBtn.__wired) {
+        saveFinanceBtn.__wired = true;
+        saveFinanceBtn.onclick = async (e) => {
+          e.preventDefault();
+          const originalText = saveFinanceBtn.textContent;
+          saveFinanceBtn.disabled = true;
+          saveFinanceBtn.textContent = 'Saving...';
+
+          try {
+            // Gather the Payment Rules fields. 
+            // We look for the inputs in the "Payment Rules" section.
+            const payload = {};
+            
+            // If your HTML inputs have IDs, use them here. Otherwise, we grab by placeholder/label.
+            const prefixEl = document.querySelector('input[placeholder="e.g. FPU"]');
+            const feeEl = document.querySelector('input[placeholder="5"]');
+            const autoVerifyEl = document.querySelector('input[placeholder="0"]');
+            
+            if (prefixEl) payload.payment_prefix = prefixEl.value;
+            if (feeEl) payload.late_fee_percent = feeEl.value;
+            if (autoVerifyEl) payload.auto_verify_below = autoVerifyEl.value;
+
+            // Send to the bulk settings endpoint
+            await adminFetch('/api/admin/settings/bulk', {
+              method: 'POST',
+              body: JSON.stringify({ 
+                settings: payload, 
+                category: 'payment' // Assuming these belong to payment
+              }),
+            });
+            
+            showToast('✅ Finance settings saved.', 'success');
+            saveFinanceBtn.textContent = '✓ Saved';
+            setTimeout(() => { saveFinanceBtn.textContent = originalText; saveFinanceBtn.disabled = false; }, 1500);
+          } catch (err) {
+            showToast('❌ ' + err.message, 'error');
+            saveFinanceBtn.textContent = originalText;
+            saveFinanceBtn.disabled = false;
+          }
+        };
+      }
+    }, 100);
+  }
+  
+  if (tab === 'library') setTimeout(runLibrarySweep, 100);
+  if (tab === 'email') setTimeout(sendTestEmail, 100);
+  if (tab === 'sms') setTimeout(sendTestSMS, 100);
+  if (tab === 'account') setTimeout(initAccountTab, 100);
+  if (tab === 'system') setTimeout(initSystemTab, 100);
+  if (tab === 'advanced') setTimeout(loadAdvancedSettings, 100);
 }
 
 async function saveBankAccount(idx, key) {
@@ -9172,58 +9253,6 @@ async function deleteBankAccount(key) {
   } catch (e) { 
     showToast('❌ ' + e.message, 'error'); 
   }
-}
-
-async function addBankAccount() {
-  try {
-    const res = await adminFetch('/api/admin/settings?category=bank');
-    const json = await res.json();
-    const rows = (json.data || []).filter((r) => /^bank_account_/.test(r.key));
-    const nextIdx = rows.length + 1;
-    const key = 'bank_account_' + nextIdx;
-    await adminFetch(`/api/admin/settings/${key}`, {
-      method: 'PUT',
-      body: JSON.stringify({ value: JSON.stringify({ bank: '', accountName: '', accountNumber: '' }), category: 'bank' }),
-    });
-    showToast('Bank account added.', 'success');
-    loadBankAccounts();
-  } catch (e) { showToast('❌ ' + e.message, 'error'); }
-}
-
-async function saveBankAccount(idx) {
-  const bank = document.querySelector(`[data-bank-bank="${idx}"]`).value.trim();
-  const accountName = document.querySelector(`[data-bank-name="${idx}"]`).value.trim();
-  const accountNumber = document.querySelector(`[data-bank-num="${idx}"]`).value.trim();
-
-  // Validate before saving
-  if (!bank || !accountName || !accountNumber) {
-    showToast('⚠️ Bank name, account name, and account number are all required.', 'warning');
-    return;
-  }
-
-  const key = 'bank_account_' + (idx + 1);
-  try {
-    await adminFetch(`/api/admin/settings/${key}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        value: JSON.stringify({ bank, accountName, accountNumber }),
-        category: 'bank',
-      }),
-    });
-    showToast('✅ Bank saved.', 'success');
-  } catch (e) {
-    showToast('❌ ' + e.message, 'error');
-  }
-}
-
-async function deleteBankAccount(idx) {
-  if (!confirm('Delete this bank account?')) return;
-  try {
-    const key = 'bank_account_' + (idx + 1);
-    await adminFetch(`/api/admin/settings/${key}`, { method: 'DELETE' });
-    showToast('Deleted.', 'success');
-    loadBankAccounts();
-  } catch (e) { showToast('❌ ' + e.message, 'error'); }
 }
 
 // ============================================
@@ -9520,46 +9549,6 @@ async function initSystemTab() {
         status.innerHTML = `<div class="alert alert-danger">❌ ${escapeHtml(err.message)}</div>`;
       }
     };
-  }
-}
-
-// ============================================
-// SETTINGS: Wire Tab Extras
-// ============================================
-function wireSettingsTabExtras(tab) {
-  // When the Finance tab is loaded, immediately fetch the bank accounts
-  if (tab === 'finance') {
-    setTimeout(loadBankAccounts, 100);
-  }
-  
-  // When the Library tab is loaded, set up the overdue sweep button
-  if (tab === 'library') {
-    setTimeout(runLibrarySweep, 100);
-  }
-  
-  // When the Email tab is loaded, set up the test email button
-  if (tab === 'email') {
-    setTimeout(sendTestEmail, 100);
-  }
-  
-  // When the SMS tab is loaded, set up the test SMS button
-  if (tab === 'sms') {
-    setTimeout(sendTestSMS, 100);
-  }
-  
-  // When the Account tab is loaded, initialize profile photo and password form
-  if (tab === 'account') {
-    setTimeout(initAccountTab, 100);
-  }
-  
-  // When the System tab is loaded, initialize deployment and health stats
-  if (tab === 'system') {
-    setTimeout(initSystemTab, 100);
-  }
-  
-  // When the Advanced tab is loaded, fetch the raw settings table
-  if (tab === 'advanced') {
-    setTimeout(loadAdvancedSettings, 100);
   }
 }
 

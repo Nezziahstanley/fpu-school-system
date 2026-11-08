@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Fixed Layout)
+// EXAMS: Load A3 Exam Sheet (Matches Official Template)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11854,38 +11854,175 @@ async function loadExamSheet() {
       return;
     }
 
+    // 1. Sort exams by Date and Time
+    const sortedExams = [...exams].sort((a, b) => {
+      const dateA = new Date(a.examDate).getTime();
+      const dateB = new Date(b.examDate).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      
+      const timeA = a.startTime || '09:00';
+      const timeB = b.startTime || '09:00';
+      return timeA.localeCompare(timeB);
+    });
+
+    // 2. Group by Week
+    function getMonday(d) {
+      d = new Date(d);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      return new Date(d.setDate(diff));
+    }
+
+    const weeks = {};
+    sortedExams.forEach(ex => {
+      const d = new Date(ex.examDate);
+      const monday = getMonday(d);
+      const weekKey = monday.toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      if (!weeks[weekKey]) {
+        weeks[weekKey] = { monday: monday, exams: [] };
+      }
+      weeks[weekKey].exams.push(ex);
+    });
+
+    const weekKeys = Object.keys(weeks).sort();
+    let weekCounter = 1;
+
+    // 3. Build HTML Table
+    let tableHtml = `
+      <table class="ex-table">
+        <thead>
+          <tr>
+            <th style="width:70px;">TIME</th>
+            <th colspan="3" style="text-align:center; font-weight:bold;">9:00 A.M - 11:00 A.M</th>
+            <th colspan="4" style="text-align:center; font-weight:bold;">12:00 NOON - 2:00 P.M</th>
+          </tr>
+          <tr>
+            <th>DATE</th>
+            <th>COURSE TITLE & CODE</th>
+            <th>VENUE</th>
+            <th>INVIGILATORS</th>
+            <th>COURSE TITLE & CODE</th>
+            <th>VENUE</th>
+            <th>INVIGILATORS</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    weekKeys.forEach(weekKey => {
+      const week = weeks[weekKey];
+      
+      // Week Header Row
+      tableHtml += `
+        <tr>
+          <td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td>
+        </tr>
+      `;
+      weekCounter++;
+
+      // Group by Day
+      const days = {};
+      week.exams.forEach(ex => {
+        const d = new Date(ex.examDate);
+        const dayKey = d.toISOString().split('T')[0];
+        if (!days[dayKey]) days[dayKey] = [];
+        days[dayKey].push(ex);
+      });
+
+      const dayKeys = Object.keys(days).sort();
+
+      dayKeys.forEach(dayKey => {
+        const dayExams = days[dayKey];
+        const d = new Date(dayKey);
+        
+        // Format Date "MON 13/04/26"
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const dayName = dayNames[d.getDay()];
+        const dateStr = `${dayName} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+
+        // Split into Morning (before 11am) and Afternoon (after 11am)
+        const morning = [];
+        const afternoon = [];
+
+        dayExams.forEach(ex => {
+          const time = ex.startTime || '09:00';
+          if (time < '11:00') morning.push(ex);
+          else afternoon.push(ex);
+        });
+
+        const maxRows = Math.max(morning.length, afternoon.length, 1);
+
+        for (let i = 0; i < maxRows; i++) {
+          const m = morning[i];
+          const a = afternoon[i];
+
+          tableHtml += `<tr>`;
+          
+          // Date column only on the first row
+          if (i === 0) {
+            tableHtml += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
+          }
+
+          // Morning Column
+          if (m) {
+            const c = m.course || {};
+            tableHtml += `
+              <td>${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
+              <td class="col-venue">${escapeHtml(m.venue || '')}</td>
+              <td>${escapeHtml(m.invigilators || '')}</td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td>`;
+          }
+
+          // Afternoon Column
+          if (a) {
+            const c = a.course || {};
+            tableHtml += `
+              <td>${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
+              <td class="col-venue">${escapeHtml(a.venue || '')}</td>
+              <td>${escapeHtml(a.invigilators || '')}</td>
+            `;
+          } else {
+            tableHtml += `<td></td><td></td><td></td>`;
+          }
+
+          tableHtml += `</tr>`;
+        }
+      });
+    });
+
+    tableHtml += `
+        </tbody>
+      </table>
+    `;
+
+    // 4. Render full document
     root.innerHTML = `
       <div class="ex-sheet" id="a3-sheet">
         <div class="ex-head">
           <img src="/images/logo.png" alt="Logo" class="ex-logo">
           <div class="ex-head-text">
-            <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
-            <div class="faculty">${escapeHtml(schoolName.toUpperCase())}</div>
-            <div class="title-line">${year}/2025 ${semester.toUpperCase()} SEMESTER LECTURERS TIMETABLE</div>
+            <div class="institution">FEDERAL POLYTECHNIC UGEP,</div>
+            <div class="faculty">SCHOOL OF SCIENCE AND TECHNOLOGY</div>
+            <div class="faculty">DEPARTMENT OF COMPUTER SCIENCE</div>
+            <div class="title-line">(HND I), (ND II) & (ND I) ${semester.toUpperCase()} SEMESTER EXAMINATION TIME TABLE</div>
+            <div class="title-line" style="font-size: 12px; margin-top: 4px;">${year}/${year+1} SESSION</div>
           </div>
         </div>
 
-        <table class="ex-table">
-          <thead>
-            <tr>
-              <th class="col-days">DAYS</th>
-              <th class="col-date">DATE</th>
-              <th class="col-code">CODE</th>
-              <th class="col-cu">CU</th>
-              <th class="col-title">COURSE TITLE</th>
-              <th class="col-time">TIME</th>
-              <th class="col-lecturer">LECTURER</th>
-              <th class="col-venue">VENUE</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${renderExamTableRows(exams)}
-          </tbody>
-        </table>
+        ${tableHtml}
 
-        <div style="margin-top: 30px; font-size: 11pt; font-weight: 700;">
-          <div>Clp. AKIRKPO, Martha Onsisi mnip</div>
-          <div>HOD, Computer Science</div>
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 20px;">
+          <div>
+            <div style="font-family: 'Brush Script MT', cursive; font-size: 20px; color: #1e3a8a; transform: rotate(-5deg);">Martin Omini Arikpo</div>
+            <div style="border-top: 1px solid #000; width: 180px; padding-top: 4px; font-weight: bold; font-size: 12px;">Sign: Martin Omini Arikpo</div>
+          </div>
+          <div style="text-align: right; font-weight: bold; font-size: 12px;">
+            ................................<br>
+            HOD, Computer Science
+          </div>
         </div>
       </div>
     `;

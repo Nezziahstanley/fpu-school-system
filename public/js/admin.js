@@ -11815,7 +11815,7 @@ window.FPU_ADMIN = {
 };
 
 // ============================================
-// EXAMS: Load A3 Exam Sheet (Robust & Grouped)
+// EXAMS: Load A3 Exam Sheet (Matches Official Template)
 // ============================================
 async function loadExamSheet() {
   const root = document.getElementById('exsheet-root');
@@ -11842,53 +11842,37 @@ async function loadExamSheet() {
   subtitleEl.textContent = `Loading schedules...`;
 
   try {
-    // 1. Fetch everything we need
-    let exams = [], depts = [], courses = [];
+    // 1. Fetch data
+    const [examsRes, deptsRes, coursesRes] = await Promise.all([
+      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`),
+      adminFetch(`/api/admin/departments`),
+      adminFetch(`/api/admin/courses?limit=5000`),
+    ]);
 
-    try {
-      const examsRes = await adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}`);
-      const json = await examsRes.json();
-      exams = json.data || [];
-    } catch (e) { console.warn('Failed to fetch exams', e); }
-
-    try {
-      const deptsRes = await adminFetch(`/api/admin/departments`);
-      const json = await deptsRes.json();
-      depts = json.data || [];
-    } catch (e) { console.warn('Failed to fetch departments', e); }
-
-    try {
-      const coursesRes = await adminFetch(`/api/admin/courses?limit=5000`);
-      const json = await coursesRes.json();
-      courses = json.data || [];
-    } catch (e) { console.warn('Failed to fetch courses', e); }
+    const exams = (await examsRes.json()).data || [];
+    const depts = (await deptsRes.json()).data || [];
+    const courses = (await coursesRes.json()).data || [];
 
     const year = new Date().getFullYear();
-    subtitleEl.textContent = `${exams.length} exams scheduled`;
+    subtitleEl.textContent = `${exams.length} exams scheduled across ${depts.length} departments`;
 
     if (!exams.length) {
       root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No Exams Scheduled for this school.</div>`;
       return;
     }
 
-    // 2. Build lookups securely
-    const courseMap = new Map();
-    courses.forEach(c => { if (c && c.id) courseMap.set(c.id, c); });
-    
-    const deptMap = new Map();
-    depts.forEach(d => { if (d && d.id) deptMap.set(d.id, d); });
+    // 2. Build lookups
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+    const deptMap = new Map(depts.map(d => [d.id, d]));
 
-    // 3. Group exams by Department
+    // 3. Group by Department
     const byDept = new Map();
-    
-    // Initialize departments that belong to this school
     depts.forEach(d => {
       if (Number(d.schoolId) === Number(schoolId)) {
         byDept.set(d.id, { dept: d, exams: [] });
       }
     });
 
-    // Push exams into their respective departments
     exams.forEach(ex => {
       const course = courseMap.get(ex.courseId) || ex.course || {};
       const deptId = course.departmentId;
@@ -11897,47 +11881,24 @@ async function loadExamSheet() {
       }
     });
 
-    // Filter out empty departments
     const activeDepts = [...byDept.values()].filter(d => d.exams.length > 0);
     activeDepts.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
 
-    if (!activeDepts.length) {
-      root.innerHTML = `<div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">No exams found for any departments in this school.</div>`;
-      return;
-    }
-
-    // 4. Render each department's section
     let allDepartmentsHtml = '';
 
+    // 4. Render each department
     activeDepts.forEach(({ dept, exams: deptExams }) => {
-      // Sort exams by date & time
-      const sortedExams = [...deptExams].sort((a, b) => {
-        const dateA = new Date(a.examDate).getTime() || 0;
-        const dateB = new Date(b.examDate).getTime() || 0;
-        if (dateA !== dateB) return dateA - dateB;
-        return (a.startTime || '09:00').localeCompare(b.startTime || '09:00');
+      
+      // Group by Date (YYYY-MM-DD)
+      const days = {};
+      deptExams.forEach(ex => {
+        // Handle potential string formatting from DB
+        const dateStr = String(ex.examDate).split('T')[0];
+        if (!days[dateStr]) days[dateStr] = [];
+        days[dateStr].push(ex);
       });
 
-      // Group by Week
-      function getMonday(d) {
-        d = new Date(d);
-        if (isNaN(d.getTime())) return new Date();
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(d.setDate(diff));
-      }
-
-      const weeks = {};
-      sortedExams.forEach(ex => {
-        const d = new Date(ex.examDate);
-        const monday = getMonday(d);
-        const weekKey = monday.toISOString().split('T')[0];
-        if (!weeks[weekKey]) weeks[weekKey] = { monday, exams: [] };
-        weeks[weekKey].exams.push(ex);
-      });
-
-      const weekKeys = Object.keys(weeks).sort();
-      let weekCounter = 1;
+      const dayKeys = Object.keys(days).sort();
 
       let tableHtml = `
         <div class="dept-exam-section">
@@ -11969,69 +11930,80 @@ async function loadExamSheet() {
             <tbody>
       `;
 
-      weekKeys.forEach(weekKey => {
-        const week = weeks[weekKey];
-        tableHtml += `<tr><td colspan="7" class="week-header">EXAMS - WEEK ${weekCounter}</td></tr>`;
-        weekCounter++;
+      // Render one row per day
+      dayKeys.forEach(dateKey => {
+        const dayExams = days[dateKey];
+        const d = new Date(dateKey);
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
 
-        const days = {};
-        week.exams.forEach(ex => {
-          const d = new Date(ex.examDate);
-          const dayKey = isNaN(d.getTime()) ? 'unknown' : d.toISOString().split('T')[0];
-          if (!days[dayKey]) days[dayKey] = [];
-          days[dayKey].push(ex);
+        // Split into Morning and Afternoon
+        const morning = [];
+        const afternoon = [];
+
+        dayExams.forEach(ex => {
+          const time = ex.startTime || '09:00';
+          if (time < '11:00') morning.push(ex);
+          else afternoon.push(ex);
         });
 
-        const dayKeys = Object.keys(days).sort();
+        // Render the row
+        tableHtml += `<tr>`;
+        tableHtml += `<td class="col-date" style="vertical-align:middle; font-weight:bold;">${dateStr}</td>`;
 
-        dayKeys.forEach(dayKey => {
-          const dayExams = days[dayKey];
-          const d = new Date(dayKey);
-          const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-          const dateStr = isNaN(d.getTime()) ? 'TBA' : `${dayNames[d.getDay()]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`;
+        // Morning Column
+        if (morning.length > 0) {
+          const blocks = morning.map(m => {
+            const c = m.course || courseMap.get(m.courseId) || {};
+            return `
+              <div style="margin-bottom: 6px;">
+                <div style="font-weight:bold;">${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</div>
+                <div style="font-size: 10px; color: #555;">Venue: ${escapeHtml(m.venue || 'TBA')}</div>
+              </div>
+            `;
+          }).join('');
+          tableHtml += `<td>${blocks}</td>`;
+        } else {
+          tableHtml += `<td></td>`;
+        }
 
-          const morning = [];
-          const afternoon = [];
+        // Venue & Invigilators for Morning
+        if (morning.length > 0) {
+          const venues = [...new Set(morning.map(m => m.venue).filter(Boolean))].join(', ');
+          const invs = [...new Set(morning.map(m => m.invigilators).filter(Boolean))].join(', ');
+          tableHtml += `<td class="col-venue">${escapeHtml(venues || 'TBA')}</td>`;
+          tableHtml += `<td>${escapeHtml(invs || '—')}</td>`;
+        } else {
+          tableHtml += `<td></td><td></td>`;
+        }
 
-          dayExams.forEach(ex => {
-            const time = ex.startTime || '09:00';
-            if (time < '11:00') morning.push(ex);
-            else afternoon.push(ex);
-          });
+        // Afternoon Column
+        if (afternoon.length > 0) {
+          const blocks = afternoon.map(a => {
+            const c = a.course || courseMap.get(a.courseId) || {};
+            return `
+              <div style="margin-bottom: 6px;">
+                <div style="font-weight:bold;">${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</div>
+                <div style="font-size: 10px; color: #555;">Venue: ${escapeHtml(a.venue || 'TBA')}</div>
+              </div>
+            `;
+          }).join('');
+          tableHtml += `<td>${blocks}</td>`;
+        } else {
+          tableHtml += `<td></td>`;
+        }
 
-          const maxRows = Math.max(morning.length, afternoon.length, 1);
+        // Venue & Invigilators for Afternoon
+        if (afternoon.length > 0) {
+          const venues = [...new Set(afternoon.map(a => a.venue).filter(Boolean))].join(', ');
+          const invs = [...new Set(afternoon.map(a => a.invigilators).filter(Boolean))].join(', ');
+          tableHtml += `<td class="col-venue">${escapeHtml(venues || 'TBA')}</td>`;
+          tableHtml += `<td>${escapeHtml(invs || '—')}</td>`;
+        } else {
+          tableHtml += `<td></td><td></td>`;
+        }
 
-          for (let i = 0; i < maxRows; i++) {
-            const m = morning[i];
-            const a = afternoon[i];
-
-            tableHtml += `<tr>`;
-            if (i === 0) tableHtml += `<td class="col-date" rowspan="${maxRows}">${dateStr}</td>`;
-
-            if (m) {
-              const c = m.course || courseMap.get(m.courseId) || {};
-              tableHtml += `
-                <td>${escapeHtml(m.courseTitle || c.title || '')} (${escapeHtml(m.courseCode || c.code || '')})</td>
-                <td class="col-venue">${escapeHtml(m.venue || '')}</td>
-                <td>${escapeHtml(m.invigilators || '')}</td>
-              `;
-            } else {
-              tableHtml += `<td></td><td></td><td></td>`;
-            }
-
-            if (a) {
-              const c = a.course || courseMap.get(a.courseId) || {};
-              tableHtml += `
-                <td>${escapeHtml(a.courseTitle || c.title || '')} (${escapeHtml(a.courseCode || c.code || '')})</td>
-                <td class="col-venue">${escapeHtml(a.venue || '')}</td>
-                <td>${escapeHtml(a.invigilators || '')}</td>
-              `;
-            } else {
-              tableHtml += `<td></td><td></td><td></td>`;
-            }
-            tableHtml += `</tr>`;
-          }
-        });
+        tableHtml += `</tr>`;
       });
 
       tableHtml += `
@@ -12056,10 +12028,9 @@ async function loadExamSheet() {
     root.innerHTML = `<div class="ex-sheet">${allDepartmentsHtml}</div>`;
 
   } catch (err) {
-    console.error('FATAL: Failed to load exam sheet', err);
-    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;border-radius:8px;margin:20px;">
-      <h3 style="margin-top:0;">Failed to load exam schedule</h3>
-      <p style="font-family:monospace;font-size:13px;">${escapeHtml(err.message)}</p>
+    console.error('Failed to load exam sheet', err);
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#dc2626;background:#fee2e2;">
+      <strong>Error loading exam schedule:</strong><br>${escapeHtml(err.message)}
     </div>`;
   }
 }

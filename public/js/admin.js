@@ -6463,19 +6463,26 @@ async function renewBorrow(id) {
 }
 
 // ============================================
-// DOCUMENTS — Full-featured loader
+// DOCUMENTS — Full-featured loader (FIXED)
 // ============================================
 async function loadDocumentsTable() {
   const tbody = document.getElementById('dc-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;"><span class="spinner"></span> Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:40px;color:#64748b;"><span class="spinner"></span> Loading…</td></tr>';
 
   try {
     // Admin uses this endpoint
     const res = await adminFetch('/api/admin/documents');
-    const payload = res.data || res || {};
-    const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
+    
+    // CRITICAL FIX: Handle 500 errors so we don't get stuck
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText.slice(0, 100)}`);
+    }
+
+    const json = await res.json();
+    const raw = json.data || json.rows || json.documents || [];
     
     // Unwrap the { document, user } shape from the API
     const ALL = raw.map(r => {
@@ -6502,7 +6509,7 @@ async function loadDocumentsTable() {
 
     // Render Table
     if (!ALL.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:20px;">No document requests found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty" style="text-align:center;padding:40px;color:#64748b;">No document requests found.</td></tr>';
       return;
     }
 
@@ -6530,7 +6537,8 @@ async function loadDocumentsTable() {
     }).join('');
 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${escapeHtml(err.message)}</td></tr>`;
+    console.error('[Documents] Error:', err);
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#dc2626; text-align:center; padding:20px;"><strong>Error:</strong> ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 

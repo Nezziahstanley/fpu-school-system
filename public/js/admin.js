@@ -14031,7 +14031,6 @@ async function loadTimetableApprovals() {
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading approvals...</div>';
 
   try {
-    // Fetch all departments that have submitted or approved timetables
     const [deptsRes, slotsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
       adminFetch('/api/admin/timetable?limit=5000')
@@ -14040,13 +14039,11 @@ async function loadTimetableApprovals() {
     const depts = (await deptsRes.json()).data || [];
     const rawSlots = (await slotsRes.json()).data || [];
 
-    // Group by department and count statuses
     const byDept = new Map();
     depts.forEach(d => byDept.set(d.id, { dept: d, pending: 0, approved: 0, draft: 0, total: 0 }));
 
     rawSlots.forEach(r => {
       const s = r.slot || r;
-      // We use the course's department if the slot doesn't have one
       const c = s.course || {};
       const deptId = c.departmentId || s.departmentId;
       if (!deptId) return;
@@ -14061,7 +14058,6 @@ async function loadTimetableApprovals() {
       else bucket.draft++;
     });
 
-    // Only show departments with courses that have been submitted
     const visible = [...byDept.values()].filter(d => d.total > 0 && (d.pending > 0 || d.approved > 0));
 
     if (!visible.length) {
@@ -14107,7 +14103,6 @@ async function loadTimetableApprovals() {
   }
 }
 
-// Bulk approve all pending slots for a department
 async function bulkApproveTimetable(deptId) {
   const ok = await window.fpuConfirm('Approve ALL pending timetable slots for this department?', { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve' });
   if (!ok) return;
@@ -14122,7 +14117,7 @@ async function bulkApproveTimetable(deptId) {
     if (!json.success) throw new Error(json.error || 'Failed to approve');
 
     showToast(`✅ Approved ${json.count} slots successfully.`, 'success');
-    loadTimetableApprovals(); // Reload the dashboard
+    loadTimetableApprovals();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }
@@ -14164,6 +14159,117 @@ async function submitHodTimetable() {
     showToast('❌ ' + err.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = '📤 Submit for Admin Approval'; }
   }
+}
+
+// ============================================
+// HOD: Load Lecture Timetable
+// ============================================
+async function loadHodTimetable() {
+  const tbody = document.getElementById('hod-tt-tbody');
+  if (!tbody) return;
+
+  // 1. Populate Sessions dropdown
+  const sessionSelect = document.getElementById('hod-tt-session');
+  if (sessionSelect && sessionSelect.options.length <= 1) {
+    try {
+      const res = await adminFetch('/api/admin/sessions');
+      const json = await res.json();
+      const sessions = json.data || [];
+      sessionSelect.innerHTML = sessions.map(s => `<option value="${s.id}" ${s.isCurrent ? 'selected' : ''}>${s.name}</option>`).join('');
+    } catch (e) { console.warn('Could not load sessions', e); }
+  }
+
+  const sessionId = sessionSelect?.value || '';
+  const semester = document.getElementById('hod-tt-semester')?.value || 'first';
+
+  if (!sessionId) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px;"><span class="spinner"></span> Loading slots...</td></tr>';
+
+  try {
+    // Fetch slots for this HOD's department
+    const res = await adminFetch(`/api/admin/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
+    const json = await res.json();
+    const rows = json.data || [];
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:40px; color:#64748b;">No timetable slots yet. Click "+ Add Slot" to start building your timetable.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const s = r.slot || r;
+      const c = r.course || {};
+      const lecturer = r.lecturer ? `C. ${r.lecturer.firstName} ${r.lecturer.lastName}` : '—';
+      
+      // Status badge
+      let statusHtml = '<span class="badge badge-warning">Draft</span>';
+      if (s.status === 'pending') statusHtml = '<span class="badge badge-info">Pending Approval</span>';
+      else if (s.status === 'approved') statusHtml = '<span class="badge badge-success">Approved</span>';
+
+      return `
+        <tr>
+          <td><strong>${escapeHtml(c.code || '')}</strong> — ${escapeHtml(c.title || '')}</td>
+          <td>${escapeHtml(s.dayOfWeek || '')}</td>
+          <td>${escapeHtml(s.startTime || '')} - ${escapeHtml(s.endTime || '')}</td>
+          <td>${escapeHtml(s.venue || '—')}</td>
+          <td>${statusHtml}</td>
+          <td>
+            ${s.status === 'draft' ? `<button class="btn btn-sm btn-ghost" style="color:#dc2626;" onclick="FPU_ADMIN.deleteHodSlot(${s.id})">Delete</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px; color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+// ============================================
+// HOD: Submit for Approval
+// ============================================
+async function submitHodTimetable() {
+  const ok = await window.fpuConfirm(
+    'Are you sure you want to submit this timetable to the Admin for approval? You cannot edit it while it is pending.',
+    { title: 'Submit for Approval', type: 'info', okText: 'Yes, Submit' }
+  );
+  if (!ok) return;
+
+  const sessionId = document.getElementById('hod-tt-session')?.value;
+  const semester = document.getElementById('hod-tt-semester')?.value || 'first';
+
+  if (!sessionId) { showToast('⚠️ Session not found.', 'warning'); return; }
+
+  const btn = document.getElementById('hod-submit-tt-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
+  try {
+    const res = await adminFetch('/api/admin/timetable/submit-for-approval', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: Number(sessionId), semester })
+    });
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to submit');
+
+    showToast(`✅ ${json.message}`, 'success');
+    loadHodTimetable();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Submit for Admin Approval'; }
+  }
+}
+
+// ============================================
+// HOD: Delete a Draft Slot
+// ============================================
+async function deleteHodSlot(id) {
+  if (!confirm('Delete this draft slot?')) return;
+  try {
+    await adminFetch(`/api/admin/timetable/${id}`, { method: 'DELETE' });
+    showToast('🗑️ Slot deleted.', 'success');
+    loadHodTimetable();
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
 
 window.FPU_ADMIN = {
@@ -14220,7 +14326,7 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex, loadTimetableSheet,
+  loadTimetableIndex, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable,
 
   // Exams
   loadExamsIndex, loadExamSheet,

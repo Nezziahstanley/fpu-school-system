@@ -85,6 +85,7 @@
     { key: 'grade-scales',     label: 'Grade Scales',     icon: 'chart' },
     { key: 'transcript',       label: 'Transcript',       icon: 'file' },
     { key: 'timetable',        label: 'Timetable',        icon: 'calendar' },
+    { key: 'timetable-approvals', label: 'Timetable Approvals', icon: 'calendar' },
     { key: 'exams',            label: 'Exams',            icon: 'clipboard' },
     { key: 'attendance',       label: 'Attendance',       icon: 'check' },
     { group: 'Staff' },
@@ -139,6 +140,7 @@
     'results-by-dept':      'results',
     'timetable-form':       'timetable',
     'timetable-by-dept':    'timetable',
+    'timetable-approvals':  'timetable-approvals',
     'exam-form':            'exams',
     'exam-sheet':           'exams',
     'staff-form':           'staff',
@@ -245,6 +247,7 @@
     'timetable-list':     { url: '/admin/partials/timetable/list.html',          title: 'Timetable List',  init: call('loadTimetable') },
     'timetable-form':     { url: '/admin/partials/timetable/form.html',          title: 'New Slot',        init: () => {} },
     'timetable-by-dept':  { url: '/admin/partials/timetable/semester.html',      title: 'Department Timetable', init: call('loadTimetableSheet') },
+    'timetable-approvals':{ url: '/admin/partials/timetable/approvals.html',     title: 'Timetable Approvals', init: call('loadTimetableApprovals') },
 
     'exams':         { url: '/admin/partials/exams/index.html',                  title: 'Exams',           init: call('loadExamsIndex') },
     'exams-list':    { url: '/admin/partials/exams/list.html',                   title: 'Exam Schedules',  init: call('loadExams') },

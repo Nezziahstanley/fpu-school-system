@@ -13711,7 +13711,6 @@ async function loadTimetableSheet() {
   if (titleEl) titleEl.textContent = `${deptName} Timetable`;
   if (subEl) subEl.textContent = `Loading...`;
   
-  // A3 LANDSCAPE PRINT LOGIC
   if (printBtn) printBtn.onclick = () => {
     const style = document.createElement('style');
     style.id = 'print-a3-style';
@@ -13760,7 +13759,6 @@ async function loadTimetableSheet() {
     const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
     function renderLevel(level) {
-      // 1. Filter courses strictly by Department, Semester, and Level
       const levelSlots = rawSlots.filter(r => {
         const s = r.slot || r;
         const c = courseMap.get(Number(s.courseId)) || r.course;
@@ -13811,17 +13809,22 @@ async function loadTimetableSheet() {
       `;
 
       daysOfWeek.forEach(day => {
-        gridHtml += `<tr><td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; font-size:16px;">${day}</td>`;
+        gridHtml += `<tr>`;
         
+        // Day Cell (Leftmost)
+        gridHtml += `<td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; font-size:16px; vertical-align:middle;">${day}</td>`;
+
+        // Loop through exact hours
         for (let i = 0; i < hours.length; i++) {
           const h = hours[i];
 
-          // Standard Break Column (No rowspan, just a normal cell in every row)
+          // 1. Handle the Break Column
           if (h.isBreak) {
             gridHtml += `<td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:16px; background:#f8fafc;">BREAK</td>`;
             continue;
           }
 
+          // 2. Find courses exactly in this time slot
           let slotsHere = levelSlots.filter(r => {
             const s = r.slot || r;
             let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
@@ -13830,12 +13833,15 @@ async function loadTimetableSheet() {
             
             const st = String(s.startTime || '08:00').substring(0, 5);
             
+            // Handle 7am classes forcing into the 8am block
             if (i === 0 && st < '08:00') return dRaw === day;
+            
+            // Check if start time falls into this block
             return dRaw === day && st >= h.start && st < hours[Math.min(i + 1, hours.length - 1)].start;
           });
 
+          // 3. Render the Course Cell
           if (slotsHere.length > 0) {
-            // Render ALL courses in this exact slot
             let coursesHtml = '';
             slotsHere.forEach((slotRow, idx) => {
               const c2 = courseMap.get(Number((slotRow.slot || slotRow).courseId)) || slotRow.course || {};
@@ -13848,10 +13854,9 @@ async function loadTimetableSheet() {
               coursesHtml += `<div style="margin-bottom: 4px; font-size: 13px; font-weight:bold; text-align:center;">${escapeHtml(c2.code)}${timeOverride}${suffix}</div>`;
             });
 
-            gridHtml += `<td style="border:1px solid #000; padding:6px; vertical-align:top;">
-              ${coursesHtml}
-            </td>`;
+            gridHtml += `<td style="border:1px solid #000; padding:6px; vertical-align:top;">${coursesHtml}</td>`;
           } else {
+            // 4. Render Empty Cell if no class
             gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
           }
         }
@@ -13903,7 +13908,6 @@ async function loadTimetableSheet() {
 
       detailsHtml += `</tbody></table>`;
 
-      // A3 LANDSCAPE WRAPPER
       return `
         <div class="tt-a3-wrapper" style="background:#fff; width:420mm; min-height:297mm; margin:0 auto; padding:15mm; box-sizing:border-box; font-family:'Times New Roman', Times, serif; box-shadow: 0 4px 20px rgba(15,23,42,0.12); margin-bottom: 30px;">
           <div style="text-align:center; margin-bottom:30px; position:relative;">

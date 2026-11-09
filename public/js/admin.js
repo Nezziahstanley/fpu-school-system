@@ -14021,6 +14021,114 @@ async function loadTimetableSheet() {
   document.head.appendChild(style);
 })();
 
+// ============================================
+// TIMETABLE: Approvals Dashboard
+// ============================================
+async function loadTimetableApprovals() {
+  const grid = document.getElementById('approvals-grid');
+  if (!grid) return;
+
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading approvals...</div>';
+
+  try {
+    // Fetch all departments that have submitted or approved timetables
+    const [deptsRes, slotsRes] = await Promise.all([
+      adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/timetable?limit=5000')
+    ]);
+
+    const depts = (await deptsRes.json()).data || [];
+    const rawSlots = (await slotsRes.json()).data || [];
+
+    // Group by department and count statuses
+    const byDept = new Map();
+    depts.forEach(d => byDept.set(d.id, { dept: d, pending: 0, approved: 0, draft: 0, total: 0 }));
+
+    rawSlots.forEach(r => {
+      const s = r.slot || r;
+      // We use the course's department if the slot doesn't have one
+      const c = s.course || {};
+      const deptId = c.departmentId || s.departmentId;
+      if (!deptId) return;
+
+      const bucket = byDept.get(deptId);
+      if (!bucket) return;
+
+      bucket.total++;
+      const status = s.status || 'draft';
+      if (status === 'pending') bucket.pending++;
+      else if (status === 'approved') bucket.approved++;
+      else bucket.draft++;
+    });
+
+    // Only show departments with courses that have been submitted
+    const visible = [...byDept.values()].filter(d => d.total > 0 && (d.pending > 0 || d.approved > 0));
+
+    if (!visible.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No departments have submitted timetables yet.</div>';
+      return;
+    }
+
+    grid.innerHTML = visible.map(({ dept, pending, approved, draft, total }) => {
+      let badgeText = 'Draft';
+      let badgeClass = 'badge-warning';
+      if (pending > 0) { badgeText = 'Pending Approval'; badgeClass = 'badge-info'; }
+      else if (approved === total) { badgeText = 'Approved'; badgeClass = 'badge-success'; }
+
+      return `
+        <div class="approval-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(dept.code)}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <h3>${escapeHtml(dept.name)}</h3>
+          
+          <div class="approval-stats">
+            <span>🟡 Pending: ${pending}</span>
+            <span>✅ Approved: ${approved}</span>
+            <span>⚪ Draft: ${draft}</span>
+          </div>
+
+          <div class="approval-actions">
+            ${pending > 0 ? `
+              <button class="btn btn-sm btn-primary" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: ${dept.id}, name: '${escapeQuotes(dept.name)}' })">👁 Review</button>
+              <button class="btn btn-sm" style="background:#10b981; color:#fff;" onclick="FPU_ADMIN.bulkApproveTimetable(${dept.id})">✅ Approve All</button>
+            ` : `
+              <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: ${dept.id}, name: '${escapeQuotes(dept.name)}' })">👁 View</button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('[Approvals] Error:', err);
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Bulk approve all pending slots for a department
+async function bulkApproveTimetable(deptId) {
+  const ok = await window.fpuConfirm('Approve ALL pending timetable slots for this department?', { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve' });
+  if (!ok) return;
+
+  try {
+    // Note: You will need a backend route to do this bulk update. 
+    // For now, we will send a request to a hypothetical /api/admin/timetable/approve endpoint
+    const res = await adminFetch('/api/admin/timetable/approve', {
+      method: 'POST',
+      body: JSON.stringify({ departmentId: deptId })
+    });
+
+    if (!res.ok) throw new Error('Failed to approve timetable. Backend route missing.');
+
+    showToast('✅ Timetable approved successfully.', 'success');
+    loadTimetableApprovals();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

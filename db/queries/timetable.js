@@ -5,7 +5,7 @@
 'use strict';
 
 const { db, sql, schema } = require('../index');
-const { eq, and, desc, asc, inArray } = require('drizzle-orm');
+const { eq, and, desc, asc, inArray, inArray, sql: drizzleSql } = require('drizzle-orm');
 
 const { timetableSlots, courses, users, academicSessions } = schema;
 
@@ -108,10 +108,6 @@ async function findConflicts({ sessionId, semester, dayOfWeek, startTime, endTim
   });
 }
 
-// ------------------------------------------------------------
-// studentSummary — for a student's programme: how many slots
-//                  are scheduled, per day, in a session/sem.
-// ------------------------------------------------------------
 async function studentSummary({ programmeId, sessionId, semester } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(timetableSlots.sessionId, Number(sessionId)));
@@ -136,22 +132,9 @@ async function studentSummary({ programmeId, sessionId, semester } = {}) {
   return { total, byDay };
 }
 
-// ------------------------------------------------------------
-// bulkUpsert — used by lecturer / academic officer "bulk
-//              upload timetable" screens.
-//
-// Each row: { courseId, lecturerId, sessionId, semester,
-//             dayOfWeek, startTime, endTime, venue }
-//
-// No DB-level unique constraint exists on timetableSlots, so
-// we can't use ON CONFLICT. We delete-and-insert per
-// (courseId, sessionId, semester) inside a transaction.
-// ------------------------------------------------------------
 async function bulkUpsert(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return [];
 
-  // Group by (courseId, sessionId, semester) so we replace
-  // only the slots for those keys.
   const groups = new Map();
   for (const r of rows) {
     const key = `${r.courseId}|${r.sessionId}|${r.semester}`;
@@ -187,15 +170,38 @@ async function bulkUpsert(rows) {
   });
 }
 
+// ============================================
+// NEW: Bulk Approve Timetable for a Department
+// ============================================
+async function approvePendingByDept(departmentId) {
+  // 1. Find all course IDs in this department
+  const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
+  if (deptCourses.length === 0) return 0;
+
+  const courseIds = deptCourses.map(c => c.id);
+
+  // 2. Update all pending slots for these courses
+  const updatedRows = await db.update(timetableSlots)
+    .set({ status: 'approved' })
+    .where(and(
+      inArray(timetableSlots.courseId, courseIds),
+      eq(timetableSlots.status, 'pending')
+    ))
+    .returning();
+
+  return updatedRows.length;
+}
+
 module.exports = {
   findById,
   list,
   listWithRelations,
   listForStudent,
-  studentSummary,    // ← add
+  studentSummary,
   create,
   update,
   remove,
-  bulkUpsert,        // ← add
+  bulkUpsert,
   findConflicts,
+  approvePendingByDept, // <-- Export the new function
 };

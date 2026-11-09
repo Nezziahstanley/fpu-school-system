@@ -14113,17 +14113,16 @@ async function bulkApproveTimetable(deptId) {
   if (!ok) return;
 
   try {
-    // Note: You will need a backend route to do this bulk update. 
-    // For now, we will send a request to a hypothetical /api/admin/timetable/approve endpoint
     const res = await adminFetch('/api/admin/timetable/approve', {
       method: 'POST',
       body: JSON.stringify({ departmentId: deptId })
     });
 
-    if (!res.ok) throw new Error('Failed to approve timetable. Backend route missing.');
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to approve');
 
-    showToast('✅ Timetable approved successfully.', 'success');
-    loadTimetableApprovals();
+    showToast(`✅ Approved ${json.count} slots successfully.`, 'success');
+    loadTimetableApprovals(); // Reload the dashboard
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }

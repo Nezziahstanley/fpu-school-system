@@ -8,9 +8,9 @@
 const express = require('express');
 const router = express.Router();
 
-const ttQueries = require('../db/queries/timetable');
-const { requireRole } = require('../middleware/auth');
-const { logAudit } = require('../utils/audit');
+const ttQueries = require('../../db/queries/timetable');
+const { requireRole } = require('../../middleware/auth');
+const { logAudit } = require('../../utils/audit');
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
@@ -79,6 +79,36 @@ router.delete('/:id', requireRole(['admin', 'registrar', 'hod']), async (req, re
     await ttQueries.remove(existing.id);
     await logAudit({ req, action: 'timetable.delete', entity: 'timetable_slot', entityId: existing.id, before: existing });
     return res.json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================
+// Admin: Approve All Pending Slots for a Dept
+// ============================================
+router.post('/approve', requireRole(['admin', 'registrar']), async (req, res, next) => {
+  try {
+    const { departmentId } = req.body || {};
+    if (!departmentId) {
+      return res.status(400).json({ success: false, error: 'departmentId is required.' });
+    }
+
+    const count = await ttQueries.approvePendingByDept(Number(departmentId));
+
+    await logAudit({
+      req,
+      action: 'timetable.approve_all',
+      entity: 'timetable_slots',
+      entityId: departmentId,
+      after: { departmentId, approvedCount: count },
+    });
+
+    return res.json({ 
+      success: true, 
+      message: `Approved ${count} pending slot(s).`,
+      count 
+    });
   } catch (err) {
     return next(err);
   }

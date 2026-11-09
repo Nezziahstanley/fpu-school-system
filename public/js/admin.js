@@ -13760,6 +13760,7 @@ async function loadTimetableSheet() {
     const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
     function renderLevel(level) {
+      // 1. Filter courses strictly by Department, Semester, and Level
       const levelSlots = rawSlots.filter(r => {
         const s = r.slot || r;
         const c = courseMap.get(Number(s.courseId)) || r.course;
@@ -13799,11 +13800,11 @@ async function loadTimetableSheet() {
       const daysOfWeek = ['MON', 'TUES', 'WED', 'THURS', 'FRI'];
 
       let gridHtml = `
-        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:30px; font-size:14px; font-family:'Times New Roman', Times, serif;">
+        <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; margin-bottom:30px; font-size:14px; font-family:'Times New Roman', Times, serif; table-layout: fixed;">
           <thead>
             <tr>
-              <th style="border:1px solid #000; padding:8px; width:100px; text-align:center; font-weight:bold; font-size:15px;">DAYS/ TIME</th>
-              ${hours.map(h => `<th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold; width:${h.isBreak ? '80px' : '140px'}; font-size:15px;">${h.label}</th>`).join('')}
+              <th style="border:1px solid #000; padding:8px; width:10%; text-align:center; font-weight:bold; font-size:15px;">DAYS/ TIME</th>
+              ${hours.map(h => `<th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold; width:${h.isBreak ? '8%' : '11%'}; font-size:15px;">${h.label}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -13812,16 +13813,12 @@ async function loadTimetableSheet() {
       daysOfWeek.forEach(day => {
         gridHtml += `<tr><td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; font-size:16px;">${day}</td>`;
         
-        let breakDrawn = false;
-
         for (let i = 0; i < hours.length; i++) {
           const h = hours[i];
 
+          // Standard Break Column (No rowspan, just a normal cell in every row)
           if (h.isBreak) {
-            if (!breakDrawn) {
-              gridHtml += `<td rowspan="5" style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:16px;">BREAK</td>`;
-              breakDrawn = true;
-            }
+            gridHtml += `<td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:16px; background:#f8fafc;">BREAK</td>`;
             continue;
           }
 
@@ -13838,20 +13835,24 @@ async function loadTimetableSheet() {
           });
 
           if (slotsHere.length > 0) {
-            const r = slotsHere[0];
-            const s = r.slot || r;
-            const c = courseMap.get(Number(s.courseId)) || r.course || {};
-            
-            let st = String(s.startTime || '08:00').substring(0, 5);
-            const isPrc = s.venue && (s.venue.includes('Lab') || s.venue.includes('PRC'));
-            const suffix = isPrc ? ' (PRC)' : '';
-            const timeOverride = st < '08:00' ? ` (7-9am)` : '';
+            // Render ALL courses in this exact slot
+            let coursesHtml = '';
+            slotsHere.forEach((slotRow, idx) => {
+              const c2 = courseMap.get(Number((slotRow.slot || slotRow).courseId)) || slotRow.course || {};
+              let st = String((slotRow.slot || slotRow).startTime || '08:00').substring(0, 5);
+              
+              const isPrc = (slotRow.slot || slotRow).venue && ((slotRow.slot || slotRow).venue.includes('Lab') || (slotRow.slot || slotRow).venue.includes('PRC'));
+              const suffix = isPrc ? ' (PRC)' : '';
+              const timeOverride = idx === 0 && st < '08:00' ? ` (7-9am)` : '';
 
-            gridHtml += `<td style="border:1px solid #000; padding:8px; font-weight:bold; text-align:center; vertical-align:middle; font-size:14px;">
-              ${escapeHtml(c.code)}${timeOverride}${suffix}
+              coursesHtml += `<div style="margin-bottom: 4px; font-size: 13px; font-weight:bold; text-align:center;">${escapeHtml(c2.code)}${timeOverride}${suffix}</div>`;
+            });
+
+            gridHtml += `<td style="border:1px solid #000; padding:6px; vertical-align:top;">
+              ${coursesHtml}
             </td>`;
           } else {
-            gridHtml += `<td style="border:1px solid #000; padding:8px;"></td>`;
+            gridHtml += `<td style="border:1px solid #000; padding:6px;"></td>`;
           }
         }
         gridHtml += `</tr>`;
@@ -13868,10 +13869,10 @@ async function loadTimetableSheet() {
         <table class="tt-classic-table" style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:13px; font-family:'Times New Roman', Times, serif;">
           <thead>
             <tr>
-              <th style="border:1px solid #000; padding:8px; width:120px; text-align:center; font-weight:bold;">COURSES<br/>CODE</th>
+              <th style="border:1px solid #000; padding:8px; width:10%; text-align:center; font-weight:bold;">COURSES<br/>CODE</th>
               <th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE TITLE</th>
-              <th style="border:1px solid #000; padding:8px; width:80px; text-align:center; font-weight:bold;">COURSE<br/>UNIT</th>
-              <th style="border:1px solid #000; padding:8px; width:160px; text-align:center; font-weight:bold;">LECTURE<br/>HALL</th>
+              <th style="border:1px solid #000; padding:8px; width:10%; text-align:center; font-weight:bold;">COURSE<br/>UNIT</th>
+              <th style="border:1px solid #000; padding:8px; width:15%; text-align:center; font-weight:bold;">LECTURE<br/>HALL</th>
               <th style="border:1px solid #000; padding:8px; text-align:center; font-weight:bold;">COURSE LECTURER(S)</th>
             </tr>
           </thead>

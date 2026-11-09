@@ -14044,11 +14044,11 @@ async function loadTimetableApprovals() {
 
     rawSlots.forEach(r => {
       const s = r.slot || r;
-      const c = s.course || {};
+      const c = s.course || r.course || {};
       const deptId = c.departmentId || s.departmentId;
       if (!deptId) return;
 
-      const bucket = byDept.get(deptId);
+      const bucket = byDept.get(Number(deptId));
       if (!bucket) return;
 
       bucket.total++;
@@ -14058,7 +14058,8 @@ async function loadTimetableApprovals() {
       else bucket.draft++;
     });
 
-    const visible = [...byDept.values()].filter(d => d.total > 0 && (d.pending > 0 || d.approved > 0));
+    // Only show departments that have submitted something (pending or approved)
+    const visible = [...byDept.values()].filter(d => d.pending > 0 || d.approved > 0);
 
     if (!visible.length) {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No departments have submitted timetables yet.</div>';

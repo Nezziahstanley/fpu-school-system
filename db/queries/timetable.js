@@ -75,6 +75,7 @@ async function create(data) {
     startTime: data.startTime,
     endTime: data.endTime,
     venue: data.venue || null,
+    status: 'draft'
   }).returning();
   return row;
 }
@@ -171,16 +172,14 @@ async function bulkUpsert(rows) {
 }
 
 // ============================================
-// NEW: Bulk Approve Timetable for a Department
+// Bulk Approve Timetable for a Department
 // ============================================
 async function approvePendingByDept(departmentId) {
-  // 1. Find all course IDs in this department
   const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
   if (deptCourses.length === 0) return 0;
 
   const courseIds = deptCourses.map(c => c.id);
 
-  // 2. Update all pending slots for these courses
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'approved' })
     .where(and(
@@ -196,13 +195,11 @@ async function approvePendingByDept(departmentId) {
 // HOD: Submit Drafts for Approval
 // ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
-  // 1. Get all course IDs for this department
   const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
   if (deptCourses.length === 0) return 0;
 
   const courseIds = deptCourses.map(c => c.id);
 
-  // 2. Update all 'draft' slots to 'pending' for this session and semester
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'pending' })
     .where(and(
@@ -228,5 +225,5 @@ module.exports = {
   bulkUpsert,
   findConflicts,
   approvePendingByDept,
-  submitDraftsForApproval, // <-- Export the new function
+  submitDraftsForApproval,
 };

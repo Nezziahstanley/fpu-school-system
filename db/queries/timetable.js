@@ -192,6 +192,30 @@ async function approvePendingByDept(departmentId) {
   return updatedRows.length;
 }
 
+// ============================================
+// HOD: Submit Drafts for Approval
+// ============================================
+async function submitDraftsForApproval(departmentId, sessionId, semester) {
+  // 1. Get all course IDs for this department
+  const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
+  if (deptCourses.length === 0) return 0;
+
+  const courseIds = deptCourses.map(c => c.id);
+
+  // 2. Update all 'draft' slots to 'pending' for this session and semester
+  const updatedRows = await db.update(timetableSlots)
+    .set({ status: 'pending' })
+    .where(and(
+      inArray(timetableSlots.courseId, courseIds),
+      eq(timetableSlots.sessionId, Number(sessionId)),
+      eq(timetableSlots.semester, semester),
+      eq(timetableSlots.status, 'draft')
+    ))
+    .returning();
+
+  return updatedRows.length;
+}
+
 module.exports = {
   findById,
   list,
@@ -203,5 +227,6 @@ module.exports = {
   remove,
   bulkUpsert,
   findConflicts,
-  approvePendingByDept, // <-- Export the new function
+  approvePendingByDept,
+  submitDraftsForApproval, // <-- Export the new function
 };

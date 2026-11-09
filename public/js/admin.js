@@ -14128,6 +14128,44 @@ async function bulkApproveTimetable(deptId) {
   }
 }
 
+async function submitHodTimetable() {
+  const ok = await window.fpuConfirm(
+    'Are you sure you want to submit this timetable? Admin will review it before it is published.',
+    { title: 'Submit Timetable', type: 'info', okText: 'Yes, Submit' }
+  );
+  if (!ok) return;
+
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const sessionId = params.get('sessionId');
+  const semester = params.get('semester') || 'first';
+
+  if (!sessionId) {
+    showToast('⚠️ Session not found. Please select a session.', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('hod-submit-tt-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
+  try {
+    const res = await adminFetch('/api/admin/timetable/submit-for-approval', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: Number(sessionId), semester })
+    });
+
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to submit');
+
+    showToast(`✅ ${json.message}`, 'success');
+    if (btn) btn.textContent = '✅ Submitted';
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Submit for Admin Approval'; }
+  }
+}
+
 window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,

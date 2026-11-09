@@ -5,7 +5,7 @@
 'use strict';
 
 const { db, sql, schema } = require('../index');
-const { eq, and, desc, asc, inArray, sql: drizzleSql } = require('drizzle-orm');
+const { eq, and, desc, asc, inArray } = require('drizzle-orm');
 
 const { timetableSlots, courses, users, academicSessions } = schema;
 
@@ -183,7 +183,7 @@ async function approvePendingByDept(departmentId) {
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'approved' })
     .where(and(
-      sql`${timetableSlots.courseId} IN (${sql.join(courseIds, sql`, `)})`,
+      inArray(timetableSlots.courseId, courseIds),
       eq(timetableSlots.status, 'pending')
     ))
     .returning();
@@ -192,27 +192,25 @@ async function approvePendingByDept(departmentId) {
 }
 
 // ============================================
-// HOD: Submit Drafts for Approval (FIXED)
+// HOD: Submit Drafts for Approval (Raw SQL Fix)
 // ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
   try {
-    const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
-    if (deptCourses.length === 0) return 0;
-
-    const courseIds = deptCourses.map(c => c.id);
-
-    // Use raw SQL for the IN clause to prevent Drizzle crashes on empty arrays or type mismatches
-    const updatedRows = await db.update(timetableSlots)
-      .set({ status: 'pending' })
-      .where(and(
-        sql`${timetableSlots.courseId} IN (${sql.join(courseIds, sql`, `)})`,
-        eq(timetableSlots.sessionId, Number(sessionId)),
-        eq(timetableSlots.semester, semester),
-        eq(timetableSlots.status, 'draft')
-      ))
-      .returning();
-
-    return updatedRows.length;
+    // Use raw SQL to completely bypass Drizzle's IN clause parameter limit
+    const query = sql`
+      UPDATE timetable_slots 
+      SET status = 'pending' 
+      WHERE status = 'draft' 
+        AND session_id = ${Number(sessionId)} 
+        AND semester = ${semester} 
+        AND course_id IN (
+          SELECT id FROM courses WHERE department_id = ${Number(departmentId)}
+        )
+      RETURNING id
+    `;
+    
+    const result = await db.execute(query);
+    return result.rowCount || (result.rows ? result.rows.length : 0);
   } catch (err) {
     console.error('[submitDraftsForApproval Error]', err);
     throw err;

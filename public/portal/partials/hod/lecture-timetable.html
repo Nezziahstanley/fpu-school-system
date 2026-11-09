@@ -131,6 +131,19 @@
   </div>
 </div>
 
+<!-- Custom Confirm Modal -->
+<div id="custom-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:10000;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:400px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.4);padding:24px;text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:16px;">📤</div>
+    <h3 style="margin:0 0 12px 0;color:#0f172a;font-size:1.2rem;font-weight:800;">Submit for Approval?</h3>
+    <p style="color:#475569;font-size:.9rem;margin-bottom:24px;">Are you sure you want to submit this timetable to the Admin? You will not be able to edit it until it is reviewed.</p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="confirm-cancel" style="padding:.6rem 1.2rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="confirm-ok" style="padding:.6rem 1.2rem;font-size:.85rem;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;">Yes, Submit</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -242,7 +255,6 @@
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    // Populate course dropdown
     if (!ALL_COURSES.length) await loadCourses();
     
     const courseSelect = $('slot-course');
@@ -254,7 +266,6 @@
     }
   });
 
-  // Close Modal
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
@@ -278,7 +289,7 @@
     btn.textContent = 'Saving...';
 
     try {
-      const res = await core.portalFetch('/api/hod/timetable', {
+      await core.portalFetch('/api/hod/timetable', {
         method: 'POST',
         body: { 
           courseId: Number(courseId), 
@@ -293,11 +304,10 @@
       core.showToast('✅ Slot added successfully.', 'success');
       $('add-slot-modal').style.display = 'none';
       
-      // Reset form
       $('slot-course').value = '';
       $('slot-venue').value = '';
       
-      load(); // Reload the table
+      load();
     } catch (err) {
       core.showToast('❌ ' + err.message, 'error');
     } finally {
@@ -306,15 +316,25 @@
     }
   });
 
-  async function submitForApproval() {
+  // Custom Confirm Submit
+  let isSubmitting = false;
+
+  $('tt-submit')?.addEventListener('click', () => {
+    $('custom-confirm-modal').style.display = 'flex';
+  });
+
+  $('confirm-cancel')?.addEventListener('click', () => {
+    $('custom-confirm-modal').style.display = 'none';
+  });
+
+  $('confirm-ok')?.addEventListener('click', async () => {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    
     const sessionId = $('tt-session')?.value;
     const semester = $('tt-semester')?.value || 'first';
-    if (!sessionId) { core.showToast('Session not loaded.', 'warning'); return; }
-
-    const ok = confirm('Are you sure you want to submit this timetable to the Admin for approval? You will not be able to edit it until it is reviewed.');
-    if (!ok) return;
-
-    const btn = $('tt-submit');
+    
+    const btn = $('confirm-ok');
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
@@ -323,18 +343,20 @@
         method: 'POST',
         body: { sessionId: Number(sessionId), semester }
       });
+      
+      $('custom-confirm-modal').style.display = 'none';
       core.showToast(res.message || 'Submitted successfully.', 'success');
       load();
     } catch (err) {
-      core.showToast(err.message, 'error');
+      core.showToast('❌ ' + err.message, 'error');
     } finally {
+      isSubmitting = false;
       btn.disabled = false;
-      btn.textContent = '📤 Submit for Approval';
+      btn.textContent = 'Yes, Submit';
     }
-  }
+  });
 
   $('tt-refresh')?.addEventListener('click', load);
-  $('tt-submit')?.addEventListener('click', submitForApproval);
   $('tt-session')?.addEventListener('change', load);
   $('tt-semester')?.addEventListener('change', load);
 

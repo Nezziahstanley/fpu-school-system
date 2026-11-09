@@ -13987,33 +13987,40 @@ async function loadTimetableApprovals() {
   try {
     const [deptsRes, slotsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/timetable?limit=5000') // Fetch ALL slots
+      adminFetch('/api/admin/timetable?limit=5000')
     ]);
 
     const depts = (await deptsRes.json()).data || [];
     const rawSlots = (await slotsRes.json()).data || [];
 
+    // Initialize buckets for every department
     const byDept = new Map();
-    depts.forEach(d => byDept.set(Number(d.id), { dept: d, pending: 0, approved: 0, draft: 0, total: 0 }));
+    depts.forEach(d => {
+      byDept.set(Number(d.id), { dept: d, pending: 0, approved: 0, draft: 0, total: 0 });
+    });
 
+    // Loop through the nested JSON structure from the API
     rawSlots.forEach(r => {
-      const s = r.slot || r;
-      const c = r.course || s.course || {};
-      const deptId = c.departmentId || s.departmentId;
+      const slot = r.slot || r;
+      const course = r.course || slot.course || {};
+      
+      // The department ID is inside the course object
+      const deptId = Number(course.departmentId);
       
       if (!deptId) return;
 
-      const bucket = byDept.get(Number(deptId));
+      const bucket = byDept.get(deptId);
       if (!bucket) return;
 
       bucket.total++;
-      const status = s.status || 'draft';
+      const status = String(slot.status || 'draft').toLowerCase();
+      
       if (status === 'pending') bucket.pending++;
       else if (status === 'approved') bucket.approved++;
       else bucket.draft++;
     });
 
-    // Only show departments that have submitted something (pending or approved)
+    // Only show departments that have pending or approved slots
     const visible = [...byDept.values()].filter(d => d.pending > 0 || d.approved > 0);
 
     if (!visible.length) {

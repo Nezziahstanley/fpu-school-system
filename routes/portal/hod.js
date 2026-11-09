@@ -283,7 +283,6 @@ router.post('/pending-results/:id/verify', only, async (req, res, next) => {
 
     const row = await resultQueries.hodVerify(result.id, req.user.id);
 
-    // Notify the lecturer who submitted this result
     if (result.submittedBy) {
       await db.execute(sql`
         INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
@@ -321,7 +320,6 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
     const reason = req.body?.reason || 'Rejected by HOD';
     const row = await resultQueries.hodReject(result.id, req.user.id, reason);
 
-    // Notify the lecturer
     if (result.submittedBy) {
       await db.execute(sql`
         INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
@@ -431,7 +429,6 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       })
       .where(sql`${results.id} IN ${resultIds}`);
 
-    // Notify each lecturer who submitted the approved results
     const lecturerIds = [...new Set(allResults.map(r => r.submittedBy).filter(Boolean))];
     for (const lecturerId of lecturerIds) {
       await db.execute(sql`
@@ -1347,7 +1344,6 @@ router.post('/results/:resultId/reject', only, async (req, res, next) => {
       WHERE id = ${resultId}
     `);
 
-    // Notify lecturer
     if (submittedBy) {
       await db.execute(sql`
         INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
@@ -1399,7 +1395,6 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
       WHERE id = ${resultId}
     `);
 
-    // Notify lecturer
     if (submittedBy) {
       await db.execute(sql`
         INSERT INTO notifications (user_id, title, body, type, link, is_read, created_at)
@@ -1421,6 +1416,73 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
     console.error('[hod/delete-result] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ============================================================
+// TIMETABLE: HOD Fetch, Submit, Delete
+// ============================================================
+
+// GET /api/hod/timetable
+router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.query;
+    const departmentId = req.user.departmentId;
+    
+    if (!departmentId) {
+      return res.status(400).json({ success: false, error: 'Not assigned to a department.' });
+    }
+
+    const rows = await ttQueries.listWithRelations({ 
+      sessionId: Number(sessionId), 
+      semester 
+    });
+    
+    // Filter strictly to this HOD's department
+    const filtered = rows.filter(r => {
+      const c = r.course || {};
+      return Number(c.departmentId) === Number(departmentId);
+    });
+
+    res.json({ success: true, data: filtered });
+  } catch (err) { next(err); }
+});
+
+// POST /api/hod/timetable/submit-for-approval
+router.post('/timetable/submit-for-approval', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.body || {};
+    const departmentId = req.user.departmentId;
+
+    if (!sessionId || !semester) {
+      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
+    }
+
+    const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
+    
+    if (count === 0) {
+      return res.status(400).json({ success: false, error: 'No draft timetable slots found to submit.' });
+    }
+
+    await logAudit({
+      req,
+      action: 'timetable.submit_for_approval',
+      entity: 'timetable_slots',
+      entityId: departmentId,
+      after: { departmentId, sessionId, semester, submittedCount: count },
+    });
+
+    res.json({ success: true, message: `Submitted ${count} slot(s) for approval.`, count });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/hod/timetable/:id
+router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const slot = await ttQueries.findById(req.params.id);
+    if (!slot) return res.status(404).json({ success: false, error: 'Slot not found.' });
+    await ttQueries.remove(req.params.id);
+    res.json({ success: true });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

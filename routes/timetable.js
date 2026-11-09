@@ -8,9 +8,9 @@
 const express = require('express');
 const router = express.Router();
 
-const ttQueries = require('../../db/queries/timetable');
-const { requireRole } = require('../../middleware/auth');
-const { logAudit } = require('../../utils/audit');
+const ttQueries = require('../db/queries/timetable');
+const { requireRole } = require('../middleware/auth');
+const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
@@ -107,47 +107,6 @@ router.post('/approve', requireRole(['admin', 'registrar']), async (req, res, ne
     return res.json({ 
       success: true, 
       message: `Approved ${count} pending slot(s).`,
-      count 
-    });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-// ============================================
-// HOD: Submit Timetable for Admin Approval
-// ============================================
-router.post('/submit-for-approval', requireRole(['hod']), async (req, res, next) => {
-  try {
-    // The HOD's department ID comes from their logged-in user session
-    const departmentId = req.user.departmentId;
-    
-    if (!departmentId) {
-      return res.status(400).json({ success: false, error: 'You are not assigned to a department.' });
-    }
-
-    const { sessionId, semester } = req.body || {};
-    if (!sessionId || !semester) {
-      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
-    }
-
-    const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
-
-    if (count === 0) {
-      return res.status(400).json({ success: false, error: 'No draft timetable slots found to submit.' });
-    }
-
-    await logAudit({
-      req,
-      action: 'timetable.submit_for_approval',
-      entity: 'timetable_slots',
-      entityId: departmentId,
-      after: { departmentId, sessionId, semester, submittedCount: count },
-    });
-
-    return res.json({ 
-      success: true, 
-      message: `Submitted ${count} timetable slot(s) for approval.`,
       count 
     });
   } catch (err) {

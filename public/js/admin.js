@@ -13987,19 +13987,20 @@ async function loadTimetableApprovals() {
   try {
     const [deptsRes, slotsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/timetable?limit=5000')
+      adminFetch('/api/admin/timetable?limit=5000') // Fetch ALL slots
     ]);
 
     const depts = (await deptsRes.json()).data || [];
     const rawSlots = (await slotsRes.json()).data || [];
 
     const byDept = new Map();
-    depts.forEach(d => byDept.set(d.id, { dept: d, pending: 0, approved: 0, draft: 0, total: 0 }));
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, pending: 0, approved: 0, draft: 0, total: 0 }));
 
     rawSlots.forEach(r => {
       const s = r.slot || r;
-      const c = s.course || r.course || {};
+      const c = r.course || s.course || {};
       const deptId = c.departmentId || s.departmentId;
+      
       if (!deptId) return;
 
       const bucket = byDept.get(Number(deptId));

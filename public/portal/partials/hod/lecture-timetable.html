@@ -87,7 +87,7 @@
 
   async function loadSessions() {
     try {
-      const res = await core.portalFetch('/api/hod/sessions');
+      const res = await core.portalFetch('/api/admin/sessions');
       const sessions = res.data || [];
       const sel = $('tt-session');
       if (!sel) return;

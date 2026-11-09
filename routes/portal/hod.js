@@ -1485,4 +1485,16 @@ router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => 
   } catch (err) { next(err); }
 });
 
+// ============================================================
+// GET /api/hod/sessions
+// ============================================================
+router.get('/sessions', only, async (req, res, next) => {
+  try {
+    const rows = await db.select().from(academicSessions).orderBy(desc(academicSessions.name));
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 module.exports = router;

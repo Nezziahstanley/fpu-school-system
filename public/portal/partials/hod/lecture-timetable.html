@@ -8,6 +8,7 @@
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <button id="tt-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+      <button id="tt-add-slot" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ Add Slot</button>
       <button id="tt-submit" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;">📤 Submit for Approval</button>
     </div>
   </div>
@@ -78,6 +79,58 @@
 
 </div>
 
+<!-- Modal: Add Slot -->
+<div id="add-slot-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slot</h3>
+      <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+    <div style="padding:1.25rem;">
+      
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course <span style="color:#dc2626;">*</span></label>
+        <select id="slot-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Loading courses...</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Day <span style="color:#dc2626;">*</span></label>
+        <select id="slot-day" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time <span style="color:#dc2626;">*</span></label>
+          <input type="time" id="slot-start" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="08:00" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">End Time <span style="color:#dc2626;">*</span></label>
+          <input type="time" id="slot-end" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="10:00" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Venue</label>
+        <input type="text" id="slot-venue" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g. LT1" />
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+        <button id="add-slot-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="add-slot-save" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Slot</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -85,9 +138,11 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  let ALL_COURSES = [];
+
   async function loadSessions() {
     try {
-      const res = await core.portalFetch('/api/admin/sessions');
+      const res = await core.portalFetch('/api/hod/sessions');
       const sessions = res.data || [];
       const sel = $('tt-session');
       if (!sel) return;
@@ -101,15 +156,21 @@
     }
   }
 
+  async function loadCourses() {
+    try {
+      const res = await core.portalFetch('/api/hod/courses');
+      ALL_COURSES = res.data || [];
+    } catch (err) {
+      console.error('Could not load courses:', err);
+    }
+  }
+
   async function load() {
     const tbody = $('tt-tbody');
     const sessionId = $('tt-session')?.value;
     const semester = $('tt-semester')?.value || 'first';
 
-    if (!sessionId) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Please wait for sessions to load...</td></tr>';
-      return;
-    }
+    if (!sessionId) return;
 
     tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
@@ -117,7 +178,6 @@
       const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
       const rows = res.data || [];
 
-      // Update Stats
       const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
       rows.forEach(r => {
         const s = r.slot || r;
@@ -162,7 +222,6 @@
         `;
       }).join('');
 
-      // Wire delete buttons
       tbody.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
           if (!confirm('Delete this draft slot?')) return;
@@ -178,6 +237,74 @@
       tbody.innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
+
+  // Open Add Slot Modal
+  $('tt-add-slot')?.addEventListener('click', async () => {
+    $('add-slot-modal').style.display = 'flex';
+    
+    // Populate course dropdown
+    if (!ALL_COURSES.length) await loadCourses();
+    
+    const courseSelect = $('slot-course');
+    if (ALL_COURSES.length) {
+      courseSelect.innerHTML = '<option value="">Select a course</option>' + 
+        ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+    } else {
+      courseSelect.innerHTML = '<option value="">No courses found in your department.</option>';
+    }
+  });
+
+  // Close Modal
+  $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
+  $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
+
+  // Save Slot
+  $('add-slot-save')?.addEventListener('click', async () => {
+    const courseId = $('slot-course').value;
+    const dayOfWeek = $('slot-day').value;
+    const startTime = $('slot-start').value;
+    const endTime = $('slot-end').value;
+    const venue = $('slot-venue').value.trim();
+    const sessionId = $('tt-session').value;
+    const semester = $('tt-semester').value;
+
+    if (!courseId || !startTime || !endTime) {
+      core.showToast('Please fill in Course, Start Time, and End Time.', 'warning');
+      return;
+    }
+
+    const btn = $('add-slot-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      const res = await core.portalFetch('/api/hod/timetable', {
+        method: 'POST',
+        body: { 
+          courseId: Number(courseId), 
+          sessionId: Number(sessionId), 
+          semester, 
+          dayOfWeek, 
+          startTime, 
+          endTime, 
+          venue 
+        }
+      });
+      core.showToast('✅ Slot added successfully.', 'success');
+      $('add-slot-modal').style.display = 'none';
+      
+      // Reset form
+      $('slot-course').value = '';
+      $('slot-venue').value = '';
+      
+      load(); // Reload the table
+    } catch (err) {
+      core.showToast('❌ ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Slot';
+    }
+  });
 
   async function submitForApproval() {
     const sessionId = $('tt-session')?.value;

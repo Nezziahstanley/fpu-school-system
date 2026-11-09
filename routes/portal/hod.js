@@ -1475,6 +1475,39 @@ router.post('/timetable/submit-for-approval', requireRole(['hod']), async (req, 
   } catch (err) { next(err); }
 });
 
+// ============================================
+// HOD: Create a New Timetable Slot
+// ============================================
+router.post('/timetable', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const departmentId = req.user.departmentId;
+    const { courseId, sessionId, semester, dayOfWeek, startTime, endTime, venue } = req.body || {};
+
+    if (!courseId || !sessionId || !semester || !dayOfWeek || !startTime || !endTime) {
+      return res.status(400).json({ success: false, error: 'Missing required fields.' });
+    }
+
+    // Verify the course belongs to this HOD's department
+    const [course] = await db.select().from(courses).where(eq(courses.id, Number(courseId))).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course is not in your department.' });
+    }
+
+    const row = await ttQueries.create({
+      courseId: Number(courseId),
+      sessionId: Number(sessionId),
+      semester,
+      dayOfWeek,
+      startTime,
+      endTime,
+      venue: venue || null,
+    });
+
+    await logAudit({ req, action: 'hod.create_timetable_slot', entity: 'timetable_slot', entityId: row.id, after: row });
+    return res.status(201).json({ success: true, data: row });
+  } catch (err) { next(err); }
+});
+
 // DELETE /api/hod/timetable/:id
 router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => {
   try {

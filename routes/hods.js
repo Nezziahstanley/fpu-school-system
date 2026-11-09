@@ -59,4 +59,68 @@ router.post('/:id/assign-department', requireRole(['admin', 'registrar']), async
   }
 });
 
+// ============================================
+// HOD: Fetch Lecture Timetable Slots
+// ============================================
+router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.query;
+    const departmentId = req.user.departmentId;
+    
+    if (!departmentId) {
+      return res.status(400).json({ success: false, error: 'Not assigned to a department.' });
+    }
+
+    const ttQueries = require('../../db/queries/timetable');
+    const rows = await ttQueries.listWithRelations({ 
+      sessionId: Number(sessionId), 
+      semester 
+    });
+    
+    // Filter strictly to this HOD's department
+    const filtered = rows.filter(r => {
+      const c = r.course || {};
+      return Number(c.departmentId) === Number(departmentId);
+    });
+
+    res.json({ success: true, data: filtered });
+  } catch (err) { next(err); }
+});
+
+// ============================================
+// HOD: Submit Timetable for Approval
+// ============================================
+router.post('/timetable/submit-for-approval', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.body || {};
+    const departmentId = req.user.departmentId;
+
+    if (!sessionId || !semester) {
+      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
+    }
+
+    const ttQueries = require('../../db/queries/timetable');
+    const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
+    
+    if (count === 0) {
+      return res.status(400).json({ success: false, error: 'No draft slots found to submit.' });
+    }
+
+    res.json({ success: true, message: `Submitted ${count} slot(s) for approval.`, count });
+  } catch (err) { next(err); }
+});
+
+// ============================================
+// HOD: Delete a Draft Slot
+// ============================================
+router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const ttQueries = require('../../db/queries/timetable');
+    const slot = await ttQueries.findById(req.params.id);
+    if (!slot) return res.status(404).json({ success: false, error: 'Slot not found.' });
+    await ttQueries.remove(req.params.id);
+    res.json({ success: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

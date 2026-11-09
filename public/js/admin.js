@@ -2920,114 +2920,98 @@ function initTranscriptEvents() {
 }
 
 // ============================================
-// TIMETABLE
+// TIMETABLE: Index Page Loader (Merged with Approvals)
 // ============================================
 async function loadTimetableIndex() {
   const grid = document.getElementById('tt-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
-
-  const sessionId = (document.getElementById('tt-session') || {}).value || '';
-  const semester = (document.getElementById('tt-semester') || {}).value || 'first';
-  const search = (document.getElementById('tt-search') || {}).value || '';
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading departments...</div>';
 
   try {
-    const qs = new URLSearchParams({ limit: 2000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [deptsRes, slotsRes, schoolsRes, coursesRes] = await Promise.all([
+    const [deptsRes, slotsRes, schoolsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch(`/api/admin/timetable?${qs}`),
-      adminFetch('/api/admin/schools'),
-      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch('/api/admin/timetable?limit=5000'),
+      adminFetch('/api/admin/schools')
     ]);
 
     const depts = (await deptsRes.json()).data || [];
-    const slots = (await slotsRes.json()).data || [];
+    const rawSlots = (await slotsRes.json()).data || [];
     const schools = (await schoolsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
 
-    window.__ttCache = slots.map((s) => s.slot || s);
+    const schoolMap = new Map(schools.map(s => [Number(s.id), s]));
 
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
-
+    // Count ALL slots (pending, approved, draft) per department
     const byDept = new Map();
-    for (const d of depts) byDept.set(d.id, { dept: d, slots: [] });
-    
-    for (const s of slots) {
-      const slot = s.slot || s;
-      const c = courseById.get(slot.courseId);
-      if (!c) continue;
-      const bucket = byDept.get(c.departmentId);
-      if (!bucket) continue;
-      bucket.slots.push(s);
-    }
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, total: 0, pending: 0, approved: 0, draft: 0 }));
 
-    let totalSlots = 0;
-    let scheduledDepts = 0;
-    for (const b of byDept.values()) {
-      totalSlots += b.slots.length;
-      if (b.slots.length > 0) scheduledDepts++;
-    }
+    rawSlots.forEach(r => {
+      const s = r.slot || r;
+      const c = r.course || s.course || {};
+      const deptId = Number(c.departmentId);
+      if (!deptId) return;
+
+      const bucket = byDept.get(deptId);
+      if (!bucket) return;
+
+      bucket.total++;
+      const status = String(s.status || 'draft').toLowerCase();
+      if (status === 'pending') bucket.pending++;
+      else if (status === 'approved') bucket.approved++;
+      else bucket.draft++;
+    });
+
+    // Update stats bar
+    const totalSlots = [...byDept.values()].reduce((s, b) => s + b.total, 0);
+    const scheduledDepts = [...byDept.values()].filter(b => b.total > 0).length;
+    const pendingDepts = [...byDept.values()].filter(b => b.pending > 0).length;
 
     setText('tt-stat-depts', depts.length);
     setText('tt-stat-slots', totalSlots);
     setText('tt-stat-scheduled', scheduledDepts);
-    setText('tt-stat-conflicts', 0);
+    setText('tt-stat-conflicts', pendingDepts);
 
-    const visible = [...byDept.values()].filter((b) => {
-      if (search) {
-        const q = search.toLowerCase();
-        return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
+    // Sort departments alphabetically
+    const sorted = [...byDept.values()].sort((a, b) => String(a.dept.code).localeCompare(String(b.dept.code)));
+
+    grid.innerHTML = sorted.map((b) => {
+      const school = schoolMap.get(Number(b.dept.schoolId)) || {};
+      const isEmpty = b.total === 0;
+      
+      let badgeHtml = '';
+      if (b.pending > 0) {
+        badgeHtml = `<span class="ttd-badge" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">⏳ ${b.pending} Pending</span>`;
+      } else if (b.approved > 0) {
+        badgeHtml = `<span class="ttd-badge" style="background:#d1fae5; color:#065f46; border:1px solid #6ee7b7;">✅ ${b.approved} Approved</span>`;
+      } else if (b.draft > 0) {
+        badgeHtml = `<span class="ttd-badge" style="background:#e2e8f0; color:#475569;">📝 ${b.draft} Drafts</span>`;
       }
-      return true;
-    });
-
-    if (!visible.length) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🗓️</div><p>No departments.</p></div>';
-      return;
-    }
-
-    grid.innerHTML = visible.map((b) => {
-      const units = b.slots.reduce((acc, s) => {
-        const slot = s.slot || s;
-        const c = courseById.get(slot.courseId);
-        return acc + (Number(c?.unit) || 0);
-      }, 0);
-      const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
-      const isEmpty = b.slots.length === 0;
-      const school = schoolMap.get(b.dept.schoolId);
 
       return `
-        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
+        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: ${b.dept.id}, name: '${escapeQuotes(b.dept.name)}' })" style="cursor:pointer;">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
-            <span class="ttd-school">${escapeHtml(school?.code || '')}</span>
+            <span class="ttd-school">${escapeHtml(school.code || '')}</span>
           </div>
           <h3>${escapeHtml(b.dept.name)}</h3>
-          <div class="ttd-stats">
-            <div class="ttd-stat"><span class="num">${b.slots.length}</span><span class="label">Slots</span></div>
-            <div class="ttd-stat"><span class="num">${units}</span><span class="label">Units</span></div>
-            <div class="ttd-stat"><span class="num">${days.size}</span><span class="label">Days</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
+             <div style="font-size:1.4rem; font-weight:800; color:#0f172a;">${b.total}</div>
+             <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Slots</div>
+          </div>
+          <div style="margin-top:10px;">
+            ${badgeHtml}
           </div>
           <div class="ttd-footer">
-            <span>${isEmpty ? 'Empty' : 'View timetable'}</span>
+            <span>${isEmpty ? 'Empty' : 'View & Approve'}</span>
             <span class="arrow">→</span>
           </div>
         </div>
       `;
     }).join('');
 
-    grid.querySelectorAll('.tt-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
-        FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: Number(card.dataset.deptId), sessionId: sessionId || '', semester, name: card.dataset.deptName });
-      });
-    });
   } catch (err) {
-    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
+    console.error('[Timetable Index] Error:', err);
+    grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -13683,7 +13667,7 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE: Load Department A3 Landscape Sheet
+// TIMETABLE: Load Department A3 Landscape Sheet (Full View)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
@@ -13711,8 +13695,15 @@ async function loadTimetableSheet() {
   if (titleEl) titleEl.textContent = `${deptName} Timetable`;
   if (subEl) subEl.textContent = `Loading...`;
   
-  if (printBtn) printBtn.onclick = () => window.print();
-  if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId: deptId, sessionId, semester });
+  // Inject Top Actions (Back, Approve All, Print)
+  const pageActions = document.querySelector('.page-head .actions');
+  if (pageActions) {
+    pageActions.innerHTML = `
+      <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN_SPA.navigateTo('timetable')">← Back to Departments</button>
+      <button class="btn btn-primary btn-sm" id="exsheet-approve" style="background:#10b981; color:#fff; display:none;" onclick="FPU_ADMIN.bulkApproveTimetable(${deptId})">✅ Approve All Pending</button>
+      <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print A3</button>
+    `;
+  }
   
   root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading timetable...</div>';
 
@@ -13738,21 +13729,26 @@ async function loadTimetableSheet() {
     const currentSession = sessions.find(s => Number(s.id) === Number(sessionId)) || sessions.find(s => s.isCurrent);
     const sessionName = currentSession ? currentSession.name : '2026/2027';
 
-    if (subEl) subEl.textContent = `${semester === 'first' ? 'First' : 'Second'} Semester, ${sessionName} Session`;
+    // Filter ALL slots to this department
+    const deptSlots = rawSlots.filter(r => {
+      const s = r.slot || r;
+      const c = courseMap.get(Number(s.courseId)) || r.course || {};
+      return Number(c.departmentId) === Number(deptId);
+    });
 
-    // Show ND1, ND2, HND1, HND2 tabs
+    // Check if there are ANY pending slots
+    const hasPending = deptSlots.some(s => (s.slot || s).status === 'pending');
+    const approveBtn = document.getElementById('exsheet-approve');
+    if (approveBtn && hasPending) approveBtn.style.display = 'inline-flex';
+
     const levels = ['ND1', 'ND2', 'HND1', 'HND2'];
 
     function renderLevel(level) {
-      // Strictly filter by Department, Semester, and Level
-      const levelSlots = rawSlots.filter(r => {
+      // Filter to specific level
+      const levelSlots = deptSlots.filter(r => {
         const s = r.slot || r;
         const c = courseMap.get(Number(s.courseId)) || r.course || {};
-        if (!c || Number(c.departmentId) !== Number(deptId)) return false;
-
-        const slotSem = String(s.semester || semester).toLowerCase();
-        if (slotSem !== semester.toLowerCase()) return false;
-
+        
         const cLevel = String(c.level || '').toUpperCase(); 
         let cYear = Number(c.yearOfStudy) || Number(String(c.code).match(/^\D+(\d)/)?.[1] || 1);
 
@@ -13805,7 +13801,6 @@ async function loadTimetableSheet() {
 
           if (skipIndices.has(i)) continue;
 
-          // Find slots exactly in this time block
           let slotsHere = levelSlots.filter(r => {
             const s = r.slot || r;
             let dRaw = String(s.dayOfWeek || 'MON').toUpperCase().substring(0, 3);
@@ -13825,7 +13820,6 @@ async function loadTimetableSheet() {
             let st = String(s.startTime || '08:00').substring(0, 5);
             let et = String(s.endTime || '09:00').substring(0, 5);
             
-            // Calculate colspan for multi-hour classes
             let durationHours = 1;
             if (st < '08:00' && et >= '09:00') durationHours = 1; 
             else {

@@ -4,6 +4,7 @@
     <p class="muted small">Review, approve, or reject timetables submitted by HODs</p>
   </div>
   <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.debugTimetableData()">🔍 Debug Raw Data</button>
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadTimetableApprovals()">↻ Refresh</button>
   </div>
 </section>
@@ -12,8 +13,13 @@
   <div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading...</div>
 </div>
 
+<!-- Debug Panel -->
+<div id="debug-panel" style="display:none; margin-top:20px; background:#1e293b; color:#e2e8f0; padding:20px; border-radius:8px; overflow:auto; max-height:500px;">
+  <h4 style="margin-top:0;">Raw API Data</h4>
+  <pre id="debug-output" style="font-size:12px;"></pre>
+</div>
+
 <style>
-  /* Styles for the department cards */
   .tt-dept-card {
     background: #fff;
     border: 1px solid #e2e8f0;

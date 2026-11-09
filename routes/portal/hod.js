@@ -1518,15 +1518,54 @@ router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => 
   } catch (err) { next(err); }
 });
 
-// ============================================================
-// GET /api/hod/sessions
-// ============================================================
+// ============================================
+// HOD: Get Academic Sessions
+// ============================================
 router.get('/sessions', only, async (req, res, next) => {
   try {
     const rows = await db.select().from(academicSessions).orderBy(desc(academicSessions.name));
     return res.json({ success: true, data: rows });
   } catch (err) {
-    return next(err);
+    console.error('[hod/sessions] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================
+// HOD: Submit Timetable for Approval
+// ============================================
+router.post('/timetable/submit-for-approval', only, async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.body || {};
+    const departmentId = deptId(req);
+
+    if (!sessionId || !semester) {
+      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
+    }
+
+    // Call the query function we created earlier
+    const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
+    
+    if (count === 0) {
+      return res.status(400).json({ success: false, error: 'No draft timetable slots found to submit.' });
+    }
+
+    await logAudit({
+      req,
+      action: 'timetable.submit_for_approval',
+      entity: 'timetable_slots',
+      entityId: departmentId,
+      after: { departmentId, sessionId, semester, submittedCount: count },
+    });
+
+    return res.json({ 
+      success: true, 
+      message: `Submitted ${count} slot(s) for approval.`, 
+      count 
+    });
+  } catch (err) { 
+    console.error('[hod/timetable/submit] Error:', err);
+    next(err); 
   }
 });
 

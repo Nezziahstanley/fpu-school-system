@@ -191,15 +191,14 @@ async function approvePendingByDept(departmentId) {
   return updatedRows.length;
 }
 
-// ============================================
-// HOD: Submit Drafts for Approval
-// ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
+  // 1. Get all course IDs for this department
   const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
   if (deptCourses.length === 0) return 0;
 
   const courseIds = deptCourses.map(c => c.id);
 
+  // 2. Update all 'draft' slots to 'pending'
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'pending' })
     .where(and(

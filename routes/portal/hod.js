@@ -1528,4 +1528,62 @@ router.get('/sessions', only, async (req, res, next) => {
   }
 });
 
+// ============================================================
+// POST /api/hod/allocate (Assign Lecturer to Course)
+// ============================================================
+router.post('/allocate', only, async (req, res, next) => {
+  try {
+    const departmentId = deptId(req);
+    const { courseId, lecturerId, semester } = req.body || {};
+
+    if (!courseId || !lecturerId) {
+      return res.status(400).json({ success: false, error: 'courseId and lecturerId are required.' });
+    }
+
+    // 1. Verify the course belongs to this HOD's department
+    const [course] = await db.select().from(courses).where(eq(courses.id, Number(courseId))).limit(1);
+    if (!course || Number(course.departmentId) !== Number(departmentId)) {
+      return res.status(403).json({ success: false, error: 'Course is not in your department.' });
+    }
+
+    // 2. Get the current session
+    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
+    const sessionId = sessionResult.rows[0]?.id || 1;
+
+    // 3. Check if an allocation already exists for this course
+    const [existing] = await db.select()
+      .from(courseAllocations)
+      .where(eq(courseAllocations.courseId, Number(courseId)))
+      .limit(1);
+
+    if (existing) {
+      // Update existing
+      await db.update(courseAllocations)
+        .set({ 
+          lecturerId: Number(lecturerId),
+          semester: semester || 'first',
+          status: 'assigned',
+          respondedAt: new Date()
+        })
+        .where(eq(courseAllocations.id, existing.id));
+    } else {
+      // Create new
+      await db.insert(courseAllocations).values({
+        courseId: Number(courseId),
+        lecturerId: Number(lecturerId),
+        sessionId: Number(sessionId),
+        semester: semester || 'first',
+        status: 'assigned'
+      });
+    }
+
+    await logAudit({ req, action: 'hod.allocate_course', entity: 'course_allocations', after: { courseId, lecturerId, semester } });
+    
+    return res.json({ success: true, message: 'Course assigned successfully.' });
+  } catch (err) {
+    console.error('[hod/allocate] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -5,7 +5,7 @@
 'use strict';
 
 const { db, sql, schema } = require('../index');
-const { eq, and, desc, asc, inArray, inArray, sql: drizzleSql } = require('drizzle-orm');
+const { eq, and, desc, asc, inArray, sql: drizzleSql } = require('drizzle-orm');
 
 const { timetableSlots, courses, users, academicSessions } = schema;
 

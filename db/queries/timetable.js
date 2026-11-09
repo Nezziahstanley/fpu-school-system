@@ -36,7 +36,10 @@ async function listWithRelations({ sessionId, semester, lecturerId, courseId } =
 
   return db
     .select({
-      slot: timetableSlots,
+      slot: {
+        ...timetableSlots,
+        status: timetableSlots.status // Force Drizzle to return status explicitly
+      },
       course: courses,
       lecturer: users,
     })
@@ -196,7 +199,6 @@ async function approvePendingByDept(departmentId) {
 // ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
   try {
-    // Use raw SQL to completely bypass Drizzle's IN clause parameter limit
     const query = sql`
       UPDATE timetable_slots 
       SET status = 'pending' 

@@ -14436,9 +14436,6 @@ async function debugTimetableData() {
   }
 }
 
-// ============================================
-// TIMETABLE: Approvals Dashboard (Fixed)
-// ============================================
 async function loadTimetableApprovals() {
   const grid = document.getElementById('approvals-grid');
   if (!grid) return;
@@ -14446,7 +14443,6 @@ async function loadTimetableApprovals() {
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading submissions...</div>';
 
   try {
-    // 1. Fetch all departments and all timetable slots
     const [deptsRes, slotsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
       adminFetch('/api/admin/timetable?limit=5000')
@@ -14455,42 +14451,32 @@ async function loadTimetableApprovals() {
     const depts = (await deptsRes.json()).data || [];
     const rawSlots = (await slotsRes.json()).data || [];
 
-    // 2. Group ONLY pending/approved slots by Department ID
+    // Debug: Look at the first item
+    if (rawSlots.length > 0) console.log('[Debug] First item:', rawSlots[0]);
+
     const byDept = new Map();
 
     rawSlots.forEach(row => {
-      const slot = row.slot || row;
-      const course = row.course || slot.course || {};
+      const s = row.slot || row;
+      const c = row.course || {};
       
-      // DEBUG: Log the first row to console so we can see the exact structure
-      if (!window.__ttDebugLogged) {
-        console.log('[TT Debug] First raw row:', row);
-        window.__ttDebugLogged = true;
-      }
-
-      // Ensure we have the right status
-      const status = String(slot.status || 'draft').toLowerCase();
+      const status = String(s.status || 'draft').toLowerCase();
       if (status !== 'pending' && status !== 'approved') return;
 
-      const deptId = Number(course.departmentId);
+      const deptId = Number(c.departmentId || s.departmentId);
       if (!deptId) return;
 
-      if (!byDept.has(deptId)) {
-        byDept.set(deptId, { pending: 0, approved: 0, total: 0 });
-      }
-
+      if (!byDept.has(deptId)) byDept.set(deptId, { pending: 0, approved: 0, total: 0 });
       const bucket = byDept.get(deptId);
       bucket.total++;
       if (status === 'pending') bucket.pending++;
       if (status === 'approved') bucket.approved++;
     });
 
-    // 3. Render the cards
     let html = '';
-    
     depts.forEach(dept => {
       const bucket = byDept.get(Number(dept.id));
-      if (!bucket) return; // Skip departments with no submitted slots
+      if (!bucket) return;
 
       const isPending = bucket.pending > 0;
       const badgeColor = isPending ? '#f59e0b' : '#10b981';
@@ -14503,12 +14489,10 @@ async function loadTimetableApprovals() {
             <span class="ttd-school">Review</span>
           </div>
           <h3>${escapeHtml(dept.name)}</h3>
-          
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
              <span style="font-size:12px; font-weight:700; color:${badgeColor};">${badgeText}</span>
              <span style="font-size:11px; color:#64748b; font-weight:600;">${bucket.total} Slots</span>
           </div>
-
           <div class="ttd-footer" style="margin-top:12px;">
             <span>Review Timetable</span>
             <span class="arrow">→</span>
@@ -14523,7 +14507,6 @@ async function loadTimetableApprovals() {
     }
 
     grid.innerHTML = html;
-
   } catch (err) {
     console.error('[Approvals] Error:', err);
     grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">Error: ${escapeHtml(err.message)}</div>`;

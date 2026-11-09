@@ -1537,13 +1537,14 @@ router.get('/sessions', only, async (req, res, next) => {
 router.post('/timetable/submit-for-approval', only, async (req, res, next) => {
   try {
     const { sessionId, semester } = req.body || {};
-    const departmentId = deptId(req);
+    // Use the helper function you already defined at the top of the file
+    const departmentId = deptId(req); 
 
     if (!sessionId || !semester) {
       return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
     }
 
-    // Call the query function we created earlier
+    // Call the query function
     const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
     
     if (count === 0) {
@@ -1565,7 +1566,7 @@ router.post('/timetable/submit-for-approval', only, async (req, res, next) => {
     });
   } catch (err) { 
     console.error('[hod/timetable/submit] Error:', err);
-    next(err); 
+    return res.status(500).json({ success: false, error: err.message }); // Send the exact error
   }
 });
 

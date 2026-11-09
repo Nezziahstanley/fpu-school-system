@@ -206,6 +206,7 @@
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
       { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard },
+      { key: 'lecture-timetable',    label: 'Lecture Timetable', icon: ICON.calendar }, // <-- ADDED THIS LINE
       { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart },
       { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
     ],
@@ -339,8 +340,14 @@
         .replace(/^lecturer-/, '')
         .replace(/^student-/, '');
 
+      // Special fix for lecture-timetable so it doesn't look for "lecture-timetable.html" if key doesn't have prefix
+      let finalFile = file;
+      if (cleanKey === 'lecture-timetable') {
+        finalFile = 'lecture-timetable';
+      }
+
       const candidates = [
-        `${file}.html`,
+        `${finalFile}.html`,
         `${cleanKey}.html`,
       ];
       return {

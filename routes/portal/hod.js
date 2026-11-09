@@ -1437,7 +1437,6 @@ router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
       semester 
     });
     
-    // Filter strictly to this HOD's department
     const filtered = rows.filter(r => {
       const c = r.course || {};
       return Number(c.departmentId) === Number(departmentId);
@@ -1451,7 +1450,7 @@ router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
 router.post('/timetable/submit-for-approval', requireRole(['hod']), async (req, res, next) => {
   try {
     const { sessionId, semester } = req.body || {};
-    const departmentId = req.user.departmentId;
+    const departmentId = deptId(req);
 
     if (!sessionId || !semester) {
       return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
@@ -1471,13 +1470,24 @@ router.post('/timetable/submit-for-approval', requireRole(['hod']), async (req, 
       after: { departmentId, sessionId, semester, submittedCount: count },
     });
 
-    res.json({ success: true, message: `Submitted ${count} slot(s) for approval.`, count });
+    return res.json({ success: true, message: `Submitted ${count} slot(s) for approval.`, count });
+  } catch (err) { 
+    console.error('[hod/timetable/submit] Error:', err);
+    return res.status(500).json({ success: false, error: err.message }); 
+  }
+});
+
+// DELETE /api/hod/timetable/:id
+router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => {
+  try {
+    const slot = await ttQueries.findById(req.params.id);
+    if (!slot) return res.status(404).json({ success: false, error: 'Slot not found.' });
+    await ttQueries.remove(req.params.id);
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 
-// ============================================
-// HOD: Create a New Timetable Slot
-// ============================================
+// POST /api/hod/timetable (Create slot)
 router.post('/timetable', requireRole(['hod']), async (req, res, next) => {
   try {
     const departmentId = req.user.departmentId;
@@ -1487,7 +1497,6 @@ router.post('/timetable', requireRole(['hod']), async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
     }
 
-    // Verify the course belongs to this HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, Number(courseId))).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Course is not in your department.' });
@@ -1508,19 +1517,7 @@ router.post('/timetable', requireRole(['hod']), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/hod/timetable/:id
-router.delete('/timetable/:id', requireRole(['hod']), async (req, res, next) => {
-  try {
-    const slot = await ttQueries.findById(req.params.id);
-    if (!slot) return res.status(404).json({ success: false, error: 'Slot not found.' });
-    await ttQueries.remove(req.params.id);
-    res.json({ success: true });
-  } catch (err) { next(err); }
-});
-
-// ============================================
-// HOD: Get Academic Sessions
-// ============================================
+// GET /api/hod/sessions
 router.get('/sessions', only, async (req, res, next) => {
   try {
     const rows = await db.select().from(academicSessions).orderBy(desc(academicSessions.name));
@@ -1528,45 +1525,6 @@ router.get('/sessions', only, async (req, res, next) => {
   } catch (err) {
     console.error('[hod/sessions] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ============================================
-// HOD: Submit Timetable for Approval
-// ============================================
-router.post('/timetable/submit-for-approval', only, async (req, res, next) => {
-  try {
-    const { sessionId, semester } = req.body || {};
-    // Use the helper function you already defined at the top of the file
-    const departmentId = deptId(req); 
-
-    if (!sessionId || !semester) {
-      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
-    }
-
-    // Call the query function
-    const count = await ttQueries.submitDraftsForApproval(departmentId, sessionId, semester);
-    
-    if (count === 0) {
-      return res.status(400).json({ success: false, error: 'No draft timetable slots found to submit.' });
-    }
-
-    await logAudit({
-      req,
-      action: 'timetable.submit_for_approval',
-      entity: 'timetable_slots',
-      entityId: departmentId,
-      after: { departmentId, sessionId, semester, submittedCount: count },
-    });
-
-    return res.json({ 
-      success: true, 
-      message: `Submitted ${count} slot(s) for approval.`, 
-      count 
-    });
-  } catch (err) { 
-    console.error('[hod/timetable/submit] Error:', err);
-    return res.status(500).json({ success: false, error: err.message }); // Send the exact error
   }
 });
 

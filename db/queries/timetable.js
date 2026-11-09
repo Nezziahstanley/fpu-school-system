@@ -183,7 +183,7 @@ async function approvePendingByDept(departmentId) {
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'approved' })
     .where(and(
-      inArray(timetableSlots.courseId, courseIds),
+      sql`${timetableSlots.courseId} IN (${sql.join(courseIds, sql`, `)})`,
       eq(timetableSlots.status, 'pending')
     ))
     .returning();
@@ -191,25 +191,32 @@ async function approvePendingByDept(departmentId) {
   return updatedRows.length;
 }
 
+// ============================================
+// HOD: Submit Drafts for Approval (FIXED)
+// ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
-  // 1. Get all course IDs for this department
-  const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
-  if (deptCourses.length === 0) return 0;
+  try {
+    const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
+    if (deptCourses.length === 0) return 0;
 
-  const courseIds = deptCourses.map(c => c.id);
+    const courseIds = deptCourses.map(c => c.id);
 
-  // 2. Update all 'draft' slots to 'pending'
-  const updatedRows = await db.update(timetableSlots)
-    .set({ status: 'pending' })
-    .where(and(
-      inArray(timetableSlots.courseId, courseIds),
-      eq(timetableSlots.sessionId, Number(sessionId)),
-      eq(timetableSlots.semester, semester),
-      eq(timetableSlots.status, 'draft')
-    ))
-    .returning();
+    // Use raw SQL for the IN clause to prevent Drizzle crashes on empty arrays or type mismatches
+    const updatedRows = await db.update(timetableSlots)
+      .set({ status: 'pending' })
+      .where(and(
+        sql`${timetableSlots.courseId} IN (${sql.join(courseIds, sql`, `)})`,
+        eq(timetableSlots.sessionId, Number(sessionId)),
+        eq(timetableSlots.semester, semester),
+        eq(timetableSlots.status, 'draft')
+      ))
+      .returning();
 
-  return updatedRows.length;
+    return updatedRows.length;
+  } catch (err) {
+    console.error('[submitDraftsForApproval Error]', err);
+    throw err;
+  }
 }
 
 module.exports = {

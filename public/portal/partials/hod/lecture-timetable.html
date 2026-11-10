@@ -151,15 +151,15 @@
         </select>
       </div>
 
-      <!-- Time -->
+      <!-- Time (AM/PM forced by step="60") -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
         <div>
           <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time <span style="color:#dc2626;">*</span></label>
-          <input type="time" id="slot-start" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="08:00" />
+          <input type="time" id="slot-start" step="60" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="08:00" />
         </div>
         <div>
           <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">End Time <span style="color:#dc2626;">*</span></label>
-          <input type="time" id="slot-end" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="10:00" />
+          <input type="time" id="slot-end" step="60" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="10:00" />
         </div>
       </div>
 
@@ -213,7 +213,8 @@
   async function loadSessions() {
     try {
       const res = await core.portalFetch('/api/hod/sessions');
-      const sessions = res.data || [];
+      const sessions = Array.isArray(res) ? res : (res.data || []);
+      
       const sel = $('tt-session');
       if (!sel) return;
       const current = sessions.find(s => s.isCurrent);
@@ -229,7 +230,8 @@
   async function loadCourses() {
     try {
       const res = await core.portalFetch('/api/hod/courses');
-      ALL_COURSES = res.data || [];
+      ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
+      console.log('[DEBUG] Loaded Courses:', ALL_COURSES);
     } catch (err) {
       console.error('Could not load courses:', err);
     }
@@ -238,7 +240,8 @@
   async function loadLecturers() {
     try {
       const res = await core.portalFetch('/api/hod/lecturers'); 
-      ALL_LECTURERS = res.data || [];
+      ALL_LECTURERS = Array.isArray(res) ? res : (res.data || []);
+      console.log('[DEBUG] Loaded Lecturers:', ALL_LECTURERS);
     } catch (err) {
       console.error('Could not load lecturers:', err);
     }
@@ -255,7 +258,7 @@
 
     try {
       const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
-      const rows = res.data || [];
+      const rows = Array.isArray(res) ? res : (res.data || []);
 
       const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
       rows.forEach(r => {
@@ -337,8 +340,8 @@
 
     // Filter based on Level AND Semester
     const filtered = ALL_COURSES.filter(c => {
-      const cLevel = `${String(c.level || 'ND').toUpperCase()} ${Number(c.year_of_study) || 1}`;
-      const cSem = String(c.semester_name || '').toLowerCase().trim();
+      const cLevel = `${String(c.level || 'ND').toUpperCase()} ${Number(c.year_of_study || c.yearOfStudy) || 1}`;
+      const cSem = String(c.semester_name || c.semester || '').toLowerCase().trim();
 
       const levelMatch = cLevel === selectedLevel;
       

@@ -82,12 +82,12 @@
 
 <!-- Modal: Batch Add Slots -->
 <div id="add-slot-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:1050px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:95vh;display:flex;flex-direction:column;">
+  <div style="background:#fff;border-radius:16px;max-width:1050px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;display:flex;flex-direction:column;">
     
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
       <div>
         <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slots (Batch)</h3>
-        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Assign venues and times to scheduled courses.</p>
+        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Lecturers are pre-assigned from the Allocations page. Select courses to schedule them.</p>
       </div>
       <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
@@ -131,7 +131,7 @@
           <tr style="border-bottom:2px solid #e2e8f0;text-align:left;">
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:40px;"><input type="checkbox" id="batch-select-all" style="cursor:pointer;width:16px;height:16px;" /></th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;">Course</th>
-            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:200px;">Lecturer</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:200px;">Assigned Lecturer</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:120px;">Venue</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">Start Time</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">End Time</th>
@@ -143,26 +143,9 @@
       </table>
     </div>
 
-    <!-- Footer Area -->
-    <div style="padding:1rem 1.4rem;border-top:1px solid #e5e7eb;background:#f8fafc;display:flex;flex-direction:column;gap:.75rem;flex-shrink:0;border-radius:0 0 16px 16px;">
-      
-      <!-- New Allocation Helper -->
-      <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:8px;padding:.75rem;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:.8rem;color:#475569;">
-          <strong>Tip:</strong> If lecturers don't show in the table, select the course from the list below to pre-fill.
-        </div>
-        <div style="display:flex;gap:.5rem;align-items:center;">
-          <select id="alloc-course-select" style="padding:.4rem;font-size:.8rem;border:1px solid #cbd5e1;border-radius:6px;min-width:250px;">
-            <option value="">Select Course...</option>
-          </select>
-          <button id="btn-apply-alloc" style="padding:.4rem .8rem;font-size:.8rem;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0;border-radius:6px;cursor:pointer;">Apply Allocation</button>
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:flex-end;gap:.5rem;">
-        <button id="add-slot-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Cancel</button>
-        <button id="batch-save-btn" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Selected Slots</button>
-      </div>
+    <div style="padding:1rem 1.4rem;border-top:1px solid #e5e7eb;background:#f8fafc;display:flex;justify-content:flex-end;gap:.5rem;flex-shrink:0;">
+      <button id="add-slot-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="batch-save-btn" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Selected Slots</button>
     </div>
   </div>
 </div>
@@ -187,10 +170,9 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  let ALL_COURSES = [];
-  let ALL_LECTURERS = [];
-  let ALL_ALLOCATIONS = []; // Store the pre-assigned data here
-  let CURRENT_SLOTS = [];
+  let ALL_COURSES = []; // Will hold courses WITH allocations (from /api/hod/courses-with-allocations)
+  let ALL_LECTURERS = []; // Fallback list of lecturers
+  let CURRENT_SLOTS = []; // Holds the timetable slots
 
   async function loadSessions() {
     try {
@@ -204,11 +186,13 @@
     } catch (err) { console.error('Could not load sessions:', err); }
   }
 
-  async function loadCourses() {
+  async function loadCoursesWithAllocations() {
     try {
-      const res = await core.portalFetch('/api/hod/courses');
+      // CRITICAL FIX: Use the correct endpoint from your allocations page
+      const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
-    } catch (err) { console.error('Could not load courses:', err); }
+      console.log('[DEBUG] Loaded Courses With Allocations:', ALL_COURSES);
+    } catch (err) { console.error('Could not load courses with allocations:', err); }
   }
 
   async function loadLecturers() {
@@ -216,15 +200,6 @@
       const res = await core.portalFetch('/api/hod/lecturers'); 
       ALL_LECTURERS = Array.isArray(res) ? res : (res.data || []);
     } catch (err) { console.error('Could not load lecturers:', err); }
-  }
-
-  // Ensure we fetch the allocations properly from the DB
-  async function loadAllocations() {
-    try {
-      const res = await core.portalFetch('/api/hod/allocations');
-      ALL_ALLOCATIONS = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] Loaded Allocations:', ALL_ALLOCATIONS);
-    } catch (err) { console.error('Could not load allocations:', err); }
   }
 
   async function loadSlots() {
@@ -311,32 +286,13 @@
     });
   }
 
-  // Helper to extract Lecturer Name from Allocations (handles both nested and flat responses)
-  function getAssignedLecturer(courseId) {
-    const alloc = ALL_ALLOCATIONS.find(a => {
-      const cid = a.courseId || (a.course && a.course.id) || (a.allocation && a.allocation.courseId);
-      return String(cid) === String(courseId);
-    });
-    if (!alloc) return null;
-    
-    let name = null;
-    if (alloc.lecturer && alloc.lecturer.firstName) {
-      name = `${alloc.lecturer.firstName} ${alloc.lecturer.lastName}`;
-    } else if (alloc.firstName) {
-      name = `${alloc.firstName} ${alloc.lastName}`;
-    }
-    return name ? { name, id: alloc.lecturer?.id || alloc.lecturerId || alloc.allocation?.lecturerId } : null;
-  }
-
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value;
     const selectedSemester = $('batch-semester').value;
     const tbody = $('batch-course-list');
-    const allocSelect = $('alloc-course-select');
 
     if (!selectedLevel) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
-      allocSelect.innerHTML = '<option value="">Select Course...</option>';
       return;
     }
 
@@ -344,16 +300,19 @@
     const targetLevel = parts[0];
     const targetYear = parts[1];
 
+    // Because we are using courses-with-allocations, the level and year fields might be nested
     const filtered = ALL_COURSES.filter(c => {
-      const dbLevel = String(c.level || '').toUpperCase();
-      const levelMatch = dbLevel === targetLevel;
+      // Handle different possible response shapes
+      const rawLevel = c.level || (c.course && c.course.level);
+      const rawYear = c.yearOfStudy || c.year_of_study || (c.course && c.course.year_of_study);
+      const rawSem = c.semesterName || c.semester_name || (c.course && c.course.semester_name);
 
-      const rawYear = c.yearOfStudy !== undefined ? c.yearOfStudy : c.year_of_study;
+      const dbLevel = String(rawLevel || '').toUpperCase();
       const dbYear = String(rawYear || '1');
-      const yearMatch = dbYear === targetYear;
-
-      const rawSem = c.semesterName !== undefined ? c.semesterName : c.semester_name;
       const dbSem = String(rawSem || '').toLowerCase().trim();
+
+      const levelMatch = dbLevel === targetLevel;
+      const yearMatch = dbYear === targetYear;
       
       let semMatch = false;
       if (selectedSemester === 'first') semMatch = (dbSem === 'first' || dbSem === '1');
@@ -362,32 +321,34 @@
       return levelMatch && yearMatch && semMatch;
     });
 
-    // Populate bottom dropdown
-    allocSelect.innerHTML = '<option value="">Select Course...</option>' + 
-      filtered.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
-
     if (!filtered.length) {
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
       return;
     }
 
     tbody.innerHTML = filtered.map(c => {
-      // Check for existing timetable slot
+      // 1. Check if this course is already in the timetable
+      const courseId = c.id || (c.course && c.course.id);
       const existingSlot = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
-        return String(slot.courseId) === String(c.id);
+        return String(slot.courseId) === String(courseId);
       });
 
-      // Check DB Allocations
-      const assigned = getAssignedLecturer(c.id);
+      // 2. Extract the assigned lecturer directly from the courses-with-allocations response
+      // Look at your Allocations page code: `c.lecturerName` is used
+      let assignedLecturer = c.lecturerName || c.lecturer_name; 
+      
       let lecturerHtml = '';
       
       if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.firstName) {
+        // Already scheduled
         const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
-      } else if (assigned) {
-        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(assigned.name)}</div>`;
+      } else if (assignedLecturer && assignedLecturer !== 'unassigned') {
+        // Assigned in the Allocations page
+        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(assignedLecturer)}</div>`;
       } else {
+        // Unassigned - show the fallback dropdown
         const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
         lecturerHtml = `
           <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
@@ -422,16 +383,19 @@
 
       const checkboxHtml = existingSlot 
         ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
-        : `<input type="checkbox" class="batch-checkbox" data-id="${c.id}" style="cursor:pointer;width:16px;height:16px;" />`;
+        : `<input type="checkbox" class="batch-checkbox" data-id="${courseId}" style="cursor:pointer;width:16px;height:16px;" />`;
+
+      const code = c.code || (c.course && c.course.code) || '—';
+      const title = c.title || (c.course && c.course.title) || '—';
 
       return `
-        <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row" id="batch-row-${c.id}">
+        <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
           <td style="padding:8px;">${checkboxHtml}</td>
           <td style="padding:8px;">
-            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(c.code)}</div>
-            <div style="font-size:11px;color:#64748b;">${esc(c.title)}</div>
+            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(code)}</div>
+            <div style="font-size:11px;color:#64748b;">${esc(title)}</div>
           </td>
-          <td style="padding:8px;" id="lecturer-cell-${c.id}">${lecturerHtml}</td>
+          <td style="padding:8px;">${lecturerHtml}</td>
           <td style="padding:8px;">${venueHtml}</td>
           <td style="padding:8px;">${startHtml}</td>
           <td style="padding:8px;">${endHtml}</td>
@@ -440,47 +404,26 @@
     }).join('');
   }
 
-  // Apply Allocation Handler (Bottom dropdown)
-  $('btn-apply-alloc')?.addEventListener('click', () => {
-    const courseId = $('alloc-course-select').value;
-    if (!courseId) {
-      core.showToast('Please select a course from the dropdown first.', 'warning');
-      return;
-    }
-
-    const assigned = getAssignedLecturer(courseId);
-    if (!assigned) {
-      core.showToast('No lecturer is assigned to this course in the database.', 'warning');
-      return;
-    }
-
-    const cell = $(`lecturer-cell-${courseId}`);
-    if (cell) {
-      cell.innerHTML = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(assigned.name)}</div>`;
-      core.showToast(`✅ Assigned ${assigned.name} to ${cell.closest('tr').querySelector('div').textContent}`, 'success');
-    }
-  });
-
   // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
+    // Reset UI
     $('batch-level').value = '';
     $('batch-semester').value = $('tt-semester').value || 'first';
     $('batch-day').value = 'Monday';
     $('batch-course-list').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
     $('batch-select-all').checked = false;
-    $('alloc-course-select').innerHTML = '<option value="">Select Course...</option>';
 
     const btn = $('tt-add-slot');
     const originalText = btn.textContent;
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
+    // Fetch everything we need
     await Promise.all([
-      ALL_COURSES.length ? Promise.resolve() : loadCourses(),
+      ALL_COURSES.length ? Promise.resolve() : loadCoursesWithAllocations(),
       ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
-      loadAllocations(),
       loadSlots() 
     ]);
 
@@ -488,9 +431,11 @@
     btn.disabled = false;
   });
 
+  // Trigger table load when Level or Semester changes in batch mode
   $('batch-level')?.addEventListener('change', loadBatchTable);
   $('batch-semester')?.addEventListener('change', loadBatchTable);
 
+  // Select All logic
   $('batch-select-all')?.addEventListener('change', function() {
     const isChecked = this.checked;
     document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
@@ -499,6 +444,7 @@
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
+  // Save Batch Slots
   $('batch-save-btn')?.addEventListener('click', async () => {
     const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
       const cb = row.querySelector('.batch-checkbox');
@@ -525,14 +471,13 @@
       const cb = row.querySelector('.batch-checkbox');
       const courseId = Number(cb.dataset.id);
       
-      // Get lecturer ID from dropdown if it exists, otherwise use the DB allocation if locked
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
-      
-      // If there's no dropdown (because it's locked by DB), find the assigned ID
+
+      // If no dropdown exists (locked), try to find the allocated lecturer ID from ALL_COURSES
       if (!lecturerSelect) {
-        const assigned = getAssignedLecturer(courseId);
-        if (assigned) lecturerId = assigned.id;
+         const found = ALL_COURSES.find(c => String(c.id || (c.course && c.course.id)) === String(courseId));
+         if (found && found.lecturerId) lecturerId = Number(found.lecturerId);
       }
       
       const venueSelect = row.querySelector('.batch-venue');

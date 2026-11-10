@@ -13801,7 +13801,7 @@ async function loadTimetableSheet() {
   const deptName = params.get('name') || 'Department';
   const semester = params.get('semester') || 'first';
   const sessionId = params.get('sessionId') || '';
-  const selectedLevel = params.get('level') || 'ND 1'; // default
+  const selectedLevel = params.get('level') || 'ND 1';
 
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
@@ -13836,7 +13836,6 @@ async function loadTimetableSheet() {
       || allSessions.find(s => s.isCurrent) 
       || { name: '2025/2026' };
 
-    // Build course lookup so we can determine level per course
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
     // Wire buttons
@@ -13853,11 +13852,8 @@ async function loadTimetableSheet() {
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) {
-      addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel });
-    }
+    if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel });
 
-    // Count pending slots to decide whether to show approve button
     let pendingCount = 0;
     allSlots.forEach(row => {
       const s = row.slot || row;
@@ -13875,8 +13871,6 @@ async function loadTimetableSheet() {
       }
     }
 
-    // Discover all levels present in this department
-    const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
     const levelsPresent = new Set();
     allSlots.forEach(row => {
       const s = row.slot || row;
@@ -13886,17 +13880,14 @@ async function loadTimetableSheet() {
       const yr = Number(c.yearOfStudy) || 1;
       levelsPresent.add(`${lvl} ${yr}`);
     });
-    // If none present, show all tabs anyway so user can add
-    const tabsToShow = availableLevels.filter(l => levelsPresent.has(l) || availableLevels.includes(l));
 
-    // Render the level tabs
+    const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
     const tabsHtml = availableLevels.map(lvl => {
       const isActive = lvl === selectedLevel;
       const hasSlots = levelsPresent.has(lvl);
       return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
     }).join('');
 
-    // Filter slots to this level only
     const filteredSlots = allSlots.filter(row => {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
@@ -13906,7 +13897,6 @@ async function loadTimetableSheet() {
       return `${lvl} ${yr}` === selectedLevel;
     });
 
-    // If no slots for this level, show empty message but keep tabs
     if (!filteredSlots.length) {
       root.innerHTML = `
         <div class="tt-level-tabs">${tabsHtml}</div>
@@ -13916,7 +13906,7 @@ async function loadTimetableSheet() {
       return;
     }
 
-    // ---- Build grid: one course per cell ----
+    // TIME SLOTS (12PM–1PM is the BREAK)
     const TIME_SLOTS = [
       { label: '8AM–9AM', hour: 8 },
       { label: '9AM–10AM', hour: 9 },
@@ -13929,14 +13919,13 @@ async function loadTimetableSheet() {
     const DAYS = ['MON', 'TUE', 'WED', 'THURS', 'FRI'];
     const dayMap = { MONDAY: 'MON', TUESDAY: 'TUE', WEDNESDAY: 'WED', THURSDAY: 'THURS', FRIDAY: 'FRI' };
 
-    // grid[day][hour] = course code (or null)
+    // grid[day][hour] = course code
     const grid = {};
     DAYS.forEach(d => {
       grid[d] = {};
       TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; });
     });
 
-    // Place each slot: compute start hour and duration
     filteredSlots.forEach(row => {
       const s = row.slot || row;
       const c = row.course || courseById.get(Number(s.courseId)) || {};
@@ -13947,37 +13936,38 @@ async function loadTimetableSheet() {
       const endH = parseInt(String(s.endTime || '09:00').split(':')[0], 10);
       const code = c.code || '';
 
-      // Place code in every hour slot the course spans (but only if empty)
       for (let h = startH; h < endH; h++) {
         if (grid[dayKey][h] === null) {
           grid[dayKey][h] = code;
         }
-        // If already occupied, skip (first wins — one course per cell)
       }
     });
 
-    // Render the grid
-    let gridRowsHtml = '';
+    // Build header row — BREAK header is placed between 11AM and 1PM
+    let headerHtml = `<tr><th class="tt-days-h">DAYS/TIME</th>`;
+    TIME_SLOTS.forEach(t => {
+      if (t.hour === 13) {
+        // Insert break header before 1PM column
+        headerHtml += `<th class="tt-break-h">12PM–1PM</th>`;
+      }
+      headerHtml += `<th class="tt-time-h">${t.label}</th>`;
+    });
+    headerHtml += `</tr>`;
+
+    // Build body rows — BREAK cell is rowspanned on MON
+    let bodyHtml = '';
     DAYS.forEach(day => {
-      gridRowsHtml += `<tr><td class="tt-day">${day}</td>`;
+      bodyHtml += `<tr><td class="tt-day">${day}</td>`;
       
       TIME_SLOTS.forEach(t => {
-        const code = grid[day][t.hour];
-        // Insert the BREAK column between 11AM and 1PM
+        // Insert the BREAK cell right before the 1PM slot, only on MON
         if (t.hour === 13 && day === 'MON') {
-          // We'll add the break rowspanned cell before this one
+          bodyHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
         }
-        if (t.hour === 11) {
-          // After 11AM slot, insert break cell (once, on MON)
-          gridRowsHtml += `<td class="tt-cell ${code ? '' : 'empty'}">${escapeHtml(code || '')}</td>`;
-          if (day === 'MON') {
-            gridRowsHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
-          }
-          return;
-        }
-        gridRowsHtml += `<td class="tt-cell ${code ? '' : 'empty'}">${escapeHtml(code || '')}</td>`;
+        const code = grid[day][t.hour];
+        bodyHtml += `<td class="tt-cell ${code ? '' : 'empty'}">${escapeHtml(code || '')}</td>`;
       });
-      gridRowsHtml += `</tr>`;
+      bodyHtml += `</tr>`;
     });
 
     // Course detail table
@@ -14005,7 +13995,6 @@ async function loadTimetableSheet() {
         </tr>`;
     }).join('');
 
-    // Render full sheet
     root.innerHTML = `
       <div class="tt-level-tabs">${tabsHtml}</div>
       <div class="tt-grid-sheet">
@@ -14022,21 +14011,8 @@ async function loadTimetableSheet() {
         </div>
 
         <table class="tt-grid-table">
-          <thead>
-            <tr>
-              <th class="tt-days-h">DAYS/TIME</th>
-              ${TIME_SLOTS.map(t => {
-                // Insert BREAK header cell between 11AM and 1PM
-                if (t.hour === 13) {
-                  return `<th class="tt-break-h">12PM–1PM</th><th class="tt-time-h">${t.label}</th>`;
-                }
-                return `<th class="tt-time-h">${t.label}</th>`;
-              }).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${gridRowsHtml}
-          </tbody>
+          <thead>${headerHtml}</thead>
+          <tbody>${bodyHtml}</tbody>
         </table>
 
         <div style="height: 8mm;"></div>
@@ -14051,9 +14027,7 @@ async function loadTimetableSheet() {
               <th class="cd-lect-h">COURSE LECTURER(S)</th>
             </tr>
           </thead>
-          <tbody>
-            ${courseDetailRows}
-          </tbody>
+          <tbody>${courseDetailRows}</tbody>
         </table>
 
         <div class="tt-grid-footer">
@@ -14072,6 +14046,65 @@ async function loadTimetableSheet() {
     console.error('Failed to load timetable sheet:', err);
     root.innerHTML = `<div class="alert alert-danger">Failed to load: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+function wireLevelTabs(root, departmentId, deptName, semester, sessionId) {
+  root.querySelectorAll('.tt-level-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
+        departmentId,
+        name: deptName,
+        semester,
+        sessionId,
+        level: tab.dataset.level,
+      });
+    });
+  });
+}
+
+function buildEmptyTimetableSheet(school, dept, semester, session, level) {
+  const TIME_SLOTS = ['8AM–9AM','9AM–10AM','10AM–11AM','11AM–12PM','1PM–2PM','2PM–3PM','3PM–4PM'];
+  const DAYS = ['MON','TUE','WED','THURS','FRI'];
+  
+  let headerHtml = `<tr><th class="tt-days-h">DAYS/TIME</th>`;
+  TIME_SLOTS.forEach((l, i) => {
+    if (i === 4) headerHtml += `<th class="tt-break-h">12PM–1PM</th>`;
+    headerHtml += `<th class="tt-time-h">${l}</th>`;
+  });
+  headerHtml += `</tr>`;
+
+  let bodyHtml = '';
+  DAYS.forEach(d => {
+    bodyHtml += `<tr><td class="tt-day">${d}</td>`;
+    TIME_SLOTS.forEach((_, i) => {
+      if (i === 4 && d === 'MON') bodyHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
+      bodyHtml += `<td class="tt-cell empty"></td>`;
+    });
+    bodyHtml += `</tr>`;
+  });
+
+  return `
+    <div class="tt-grid-sheet">
+      <div class="tt-grid-head">
+        <div class="tt-grid-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>
+        <div class="tt-grid-head-text">
+          <div class="h1">FEDERAL POLYTECHNIC UGEP,</div>
+          <div class="h2">${escapeHtml(school.name || '')}</div>
+          <div class="h2">DEPARTMENT OF ${escapeHtml(String(dept.name).toUpperCase())}</div>
+          <div class="h3">${escapeHtml(level)} FULL TIME ${semester.toUpperCase()} SEMESTER LECTURE TIMETABLE</div>
+          <div class="h4">${escapeHtml(session.name || '')} SESSION</div>
+        </div>
+        <div class="tt-grid-level">${escapeHtml(level)}</div>
+      </div>
+      <table class="tt-grid-table">
+        <thead>${headerHtml}</thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+      <div style="padding: 20mm 10mm; text-align: center; color: #64748b; font-size: 11pt;">
+        No ${escapeHtml(level)} timetable slots have been created yet. Click <strong>+ Add Slot</strong> to start.
+      </div>
+    </div>
+  `;
 }
 
 // Wire the level tabs

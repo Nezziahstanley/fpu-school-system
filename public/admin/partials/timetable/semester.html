@@ -37,181 +37,40 @@
   <div class="loading"><span class="spinner"></span> Loading timetable…</div>
 </div>
 
-<style>
-  .tt-grid-sheet {
-    width: 297mm;
-    min-height: 210mm;
-    margin: 0 auto 24px;
-    padding: 10mm;
-    background: #fff;
-    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
-    box-sizing: border-box;
-    font-family: 'Times New Roman', Times, serif;
-    color: #000;
-  }
-
-  /* ---- Header ---- */
-  .tt-grid-head {
+  /* ---- Level tabs ---- */
+  .tt-level-tabs {
     display: flex;
-    align-items: center;
-    gap: 6mm;
-    margin-bottom: 4mm;
-    padding-bottom: 3mm;
-    border-bottom: 2px solid #000;
-    position: relative;
+    gap: 8px;
+    margin: 0 auto 12px;
+    max-width: 297mm;
+    padding: 0 10mm;
+    justify-content: center;
   }
-  .tt-grid-logo {
-    width: 20mm;
-    height: 20mm;
-    flex-shrink: 0;
-  }
-  .tt-grid-logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-  .tt-grid-head-text {
-    flex: 1;
-    text-align: center;
-    line-height: 1.2;
-  }
-  .tt-grid-head-text .h1 { font-size: 12pt; font-weight: 700; }
-  .tt-grid-head-text .h2 { font-size: 11pt; font-weight: 700; }
-  .tt-grid-head-text .h3 { font-size: 10pt; font-weight: 700; margin-top: 2mm; }
-  .tt-grid-head-text .h4 { font-size: 10pt; font-weight: 700; }
-  .tt-grid-level {
-    position: absolute;
-    right: 0;
-    top: 0;
-    font-size: 22pt;
-    font-weight: 800;
-    color: #3b82f6;
+  .tt-level-tab {
+    padding: 8px 20px;
     font-family: 'Poppins', sans-serif;
-    opacity: 0.4;
-  }
-
-  /* ---- Grid timetable ---- */
-  .tt-grid-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 8.5pt;
-  }
-  .tt-grid-table th,
-  .tt-grid-table td {
-    border: 1px solid #000;
-    padding: 2mm 1mm;
-    vertical-align: middle;
-    text-align: center;
-    height: 14mm;
-  }
-  .tt-grid-table th {
+    font-size: 13px;
+    font-weight: 700;
     background: #fff;
-    font-weight: 700;
-    font-size: 8.5pt;
-    font-family: 'Poppins', sans-serif;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
   }
-  .tt-grid-table .tt-days-h { width: 14mm; }
-  .tt-grid-table .tt-time-h { width: auto; }
-
-  .tt-grid-table .tt-day {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    background: #f7f7f7;
-    font-size: 9pt;
-    letter-spacing: 0.5px;
-  }
-
-  .tt-grid-table .tt-cell {
-    font-size: 8.5pt;
-    text-align: center;
-    word-break: break-word;
-  }
-  .tt-grid-table .tt-cell.empty {
+  .tt-level-tab:hover { background: #f1f5f9; }
+  .tt-level-tab.active {
+    background: #065f46;
     color: #fff;
+    border-color: #065f46;
   }
+  .tt-level-tab.empty-tab { opacity: 0.6; }
 
-  .tt-grid-table .tt-break {
+  .tt-break-h {
     background: #e5e7eb;
     font-weight: 800;
-    font-family: 'Poppins', sans-serif;
-    font-size: 9pt;
-    letter-spacing: 1px;
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    width: 8mm;
+    width: 10mm;
   }
-
-  /* ---- Courses detail footer ---- */
-  .tt-courses-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 9pt;
-    table-layout: fixed;
-  }
-  .tt-courses-table th,
-  .tt-courses-table td {
-    border: 1px solid #000;
-    padding: 1.5mm 2mm;
-    vertical-align: middle;
-  }
-  .tt-courses-table th {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 8.5pt;
-    text-transform: uppercase;
-    text-align: center;
-    background: #fff;
-    letter-spacing: 0.3px;
-  }
-  .tt-courses-table .cd-code { width: 24mm; text-align: center; font-weight: 700; font-family: 'Poppins', sans-serif; }
-  .tt-courses-table .cd-title { text-align: left; }
-  .tt-courses-table .cd-cu { width: 20mm; text-align: center; font-weight: 700; }
-  .tt-courses-table .cd-hall { width: 30mm; text-align: left; }
-  .tt-courses-table .cd-lect { width: 55mm; text-align: left; }
-
-  /* ---- Signatures ---- */
-  .tt-grid-footer {
-    margin-top: 8mm;
-    display: flex;
-    justify-content: flex-start;
-  }
-  .tt-grid-sign {
-    font-size: 10pt;
-    line-height: 1.4;
-  }
-  .tt-grid-sign .sign-label { font-weight: 700; font-family: 'Poppins', sans-serif; }
-  .tt-grid-sign .sign-name {
-    font-family: 'Brush Script MT', cursive;
-    font-size: 16pt;
-    color: #1e3a8a;
-    margin-top: 1mm;
-  }
-  .tt-grid-sign .sign-role {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-    font-size: 9pt;
-  }
-
-  @media print {
-    .no-print, .sidebar, .topbar, .toast-wrap { display: none !important; }
-    .main { margin: 0 !important; padding: 0 !important; }
-    body { background: #fff !important; }
-
-    @page { size: A4 landscape; margin: 0; }
-
-    .tt-grid-sheet {
-      box-shadow: none;
-      margin: 0;
-      width: 100%;
-      page-break-after: always;
-    }
-    .tt-grid-sheet:last-child { page-break-after: auto; }
-  }
-</style>
-
 <script>
   // SPA init calls FPU_ADMIN.loadTimetableSheet()
 </script>

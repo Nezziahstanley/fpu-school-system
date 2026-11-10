@@ -2930,7 +2930,7 @@ async function loadTimetableIndex() {
   const search = (document.getElementById('tt-search') || {}).value || '';
 
   try {
-    const qs = new URLSearchParams({ limit: 2000 });
+    const qs = new URLSearchParams({ limit: 5000 });
     if (sessionId) qs.set('sessionId', sessionId);
     if (semester) qs.set('semester', semester);
 
@@ -2938,7 +2938,7 @@ async function loadTimetableIndex() {
       adminFetch('/api/admin/departments'),
       adminFetch(`/api/admin/timetable?${qs}`),
       adminFetch('/api/admin/schools'),
-      adminFetch('/api/admin/courses?limit=2000'),
+      adminFetch('/api/admin/courses?limit=5000'),
     ]);
 
     const depts = (await deptsRes.json()).data || [];
@@ -2962,10 +2962,14 @@ async function loadTimetableIndex() {
       if (!c) continue;
       const bucket = byDept.get(c.departmentId);
       if (!bucket) continue;
+      
       bucket.slots.push(s);
-      const status = slot.status || 'draft';
+      
+      const status = String(slot.status || 'draft').toLowerCase();
+      
+      // Count explicitly by status
       if (status === 'draft') bucket.draft++;
-      else if (status === 'pending') bucket.pending++;
+      else if (status === 'pending' || status === 'submitted') bucket.pending++;
       else if (status === 'approved') bucket.approved++;
     }
 
@@ -3004,11 +3008,21 @@ async function loadTimetableIndex() {
       const isEmpty = b.slots.length === 0;
       const school = schoolMap.get(b.dept.schoolId);
 
-      // Status badge
+      // FIX: Determine Badge based on Draft vs Pending vs Approved
       let badgeClass = 'badge-muted', badgeText = 'Empty';
-      if (b.pending > 0) { badgeClass = 'badge-info'; badgeText = `${b.pending} Pending`; }
-      else if (b.approved > 0 && b.draft === 0) { badgeClass = 'badge-success'; badgeText = 'Approved'; }
-      else if (b.draft > 0) { badgeClass = 'badge-warning'; badgeText = `${b.draft} Draft`; }
+      
+      if (b.pending > 0) { 
+        badgeClass = 'badge-info'; 
+        badgeText = `${b.pending} Pending Approval`; 
+      }
+      else if (b.draft > 0) { 
+        badgeClass = 'badge-warning'; 
+        badgeText = `${b.draft} Draft`; 
+      }
+      else if (b.approved > 0) { 
+        badgeClass = 'badge-success'; 
+        badgeText = 'Fully Approved'; 
+      }
 
       return `
         <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
@@ -3044,6 +3058,7 @@ async function loadTimetableIndex() {
     grid.innerHTML = `<div class="alert alert-danger" style="grid-column:1/-1;">${escapeHtml(err.message)}</div>`;
   }
 }
+
 // ============================================
 // EXAMS: Index Page Loader
 // ============================================

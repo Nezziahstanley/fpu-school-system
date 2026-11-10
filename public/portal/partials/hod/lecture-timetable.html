@@ -87,7 +87,7 @@
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
       <div>
         <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Build Weekly Timetable</h3>
-        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Assign courses to Monday - Friday. Click "Add" to lock the course to the day.</p>
+        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Assign days, venues, and times to the courses for this semester.</p>
       </div>
       <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
@@ -113,66 +113,24 @@
       </div>
     </div>
 
-    <!-- Grid Layout for Week -->
-    <div style="padding:1rem 1.4rem;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:1rem;">
-      
-      <!-- Day Tabs -->
-      <div style="display:flex;gap:0.5rem;border-bottom:1px solid #e2e8f0;padding-bottom:0.5rem;">
-        <button class="day-tab active" data-day="Monday" style="padding:.5rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Monday</button>
-        <button class="day-tab" data-day="Tuesday" style="padding:.5rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Tuesday</button>
-        <button class="day-tab" data-day="Wednesday" style="padding:.5rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Wednesday</button>
-        <button class="day-tab" data-day="Thursday" style="padding:.5rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Thursday</button>
-        <button class="day-tab" data-day="Friday" style="padding:.5rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Friday</button>
-      </div>
-
-      <!-- Course Selection Row -->
-      <div style="display:flex;gap:1rem;align-items:flex-end;background:#f8fafc;padding:1rem;border-radius:8px;border:1px solid #e2e8f0;">
-        <div style="flex:2;">
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Select Course</label>
-          <select id="day-course-select" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #cbd5e1;border-radius:6px;background:#fff;">
-            <option value="">Select a course...</option>
-          </select>
-        </div>
-        <div style="flex:1;">
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Venue</label>
-          <select id="day-venue-select" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #cbd5e1;border-radius:6px;background:#fff;">
-            <option value="">Select</option>
-            <option value="LT1">LT1</option>
-            <option value="LT2">LT2</option>
-            <option value="LT3">LT3</option>
-            <option value="Main Hall">Main Hall</option>
-          </select>
-        </div>
-        <div style="flex:1;">
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time</label>
-          <input type="time" id="day-start" step="60" value="08:00" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #cbd5e1;border-radius:6px;" />
-        </div>
-        <div style="flex:1;">
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">End Time</label>
-          <input type="time" id="day-end" step="60" value="10:00" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #cbd5e1;border-radius:6px;" />
-        </div>
-        <div>
-          <button id="btn-add-slot" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;">Add</button>
-        </div>
-      </div>
-
-      <!-- Preview Table for selected day -->
-      <div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="background:#f8fafc;border-bottom:1px solid #e2e8f0;text-align:left;">
-              <th style="padding:10px;font-size:11px;font-weight:800;color:#475569;">Course</th>
-              <th style="padding:10px;font-size:11px;font-weight:800;color:#475569;">Lecturer</th>
-              <th style="padding:10px;font-size:11px;font-weight:800;color:#475569;">Venue</th>
-              <th style="padding:10px;font-size:11px;font-weight:800;color:#475569;">Time</th>
-              <th style="padding:10px;font-size:11px;font-weight:800;color:#475569;width:80px;text-align:center;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="weekly-preview-tbody">
-            <tr><td colspan="5" style="text-align:center;padding:20px;color:#94a3b8;">No courses added for this day yet.</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <!-- Master Table -->
+    <div style="padding:1rem 1.4rem;overflow-y:auto;flex:1;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid #e2e8f0;text-align:left;">
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:40px;"><input type="checkbox" id="batch-select-all" style="cursor:pointer;width:16px;height:16px;" /></th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;">Course</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:180px;">Assigned Lecturer</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:110px;">Day</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:120px;">Venue</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">Start Time</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">End Time</th>
+          </tr>
+        </thead>
+        <tbody id="batch-course-list">
+          <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div style="padding:1rem 1.4rem;border-top:1px solid #e5e7eb;background:#f8fafc;display:flex;justify-content:flex-end;gap:.5rem;flex-shrink:0;border-radius:0 0 16px 16px;">
@@ -205,16 +163,6 @@
   let ALL_COURSES = [];     
   let ALL_LECTURERS = [];   
   let CURRENT_SLOTS = [];   
-  
-  // State for the weekly builder
-  let BATCH_STATE = {
-    Monday: [],
-    Tuesday: [],
-    Wednesday: [],
-    Thursday: [],
-    Friday: []
-  };
-  let activeDay = 'Monday';
 
   async function loadSessions() {
     try {
@@ -326,14 +274,14 @@
     });
   }
 
-  // Populate the course dropdown for the daily selector based on strict filters
-  function loadBatchCourses() {
+  // Render the master table based on selected Level and Semester
+  function loadBatchTable() {
     const selectedLevel = $('batch-level').value;
     const selectedSemester = $('batch-semester').value;
-    const courseSelect = $('day-course-select');
+    const tbody = $('batch-course-list');
 
     if (!selectedLevel) {
-      courseSelect.innerHTML = '<option value="">Select Level first...</option>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
       return;
     }
 
@@ -341,7 +289,7 @@
     const targetLevel = parts[0];
     const targetYear = parts[1];
 
-    // Strict Filtering by Level, Year, and Semester
+    // Filter based on Level, Year, and Semester
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
@@ -363,86 +311,118 @@
       return levelMatch && yearMatch && semMatch;
     });
 
-    // Filter out courses already added to ANY day in the preview
-    const usedCourseIds = new Set();
-    Object.values(BATCH_STATE).forEach(dayArr => {
-      dayArr.forEach(item => usedCourseIds.add(String(item.courseId)));
-    });
-
-    const available = filtered.filter(c => {
-      const cId = c.course ? c.course.id : c.id;
-      return !usedCourseIds.has(String(cId));
-    });
-
-    if (!available.length) {
-      courseSelect.innerHTML = '<option value="">All courses assigned.</option>';
+    if (!filtered.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
       return;
     }
 
-    courseSelect.innerHTML = '<option value="">Select a course...</option>' + 
-      available.map(c => {
-        const code = c.course ? c.course.code : c.code;
-        const title = c.course ? c.course.title : c.title;
-        const id = c.course ? c.course.id : c.id;
-        return `<option value="${id}">${esc(code)} — ${esc(title)}</option>`;
-      }).join('');
-  }
+    tbody.innerHTML = filtered.map(c => {
+      const courseId = c.course ? c.course.id : c.id;
+      const courseCode = c.course ? c.course.code : c.code;
+      const courseTitle = c.course ? c.course.title : c.title;
 
-  // Render the daily preview table
-  function renderWeeklyPreview() {
-    const tbody = $('weekly-preview-tbody');
-    const list = BATCH_STATE[activeDay] || [];
-
-    if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#94a3b8;">No courses added for this day yet.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = list.map((item, idx) => `
-      <tr style="border-bottom:1px solid #f1f5f9;">
-        <td style="padding:8px;font-weight:700;color:#0f172a;font-size:12px;">${esc(item.code)}</td>
-        <td style="padding:8px;font-size:12px;color:#065f46;">${esc(item.lecturerName)}</td>
-        <td style="padding:8px;font-size:12px;color:#475569;">${esc(item.venue)}</td>
-        <td style="padding:8px;font-size:12px;color:#475569;">${esc(item.startTime)} - ${esc(item.endTime)}</td>
-        <td style="padding:8px;text-align:center;">
-          <button class="btn-remove-slot" data-idx="${idx}" style="background:#fee2e2;color:#991b1b;border:none;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;cursor:pointer;">Remove</button>
-        </td>
-      </tr>
-    `).join('');
-
-    tbody.querySelectorAll('.btn-remove-slot').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        BATCH_STATE[activeDay].splice(idx, 1);
-        renderWeeklyPreview();
-        loadBatchCourses(); // Re-add removed course to dropdown
+      // Check if this course is already in the DB timetable
+      const existingSlot = CURRENT_SLOTS.find(s => {
+        const slot = s.slot || s;
+        return String(slot.courseId) === String(courseId);
       });
-    });
+
+      // Determine assigned lecturer
+      let assignedLecturer = c.lecturerName;
+      if (!assignedLecturer && c.lecturer && c.lecturer.firstName) {
+        assignedLecturer = `${c.lecturer.firstName} ${c.lecturer.lastName}`;
+      }
+      
+      let lecturerHtml = '';
+      let isLocked = false;
+
+      if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.firstName) {
+        isLocked = true;
+        const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
+        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
+      } else if (assignedLecturer && assignedLecturer !== 'unassigned') {
+        isLocked = true;
+        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(assignedLecturer)}</div>`;
+      } else {
+        const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+        lecturerHtml = `
+          <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select Lecturer</option>
+            ${lectOptions}
+          </select>
+        `;
+      }
+
+      // Inputs
+      let dayHtml = '';
+      let venueHtml = '';
+      let startHtml = '';
+      let endHtml = '';
+
+      if (existingSlot && existingSlot.slot) {
+        // Lock inputs if already saved in DB
+        dayHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.dayOfWeek || '—')}</div>`;
+        venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlot.slot.venue || '—')}</div>`;
+        startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.startTime || '—')}</div>`;
+        endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.endTime || '—')}</div>`;
+      } else {
+        // Render dropdowns and time inputs for new scheduling
+        dayHtml = `
+          <select class="batch-day form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select Day</option>
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+            <option value="Saturday">Saturday</option>
+          </select>
+        `;
+        venueHtml = `
+          <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select</option>
+            <option value="LT1">LT1</option>
+            <option value="LT2">LT2</option>
+            <option value="LT3">LT3</option>
+            <option value="Main Hall">Main Hall</option>
+            <option value="Lab A">Lab A</option>
+            <option value="Lab B">Lab B</option>
+          </select>
+        `;
+        startHtml = `<input type="time" class="batch-start form-control" step="60" value="08:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />`;
+        endHtml = `<input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />`;
+      }
+
+      const checkboxHtml = existingSlot 
+        ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
+        : `<input type="checkbox" class="batch-checkbox" data-id="${courseId}" style="cursor:pointer;width:16px;height:16px;" />`;
+
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
+          <td style="padding:8px;">${checkboxHtml}</td>
+          <td style="padding:8px;">
+            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(courseCode)}</div>
+            <div style="font-size:11px;color:#64748b;">${esc(courseTitle)}</div>
+          </td>
+          <td style="padding:8px;">${lecturerHtml}</td>
+          <td style="padding:8px;">${dayHtml}</td>
+          <td style="padding:8px;">${venueHtml}</td>
+          <td style="padding:8px;">${startHtml}</td>
+          <td style="padding:8px;">${endHtml}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
-  // Initialize the builder state when opening modal
+  // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    // Reset state
-    BATCH_STATE = { Monday: [], Tuesday: [], Wednesday: [], Thursday: [], Friday: [] };
-    activeDay = 'Monday';
-    
-    // Reset tabs UI
-    document.querySelectorAll('.day-tab').forEach(tab => {
-      if (tab.dataset.day === 'Monday') {
-        tab.classList.add('active');
-        tab.style.background = '#065f46'; tab.style.color = '#fff'; tab.style.border = 'none';
-      } else {
-        tab.classList.remove('active');
-        tab.style.background = '#f1f5f9'; tab.style.color = '#475569'; tab.style.border = '1px solid #cbd5e1';
-      }
-    });
-
-    $('batch-level').value = '';
+    // Reset UI
+    $('batch-level').value = 'ND 1';
     $('batch-semester').value = $('tt-semester').value || 'first';
-    $('day-course-select').innerHTML = '<option value="">Select Level first...</option>';
-    renderWeeklyPreview();
+    $('batch-course-list').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Loading courses...</td></tr>';
+    $('batch-select-all').checked = false;
 
     const btn = $('tt-add-slot');
     const originalText = btn.textContent;
@@ -451,87 +431,42 @@
 
     await Promise.all([
       ALL_COURSES.length ? Promise.resolve() : loadCoursesWithAllocations(),
-      ALL_LECTURERS.length ? Promise.resolve() : loadLecturers()
+      ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
+      loadSlots() 
     ]);
+
+    // Auto-load table on open
+    loadBatchTable();
 
     btn.textContent = originalText;
     btn.disabled = false;
   });
 
-  // Handle Level/Semester changes
-  $('batch-level')?.addEventListener('change', loadBatchCourses);
-  $('batch-semester')?.addEventListener('change', loadBatchCourses);
+  $('batch-level')?.addEventListener('change', loadBatchTable);
+  $('batch-semester')?.addEventListener('change', loadBatchTable);
 
-  // Handle Tab Clicks
-  document.querySelectorAll('.day-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.day-tab').forEach(t => {
-        t.classList.remove('active');
-        t.style.background = '#f1f5f9'; t.style.color = '#475569'; t.style.border = '1px solid #cbd5e1';
-      });
-      tab.classList.add('active');
-      tab.style.background = '#065f46'; tab.style.color = '#fff'; tab.style.border = 'none';
-
-      activeDay = tab.dataset.day;
-      renderWeeklyPreview();
-    });
-  });
-
-  // Handle "Add" button inside the builder
-  $('btn-add-slot')?.addEventListener('click', () => {
-    const courseId = $('day-course-select').value;
-    if (!courseId) { core.showToast('Please select a course first.', 'warning'); return; }
-
-    const venue = $('day-venue-select').value || 'TBA';
-    const startTime = $('day-start').value;
-    const endTime = $('day-end').value;
-
-    if (!startTime || !endTime) { core.showToast('Please set start and end times.', 'warning'); return; }
-
-    // Find the full course object
-    const found = ALL_COURSES.find(c => String(c.course?.id || c.id) === String(courseId));
-    if (!found) return;
-
-    const code = found.course?.code || found.code;
-    const title = found.course?.title || found.title;
-    const lecturerName = found.lecturerName || (found.lecturer?.firstName ? `${found.lecturer.firstName} ${found.lecturer.lastName}` : 'Unassigned');
-    const lecturerId = found.lecturerId || found.lecturer?.id || null;
-
-    // Check duplicate in this specific day
-    const isDuplicate = BATCH_STATE[activeDay].some(s => String(s.courseId) === String(courseId));
-    if (isDuplicate) { core.showToast('This course is already added for this day.', 'warning'); return; }
-
-    // Add to state
-    BATCH_STATE[activeDay].push({
-      courseId, code, title, lecturerName, lecturerId, venue, startTime, endTime, dayOfWeek: activeDay
-    });
-
-    renderWeeklyPreview();
-    loadBatchCourses(); // Refresh dropdown to remove selected course
-
-    // Reset the form fields for the next input
-    $('day-course-select').value = '';
-    $('day-venue-select').value = '';
+  $('batch-select-all')?.addEventListener('change', function() {
+    const isChecked = this.checked;
+    document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
   });
 
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
-  // Save all weekly slots at once
+  // Save Weekly Timetable
   $('batch-save-btn')?.addEventListener('click', async () => {
-    const sessionId = Number($('tt-session').value);
-    const semester = $('batch-semester').value;
-    
-    // Flatten all arrays into one list
-    const allSlotsToSave = [];
-    Object.values(BATCH_STATE).forEach(dayArr => {
-      dayArr.forEach(item => allSlotsToSave.push(item));
+    const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
+      const cb = row.querySelector('.batch-checkbox');
+      return cb && cb.checked;
     });
 
-    if (allSlotsToSave.length === 0) {
-      core.showToast('No slots added to save.', 'warning');
+    if (selectedRows.length === 0) {
+      core.showToast('Please select at least one course.', 'warning');
       return;
     }
+
+    const sessionId = Number($('tt-session').value);
+    const semester = $('batch-semester').value;
 
     const btn = $('batch-save-btn');
     btn.disabled = true;
@@ -540,16 +475,37 @@
     let successCount = 0;
     let errorCount = 0;
 
-    for (const item of allSlotsToSave) {
+    for (const row of selectedRows) {
+      const cb = row.querySelector('.batch-checkbox');
+      const courseId = Number(cb.dataset.id);
+      
+      const lecturerSelect = row.querySelector('.batch-lecturer');
+      let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
+
+      const daySelect = row.querySelector('.batch-day');
+      const dayOfWeek = daySelect ? daySelect.value : '';
+
+      const venueSelect = row.querySelector('.batch-venue');
+      const venue = venueSelect ? venueSelect.value : '';
+      
+      const startTime = row.querySelector('.batch-start').value;
+      const endTime = row.querySelector('.batch-end').value;
+
+      if (!dayOfWeek || !startTime || !endTime) {
+        core.showToast(`Please fill in Day, Start, and End times for all selected courses.`, 'warning');
+        errorCount++;
+        continue; // Skip this one
+      }
+
       const payload = { 
-        courseId: item.courseId, 
-        lecturerId: item.lecturerId, 
+        courseId, 
+        lecturerId, 
         sessionId, 
         semester, 
-        dayOfWeek: item.dayOfWeek, 
-        startTime: item.startTime, 
-        endTime: item.endTime, 
-        venue: item.venue 
+        dayOfWeek, 
+        startTime, 
+        endTime, 
+        venue 
       };
 
       try {
@@ -560,13 +516,17 @@
         successCount++;
       } catch (err) {
         errorCount++;
-        console.error('Failed to save slot', item, err);
+        console.error('Failed to save slot for course', courseId, err);
       }
     }
 
-    core.showToast(`✅ Saved ${successCount} slot(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
-    $('add-slot-modal').style.display = 'none';
-    load(); // Refresh main table
+    if (successCount > 0) {
+      core.showToast(`✅ Saved ${successCount} slot(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
+      $('add-slot-modal').style.display = 'none';
+      load(); // Refresh main table
+    } else {
+      core.showToast(`❌ Failed to save slots. Check console for details.`, 'error');
+    }
 
     btn.disabled = false;
     btn.textContent = 'Save Weekly Timetable';

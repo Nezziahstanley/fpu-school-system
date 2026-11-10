@@ -87,7 +87,7 @@
     <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
       <div>
         <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slots (Batch)</h3>
-        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Lecturers are pre-assigned from the Allocations page. Select courses to schedule them.</p>
+        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Assign lecturers and venues to multiple courses at once.</p>
       </div>
       <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
@@ -131,7 +131,7 @@
           <tr style="border-bottom:2px solid #e2e8f0;text-align:left;">
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:40px;"><input type="checkbox" id="batch-select-all" style="cursor:pointer;width:16px;height:16px;" /></th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;">Course</th>
-            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:200px;">Assigned Lecturer</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:200px;">Lecturer</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:120px;">Venue</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">Start Time</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">End Time</th>
@@ -171,8 +171,9 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_COURSES = [];
-  let ALL_ALLOCATIONS = []; // Store assigned lecturers here
-  let CURRENT_SLOTS = [];   // Store existing timetable slots
+  let ALL_LECTURERS = [];
+  let ALL_ALLOCATIONS = [];
+  let CURRENT_SLOTS = [];
 
   async function loadSessions() {
     try {
@@ -193,10 +194,16 @@
     } catch (err) { console.error('Could not load courses:', err); }
   }
 
+  async function loadLecturers() {
+    try {
+      const res = await core.portalFetch('/api/hod/lecturers'); 
+      ALL_LECTURERS = Array.isArray(res) ? res : (res.data || []);
+    } catch (err) { console.error('Could not load lecturers:', err); }
+  }
+
   async function loadAllocations() {
     try {
-      // Fetch from the allocations endpoint (matches the table you showed)
-      const res = await core.portalFetch('/api/hod/allocations'); 
+      const res = await core.portalFetch('/api/hod/allocations');
       ALL_ALLOCATIONS = Array.isArray(res) ? res : (res.data || []);
       console.log('[DEBUG] Loaded Allocations:', ALL_ALLOCATIONS);
     } catch (err) { console.error('Could not load allocations:', err); }
@@ -286,7 +293,6 @@
     });
   }
 
-  // Load the batch table, mapping Allocations to Courses
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value;
     const selectedSemester = $('batch-semester').value;
@@ -331,7 +337,7 @@
         return String(slot.courseId) === String(c.id);
       });
 
-      // 2. Check for lecturer allocation
+      // 2. Check for lecturer allocation from the course_allocations table
       const allocated = ALL_ALLOCATIONS.find(a => {
         const alloc = a.allocation || a;
         return String(alloc.courseId) === String(c.id);
@@ -339,20 +345,24 @@
 
       let lecturerHtml = '';
       let isLocked = false;
-      let lockedLecturerId = '';
 
       if (existingSlot && existingSlot.lecturer) {
         isLocked = true;
         const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
-        lockedLecturerId = existingSlot.lecturer.id;
       } else if (allocated && allocated.lecturer) {
         isLocked = true;
         const lectName = `${allocated.lecturer.firstName} ${allocated.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
-        lockedLecturerId = allocated.lecturer.id || allocated.allocation?.lecturerId;
       } else {
-        lecturerHtml = `<div style="font-size:12px;color:#dc2626;font-weight:600;background:#fef2f2;padding:6px;border-radius:4px;border:1px solid #fecaca;">⚠️ Unassigned</div>`;
+        // Unassigned - allow HOD to select
+        const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+        lecturerHtml = `
+          <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select Lecturer</option>
+            ${lectOptions}
+          </select>
+        `;
       }
 
       // Venue and Time
@@ -380,7 +390,7 @@
 
       const checkboxHtml = existingSlot 
         ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
-        : `<input type="checkbox" class="batch-checkbox" data-id="${c.id}" data-lecturer-id="${lockedLecturerId}" style="cursor:pointer;width:16px;height:16px;" />`;
+        : `<input type="checkbox" class="batch-checkbox" data-id="${c.id}" style="cursor:pointer;width:16px;height:16px;" />`;
 
       return `
         <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
@@ -414,10 +424,11 @@
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
-    // Fetch Courses, Allocations, and Current Slots
+    // Fetch Courses, Lecturers, Allocations, and Current Slots
     await Promise.all([
       ALL_COURSES.length ? Promise.resolve() : loadCourses(),
-      ALL_ALLOCATIONS.length ? Promise.resolve() : loadAllocations(),
+      ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
+      loadAllocations(),
       loadSlots() 
     ]);
 
@@ -465,8 +476,9 @@
       const cb = row.querySelector('.batch-checkbox');
       const courseId = Number(cb.dataset.id);
       
-      // Read pre-assigned lecturer ID
-      const lecturerId = cb.dataset.lecturerId ? Number(cb.dataset.lecturerId) : null;
+      // Read from the dropdown (it will be null if locked, but locked rows don't have checkboxes anyway)
+      const lecturerSelect = row.querySelector('.batch-lecturer');
+      const lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
       
       const venueSelect = row.querySelector('.batch-venue');
       const venue = venueSelect ? venueSelect.value : '';

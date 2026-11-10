@@ -13835,16 +13835,11 @@ async function loadTimetableSheet() {
 
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
-    // STRICT SEMESTER FILTER: Trust only the database `semester_name`
+    // Strict Semester Check (Using your exact DB format)
     const isCourseInSemester = (c) => {
       const cSem = String(c.semester_name || '').toLowerCase().trim();
-      
-      if (semester === 'first') {
-        return cSem === 'first' || cSem === '1';
-      }
-      if (semester === 'second') {
-        return cSem === 'second' || cSem === '2';
-      }
+      if (semester === 'first') return cSem === 'first' || cSem === '1';
+      if (semester === 'second') return cSem === 'second' || cSem === '2';
       return false;
     };
 
@@ -13891,8 +13886,8 @@ async function loadTimetableSheet() {
       }
     }
 
-    // Filter slots based on level and semester
-    const filteredSlots = allSlots.filter(row => {
+    // 1. Get ONLY the actual slots saved by the HOD for this level/semester
+    const validSlots = allSlots.filter(row => {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
@@ -13906,12 +13901,13 @@ async function loadTimetableSheet() {
     });
 
     const levelsPresent = new Set();
-    allCourses.forEach(c => {
-      if (isCourseInSemester(c)) {
-        const lvl = String(c.level || 'ND').toUpperCase();
-        const yr = Number(c.yearOfStudy) || 1;
-        levelsPresent.add(`${lvl} ${yr}`);
-      }
+    validSlots.forEach(row => {
+      const s = row.slot || row;
+      const c = courseById.get(Number(s.courseId));
+      if (!c) return;
+      const lvl = String(c.level || 'ND').toUpperCase();
+      const yr = Number(c.yearOfStudy) || 1;
+      levelsPresent.add(`${lvl} ${yr}`);
     });
 
     const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
@@ -13933,70 +13929,47 @@ async function loadTimetableSheet() {
     let grid = {};
     let uniqueCourses = [];
 
-    if (filteredSlots.length === 0) {
-      const levelCourses = allCourses.filter(c => {
-        const lvl = String(c.level || 'ND').toUpperCase();
-        const yr = Number(c.yearOfStudy) || 1;
-        return `${lvl} ${yr}` === selectedLevel && isCourseInSemester(c);
-      });
-
-      if (!levelCourses.length) {
-        root.innerHTML = `
-          <div class="tt-level-tabs">${tabsHtml}</div>
-          ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
-        `;
-        wireLevelTabs(root, departmentId, deptName, semester, sessionId);
-        return;
-      }
-
-      // Random Grid Generation
-      DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
-      
-      levelCourses.forEach(c => {
-        const free = [];
-        DAYS.forEach(d => TIME_SLOTS.forEach(t => {
-          if (grid[d][t.hour] === null) free.push([d, t.hour]);
-        }));
-        if (free.length) {
-          const [d, h] = free[Math.floor(Math.random() * free.length)];
-          grid[d][h] = c.code;
-        }
-      });
-
-      uniqueCourses = levelCourses.map(c => ({ course: c, slot: { venue: 'TBA' }, lecturer: {} }));
-    } else {
-      // Build from DB slots
-      DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
-      
-      const placedByDay = {};
-      DAYS.forEach(d => { placedByDay[d] = new Set(); });
-
-      filteredSlots.forEach(row => {
-        const s = row.slot || row;
-        const c = row.course || courseById.get(Number(s.courseId)) || {};
-        const dayKey = dayMap[String(s.dayOfWeek || '').toUpperCase()] || String(s.dayOfWeek || '').substring(0, 3).toUpperCase();
-        if (!grid[dayKey]) return;
-
-        const code = c.code || '';
-        if (!code) return;
-        if (placedByDay[dayKey].has(code)) return;
-
-        const startH = parseInt(String(s.startTime || '08:00').split(':')[0], 10);
-        if (grid[dayKey][startH] === null && startH >= 8 && startH <= 15) {
-          grid[dayKey][startH] = code;
-          placedByDay[dayKey].add(code);
-        }
-      });
-
-      const seenCourses = new Set();
-      filteredSlots.forEach(row => {
-        const s = row.slot || row;
-        const c = courseById.get(Number(s.courseId)) || row.course;
-        if (!c || !c.id || seenCourses.has(c.id)) return;
-        seenCourses.add(c.id);
-        uniqueCourses.push({ course: c, slot: s, lecturer: row.lecturer || {} });
-      });
+    // 2. Render logic: If no slots, show the empty message. Otherwise, render the grid.
+    if (validSlots.length === 0) {
+      root.innerHTML = `
+        <div class="tt-level-tabs">${tabsHtml}</div>
+        ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
+      `;
+      wireLevelTabs(root, departmentId, deptName, semester, sessionId);
+      return;
     }
+
+    // Build grid from actual DB slots
+    DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
+    
+    const placedByDay = {};
+    DAYS.forEach(d => { placedByDay[d] = new Set(); });
+
+    validSlots.forEach(row => {
+      const s = row.slot || row;
+      const c = row.course || courseById.get(Number(s.courseId)) || {};
+      const dayKey = dayMap[String(s.dayOfWeek || '').toUpperCase()] || String(s.dayOfWeek || '').substring(0, 3).toUpperCase();
+      if (!grid[dayKey]) return;
+
+      const code = c.code || '';
+      if (!code) return;
+      if (placedByDay[dayKey].has(code)) return;
+
+      const startH = parseInt(String(s.startTime || '08:00').split(':')[0], 10);
+      if (grid[dayKey][startH] === null && startH >= 8 && startH <= 15) {
+        grid[dayKey][startH] = code;
+        placedByDay[dayKey].add(code);
+      }
+    });
+
+    const seenCourses = new Set();
+    validSlots.forEach(row => {
+      const s = row.slot || row;
+      const c = courseById.get(Number(s.courseId)) || row.course;
+      if (!c || !c.id || seenCourses.has(c.id)) return;
+      seenCourses.add(c.id);
+      uniqueCourses.push({ course: c, slot: s, lecturer: row.lecturer || {} });
+    });
 
     uniqueCourses.sort((a, b) => String(a.course.code || '').localeCompare(String(b.course.code || '')));
 

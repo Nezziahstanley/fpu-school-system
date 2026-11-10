@@ -1,0 +1,46 @@
+<!-- ============================================================
+     Admin → Exams → Timetable Approvals
+     ============================================================ -->
+<section class="page-head">
+  <div>
+    <h2>Timetable Approvals</h2>
+    <p class="muted small">Review and approve timetables submitted by HODs</p>
+  </div>
+  <div class="actions">
+    <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadExamApprovals()">
+      ↻ Refresh
+    </button>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-inline">
+  <div class="stat-inline stat-inline-accent">
+    <div class="label">Pending Approvals</div>
+    <div class="value" id="app-stat-pending">—</div>
+  </div>
+  <div class="stat-inline stat-inline-success">
+    <div class="label">Approved Departments</div>
+    <div class="value" id="app-stat-approved">—</div>
+  </div>
+  <div class="stat-inline">
+    <div class="label">Draft Departments</div>
+    <div class="value" id="app-stat-draft">—</div>
+  </div>
+</div>
+
+<!-- Approval Grid -->
+<div id="ex-approval-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; margin-top: 20px;">
+  <div style="grid-column:1/-1; text-align:center; padding: 40px; color:#94a3b8;">
+    <span class="spinner"></span> Loading submissions…
+  </div>
+</div>
+
+<style>
+  .ex-school-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+</style>

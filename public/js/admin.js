@@ -13564,7 +13564,6 @@ async function updateNotificationBadge() {
     return 0;
   }
 }
-
 // ============================================
 // EXAMS: Approval Dashboard
 // ============================================
@@ -13583,12 +13582,16 @@ async function loadExamApprovals() {
     const depts = (await deptsRes.json()).data || [];
 
     const byDept = new Map();
-    depts.forEach(d => byDept.set(d.id, { dept: d, draft: 0, submitted: 0, approved: 0 }));
+    depts.forEach(d => byDept.set(Number(d.id), { dept: d, draft: 0, submitted: 0, approved: 0 }));
 
-    exams.forEach(ex => {
-      const bucket = byDept.get(ex.course?.departmentId);
+    exams.forEach(row => {
+      const ex = row.exam || row;
+      const course = row.course || {};
+      const deptId = Number(course.departmentId);
+      const bucket = byDept.get(deptId);
       if (!bucket) return;
-      const status = ex.exam?.status || 'draft';
+      
+      const status = ex.status || 'draft';
       if (status === 'draft') bucket.draft++;
       else if (status === 'submitted') bucket.submitted++;
       else if (status === 'approved') bucket.approved++;
@@ -13597,8 +13600,16 @@ async function loadExamApprovals() {
     const visible = [...byDept.values()].filter(d => d.draft > 0 || d.submitted > 0 || d.approved > 0);
     visible.sort((a, b) => String(a.dept.name).localeCompare(String(b.dept.name)));
 
+    const pendingDepts = visible.filter(d => d.submitted > 0).length;
+    const approvedDepts = visible.filter(d => d.approved > 0 && d.submitted === 0).length;
+    const draftDepts = visible.filter(d => d.draft > 0 && d.submitted === 0).length;
+
+    setText('app-stat-pending', pendingDepts);
+    setText('app-stat-approved', approvedDepts);
+    setText('app-stat-draft', draftDepts);
+
     if (!visible.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No exams created yet.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No exams have been created yet.</div>';
       return;
     }
 
@@ -13608,13 +13619,14 @@ async function loadExamApprovals() {
       else if (submitted > 0) { badgeClass = 'badge-info'; badgeText = 'Pending Approval'; }
 
       return `
-        <div class="dept-card" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px;">
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <span class="badge" style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(dept.code)}</span>
             <span class="badge ${badgeClass}">${badgeText}</span>
           </div>
           <h3 style="font-size:1.05rem; font-weight:700; margin:0;">${escapeHtml(dept.name)}</h3>
-          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:8px;">
             <div style="background:#f8fafc; padding:8px; border-radius:8px; text-align:center;">
               <div style="font-weight:800; color:#64748b;">${draft}</div>
               <div style="font-size:9px; font-weight:700; color:#64748b;">DRAFT</div>
@@ -13628,15 +13640,95 @@ async function loadExamApprovals() {
               <div style="font-size:9px; font-weight:700; color:#047857;">APPROVED</div>
             </div>
           </div>
-          <div style="display:flex; gap:8px; margin-top:auto;">
-            ${submitted > 0 ? `<button class="btn btn-sm btn-primary" style="flex:1;" onclick="FPU_ADMIN.approveDepartmentExams(${dept.id})">✅ Approve All</button>` : ''}
+
+          <div style="margin-top:auto; padding-top:12px; border-top:1px solid #f1f5f9; display:flex; gap:8px; justify-content:space-between;">
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: ${dept.schoolId}, sessionId: '', semester: 'first', name: '${escapeQuotes(dept.name)}' })">👁 View</button>
+            ${submitted > 0 ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveDepartmentExams(${dept.id}, '${escapeQuotes(dept.name)}')">✅ Approve All</button>` : ''}
           </div>
         </div>
       `;
     }).join('');
 
   } catch (err) {
+    console.error('Failed to load approvals:', err);
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function approveDepartmentExams(deptId, deptName) {
+  const ok = await window.fpuConfirm(
+    `Approve ALL submitted exams for ${deptName}?\n\nThey will become visible on the official public timetable.`,
+    { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' }
+  );
+  if (!ok) return;
+
+  try {
+    const res = await adminFetch(`/api/admin/exams?departmentId=${deptId}&limit=5000`);
+    const json = await res.json();
+    
+    const examsToApprove = (json.data || []).filter(row => {
+      const ex = row.exam || row;
+      return (ex.status || 'draft') === 'submitted';
+    });
+
+    if (!examsToApprove.length) {
+      showToast('⚠️ No submitted exams found for this department.', 'warning');
+      return;
+    }
+
+    const promises = examsToApprove.map(row => {
+      const exId = (row.exam || row).id;
+      return adminFetch(`/api/admin/exams/${exId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' })
+      });
+    });
+
+    await Promise.all(promises);
+    
+    showToast(`✅ Approved ${examsToApprove.length} exams for ${deptName}.`, 'success');
+    loadExamApprovals();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function approveDepartmentExams(deptId, deptName) {
+  const ok = await window.fpuConfirm(
+    `Approve ALL submitted exams for ${deptName}?\n\nThey will become visible on the official public timetable.`,
+    { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' }
+  );
+  if (!ok) return;
+
+  try {
+    const res = await adminFetch(`/api/admin/exams?departmentId=${deptId}&limit=5000`);
+    const json = await res.json();
+    
+    // Filter for submitted exams only
+    const examsToApprove = (json.data || []).filter(row => {
+      const ex = row.exam || row;
+      return (ex.status || 'draft') === 'submitted';
+    });
+
+    if (!examsToApprove.length) {
+      showToast('⚠️ No submitted exams found for this department.', 'warning');
+      return;
+    }
+
+    const promises = examsToApprove.map(row => {
+      const exId = (row.exam || row).id;
+      return adminFetch(`/api/admin/exams/${exId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' })
+      });
+    });
+
+    await Promise.all(promises);
+    
+    showToast(`✅ Approved ${examsToApprove.length} exams for ${deptName}.`, 'success');
+    loadExamApprovals();
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
   }
 }
 
@@ -14288,7 +14380,7 @@ window.FPU_ADMIN = {
   loadTimetableIndex, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
 
   // Exams
-  loadExamsIndex, loadExamSheet,
+  loadExamsIndex, loadExamSheet, loadExamApprovals, approveDepartmentExams,
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance,

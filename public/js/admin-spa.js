@@ -253,6 +253,7 @@
     'exams-list':    { url: '/admin/partials/exams/list.html',                   title: 'Exam Schedules',  init: call('loadExams') },
     'exam-form':     { url: '/admin/partials/exams/form.html',                   title: 'New Exam',        init: () => {} },
     'exam-sheet':    { url: '/admin/partials/exams/sheet.html',                  title: 'Exam Sheet',      init: call('loadExamSheet') },
+        'timetable-approvals': { url: '/admin/partials/exams/approvals.html',        title: 'Timetable Approvals', init: call('loadExamApprovals') },
 
     'attendance':            { url: '/admin/partials/attendance/index.html',         title: 'Attendance',      init: call('loadAttendanceDepartments') },
     'attendance-by-dept':    { url: '/admin/partials/attendance/by-department.html', title: 'Department Attendance', init: call('loadDepartmentAttendance') },

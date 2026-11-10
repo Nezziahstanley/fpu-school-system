@@ -13846,20 +13846,17 @@ async function loadTimetableSheet() {
       // If the semester is "both" or "general", it applies to both
       if (cSem === 'both' || cSem === 'general') return true;
 
-      // Fallback: If no semester is set on the course, we use the course code parity 
-      // (e.g., COM 111 is odd, COM 114 is even). This is common in Poly systems.
+      // Fallback: If no semester is set on the course, use the code parity
       const code = String(c.code || '');
       const match = code.match(/(\d+)$/);
       if (match) {
         const lastDigit = parseInt(match[1].slice(-1), 10);
-        // If the digit is even, it's typically 2nd semester. If odd, 1st semester.
-        // EXCEPT if it's a general course like GNS.
         if (!code.toUpperCase().includes('GNS') && !code.toUpperCase().includes('ENT')) {
           if (lastDigit % 2 === 0 && semester === 'first') return false;
           if (lastDigit % 2 !== 0 && semester === 'second') return false;
         }
       }
-      return true; // Default to true if we can't determine
+      return true;
     };
 
     // Wire buttons
@@ -13905,27 +13902,6 @@ async function loadTimetableSheet() {
       }
     }
 
-    const levelsPresent = new Set();
-    allSlots.forEach(row => {
-      const s = row.slot || row;
-      const c = courseById.get(Number(s.courseId));
-      if (!c) return;
-      
-      // Only count courses that pass the strict semester check
-      if (!isCourseInSemester(c)) return;
-      
-      const lvl = String(c.level || 'ND').toUpperCase();
-      const yr = Number(c.yearOfStudy) || 1;
-      levelsPresent.add(`${lvl} ${yr}`);
-    });
-
-    const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
-    const tabsHtml = availableLevels.map(lvl => {
-      const isActive = lvl === selectedLevel;
-      const hasSlots = levelsPresent.has(lvl);
-      return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
-    }).join('');
-
     // STRICT FILTER: Only get slots for this specific level AND semester
     const filteredSlots = allSlots.filter(row => {
       const s = row.slot || row;
@@ -13936,11 +13912,26 @@ async function loadTimetableSheet() {
       const yr = Number(c.yearOfStudy) || 1;
       const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
       
-      // Apply strict semester check
       const isSemMatch = isCourseInSemester(c);
-
       return isLevelMatch && isSemMatch;
     });
+
+    const levelsPresent = new Set();
+    // Populate tabs based on available slots OR available courses
+    allCourses.forEach(c => {
+      if (isCourseInSemester(c)) {
+        const lvl = String(c.level || 'ND').toUpperCase();
+        const yr = Number(c.yearOfStudy) || 1;
+        levelsPresent.add(`${lvl} ${yr}`);
+      }
+    });
+
+    const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
+    const tabsHtml = availableLevels.map(lvl => {
+      const isActive = lvl === selectedLevel;
+      const hasSlots = levelsPresent.has(lvl);
+      return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
+    }).join('');
 
     const TIME_SLOTS = [
       { label: '8AM–9AM', hour: 8 }, { label: '9AM–10AM', hour: 9 },
@@ -13954,7 +13945,8 @@ async function loadTimetableSheet() {
     let grid = {};
     let uniqueCourses = [];
 
-    if (!filteredSlots.length) {
+    // FIX: If there are NO valid DB slots for this level/semester, force random generation
+    if (filteredSlots.length === 0) {
       // Find all courses for this specific level AND semester
       const levelCourses = allCourses.filter(c => {
         const lvl = String(c.level || 'ND').toUpperCase();

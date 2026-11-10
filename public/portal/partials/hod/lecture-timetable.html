@@ -8,7 +8,7 @@
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <button id="tt-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-      <button id="tt-add-slot" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ Add Slot</button>
+      <button id="tt-add-slot" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ Add Slots (Batch)</button>
       <button id="tt-submit" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;">📤 Submit for Approval</button>
     </div>
   </div>
@@ -80,68 +80,40 @@
 
 </div>
 
-<!-- Modal: Add Slot -->
+<!-- Modal: Batch Add Slots -->
 <div id="add-slot-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:550px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
-    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slot</h3>
+  <div style="background:#fff;border-radius:16px;max-width:1000px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;display:flex;flex-direction:column;">
+    
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div>
+        <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slots (Batch)</h3>
+        <p style="margin:4px 0 0;font-size:.75rem;color:#64748b;">Assign lecturers and venues to multiple courses at once.</p>
+      </div>
       <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
-    <div style="padding:1.25rem;">
-      
-      <!-- Level & Semester Filter -->
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Level <span style="color:#dc2626;">*</span></label>
-          <select id="slot-level-filter" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-            <option value="">Select Level</option>
-            <option value="ND 1">ND 1</option>
-            <option value="ND 2">ND 2</option>
-            <option value="HND 1">HND 1</option>
-            <option value="HND 2">HND 2</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester <span style="color:#dc2626;">*</span></label>
-          <select id="slot-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-            <option value="first">First Semester</option>
-            <option value="second">Second Semester</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Course -->
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course <span style="color:#dc2626;">*</span></label>
-        <select id="slot-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Select Level and Semester first</option>
+    
+    <!-- Filters (Sticky) -->
+    <div style="padding:1rem 1.4rem;border-bottom:1px solid #e5e7eb;background:#f8fafc;display:flex;gap:1rem;flex-shrink:0;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Level <span style="color:#dc2626;">*</span></label>
+        <select id="batch-level" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select Level</option>
+          <option value="ND 1">ND 1</option>
+          <option value="ND 2">ND 2</option>
+          <option value="HND 1">HND 1</option>
+          <option value="HND 2">HND 2</option>
         </select>
       </div>
-
-      <!-- Populated Course Info (Read Only) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Credit Unit</label>
-          <input type="text" id="slot-unit" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
-        </div>
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course Title</label>
-          <input type="text" id="slot-course-title" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
-        </div>
-      </div>
-
-      <!-- Lecturer -->
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Lecturer <span style="color:#dc2626;">*</span></label>
-        <select id="slot-lecturer" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Select Lecturer</option>
+      <div style="flex:1;min-width:120px;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester <span style="color:#dc2626;">*</span></label>
+        <select id="batch-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="first">First Semester</option>
+          <option value="second">Second Semester</option>
         </select>
       </div>
-
-      <!-- Day -->
-      <div style="margin-bottom:1rem;">
+      <div style="flex:1;min-width:120px;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Day <span style="color:#dc2626;">*</span></label>
-        <select id="slot-day" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
+        <select id="batch-day" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
           <option value="Monday">Monday</option>
           <option value="Tuesday">Tuesday</option>
           <option value="Wednesday">Wednesday</option>
@@ -150,39 +122,30 @@
           <option value="Saturday">Saturday</option>
         </select>
       </div>
+    </div>
 
-      <!-- Time (AM/PM forced by step="60") -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time <span style="color:#dc2626;">*</span></label>
-          <input type="time" id="slot-start" step="60" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="08:00" />
-        </div>
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">End Time <span style="color:#dc2626;">*</span></label>
-          <input type="time" id="slot-end" step="60" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" value="10:00" />
-        </div>
-      </div>
+    <!-- Course List -->
+    <div style="padding:1rem 1.4rem;overflow-y:auto;flex:1;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid #e2e8f0;text-align:left;">
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:40px;"><input type="checkbox" id="batch-select-all" style="cursor:pointer;width:16px;height:16px;" /></th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;">Course</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:180px;">Lecturer</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:120px;">Venue</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">Start Time</th>
+            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">End Time</th>
+          </tr>
+        </thead>
+        <tbody id="batch-course-list">
+          <tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-      <!-- Venue -->
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Venue</label>
-        <select id="slot-venue" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Select Venue</option>
-          <option value="LT1">LT1</option>
-          <option value="LT2">LT2</option>
-          <option value="LT3">LT3</option>
-          <option value="Main Hall">Main Hall</option>
-          <option value="Lab A">Lab A</option>
-          <option value="Lab B">Lab B</option>
-          <option value="CF103 A">CF103 A</option>
-          <option value="S/B - LH A">S/B - LH A</option>
-        </select>
-      </div>
-
-      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
-        <button id="add-slot-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
-        <button id="add-slot-save" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Slot</button>
-      </div>
+    <div style="padding:1rem 1.4rem;border-top:1px solid #e5e7eb;background:#f8fafc;display:flex;justify-content:flex-end;gap:.5rem;flex-shrink:0;">
+      <button id="add-slot-cancel" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Cancel</button>
+      <button id="batch-save-btn" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Save Selected Slots</button>
     </div>
   </div>
 </div>
@@ -214,44 +177,32 @@
     try {
       const res = await core.portalFetch('/api/hod/sessions');
       const sessions = Array.isArray(res) ? res : (res.data || []);
-      
       const sel = $('tt-session');
       if (!sel) return;
       const current = sessions.find(s => s.isCurrent);
-      sel.innerHTML = sessions.map(s => 
-        `<option value="${s.id}" ${s.id === (current?.id) ? 'selected' : ''}>${esc(s.name)}</option>`
-      ).join('');
+      sel.innerHTML = sessions.map(s => `<option value="${s.id}" ${s.id === (current?.id) ? 'selected' : ''}>${esc(s.name)}</option>`).join('');
       if (current) sel.value = current.id;
-    } catch (err) {
-      console.error('Could not load sessions:', err);
-    }
+    } catch (err) { console.error('Could not load sessions:', err); }
   }
 
   async function loadCourses() {
     try {
       const res = await core.portalFetch('/api/hod/courses');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] Loaded Courses:', ALL_COURSES);
-    } catch (err) {
-      console.error('Could not load courses:', err);
-    }
+    } catch (err) { console.error('Could not load courses:', err); }
   }
 
   async function loadLecturers() {
     try {
       const res = await core.portalFetch('/api/hod/lecturers'); 
       ALL_LECTURERS = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] Loaded Lecturers:', ALL_LECTURERS);
-    } catch (err) {
-      console.error('Could not load lecturers:', err);
-    }
+    } catch (err) { console.error('Could not load lecturers:', err); }
   }
 
   async function load() {
     const tbody = $('tt-tbody');
     const sessionId = $('tt-session')?.value;
     const semester = $('tt-semester')?.value || 'first';
-
     if (!sessionId) return;
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
@@ -275,7 +226,7 @@
       $('tt-count').textContent = counts.total;
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester. Click "+ Add Slot" to start building your timetable.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester.</td></tr>';
         return;
       }
 
@@ -323,38 +274,29 @@
     }
   }
 
-  // Filter logic using Level and Semester
-  function filterCourses() {
-    const selectedLevel = $('slot-level-filter').value; // e.g. "ND 1"
-    const selectedSemester = $('slot-semester').value; // e.g. "first"
-    const courseSelect = $('slot-course');
-    
-    // Reset inputs
-    $('slot-unit').value = '';
-    $('slot-course-title').value = '';
+  // Function to load the batch table based on filters
+  function loadBatchTable() {
+    const selectedLevel = $('batch-level').value;
+    const selectedSemester = $('batch-semester').value;
+    const tbody = $('batch-course-list');
 
     if (!selectedLevel) {
-      courseSelect.innerHTML = '<option value="">Select Level and Semester first</option>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
       return;
     }
 
-    // Split selectedLevel into targetLevel ("ND") and targetYear ("1")
     const parts = selectedLevel.split(' ');
     const targetLevel = parts[0];
     const targetYear = parts[1];
 
-    // Filter based on Level AND Semester
     const filtered = ALL_COURSES.filter(c => {
-      // 1. Match Level
       const dbLevel = String(c.level || '').toUpperCase();
       const levelMatch = dbLevel === targetLevel;
 
-      // 2. Match Year (Check both camelCase and snake_case)
       const rawYear = c.yearOfStudy !== undefined ? c.yearOfStudy : c.year_of_study;
       const dbYear = String(rawYear || '1');
       const yearMatch = dbYear === targetYear;
 
-      // 3. Match Semester (Check both camelCase and snake_case)
       const rawSem = c.semesterName !== undefined ? c.semesterName : c.semester_name;
       const dbSem = String(rawSem || '').toLowerCase().trim();
       
@@ -366,24 +308,61 @@
     });
 
     if (!filtered.length) {
-      courseSelect.innerHTML = '<option value="">No courses found for this selection</option>';
-      console.log(`[DEBUG] Filtered 0 results out of ${ALL_COURSES.length}. Looking for Level: "${targetLevel}", Year: "${targetYear}", Semester: "${selectedSemester}"`);
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
       return;
     }
 
-    courseSelect.innerHTML = '<option value="">Select a course</option>' + 
-      filtered.map(c => `<option value="${c.id}" data-unit="${c.unit}" data-title="${esc(c.title)}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+    // Populate table rows
+    tbody.innerHTML = filtered.map(c => {
+      const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+      
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
+          <td style="padding:8px;"><input type="checkbox" class="batch-checkbox" data-id="${c.id}" style="cursor:pointer;width:16px;height:16px;" /></td>
+          <td style="padding:8px;">
+            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(c.code)}</div>
+            <div style="font-size:11px;color:#64748b;">${esc(c.title)}</div>
+          </td>
+          <td style="padding:8px;">
+            <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+              <option value="">Select</option>
+              ${lectOptions}
+            </select>
+          </td>
+          <td style="padding:8px;">
+            <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+              <option value="">Select</option>
+              <option value="LT1">LT1</option>
+              <option value="LT2">LT2</option>
+              <option value="LT3">LT3</option>
+              <option value="Main Hall">Main Hall</option>
+              <option value="Lab A">Lab A</option>
+              <option value="Lab B">Lab B</option>
+              <option value="CF103 A">CF103 A</option>
+              <option value="S/B - LH A">S/B - LH A</option>
+            </select>
+          </td>
+          <td style="padding:8px;">
+            <input type="time" class="batch-start form-control" step="60" value="08:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />
+          </td>
+          <td style="padding:8px;">
+            <input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 
-  // Open Add Slot Modal
+  // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    $('slot-semester').value = $('tt-semester').value || 'first';
-    $('slot-level-filter').value = ''; // Reset level
-    $('slot-course').innerHTML = '<option value="">Select Level and Semester first</option>';
-    $('slot-unit').value = '';
-    $('slot-course-title').value = '';
+    // Reset UI
+    $('batch-level').value = '';
+    $('batch-semester').value = $('tt-semester').value || 'first';
+    $('batch-day').value = 'Monday';
+    $('batch-course-list').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
+    $('batch-select-all').checked = false;
 
     const btn = $('tt-add-slot');
     const originalText = btn.textContent;
@@ -393,84 +372,87 @@
     if (!ALL_COURSES.length) await loadCourses();
     if (!ALL_LECTURERS.length) await loadLecturers();
     
-    // Populate Lecturers
-    const lectSelect = $('slot-lecturer');
-    lectSelect.innerHTML = '<option value="">Select Lecturer</option>' + 
-      ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+    // Auto-load if level is pre-selected (not in this case, but good practice)
+    if ($('batch-level').value) loadBatchTable();
 
     btn.textContent = originalText;
     btn.disabled = false;
   });
 
-  // Trigger filter when Level or Semester changes
-  $('slot-level-filter')?.addEventListener('change', filterCourses);
-  $('slot-semester')?.addEventListener('change', filterCourses);
+  // Trigger table load when Level or Semester changes in batch mode
+  $('batch-level')?.addEventListener('change', loadBatchTable);
+  $('batch-semester')?.addEventListener('change', loadBatchTable);
 
-  // Populate Unit and Title when Course changes
-  $('slot-course')?.addEventListener('change', function() {
-    const selected = this.options[this.selectedIndex];
-    if (selected && selected.value) {
-      $('slot-unit').value = selected.dataset.unit || '0';
-      $('slot-course-title').value = selected.dataset.title || '';
-    } else {
-      $('slot-unit').value = '';
-      $('slot-course-title').value = '';
-    }
+  // Select All logic
+  $('batch-select-all')?.addEventListener('change', function() {
+    const isChecked = this.checked;
+    document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
   });
 
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
-  // Save Slot
-  $('add-slot-save')?.addEventListener('click', async () => {
-    const courseId = $('slot-course').value;
-    const lecturerId = $('slot-lecturer').value;
-    const dayOfWeek = $('slot-day').value;
-    const startTime = $('slot-start').value;
-    const endTime = $('slot-end').value;
-    const venue = $('slot-venue').value;
-    const sessionId = $('tt-session').value;
-    const semester = $('slot-semester').value;
+  // Save Batch Slots
+  $('batch-save-btn')?.addEventListener('click', async () => {
+    const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
+      return row.querySelector('.batch-checkbox').checked;
+    });
 
-    if (!courseId || !startTime || !endTime) {
-      core.showToast('Please fill in Course, Start Time, and End Time.', 'warning');
+    if (selectedRows.length === 0) {
+      core.showToast('Please select at least one course.', 'warning');
       return;
     }
 
-    const btn = $('add-slot-save');
+    const dayOfWeek = $('batch-day').value;
+    const sessionId = $('tt-session').value;
+    const semester = $('batch-semester').value;
+
+    const btn = $('batch-save-btn');
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    try {
-      await core.portalFetch('/api/hod/timetable', {
-        method: 'POST',
-        body: { 
-          courseId: Number(courseId), 
-          lecturerId: lecturerId ? Number(lecturerId) : null,
-          sessionId: Number(sessionId), 
-          semester, 
-          dayOfWeek, 
-          startTime, 
-          endTime, 
-          venue 
-        }
-      });
-      core.showToast('✅ Slot added successfully.', 'success');
-      $('add-slot-modal').style.display = 'none';
-      
-      // Reset form
-      $('slot-course').innerHTML = '<option value="">Select Level and Semester first</option>';
-      $('slot-unit').value = '';
-      $('slot-course-title').value = '';
-      $('slot-level-filter').value = '';
-      
-      load();
-    } catch (err) {
-      core.showToast('❌ ' + err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save Slot';
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const row of selectedRows) {
+      const courseId = row.querySelector('.batch-checkbox').dataset.id;
+      const lecturerId = row.querySelector('.batch-lecturer').value;
+      const venue = row.querySelector('.batch-venue').value;
+      const startTime = row.querySelector('.batch-start').value;
+      const endTime = row.querySelector('.batch-end').value;
+
+      if (!startTime || !endTime) {
+        errorCount++;
+        continue;
+      }
+
+      try {
+        await core.portalFetch('/api/hod/timetable', {
+          method: 'POST',
+          body: { 
+            courseId: Number(courseId), 
+            lecturerId: lecturerId ? Number(lecturerId) : null,
+            sessionId: Number(sessionId), 
+            semester, 
+            dayOfWeek, 
+            startTime, 
+            endTime, 
+            venue 
+          }
+        });
+        successCount++;
+      } catch (err) {
+        errorCount++;
+        console.error('Failed to save slot for course', courseId, err);
+      }
     }
+
+    core.showToast(`✅ Saved ${successCount} slot(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
+    $('add-slot-modal').style.display = 'none';
+    load(); // Refresh main table
+
+    btn.disabled = false;
+    btn.textContent = 'Save Selected Slots';
   });
 
   // Custom Confirm Submit

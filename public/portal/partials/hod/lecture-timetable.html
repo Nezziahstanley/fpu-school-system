@@ -203,11 +203,18 @@
 
   async function loadAllocations() {
     try {
-      // Fetch directly from the allocations endpoint
-      const res = await core.portalFetch('/api/hod/allocations');
-      ALL_ALLOCATIONS = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] Loaded Allocations:', ALL_ALLOCATIONS);
-    } catch (err) { console.error('Could not load allocations:', err); }
+      const sessionId = $('tt-session')?.value;
+      const semester = $('tt-semester')?.value || 'first';
+      
+      // Fetch from the timetable endpoint, which includes allocations
+      const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
+      const data = Array.isArray(res) ? res : (res.data || []);
+      
+      ALL_ALLOCATIONS = data;
+      console.log('[DEBUG] Loaded Allocations from DB:', ALL_ALLOCATIONS);
+    } catch (err) {
+      console.error('Could not load allocations:', err);
+    }
   }
 
   async function loadSlots() {
@@ -338,28 +345,28 @@
         return String(slot.courseId) === String(c.id);
       });
 
-      // 2. Check for lecturer allocation from the course_allocations table
+      // 2. Check for allocated lecturer (we look for the lecturer object in the response)
       const allocated = ALL_ALLOCATIONS.find(a => {
-        const alloc = a.allocation || a;
-        return String(alloc.courseId) === String(c.id);
+        const courseId = a.courseId || (a.course && a.course.id) || (a.allocation && a.allocation.courseId);
+        return String(courseId) === String(c.id);
       });
 
       let lecturerHtml = '';
       let isLocked = false;
 
-      // If it has a timetable slot with a lecturer assigned
-      if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.id) {
+      let dbLecturerName = null;
+      if (allocated && allocated.lecturer && allocated.lecturer.firstName) {
+        dbLecturerName = `${allocated.lecturer.firstName} ${allocated.lecturer.lastName}`;
+      }
+
+      if (dbLecturerName) {
+        isLocked = true;
+        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(dbLecturerName)}</div>`;
+      } else if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.firstName) {
         isLocked = true;
         const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
-      } 
-      // If it is allocated in the course_allocations table
-      else if (allocated && allocated.lecturer) {
-        isLocked = true;
-        const lectName = `${allocated.lecturer.firstName} ${allocated.lecturer.lastName}`;
-        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
       } else {
-        // Unassigned - allow HOD to select
         const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
         lecturerHtml = `
           <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
@@ -428,7 +435,6 @@
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
-    // Fetch Courses, Lecturers, Allocations, and Current Slots
     await Promise.all([
       ALL_COURSES.length ? Promise.resolve() : loadCourses(),
       ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
@@ -440,11 +446,9 @@
     btn.disabled = false;
   });
 
-  // Trigger table load when Level or Semester changes in batch mode
   $('batch-level')?.addEventListener('change', loadBatchTable);
   $('batch-semester')?.addEventListener('change', loadBatchTable);
 
-  // Select All logic
   $('batch-select-all')?.addEventListener('change', function() {
     const isChecked = this.checked;
     document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
@@ -453,7 +457,6 @@
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
-  // Save Batch Slots
   $('batch-save-btn')?.addEventListener('click', async () => {
     const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
       const cb = row.querySelector('.batch-checkbox');
@@ -480,7 +483,6 @@
       const cb = row.querySelector('.batch-checkbox');
       const courseId = Number(cb.dataset.id);
       
-      // Read from the dropdown
       const lecturerSelect = row.querySelector('.batch-lecturer');
       const lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
       

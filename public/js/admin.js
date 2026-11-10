@@ -13788,7 +13788,7 @@ async function approveDepartmentExams(deptId) {
 }
 
 // ============================================
-// TIMETABLE — By Department (A4 Sheet)
+// TIMETABLE — By Department (Grid A4 Sheet)
 // ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
@@ -13815,20 +13815,27 @@ async function loadTimetableSheet() {
   root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading timetable…</div>';
 
   try {
-    const [slotsRes, deptRes, schoolsRes] = await Promise.all([
+    const [slotsRes, deptRes, schoolsRes, coursesRes, sessionsRes] = await Promise.all([
       adminFetch(`/api/admin/timetable?departmentId=${departmentId}&sessionId=${sessionId}&semester=${semester}&limit=2000`),
       adminFetch(`/api/admin/departments`),
       adminFetch('/api/admin/schools'),
+      adminFetch(`/api/admin/courses?departmentId=${departmentId}&limit=500`),
+      adminFetch('/api/admin/sessions'),
     ]);
 
     const slots = (await slotsRes.json()).data || [];
     const depts = (await deptRes.json()).data || [];
     const schools = (await schoolsRes.json()).data || [];
+    const allCourses = (await coursesRes.json()).data || [];
+    const allSessions = (await sessionsRes.json()).data || [];
 
     const dept = depts.find(d => Number(d.id) === Number(departmentId)) || { name: deptName };
     const school = schools.find(s => Number(s.id) === Number(dept.schoolId)) || {};
+    const currentSession = allSessions.find(s => String(s.id) === String(sessionId)) 
+      || allSessions.find(s => s.isCurrent) 
+      || { name: '2025/2026' };
 
-    // Counts by status
+    // Counts
     let draftCount = 0, pendingCount = 0, approvedCount = 0;
     slots.forEach(row => {
       const s = row.slot || row;
@@ -13838,14 +13845,14 @@ async function loadTimetableSheet() {
       else if (st === 'approved') approvedCount++;
     });
 
-    // Wire top buttons
+    // Wire buttons
     const printBtn = document.getElementById('tsheet-print');
     if (printBtn) printBtn.onclick = () => window.print();
 
     const exportBtn = document.getElementById('tsheet-export');
     if (exportBtn) {
       exportBtn.onclick = () => {
-        const table = root.querySelector('.tt-table');
+        const table = root.querySelector('.tt-grid-table');
         if (table) exportTableAsCSV(table, `${deptName}-timetable.csv`);
         else showToast('⚠️ No table to export.', 'warning');
       };
@@ -13856,7 +13863,6 @@ async function loadTimetableSheet() {
       addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId });
     }
 
-    // Approve button — only if there are pending slots
     const approveBtn = document.getElementById('tsheet-approve');
     if (approveBtn) {
       if (pendingCount > 0) {
@@ -13868,99 +13874,163 @@ async function loadTimetableSheet() {
       }
     }
 
-    // Empty state
     if (!slots.length) {
-      root.innerHTML = `
-        <div class="tt-sheet">
-          <div class="tt-head">
-            <div class="tt-head-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>
-            <div class="tt-head-text">
-              <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
-              <div class="school">${escapeHtml(school.name || '')}</div>
-              <div class="dept">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
-              <div class="session-line">${escapeHtml(semester.toUpperCase())} SEMESTER TIMETABLE</div>
-            </div>
-          </div>
-          <div class="tt-empty">No timetable slots have been created for this department yet.</div>
-        </div>
-      `;
+      root.innerHTML = buildEmptyTimetableSheet(school, dept, semester, currentSession);
       return;
     }
 
-    // Group by day
-    const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const byDay = new Map();
-    DAY_ORDER.forEach(d => byDay.set(d, []));
+    // ---- Build the timetable ----
+    // Determine level (ND1, ND2, HND1, HND2) from courses
+    const levelCounts = {};
+    allCourses.forEach(c => {
+      const lvl = String(c.level || 'ND').toUpperCase();
+      const yr = Number(c.yearOfStudy) || 1;
+      const key = `${lvl} ${yr}`;
+      levelCounts[key] = (levelCounts[key] || 0) + 1;
+    });
+    const primaryLevel = Object.entries(levelCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'ND 1';
+
+    // Time slots (in hours 8 to 16)
+    const TIME_SLOTS = [
+      { label: '8AM–9AM', start: 8, end: 9 },
+      { label: '9AM–10AM', start: 9, end: 10 },
+      { label: '10AM–11AM', start: 10, end: 11 },
+      { label: '11AM–12PM', start: 11, end: 12 },
+      { label: '12PM–1PM', start: 12, end: 13, isBreak: true },
+      { label: '1PM–2PM', start: 13, end: 14 },
+      { label: '2PM–3PM', start: 14, end: 15 },
+      { label: '3PM–4PM', start: 15, end: 16 },
+    ];
+    const DAYS = ['MON', 'TUE', 'WED', 'THURS', 'FRI'];
+
+    // Index: slotsByDayHour[day][hour] = [{ course, slot }]
+    const grid = {};
+    DAYS.forEach(d => {
+      grid[d] = {};
+      TIME_SLOTS.forEach(t => { grid[d][t.start] = []; });
+    });
 
     slots.forEach(row => {
       const s = row.slot || row;
       const c = row.course || {};
-      const l = row.lecturer || {};
-      const day = s.dayOfWeek || 'Monday';
-      if (!byDay.has(day)) byDay.set(day, []);
-      byDay.get(day).push({ slot: s, course: c, lecturer: l });
-    });
+      const day = String(s.dayOfWeek || '').substring(0, 3).toUpperCase();
+      const dayMap = { MON: 'MON', TUE: 'TUE', WED: 'WED', THU: 'THURS', FRI: 'FRI' };
+      const dayKey = dayMap[day] || day;
+      if (!grid[dayKey]) return;
 
-    // Sort by start time within each day
-    byDay.forEach(list => {
-      list.sort((a, b) => String(a.slot.startTime || '').localeCompare(String(b.slot.startTime || '')));
-    });
-
-    let tableRows = '';
-    byDay.forEach((list, day) => {
-      if (!list.length) return;
-      list.forEach((item, idx) => {
-        const s = item.slot;
-        const c = item.course;
-        const l = item.lecturer;
-        const start = (s.startTime || '').slice(0, 5);
-        const end = (s.endTime || '').slice(0, 5);
-        const lecturerName = `${l.firstName || ''} ${l.lastName || ''}`.trim() || '—';
-
-        tableRows += `<tr>`;
-        if (idx === 0) {
-          tableRows += `<td class="day-cell" rowspan="${list.length}">${escapeHtml(day.slice(0, 3).toUpperCase())}</td>`;
+      const startH = parseInt(String(s.startTime || '08:00').split(':')[0], 10);
+      const endH = parseInt(String(s.endTime || '09:00').split(':')[0], 10);
+      
+      // Find the time slot that starts at or before startH
+      for (let h = startH; h < endH; h++) {
+        if (grid[dayKey][h]) {
+          grid[dayKey][h].push({ course: c, slot: s });
         }
-        tableRows += `
-          <td class="col-code">${escapeHtml(c.code || '')}</td>
-          <td class="col-cu">${Number(c.unit) || 0}</td>
-          <td class="col-title">${escapeHtml(c.title || '')}</td>
-          <td class="col-time">${escapeHtml(start)} – ${escapeHtml(end)}</td>
-          <td class="col-lecturer">${escapeHtml(lecturerName)}</td>
-          <td class="col-venue">${escapeHtml(s.venue || '—')}</td>
-        </tr>`;
-      });
+      }
     });
 
+    // Render the grid
+    let gridRowsHtml = '';
+    DAYS.forEach(day => {
+      gridRowsHtml += `<tr><td class="tt-day">${day}</td>`;
+      
+      TIME_SLOTS.forEach(t => {
+        if (t.isBreak) {
+          if (day === 'MON') {
+            gridRowsHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
+          }
+          return;
+        }
+        const items = grid[day][t.start] || [];
+        const isEmpty = items.length === 0;
+        const cellContent = isEmpty ? '' : items.map(i => {
+          const code = i.course.code || '';
+          const timeLabel = `${parseInt(String(i.slot.startTime || '08:00').split(':')[0], 10)}-${parseInt(String(i.slot.endTime || '09:00').split(':')[0], 10)}am`;
+          return `${escapeHtml(code)}${isEmpty ? '' : ''}`;
+        }).filter(Boolean).join(' / ');
+        gridRowsHtml += `<td class="tt-cell ${isEmpty ? 'empty' : ''}">${cellContent}</td>`;
+      });
+      gridRowsHtml += `</tr>`;
+    });
+
+    // Footer course detail table
+    const seenCourses = new Set();
+    const uniqueCourses = [];
+    slots.forEach(row => {
+      const c = row.course || {};
+      if (!c.id || seenCourses.has(c.id)) return;
+      seenCourses.add(c.id);
+      uniqueCourses.push(c);
+    });
+    uniqueCourses.sort((a, b) => String(a.code || '').localeCompare(String(b.code || '')));
+
+    const courseDetailRows = uniqueCourses.map(c => {
+      // Find lecturer from first slot with this course
+      const slotRow = slots.find(r => (r.course || {}).id === c.id);
+      const lecturer = slotRow?.lecturer || {};
+      const lecturerName = `${lecturer.firstName || ''} ${lecturer.lastName || ''}`.trim() || '—';
+      const venue = slotRow?.slot?.venue || '—';
+      return `
+        <tr>
+          <td class="cd-code">${escapeHtml(c.code || '')}</td>
+          <td class="cd-title">${escapeHtml(c.title || '')}</td>
+          <td class="cd-cu">${Number(c.unit) || 0}</td>
+          <td class="cd-hall">${escapeHtml(venue)}</td>
+          <td class="cd-lect">${escapeHtml(lecturerName)}</td>
+        </tr>`;
+    }).join('');
+
+    // Full sheet
     root.innerHTML = `
-      <div class="tt-sheet">
-        <div class="tt-head">
-          <div class="tt-head-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>
-          <div class="tt-head-text">
-            <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
-            <div class="school">${escapeHtml(school.name || '')}</div>
-            <div class="dept">DEPARTMENT OF ${escapeHtml(dept.name.toUpperCase())}</div>
-            <div class="session-line">${escapeHtml(semester.toUpperCase())} SEMESTER LECTURE TIMETABLE</div>
+      <div class="tt-grid-sheet">
+        <div class="tt-grid-head">
+          <div class="tt-grid-logo">
+            <img src="/images/logo.png" onerror="this.style.display='none'">
           </div>
+          <div class="tt-grid-head-text">
+            <div class="h1">FEDERAL POLYTECHNIC UGEP,</div>
+            <div class="h2">${escapeHtml(school.name || '')}</div>
+            <div class="h2">DEPARTMENT OF ${escapeHtml(String(dept.name).toUpperCase())}</div>
+            <div class="h3">${escapeHtml(primaryLevel)} FULL TIME ${semester.toUpperCase() === 'FIRST' ? 'SEMESTER ONE (1)' : 'SEMESTER TWO (2)'} LECTURES TIME TABLE</div>
+            <div class="h4">${escapeHtml(currentSession.name)} SESSION</div>
+          </div>
+          <div class="tt-grid-level">${escapeHtml(primaryLevel).replace(' ', ' ')}</div>
         </div>
-        <table class="tt-table">
+
+        <table class="tt-grid-table">
           <thead>
             <tr>
-              <th>DAY</th>
-              <th>CODE</th>
-              <th>CU</th>
-              <th>COURSE TITLE</th>
-              <th>TIME</th>
-              <th>LECTURER</th>
-              <th>VENUE</th>
+              <th class="tt-days-h">DAYS/TIME</th>
+              ${TIME_SLOTS.map(t => t.isBreak ? '' : `<th class="tt-time-h">${t.label}</th>`).join('')}
             </tr>
           </thead>
-          <tbody>${tableRows}</tbody>
+          <tbody>
+            ${gridRowsHtml}
+          </tbody>
         </table>
-        <div class="tt-signature">
-          <div class="tt-signature-block">
-            <div class="name">HOD, ${escapeHtml(dept.name)}</div>
-            <div class="role">Head of Department</div>
+
+        <div style="height: 8mm;"></div>
+
+        <table class="tt-courses-table">
+          <thead>
+            <tr>
+              <th class="cd-code-h">COURSES CODE</th>
+              <th class="cd-title-h">COURSE TITLE</th>
+              <th class="cd-cu-h">COURSE UNIT</th>
+              <th class="cd-hall-h">LECTURE HALL</th>
+              <th class="cd-lect-h">COURSE LECTURER(S)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${courseDetailRows}
+          </tbody>
+        </table>
+
+        <div class="tt-grid-footer">
+          <div class="tt-grid-sign">
+            <div class="sign-label">Signed:</div>
+            <div class="sign-name">C'lp Martin Omini Arikpo</div>
+            <div class="sign-role">HOD, ${escapeHtml(dept.name)}</div>
           </div>
         </div>
       </div>
@@ -13970,6 +14040,26 @@ async function loadTimetableSheet() {
     console.error('Failed to load timetable sheet:', err);
     root.innerHTML = `<div class="alert alert-danger">Failed to load: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+function buildEmptyTimetableSheet(school, dept, semester, session) {
+  return `
+    <div class="tt-grid-sheet">
+      <div class="tt-grid-head">
+        <div class="tt-grid-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>
+        <div class="tt-grid-head-text">
+          <div class="h1">FEDERAL POLYTECHNIC UGEP,</div>
+          <div class="h2">${escapeHtml(school.name || '')}</div>
+          <div class="h2">DEPARTMENT OF ${escapeHtml(String(dept.name).toUpperCase())}</div>
+          <div class="h3">${semester.toUpperCase()} SEMESTER LECTURE TIMETABLE</div>
+          <div class="h4">${escapeHtml(session.name || '')} SESSION</div>
+        </div>
+      </div>
+      <div style="padding: 40mm 10mm; text-align: center; color: #64748b; font-size: 11pt;">
+        No timetable slots have been created for this department yet.
+      </div>
+    </div>
+  `;
 }
 
 async function approveDepartmentTimetable(departmentId, deptName) {

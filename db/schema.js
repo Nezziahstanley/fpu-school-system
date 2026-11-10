@@ -490,6 +490,7 @@ const timetableSlots = pgTable('timetable_slots', {
   startTime: time('start_time').notNull(),
   endTime: time('end_time').notNull(),
   venue: varchar('venue', { length: 120 }),
+  status: varchar('status', { length: 20 }).notNull().default('draft'), // ADDED
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   courseIdx: index('idx_timetable_course').on(t.courseId),

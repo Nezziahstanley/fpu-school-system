@@ -325,8 +325,8 @@
 
   // Filter logic using Level and Semester
   function filterCourses() {
-    const selectedLevel = $('slot-level-filter').value;
-    const selectedSemester = $('slot-semester').value;
+    const selectedLevel = $('slot-level-filter').value; // e.g. "ND 1"
+    const selectedSemester = $('slot-semester').value; // e.g. "first"
     const courseSelect = $('slot-course');
     
     // Reset inputs
@@ -338,22 +338,34 @@
       return;
     }
 
+    // Split selectedLevel into targetLevel ("ND") and targetYear ("1")
+    const parts = selectedLevel.split(' ');
+    const targetLevel = parts[0];
+    const targetYear = parts[1];
+
     // Filter based on Level AND Semester
     const filtered = ALL_COURSES.filter(c => {
-      const cLevel = `${String(c.level || 'ND').toUpperCase()} ${Number(c.year_of_study || c.yearOfStudy) || 1}`;
-      const cSem = String(c.semester_name || c.semester || '').toLowerCase().trim();
+      // 1. Match Level (e.g. "ND" === "ND")
+      const dbLevel = String(c.level || '').toUpperCase();
+      const levelMatch = dbLevel === targetLevel;
 
-      const levelMatch = cLevel === selectedLevel;
+      // 2. Match Year (convert both to string to avoid "1" vs 1 issues)
+      const dbYear = String(c.year_of_study || c.yearOfStudy || '1');
+      const yearMatch = dbYear === targetYear;
+
+      // 3. Match Semester
+      const dbSem = String(c.semester_name || c.semester || '').toLowerCase().trim();
       
       let semMatch = false;
-      if (selectedSemester === 'first') semMatch = (cSem === 'first' || cSem === '1');
-      if (selectedSemester === 'second') semMatch = (cSem === 'second' || cSem === '2');
+      if (selectedSemester === 'first') semMatch = (dbSem === 'first' || dbSem === '1');
+      if (selectedSemester === 'second') semMatch = (dbSem === 'second' || dbSem === '2');
 
-      return levelMatch && semMatch;
+      return levelMatch && yearMatch && semMatch;
     });
 
     if (!filtered.length) {
       courseSelect.innerHTML = '<option value="">No courses found for this selection</option>';
+      console.log(`[DEBUG] Filtered 0 results out of ${ALL_COURSES.length}. Looking for Level: "${targetLevel}", Year: "${targetYear}", Semester: "${selectedSemester}"`);
       return;
     }
 

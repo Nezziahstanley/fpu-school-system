@@ -14,10 +14,13 @@ const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
+// ============================================
+// GET / — List slots (with department filter)
+// ============================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const { courseId, lecturerId, sessionId, semester, dayOfWeek } = req.query;
-    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek });
+    const { courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId } = req.query;
+    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId });
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -64,6 +67,12 @@ router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer', 'hod']
     if (!existing) return res.status(404).json({ success: false, error: 'Slot not found.' });
     const patch = { ...req.body };
     delete patch.id;
+
+    const validStatuses = ['draft', 'pending', 'approved'];
+    if (patch.status && !validStatuses.includes(patch.status)) {
+      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    }
+
     const row = await ttQueries.update(existing.id, patch);
     await logAudit({ req, action: 'timetable.update', entity: 'timetable_slot', entityId: existing.id, before: existing, after: row });
     return res.json({ success: true, data: row });
@@ -85,7 +94,37 @@ router.delete('/:id', requireRole(['admin', 'registrar', 'hod']), async (req, re
 });
 
 // ============================================
-// Admin: Approve All Pending Slots for a Dept
+// HOD: Submit all their drafts for approval
+// POST /api/admin/timetable/submit
+// Body: { departmentId, sessionId, semester }
+// ============================================
+router.post('/submit', requireRole(['hod', 'admin']), async (req, res, next) => {
+  try {
+    const { departmentId, sessionId, semester } = req.body || {};
+    if (!departmentId || !sessionId || !semester) {
+      return res.status(400).json({ success: false, error: 'departmentId, sessionId, semester are required.' });
+    }
+
+    const count = await ttQueries.submitDraftsForApproval(Number(departmentId), Number(sessionId), semester);
+
+    await logAudit({
+      req,
+      action: 'timetable.submit',
+      entity: 'timetable_slots',
+      entityId: departmentId,
+      after: { departmentId, submittedCount: count },
+    });
+
+    return res.json({ success: true, message: `Submitted ${count} slot(s) for approval.`, count });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ============================================
+// Admin: Approve all pending slots for a dept
+// POST /api/admin/timetable/approve
+// Body: { departmentId }
 // ============================================
 router.post('/approve', requireRole(['admin', 'registrar']), async (req, res, next) => {
   try {

@@ -15,31 +15,30 @@ async function findById(id) {
   return row || null;
 }
 
-async function list({ courseId, lecturerId, sessionId, semester, dayOfWeek } = {}) {
+async function list({ courseId, lecturerId, sessionId, semester, dayOfWeek, status } = {}) {
   const conds = [];
   if (courseId) conds.push(eq(timetableSlots.courseId, Number(courseId)));
   if (lecturerId) conds.push(eq(timetableSlots.lecturerId, Number(lecturerId)));
   if (sessionId) conds.push(eq(timetableSlots.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(timetableSlots.semester, semester));
   if (dayOfWeek) conds.push(eq(timetableSlots.dayOfWeek, dayOfWeek));
+  if (status) conds.push(eq(timetableSlots.status, status));
   const where = conds.length ? and(...conds) : undefined;
   return db.select().from(timetableSlots).where(where).orderBy(asc(timetableSlots.dayOfWeek), asc(timetableSlots.startTime));
 }
 
-async function listWithRelations({ sessionId, semester, lecturerId, courseId } = {}) {
+async function listWithRelations({ sessionId, semester, lecturerId, courseId, departmentId } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(timetableSlots.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(timetableSlots.semester, semester));
   if (lecturerId) conds.push(eq(timetableSlots.lecturerId, Number(lecturerId)));
   if (courseId) conds.push(eq(timetableSlots.courseId, Number(courseId)));
+  if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
   const where = conds.length ? and(...conds) : undefined;
 
   return db
     .select({
-      slot: {
-        ...timetableSlots,
-        status: timetableSlots.status // Force Drizzle to return status explicitly
-      },
+      slot: timetableSlots,  // status is included automatically
       course: courses,
       lecturer: users,
     })
@@ -78,15 +77,18 @@ async function create(data) {
     startTime: data.startTime,
     endTime: data.endTime,
     venue: data.venue || null,
-    status: 'draft'
+    status: data.status || 'draft',
   }).returning();
   return row;
 }
 
 async function update(id, data) {
-  const patch = { ...data };
-  delete patch.id;
-  const [row] = await db.update(timetableSlots).set(patch).where(eq(timetableSlots.id, Number(id))).returning();
+  const allowed = ['courseId', 'lecturerId', 'sessionId', 'semester', 'dayOfWeek', 'startTime', 'endTime', 'venue', 'status'];
+  const clean = {};
+  for (const k of allowed) {
+    if (data[k] !== undefined) clean[k] = data[k];
+  }
+  const [row] = await db.update(timetableSlots).set(clean).where(eq(timetableSlots.id, Number(id))).returning();
   return row || null;
 }
 
@@ -175,7 +177,7 @@ async function bulkUpsert(rows) {
 }
 
 // ============================================
-// Bulk Approve Timetable for a Department
+// Admin: Bulk Approve Pending Slots for a Department
 // ============================================
 async function approvePendingByDept(departmentId) {
   const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
@@ -195,7 +197,7 @@ async function approvePendingByDept(departmentId) {
 }
 
 // ============================================
-// HOD: Submit Drafts for Approval (Raw SQL Fix)
+// HOD: Submit Drafts for Approval
 // ============================================
 async function submitDraftsForApproval(departmentId, sessionId, semester) {
   try {

@@ -89,32 +89,44 @@
     </div>
     <div style="padding:1.25rem;">
       
-      <!-- Semester Filter -->
-      <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester <span style="color:#dc2626;">*</span></label>
-        <select id="slot-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="first">First Semester</option>
-          <option value="second">Second Semester</option>
-        </select>
+      <!-- Level & Semester Filter -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Level <span style="color:#dc2626;">*</span></label>
+          <select id="slot-level-filter" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="">Select Level</option>
+            <option value="ND 1">ND 1</option>
+            <option value="ND 2">ND 2</option>
+            <option value="HND 1">HND 1</option>
+            <option value="HND 2">HND 2</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester <span style="color:#dc2626;">*</span></label>
+          <select id="slot-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+            <option value="first">First Semester</option>
+            <option value="second">Second Semester</option>
+          </select>
+        </div>
       </div>
 
       <!-- Course -->
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course <span style="color:#dc2626;">*</span></label>
         <select id="slot-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Select a course</option>
+          <option value="">Select Level and Semester first</option>
         </select>
       </div>
 
-      <!-- Populated Course Info -->
+      <!-- Populated Course Info (Read Only) -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
         <div>
           <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Credit Unit</label>
           <input type="text" id="slot-unit" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
         </div>
         <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
-          <input type="text" id="slot-level" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course Title</label>
+          <input type="text" id="slot-course-title" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
         </div>
       </div>
 
@@ -126,7 +138,7 @@
         </select>
       </div>
 
-      <!-- Day & Time -->
+      <!-- Day -->
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Day <span style="color:#dc2626;">*</span></label>
         <select id="slot-day" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
@@ -139,6 +151,7 @@
         </select>
       </div>
 
+      <!-- Time -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
         <div>
           <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Start Time <span style="color:#dc2626;">*</span></label>
@@ -224,7 +237,6 @@
 
   async function loadLecturers() {
     try {
-      // Assuming this endpoint exists to get lecturers for the HOD's department
       const res = await core.portalFetch('/api/hod/lecturers'); 
       ALL_LECTURERS = res.data || [];
     } catch (err) {
@@ -308,32 +320,53 @@
     }
   }
 
-  // Function to filter courses based on selected semester
-  function filterCoursesBySemester() {
-    const semester = $('slot-semester').value;
+  // Filter logic using Level and Semester
+  function filterCourses() {
+    const selectedLevel = $('slot-level-filter').value;
+    const selectedSemester = $('slot-semester').value;
     const courseSelect = $('slot-course');
     
-    // Filter based on DB semester_name or code parity if blank
+    // Reset inputs
+    $('slot-unit').value = '';
+    $('slot-course-title').value = '';
+
+    if (!selectedLevel) {
+      courseSelect.innerHTML = '<option value="">Select Level and Semester first</option>';
+      return;
+    }
+
+    // Filter based on Level AND Semester
     const filtered = ALL_COURSES.filter(c => {
+      const cLevel = `${String(c.level || 'ND').toUpperCase()} ${Number(c.year_of_study) || 1}`;
       const cSem = String(c.semester_name || '').toLowerCase().trim();
-      if (semester === 'first') return cSem === 'first' || cSem === '1';
-      if (semester === 'second') return cSem === 'second' || cSem === '2';
-      return false;
+
+      const levelMatch = cLevel === selectedLevel;
+      
+      let semMatch = false;
+      if (selectedSemester === 'first') semMatch = (cSem === 'first' || cSem === '1');
+      if (selectedSemester === 'second') semMatch = (cSem === 'second' || cSem === '2');
+
+      return levelMatch && semMatch;
     });
 
+    if (!filtered.length) {
+      courseSelect.innerHTML = '<option value="">No courses found for this selection</option>';
+      return;
+    }
+
     courseSelect.innerHTML = '<option value="">Select a course</option>' + 
-      filtered.map(c => `<option value="${c.id}" data-unit="${c.unit}" data-level="${c.level} ${c.year_of_study}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
-      
-    $('slot-unit').value = '';
-    $('slot-level').value = '';
+      filtered.map(c => `<option value="${c.id}" data-unit="${c.unit}" data-title="${esc(c.title)}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
   }
 
   // Open Add Slot Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    // Set default semester based on the main filter
     $('slot-semester').value = $('tt-semester').value || 'first';
+    $('slot-level-filter').value = ''; // Reset level
+    $('slot-course').innerHTML = '<option value="">Select Level and Semester first</option>';
+    $('slot-unit').value = '';
+    $('slot-course-title').value = '';
 
     const btn = $('tt-add-slot');
     const originalText = btn.textContent;
@@ -348,25 +381,23 @@
     lectSelect.innerHTML = '<option value="">Select Lecturer</option>' + 
       ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
 
-    // Populate Courses based on default semester
-    filterCoursesBySemester();
-
     btn.textContent = originalText;
     btn.disabled = false;
   });
 
-  // Trigger filter when Semester changes in modal
-  $('slot-semester')?.addEventListener('change', filterCoursesBySemester);
+  // Trigger filter when Level or Semester changes
+  $('slot-level-filter')?.addEventListener('change', filterCourses);
+  $('slot-semester')?.addEventListener('change', filterCourses);
 
-  // Populate Unit and Level when Course changes
+  // Populate Unit and Title when Course changes
   $('slot-course')?.addEventListener('change', function() {
     const selected = this.options[this.selectedIndex];
     if (selected && selected.value) {
       $('slot-unit').value = selected.dataset.unit || '0';
-      $('slot-level').value = selected.dataset.level || '—';
+      $('slot-course-title').value = selected.dataset.title || '';
     } else {
       $('slot-unit').value = '';
-      $('slot-level').value = '';
+      $('slot-course-title').value = '';
     }
   });
 
@@ -382,7 +413,7 @@
     const endTime = $('slot-end').value;
     const venue = $('slot-venue').value;
     const sessionId = $('tt-session').value;
-    const semester = $('slot-semester').value; // Use the one in the modal
+    const semester = $('slot-semester').value;
 
     if (!courseId || !startTime || !endTime) {
       core.showToast('Please fill in Course, Start Time, and End Time.', 'warning');
@@ -410,10 +441,11 @@
       core.showToast('✅ Slot added successfully.', 'success');
       $('add-slot-modal').style.display = 'none';
       
-      $('slot-course').value = '';
-      $('slot-venue').value = '';
+      // Reset form
+      $('slot-course').innerHTML = '<option value="">Select Level and Semester first</option>';
       $('slot-unit').value = '';
-      $('slot-level').value = '';
+      $('slot-course-title').value = '';
+      $('slot-level-filter').value = '';
       
       load();
     } catch (err) {

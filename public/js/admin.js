@@ -13835,28 +13835,17 @@ async function loadTimetableSheet() {
 
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
-    // STRICT HELPER: Check if a course belongs to the selected semester
+    // STRICT SEMESTER FILTER: Trust only the database `semester_name`
     const isCourseInSemester = (c) => {
-      const cSem = String(c.semester || c.semester_name || '').toLowerCase().trim();
+      const cSem = String(c.semester_name || '').toLowerCase().trim();
       
-      // If the course explicitly says "first" or "second", trust it
-      if (cSem === 'first' || cSem === '1') return semester === 'first';
-      if (cSem === 'second' || cSem === '2') return semester === 'second';
-      
-      // If the semester is "both" or "general", it applies to both
-      if (cSem === 'both' || cSem === 'general') return true;
-
-      // Fallback: If no semester is set on the course, use the code parity
-      const code = String(c.code || '');
-      const match = code.match(/(\d+)$/);
-      if (match) {
-        const lastDigit = parseInt(match[1].slice(-1), 10);
-        if (!code.toUpperCase().includes('GNS') && !code.toUpperCase().includes('ENT')) {
-          if (lastDigit % 2 === 0 && semester === 'first') return false;
-          if (lastDigit % 2 !== 0 && semester === 'second') return false;
-        }
+      if (semester === 'first') {
+        return cSem === 'first' || cSem === '1';
       }
-      return true;
+      if (semester === 'second') {
+        return cSem === 'second' || cSem === '2';
+      }
+      return false;
     };
 
     // Wire buttons
@@ -13902,7 +13891,7 @@ async function loadTimetableSheet() {
       }
     }
 
-    // STRICT FILTER: Only get slots for this specific level AND semester
+    // Filter slots based on level and semester
     const filteredSlots = allSlots.filter(row => {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
@@ -13917,7 +13906,6 @@ async function loadTimetableSheet() {
     });
 
     const levelsPresent = new Set();
-    // Populate tabs based on available slots OR available courses
     allCourses.forEach(c => {
       if (isCourseInSemester(c)) {
         const lvl = String(c.level || 'ND').toUpperCase();
@@ -13945,9 +13933,7 @@ async function loadTimetableSheet() {
     let grid = {};
     let uniqueCourses = [];
 
-    // FIX: If there are NO valid DB slots for this level/semester, force random generation
     if (filteredSlots.length === 0) {
-      // Find all courses for this specific level AND semester
       const levelCourses = allCourses.filter(c => {
         const lvl = String(c.level || 'ND').toUpperCase();
         const yr = Number(c.yearOfStudy) || 1;
@@ -13963,7 +13949,7 @@ async function loadTimetableSheet() {
         return;
       }
 
-      // Build a randomized grid
+      // Random Grid Generation
       DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
       
       levelCourses.forEach(c => {
@@ -13979,7 +13965,7 @@ async function loadTimetableSheet() {
 
       uniqueCourses = levelCourses.map(c => ({ course: c, slot: { venue: 'TBA' }, lecturer: {} }));
     } else {
-      // Build grid from actual database slots
+      // Build from DB slots
       DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
       
       const placedByDay = {};

@@ -13787,9 +13787,6 @@ async function approveDepartmentExams(deptId) {
   }
 }
 
-// ============================================
-// TIMETABLE — By Department (Grid A4, split by level)
-// ============================================
 async function loadTimetableSheet() {
   const root = document.getElementById('tsheet-root');
   if (!root) return;
@@ -13897,15 +13894,6 @@ async function loadTimetableSheet() {
       return `${lvl} ${yr}` === selectedLevel;
     });
 
-    if (!filteredSlots.length) {
-      root.innerHTML = `
-        <div class="tt-level-tabs">${tabsHtml}</div>
-        ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
-      `;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId);
-      return;
-    }
-
     // TIME SLOTS (12PM–1PM is the BREAK)
     const TIME_SLOTS = [
       { label: '8AM–9AM', hour: 8 },
@@ -13919,70 +13907,102 @@ async function loadTimetableSheet() {
     const DAYS = ['MON', 'TUE', 'WED', 'THURS', 'FRI'];
     const dayMap = { MONDAY: 'MON', TUESDAY: 'TUE', WEDNESDAY: 'WED', THURSDAY: 'THURS', FRIDAY: 'FRI' };
 
-    // grid[day][hour] = course code
-    const grid = {};
-    DAYS.forEach(d => {
-      grid[d] = {};
-      TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; });
-    });
+    let grid = {};
+    let uniqueCourses = [];
 
-    filteredSlots.forEach(row => {
-      const s = row.slot || row;
-      const c = row.course || courseById.get(Number(s.courseId)) || {};
-      const dayKey = dayMap[String(s.dayOfWeek || '').toUpperCase()] || String(s.dayOfWeek || '').substring(0, 3).toUpperCase();
-      if (!grid[dayKey]) return;
+    // FIX 1 & FIX 2: Apply Random Grid fallback if empty, otherwise use deduplicated logic
+    if (!filteredSlots.length) {
+      // Find all courses for this specific level
+      const levelCourses = allCourses.filter(c => {
+        const lvl = String(c.level || 'ND').toUpperCase();
+        const yr = Number(c.yearOfStudy) || 1;
+        return `${lvl} ${yr}` === selectedLevel;
+      });
 
-      const startH = parseInt(String(s.startTime || '08:00').split(':')[0], 10);
-      const endH = parseInt(String(s.endTime || '09:00').split(':')[0], 10);
-      const code = c.code || '';
-
-      for (let h = startH; h < endH; h++) {
-        if (grid[dayKey][h] === null) {
-          grid[dayKey][h] = code;
-        }
+      if (!levelCourses.length) {
+        root.innerHTML = `
+          <div class="tt-level-tabs">${tabsHtml}</div>
+          ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
+        `;
+        wireLevelTabs(root, departmentId, deptName, semester, sessionId);
+        return;
       }
-    });
 
-    // Build header row — BREAK header is placed between 11AM and 1PM
+      // Build a randomized grid
+      DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
+      
+      levelCourses.forEach(c => {
+        const free = [];
+        DAYS.forEach(d => TIME_SLOTS.forEach(t => {
+          if (grid[d][t.hour] === null) free.push([d, t.hour]);
+        }));
+        if (free.length) {
+          const [d, h] = free[Math.floor(Math.random() * free.length)];
+          grid[d][h] = c.code;
+        }
+      });
+
+      uniqueCourses = levelCourses.map(c => ({ course: c, slot: { venue: 'TBA' }, lecturer: {} }));
+    } else {
+      // Build grid from actual database slots
+      DAYS.forEach(d => { grid[d] = {}; TIME_SLOTS.forEach(t => { grid[d][t.hour] = null; }); });
+      
+      const placedByDay = {};
+      DAYS.forEach(d => { placedByDay[d] = new Set(); });
+
+      filteredSlots.forEach(row => {
+        const s = row.slot || row;
+        const c = row.course || courseById.get(Number(s.courseId)) || {};
+        const dayKey = dayMap[String(s.dayOfWeek || '').toUpperCase()] || String(s.dayOfWeek || '').substring(0, 3).toUpperCase();
+        if (!grid[dayKey]) return;
+
+        const code = c.code || '';
+        if (!code) return;
+
+        // Deduplication: Skip if this course is already placed on this day
+        if (placedByDay[dayKey].has(code)) return;
+
+        const startH = parseInt(String(s.startTime || '08:00').split(':')[0], 10);
+
+        if (grid[dayKey][startH] === null && startH >= 8 && startH <= 15) {
+          grid[dayKey][startH] = code;
+          placedByDay[dayKey].add(code);
+        }
+      });
+
+      const seenCourses = new Set();
+      filteredSlots.forEach(row => {
+        const s = row.slot || row;
+        const c = courseById.get(Number(s.courseId)) || row.course;
+        if (!c || !c.id || seenCourses.has(c.id)) return;
+        seenCourses.add(c.id);
+        uniqueCourses.push({ course: c, slot: s, lecturer: row.lecturer || {} });
+      });
+    }
+
+    uniqueCourses.sort((a, b) => String(a.course.code || '').localeCompare(String(b.course.code || '')));
+
+    // Build header row
     let headerHtml = `<tr><th class="tt-days-h">DAYS/TIME</th>`;
     TIME_SLOTS.forEach(t => {
-      if (t.hour === 13) {
-        // Insert break header before 1PM column
-        headerHtml += `<th class="tt-break-h">12PM–1PM</th>`;
-      }
+      if (t.hour === 13) headerHtml += `<th class="tt-break-h">12PM–1PM</th>`;
       headerHtml += `<th class="tt-time-h">${t.label}</th>`;
     });
     headerHtml += `</tr>`;
 
-    // Build body rows — BREAK cell is rowspanned on MON
+    // Build body rows
     let bodyHtml = '';
     DAYS.forEach(day => {
       bodyHtml += `<tr><td class="tt-day">${day}</td>`;
-      
       TIME_SLOTS.forEach(t => {
-        // Insert the BREAK cell right before the 1PM slot, only on MON
-        if (t.hour === 13 && day === 'MON') {
-          bodyHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
-        }
+        if (t.hour === 13 && day === 'MON') bodyHtml += `<td class="tt-break" rowspan="${DAYS.length}">BREAK</td>`;
         const code = grid[day][t.hour];
         bodyHtml += `<td class="tt-cell ${code ? '' : 'empty'}">${escapeHtml(code || '')}</td>`;
       });
       bodyHtml += `</tr>`;
     });
 
-    // Course detail table
-    const seenCourses = new Set();
-    const uniqueCourses = [];
-    filteredSlots.forEach(row => {
-      const s = row.slot || row;
-      const c = courseById.get(Number(s.courseId)) || row.course;
-      if (!c || !c.id) return;
-      if (seenCourses.has(c.id)) return;
-      seenCourses.add(c.id);
-      uniqueCourses.push({ course: c, slot: s, lecturer: row.lecturer || {} });
-    });
-    uniqueCourses.sort((a, b) => String(a.course.code || '').localeCompare(String(b.course.code || '')));
-
+    // Build Course Detail Table
     const courseDetailRows = uniqueCourses.map(({ course: c, slot: s, lecturer: l }) => {
       const lecturerName = `${l.firstName || ''} ${l.lastName || ''}`.trim() || '—';
       return `

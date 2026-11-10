@@ -345,16 +345,18 @@
 
     // Filter based on Level AND Semester
     const filtered = ALL_COURSES.filter(c => {
-      // 1. Match Level (e.g. "ND" === "ND")
+      // 1. Match Level
       const dbLevel = String(c.level || '').toUpperCase();
       const levelMatch = dbLevel === targetLevel;
 
-      // 2. Match Year (convert both to string to avoid "1" vs 1 issues)
-      const dbYear = String(c.year_of_study || c.yearOfStudy || '1');
+      // 2. Match Year (Check both camelCase and snake_case)
+      const rawYear = c.yearOfStudy !== undefined ? c.yearOfStudy : c.year_of_study;
+      const dbYear = String(rawYear || '1');
       const yearMatch = dbYear === targetYear;
 
-      // 3. Match Semester
-      const dbSem = String(c.semester_name || c.semester || '').toLowerCase().trim();
+      // 3. Match Semester (Check both camelCase and snake_case)
+      const rawSem = c.semesterName !== undefined ? c.semesterName : c.semester_name;
+      const dbSem = String(rawSem || '').toLowerCase().trim();
       
       let semMatch = false;
       if (selectedSemester === 'first') semMatch = (dbSem === 'first' || dbSem === '1');

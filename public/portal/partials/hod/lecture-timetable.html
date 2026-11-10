@@ -172,6 +172,7 @@
 
   let ALL_COURSES = [];
   let ALL_LECTURERS = [];
+  let CURRENT_SLOTS = []; // Store existing timetable slots to prevent duplicate assignment
 
   async function loadSessions() {
     try {
@@ -199,6 +200,21 @@
     } catch (err) { console.error('Could not load lecturers:', err); }
   }
 
+  async function loadSlots() {
+    const sessionId = $('tt-session')?.value;
+    const semester = $('tt-semester')?.value || 'first';
+    if (!sessionId) return [];
+
+    try {
+      const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
+      CURRENT_SLOTS = Array.isArray(res) ? res : (res.data || []);
+      return CURRENT_SLOTS;
+    } catch (err) { 
+      console.error('Could not load slots:', err); 
+      return [];
+    }
+  }
+
   async function load() {
     const tbody = $('tt-tbody');
     const sessionId = $('tt-session')?.value;
@@ -207,71 +223,65 @@
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
-    try {
-      const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
-      const rows = Array.isArray(res) ? res : (res.data || []);
+    const rows = await loadSlots();
 
-      const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
-      rows.forEach(r => {
-        const s = r.slot || r;
-        if (s.status === 'draft') counts.draft++;
-        else if (s.status === 'pending') counts.pending++;
-        else if (s.status === 'approved') counts.approved++;
-      });
+    const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
+    rows.forEach(r => {
+      const s = r.slot || r;
+      if (s.status === 'draft') counts.draft++;
+      else if (s.status === 'pending') counts.pending++;
+      else if (s.status === 'approved') counts.approved++;
+    });
 
-      $('tt-stat-total').textContent = counts.total;
-      $('tt-stat-draft').textContent = counts.draft;
-      $('tt-stat-pending').textContent = counts.pending;
-      $('tt-stat-approved').textContent = counts.approved;
-      $('tt-count').textContent = counts.total;
+    $('tt-stat-total').textContent = counts.total;
+    $('tt-stat-draft').textContent = counts.draft;
+    $('tt-stat-pending').textContent = counts.pending;
+    $('tt-stat-approved').textContent = counts.approved;
+    $('tt-count').textContent = counts.total;
 
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = rows.map(r => {
-        const s = r.slot || r;
-        const c = r.course || {};
-        const lecturer = r.lecturer || {};
-        const lectName = lecturer.firstName ? `${lecturer.firstName} ${lecturer.lastName}` : '—';
-        
-        let statusBadge = '<span class="badge badge-warning">Draft</span>';
-        if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
-        else if (s.status === 'approved') statusBadge = '<span class="badge badge-success">Approved</span>';
-
-        return `
-          <tr>
-            <td>
-              <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
-              <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
-            </td>
-            <td>${esc(lectName)}</td>
-            <td>${esc(s.dayOfWeek || '—')}</td>
-            <td>${esc(s.startTime || '')} - ${esc(s.endTime || '')}</td>
-            <td>${esc(s.venue || '—')}</td>
-            <td>${statusBadge}</td>
-            <td>
-              ${s.status === 'draft' ? `<button class="btn-delete" data-id="${s.id}" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>` : ''}
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      tbody.querySelectorAll('.btn-delete').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('Delete this draft slot?')) return;
-          try {
-            await core.portalFetch(`/api/hod/timetable/${btn.dataset.id}`, { method: 'DELETE' });
-            core.showToast('Slot deleted.', 'success');
-            load();
-          } catch (err) { core.showToast(err.message, 'error'); }
-        });
-      });
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester.</td></tr>';
+      return;
     }
+
+    tbody.innerHTML = rows.map(r => {
+      const s = r.slot || r;
+      const c = r.course || {};
+      const lecturer = r.lecturer || {};
+      const lectName = lecturer.firstName ? `${lecturer.firstName} ${lecturer.lastName}` : '—';
+      
+      let statusBadge = '<span class="badge badge-warning">Draft</span>';
+      if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
+      else if (s.status === 'approved') statusBadge = '<span class="badge badge-success">Approved</span>';
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
+          </td>
+          <td>${esc(lectName)}</td>
+          <td>${esc(s.dayOfWeek || '—')}</td>
+          <td>${esc(s.startTime || '')} - ${esc(s.endTime || '')}</td>
+          <td>${esc(s.venue || '—')}</td>
+          <td>${statusBadge}</td>
+          <td>
+            ${s.status === 'draft' ? `<button class="btn-delete" data-id="${s.id}" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this draft slot?')) return;
+        try {
+          await core.portalFetch(`/api/hod/timetable/${btn.dataset.id}`, { method: 'DELETE' });
+          core.showToast('Slot deleted.', 'success');
+          load();
+        } catch (err) { core.showToast(err.message, 'error'); }
+      });
+    });
   }
 
   // Function to load the batch table based on filters
@@ -312,42 +322,71 @@
       return;
     }
 
-    // Populate table rows
+    // Populate table rows with assignment check
     tbody.innerHTML = filtered.map(c => {
-      const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
-      
+      // Check if this course already has a lecturer assigned in the current loaded slots
+      const existingSlot = CURRENT_SLOTS.find(s => {
+        const slot = s.slot || s;
+        return Number(slot.courseId) === Number(c.id);
+      });
+
+      let lecturerHtml = '';
+      let venueHtml = '';
+      let startHtml = '<input type="time" class="batch-start form-control" step="60" value="08:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />';
+      let endHtml = '<input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />';
+
+      if (existingSlot && existingSlot.lecturer) {
+        // COURSE IS ALREADY ASSIGNED - LOCK IT
+        const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
+        lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
+        
+        // Also lock venue and time if they exist
+        if (existingSlot.slot) {
+           venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlot.slot.venue || '—')}</div>`;
+           startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.startTime || '—')}</div>`;
+           endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.endTime || '—')}</div>`;
+        } else {
+           venueHtml = `<select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;"><option value="">Select</option><option value="LT1">LT1</option><option value="LT2">LT2</option><option value="LT3">LT3</option><option value="Main Hall">Main Hall</option></select>`;
+        }
+      } else {
+        // COURSE IS NOT ASSIGNED - SHOW DROPDOWN
+        const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+        lecturerHtml = `
+          <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select</option>
+            ${lectOptions}
+          </select>
+        `;
+        venueHtml = `
+          <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
+            <option value="">Select</option>
+            <option value="LT1">LT1</option>
+            <option value="LT2">LT2</option>
+            <option value="LT3">LT3</option>
+            <option value="Main Hall">Main Hall</option>
+            <option value="Lab A">Lab A</option>
+            <option value="Lab B">Lab B</option>
+          </select>
+        `;
+      }
+
+      // Disable checkbox if course is already assigned (optional, but prevents duplicate submission)
+      const isDisabled = !!existingSlot;
+      const checkboxHtml = isDisabled 
+        ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
+        : `<input type="checkbox" class="batch-checkbox" data-id="${c.id}" style="cursor:pointer;width:16px;height:16px;" />`;
+
       return `
         <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
-          <td style="padding:8px;"><input type="checkbox" class="batch-checkbox" data-id="${c.id}" style="cursor:pointer;width:16px;height:16px;" /></td>
+          <td style="padding:8px;">${checkboxHtml}</td>
           <td style="padding:8px;">
             <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(c.code)}</div>
             <div style="font-size:11px;color:#64748b;">${esc(c.title)}</div>
           </td>
-          <td style="padding:8px;">
-            <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
-              <option value="">Select</option>
-              ${lectOptions}
-            </select>
-          </td>
-          <td style="padding:8px;">
-            <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
-              <option value="">Select</option>
-              <option value="LT1">LT1</option>
-              <option value="LT2">LT2</option>
-              <option value="LT3">LT3</option>
-              <option value="Main Hall">Main Hall</option>
-              <option value="Lab A">Lab A</option>
-              <option value="Lab B">Lab B</option>
-              <option value="CF103 A">CF103 A</option>
-              <option value="S/B - LH A">S/B - LH A</option>
-            </select>
-          </td>
-          <td style="padding:8px;">
-            <input type="time" class="batch-start form-control" step="60" value="08:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />
-          </td>
-          <td style="padding:8px;">
-            <input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />
-          </td>
+          <td style="padding:8px;">${lecturerHtml}</td>
+          <td style="padding:8px;">${venueHtml}</td>
+          <td style="padding:8px;">${startHtml}</td>
+          <td style="padding:8px;">${endHtml}</td>
         </tr>
       `;
     }).join('');
@@ -369,11 +408,12 @@
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
-    if (!ALL_COURSES.length) await loadCourses();
-    if (!ALL_LECTURERS.length) await loadLecturers();
-    
-    // Auto-load if level is pre-selected (not in this case, but good practice)
-    if ($('batch-level').value) loadBatchTable();
+    // Fetch data if not already loaded, and refresh current slots
+    await Promise.all([
+      ALL_COURSES.length ? Promise.resolve() : loadCourses(),
+      ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
+      loadSlots() 
+    ]);
 
     btn.textContent = originalText;
     btn.disabled = false;
@@ -383,7 +423,7 @@
   $('batch-level')?.addEventListener('change', loadBatchTable);
   $('batch-semester')?.addEventListener('change', loadBatchTable);
 
-  // Select All logic
+  // Select All logic (only selects visible, non-disabled checkboxes)
   $('batch-select-all')?.addEventListener('change', function() {
     const isChecked = this.checked;
     document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
@@ -394,12 +434,14 @@
 
   // Save Batch Slots
   $('batch-save-btn')?.addEventListener('click', async () => {
+    // Get only checked rows that contain a checkbox (meaning they aren't already assigned)
     const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
-      return row.querySelector('.batch-checkbox').checked;
+      const cb = row.querySelector('.batch-checkbox');
+      return cb && cb.checked;
     });
 
     if (selectedRows.length === 0) {
-      core.showToast('Please select at least one course.', 'warning');
+      core.showToast('Please select at least one unassigned course.', 'warning');
       return;
     }
 
@@ -449,7 +491,7 @@
 
     core.showToast(`✅ Saved ${successCount} slot(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
     $('add-slot-modal').style.display = 'none';
-    load(); // Refresh main table
+    load(); // Refresh main table and update CURRENT_SLOTS
 
     btn.disabled = false;
     btn.textContent = 'Save Selected Slots';

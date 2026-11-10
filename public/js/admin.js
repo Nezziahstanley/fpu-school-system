@@ -13796,7 +13796,7 @@ async function loadTimetableSheet() {
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   const departmentId = params.get('departmentId');
   const deptName = params.get('name') || 'Department';
-  const semester = params.get('semester') || 'first';
+  const semester = (params.get('semester') || 'first').toLowerCase();
   const sessionId = params.get('sessionId') || '';
   const selectedLevel = params.get('level') || 'ND 1';
 
@@ -13843,13 +13843,28 @@ async function loadTimetableSheet() {
     if (exportBtn) {
       exportBtn.onclick = () => {
         const table = root.querySelector('.tt-grid-table');
-        if (table) exportTableAsCSV(table, `${deptName}-${selectedLevel}-timetable.csv`);
+        if (table) exportTableAsCSV(table, `${deptName}-${selectedLevel}-${semester}-timetable.csv`);
         else showToast('⚠️ No table to export.', 'warning');
       };
     }
 
     const addBtn = document.getElementById('tsheet-add');
     if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel });
+
+    // FIX: Wire the "Switch Semester" button
+    const switchBtn = document.getElementById('tsheet-switch-sem');
+    if (switchBtn) {
+      switchBtn.onclick = () => {
+        const nextSemester = semester === 'first' ? 'second' : 'first';
+        FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
+          departmentId,
+          name: deptName,
+          semester: nextSemester,
+          sessionId,
+          level: selectedLevel
+        });
+      };
+    }
 
     let pendingCount = 0;
     allSlots.forEach(row => {
@@ -13885,13 +13900,22 @@ async function loadTimetableSheet() {
       return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
     }).join('');
 
+    // STRICT FILTER: Only get slots for this specific level AND semester
     const filteredSlots = allSlots.filter(row => {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       const lvl = String(c.level || 'ND').toUpperCase();
       const yr = Number(c.yearOfStudy) || 1;
-      return `${lvl} ${yr}` === selectedLevel;
+      
+      // Check level
+      const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
+      
+      // Check semester (fallback to slot semester if course doesn't have one)
+      const slotSem = String(s.semester || c.semester || c.semester_name || 'first').toLowerCase();
+      const isSemMatch = slotSem === semester || slotSem === 'both';
+
+      return isLevelMatch && isSemMatch;
     });
 
     // TIME SLOTS (12PM–1PM is the BREAK)
@@ -13910,13 +13934,16 @@ async function loadTimetableSheet() {
     let grid = {};
     let uniqueCourses = [];
 
-    // FIX 1 & FIX 2: Apply Random Grid fallback if empty, otherwise use deduplicated logic
     if (!filteredSlots.length) {
-      // Find all courses for this specific level
+      // Find all courses for this specific level AND semester
       const levelCourses = allCourses.filter(c => {
         const lvl = String(c.level || 'ND').toUpperCase();
         const yr = Number(c.yearOfStudy) || 1;
-        return `${lvl} ${yr}` === selectedLevel;
+        
+        const courseSem = String(c.semester || c.semester_name || 'first').toLowerCase();
+        const isSemMatch = courseSem === semester || courseSem === 'both';
+
+        return `${lvl} ${yr}` === selectedLevel && isSemMatch;
       });
 
       if (!levelCourses.length) {

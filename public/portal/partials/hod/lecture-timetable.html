@@ -190,7 +190,7 @@
     try {
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] Loaded Courses With Allocations:', ALL_COURSES);
+      console.log('[DEBUG] Loaded Courses:', ALL_COURSES);
     } catch (err) { console.error('Could not load courses with allocations:', err); }
   }
 
@@ -296,16 +296,19 @@
     }
 
     const parts = selectedLevel.split(' ');
-    const targetLevel = parts[0]; // "ND"
-    const targetYear = parts[1];  // "1"
+    const targetLevel = parts[0];
+    const targetYear = parts[1];
 
-    // Filter based on Level, Year, and Semester (handling nested course objects)
+    console.log(`[DEBUG] Filtering for Level: ${targetLevel}, Year: ${targetYear}, Semester: ${selectedSemester}`);
+
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
       const rawLevel = courseObj.level || c.level;
       const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || 1;
-      const rawSem = courseObj.semester_name || courseObj.semesterName || c.semesterName || c.semester_name;
+      
+      // Check all possible names for semester
+      const rawSem = courseObj.semesterName || courseObj.semester_name || c.semesterName || c.semester_name;
 
       const dbLevel = String(rawLevel || '').toUpperCase().trim();
       const dbYear = String(rawYear);
@@ -315,8 +318,18 @@
       const yearMatch = dbYear === targetYear;
       
       let semMatch = false;
-      if (selectedSemester === 'first') semMatch = (dbSem === 'first' || dbSem === '1');
-      if (selectedSemester === 'second') semMatch = (dbSem === 'second' || dbSem === '2');
+      if (selectedSemester === 'first') {
+        // If it says "first" or "1", match
+        semMatch = (dbSem === 'first' || dbSem === '1');
+      }
+      if (selectedSemester === 'second') {
+        semMatch = (dbSem === 'second' || dbSem === '2');
+      }
+
+      // Debug log for the first few items to see exactly why they fail
+      if (ALL_COURSES.indexOf(c) < 5) {
+        console.log(`[DEBUG] Course ${courseObj.code}: Level="${dbLevel}"(match:${levelMatch}), Year="${dbYear}"(match:${yearMatch}), Semester="${dbSem}"(match:${semMatch})`);
+      }
 
       return levelMatch && yearMatch && semMatch;
     });
@@ -336,7 +349,11 @@
         return String(slot.courseId) === String(courseId);
       });
 
-      const assignedLecturer = c.lecturerName || c.lecturer_name; 
+      // Check both `lecturerName` and nested `lecturer.firstName`
+      let assignedLecturer = c.lecturerName;
+      if (!assignedLecturer && c.lecturer && c.lecturer.firstName) {
+        assignedLecturer = `${c.lecturer.firstName} ${c.lecturer.lastName}`;
+      }
       
       let lecturerHtml = '';
       

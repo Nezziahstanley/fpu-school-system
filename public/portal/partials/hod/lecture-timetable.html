@@ -62,6 +62,7 @@
           <thead>
             <tr>
               <th>Course</th>
+              <th>Lecturer</th>
               <th>Day</th>
               <th>Time</th>
               <th>Venue</th>
@@ -70,7 +71,7 @@
             </tr>
           </thead>
           <tbody id="tt-tbody">
-            <tr><td colspan="6" class="empty"><span class="spinner"></span> Loading…</td></tr>
+            <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -81,20 +82,51 @@
 
 <!-- Modal: Add Slot -->
 <div id="add-slot-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+  <div style="background:#fff;border-radius:16px;max-width:550px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
+    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
       <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Add Timetable Slot</h3>
       <button id="add-slot-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
     <div style="padding:1.25rem;">
       
+      <!-- Semester Filter -->
       <div style="margin-bottom:1rem;">
-        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course <span style="color:#dc2626;">*</span></label>
-        <select id="slot-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-          <option value="">Loading courses...</option>
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester <span style="color:#dc2626;">*</span></label>
+        <select id="slot-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="first">First Semester</option>
+          <option value="second">Second Semester</option>
         </select>
       </div>
 
+      <!-- Course -->
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course <span style="color:#dc2626;">*</span></label>
+        <select id="slot-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select a course</option>
+        </select>
+      </div>
+
+      <!-- Populated Course Info -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Credit Unit</label>
+          <input type="text" id="slot-unit" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
+        </div>
+        <div>
+          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Level</label>
+          <input type="text" id="slot-level" readonly style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #e5e7eb;background:#f8fafc;border-radius:8px;color:#64748b;" />
+        </div>
+      </div>
+
+      <!-- Lecturer -->
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Lecturer <span style="color:#dc2626;">*</span></label>
+        <select id="slot-lecturer" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select Lecturer</option>
+        </select>
+      </div>
+
+      <!-- Day & Time -->
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Day <span style="color:#dc2626;">*</span></label>
         <select id="slot-day" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;">
@@ -118,9 +150,20 @@
         </div>
       </div>
 
+      <!-- Venue -->
       <div style="margin-bottom:1rem;">
         <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Venue</label>
-        <input type="text" id="slot-venue" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" placeholder="e.g. LT1" />
+        <select id="slot-venue" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+          <option value="">Select Venue</option>
+          <option value="LT1">LT1</option>
+          <option value="LT2">LT2</option>
+          <option value="LT3">LT3</option>
+          <option value="Main Hall">Main Hall</option>
+          <option value="Lab A">Lab A</option>
+          <option value="Lab B">Lab B</option>
+          <option value="CF103 A">CF103 A</option>
+          <option value="S/B - LH A">S/B - LH A</option>
+        </select>
       </div>
 
       <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
@@ -152,6 +195,7 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_COURSES = [];
+  let ALL_LECTURERS = [];
 
   async function loadSessions() {
     try {
@@ -178,6 +222,16 @@
     }
   }
 
+  async function loadLecturers() {
+    try {
+      // Assuming this endpoint exists to get lecturers for the HOD's department
+      const res = await core.portalFetch('/api/hod/lecturers'); 
+      ALL_LECTURERS = res.data || [];
+    } catch (err) {
+      console.error('Could not load lecturers:', err);
+    }
+  }
+
   async function load() {
     const tbody = $('tt-tbody');
     const sessionId = $('tt-session')?.value;
@@ -185,7 +239,7 @@
 
     if (!sessionId) return;
 
-    tbody.innerHTML = '<tr><td colspan="6" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
     try {
       const res = await core.portalFetch(`/api/hod/timetable?sessionId=${sessionId}&semester=${semester}&limit=500`);
@@ -206,13 +260,15 @@
       $('tt-count').textContent = counts.total;
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No slots found for this session/semester. Click "+ Add Slot" to start building your timetable.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester. Click "+ Add Slot" to start building your timetable.</td></tr>';
         return;
       }
 
       tbody.innerHTML = rows.map(r => {
         const s = r.slot || r;
         const c = r.course || {};
+        const lecturer = r.lecturer || {};
+        const lectName = lecturer.firstName ? `${lecturer.firstName} ${lecturer.lastName}` : '—';
         
         let statusBadge = '<span class="badge badge-warning">Draft</span>';
         if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
@@ -224,6 +280,7 @@
               <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
               <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
             </td>
+            <td>${esc(lectName)}</td>
             <td>${esc(s.dayOfWeek || '—')}</td>
             <td>${esc(s.startTime || '')} - ${esc(s.endTime || '')}</td>
             <td>${esc(s.venue || '—')}</td>
@@ -247,22 +304,69 @@
       });
 
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
+  }
+
+  // Function to filter courses based on selected semester
+  function filterCoursesBySemester() {
+    const semester = $('slot-semester').value;
+    const courseSelect = $('slot-course');
+    
+    // Filter based on DB semester_name or code parity if blank
+    const filtered = ALL_COURSES.filter(c => {
+      const cSem = String(c.semester_name || '').toLowerCase().trim();
+      if (semester === 'first') return cSem === 'first' || cSem === '1';
+      if (semester === 'second') return cSem === 'second' || cSem === '2';
+      return false;
+    });
+
+    courseSelect.innerHTML = '<option value="">Select a course</option>' + 
+      filtered.map(c => `<option value="${c.id}" data-unit="${c.unit}" data-level="${c.level} ${c.year_of_study}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+      
+    $('slot-unit').value = '';
+    $('slot-level').value = '';
   }
 
   // Open Add Slot Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
+    // Set default semester based on the main filter
+    $('slot-semester').value = $('tt-semester').value || 'first';
+
+    const btn = $('tt-add-slot');
+    const originalText = btn.textContent;
+    btn.textContent = 'Loading...';
+    btn.disabled = true;
+
     if (!ALL_COURSES.length) await loadCourses();
+    if (!ALL_LECTURERS.length) await loadLecturers();
     
-    const courseSelect = $('slot-course');
-    if (ALL_COURSES.length) {
-      courseSelect.innerHTML = '<option value="">Select a course</option>' + 
-        ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+    // Populate Lecturers
+    const lectSelect = $('slot-lecturer');
+    lectSelect.innerHTML = '<option value="">Select Lecturer</option>' + 
+      ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
+
+    // Populate Courses based on default semester
+    filterCoursesBySemester();
+
+    btn.textContent = originalText;
+    btn.disabled = false;
+  });
+
+  // Trigger filter when Semester changes in modal
+  $('slot-semester')?.addEventListener('change', filterCoursesBySemester);
+
+  // Populate Unit and Level when Course changes
+  $('slot-course')?.addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (selected && selected.value) {
+      $('slot-unit').value = selected.dataset.unit || '0';
+      $('slot-level').value = selected.dataset.level || '—';
     } else {
-      courseSelect.innerHTML = '<option value="">No courses found in your department.</option>';
+      $('slot-unit').value = '';
+      $('slot-level').value = '';
     }
   });
 
@@ -272,12 +376,13 @@
   // Save Slot
   $('add-slot-save')?.addEventListener('click', async () => {
     const courseId = $('slot-course').value;
+    const lecturerId = $('slot-lecturer').value;
     const dayOfWeek = $('slot-day').value;
     const startTime = $('slot-start').value;
     const endTime = $('slot-end').value;
-    const venue = $('slot-venue').value.trim();
+    const venue = $('slot-venue').value;
     const sessionId = $('tt-session').value;
-    const semester = $('tt-semester').value;
+    const semester = $('slot-semester').value; // Use the one in the modal
 
     if (!courseId || !startTime || !endTime) {
       core.showToast('Please fill in Course, Start Time, and End Time.', 'warning');
@@ -293,6 +398,7 @@
         method: 'POST',
         body: { 
           courseId: Number(courseId), 
+          lecturerId: lecturerId ? Number(lecturerId) : null,
           sessionId: Number(sessionId), 
           semester, 
           dayOfWeek, 
@@ -306,6 +412,8 @@
       
       $('slot-course').value = '';
       $('slot-venue').value = '';
+      $('slot-unit').value = '';
+      $('slot-level').value = '';
       
       load();
     } catch (err) {

@@ -274,7 +274,7 @@
     });
   }
 
-  // Render the master table based on selected Level and Semester
+   // Render the master table based on selected Level and Semester
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value; // e.g. "ND 1"
     const selectedSemester = $('batch-semester').value; // e.g. "first"
@@ -289,14 +289,13 @@
     const targetLevel = parts[0].toUpperCase(); // "ND"
     const targetYear = parts[1]; // "1"
 
-    // BULLETPROOF FILTER: Compare exact strings
+    // BULLETPROOF FILTER: Compare exact strings with all possible property names
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
-      // Convert everything to string to ensure '1' === 1
       const rawLevel = courseObj.level || c.level || '';
-      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || '';
-      const rawSem = courseObj.semester_name || courseObj.semesterName || c.semesterName || '';
+      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || courseObj.year || c.yearOfStudy || c.year_of_study || c.year || '';
+      const rawSem = courseObj.semester_name || courseObj.semesterName || courseObj.semester || c.semesterName || c.semester_name || c.semester || '';
 
       const dbLevel = String(rawLevel).toUpperCase().trim();
       const dbYear = String(rawYear).trim();
@@ -311,6 +310,12 @@
 
       return levelMatch && yearMatch && semMatch;
     });
+
+    // Debugging: If still empty, log the first few courses
+    if (!filtered.length) {
+      console.log('[DEBUG] No courses matched. Here is the data:', ALL_COURSES.slice(0, 3));
+      console.log(`[DEBUG] Filtering for Level: "${targetLevel}", Year: "${targetYear}", Semester: "${selectedSemester}"`);
+    }
 
     if (!filtered.length) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
@@ -414,7 +419,7 @@
       `;
     }).join('');
   }
-
+ 
   // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';

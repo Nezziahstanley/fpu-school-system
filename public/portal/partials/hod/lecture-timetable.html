@@ -170,9 +170,9 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
-  let ALL_COURSES = []; // Will hold courses WITH allocations (from /api/hod/courses-with-allocations)
-  let ALL_LECTURERS = []; // Fallback list of lecturers
-  let CURRENT_SLOTS = []; // Holds the timetable slots
+  let ALL_COURSES = [];     // Holds courses WITH allocations
+  let ALL_LECTURERS = [];   // Holds all lecturers
+  let CURRENT_SLOTS = [];   // Holds the timetable slots
 
   async function loadSessions() {
     try {
@@ -188,7 +188,6 @@
 
   async function loadCoursesWithAllocations() {
     try {
-      // CRITICAL FIX: Use the correct endpoint from your allocations page
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
       console.log('[DEBUG] Loaded Courses With Allocations:', ALL_COURSES);
@@ -297,18 +296,19 @@
     }
 
     const parts = selectedLevel.split(' ');
-    const targetLevel = parts[0];
-    const targetYear = parts[1];
+    const targetLevel = parts[0]; // "ND"
+    const targetYear = parts[1];  // "1"
 
-    // Because we are using courses-with-allocations, the level and year fields might be nested
+    // Filter based on Level, Year, and Semester (handling nested course objects)
     const filtered = ALL_COURSES.filter(c => {
-      // Handle different possible response shapes
-      const rawLevel = c.level || (c.course && c.course.level);
-      const rawYear = c.yearOfStudy || c.year_of_study || (c.course && c.course.year_of_study);
-      const rawSem = c.semesterName || c.semester_name || (c.course && c.course.semester_name);
+      const courseObj = c.course || c;
+      
+      const rawLevel = courseObj.level || c.level;
+      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || 1;
+      const rawSem = courseObj.semester_name || courseObj.semesterName || c.semesterName || c.semester_name;
 
-      const dbLevel = String(rawLevel || '').toUpperCase();
-      const dbYear = String(rawYear || '1');
+      const dbLevel = String(rawLevel || '').toUpperCase().trim();
+      const dbYear = String(rawYear);
       const dbSem = String(rawSem || '').toLowerCase().trim();
 
       const levelMatch = dbLevel === targetLevel;
@@ -327,28 +327,25 @@
     }
 
     tbody.innerHTML = filtered.map(c => {
-      // 1. Check if this course is already in the timetable
-      const courseId = c.id || (c.course && c.course.id);
+      const courseId = c.course ? c.course.id : c.id;
+      const courseCode = c.course ? c.course.code : c.code;
+      const courseTitle = c.course ? c.course.title : c.title;
+
       const existingSlot = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
         return String(slot.courseId) === String(courseId);
       });
 
-      // 2. Extract the assigned lecturer directly from the courses-with-allocations response
-      // Look at your Allocations page code: `c.lecturerName` is used
-      let assignedLecturer = c.lecturerName || c.lecturer_name; 
+      const assignedLecturer = c.lecturerName || c.lecturer_name; 
       
       let lecturerHtml = '';
       
       if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.firstName) {
-        // Already scheduled
         const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
       } else if (assignedLecturer && assignedLecturer !== 'unassigned') {
-        // Assigned in the Allocations page
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(assignedLecturer)}</div>`;
       } else {
-        // Unassigned - show the fallback dropdown
         const lectOptions = ALL_LECTURERS.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
         lecturerHtml = `
           <select class="batch-lecturer form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
@@ -358,7 +355,6 @@
         `;
       }
 
-      // Venue and Time
       let venueHtml = '';
       let startHtml = '<input type="time" class="batch-start form-control" step="60" value="08:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />';
       let endHtml = '<input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />';
@@ -385,15 +381,12 @@
         ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
         : `<input type="checkbox" class="batch-checkbox" data-id="${courseId}" style="cursor:pointer;width:16px;height:16px;" />`;
 
-      const code = c.code || (c.course && c.course.code) || '—';
-      const title = c.title || (c.course && c.course.title) || '—';
-
       return `
         <tr style="border-bottom:1px solid #f1f5f9;" class="batch-row">
           <td style="padding:8px;">${checkboxHtml}</td>
           <td style="padding:8px;">
-            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(code)}</div>
-            <div style="font-size:11px;color:#64748b;">${esc(title)}</div>
+            <div style="font-weight:700;color:#0f172a;font-size:13px;">${esc(courseCode)}</div>
+            <div style="font-size:11px;color:#64748b;">${esc(courseTitle)}</div>
           </td>
           <td style="padding:8px;">${lecturerHtml}</td>
           <td style="padding:8px;">${venueHtml}</td>
@@ -408,7 +401,6 @@
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    // Reset UI
     $('batch-level').value = '';
     $('batch-semester').value = $('tt-semester').value || 'first';
     $('batch-day').value = 'Monday';
@@ -420,7 +412,6 @@
     btn.textContent = 'Loading...';
     btn.disabled = true;
 
-    // Fetch everything we need
     await Promise.all([
       ALL_COURSES.length ? Promise.resolve() : loadCoursesWithAllocations(),
       ALL_LECTURERS.length ? Promise.resolve() : loadLecturers(),
@@ -431,11 +422,9 @@
     btn.disabled = false;
   });
 
-  // Trigger table load when Level or Semester changes in batch mode
   $('batch-level')?.addEventListener('change', loadBatchTable);
   $('batch-semester')?.addEventListener('change', loadBatchTable);
 
-  // Select All logic
   $('batch-select-all')?.addEventListener('change', function() {
     const isChecked = this.checked;
     document.querySelectorAll('.batch-checkbox').forEach(cb => { cb.checked = isChecked; });
@@ -444,7 +433,6 @@
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
-  // Save Batch Slots
   $('batch-save-btn')?.addEventListener('click', async () => {
     const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
       const cb = row.querySelector('.batch-checkbox');
@@ -474,7 +462,6 @@
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
 
-      // If no dropdown exists (locked), try to find the allocated lecturer ID from ALL_COURSES
       if (!lecturerSelect) {
          const found = ALL_COURSES.find(c => String(c.id || (c.course && c.course.id)) === String(courseId));
          if (found && found.lecturerId) lecturerId = Number(found.lecturerId);

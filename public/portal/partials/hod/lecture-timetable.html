@@ -276,8 +276,8 @@
 
   // Render the master table based on selected Level and Semester
   function loadBatchTable() {
-    const selectedLevel = $('batch-level').value;
-    const selectedSemester = $('batch-semester').value;
+    const selectedLevel = $('batch-level').value; // e.g. "ND 1"
+    const selectedSemester = $('batch-semester').value; // e.g. "first"
     const tbody = $('batch-course-list');
 
     if (!selectedLevel) {
@@ -286,20 +286,21 @@
     }
 
     const parts = selectedLevel.split(' ');
-    const targetLevel = parts[0];
-    const targetYear = parts[1];
+    const targetLevel = parts[0].toUpperCase(); // "ND"
+    const targetYear = parts[1]; // "1"
 
-    // Filter based on Level, Year, and Semester
+    // BULLETPROOF FILTER: Compare exact strings
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
-      const rawLevel = courseObj.level || c.level;
-      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || 1;
-      const rawSem = courseObj.semesterName || courseObj.semester_name || c.semesterName || c.semester_name;
+      // Convert everything to string to ensure '1' === 1
+      const rawLevel = courseObj.level || c.level || '';
+      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || '';
+      const rawSem = courseObj.semester_name || courseObj.semesterName || c.semesterName || '';
 
-      const dbLevel = String(rawLevel || '').toUpperCase().trim();
-      const dbYear = String(rawYear);
-      const dbSem = String(rawSem || '').toLowerCase().trim();
+      const dbLevel = String(rawLevel).toUpperCase().trim();
+      const dbYear = String(rawYear).trim();
+      const dbSem = String(rawSem).toLowerCase().trim();
 
       const levelMatch = dbLevel === targetLevel;
       const yearMatch = dbYear === targetYear;

@@ -176,7 +176,11 @@ router.get('/transcript', only, async (req, res, next) => {
     const [student] = await db.select({
       id: users.id, firstName: users.firstName, lastName: users.lastName,
       matricNumber: users.matricNumber, level: users.level,
-    }).from(users).where(eq(users.id, studentId)).limit(1);
+      departmentName: departments.name, programmeName: programmes.name,
+    }).from(users)
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(eq(users.id, studentId)).limit(1);
 
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
@@ -195,7 +199,8 @@ router.get('/transcript', only, async (req, res, next) => {
     const uniqueResults = [];
     const seen = new Set();
     rows.forEach(r => {
-      if (!seen.has(r.courseCode)) { seen.add(r.courseCode); uniqueResults.push(r); }
+      const key = [r.courseCode, r.semester, r.sessionName || ''].join('|');
+      if (!seen.has(key)) { seen.add(key); uniqueResults.push(r); }
     });
 
     let totalPoints = 0, totalUnits = 0;

@@ -16,7 +16,7 @@
     </div>
   </div>
 
-  <button id="tr-print" style="margin-bottom:1rem;padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Transcript</button>
+  <button id="tr-print" style="margin-bottom:1rem;padding:.65rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Official Transcript</button><section id="tr-print-heading" style="display:none;text-align:center;margin-bottom:1rem;color:#0f172a;"><h1 style="margin:0;font-size:20px;">FEDERAL POLYTECHNIC, UGEP</h1><p style="font-size:11px;margin:.25rem 0">OFFICIAL ACADEMIC TRANSCRIPT</p><div id="tr-student-meta" style="text-align:left;font-size:11px;line-height:1.8;margin-top:12px"></div></section>
 
   <!-- STAT TILES -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;">
@@ -51,7 +51,7 @@
   </div>
 
   <!-- TRANSCRIPT TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+  <div id="tr-transcript-sheet" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-weight:800;font-size:.9rem;color:#0f172a;">Results by Course</div>
       <span class="badge" id="count-results" style="background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:800;">0</span>
@@ -66,7 +66,7 @@
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Score</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Grade</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Points</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Session</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester / Session</th>
           </tr>
         </thead>
         <tbody id="tr-tbody">
@@ -84,6 +84,7 @@
     border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @media print { body *{visibility:hidden!important} #tr-print-heading,#tr-print-heading *,#tr-transcript-sheet,#tr-transcript-sheet *{visibility:visible!important} #tr-print-heading{display:block!important;position:static!important} #tr-transcript-sheet{position:static!important;border:0!important;overflow:visible!important} #tr-print{display:none!important} }
 </style>
 
 <script>
@@ -103,10 +104,14 @@
       const rows = d.results || [];
 
       // Update tiles
-      $('hdr-cgpa').textContent = d.cgpa || '0.00';
+      const cgpaNumber = Number(d.cgpa);
+      const cgpaText = Number.isFinite(cgpaNumber) ? cgpaNumber.toFixed(2) : '0.00';
+      $('hdr-cgpa').textContent = cgpaText;
       $('stat-courses').textContent = rows.length;
       $('stat-units').textContent = d.totalUnits || 0;
-      $('stat-cgpa').textContent = d.cgpa || '0.00';
+      $('stat-cgpa').textContent = cgpaText;
+      const student = d.student || {};
+      $('tr-student-meta').innerHTML = '<strong>Student:</strong> '+esc([student.firstName,student.lastName].filter(Boolean).join(' '))+' &nbsp; <strong>Matric No:</strong> '+esc(student.matricNumber||'—')+'<br><strong>Department:</strong> '+esc(student.departmentName||'—')+' &nbsp; <strong>Programme:</strong> '+esc(student.programmeName||'—')+' &nbsp; <strong>Level:</strong> '+esc(student.level||'—')+'<br><strong>CGPA:</strong> '+esc(cgpaText)+' &nbsp; <strong>Classification:</strong> '+esc(d.classification||'—');
       $('stat-classification').textContent = d.classification || '—';
       $('count-results').textContent = rows.length;
 
@@ -123,7 +128,7 @@
           <td style="padding:.65rem .75rem;text-align:center;font-weight:700;">${esc(r.score)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade)}</td>
           <td style="padding:.65rem .75rem;text-align:center;">${esc(r.points)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(r.semester)}</td>
+          <td style="padding:.65rem .75rem;text-align:center;text-transform:capitalize;">${esc(r.semester)} · ${esc(r.sessionName||'—')}</td>
         </tr>
       `).join('');
 

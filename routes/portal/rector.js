@@ -71,6 +71,7 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const enrollment = await db
       .select({
+        departmentId: departments.id,
         code: departments.code,
         name: departments.name,
         students: sql`count(${users.id})::int`,
@@ -146,6 +147,7 @@ router.get('/applications-by-department', only, async (req, res, next) => {
     const rows = await db
       .select({
         departmentId: applications.departmentId,
+        departmentId: departments.id,
         departmentCode: departments.code,
         departmentName: departments.name,
         total: sql`count(*)::int`,

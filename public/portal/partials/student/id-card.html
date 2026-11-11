@@ -12,7 +12,7 @@
 
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap;">
     <button id="idc-refresh" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    <button id="idc-print" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print</button>
+    <button id="idc-print" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print Front & Back</button>
     <button id="idc-flip" style="padding:.5rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">🔄 Flip Card</button>
   </div>
 
@@ -97,16 +97,7 @@
   </div>
 </div>
 
-<style>
-  @media print {
-    body * { visibility: hidden; }
-    #id-card-wrapper, #id-card-wrapper * { visibility: visible; }
-    #id-card-wrapper { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-    #id-card { transform: none !important; }
-    #id-front { display: block !important; backface-visibility: visible !important; }
-    #id-back { display: none !important; }
-  }
-</style>
+<style>@media print{@page{margin:10mm}body *{visibility:hidden!important}#id-card-wrapper,#id-card-wrapper *{visibility:visible!important}#id-card-wrapper{position:static!important;transform:none!important;display:flex;justify-content:center}#id-card{width:440px!important;height:auto!important;transform:none!important;display:block!important}#id-front,#id-back{position:relative!important;inset:auto!important;display:flex!important;flex-direction:column!important;width:440px!important;height:290px!important;transform:none!important;backface-visibility:visible!important;margin:0 auto 12mm!important;page-break-after:always;break-after:page}#id-back{page-break-after:auto;break-after:auto}#idc-refresh,#idc-print,#idc-flip{display:none!important}}</style>
 
 <script>
 (function () {

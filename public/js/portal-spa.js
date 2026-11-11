@@ -134,7 +134,7 @@
         'registrar-registrations'
       ];
       
-      const registryKeys = ['admin-admitted', 'admin-documents']; 
+      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-transcript']; 
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       

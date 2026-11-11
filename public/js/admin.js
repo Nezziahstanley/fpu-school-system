@@ -12518,6 +12518,218 @@ async function loadStaffWorkload() {
   }
 }
 
+
+async function loadBookDetail() {
+  const header = document.getElementById('bd-header');
+  if (!header) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const qi = hash.indexOf('?');
+  const params = new URLSearchParams(qi >= 0 ? hash.slice(qi + 1) : '');
+  const id = params.get('id') || params.get('bookId');
+  if (!id) {
+    header.innerHTML = '<div class="alert alert-warning">No book selected. Return to the library and choose a book.</div>';
+    return;
+  }
+  try {
+    const [bookRes, borrowsRes] = await Promise.all([
+      adminFetch(`/api/admin/library/books/${encodeURIComponent(id)}`),
+      adminFetch('/api/admin/library/borrows?limit=5000')
+    ]);
+    const bookJson = await bookRes.json();
+    const borrowsJson = await borrowsRes.json();
+    if (!bookRes.ok || !bookJson.success) throw new Error(bookJson.error || 'Book not found.');
+    if (!borrowsRes.ok || !borrowsJson.success) throw new Error(borrowsJson.error || 'Could not load borrow history.');
+    const book = bookJson.data || {};
+    const rows = (borrowsJson.data || []).filter(row => Number((row.borrow || row).bookId) === Number(id));
+    const active = rows.filter(row => ['borrowed', 'overdue'].includes(String((row.borrow || row).status || '').toLowerCase()));
+    const history = rows;
+    const title = book.title || 'Untitled Book';
+    const author = book.author || 'Unknown author';
+    const subtitle = document.getElementById('bd-subtitle');
+    if (subtitle) subtitle.textContent = `${author} · ${book.isbn || 'No ISBN'}`;
+    header.innerHTML = `
+      <div class="book-header-card">
+        <div class="book-header-icon">📚</div>
+        <div class="book-header-info">
+          <h2>${escapeHtml(title)}</h2>
+          <div class="author">by ${escapeHtml(author)}</div>
+          <div class="chips">${badge(book.category || 'General')}${badge(book.isActive === false ? 'Inactive' : 'Active')}</div>
+          <div class="bd-stat-row">
+            <div class="bd-stat"><div class="num">${Number(book.totalCopies) || 0}</div><div class="label">Total Copies</div></div>
+            <div class="bd-stat loan"><div class="num">${active.length}</div><div class="label">On Loan</div></div>
+            <div class="bd-stat avail"><div class="num">${Number(book.copiesAvailable) || 0}</div><div class="label">Available</div></div>
+          </div>
+        </div>
+      </div>`;
+    const metadata = document.getElementById('bd-metadata');
+    if (metadata) {
+      const fields = [['ISBN', book.isbn], ['Publisher', book.publisher], ['Year', book.publishedYear], ['Category', book.category], ['Shelf / Location', book.shelfLocation], ['Description', book.description]];
+      metadata.innerHTML = fields.map(([label, value]) => `<div class="receipt-row"><span class="k">${escapeHtml(label)}</span><span class="v">${escapeHtml(value || '—')}</span></div>`).join('');
+    }
+    const activeBox = document.getElementById('bd-active-borrows');
+    const historyBox = document.getElementById('bd-history');
+    const renderBorrow = (row) => {
+      const borrow = row.borrow || row;
+      const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'User';
+      return `<div class="borrow-row ${borrow.status === 'overdue' ? 'overdue' : ''}">
+        <div class="borrow-avatar">${escapeHtml(getInitials(name))}</div>
+        <div class="borrow-info"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(user.matricNumber || user.email || '—')} · Due ${escapeHtml(fmtDate(borrow.dueAt || borrow.due_at))}</span></div>
+        ${badge(borrow.status || 'borrowed')}
+      </div>`;
+    };
+    if (activeBox) activeBox.innerHTML = active.length ? active.map(renderBorrow).join('') : '<p class="muted" style="padding:16px;">No active borrowers.</p>';
+    if (historyBox) historyBox.innerHTML = history.length ? history.slice(0, 12).map(renderBorrow).join('') : '<p class="muted" style="padding:16px;">No borrow history yet.</p>';
+    const count = document.getElementById('bd-borrowed-count');
+    if (count) count.textContent = `${active.length} active`;
+    const issue = document.getElementById('bd-issue');
+    const edit = document.getElementById('bd-edit');
+    const del = document.getElementById('bd-delete');
+    if (issue && !issue.__wired) { issue.__wired = true; issue.addEventListener('click', () => window.FPU_ADMIN_SPA.navigateToWithQuery('borrow-issue', { bookId: id })); }
+    if (edit && !edit.__wired) { edit.__wired = true; edit.addEventListener('click', () => window.FPU_ADMIN_SPA.navigateToWithQuery('book-form', { id })); }
+    if (del && !del.__wired) {
+      del.__wired = true;
+      del.addEventListener('click', async () => {
+        const ok = await window.fpuConfirm(`Delete "${title}" from the library? This cannot be undone.`, { title: 'Delete Book', type: 'danger', okText: 'Delete Book' });
+        if (!ok) return;
+        try {
+          const response = await adminFetch(`/api/admin/library/books/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || 'Book deletion failed.');
+          showToast('Book deleted.', 'success');
+          window.FPU_ADMIN_SPA.navigateTo('library');
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      });
+    }
+  } catch (err) {
+    header.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load book details.')}</div>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadFinesTable() {
+  const tbody = document.getElementById('fines-tbody');
+  if (!tbody) return;
+  const tabs = document.getElementById('fines-status-tabs');
+  const activeTab = tabs?.querySelector('.staff-role-tab.active');
+  const status = activeTab?.dataset.status || '';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading fines…</td></tr>';
+  try {
+    const qs = new URLSearchParams();
+    if (status) qs.set('isPaid', status === 'paid' ? 'true' : 'false');
+    const res = await adminFetch('/api/admin/library/fines' + (qs.toString() ? '?' + qs.toString() : ''));
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load library fines.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    const allRes = status ? await adminFetch('/api/admin/library/fines') : null;
+    const allRows = allRes ? ((await allRes.json()).data || []) : rows;
+    const total = allRows.reduce((sum, row) => sum + Number((row.fine || row).amount || 0), 0);
+    const unpaidRows = allRows.filter(row => !(row.fine || row).isPaid);
+    const paidRows = allRows.filter(row => (row.fine || row).isPaid);
+    const amount = list => list.reduce((sum, row) => sum + Number((row.fine || row).amount || 0), 0);
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('fines-count-all', allRows.length); set('fines-count-unpaid', unpaidRows.length); set('fines-count-paid', paidRows.length);
+    set('fines-stat-total', money(total)); set('fines-stat-unpaid', money(amount(unpaidRows))); set('fines-stat-paid', money(amount(paidRows)));
+    set('fines-stat-unpaid-count', unpaidRows.length); set('fines-count', `${rows.length} fine(s)`);
+    const renderRows = rows.map(row => {
+      const fine = row.fine || row; const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || `User #${fine.userId || '—'}`;
+      return `<tr>
+        <td><input type="checkbox" class="fine-check" data-id="${Number(fine.id)}" ${fine.isPaid ? 'disabled' : ''}></td>
+        <td>${escapeHtml(name)}</td><td>${escapeHtml(money(fine.amount))}</td>
+        <td>${escapeHtml(fine.reason || '—')}</td><td>${badge(fine.isPaid ? 'paid' : 'unpaid')}</td>
+        <td>${escapeHtml(fmtDate(fine.createdAt))}</td>
+        <td>${fine.isPaid ? '<span class="small muted">Settled</span>' : `<button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN.payLibraryFine(${Number(fine.id)})">Mark Paid</button>`}</td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = renderRows || '<tr><td colspan="7" class="empty">No fines found for this filter.</td></tr>';
+    const selectAll = document.getElementById('fines-select-all');
+    if (selectAll && !selectAll.__wired) {
+      selectAll.__wired = true;
+      selectAll.addEventListener('change', () => tbody.querySelectorAll('.fine-check:not(:disabled)').forEach(cb => { cb.checked = selectAll.checked; }));
+    }
+    if (tabs && !tabs.__wired) {
+      tabs.__wired = true;
+      tabs.addEventListener('click', (event) => {
+        const tab = event.target.closest('.staff-role-tab');
+        if (!tab) return;
+        tabs.querySelectorAll('.staff-role-tab').forEach(el => el.classList.toggle('active', el === tab));
+        loadFinesTable();
+      });
+    }
+    const bulk = document.getElementById('fines-bulk-paid');
+    if (bulk && !bulk.__wired) {
+      bulk.__wired = true;
+      bulk.addEventListener('click', async () => {
+        const ids = Array.from(tbody.querySelectorAll('.fine-check:checked')).map(cb => Number(cb.dataset.id)).filter(Boolean);
+        if (!ids.length) return showToast('Select unpaid fines first.', 'warning');
+        const ok = await window.fpuConfirm(`Mark ${ids.length} selected fine(s) as paid?`, { title: 'Settle Fines', type: 'warning', okText: 'Mark Paid' });
+        if (!ok) return;
+        let done = 0, failed = 0;
+        for (const id of ids) { try { await payLibraryFine(id, false); done++; } catch { failed++; } }
+        showToast(`Marked ${done} paid; ${failed} failed.`, failed ? 'warning' : 'success');
+        loadFinesTable();
+      });
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function payLibraryFine(id, notify = true) {
+  const res = await adminFetch(`/api/admin/library/fines/${encodeURIComponent(id)}/pay`, { method: 'POST' });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.error || 'Could not mark fine as paid.');
+  if (notify) { showToast('Fine marked as paid.', 'success'); loadFinesTable(); }
+}
+
+async function loadReservationsTable() {
+  const tbody = document.getElementById('res-tbody');
+  if (!tbody) return;
+  const tabs = document.getElementById('res-status-tabs');
+  const activeTab = tabs?.querySelector('.staff-role-tab.active');
+  const status = activeTab?.dataset.status || '';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading reservations…</td></tr>';
+  try {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    const res = await adminFetch('/api/admin/library/reservations' + (qs.toString() ? '?' + qs.toString() : ''));
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load reservations.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    const allRes = status ? await adminFetch('/api/admin/library/reservations') : null;
+    const allRows = allRes ? ((await allRes.json()).data || []) : rows;
+    const counts = { pending: 0, ready: 0, fulfilled: 0, cancelled: 0 };
+    allRows.forEach(row => { const st = String((row.reservation || row).status || '').toLowerCase(); if (counts[st] !== undefined) counts[st]++; });
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('res-count-all', allRows.length); set('res-count-pending', counts.pending); set('res-count-ready', counts.ready); set('res-count-fulfilled', counts.fulfilled); set('res-count-cancelled', counts.cancelled);
+    set('res-stat-total', allRows.length); set('res-stat-pending', counts.pending); set('res-stat-ready', counts.ready); set('res-stat-fulfilled', counts.fulfilled); set('res-count', `${rows.length} reservation(s)`);
+    tbody.innerHTML = rows.length ? rows.map(row => {
+      const reservation = row.reservation || row; const book = row.book || {}; const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'User';
+      return `<tr>
+        <td><strong>${escapeHtml(book.title || 'Book')}</strong><div class="small muted">${escapeHtml(book.author || '')}</div></td>
+        <td>${escapeHtml(name)}</td><td>${badge(reservation.status || 'pending')}</td>
+        <td>${escapeHtml(fmtDate(reservation.reservedAt))}</td><td>${escapeHtml(fmtDate(reservation.expiresAt))}</td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile',{id:${Number(user.id || reservation.userId)}})">View User</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty">No reservations found for this filter.</td></tr>';
+    if (tabs && !tabs.__wired) {
+      tabs.__wired = true;
+      tabs.addEventListener('click', event => {
+        const tab = event.target.closest('.staff-role-tab');
+        if (!tab) return;
+        tabs.querySelectorAll('.staff-role-tab').forEach(el => el.classList.toggle('active', el === tab));
+        loadReservationsTable();
+      });
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -15336,7 +15548,7 @@ window.FPU_ADMIN = {
   loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats, openComposeNotificationModal,
 
   // Library
-  loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm,
+  loadBooksGrid, loadBookDetail, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm, loadFinesTable, payLibraryFine, loadReservationsTable,
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,

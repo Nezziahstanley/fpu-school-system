@@ -103,8 +103,11 @@ app.get('/api/public/verify', async (req, res) => {
 
     res.json({ success: true, data: studentData });
   } catch (err) {
-    console.error('Verify error:', err);
-    res.status(500).json({ success: false, error: 'Server error: ' + err.message });
+    console.error('Verify error:', err?.message || 'Unknown verification error');
+    res.status(500).json({
+      success: false,
+      error: 'Unable to verify this record right now. Please try again later.',
+    });
   }
 });
 

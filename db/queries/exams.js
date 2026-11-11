@@ -94,6 +94,16 @@ async function list({ sessionId, semester, courseId, status } = {}) {
 // ------------------------------------------------------------
 // findById — single exam schedule with course
 // ------------------------------------------------------------
+async function findCourseDepartment(courseId) {
+  if (!courseId) return null;
+  const [row] = await db
+    .select({ departmentId: courses.departmentId })
+    .from(courses)
+    .where(eq(courses.id, Number(courseId)))
+    .limit(1);
+  return row || null;
+}
+
 async function findById(id) {
   if (!id) return null;
   const [row] = await db
@@ -298,6 +308,7 @@ module.exports = {
   listUpcoming,
   listForStudent,
   findById,
+  findCourseDepartment,
   create,
   update,
   remove,

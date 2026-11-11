@@ -109,6 +109,13 @@
     .lec-dash-link:hover{background:#ecfdf5;border-color:#86efac}
     @media(max-width:900px){#chart-students,#chart-results,#chart-levels{max-width:100%}}
     @media(max-width:760px){.lec-dash-link{flex:1 1 130px;justify-content:center}}
+    @media(max-width:850px){
+      div:has(> #lec-courses),div:has(> #lec-attendance){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+      div:has(> div > #chart-students){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    }
+    @media(max-width:520px){
+      div:has(> #lec-courses),div:has(> #lec-attendance),div:has(> div > #chart-students){grid-template-columns:1fr!important}
+    }
   </style>
   <!-- CHARTS ROW -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem;">

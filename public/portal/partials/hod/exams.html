@@ -227,7 +227,9 @@
 
     tbody.innerHTML = rows.map(r => {
       const e = r.exam || r;
-      const c = r.course || {};
+      const courseCode = r.courseCode || r.course_code || r.course?.code || '—';
+      const courseTitle = r.courseTitle || r.course_title || r.course?.title || '';
+      const level = r.level || r.course?.level || '—';
       
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
       if (e.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
@@ -236,10 +238,10 @@
       return `
         <tr>
           <td>
-            <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
+            <div style="font-weight:700;color:#0f172a;">${esc(courseCode)}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(courseTitle)}</div>
           </td>
-          <td>${esc(c.level || '—')}</td>
+          <td>${esc(level)}</td>
           <td>${e.examDate ? new Date(e.examDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
           <td>${esc(e.startTime || '')} - ${esc(e.endTime || '')}</td>
           <td>${esc(e.venue || '—')}</td>
@@ -299,7 +301,6 @@
       const courseCode = c.courseCode || c.code;
       const courseTitle = c.courseTitle || c.title;
 
-      // Check if this course is already scheduled for an exam
       const existingExam = CURRENT_EXAMS.find(ex => {
         const e = ex.exam || ex;
         return String(e.courseId) === String(courseId);
@@ -430,10 +431,16 @@
       };
 
       try {
-        await core.portalFetch('/api/hod/exams', {
+        const res = await core.portalFetch('/api/hod/exams', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
+        
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || `HTTP ${res.status}`);
+        }
+        
         successCount++;
       } catch (err) {
         errorCount++;
@@ -442,7 +449,7 @@
     }
 
     if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} exam(s).`, 'success');
+      core.showToast(`✅ Saved ${successCount} exam(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
       await loadExams();
       loadBatchTable(); 
     } else {

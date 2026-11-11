@@ -1,6 +1,7 @@
 ﻿// ============================================================
 // FPU — HOD portal API
 // Mounted at /api/hod
+// File: routes/portal/hod.js
 // ============================================================
 
 'use strict';
@@ -8,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 
+// Paths go up TWO levels to reach src/db and src/utils
 const userQueries    = require('../../db/queries/users');
 const courseQueries  = require('../../db/queries/courses');
 const resultQueries  = require('../../db/queries/results');
@@ -15,6 +17,7 @@ const regQueries     = require('../../db/queries/registrations');
 const ttQueries      = require('../../db/queries/timetable');
 const notifQueries   = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
+
 const { db, schema } = require('../../db');
 const { eq, and, sql, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
@@ -655,7 +658,15 @@ router.delete('/allocate/:id', only, async (req, res, next) => {
 router.post('/exams', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const { courseId, examDate, startTime, endTime, venue } = req.body;
+    const { 
+      courseId, 
+      sessionId, 
+      semester, 
+      examDate, 
+      startTime, 
+      endTime, 
+      venue 
+    } = req.body;
 
     if (!courseId || !examDate || !startTime || !endTime) {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
@@ -666,14 +677,18 @@ router.post('/exams', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
+    const finalSemester = semester || course.semesterName || 'first';
+    const finalSessionId = sessionId ? Number(sessionId) : (req.user.currentSessionId || 1);
+
     const [row] = await db.insert(examSchedules).values({
       courseId: Number(courseId),
-      sessionId: req.user.currentSessionId || 1,
-      semester: course.semesterName || 'first',
+      sessionId: finalSessionId,
+      semester: finalSemester,
       examDate: new Date(examDate),
       startTime,
       endTime,
-      venue,
+      venue: venue || null,
+      status: 'draft',
     }).returning();
 
     await logAudit({ req, action: 'hod.create_exam', entity: 'exam_schedule', entityId: row.id, after: row });
@@ -772,8 +787,7 @@ router.get('/exams', only, async (req, res, next) => {
         es.status,
         c.code               AS "courseCode",
         c.title              AS "courseTitle",
-        c.level,
-        c.unit
+        c.level
       FROM exam_schedules es
       INNER JOIN courses c ON es.course_id = c.id
       WHERE c.department_id = ${Number(departmentId)}
@@ -785,6 +799,43 @@ router.get('/exams', only, async (req, res, next) => {
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('[hod/exams] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// POST /api/hod/exams/submit-for-approval
+// ============================================================
+router.post('/exams/submit-for-approval', only, async (req, res, next) => {
+  try {
+    const { sessionId, semester } = req.body;
+    const departmentId = deptId(req);
+
+    if (!sessionId || !semester) {
+      return res.status(400).json({ success: false, error: 'sessionId and semester are required.' });
+    }
+
+    const result = await db.execute(sql`
+      UPDATE exam_schedules 
+      SET status = 'pending'
+      WHERE session_id = ${Number(sessionId)} 
+        AND semester = ${semester}
+        AND status = 'draft'
+        AND course_id IN (
+          SELECT id FROM courses WHERE department_id = ${Number(departmentId)}
+        )
+      RETURNING id
+    `);
+
+    const count = result.rowCount || result.rows?.length || 0;
+
+    if (count === 0) {
+      return res.status(400).json({ success: false, error: 'No draft exams found to submit.' });
+    }
+
+    return res.json({ success: true, message: `Submitted ${count} exam(s) for approval.`, count });
+  } catch (err) {
+    console.error('[hod/submit-exams] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
   }
 });

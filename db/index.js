@@ -33,5 +33,10 @@ async function close() {
   await pool.end();
 }
 
-module.exports = { db, pool, close, schema, sql };
+async function ping() {
+  await pool.query('SELECT 1');
+  return true;
+}
+
+module.exports = { db, pool, close, schema, sql, ping };
 

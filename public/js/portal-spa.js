@@ -86,14 +86,14 @@
       'admin-documents', 'admin-transcript',
     ],
     rector: [
-      'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
+      'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
       'portal-complaints',
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
       'admin-admitted', 'admin-documents',
-      'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
+      'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements', 'admin-transcript',
     ],
     librarian: [
@@ -107,7 +107,7 @@
       'admin-exams', 'admin-courses',
     ],
     academic_officer: [
-      'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
+      'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
       'admin-programmes', 'admin-courses', 'admin-sessions', 'admin-exams',
     ],

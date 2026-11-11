@@ -355,6 +355,21 @@ router.post('/announcements', requireUser, async (req, res, next) => {
       expiresAt: expiresAt || null,
       authorId: req.user.id,
     });
+
+    // General announcements are also delivered to each active account so
+    // every recipient has an independent read state and bell count.
+    if (aud === 'all' && row.isPublished) {
+      const recipients = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+      const notificationRows = recipients.map((recipient) => ({
+        userId: recipient.id,
+        title: row.title,
+        body: row.body,
+        type: row.priority === 'high' ? 'warning' : 'info',
+        link: `/announcements.html?id=${row.id}`,
+        showOnMarquee: false,
+      }));
+      if (notificationRows.length) await notifQueries.bulkCreateNotifications(notificationRows);
+    }
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
     return next(err);
@@ -413,6 +428,9 @@ router.delete('/announcements/:id', requireUser, async (req, res, next) => {
     }
 
     await notifQueries.removeAnnouncement(existing.id);
+    // Remove each user's linked bell item as well; the public news page and
+    // marquee are both driven from the announcement record itself.
+    await db.delete(notifications).where(eq(notifications.link, `/announcements.html?id=${existing.id}`));
     return res.json({ success: true });
   } catch (err) {
     return next(err);

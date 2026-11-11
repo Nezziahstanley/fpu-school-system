@@ -347,7 +347,7 @@ async function verify(id, verifiedBy) {
   const [row] = await db
     .update(payments)
     .set({ status: 'verified', verifiedBy: Number(verifiedBy), verifiedAt: new Date() })
-    .where(eq(payments.id, Number(id)))
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
     .returning();
   return row || null;
 }

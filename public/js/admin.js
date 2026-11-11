@@ -3049,7 +3049,7 @@ async function loadTimetableIndex() {
       }
 
       return `
-        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" ${isEmpty ? '' : `data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}"`}>
+        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
             <span class="badge ${badgeClass}" style="font-size:10px;">${badgeText}</span>
@@ -3069,13 +3069,20 @@ async function loadTimetableIndex() {
     }).join('');
 
     grid.querySelectorAll('.tt-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
+      const openDepartmentTimetable = () => {
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
           departmentId: Number(card.dataset.deptId),
           sessionId: sessionId || '',
           semester,
           name: card.dataset.deptName,
         });
+      };
+      card.addEventListener('click', openDepartmentTimetable);
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openDepartmentTimetable();
+        }
       });
     });
   } catch (err) {

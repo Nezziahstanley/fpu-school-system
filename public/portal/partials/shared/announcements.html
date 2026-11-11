@@ -42,7 +42,7 @@
   <input type="search" id="an-search" placeholder="Search announcements…" />
   <select id="an-audience">
     <option value="">All audiences</option>
-    <option value="all">Everyone</option>
+    <option value="all">General / Everyone (Public News + Marquee)</option>
     <option value="student">Students</option>
     <option value="staff">Staff</option>
     <option value="lecturer">Lecturers</option>
@@ -161,7 +161,7 @@
   if (IS_STAFF) $('an-new').style.display = '';
 
   function audienceLabel(a) {
-    return ({ all:'Everyone', student:'Students', staff:'Staff', lecturer:'Lecturers', hod:'HODs' })[a] || a || 'Everyone';
+    return ({ all:'General / Everyone', student:'Students', staff:'Staff', lecturer:'Lecturers', hod:'HODs' })[a] || a || 'Everyone';
   }
 
   function unwrap(r) {

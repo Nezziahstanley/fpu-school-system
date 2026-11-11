@@ -149,6 +149,30 @@ router.delete('/profile/photo', requireUser, async (req, res, next) => {
 });
 
 // ============================================================
+// POST /api/portal/profile/signature
+// Store the signed-in user's verified signature image in Cloudinary.
+// This signature can be used only by workflows that authorise that role.
+// ============================================================
+router.post('/profile/signature', requireUser, upload.single('signature'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Please upload a signature image.' });
+    if (!ALLOWED_MIME.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: 'Signature must be a PNG, JPG or WEBP image.' });
+    }
+    if (req.file.size && req.file.size > MAX_SIZE_MB * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: `Signature image must be ${MAX_SIZE_MB} MB or smaller.` });
+    }
+    const signatureUrl = req.file.path;
+    const updated = await userQueries.update(req.user.id, { signatureUrl });
+    if (!updated) return res.status(404).json({ success: false, error: 'User not found.' });
+    await logAudit({ req, userId: req.user.id, action: 'portal.profile.signature.update', entity: 'user', entityId: req.user.id });
+    return res.json({ success: true, data: { signatureUrl } });
+  } catch (err) {
+    console.error('[portal/profile] signature upload error:', err);
+    return next(err);
+  }
+});
+// ============================================================
 // POST /api/portal/profile/change-password
 // ============================================================
 router.post('/profile/change-password', requireUser, async (req, res, next) => {

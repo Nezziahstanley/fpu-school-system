@@ -133,8 +133,11 @@ router.get('/payments', only, async (req, res, next) => {
 
 router.post('/payments/:id/verify', only, async (req, res, next) => {
   try {
+    const existing = await paymentQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be verified.' });
     const row = await paymentQueries.verify(req.params.id, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_verify', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -142,8 +145,11 @@ router.post('/payments/:id/verify', only, async (req, res, next) => {
 
 router.post('/payments/:id/reject', only, async (req, res, next) => {
   try {
+    const existing = await paymentQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be rejected.' });
     const row = await paymentQueries.reject(req.params.id, req.body?.reason, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }

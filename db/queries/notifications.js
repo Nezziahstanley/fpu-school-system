@@ -83,7 +83,7 @@ async function listMarqueeAnnouncements(limit = 10) {
     .where(and(
       eq(announcements.showOnMarquee, true),
       eq(announcements.isPublished, true),
-      or(eq(announcements.audience, 'all'), eq(announcements.audience, 'general'))
+      eq(announcements.audience, 'all')
     ))
     .orderBy(desc(announcements.publishedAt))
     .limit(Number(limit));

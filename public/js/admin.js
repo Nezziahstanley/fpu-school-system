@@ -12613,9 +12613,12 @@ async function bulkResultAction(action) {
     const json = await res.json();
     console.log('🔵 Response:', res.status, json);
 
-    if (!json.success) throw new Error(json.error || 'Failed to update results');
+    if (!res.ok || !json.success) throw new Error(json.error || 'Failed to update results');
 
-    showToast(`✅ ${actionText}ed ${selectedIds.length} result(s).`, 'success');
+    const changed = Number(json.count) || 0;
+    const skipped = Number(json.skipped) || 0;
+    const message = `Updated ${changed} result(s)${skipped ? `; ${skipped} skipped because their status was not eligible` : ''}.`;
+    showToast(`✅ ${message}`, 'success');
     loadDepartmentResults();
 
   } catch (err) {
@@ -12674,12 +12677,16 @@ async function publishAllApproved() {
 
     const ids = approvedResults.map(r => r.id);
 
-    await adminFetch('/api/admin/results/bulk-action', {
+    const publishRes = await adminFetch('/api/admin/results/bulk-action', {
       method: 'POST',
       body: JSON.stringify({ ids, action: 'published' })
     });
+    const publishJson = await publishRes.json();
+    if (!publishRes.ok || !publishJson.success) {
+      throw new Error(publishJson.error || 'Unable to publish approved results.');
+    }
 
-    showToast(`✅ Published ${ids.length} results.`, 'success');
+    showToast(`✅ Published ${publishJson.count || 0} result(s); private notifications sent to ${publishJson.notificationCount || 0} student(s).`, 'success');
     loadResultsDashboard();
   } catch (err) {
     showToast('❌ ' + err.message, 'error');

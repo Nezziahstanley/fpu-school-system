@@ -561,10 +561,14 @@ router.get('/clearance', only, async (req, res, next) => {
     const studentId = req.user.id;
     
     const clearancesResult = await db.execute(sql`
-      SELECT c.id, c.type, c.status, c.session_id AS "sessionId", 
-             s.name AS "sessionName", c.created_at AS "createdAt"
+      SELECT c.id, c.type, c.status, c.session_id AS "sessionId",
+             s.name AS "sessionName", c.created_at AS "createdAt",
+             c.cleared_by AS "clearedBy", c.cleared_at AS "clearedAt",
+             signer.first_name AS "signerFirstName", signer.last_name AS "signerLastName",
+             signer.role AS "signerRole", signer.signature_url AS "signerSignatureUrl"
       FROM clearances c
       LEFT JOIN academic_sessions s ON c.session_id = s.id
+      LEFT JOIN users signer ON signer.id = c.cleared_by
       WHERE c.student_id = ${studentId}
       ORDER BY c.created_at DESC
     `);

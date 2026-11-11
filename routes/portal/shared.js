@@ -352,6 +352,7 @@ router.post('/announcements', requireUser, async (req, res, next) => {
       audience: aud,
       priority: priority || 'normal',
       isPublished: isPublished !== false,
+      showOnMarquee: aud === 'all' ? true : req.body?.showOnMarquee === true,
       expiresAt: expiresAt || null,
       authorId: req.user.id,
     });

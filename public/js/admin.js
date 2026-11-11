@@ -13815,13 +13815,16 @@ async function loadExamApprovals() {
     const semester = document.getElementById('ex-semester')?.value || 'first';
     if (!sessionId) throw new Error('Select an academic session to view exam approvals.');
     const query = new URLSearchParams({ sessionId, semester, limit: '5000' });
-    const [examsRes, deptsRes] = await Promise.all([
+    const [examsRes, deptsRes, schoolsRes] = await Promise.all([
       adminFetch(`/api/admin/exams?${query.toString()}`),
       adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/schools'),
     ]);
 
     const exams = (await examsRes.json()).data || [];
     const depts = (await deptsRes.json()).data || [];
+    const schools = (await schoolsRes.json()).data || [];
+    const schoolById = new Map(schools.map(school => [Number(school.id), school]));
 
     const byDept = new Map();
     depts.forEach(d => byDept.set(Number(d.id), { dept: d, draft: 0, submitted: 0, approved: 0 }));
@@ -13884,7 +13887,7 @@ async function loadExamApprovals() {
           </div>
 
           <div style="margin-top:auto; padding-top:12px; border-top:1px solid #f1f5f9; display:flex; gap:8px; justify-content:space-between;">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: ${dept.schoolId}, sessionId: '${sessionId}', semester: '${semester}', name: '${escapeQuotes(dept.name)}' })">👁 View</button>
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: ${dept.schoolId}, departmentId: ${dept.id}, sessionId: '${sessionId}', semester: '${semester}', name: '${escapeQuotes(schoolById.get(Number(dept.schoolId))?.name || 'School')}', departmentName: '${escapeQuotes(dept.name)}' })">👁 View Department</button>
             ${submitted > 0 ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveDepartmentExams(${dept.id}, '${escapeQuotes(dept.name)}')">✅ Approve All</button>` : ''}
           </div>
         </div>

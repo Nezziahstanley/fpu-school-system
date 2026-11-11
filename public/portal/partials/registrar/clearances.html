@@ -233,10 +233,10 @@
     const c = ALL.find(x => x.id === id);
     if (!c) return;
 
-    $('cert-title').textContent = c.type.toUpperCase() + ' CERTIFICATE';
+    $('cert-title').textContent = 'CLEARANCE CERTIFICATE';
     $('cert-name').textContent = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Student Name';
     $('cert-matric').textContent = (c.matricNumber || '').replace(/SMT/gi, '').trim() || 'MATRIC';
-    $('cert-type').textContent = c.type;
+    $('cert-type').textContent = String(c.type || 'general').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()) + ' Clearance';
     $('cert-status').textContent = c.status;
     $('cert-reference').textContent = 'REFERENCE: FPU/CLR/' + String(c.id).padStart(6, '0');
     const signature = $('cert-signature');

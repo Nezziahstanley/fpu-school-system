@@ -822,7 +822,7 @@ async function bulkApplicationAction(action) {
     reason = await window.fpuPrompt(`Reason for rejecting ${ids.length} application(s):`, 'This reason will be recorded with the selected applications.', 'Rejection Reason');
     if (reason === null) return;
     if (!reason.trim()) { showToast('⚠️ A reason is required.', 'warning'); return; }
-  } else { if (!confirm(`${action === 'delete' ? 'Delete' : 'Approve'} ${ids.length} application(s)?`)) return; }
+  } else { if (!(await window.fpuConfirm(`${action === 'delete' ? 'Delete' : 'Approve'} ${ids.length} application(s)?`, { title: action === 'delete' ? 'Delete Applications' : 'Approve Applications', type: action === 'delete' ? 'danger' : 'warning', okText: action === 'delete' ? 'Delete' : 'Approve' }))) return; }
 
   try {
     const res = await adminFetch('/api/admin/applications/bulk', { method: 'POST', body: JSON.stringify({ ids, action, reason }) });
@@ -1081,7 +1081,7 @@ async function bulkStudentAction(action) {
   if (action === 'reset-password') {
     password = await window.fpuPrompt(`Reset password for ${ids.length} student(s) to:`, 'Enter the temporary password to assign.', 'Reset Student Password', 'student1234');
     if (password === null) return; if (!password.trim()) { showToast('⚠️ A password is required.', 'warning'); return; }
-  } else { if (!confirm(`${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} ${ids.length} student(s)?`)) return; }
+  } else { if (!(await window.fpuConfirm(`${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} ${ids.length} student(s)?`, { title: 'Confirm Student Action', type: action === 'delete' ? 'danger' : 'warning', okText: action === 'delete' ? 'Delete' : 'Continue' }))) return; }
   let ok = 0, failed = 0;
   for (const id of ids) {
     try {

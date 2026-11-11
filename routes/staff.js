@@ -63,7 +63,14 @@ router.post('/', requireRole(['admin', 'registrar']), async (req, res, next) => 
       return res.status(409).json({ success: false, error: 'A user with this email already exists.' });
     }
 
-    const plain = password || 'principal1234';
+    if (typeof password !== 'string' || !password.trim()) {
+      return res.status(400).json({ success: false, error: 'An initial password is required.' });
+    }
+    if (role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Only an administrator can create another admin account.' });
+    }
+
+    const plain = password;
     const { valid, reasons } = validatePassword(plain);
     if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
 
@@ -177,7 +184,10 @@ router.post('/:id/reset-password', requireRole(['admin']), async (req, res, next
     if (!user || user.role === 'student') {
       return res.status(404).json({ success: false, error: 'Staff member not found.' });
     }
-    const plain = req.body?.password || 'principal1234';
+    const plain = req.body?.password;
+    if (typeof plain !== 'string' || !plain.trim()) {
+      return res.status(400).json({ success: false, error: 'A new password is required.' });
+    }
     const { valid, reasons } = validatePassword(plain);
     if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
 

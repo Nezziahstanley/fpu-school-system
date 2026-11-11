@@ -759,6 +759,7 @@ router.delete('/exams/:id', only, async (req, res, next) => {
 router.get('/exams', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
+    const { sessionId, semester } = req.query;
 
     const rows = await db
       .select({
@@ -767,13 +768,22 @@ router.get('/exams', only, async (req, res, next) => {
         startTime: examSchedules.startTime,
         endTime: examSchedules.endTime,
         venue: examSchedules.venue,
+        status: examSchedules.status,
+        // FIX: include these fields under BOTH naming conventions so the frontend matches
         courseCode: courses.code,
+        course_code: courses.code,
         courseTitle: courses.title,
+        course_title: courses.title,
         level: courses.level,
+        courseId: examSchedules.courseId,
       })
       .from(examSchedules)
       .innerJoin(courses, eq(examSchedules.courseId, courses.id))
-      .where(eq(courses.departmentId, departmentId))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        sessionId ? eq(examSchedules.sessionId, Number(sessionId)) : sql`true`,
+        semester ? eq(examSchedules.semester, semester) : sql`true`
+      ))
       .orderBy(examSchedules.examDate);
 
     return res.json({ success: true, data: rows });

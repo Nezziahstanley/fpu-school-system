@@ -15,18 +15,33 @@ const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
 router.get('/departments', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, semester, schoolId, search } = req.query;
-    
-    const conds = [];
-    if (sessionId) conds.push(eq(schema.attendance.sessionId, Number(sessionId)));
-    if (semester) conds.push(eq(schema.attendance.semester, semester));
-    if (schoolId) conds.push(eq(schema.departments.schoolId, Number(schoolId)));
+
+    // Keep department filters on the department query itself. Putting them in
+    // the attendance LEFT JOIN would leave unrelated departments in the list.
+    const departmentConds = [];
+    if (schoolId) departmentConds.push(eq(schema.departments.schoolId, Number(schoolId)));
     if (search) {
-      conds.push(or(
+      departmentConds.push(or(
         ilike(schema.departments.name, `%${search}%`),
         ilike(schema.departments.code, `%${search}%`)
       ));
     }
-    const where = conds.length ? and(...conds) : undefined;
+
+    const attendanceConds = [];
+    let selectedSessionId = sessionId ? Number(sessionId) : null;
+    if (!selectedSessionId) {
+      const [currentSession] = await db
+        .select({ id: schema.academicSessions.id })
+        .from(schema.academicSessions)
+        .where(eq(schema.academicSessions.isCurrent, true))
+        .limit(1);
+      selectedSessionId = currentSession ? Number(currentSession.id) : null;
+    }
+    if (selectedSessionId) attendanceConds.push(eq(schema.attendance.sessionId, selectedSessionId));
+    if (semester) attendanceConds.push(eq(schema.attendance.semester, semester));
+
+    const departmentWhere = departmentConds.length ? and(...departmentConds) : undefined;
+    const attendanceWhere = attendanceConds.length ? and(...attendanceConds) : undefined;
 
     const stats = await db
       .select({
@@ -43,7 +58,8 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       .from(schema.departments)
       .leftJoin(schema.schools, eq(schema.departments.schoolId, schema.schools.id))
       .leftJoin(schema.courses, eq(schema.departments.id, schema.courses.departmentId))
-      .leftJoin(schema.attendance, and(eq(schema.courses.id, schema.attendance.courseId), where))
+      .leftJoin(schema.attendance, and(eq(schema.courses.id, schema.attendance.courseId), attendanceWhere))
+      .where(departmentWhere)
       .groupBy(schema.departments.id, schema.departments.name, schema.departments.code, schema.schools.name)
       .orderBy(schema.departments.name);
 

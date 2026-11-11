@@ -39,7 +39,11 @@ router.get('/schools', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
 
-    const stats = await db
+    if (req.user?.role === 'hod' && !req.user.departmentId) {
+      return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
+    }
+
+    let schoolQuery = db
       .select({
         id: schema.schools.id,
         name: schema.schools.name,
@@ -70,8 +74,12 @@ router.get('/schools', requireRole(STAFF), async (req, res, next) => {
                   eq(schema.examSchedules.semester, semester)
                 )
               : eq(schema.courses.id, schema.examSchedules.courseId)
-      )
-      .groupBy(schema.schools.id, schema.schools.name, schema.schools.code);
+      );
+
+    if (req.user?.role === 'hod') {
+      schoolQuery = schoolQuery.where(eq(schema.departments.id, Number(req.user.departmentId)));
+    }
+    const stats = await schoolQuery.groupBy(schema.schools.id, schema.schools.name, schema.schools.code);
 
     return res.json({ success: true, data: stats });
   } catch (err) {
@@ -204,6 +212,11 @@ router.delete('/:id', requireRole(['admin', 'exam_officer']), async (req, res, n
 // ============================================================
 router.get('/:id/attendance', requireRole(STAFF), async (req, res, next) => {
   try {
+    const schedule = await examQueries.findById(req.params.id);
+    if (!schedule) return res.status(404).json({ success: false, error: 'Exam schedule not found.' });
+    if (req.user?.role === 'hod' && (!req.user.departmentId || Number(schedule.course?.departmentId) !== Number(req.user.departmentId))) {
+      return res.status(403).json({ success: false, error: 'You can only view attendance for your assigned department.' });
+    }
     const rows = await examQueries.listAttendanceWithStudent({ examScheduleId: req.params.id });
     const counts = await examQueries.countAttendance({ examScheduleId: req.params.id });
     return res.json({ success: true, data: rows, counts });

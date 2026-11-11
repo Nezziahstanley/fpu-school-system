@@ -250,6 +250,7 @@
       { key: 'librarian-borrows',      label: 'Borrows',      icon: ICON.book },
       { key: 'librarian-reservations', label: 'Reservations', icon: ICON.book },
       { key: 'librarian-fines',        label: 'Fines',        icon: ICON.money },
+      { key: 'librarian-reports',      label: 'Library Reports', icon: ICON.chart },
     ],
     exam_officer: [
       { key: 'exam-officer-dashboard',   label: 'Dashboard',   icon: ICON.dash },

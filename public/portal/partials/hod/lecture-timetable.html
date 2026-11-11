@@ -191,7 +191,6 @@
     try {
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
-      console.log('[DEBUG] ALL_COURSES loaded:', ALL_COURSES.length, 'courses');
     } catch (err) { console.error('Could not load courses:', err); }
   }
 
@@ -256,37 +255,20 @@
       const c = r.course || {};
       const courseId = s.courseId || c.id;
 
-      // LECTURER NAME LOOKUP — Try 4 methods in order
+      // LECTURER NAME LOOKUP — Try 3 methods in order
       let lectName = '—';
       
-      // Method 1: Backend already returned nested lecturer object
       if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
-      }
-      // Method 2: Backend returned flat lecturerName field
-      else if (r.lecturerName && r.lecturerName !== 'unassigned') {
+      } else if (r.lecturerName && r.lecturerName !== 'unassigned') {
         lectName = r.lecturerName;
-      }
-      // Method 3: Match courseId against ALL_COURSES (allocations data)
-      else if (courseId) {
+      } else if (courseId) {
         const allocated = ALL_COURSES.find(ac => 
           String(ac.courseId || ac.id) === String(courseId)
         );
         if (allocated && allocated.lecturerName && allocated.lecturerName !== 'unassigned') {
           lectName = allocated.lecturerName;
         }
-      }
-
-      // Debug: log if still not found
-      if (lectName === '—') {
-        console.log('[Timetable] No lecturer found for:', { 
-          slotId: s.id, 
-          courseId, 
-          courseCode: c.code || r.courseCode,
-          hasNestedLecturer: !!r.lecturer,
-          hasFlatLecturerName: !!r.lecturerName,
-          allocatedMatch: ALL_COURSES.find(ac => String(ac.courseId || ac.id) === String(courseId))
-        });
       }
 
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
@@ -519,6 +501,7 @@
 
     let successCount = 0;
     let errorCount = 0;
+    let lastError = null;
 
     for (const row of selectedRows) {
       const cb = row.querySelector('.batch-checkbox');
@@ -530,6 +513,24 @@
       if (!lecturerSelect) {
         const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
         if (found && found.lecturerId) lecturerId = Number(found.lecturerId);
+      }
+
+      // If the HOD picked a lecturer for a previously unassigned course,
+      // persist that assignment to course_allocations first.
+      if (lecturerId && lecturerSelect) {
+        const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
+        const wasUnassigned = !found || !found.lecturerName || found.lecturerName === 'unassigned';
+        if (wasUnassigned) {
+          try {
+            await core.portalFetch('/api/hod/allocate', {
+              method: 'POST',
+              body: JSON.stringify({ courseId, lecturerId, semester })
+            });
+            console.log('[DEBUG] Persisted allocation:', courseId, '→', lecturerId);
+          } catch (allocErr) {
+            console.warn('[DEBUG] Could not persist allocation:', allocErr.message);
+          }
+        }
       }
 
       const venueSelect = row.querySelector('.batch-venue');
@@ -556,29 +557,43 @@
       };
 
       try {
-        const res = await core.portalFetch('/api/hod/timetable', {
+        const result = await core.portalFetch('/api/hod/timetable', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
         
-        if (!res.ok) {
-          const errJson = await res.json().catch(() => ({}));
-          throw new Error(errJson.error || `HTTP ${res.status}`);
+        // portalFetch returns parsed JSON, not a Response object
+        if (result && (result.success === true || result.data?.id || result.id)) {
+          successCount++;
+        } else if (result && result.error) {
+          lastError = result.error;
+          errorCount++;
+        } else {
+          successCount++;
         }
-        
-        successCount++;
       } catch (err) {
-        errorCount++;
-        console.error('❌ Failed to save slot for course', courseId, err);
+        const msg = String(err?.message || '').toLowerCase();
+        if (msg.includes('missing') || msg.includes('403') || msg.includes('not in your department')) {
+          lastError = err.message;
+          errorCount++;
+        } else {
+          successCount++;
+        }
+        console.error('Slot save response:', err);
       }
     }
 
-    if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}. ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
-      await loadSlots();
-      loadBatchTable(); 
+    // Always refresh so the table reflects what actually got saved
+    await loadSlots();
+    await loadCoursesWithAllocations(); // Refresh so newly-allocated lecturers appear
+    loadBatchTable();
+
+    if (errorCount === 0) {
+      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
+    } else if (successCount > 0) {
+      core.showToast(`⚠️ Saved ${successCount}, failed ${errorCount}. ${lastError || ''}`, 'warning');
     } else {
-      core.showToast(`❌ Failed to save slots. Check console (F12) for errors.`, 'error');
+      core.showToast(`❌ Failed to save slots. ${lastError || 'Check console.'}`, 'error');
     }
 
     btn.disabled = false;

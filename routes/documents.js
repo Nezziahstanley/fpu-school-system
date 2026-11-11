@@ -295,23 +295,25 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
             <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${escapeHtml(docType)}</h2>
 
             <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
-              This is to certify that <strong>${studentName}</strong> with Matric Number <strong>${matricNumber || '—'}</strong> 
+              This is to certify that <strong>${escapeHtml(studentName)}</strong> with Matric Number <strong>${escapeHtml(matricNumber || '—')}</strong> 
               is a bona fide student of Federal Polytechnic Ugep, currently enrolled in the following programme:
             </p>
 
             <table style="width: 100%; margin: 1.5rem 0; font-size: .9rem; border-collapse: collapse;">
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b; width: 40%;">Programme</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${progName || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(progName || '—')}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b;">Department</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${deptName || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(deptName || '—')}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b;">Level</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${level || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(level || '—')}</td>
               </tr>
+              <tr><td style="padding:.6rem 0;color:#64748b;">Email</td><td style="padding:.6rem 0;text-align:right;font-weight:700;color:#0f172a;">${escapeHtml(stu.email || '—')}</td></tr>
+              <tr><td style="padding:.6rem 0;color:#64748b;">Telephone</td><td style="padding:.6rem 0;text-align:right;font-weight:700;color:#0f172a;">${escapeHtml(stu.phone || '—')}</td></tr>
               <tr>
                 <td style="padding: .6rem 0; color: #64748b;">Session</td>
                 <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">Academic records on file</td>

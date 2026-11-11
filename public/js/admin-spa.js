@@ -324,7 +324,7 @@
     // ---------- System ----------
     'reports':          { url: '/admin/partials/reports/index.html',             title: 'Reports',         init: call('loadReports') },
     'audit':            { url: '/admin/partials/audit/index.html',               title: 'Audit',           init: call('loadAuditTable') },
-    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: call('loadSecurity') },
+    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: call('loadSecurityDashboard') },
     'settings':         { url: '/admin/partials/settings/index.html',            title: 'Settings',        init: call('loadSettingsShell') },
 
     // ---------- Users ----------

@@ -1,0 +1,36 @@
+# Phase 18 — Cross-dashboard integration audit
+
+Base: `phase-19-security-regression-hardening`
+
+## Verified workflow route map
+
+| Workflow | Public / student entry | Staff workflow | Backend status / operation |
+|---|---|---|---|
+| Application submission | `POST /api/public/apply`, `POST /api/public/apply-hnd` | Admission Officer / Admin application queues | Application record created |
+| Application status | `GET /api/public/apply-status` | Admission Officer review | pending → under_review → approved / rejected |
+| Admission registration | Public application record | Admission Officer / Admin registration; Registrar admitted/registration views | approved → registered; user account and matric number created |
+| Matriculation | Public admission letter endpoint | Admission Officer matriculation action | registered/approved → matriculated |
+| Payment | Student fee view / payment initiation | Bursar payment verification | pending → verified / rejected; refunds handled separately |
+| Student academic record | Student dashboard, results, transcript | Lecturer/HOD/Exam Officer/Academic Officer publication workflow | Published results feed student views |
+| Documents | Student document requests | Bursar review/issue and Registrar document register | pending → approved / rejected / issued |
+
+## Integration defect corrected
+
+The Admission Officer matriculation endpoint previously generated or accepted a matric number but only saved that number. It did not change the application status to `matriculated`, nor set the matriculation timestamp / third-letter timestamp through the shared application query helper.
+
+The public admission-letter route explicitly allows the `matriculated` state and selects the matriculation letter for that state. This mismatch could therefore leave a successfully matriculated applicant unable to access the expected public matriculation letter.
+
+The endpoint now uses the shared `appQueries.setStatus(app.id, 'matriculated', { matricNumber, reviewedBy })` transition. This also applies the shared timestamp and letter tracking fields.
+
+## Remaining validation
+
+- Exercise public ND and HND application submissions with test records.
+- Confirm admission approval, registration and matriculation with an authenticated Admission Officer account.
+- Confirm public status lookup and all three letter types.
+- Verify a registered student sees verified payments, published results and issued documents in the Student dashboard.
+- Confirm Bursar and Registrar views reflect the same underlying payment/document state.
+- Run end-to-end tests against a staging database before merging.
+
+## Scope note
+
+This is a source-level integration correction and route audit. It has not been tested against live user accounts or production data. No production deployment was triggered.

@@ -59,9 +59,9 @@
         <div class="form-group"><label class="form-label">Qualification</label><input class="form-control" name="qualification" id="sf-qual" /></div>
         <div class="form-group"><label class="form-label">Employment Date</label><input class="form-control" type="date" name="employmentDate" id="sf-emp-date" /></div>
         <div class="form-group">
-          <label class="form-label">Password</label>
-          <input class="form-control" name="password" id="sf-pwd" placeholder="Default: principal1234" />
-          <div class="form-help" id="sf-pwd-help">Leave blank to use the default.</div>
+          <label class="form-label">Password <span class="req" id="sf-pwd-required">*</span></label>
+          <input class="form-control" name="password" id="sf-pwd" type="password" autocomplete="new-password" placeholder="Set an initial password" />
+          <div class="form-help" id="sf-pwd-help">Required when creating a staff account.</div>
         </div>
       </div>
 
@@ -92,6 +92,8 @@
       $('sf-subtitle').textContent = 'Update this staff member';
       $('sf-submit').textContent = 'Save Changes';
       $('sf-pwd-help').textContent = 'Leave blank to keep the current password.';
+      $('sf-pwd').placeholder = 'Leave blank to keep current password';
+      $('sf-pwd-required').style.display = 'none';
     }
     if (prefillRole) $('sf-role').value = prefillRole;
 
@@ -150,7 +152,12 @@
         qualification: $('sf-qual').value.trim() || null,
         employmentDate: $('sf-emp-date').value || null,
       };
-      const pwd = $('sf-pwd').value.trim();
+      const pwd = $('sf-pwd').value;
+      if (!isEdit && !pwd.trim()) {
+        valEl.innerHTML = '<div style="color:#dc2626;">⚠️ Please set an initial password for this staff account.</div>';
+        $('sf-pwd').focus();
+        return;
+      }
       if (pwd) payload.password = pwd;
 
       if (!payload.firstName || !payload.lastName || !payload.email) {

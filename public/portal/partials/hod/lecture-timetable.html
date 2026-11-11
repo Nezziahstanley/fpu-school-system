@@ -274,7 +274,7 @@
     });
   }
 
-   // Render the master table based on selected Level and Semester
+  // Render the master table based on selected Level and Semester
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value; // e.g. "ND 1"
     const selectedSemester = $('batch-semester').value; // e.g. "first"
@@ -289,36 +289,38 @@
     const targetLevel = parts[0].toUpperCase(); // "ND"
     const targetYear = parts[1]; // "1"
 
-    // BULLETPROOF FILTER: Compare exact strings with all possible property names
+    // DEBUG: Log what the API actually returned to the console
+    if (ALL_COURSES.length > 0) {
+       console.log('[DEBUG] API returned Courses sample:', ALL_COURSES[0]);
+    }
+
+    // FUZZY FILTER: This checks if the string includes the target, ignoring casing.
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
-      const rawLevel = courseObj.level || c.level || '';
-      const rawYear = courseObj.year_of_study || courseObj.yearOfStudy || courseObj.year || c.yearOfStudy || c.year_of_study || c.year || '';
-      const rawSem = courseObj.semester_name || courseObj.semesterName || courseObj.semester || c.semesterName || c.semester_name || c.semester || '';
+      // 1. Get everything as a giant string to search through
+      const levelStr = String(courseObj.level || c.level || '').toUpperCase();
+      const yearStr = String(courseObj.year_of_study || courseObj.yearOfStudy || c.year_of_study || c.yearOfStudy || '');
+      const semStr = String(courseObj.semester_name || courseObj.semesterName || c.semester_name || c.semesterName || '').toLowerCase();
 
-      const dbLevel = String(rawLevel).toUpperCase().trim();
-      const dbYear = String(rawYear).trim();
-      const dbSem = String(rawSem).toLowerCase().trim();
+      // 2. Level Match ("ND" must be inside levelStr)
+      const levelMatch = levelStr.includes(targetLevel);
 
-      const levelMatch = dbLevel === targetLevel;
-      const yearMatch = dbYear === targetYear;
-      
+      // 3. Year Match (e.g. "1" must equal "1")
+      const yearMatch = yearStr === targetYear;
+
+      // 4. Semester Match ("first" must be inside semStr, or "1")
       let semMatch = false;
-      if (selectedSemester === 'first') semMatch = (dbSem === 'first' || dbSem === '1');
-      if (selectedSemester === 'second') semMatch = (dbSem === 'second' || dbSem === '2');
+      if (selectedSemester === 'first') semMatch = (semStr.includes('first') || semStr === '1');
+      if (selectedSemester === 'second') semMatch = (semStr.includes('second') || semStr === '2');
 
       return levelMatch && yearMatch && semMatch;
     });
 
-    // Debugging: If still empty, log the first few courses
-    if (!filtered.length) {
-      console.log('[DEBUG] No courses matched. Here is the data:', ALL_COURSES.slice(0, 3));
-      console.log(`[DEBUG] Filtering for Level: "${targetLevel}", Year: "${targetYear}", Semester: "${selectedSemester}"`);
-    }
+    console.log(`[DEBUG] Filtering for ${targetLevel} ${targetYear} (${selectedSemester}). Found ${filtered.length} courses.`);
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection. Check console for debug data.</td></tr>';
       return;
     }
 
@@ -419,7 +421,7 @@
       `;
     }).join('');
   }
- 
+  
   // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';

@@ -224,7 +224,6 @@
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
-    // FORCE load ALL_COURSES so lecturer lookup always works
     if (!ALL_COURSES.length) {
       await loadCoursesWithAllocations();
     }
@@ -255,7 +254,6 @@
       const c = r.course || {};
       const courseId = s.courseId || c.id;
 
-      // LECTURER NAME LOOKUP — Try 3 methods in order
       let lectName = '—';
       
       if (r.lecturer && r.lecturer.firstName) {
@@ -305,7 +303,6 @@
     });
   }
 
-  // Render the master table based on selected Level, Semester, and Day
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value;
     const selectedSemester = $('batch-semester').value;
@@ -342,7 +339,6 @@
       const courseCode = c.courseCode || c.code;
       const courseTitle = c.courseTitle || c.title;
 
-      // Check if this course is already scheduled for THIS specific active day
       const existingSlotForToday = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
         const isSameCourse = String(slot.courseId) === String(courseId);
@@ -416,7 +412,6 @@
     }).join('');
   }
 
-  // Handle Tab Clicks
   document.querySelectorAll('.day-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.day-tab').forEach(t => {
@@ -431,7 +426,6 @@
     });
   });
 
-  // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
@@ -479,7 +473,6 @@
   $('add-slot-close')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
   $('add-slot-cancel')?.addEventListener('click', () => $('add-slot-modal').style.display = 'none');
 
-  // Save Weekly Timetable
   $('batch-save-btn')?.addEventListener('click', async () => {
     const selectedRows = Array.from(document.querySelectorAll('.batch-row')).filter(row => {
       const cb = row.querySelector('.batch-checkbox');
@@ -515,8 +508,6 @@
         if (found && found.lecturerId) lecturerId = Number(found.lecturerId);
       }
 
-      // If the HOD picked a lecturer for a previously unassigned course,
-      // persist that assignment to course_allocations first.
       if (lecturerId && lecturerSelect) {
         const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
         const wasUnassigned = !found || !found.lecturerName || found.lecturerName === 'unassigned';
@@ -526,7 +517,6 @@
               method: 'POST',
               body: JSON.stringify({ courseId, lecturerId, semester })
             });
-            console.log('[DEBUG] Persisted allocation:', courseId, '→', lecturerId);
           } catch (allocErr) {
             console.warn('[DEBUG] Could not persist allocation:', allocErr.message);
           }
@@ -562,7 +552,6 @@
           body: JSON.stringify(payload)
         });
         
-        // portalFetch returns parsed JSON, not a Response object
         if (result && (result.success === true || result.data?.id || result.id)) {
           successCount++;
         } else if (result && result.error) {
@@ -583,9 +572,11 @@
       }
     }
 
-    // Always refresh so the table reflects what actually got saved
+    // THE FIX: Force the main table to refresh immediately
+    await load();
+    
     await loadSlots();
-    await loadCoursesWithAllocations(); // Refresh so newly-allocated lecturers appear
+    await loadCoursesWithAllocations(); 
     loadBatchTable();
 
     if (errorCount === 0) {
@@ -600,7 +591,6 @@
     btn.textContent = 'Save Weekly Timetable';
   });
 
-  // Custom Confirm Submit
   let isSubmitting = false;
 
   $('tt-submit')?.addEventListener('click', () => {
@@ -644,7 +634,6 @@
   $('tt-session')?.addEventListener('change', load);
   $('tt-semester')?.addEventListener('change', load);
 
-  // Init
   loadSessions().then(load);
 })();
 </script>

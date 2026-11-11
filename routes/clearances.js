@@ -36,8 +36,13 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 // GET /api/admin/clearances/stats
 router.get('/stats', requireRole(STAFF), async (req, res, next) => {
   try {
+    const { sessionId } = req.query;
     const result = await db.query(
-      'SELECT status, COUNT(*)::int AS count FROM clearances GROUP BY status'
+      `SELECT status, COUNT(*)::int AS count
+       FROM clearances
+       ${sessionId ? 'WHERE session_id = $1' : ''}
+       GROUP BY status`,
+      sessionId ? [sessionId] : []
     );
     return res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -125,8 +130,12 @@ router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']),
       return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
     }
     const sessionId = sessionRes.rows[0].id;
-    const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
-    const clearedAt = status === 'cleared' ? new Date() : null;
+    const normalizedStatus = String(status).toLowerCase();
+    if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {
+      return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
+    }
+    const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
+    const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
     const query = `
       UPDATE clearances
@@ -138,7 +147,7 @@ router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']),
       RETURNING *;
     `;
     const result = await db.query(query, [
-      status, remarks || null, clearedBy, clearedAt, req.params.studentId, sessionId
+      normalizedStatus, remarks || null, clearedBy, clearedAt, req.params.studentId, sessionId
     ]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'No clearance found.' });
@@ -173,8 +182,9 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
     if (!['pending', 'cleared', 'rejected'].includes(String(status).toLowerCase())) {
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
     }
-    const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
-    const clearedAt = status === 'cleared' ? new Date() : null;
+    const normalizedStatus = String(status).toLowerCase();
+    const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
+    const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
     // FIXED: Added session_id, type, and ON CONFLICT to the bulk insert
     const query = `
@@ -188,7 +198,7 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
         cleared_at = EXCLUDED.cleared_at
       RETURNING *;
     `;
-    const result = await db.query(query, [studentIds, sessionId, status, clearedBy, clearedAt]);
+    const result = await db.query(query, [studentIds, sessionId, normalizedStatus, clearedBy, clearedAt]);
     await logAudit({ req, action: 'clearance.bulk', after: { count: result.rowCount, status } });
     return res.json({ success: true, count: result.rowCount, data: result.rows });
   } catch (err) {

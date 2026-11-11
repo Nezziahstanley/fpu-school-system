@@ -61,6 +61,17 @@ These changes align the portal-specific endpoints with the central result transi
 - Registrar session activation validates the target before changing the current session and performs the switch in a database transaction. An invalid session ID cannot clear the current session.
 - Removed the HOD allocation fallback to session ID 1.
 
+## Student fees, Bursar verification and payment history
+
+- Student fee totals now count only canonical `verified` payments. Pending, rejected and refunded payments remain in the transaction history but do not reduce the outstanding balance.
+- Inactive fee structures are excluded from the Student's current-session fee total.
+- Student payment history now displays explicit Verified, Pending, Rejected and Refunded states.
+- The shared payment rejection query now permits only `pending → rejected`; this closes a gap where the generic payment API could reject a previously verified payment.
+- The generic payment API now passes rejection arguments in the correct order.
+- Refund support now exists in the payment query layer and permits only `verified → refunded`; the route returns a conflict for an ineligible state or a concurrent status change.
+- Payment records can only be edited or deleted while pending. The create endpoint always creates a pending record, ignores client-supplied status, and validates positive amounts.
+- Both Student and Bursar workflows now use the same canonical payment states: `pending`, `verified`, `rejected`, and `refunded`.
+
 ## Remaining validation
 
 - Exercise public ND and HND application submissions with test records.

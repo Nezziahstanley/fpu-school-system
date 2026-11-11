@@ -18,7 +18,7 @@ const {
   complaints, programmes, departments,
 } = schema;
 
-const STAFF = ['admin', 'registrar', 'rector', 'bursar', 'academic_officer', 'hod', 'librarian'];
+const STAFF = ['admin', 'superadmin', 'registrar', 'rector', 'bursar', 'academic_officer', 'hod', 'librarian'];
 
 // ------------------------------------------------------------
 // GET /api/admin/reports/overview

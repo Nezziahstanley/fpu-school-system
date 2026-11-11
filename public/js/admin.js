@@ -8968,7 +8968,7 @@ function wireSecurityActions() {
     refreshBtn.__wired = true;
     const text = (refreshBtn.textContent || '').trim().toLowerCase();
     if (text.includes('refresh')) {
-      refreshBtn.addEventListener('click', () => loadSecurityDashboard());
+      refreshBtn.onclick = () => loadSecurityDashboard();
     }
   }
 
@@ -8977,28 +8977,7 @@ function wireSecurityActions() {
     .find((b) => /export/i.test(b.textContent || ''));
   if (exportBtn && !exportBtn.__wired) {
     exportBtn.__wired = true;
-    exportBtn.addEventListener('click', async () => {
-      try {
-        const res = await adminFetch('/api/admin/security/report');
-        if (!res.ok) throw new Error('No report endpoint');
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `security-report-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('✅ Report downloaded.', 'success');
-      } catch (err) {
-        // Fallback: export the events table as CSV
-        const table = document.querySelector('#sec-recent-events')?.closest('table');
-        if (table) {
-          exportTableAsCSV(table, 'security-events.csv');
-        } else {
-          showToast('❌ Could not export report.', 'error');
-        }
-      }
-    });
+    exportBtn.onclick = () => exportSecurityReport();
   }
 
   // Lockdown button
@@ -9006,22 +8985,41 @@ function wireSecurityActions() {
     .find((b) => /lockdown/i.test(b.textContent || ''));
   if (lockdownBtn && !lockdownBtn.__wired) {
     lockdownBtn.__wired = true;
-    lockdownBtn.addEventListener('click', async () => {
+    lockdownBtn.onclick = async () => {
       const ok = await window.fpuConfirm(
-        'Lock down ALL active sessions?\n\nAll users except you will be logged out immediately. They will need to log in again.',
+        'Lock down all active user sessions? Your current admin session will remain signed in. Each affected user will need to log in again.',
         { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down All' }
       );
       if (!ok) return;
-
+      lockdownBtn.disabled = true;
+      const original = lockdownBtn.textContent;
+      lockdownBtn.textContent = 'Locking down…';
       try {
-        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
-        if (!res.ok) throw new Error('Lockdown endpoint not available');
-        showToast('🔒 All sessions locked down.', 'success');
+        const sessionsRes = await adminFetch('/api/admin/security/sessions');
+        const sessionsJson = await sessionsRes.json();
+        if (!sessionsRes.ok || !sessionsJson.success) throw new Error(sessionsJson.error || 'Could not retrieve active sessions.');
+        const currentUserId = Number(getAdminUser()?.id || 0);
+        const userIds = [...new Set((sessionsJson.data || [])
+          .map(row => Number(row.userId || row.user_id || row.user?.id || 0))
+          .filter(id => id && id !== currentUserId))];
+        let revoked = 0, failed = 0;
+        for (const userId of userIds) {
+          try {
+            const response = await adminFetch(`/api/admin/security/revoke/${userId}`, { method: 'POST' });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Session revocation failed.');
+            revoked++;
+          } catch { failed++; }
+        }
+        showToast(`Emergency lockdown completed: ${revoked} user account(s) signed out; ${failed} failed.`, failed ? 'warning' : 'success');
         loadSecurityDashboard();
       } catch (err) {
         showToast('❌ ' + err.message, 'error');
+      } finally {
+        lockdownBtn.disabled = false;
+        lockdownBtn.textContent = original;
       }
-    });
+    };
   }
 }
 

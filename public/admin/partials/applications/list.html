@@ -77,6 +77,16 @@
            placeholder="Name, email, application number…"
            onkeydown="if(event.key==='Enter')FPU_ADMIN.loadApplications()" />
   </div>
+  <div class="form-group">
+    <label class="form-label" for="applications-date-from">Submitted from</label>
+    <input class="form-control" type="date" id="applications-date-from"
+           onchange="FPU_ADMIN.loadApplications()" />
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="applications-date-to">Submitted to</label>
+    <input class="form-control" type="date" id="applications-date-to"
+           onchange="FPU_ADMIN.loadApplications()" />
+  </div>
 </div>
 
 <!-- Bulk actions bar -->

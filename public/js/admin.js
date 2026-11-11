@@ -2705,6 +2705,7 @@ async function loadTranscriptView() {
         results = j.data || j || []; 
         // Handle case where backend returns { data: { rows: [...] } }
         if (results.rows) results = results.rows;
+        results = results.filter(r => String((r.result || r).status || '').toLowerCase() === 'published');
       } 
     } catch {}
     
@@ -4634,6 +4635,8 @@ async function loadDepartmentPayments() {
   const departmentId = params.get('departmentId');
   const sessionId = params.get('sessionId') || '';
   const deptName = params.get('name') || 'Department';
+  const sessionId = params.get('sessionId') || document.getElementById('res-filter-session')?.value || '';
+  const routeSemester = params.get('semester') || '';
 
   if (!departmentId) {
     root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
@@ -12279,15 +12282,20 @@ async function loadResultsDashboard() {
   // Get Filters
   const status = document.getElementById('res-filter-status')?.value || '';
   const semester = document.getElementById('res-filter-semester')?.value || '';
+  const sessionId = document.getElementById('res-filter-session')?.value || '';
   const schoolId = document.getElementById('res-filter-school')?.value || '';
 
   grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:#64748b;"><span class="spinner"></span> Loading results...</div>';
 
   try {
     // 1. Fetch ALL results (no filters) to get true stats
-    const resAll = await adminFetch('/api/admin/results?limit=10000');
+    let resultsUrl = '/api/admin/results?limit=10000';
+    if (sessionId) resultsUrl += `&sessionId=${encodeURIComponent(sessionId)}`;
+    if (semester && semester !== 'all') resultsUrl += `&semester=${encodeURIComponent(semester)}`;
+    const resAll = await adminFetch(resultsUrl);
+    if (!resAll.ok) throw new Error('Unable to load results for the selected session and semester.');
     const jsonAll = await resAll.json();
-    const allResults = jsonAll.data || [];
+    const allResults = Array.isArray(jsonAll.data) ? jsonAll.data : [];
 
     // 2. Calculate true global stats
     let awaiting = 0, approved = 0, published = 0, rejected = 0;
@@ -12357,7 +12365,7 @@ async function loadResultsDashboard() {
     }
 
     grid.innerHTML = visibleDepts.map(d => `
-      <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
+      <div class="dept-card" onclick="window.location.hash='#results-by-dept?departmentId=${d.id}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}&name=${encodeURIComponent(d.name)}'" style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:20px; cursor:pointer;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
           <span style="background:#ecfdf5; color:#065f46; padding:4px 10px; border-radius:6px; font-weight:800; font-size:11px;">${escapeHtml(d.code)}</span>
           <span style="color:#64748b; font-size:11px;">SST</span>
@@ -12432,12 +12440,15 @@ async function loadDepartmentResults() {
   try {
     // 1. Fetch ALL results for this department (no status filter)
     // This ensures stats are calculated accurately based on the full dataset
-    let statsUrl = `/api/admin/results?departmentId=${deptId}&limit=5000`;
-    if (semesterFilter && semesterFilter !== 'all') statsUrl += `&semester=${semesterFilter}`;
+    let statsUrl = `/api/admin/results?departmentId=${encodeURIComponent(deptId)}&limit=5000`;
+    const effectiveSemester = semesterFilter || routeSemester;
+    if (sessionId) statsUrl += `&sessionId=${encodeURIComponent(sessionId)}`;
+    if (effectiveSemester && effectiveSemester !== 'all') statsUrl += `&semester=${encodeURIComponent(effectiveSemester)}`;
 
     const statsRes = await adminFetch(statsUrl);
+    if (!statsRes.ok) throw new Error('Unable to load department results for the selected filters.');
     const statsJson = await statsRes.json();
-    const allResults = statsJson.data || [];
+    const allResults = Array.isArray(statsJson.data) ? statsJson.data : [];
 
     // 2. Calculate true stats from the full list
     let total = allResults.length;

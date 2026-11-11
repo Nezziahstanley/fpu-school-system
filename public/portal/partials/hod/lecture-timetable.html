@@ -504,10 +504,11 @@
       const cb = row.querySelector('.batch-checkbox');
       const courseId = Number(cb.dataset.id);
       
+      // Find the lecturer ID from the locked UI or the dropdown
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
 
-      // CRITICAL: If the lecturer select doesn't exist (because it's locked), find the pre-assigned one
+      // If the dropdown is missing (locked), find the assigned lecturer from ALL_COURSES
       if (!lecturerSelect) {
         const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
         if (found && found.lecturerId) lecturerId = Number(found.lecturerId);
@@ -519,8 +520,8 @@
       const startTime = row.querySelector('.batch-start').value;
       const endTime = row.querySelector('.batch-end').value;
 
-      if (!startTime || !endTime) {
-        core.showToast(`Please fill in Start and End times for all selected courses.`, 'warning');
+      if (!startTime || !endTime || !venue) {
+        core.showToast(`Please fill in Venue, Start and End times for all selected courses.`, 'warning');
         errorCount++;
         continue;
       }
@@ -536,24 +537,32 @@
         venue 
       };
 
+      console.log('[DEBUG] Saving slot:', payload);
+
       try {
-        await core.portalFetch('/api/hod/timetable', {
+        const res = await core.portalFetch('/api/hod/timetable', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
+        
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.error || `HTTP ${res.status}`);
+        }
+        
         successCount++;
       } catch (err) {
         errorCount++;
-        console.error('Failed to save slot for course', courseId, err);
+        console.error('❌ Failed to save slot for course', courseId, err);
       }
     }
 
     if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
+      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}. ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
       await loadSlots();
       loadBatchTable(); 
     } else {
-      core.showToast(`❌ Failed to save slots. Check console for details.`, 'error');
+      core.showToast(`❌ Failed to save slots. Check console (F12) for errors.`, 'error');
     }
 
     btn.disabled = false;

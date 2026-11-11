@@ -276,13 +276,10 @@ router.get('/fees', only, async (req, res, next) => {
     
     const payments = paymentsResult.rows || [];
 
-    // 4. Calculate Total Paid
-    let totalPaid = 0;
-    payments.forEach(p => {
-      if (p.status === 'verified' || p.status === 'completed' || p.status === 'success') {
-        totalPaid += Number(p.amount || 0);
-      }
-    });
+    // 4. Count only canonical verified payments as paid. Pending, rejected
+    // and refunded records remain visible in history but never reduce the balance.
+    const paymentQueries = require('../../db/queries/payments');
+    const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
 
     // 5. Calculate Balance
     const balance = Math.max(0, totalDue - totalPaid);

@@ -820,7 +820,13 @@ async function registerApplication(id) {
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Registration failed');
     const matric = (json.data && json.data.matricNumber) ? json.data.matricNumber : 'N/A';
-    showToast('🎓 Student registered! Matric: ' + matric, 'success');
+    const emailSent = !!json.data?.emailSent;
+    showToast(
+      emailSent
+        ? `🎓 Student registered! Matric: ${matric}. Temporary login details emailed.`
+        : `Student registered (Matric: ${matric}), but the email failed. Reset the password before notifying the student.`,
+      emailSent ? 'success' : 'warning'
+    );
     loadApplications();
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }
@@ -918,7 +924,12 @@ async function registerAdmitted(id) {
     const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Registration failed');
-    showToast(`Registered. Matric: ${json.data.matricNumber}`);
+    showToast(
+      json.data?.emailSent
+        ? `Registered. Matric: ${json.data.matricNumber}. Temporary login details emailed.`
+        : `Registered. Matric: ${json.data.matricNumber}. Email failed—reset the password before notifying the student.`,
+      json.data?.emailSent ? 'success' : 'warning'
+    );
     loadAdmitted();
   } catch (err) { showToast('❌ ' + err.message, 'error'); }
 }

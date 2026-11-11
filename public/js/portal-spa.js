@@ -256,6 +256,8 @@
       { key: 'exam-officer-attendance',  label: 'Attendance',  icon: ICON.check },
       { key: 'exam-officer-eligibility', label: 'Eligibility', icon: ICON.users },
       { key: 'exam-officer-publish',     label: 'Publish Results', icon: ICON.file }, 
+      { key: 'exam-officer-schedules',   label: 'Exam Schedules', icon: ICON.calendar },
+      { key: 'exam-officer-reports',     label: 'Examination Reports', icon: ICON.chart },
     ],
     academic_officer: [
       { key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash },

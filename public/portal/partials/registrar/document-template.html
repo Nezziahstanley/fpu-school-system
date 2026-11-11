@@ -93,6 +93,7 @@
 
 <script>
 (function () {
+  const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const urlParams = new URLSearchParams(window.location.search);
   const studentId = urlParams.get('studentId');
   
@@ -119,7 +120,7 @@
       const rows = data.rows;
       const summary = data.summary;
 
-      document.getElementById('doc-student-name').textContent = `${s.firstName} ${s.lastName}`;
+      document.getElementById('doc-student-name').textContent = `${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}`;
       document.getElementById('doc-student-matric').textContent = s.matricNumber || '—';
       document.getElementById('doc-student-prog').textContent = s.programmeName || '—';
       document.getElementById('doc-student-dept').textContent = s.departmentName || '—';
@@ -131,12 +132,12 @@
       } else {
         tbody.innerHTML = rows.map(r => `
           <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 0.75rem; font-weight: bold;">${r.course.code}</td>
-            <td style="padding: 0.75rem;">${r.course.title}</td>
-            <td style="padding: 0.75rem; text-align: center;">${r.course.unit}</td>
-            <td style="padding: 0.75rem; text-align: center;">${r.result.score || '—'}</td>
-            <td style="padding: 0.75rem; text-align: center; font-weight: bold;">${r.result.grade || '—'}</td>
-            <td style="padding: 0.75rem; text-align: center;">${r.result.points || '—'}</td>
+            <td style="padding: 0.75rem; font-weight: bold;">${escapeHtml(r.course.code)}</td>
+            <td style="padding: 0.75rem;">${escapeHtml(r.course.title)}</td>
+            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.course.unit)}</td>
+            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.score || '—')}</td>
+            <td style="padding: 0.75rem; text-align: center; font-weight: bold;">${escapeHtml(r.result.grade || '—')}</td>
+            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.points || '—')}</td>
           </tr>
         `).join('');
       }

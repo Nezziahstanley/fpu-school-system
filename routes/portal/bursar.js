@@ -239,6 +239,11 @@ router.get('/clearances', only, async (req, res, next) => {
 
 router.post('/clearances/:id/clear', only, async (req, res, next) => {
   try {
+    const [signer] = await db.select({ signatureUrl: users.signatureUrl })
+      .from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!signer?.signatureUrl) {
+      return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before approving a clearance.' });
+    }
     const row = await clearQueries.markCleared(req.params.id, req.user.id, req.body?.remarks);
     if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
     await logAudit({ req, action: 'bursar.clearance_clear', entity: 'clearance', entityId: row.id });

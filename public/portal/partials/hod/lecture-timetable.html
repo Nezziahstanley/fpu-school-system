@@ -180,6 +180,7 @@
     try {
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
+      console.log('[DEBUG] Loaded Courses sample:', ALL_COURSES.slice(0, 2));
     } catch (err) { console.error('Could not load courses:', err); }
   }
 
@@ -276,8 +277,8 @@
 
   // Render the master table based on selected Level and Semester
   function loadBatchTable() {
-    const selectedLevel = $('batch-level').value; // e.g. "ND 1"
-    const selectedSemester = $('batch-semester').value; // e.g. "first"
+    const selectedLevel = $('batch-level').value;
+    const selectedSemester = $('batch-semester').value;
     const tbody = $('batch-course-list');
 
     if (!selectedLevel) {
@@ -286,56 +287,55 @@
     }
 
     const parts = selectedLevel.split(' ');
-    const targetLevel = parts[0].toUpperCase(); // "ND"
-    const targetYear = parts[1]; // "1"
+    const targetLevel = parts[0].toUpperCase();
+    const targetYear = parts[1];
 
-    // DEBUG: Log what the API actually returned to the console
-    if (ALL_COURSES.length > 0) {
-       console.log('[DEBUG] API returned Courses sample:', ALL_COURSES[0]);
-    }
-
-    // FUZZY FILTER: This checks if the string includes the target, ignoring casing.
+    // BULLETPROOF DIAGNOSTIC FILTER
     const filtered = ALL_COURSES.filter(c => {
       const courseObj = c.course || c;
       
-      // 1. Get everything as a giant string to search through
-      const levelStr = String(courseObj.level || c.level || '').toUpperCase();
-      const yearStr = String(courseObj.year_of_study || courseObj.yearOfStudy || c.year_of_study || c.yearOfStudy || '');
-      const semStr = String(courseObj.semester_name || courseObj.semesterName || c.semester_name || c.semesterName || '').toLowerCase();
+      // Convert everything to string to avoid type mismatches
+      const rawLevel = String(courseObj.level || c.level || '').toUpperCase().trim();
+      const rawYear = String(courseObj.year_of_study || courseObj.yearOfStudy || c.yearOfStudy || '').trim();
+      const rawSem = String(courseObj.semester_name || courseObj.semesterName || c.semesterName || '').toLowerCase().trim();
 
-      // 2. Level Match ("ND" must be inside levelStr)
-      const levelMatch = levelStr.includes(targetLevel);
-
-      // 3. Year Match (e.g. "1" must equal "1")
-      const yearMatch = yearStr === targetYear;
-
-      // 4. Semester Match ("first" must be inside semStr, or "1")
+      const levelMatch = rawLevel === targetLevel;
+      const yearMatch = rawYear === targetYear;
+      
       let semMatch = false;
-      if (selectedSemester === 'first') semMatch = (semStr.includes('first') || semStr === '1');
-      if (selectedSemester === 'second') semMatch = (semStr.includes('second') || semStr === '2');
+      if (selectedSemester === 'first') semMatch = (rawSem.includes('first') || rawSem === '1');
+      if (selectedSemester === 'second') semMatch = (rawSem.includes('second') || rawSem === '2');
 
       return levelMatch && yearMatch && semMatch;
     });
 
-    console.log(`[DEBUG] Filtering for ${targetLevel} ${targetYear} (${selectedSemester}). Found ${filtered.length} courses.`);
-
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection. Check console for debug data.</td></tr>';
+      // DIAGNOSTIC OUTPUT: Show the user EXACTLY what the API returned so we can fix it
+      const rawSample = ALL_COURSES.length > 0 ? JSON.stringify(ALL_COURSES[0], null, 2) : 'No courses loaded from API.';
+      console.error('[DEBUG] No match found. Filter criteria:', { targetLevel, targetYear, selectedSemester, rawSample });
+      
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align:center;padding:20px;">
+            <div style="color:#dc2626;font-weight:bold;margin-bottom:8px;">No courses matched. Check API Data.</div>
+            <pre style="text-align:left;background:#f8fafc;border:1px solid #cbd5e1;padding:10px;font-size:10px;overflow:auto;max-height:200px;">${esc(rawSample)}</pre>
+          </td>
+        </tr>
+      `;
       return;
     }
 
     tbody.innerHTML = filtered.map(c => {
-      const courseId = c.course ? c.course.id : c.id;
-      const courseCode = c.course ? c.course.code : c.code;
-      const courseTitle = c.course ? c.course.title : c.title;
+      const courseObj = c.course || c;
+      const courseId = courseObj.id || c.id;
+      const courseCode = courseObj.code || c.code;
+      const courseTitle = courseObj.title || c.title;
 
-      // Check if this course is already in the DB timetable
       const existingSlot = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
         return String(slot.courseId) === String(courseId);
       });
 
-      // Determine assigned lecturer
       let assignedLecturer = c.lecturerName;
       if (!assignedLecturer && c.lecturer && c.lecturer.firstName) {
         assignedLecturer = `${c.lecturer.firstName} ${c.lecturer.lastName}`;
@@ -361,20 +361,17 @@
         `;
       }
 
-      // Inputs
       let dayHtml = '';
       let venueHtml = '';
       let startHtml = '';
       let endHtml = '';
 
       if (existingSlot && existingSlot.slot) {
-        // Lock inputs if already saved in DB
         dayHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.dayOfWeek || '—')}</div>`;
         venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlot.slot.venue || '—')}</div>`;
         startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.startTime || '—')}</div>`;
         endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.endTime || '—')}</div>`;
       } else {
-        // Render dropdowns and time inputs for new scheduling
         dayHtml = `
           <select class="batch-day form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
             <option value="">Select Day</option>
@@ -421,7 +418,7 @@
       `;
     }).join('');
   }
-  
+
   // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';

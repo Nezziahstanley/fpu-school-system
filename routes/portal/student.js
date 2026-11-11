@@ -324,7 +324,7 @@ router.get('/registered-courses', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
 
-    const rows = await db
+    const rows = sessionId ? await db
       .select({
         id: courseRegistrations.id, courseCode: courses.code, courseTitle: courses.title,
         unit: courses.unit, semester: courseRegistrations.semester, status: courseRegistrations.status,
@@ -332,7 +332,7 @@ router.get('/registered-courses', only, async (req, res, next) => {
       .from(courseRegistrations)
       .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)))
-      .orderBy(courses.code);
+      .orderBy(courses.code) : [];
 
     return res.json({ success: true, data: rows });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
@@ -885,6 +885,7 @@ router.post('/graduation/apply', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });

@@ -126,7 +126,7 @@
       $('bur-t-today').textContent  = d.todayPayments != null ? d.todayPayments : 0;
       $('bur-t-today-amt').textContent = d.todayAmount ? money(d.todayAmount) + ' today' : '\u00A0';
       $('bur-t-pending').textContent = d.pendingCount != null ? d.pendingCount : 0;
-      $('bur-t-total').textContent   = Number(d.totalVerified || 0).toLocaleString();
+      $('bur-t-total').textContent   = money(d.totalVerified || 0);
       $('bur-t-clear').textContent   = d.clearancesAwaiting != null ? d.clearancesAwaiting : 0;
 
       // ---- Payment stats block ----

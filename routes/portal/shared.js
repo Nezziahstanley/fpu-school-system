@@ -148,9 +148,9 @@ router.get('/id-card', requireUser, async (req, res, next) => {
     const [row] = await db.select({
       id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
       email: users.email, phone: users.phone, role: users.role, photoUrl: users.idCardPhotoUrl,
-      profilePhotoUrl: users.photoUrl, departmentName: schema.departments.name, schoolName: schema.schools.name,
+      profilePhotoUrl: users.photoUrl, departmentName: sql`COALESCE(${schema.departments.name}, (SELECT d.name FROM departments d WHERE d.id = ${schema.staffProfiles.departmentId}))`, schoolName: schema.schools.name,
       staffNumber: schema.staffProfiles.staffNumber, rank: schema.staffProfiles.rank,
-      specialization: schema.staffProfiles.specialization, employmentDate: schema.staffProfiles.employmentDate,
+      specialization: schema.staffProfiles.specialization, qualification: schema.staffProfiles.qualification, employmentDate: schema.staffProfiles.employmentDate,
       isActive: users.isActive, signatureUrl: users.signatureUrl,
     }).from(users)
       .leftJoin(schema.departments, eq(users.departmentId, schema.departments.id))

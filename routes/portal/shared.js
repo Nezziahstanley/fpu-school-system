@@ -140,6 +140,31 @@ router.post('/photo', requireUser, async (req, res, next) => {
 });
 
 // ============================================================
+// STAFF ID CARD — the student card endpoint remains unchanged.
+// ============================================================
+router.get('/id-card', requireUser, async (req, res, next) => {
+  try {
+    if (req.user.role === 'student') return res.status(400).json({ success: false, error: 'Students should use the student ID card page.' });
+    const [row] = await db.select({
+      id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
+      email: users.email, phone: users.phone, role: users.role, photoUrl: users.idCardPhotoUrl,
+      profilePhotoUrl: users.photoUrl, departmentName: schema.departments.name, schoolName: schema.schools.name,
+      staffNumber: schema.staffProfiles.staffNumber, rank: schema.staffProfiles.rank,
+      specialization: schema.staffProfiles.specialization, employmentDate: schema.staffProfiles.employmentDate,
+      isActive: users.isActive, signatureUrl: users.signatureUrl,
+    }).from(users)
+      .leftJoin(schema.departments, eq(users.departmentId, schema.departments.id))
+      .leftJoin(schema.schools, eq(users.schoolId, schema.schools.id))
+      .leftJoin(schema.staffProfiles, eq(schema.staffProfiles.userId, users.id))
+      .where(eq(users.id, req.user.id)).limit(1);
+    if (!row) return res.status(404).json({ success: false, error: 'Account not found.' });
+    return res.json({ success: true, data: { ...row, photoUrl: row.photoUrl || row.profilePhotoUrl,
+      cardNumber: row.staffNumber || `FPU/${String(row.role).toUpperCase()}/${String(row.id).padStart(5, '0')}`,
+      institution: process.env.INSTITUTION_NAME || 'Federal Polytechnic Ugep',
+    } });
+  } catch (err) { return next(err); }
+});
+// ============================================================
 // MESSAGES
 // ============================================================
 router.get('/messages', requireUser, async (req, res, next) => {

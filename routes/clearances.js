@@ -14,6 +14,18 @@ const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'bursar', 'registrar', 'rector', 'librarian'];
 
+async function ensureElectronicSignature(req, res) {
+  const result = await db.query('SELECT signature_url FROM users WHERE id = $1 LIMIT 1', [req.user?.id]);
+  if (!result.rows[0]?.signature_url) {
+    res.status(409).json({
+      success: false,
+      error: 'Upload your electronic signature in My Profile before approving a clearance.',
+    });
+    return false;
+  }
+  return true;
+}
+
 // GET /api/admin/clearances — list all
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -94,6 +106,7 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
     }
+    if (normalizedStatus === 'cleared' && !(await ensureElectronicSignature(req, res))) return;
     const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
@@ -142,6 +155,7 @@ router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']),
     if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
     }
+    if (normalizedStatus === 'cleared' && !(await ensureElectronicSignature(req, res))) return;
     const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
@@ -191,6 +205,7 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
     }
     const normalizedStatus = String(status).toLowerCase();
+    if (normalizedStatus === 'cleared' && !(await ensureElectronicSignature(req, res))) return;
     const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
@@ -218,6 +233,7 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
 // POST /api/admin/clearances/:id/clear
 router.post('/:id/clear', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
+    if (!(await ensureElectronicSignature(req, res))) return;
     const result = await db.query(
       `UPDATE clearances 
        SET status = 'cleared', cleared_by = $1, cleared_at = NOW(), remarks = COALESCE($2, remarks)

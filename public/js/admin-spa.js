@@ -31,7 +31,15 @@
   }
 
   async function performLogout() {
-    if (!confirm('Log out of the admin panel?')) return;
+    const confirmed = typeof window.fpuConfirm === 'function'
+      ? await window.fpuConfirm('Log out of the admin panel?', {
+          title: 'Sign Out?',
+          type: 'warning',
+          okText: 'Sign Out',
+          cancelText: 'Stay Signed In',
+        })
+      : window.confirm('Log out of the admin panel?');
+    if (!confirmed) return;
     const token = getToken();
     if (token) {
       try {
@@ -448,7 +456,10 @@
   // ----------------------------------------------------------
   // LOAD A PAGE
   // ----------------------------------------------------------
+  let pageLoadSequence = 0;
+
   async function loadPage(key) {
+    const requestId = ++pageLoadSequence;
     let queryString = '';
     if (key && key.includes('?')) {
       const qIdx = key.indexOf('?');
@@ -482,6 +493,7 @@
         cache.set(cfg.url, html);
       }
 
+      if (requestId !== pageLoadSequence) return;
       view.innerHTML = html;
       executePartialScripts(view);
 
@@ -500,6 +512,7 @@
         }
       }
     } catch (err) {
+      if (requestId !== pageLoadSequence) return;
       console.error('[admin-spa] loadPage error:', err);
       view.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load page "<strong>${escapeHtmlLocal(key)}</strong>".</p><p class="small muted" style="margin-top:10px;">${escapeHtmlLocal(err.message)}</p></div>`;
     }
@@ -562,8 +575,17 @@
       if (roleEl && !roleEl.textContent.trim()) {
         roleEl.textContent = String(user.role || 'admin').replace(/_/g, ' ');
       }
-      if (avatar && user.photoUrl) {
-        avatar.innerHTML = `<img src="${user.photoUrl}" alt="" />`;
+      const safePhotoUrl = (() => {
+        try {
+          const parsed = new URL(String(user.photoUrl || ''), window.location.origin);
+          return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+        } catch { return ''; }
+      })();
+      if (avatar && safePhotoUrl) {
+        const img = document.createElement('img');
+        img.src = safePhotoUrl;
+        img.alt = '';
+        avatar.replaceChildren(img);
       } else if (avatar && !avatar.textContent.trim()) {
         const initials = (
           (user.firstName || '')[0] || (user.email || '')[0] || 'A'

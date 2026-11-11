@@ -168,10 +168,7 @@ router.put('/:id', requireRole(['admin', 'exam_officer', 'academic_officer', 'ho
         }
         patch.status = 'approved';
       } else {
-        if (requestedStatus !== 'submitted' || existing.exam.status !== 'draft') {
-          return res.status(403).json({ success: false, error: 'Only an HOD may submit a draft examination schedule; an examiner or administrator approves it.' });
-        }
-        patch.status = 'submitted';
+        return res.status(403).json({ success: false, error: 'Only an HOD may submit a draft examination schedule; an examiner or administrator approves it.' });
       }
     }
 

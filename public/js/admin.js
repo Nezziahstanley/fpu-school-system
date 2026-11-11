@@ -5620,6 +5620,7 @@ async function loadDepartmentClearances() {
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   const departmentId = params.get('departmentId');
+  const sessionId = params.get('sessionId') || '';
   const deptName = params.get('name') || 'Department';
 
   if (!departmentId) {
@@ -5755,6 +5756,13 @@ async function loadDepartmentClearances() {
   }
 }
 
+function getClearanceSessionId() {
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  return params.get('sessionId') || '';
+}
+
 // ============================================
 // CLEARANCES (Individual Action)
 // ============================================
@@ -5766,7 +5774,8 @@ async function clearStudent(studentId, newStatus) {
       body: JSON.stringify({
         studentId: Number(studentId),
         status: newStatus,
-        remarks: newStatus === 'cleared' ? 'Cleared by Admin' : 'Rejected by Admin'
+        remarks: newStatus === 'cleared' ? 'Cleared by Admin' : 'Rejected by Admin',
+        sessionId: getClearanceSessionId()
       }),
     });
 
@@ -5779,7 +5788,7 @@ async function clearStudent(studentId, newStatus) {
     // 2. If POST fails, try UPDATE (PUT)
     const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
       method: 'PUT',
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, sessionId: getClearanceSessionId() }),
     });
 
     if (updateRes.ok) {
@@ -5842,7 +5851,7 @@ async function clearStudentSilent(studentId, newStatus) {
   // Try POST (Create)
   const createRes = await adminFetch('/api/admin/clearances', {
     method: 'POST',
-    body: JSON.stringify({ studentId, status: newStatus, remarks: 'Bulk action' }),
+    body: JSON.stringify({ studentId, status: newStatus, remarks: 'Bulk action', sessionId: getClearanceSessionId() }),
   });
 
   if (createRes.ok) return;
@@ -5850,7 +5859,7 @@ async function clearStudentSilent(studentId, newStatus) {
   // If POST fails, try PUT (Update)
   const updateRes = await adminFetch(`/api/admin/clearances/student/${studentId}`, {
     method: 'PUT',
-    body: JSON.stringify({ status: newStatus }),
+    body: JSON.stringify({ status: newStatus, sessionId: getClearanceSessionId() }),
   });
 
   if (updateRes.ok) return;

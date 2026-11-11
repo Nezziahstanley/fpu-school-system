@@ -338,6 +338,14 @@ function exportTableAsCSV(table, filename = "export.csv") {
   URL.revokeObjectURL(url);
   showToast("✅ Exported " + filename);
 }
+function goBack(pageKey = 'dashboard') {
+  const target = String(pageKey || 'dashboard').replace(/^#/, '');
+  if (window.FPU_ADMIN_SPA && typeof window.FPU_ADMIN_SPA.navigateTo === 'function') {
+    return window.FPU_ADMIN_SPA.navigateTo(target);
+  }
+  window.location.hash = '#' + target;
+}
+
 function openModal(title, bodyHtml) {
   let backdrop = document.getElementById("modal-backdrop");
   if (!backdrop) {
@@ -14808,7 +14816,7 @@ window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
   toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo,
-  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, extractArray,
+  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, goBack, extractArray,
   badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
 
   // Dashboard

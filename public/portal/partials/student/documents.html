@@ -248,14 +248,14 @@
       const studentRes = await core.portalFetch('/api/student/id-card'); 
       const student = studentRes.data || studentRes || {};
       
-      const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';
+      const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ') || '—';
       const dateObj = new Date();
       const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
       
       const progName = student.programmeName || student.programme?.name || '—';
       const deptName = student.departmentName || student.department?.name || '—';
       const level = student.level || 'ND';
-      const sessionName = student.sessionName || '2025/2026';
+      const sessionName = student.sessionName || '—';
       const idValue = student.matricNumber || '—';
       const t = String(type).toLowerCase();
       const docRecord = ALL.find((row) => Number(row.id) === Number(docId)) || {};
@@ -293,6 +293,8 @@
               <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${esc(deptName)}</td></tr>
               <tr><td style="color:#64748b;">Level:</td><td style="font-weight:bold;">${esc(level)}</td></tr>
               <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">${esc(sessionName)}</td></tr>
+              <tr><td style="color:#64748b;">Email:</td><td style="font-weight:bold;">${esc(student.email || '—')}</td></tr>
+              <tr><td style="color:#64748b;">Telephone:</td><td style="font-weight:bold;">${esc(student.phone || '—')}</td></tr>
             </table>
             <p>This document is issued at the request of the student for official purposes.</p>
             <br><p>Date: ${dateStr}</p>

@@ -30,6 +30,17 @@ The shared payment query now applies a database-side `status = 'pending'` condit
 
 Student fee balances were also traced to count only `verified`, `completed` or `success` payment statuses; pending and rejected payments are not included in `totalPaid`.
 
+## Document issuance correction
+
+The Student document request endpoint creates records in `pending` status, and the Student documents page reads issued status, file URL, issuer identity and issuer signature from those records. The Registrar upload/mark-issued actions and Bursar approve/issue/reject actions are now constrained to valid state transitions:
+
+- Bursar approval: `pending → approved` only.
+- Bursar issuance: `approved → issued` only.
+- Bursar rejection: `pending|approved → rejected` only.
+- Registrar upload/issue and transcript mark-issued: pending or approved requests only.
+
+The updates use conditional database writes, so stale or repeated actions receive a conflict response rather than silently overwriting an already-issued or rejected request. Student visibility remains driven by the same document record and its issued file/issuer fields.
+
 ## Remaining validation
 
 - Exercise public ND and HND application submissions with test records.

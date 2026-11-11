@@ -31,6 +31,8 @@ router.get('/students', requireRole(STAFF), async (req, res, next) => {
         firstName: users.firstName,
         lastName: users.lastName,
         matricNumber: users.matricNumber,
+        email: users.email,
+        isActive: users.isActive,
         level: users.level,
         departmentId: users.departmentId,
         programmeId: users.programmeId,

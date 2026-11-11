@@ -14,7 +14,7 @@ const clearQueries = require('../../db/queries/clearances');
 const notifQueries = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
 const { db, schema, sql } = require('../../db');
-const { eq, and, or, ilike, desc } = require('drizzle-orm');
+const { eq, and, or, ilike, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');
 const { logAudit } = require('../../utils/audit');
 
@@ -327,9 +327,9 @@ router.post('/documents/:id/approve', only, async (req, res, next) => {
     const [row] = await db
       .update(documents)
       .set({ status: 'approved' })
-      .where(eq(documents.id, Number(req.params.id)))
+      .where(and(eq(documents.id, Number(req.params.id)), eq(documents.status, 'pending')))
       .returning();
-    if (!row) return res.status(404).json({ success: false, error: 'Document not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Only pending document requests can be approved.' });
     await logAudit({ req, action: 'bursar.document_approve', entity: 'document', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -351,9 +351,9 @@ router.post('/documents/:id/issue', only, async (req, res, next) => {
         issuedBy: req.user.id,
         fileUrl: req.body?.fileUrl || null,
       })
-      .where(eq(documents.id, Number(req.params.id)))
+      .where(and(eq(documents.id, Number(req.params.id)), eq(documents.status, 'approved')))
       .returning();
-    if (!row) return res.status(404).json({ success: false, error: 'Document not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Only approved document requests can be issued.' });
     await logAudit({ req, action: 'bursar.document_issue', entity: 'document', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -365,9 +365,9 @@ router.post('/documents/:id/reject', only, async (req, res, next) => {
     const [row] = await db
       .update(documents)
       .set({ status: 'rejected', remarks: req.body?.remarks || null })
-      .where(eq(documents.id, Number(req.params.id)))
+      .where(and(eq(documents.id, Number(req.params.id)), inArray(documents.status, ['pending', 'approved'])))
       .returning();
-    if (!row) return res.status(404).json({ success: false, error: 'Document not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be rejected.' });
     await logAudit({ req, action: 'bursar.document_reject', entity: 'document', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }

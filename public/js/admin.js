@@ -12434,9 +12434,10 @@ async function loadResultsDashboard() {
       if (!deptMap[deptId]) {
         deptMap[deptId] = { 
           id: deptId, 
-          name: r.course.departmentName || 'Unknown Department', 
+          name: r.course.departmentName || 'Unknown Department',
           code: r.course.departmentCode || 'DEPT',
-          total: 0, awaiting: 0, approved: 0, published: 0, rejected: 0
+          schoolId: r.course.schoolId || null,
+          total: 0, awaiting: 0, approved: 0, published: 0, rejected: 0, draft: 0, submitted: 0
         };
       }
       
@@ -12445,6 +12446,8 @@ async function loadResultsDashboard() {
       if (r.status === 'approved') deptMap[deptId].approved++;
       if (r.status === 'published') deptMap[deptId].published++;
       if (r.status === 'admin_rejected' || r.status === 'hod_rejected') deptMap[deptId].rejected++;
+      if (r.status === 'draft') deptMap[deptId].draft++;
+      if (r.status === 'submitted') deptMap[deptId].submitted++;
     });
 
     const deptArray = Object.values(deptMap);
@@ -12458,9 +12461,15 @@ async function loadResultsDashboard() {
         if (status === 'hod_verified') return d.awaiting > 0;
         if (status === 'approved') return d.approved > 0;
         if (status === 'published') return d.published > 0;
-        if (status === 'admin_rejected') return d.rejected > 0;
+        if (status === 'admin_rejected' || status === 'hod_rejected') return d.rejected > 0;
+        if (status === 'draft') return d.draft > 0;
+        if (status === 'submitted') return d.submitted > 0;
         return true;
       });
+    }
+
+    if (schoolId) {
+      visibleDepts = visibleDepts.filter(d => String(d.schoolId || '') === String(schoolId));
     }
 
     if (document.getElementById('res-stat-depts')) {
@@ -14674,9 +14683,15 @@ async function loadTimetableApprovals() {
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;text-align:center;padding:40px;"><span class="spinner"></span> Loading submissions...</div>';
 
   try {
+    const sessionId = document.getElementById('tt-session')?.value || '';
+    const semester = document.getElementById('tt-semester')?.value || 'first';
+    const params = new URLSearchParams({ limit: '5000' });
+    if (sessionId) params.set('sessionId', sessionId);
+    if (semester) params.set('semester', semester);
+
     const [deptsRes, slotsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/timetable?limit=5000')
+      adminFetch('/api/admin/timetable?' + params.toString())
     ]);
 
     const depts = (await deptsRes.json()).data || [];
@@ -14692,7 +14707,7 @@ async function loadTimetableApprovals() {
       const c = row.course || {};
       
       const status = String(s.status || 'draft').toLowerCase();
-      if (status !== 'pending' && status !== 'approved') return;
+      if (status !== 'pending' && status !== 'submitted' && status !== 'approved') return;
 
       const deptId = Number(c.departmentId || s.departmentId);
       if (!deptId) return;
@@ -14700,7 +14715,7 @@ async function loadTimetableApprovals() {
       if (!byDept.has(deptId)) byDept.set(deptId, { pending: 0, approved: 0, total: 0 });
       const bucket = byDept.get(deptId);
       bucket.total++;
-      if (status === 'pending') bucket.pending++;
+      if (status === 'pending' || status === 'submitted') bucket.pending++;
       if (status === 'approved') bucket.approved++;
     });
 
@@ -14714,7 +14729,7 @@ async function loadTimetableApprovals() {
       const badgeText = isPending ? `${bucket.pending} Pending` : 'Fully Approved';
 
       html += `
-        <div class="tt-dept-card" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-review', { departmentId: ${dept.id}, name: '${escapeQuotes(dept.name)}' })" style="cursor:pointer;">
+        <div class="tt-dept-card" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-review', { departmentId: ${dept.id}, sessionId: '${escapeQuotes(sessionId)}', semester: '${escapeQuotes(semester)}', name: '${escapeQuotes(dept.name)}' })" style="cursor:pointer;">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(dept.code)}</span>
             <span class="ttd-school">Review</span>

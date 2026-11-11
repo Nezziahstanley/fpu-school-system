@@ -136,7 +136,7 @@
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances'].includes(it.key));
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances', 'registrar-documents', 'registrar-transcripts'].includes(it.key));
       
       const registryItems = [
         ...customRegistry,

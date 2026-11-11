@@ -497,7 +497,21 @@ router.post('/security/revoke-all', requireUser, async (req, res, next) => {
 
 router.post('/security/revoke/:token', requireUser, async (req, res, next) => {
   try {
-    await sessionQueries.revokeUserSession(req.params.token);
+    // A user may revoke only a session belonging to their own account.
+    // Never trust possession of a token in the URL as proof of ownership.
+    const [revoked] = await db
+      .update(schema.userSessions)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(schema.userSessions.token, String(req.params.token || '')),
+        eq(schema.userSessions.userId, req.user.id)
+      ))
+      .returning({ id: schema.userSessions.id });
+
+    if (!revoked) {
+      return res.status(404).json({ success: false, error: 'Session not found.' });
+    }
+
     return res.json({ success: true });
   } catch (err) {
     return next(err);

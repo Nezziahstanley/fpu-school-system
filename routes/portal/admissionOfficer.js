@@ -292,7 +292,7 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
       });
     }
 
-    const updated = await appQueries.setMatricNumber(app.id, matricNumber);
+    const updated = await appQueries.setStatus(app.id, 'matriculated', { matricNumber, reviewedBy: req.user.id });
     await logAudit({ req, action: 'admission.matriculate', entity: 'application', entityId: app.id, after: { matricNumber } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }

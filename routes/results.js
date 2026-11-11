@@ -47,8 +47,12 @@ router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (r
       conditions.push(inArray(schema.results.id, numericIds));
     } else if (courseId) {
       const numericCourseId = Number(courseId);
+      const numericSessionId = Number(sessionId);
       if (!Number.isSafeInteger(numericCourseId) || numericCourseId <= 0) {
         return res.status(400).json({ success: false, error: 'Course ID is invalid.' });
+      }
+      if (!Number.isSafeInteger(numericSessionId) || numericSessionId <= 0) {
+        return res.status(400).json({ success: false, error: 'A valid academic session is required for course-wide actions.' });
       }
       conditions.push(eq(schema.results.courseId, numericCourseId));
     } else {

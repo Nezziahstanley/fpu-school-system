@@ -173,7 +173,7 @@
 
     $('bf-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this book? Any active borrows will be orphaned.')) return;
+      if (!(await window.fpuConfirm('Delete this book? Any active borrows will be orphaned.', { title: 'Delete Book', type: 'danger', okText: 'Delete Book' }))) return;
       try {
         const res = await A.adminFetch(`/api/admin/library/books/${id}`, { method: 'DELETE' });
         const json = await res.json();

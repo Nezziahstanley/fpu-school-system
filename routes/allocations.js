@@ -29,6 +29,21 @@ async function assertAllocationScope(req, res, allocation) {
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
+// Allocations belong only to active courses and teaching staff.
+// This validation applies to administrators as well as HODs.
+async function validateTeachingAllocation(courseId, lecturerId) {
+  const course = await courseQueries.findById(courseId);
+  if (!course) return { error: 'The selected course was not found.' };
+  if (course.isActive === false) return { error: 'Only active courses can be allocated.' };
+
+  const lecturer = await userQueries.findById(lecturerId);
+  const role = String(lecturer?.role || '').toLowerCase();
+  if (!lecturer || !['lecturer', 'hod'].includes(role)) {
+    return { error: 'Only lecturer or HOD accounts can receive course allocations. Student accounts are not permitted.' };
+  }
+  return { course, lecturer };
+}
+
 // GET /api/admin/allocations
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
@@ -76,17 +91,15 @@ router.post('/', requireRole(['admin', 'registrar', 'academic_officer', 'hod']),
     if (!courseId || !lecturerId || !sessionId || !semester) {
       return res.status(400).json({ success: false, error: 'courseId, lecturerId, sessionId, semester are required.' });
     }
+    const pair = await validateTeachingAllocation(courseId, lecturerId);
+    if (pair.error) return res.status(400).json({ success: false, error: pair.error });
+
     if (req.user?.role === 'hod') {
       if (!req.user.departmentId) return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
-      const course = await courseQueries.findById(courseId);
-      if (!course || Number(course.departmentId) !== Number(req.user.departmentId)) {
+      if (Number(pair.course.departmentId) !== Number(req.user.departmentId)) {
         return res.status(403).json({ success: false, error: 'You can only allocate courses in your assigned department.' });
       }
-      const lecturer = await userQueries.findById(lecturerId);
-      if (!lecturer || !['lecturer', 'hod'].includes(lecturer.role)) {
-        return res.status(400).json({ success: false, error: 'Select a valid lecturer or HOD account.' });
-      }
-      if (Number(lecturer.departmentId) !== Number(req.user.departmentId)) {
+      if (Number(pair.lecturer.departmentId) !== Number(req.user.departmentId)) {
         return res.status(403).json({ success: false, error: 'You can only assign courses to teaching staff in your department.' });
       }
     }
@@ -105,6 +118,16 @@ router.post('/bulk', requireRole(['admin', 'registrar', 'academic_officer']), as
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ success: false, error: 'rows[] is required.' });
     }
+    for (let i = 0; i < rows.length; i++) {
+      const item = rows[i] || {};
+      if (!item.courseId || !item.lecturerId || !item.sessionId || !item.semester) {
+        return res.status(400).json({ success: false, error: `Allocation row ${i + 1} is missing course, lecturer, session or semester.` });
+      }
+      const pair = await validateTeachingAllocation(item.courseId, item.lecturerId);
+      if (pair.error) {
+        return res.status(400).json({ success: false, error: `Allocation row ${i + 1}: ${pair.error}` });
+      }
+    }
     const inserted = await courseQueries.bulkAllocate(rows);
     await logAudit({ req, action: 'allocation.bulk_create', entity: 'course_allocation', after: { count: inserted.length } });
     return res.status(201).json({ success: true, data: inserted });
@@ -121,16 +144,17 @@ router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer', 'hod']
     if (!(await assertAllocationScope(req, res, existing))) return;
     const patch = { ...req.body };
     delete patch.id;
-    if (req.user?.role === 'hod') {
-      if (patch.courseId !== undefined) {
-        const targetCourse = await courseQueries.findById(patch.courseId);
-        if (!targetCourse || Number(targetCourse.departmentId) !== Number(req.user.departmentId)) {
+    if (patch.courseId !== undefined || patch.lecturerId !== undefined) {
+      const targetCourseId = patch.courseId !== undefined ? patch.courseId : (existing.course?.id || existing.courseId);
+      const targetLecturerId = patch.lecturerId !== undefined ? patch.lecturerId : (existing.lecturer?.id || existing.lecturerId);
+      const pair = await validateTeachingAllocation(targetCourseId, targetLecturerId);
+      if (pair.error) return res.status(400).json({ success: false, error: pair.error });
+
+      if (req.user?.role === 'hod') {
+        if (!req.user.departmentId || Number(pair.course.departmentId) !== Number(req.user.departmentId)) {
           return res.status(403).json({ success: false, error: 'You cannot move an allocation outside your department.' });
         }
-      }
-      if (patch.lecturerId !== undefined) {
-        const targetLecturer = await userQueries.findById(patch.lecturerId);
-        if (!targetLecturer || !['lecturer', 'hod'].includes(targetLecturer.role) || Number(targetLecturer.departmentId) !== Number(req.user.departmentId)) {
+        if (Number(pair.lecturer.departmentId) !== Number(req.user.departmentId)) {
           return res.status(403).json({ success: false, error: 'You can only assign courses to teaching staff in your department.' });
         }
       }

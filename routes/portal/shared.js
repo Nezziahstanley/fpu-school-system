@@ -418,6 +418,25 @@ router.put('/announcements/:id', requireUser, async (req, res, next) => {
     }
 
     const row = await notifQueries.updateAnnouncement(existing.id, patch);
+    const linkedAlert = `/announcements.html?id=${existing.id}`;
+    if (row?.audience === 'all' && row.isPublished) {
+      const existingAlerts = await db.select({ id: notifications.id })
+        .from(notifications).where(eq(notifications.link, linkedAlert)).limit(1);
+      if (existingAlerts.length) {
+        await db.update(notifications).set({ title: row.title, body: row.body })
+          .where(eq(notifications.link, linkedAlert));
+      } else {
+        const recipients = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+        const notificationRows = recipients.map((recipient) => ({
+          userId: recipient.id, title: row.title, body: row.body,
+          type: row.priority === 'high' ? 'warning' : 'info',
+          link: linkedAlert, showOnMarquee: false,
+        }));
+        if (notificationRows.length) await notifQueries.bulkCreateNotifications(notificationRows);
+      }
+    } else {
+      await db.delete(notifications).where(eq(notifications.link, linkedAlert));
+    }
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);

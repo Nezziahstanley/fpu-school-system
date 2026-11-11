@@ -63,9 +63,12 @@ router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
   try {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be edited.' });
     const patch = { ...req.body };
     delete patch.id;
+    delete patch.status;
     const row = await paymentQueries.update(existing.id, patch);
+    if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'payment.update', entity: 'payment', entityId: existing.id, before: existing, after: row });
     return res.json({ success: true, data: row });
   } catch (err) {
@@ -117,8 +120,11 @@ router.post('/:id/refund', requireRole(['admin', 'bursar']), async (req, res, ne
 
 router.delete('/:id', requireRole(['admin']), async (req, res, next) => {
   try {
+    const existing = await paymentQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be deleted. Verified financial records must be retained.' });
     const row = await paymentQueries.remove(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'payment.delete', entity: 'payment', entityId: row.id, before: row });
     return res.json({ success: true });
   } catch (err) {

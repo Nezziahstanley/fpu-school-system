@@ -72,7 +72,8 @@ router.get('/deployments', requireAdmin, async (req, res) => {
     }
     res.json({ success: true, data: rows });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('[adminSystem] request failed:', err?.message);
+    res.status(500).json({ success: false, error: 'Unable to complete the system request.' });
   }
 });
 
@@ -98,7 +99,8 @@ router.get('/github-status', requireAdmin, async (req, res) => {
     }
     res.json({ commit: '—', author: '—', date: null });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('[adminSystem] request failed:', err?.message);
+    res.status(500).json({ success: false, error: 'Unable to complete the system request.' });
   }
 });
 

@@ -1865,6 +1865,16 @@ async function loadAllocationDepartments() {
 
     for (const a of allocs) {
       const course = a.course || {};
+      const lecturer = a.lecturer || {};
+      const lecturerRole = String(lecturer.role || '').toLowerCase();
+      const allocationStatus = String(a.allocation?.status || 'assigned').toLowerCase();
+
+      // The admin overview is for active teaching assignments only.
+      // Do not display student accounts, inactive courses or flagged assignments.
+      if (!['lecturer', 'hod'].includes(lecturerRole)) continue;
+      if (course.isActive === false) continue;
+      if (!['assigned', 'accepted'].includes(allocationStatus)) continue;
+
       const deptId = course.departmentId;
       if (!deptId || !byDept.has(deptId)) continue;
       
@@ -1918,8 +1928,9 @@ async function loadAllocationDepartments() {
       const isEmpty = list.length === 0;
 
       return `
-        <div class="alloc-dept-card ${isEmpty ? 'empty' : ''}" 
-             ${isEmpty ? '' : `data-dept-id="${dept.id}" data-dept-name="${escapeHtml(dept.name)}"`}>
+        <div class="alloc-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0"
+             data-dept-id="${dept.id}" data-dept-name="${escapeHtml(dept.name)}"
+             aria-label="Open course allocations for ${escapeHtml(dept.name)}">
           <div class="adc-head">
             <span class="adc-code">${escapeHtml(dept.code)}</span>
             <span class="adc-school">${escapeHtml(school?.code || '')}</span>
@@ -1940,11 +1951,18 @@ async function loadAllocationDepartments() {
 
     // Wire click events
     grid.querySelectorAll('.alloc-dept-card[data-dept-id]').forEach((card) => {
-      card.addEventListener('click', () => {
+      const openDepartmentAllocations = () => {
         FPU_ADMIN_SPA.navigateToWithQuery('allocations-by-dept', {
           departmentId: Number(card.dataset.deptId),
           name: card.dataset.deptName,
         });
+      };
+      card.addEventListener('click', openDepartmentAllocations);
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openDepartmentAllocations();
+        }
       });
     });
 
@@ -9287,7 +9305,14 @@ async function loadDepartmentAllocations() {
     if (dept?.name && titleEl) titleEl.textContent = dept.name;
 
     // Filter to this department
-    const inDept = allocs.filter((a) => Number(a.course?.departmentId) === Number(departmentId));
+    const inDept = allocs.filter((a) => {
+      const lecturerRole = String(a.lecturer?.role || '').toLowerCase();
+      const status = String(a.allocation?.status || 'assigned').toLowerCase();
+      return Number(a.course?.departmentId) === Number(departmentId)
+        && ['lecturer', 'hod'].includes(lecturerRole)
+        && a.course?.isActive !== false
+        && ['assigned', 'accepted'].includes(status);
+    });
 
     const byLecturer = new Map();
     for (const a of inDept) {

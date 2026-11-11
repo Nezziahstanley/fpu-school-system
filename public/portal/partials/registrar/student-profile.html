@@ -17,7 +17,7 @@
         <div id="profile-matric" style="font-size:.9rem;color:#d1fae5;margin-top:.25rem;">Matric No.</div>
       </div>
     </div>
-    <a href="#registrar-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border-radius:8px;text-decoration:none;">← Back to Students</a>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;"><a href="#registrar-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border-radius:8px;text-decoration:none;">← Back to Students</a><button type="button" id="profile-open-transcript" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#064e3b;color:#fff;border:0;border-radius:8px;cursor:pointer;">View Official Transcript</button></div>
   </div>
 
   <!-- DETAILS GRID -->
@@ -31,6 +31,10 @@
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Department</div><div id="profile-dept" style="font-weight:700;color:#0f172a;">—</div></div>
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Email</div><div id="profile-email" style="font-weight:700;color:#0f172a;">—</div></div>
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Phone</div><div id="profile-phone" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Gender</div><div id="profile-gender" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Date of Birth</div><div id="profile-dob" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">State of Origin</div><div id="profile-origin" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Address</div><div id="profile-address" style="font-weight:700;color:#0f172a;">—</div></div>
       </div>
     </div>
 
@@ -112,7 +116,7 @@
       const rows = data.rows || [];
 
       // 2. Populate Header
-      $('profile-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown Name';
+      $('profile-name').textContent = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ') || 'Unknown Name';
       $('profile-matric').textContent = s.matricNumber ? s.matricNumber.replace(/SMT/gi, '').trim() : 'No Matric Number';
       
       // Avatar logic
@@ -129,6 +133,11 @@
       $('profile-dept').textContent = s.department?.name || s.departmentName || '—';
       $('profile-email').textContent = s.email || '—';
       $('profile-phone').textContent = s.phone || '—';
+      $('profile-gender').textContent = s.gender || '—';
+      $('profile-dob').textContent = s.dateOfBirth ? new Date(s.dateOfBirth).toLocaleDateString('en-GB') : '—';
+      $('profile-origin').textContent = s.stateOfOrigin || '—';
+      $('profile-address').textContent = s.address || '—';
+      $('profile-open-transcript').onclick = () => window.open('/portal/partials/registrar/document-template.html?studentId=' + encodeURIComponent(studentId), '_blank', 'noopener');
 
       // 4. Populate Summary Stats
       $('profile-cgpa').textContent = summary.cgpa ? Number(summary.cgpa).toFixed(2) : '—';

@@ -34,6 +34,11 @@
         <div style="font-weight: bold;" id="doc-student-dept">...</div>
       </div>
     </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:-.8rem 0 1.5rem;position:relative;z-index:1;font:12px Arial,sans-serif;">
+      <div><small style="color:#64748b;">Email</small><div id="doc-student-email" style="font-weight:700;overflow-wrap:anywhere;">—</div></div>
+      <div><small style="color:#64748b;">Phone</small><div id="doc-student-phone" style="font-weight:700;">—</div></div>
+      <div><small style="color:#64748b;">Level</small><div id="doc-student-level" style="font-weight:700;">—</div></div>
+    </div>
 
     <!-- Results Table -->
     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; position: relative; z-index: 1;">
@@ -45,10 +50,12 @@
           <th style="padding: 0.75rem; text-align: center;">Score</th>
           <th style="padding: 0.75rem; text-align: center;">Grade</th>
           <th style="padding: 0.75rem; text-align: center;">Points</th>
+          <th style="padding: 0.75rem; text-align: center;">Semester</th>
+          <th style="padding: 0.75rem; text-align: center;">Academic Session</th>
         </tr>
       </thead>
       <tbody id="doc-results-tbody">
-        <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading results...</td></tr>
+        <tr><td colspan="8" style="text-align: center; padding: 2rem;">Loading results...</td></tr>
       </tbody>
     </table>
 
@@ -58,9 +65,13 @@
         <div style="font-size: 0.85rem; color: #475569;">Total Units Earned:</div>
         <div style="font-weight: bold; font-size: 1.1rem;" id="doc-total-units">—</div>
       </div>
-      <div style="text-align: right;">
+      <div style="text-align: center;">
         <div style="font-size: 0.85rem; color: #475569;">Cumulative GPA (CGPA):</div>
         <div style="font-weight: bold; font-size: 1.3rem; color: #065f46;" id="doc-cgpa">—</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 0.85rem; color: #475569;">Classification:</div>
+        <div style="font-weight: bold; font-size: 1rem; color: #065f46;" id="doc-classification">—</div>
       </div>
     </div>
 
@@ -93,61 +104,37 @@
 
 <script>
 (function () {
+  'use strict';
   const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const urlParams = new URLSearchParams(window.location.search);
-  const studentId = urlParams.get('studentId');
-  
-  if (!studentId) {
-    document.getElementById('doc-student-name').textContent = 'Error: No student ID provided.';
-    return;
-  }
-
-  // Get the JWT token from localStorage
+  const studentId = new URLSearchParams(window.location.search).get('studentId');
+  const set = (id, value) => { const el=document.getElementById(id); if(el) el.textContent=value==null||value===''?'—':String(value); };
+  if (!studentId) { set('doc-student-name','No student ID provided.'); return; }
   const token = localStorage.getItem('fpu_token');
-
-  // Using native fetch with the auth header
-  fetch(`/api/registrar/transcript/${studentId}`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-    .then(res => {
-      if (!res.ok) throw new Error('Failed to load data (Status ' + res.status + ')');
-      return res.json();
-    })
+  fetch('/api/registrar/transcript/' + encodeURIComponent(studentId), { headers: { Authorization: 'Bearer ' + token } })
+    .then(res => { if (!res.ok) throw new Error('Failed to load transcript (HTTP ' + res.status + ').'); return res.json(); })
     .then(data => {
-      if (!data.success) throw new Error(data.error || 'Failed to load');
-      
-      const s = data.student;
-      const rows = data.rows;
-      const summary = data.summary;
-
-      document.getElementById('doc-student-name').textContent = `${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}`;
-      document.getElementById('doc-student-matric').textContent = s.matricNumber || '—';
-      document.getElementById('doc-student-prog').textContent = s.programmeName || '—';
-      document.getElementById('doc-student-dept').textContent = s.departmentName || '—';
-      document.getElementById('doc-date').textContent = new Date().toLocaleDateString('en-GB');
-
-      const tbody = document.getElementById('doc-results-tbody');
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: #991b1b;">No published results found for this student.</td></tr>';
-      } else {
-        tbody.innerHTML = rows.map(r => `
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 0.75rem; font-weight: bold;">${escapeHtml(r.course.code)}</td>
-            <td style="padding: 0.75rem;">${escapeHtml(r.course.title)}</td>
-            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.course.unit)}</td>
-            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.score || '—')}</td>
-            <td style="padding: 0.75rem; text-align: center; font-weight: bold;">${escapeHtml(r.result.grade || '—')}</td>
-            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.points || '—')}</td>
-          </tr>
-        `).join('');
-      }
-
-      document.getElementById('doc-total-units').textContent = summary.totalUnits;
-      document.getElementById('doc-cgpa').textContent = summary.cgpa;
-
+      if (!data.success) throw new Error(data.error || 'Failed to load transcript.');
+      const s=data.student||{}, rows=Array.isArray(data.rows)?data.rows:[], summary=data.summary||{};
+      set('doc-student-name',[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' '));
+      set('doc-student-matric',s.matricNumber); set('doc-student-prog',s.programmeName); set('doc-student-dept',s.departmentName);
+      set('doc-student-email',s.email); set('doc-student-phone',s.phone); set('doc-student-level',s.level); set('doc-date',new Date().toLocaleDateString('en-GB'));
+      const tbody=document.getElementById('doc-results-tbody');
+      if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:2rem;color:#991b1b;">No published results found for this student.</td></tr>';}
+      else { tbody.innerHTML=rows.map(r=>{
+        const course=r.course||{}, result=r.result||{};
+        return '<tr style="border-bottom:1px solid #e5e7eb;">'
+          +'<td style="padding:.65rem;font-weight:bold;">'+escapeHtml(course.code||'—')+'</td>'
+          +'<td style="padding:.65rem;">'+escapeHtml(course.title||'—')+'</td>'
+          +'<td style="padding:.65rem;text-align:center;">'+escapeHtml(course.unit==null?'—':course.unit)+'</td>'
+          +'<td style="padding:.65rem;text-align:center;">'+escapeHtml(result.score==null?'—':result.score)+'</td>'
+          +'<td style="padding:.65rem;text-align:center;font-weight:bold;">'+escapeHtml(result.grade||'—')+'</td>'
+          +'<td style="padding:.65rem;text-align:center;">'+escapeHtml(result.points==null?'—':result.points)+'</td>'
+          +'<td style="padding:.65rem;text-align:center;">'+escapeHtml(result.semester||'—')+'</td>'
+          +'<td style="padding:.65rem;text-align:center;">'+escapeHtml(result.sessionName||'—')+'</td></tr>';
+      }).join(''); }
+      const cgpa=Number(summary.cgpa); set('doc-total-units',summary.totalUnits==null?'—':summary.totalUnits);
+      set('doc-cgpa',Number.isFinite(cgpa)?cgpa.toFixed(2):'0.00'); set('doc-classification',summary.classification||'—');
     })
-    .catch(err => {
-      document.getElementById('doc-student-name').textContent = 'Error: ' + err.message;
-    });
+    .catch(err => { set('doc-student-name','Unable to load transcript: '+err.message); });
 })();
 </script>

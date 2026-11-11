@@ -200,6 +200,7 @@
       { key: 'lecturer-exams',       label: 'Exams',       icon: ICON.clipboard },
       { key: 'lecturer-requests',    label: 'Requests',    icon: ICON.chat },
       { key: 'lecturer-reports',     label: 'Reports',     icon: ICON.chart },
+      { key: 'lecturer-messages',    label: 'Messages',    icon: ICON.chat },
     ],
     hod: [
       { key: 'hod-dashboard',        label: 'Dashboard',       icon: ICON.dash },

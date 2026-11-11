@@ -73,14 +73,54 @@ router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (r
       .where(and(...conditions))
       .returning();
 
+    // Match the single-result publish behaviour: notify each affected student privately.
+    let notificationCount = 0;
+    if (action === 'published' && updatedRows.length) {
+      try {
+        const notifQueries = require('../db/queries/notifications');
+        const courseCodes = new Map();
+        const outcomes = await Promise.allSettled(updatedRows.map(async (row) => {
+          let code = courseCodes.get(row.courseId);
+          if (code === undefined) {
+            const [course] = await db.select({ code: schema.courses.code })
+              .from(schema.courses)
+              .where(eq(schema.courses.id, row.courseId))
+              .limit(1);
+            code = course?.code || 'course';
+            courseCodes.set(row.courseId, code);
+          }
+          await notifQueries.createNotification({
+            userId: row.studentId,
+            title: 'Result Published',
+            body: `Your result for ${code} has been published. You can now view it on your portal.`,
+            type: 'success',
+            link: '#results',
+            showOnMarquee: false,
+          });
+        }));
+        notificationCount = outcomes.filter(item => item.status === 'fulfilled').length;
+        const failedNotifications = outcomes.length - notificationCount;
+        if (failedNotifications) console.error(`[result.bulk-publish] ${failedNotifications} private notification(s) failed.`);
+      } catch (notificationError) {
+        console.error('[result.bulk-publish] notification processing failed:', notificationError.message);
+      }
+    }
+
     await logAudit({
       req,
       action: `result.bulk_${action}`,
       entity: 'result',
-      after: { count: updatedRows.length, action, requiredStatus, sessionId: sessionId || null, semester: semester || null },
+      after: { count: updatedRows.length, action, requiredStatus, sessionId: sessionId || null, semester: semester || null, notificationCount },
     });
 
-    return res.json({ success: true, data: updatedRows, count: updatedRows.length, skipped: (Array.isArray(ids) ? ids.length : 0) - updatedRows.length });
+    const requestedCount = Array.isArray(ids) ? ids.length : updatedRows.length;
+    return res.json({
+      success: true,
+      data: updatedRows,
+      count: updatedRows.length,
+      skipped: Math.max(0, requestedCount - updatedRows.length),
+      notificationCount,
+    });
   } catch (err) {
     console.error('Bulk action error:', err);
     return next(err);

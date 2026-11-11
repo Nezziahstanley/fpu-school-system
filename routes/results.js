@@ -299,7 +299,12 @@ router.put('/:id', requireRole(['admin', 'academic_officer', 'lecturer']), async
     if (!existing) return res.status(404).json({ success: false, error: 'Result not found.' });
 
     const patch = { ...req.body };
-    delete patch.id;
+    // Workflow state and approval metadata may only change through dedicated,
+    // status-checked endpoints below.
+    [
+      'id', 'status', 'hodVerifiedBy', 'hodVerifiedAt',
+      'approvedBy', 'approvedAt', 'publishedAt', 'rejectionReason',
+    ].forEach((field) => delete patch[field]);
 
     if (patch.score !== undefined) {
       const scale = await getActiveGradeScale();

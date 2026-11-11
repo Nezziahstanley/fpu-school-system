@@ -310,7 +310,7 @@ function statusPill(status) {
   return `<span class="badge badge-${m.cls}">${m.icon} ${escapeHtml(String(status || 'pending').replace(/_/g, ' '))}</span>`;
 }
 function promptReason(label = "Reason:") {
-  const v = prompt(label);
+  const v = await window.fpuPrompt(label, '', 'Reason Required');
   if (v === null) return null;
   if (!v.trim()) { showToast("⚠️ A reason is required.", "warning"); return null; }
   return v.trim();
@@ -818,7 +818,7 @@ async function bulkApplicationAction(action) {
   if (ids.length === 0) { showToast('⚠️ Select at least one application.', 'warning'); return; }
   let reason = null;
   if (action === 'reject') {
-    reason = prompt(`Reason for rejecting ${ids.length} application(s):`);
+    reason = await window.fpuPrompt(`Reason for rejecting ${ids.length} application(s):`, 'This reason will be recorded with the selected applications.', 'Rejection Reason');
     if (reason === null) return;
     if (!reason.trim()) { showToast('⚠️ A reason is required.', 'warning'); return; }
   } else { if (!confirm(`${action === 'delete' ? 'Delete' : 'Approve'} ${ids.length} application(s)?`)) return; }
@@ -833,7 +833,7 @@ async function bulkApplicationAction(action) {
 }
 
 async function approveApplication(id) {
-  if (!confirm('Approve this application?')) return;
+  if (!(await window.fpuConfirm('Approve this application?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
     const json = await res.json();
@@ -844,7 +844,7 @@ async function approveApplication(id) {
 }
 
 async function rejectApplication(id) {
-  const reason = prompt('Enter rejection reason (optional):');
+  const reason = await window.fpuPrompt('Enter rejection reason (optional):', 'You may leave this blank.', 'Reject Application');
   if (reason === null) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() || 'Did not meet requirements.' }) });
@@ -856,7 +856,7 @@ async function rejectApplication(id) {
 }
 
 async function registerApplication(id) {
-  if (!confirm('Register this applicant?\n\nThis will:\n• Generate a Matric Number\n• Create a Student Portal account\n• Send them a welcome email\n\nProceed?')) return;
+  if (!(await window.fpuConfirm('Register this applicant?\n\nThis will:\n• Generate a Matric Number\n• Create a Student Portal account\n• Send them a welcome email\n\nProceed?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
     const json = await res.json();
@@ -944,7 +944,7 @@ function updateAdmittedStats(rows, summary) {
 async function bulkRegisterAdmitted() {
   const ids = Array.from(document.querySelectorAll('.adm-check:checked')).map((cb) => Number(cb.dataset.id));
   if (ids.length === 0) { showToast('⚠️ Select at least one applicant.', 'warning'); return; }
-  if (!confirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach student will receive a unique temporary password by email and must change it after signing in.`)) return;
+  if (!(await window.fpuConfirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach student will receive a unique temporary password by email and must change it after signing in.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   let ok = 0, failed = 0, emailFailed = 0;
   for (const id of ids) {
     try {
@@ -962,7 +962,7 @@ async function bulkRegisterAdmitted() {
 }
 
 async function registerAdmitted(id) {
-  if (!confirm('Create the student account and assign a matric number?')) return;
+  if (!(await window.fpuConfirm('Create the student account and assign a matric number?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
     const json = await res.json();
@@ -1078,7 +1078,7 @@ async function bulkStudentAction(action) {
   if (ids.length === 0) { showToast('⚠️ Select at least one student.', 'warning'); return; }
   let password = null;
   if (action === 'reset-password') {
-    password = prompt(`Reset password for ${ids.length} student(s) to:`, 'student1234');
+    password = await window.fpuPrompt(`Reset password for ${ids.length} student(s) to:`, 'Enter the temporary password to assign.', 'Reset Student Password', 'student1234');
     if (password === null) return; if (!password.trim()) { showToast('⚠️ A password is required.', 'warning'); return; }
   } else { if (!confirm(`${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} ${ids.length} student(s)?`)) return; }
   let ok = 0, failed = 0;
@@ -2459,7 +2459,7 @@ function editGradeScale(id) {
 }
 
 async function deleteGradeScale(id) {
-  if (!confirm('Are you sure you want to delete this grade band?')) return;
+  if (!(await window.fpuConfirm('Are you sure you want to delete this grade band?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
     showToast('🗑️ Band deleted.', 'success');
@@ -4426,7 +4426,7 @@ async function sendLecturerNotification(id) {
 // Helper for HOD assigning
 async function assignHodDept(hodId, departmentId = null) {
   if (!hodId && departmentId) {
-    const email = prompt("HOD's email (must have role 'hod'):");
+    const email = await window.fpuPrompt("HOD's email (must have role 'hod'):", 'Enter the email address of an existing HOD.', 'Find HOD');
     if (!email) return;
     try {
       const res = await adminFetch(`/api/admin/user-list?search=${encodeURIComponent(email)}&limit=5`);
@@ -4438,7 +4438,7 @@ async function assignHodDept(hodId, departmentId = null) {
   }
 
   if (!departmentId) {
-    departmentId = prompt("Enter the department ID to assign this HOD to:");
+    departmentId = await window.fpuPrompt("Enter the department ID to assign this HOD to:", 'Use the department ID from the department register.', 'Assign Department');
     if (!departmentId) return;
   }
 
@@ -6220,7 +6220,7 @@ async function loadNotifications() {
     if (markAllBtn && !markAllBtn.__wired) {
       markAllBtn.__wired = true;
       markAllBtn.onclick = async () => {
-        if (!confirm('Mark all notifications as read?')) return;
+        if (!(await window.fpuConfirm('Mark all notifications as read?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         try {
           await adminFetch('/api/admin/notifications/read-all', { method: 'POST' });
           showToast('✅ All marked as read.', 'success');
@@ -6245,7 +6245,7 @@ async function markNotificationRead(id) {
 }
 
 async function deleteNotification(id) {
-  if (!confirm('Delete this notification?')) return;
+  if (!(await window.fpuConfirm('Delete this notification?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
     showToast('🗑️ Deleted.', 'success');
@@ -7727,7 +7727,7 @@ async function loadGraduationsTable() {
       bulkBtn.onclick = async () => {
         const ids = Array.from(tbody.querySelectorAll('.grad-check:checked')).map((c) => Number(c.dataset.id));
         if (!ids.length) { showToast('Select students first.', 'warning'); return; }
-        if (!confirm(`Approve ${ids.length} graduation record(s)?`)) return;
+        if (!(await window.fpuConfirm(`Approve ${ids.length} graduation record(s)?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         let ok = 0, failed = 0;
         for (const id of ids) {
           try { await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
@@ -8369,7 +8369,7 @@ async function loadSecuritySessions() {
 }
 
 async function revokeSession(token) {
-  if (!confirm('Revoke this session?')) return;
+  if (!(await window.fpuConfirm('Revoke this session?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/portal/security/revoke/${token}`, { method: 'POST' });
     showToast('Session revoked.', 'success');
@@ -8545,7 +8545,7 @@ async function loadIpRules() {
 }
 
 async function deleteIpRule(id) {
-  if (!confirm('Are you sure you want to delete this IP rule?')) return;
+  if (!(await window.fpuConfirm('Are you sure you want to delete this IP rule?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/security/ip-rules/${id}`, { method: 'DELETE' });
     showToast('✅ IP rule deleted.', 'success');
@@ -8820,7 +8820,7 @@ async function loadBackups() {
     if (triggerBtn && !triggerBtn.__wired) {
       triggerBtn.__wired = true;
       triggerBtn.onclick = async () => {
-        if (!confirm('Trigger backup now?')) return;
+        if (!(await window.fpuConfirm('Trigger backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         try {
           await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
           showToast('Backup queued.', 'success');
@@ -9271,7 +9271,7 @@ async function loadAdminAccounts() {
 }
 
 async function resetAdminPwd(id) {
-  const pwd = prompt('Enter a new password for this admin account:');
+  const pwd = await window.fpuPrompt('Enter a new password for this admin account:', 'Use a strong temporary password.', 'Reset Admin Password');
   if (pwd === null) return;
   if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
   try {
@@ -9606,7 +9606,7 @@ async function loadUserProfile() {
     
     const resetPwdBtn = document.getElementById('up-reset-pwd');
     if (resetPwdBtn) resetPwdBtn.onclick = async () => {
-      const pwd = prompt('Enter a new password:');
+      const pwd = await window.fpuPrompt('Enter a new password:', 'Use a strong temporary password.', 'Reset Password');
       if (pwd === null) return;
       if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
       try {
@@ -9636,7 +9636,7 @@ async function loadUserProfile() {
     
     const deleteBtn = document.getElementById('up-delete');
     if (deleteBtn) deleteBtn.onclick = async () => {
-      if (!confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) return;
+      if (!(await window.fpuConfirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       try {
         const endpoint = user.role === 'student'
           ? `/api/admin/students/${id}`
@@ -9903,7 +9903,7 @@ async function saveBankAccount(idx, key) {
 }
 
 async function deleteBankAccount(key) {
-  if (!confirm('Delete this bank account?')) return;
+  if (!(await window.fpuConfirm('Delete this bank account?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/settings/${key}`, { method: 'DELETE' });
     showToast('Deleted.', 'success');
@@ -9960,7 +9960,7 @@ async function sendTestEmail() {
   btn.__bound = true;
   btn.addEventListener('click', async () => {
     const result = document.getElementById('smtp-test-result');
-    const to = prompt('Send test email to:');
+    const to = await window.fpuPrompt('Send test email to:', 'Enter a valid email address.', 'Send Test Email');
     if (!to) return;
     result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
     try {
@@ -9986,7 +9986,7 @@ async function sendTestSMS() {
   btn.__bound = true;
   btn.addEventListener('click', async () => {
     const result = document.getElementById('sms-test-result');
-    const phone = prompt('Send test SMS to (e.g., +2348012345678):');
+    const phone = await window.fpuPrompt('Send test SMS to (e.g., +2348012345678):', 'Include the country code.', 'Send Test SMS');
     if (!phone) return;
     result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
     try {
@@ -10089,7 +10089,7 @@ async function initSystemTab() {
     deployBtn.onclick = async () => {
       const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
       const notes = (document.getElementById('deploy-notes') || {}).value || '';
-      if (!confirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`)) return;
+      if (!(await window.fpuConfirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       const status = document.getElementById('deploy-status');
       status.innerHTML = '<div class="loading"><span class="spinner"></span> Triggering deployment…</div>';
       try {
@@ -10171,7 +10171,7 @@ async function initSystemTab() {
   if (backupNow && !backupNow.__bound) {
     backupNow.__bound = true;
     backupNow.onclick = async () => {
-      if (!confirm('Trigger backup now?')) return;
+      if (!(await window.fpuConfirm('Trigger backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       try {
         await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
         showToast('Backup triggered.', 'success');
@@ -10242,7 +10242,7 @@ async function initSystemTab() {
     deployBtn.onclick = async () => {
       const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
       const notes = (document.getElementById('deploy-notes') || {}).value || '';
-      if (!confirm(`Deploy branch "${branch}" to production?\n\nNotes: ${notes || '(none)'}\n\nThis will rebuild the app and take 2–5 minutes.`)) return;
+      if (!(await window.fpuConfirm(`Deploy branch "${branch}" to production?\n\nNotes: ${notes || '(none)'}\n\nThis will rebuild the app and take 2–5 minutes.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
 
       const status = document.getElementById('deploy-status');
       status.innerHTML = '<div class="loading" style="padding:20px;"><span class="spinner"></span> Triggering deployment…</div>';
@@ -10294,7 +10294,7 @@ async function initSystemTab() {
   if (nowBtn && !nowBtn.__bound) {
     nowBtn.__bound = true;
     nowBtn.onclick = async () => {
-      if (!confirm('Trigger a backup now?')) return;
+      if (!(await window.fpuConfirm('Trigger a backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       const status = document.getElementById('sys-backup-status');
       status.innerHTML = '<div class="loading"><span class="spinner"></span> Backing up…</div>';
       try {
@@ -10985,7 +10985,7 @@ function wireGraduationPage() {
     approveBtn.onclick = async () => {
       const ids = Array.from(document.querySelectorAll('.grad-check:checked')).map((cb) => Number(cb.dataset.id));
       if (!ids.length) { showToast('Select at least one record.', 'warning'); return; }
-      if (!confirm(`Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`)) return;
+      if (!(await window.fpuConfirm(`Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
 
       let ok = 0, failed = 0;
       for (const id of ids) {
@@ -11238,7 +11238,7 @@ async function approveGraduation(id) {
 }
 
 async function rejectGraduation(id) {
-  const remarks = prompt('Rejection remarks (optional):');
+  const remarks = await window.fpuPrompt('Rejection remarks (optional):', 'You may leave this blank.', 'Reject Graduation');
   if (remarks === null) return;
   try {
     await adminFetch(`/api/admin/graduation/${id}/reject`, {
@@ -13028,7 +13028,7 @@ async function loadStudentRegistrations() {
     if (bulkBtn && !bulkBtn.__wired) {
       bulkBtn.__wired = true;
       bulkBtn.onclick = async () => {
-        if (!confirm(`Approve ALL pending registrations for this student?`)) return;
+        if (!(await window.fpuConfirm(`Approve ALL pending registrations for this student?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         
         const pendingIds = regs
           .filter(r => (r.registration || r).status === 'pending')
@@ -14660,7 +14660,7 @@ async function submitHodTimetable() {
 // HOD: Delete a Draft Slot
 // ============================================
 async function deleteHodSlot(id) {
-  if (!confirm('Delete this draft slot?')) return;
+  if (!(await window.fpuConfirm('Delete this draft slot?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/timetable/${id}`, { method: 'DELETE' });
     showToast('🗑️ Slot deleted.', 'success');

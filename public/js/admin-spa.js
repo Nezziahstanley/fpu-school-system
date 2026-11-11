@@ -240,7 +240,7 @@
     'registrations-by-course': { url: '/admin/partials/registrations/by-course.html', title: 'Registrations by Course', init: call('loadCourseRegistrations') },
     'registrations-by-student':{ url: '/admin/partials/registrations/by-student.html',title: 'Student Registrations',   init: call('loadStudentRegistrations') },
 
-    'results':          { url: '/admin/partials/results/list.html',              title: 'Results',         init: call('loadResultDepartments') },
+    'results':          { url: '/admin/partials/results/list.html',              title: 'Results',         init: call('loadResultsDashboard') },
     'results-by-dept':  { url: '/admin/partials/results/by-department.html',     title: 'Department Results', init: call('loadDepartmentResults') },
     'results-approved': { url: '/admin/partials/results/approved.html',          title: 'Approved Results', init: call('loadApprovedResults') },
     'result-edit':      { url: '/admin/partials/results/edit.html',              title: 'Edit Result',     init: () => {} },
@@ -279,7 +279,7 @@
     // ---------- Finance ----------
     'fees':             { url: '/admin/partials/fees/list.html',                 title: 'Fee Structures',  init: call('loadFeeLevels') },
     'fee-form':         { url: '/admin/partials/fees/form.html',                 title: 'New Fee',         init: () => {} },
-    'fees-by-dept':     { url: '/admin/partials/fees/by-department.html',        title: 'Department Fees', init: call('loadDepartmentFees') },
+    'fees-by-dept':     { url: '/admin/partials/fees/list.html',                   title: 'Fee Structures',  init: call('loadFeeLevels') },
 
     'payments':           { url: '/admin/partials/payments/list.html',           title: 'Payments',        init: call('loadPaymentDepartments') },
     'payment-form':       { url: '/admin/partials/payments/form.html',           title: 'New Payment',     init: () => {} },

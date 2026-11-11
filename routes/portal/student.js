@@ -61,7 +61,7 @@ router.get('/dashboard', only, async (req, res, next) => {
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const regs = await db
+    const regs = sessionId ? await db
       .select({
         courseCode: courses.code, courseTitle: courses.title, unit: courses.unit,
         semester: courseRegistrations.semester, status: courseRegistrations.status,
@@ -69,7 +69,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       .from(courseRegistrations)
       .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)))
-      .orderBy(courses.code);
+      .orderBy(courses.code) : [];
 
     const allResults = await db
       .select({
@@ -305,7 +305,7 @@ router.get('/courses', only, async (req, res, next) => {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
 
-    const rows = await db
+    const rows = sessionId ? await db
       .select({
         id: courseRegistrations.id, courseCode: courses.code, courseTitle: courses.title,
         unit: courses.unit, semester: courseRegistrations.semester, status: courseRegistrations.status,
@@ -313,7 +313,7 @@ router.get('/courses', only, async (req, res, next) => {
       .from(courseRegistrations)
       .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)))
-      .orderBy(courses.code);
+      .orderBy(courses.code) : [];
 
     return res.json({ success: true, data: rows });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
@@ -394,6 +394,7 @@ router.get('/materials', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.json({ success: true, data: [] });
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
@@ -423,6 +424,7 @@ router.get('/assignments', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.json({ success: true, data: [] });
 
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
@@ -526,6 +528,7 @@ router.get('/timetable', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.json({ success: true, data: [] });
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
@@ -556,6 +559,7 @@ router.get('/exam-schedule', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.json({ success: true, data: [] });
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));

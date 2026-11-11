@@ -10,6 +10,7 @@
 <!-- ============================================================
      PAGE HEAD
      ============================================================ -->
+<div id="dash-data-alert" role="status" aria-live="polite" style="display:none;margin:0 0 14px;padding:10px 14px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#92400e;font-size:13px;"></div>
 <section class="page-head">
   <div>
     <h2>Dashboard Overview</h2>
@@ -415,6 +416,23 @@
   // Store chart instances so we can destroy before rebuilding
   const charts = {};
 
+  function selectedRangeDays() {
+    const value = document.getElementById('dash-range')?.value || '365';
+    return value === 'all' ? 3650 : Math.min(3650, Math.max(1, Number(value) || 365));
+  }
+
+  function reportUrl(path) {
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}days=${selectedRangeDays()}`;
+  }
+
+  function showDashboardAlert(message) {
+    const el = document.getElementById('dash-data-alert');
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+  }
+
   function destroyChart(id) {
     if (charts[id]) {
       try { charts[id].destroy(); } catch (e) {}
@@ -545,7 +563,9 @@
     try {
       const res = await A.adminFetch('/api/admin/reports/overview');
       const json = await res.json();
+      if (!res.ok || json.success === false) throw new Error(json.error || `Dashboard request failed (HTTP ${res.status}).`);
       const d = json.data || json.stats || json;
+      showDashboardAlert('');
 
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? 0; };
 
@@ -563,6 +583,9 @@
       set('stat-revenue', '₦' + Number(d.totalRevenue || 0).toLocaleString());
     } catch (err) {
       console.warn('[dashboard] stats error:', err.message);
+      showDashboardAlert(`Dashboard statistics could not load: ${err.message}. Use Refresh to try again.`);
+      ['stat-students','stat-lecturers','stat-apps-total','stat-payments-total','stat-apps-pending','stat-results','stat-payments-pending','stat-clearances','stat-complaints','stat-borrows','stat-fines','stat-revenue']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = 'Unavailable'; });
     }
   }
 
@@ -709,7 +732,7 @@
   // ============================================================
   async function loadAdmissionTrend() {
     try {
-      const res = await A.adminFetch('/api/admin/reports/admission-trend');
+      const res = await A.adminFetch(reportUrl('/api/admin/reports/admission-trend'));
       const json = await res.json();
       const rows = json.data || [];
       if (!rows.length) throw new Error('empty');
@@ -798,7 +821,7 @@
   // ============================================================
   async function loadPopulationTrend() {
     try {
-      const res = await A.adminFetch('/api/admin/reports/population-trend');
+      const res = await A.adminFetch(reportUrl('/api/admin/reports/population-trend'));
       const json = await res.json();
       const rows = json.data || [];
       if (!rows.length) throw new Error('empty');
@@ -893,7 +916,7 @@
   // ============================================================
   async function loadRevenueTrend() {
     try {
-      const res = await A.adminFetch('/api/admin/reports/revenue-trend');
+      const res = await A.adminFetch(reportUrl('/api/admin/reports/revenue-trend'));
       const json = await res.json();
       const rows = json.data || [];
       if (!rows.length) throw new Error('empty');

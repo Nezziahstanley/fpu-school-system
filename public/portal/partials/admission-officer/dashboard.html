@@ -236,7 +236,7 @@
   'use strict';
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s).replace(/[&<>\"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[ch]));
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
   const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
   const STATUS_META = {

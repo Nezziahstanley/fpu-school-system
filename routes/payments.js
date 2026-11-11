@@ -116,7 +116,7 @@ router.post('/:id/refund', requireRole(['admin', 'bursar']), async (req, res, ne
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'verified') return res.status(409).json({ success: false, error: 'Only verified payments can be refunded.' });
-    const row = await paymentQueries.refund(req.params.id, req.user.id);
+    const row = await paymentQueries.refund(req.params.id);
     if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'payment.refund', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });

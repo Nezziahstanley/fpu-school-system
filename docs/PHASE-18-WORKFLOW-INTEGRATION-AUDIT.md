@@ -41,6 +41,18 @@ The Student document request endpoint creates records in `pending` status, and t
 
 The updates use conditional database writes, so stale or repeated actions receive a conflict response rather than silently overwriting an already-issued or rejected request. Student visibility remains driven by the same document record and its issued file/issuer fields.
 
+## Results approval and publication correction
+
+The results workflow is now guarded across the Lecturer and HOD portal endpoints:
+
+- Lecturer result entry can update an existing record only while it is `draft` or `hod_rejected`; an already-submitted, HOD-verified, academically approved or published result cannot be reset to draft.
+- Lecturer edit and delete actions are restricted to draft/HOD-rejected records, with explicit not-found and conflict responses.
+- HOD single-result verification and rejection now handle failed state transitions as conflicts rather than proceeding with a missing update.
+- HOD bulk verification checks that every selected record is still `submitted` and applies a database-side status condition.
+- The HOD ready-to-publish list now shows academically approved records, and HOD publication only changes `approved → published`. HOD-verified records must first pass the Academic Officer/Admin approval stage.
+
+These changes align the portal-specific endpoints with the central result transition helpers in `routes/results.js` and `db/queries/results.js`.
+
 ## Remaining validation
 
 - Exercise public ND and HND application submissions with test records.

@@ -69,15 +69,18 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
       return res.status(400).json({ success: false, error: 'studentId is required.' });
     }
 
-    // Get current session
-    const sessionRes = await db.query(
-      'SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1'
-    );
+    const requestedSessionId = req.body?.sessionId || null;
+    const sessionRes = requestedSessionId
+      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
+      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
     if (sessionRes.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'No active academic session found.' });
+      return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
     }
     const sessionId = sessionRes.rows[0].id;
 
+    if (!['pending', 'cleared', 'rejected'].includes(String(status).toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
+    }
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 
@@ -114,20 +117,28 @@ router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']),
       return res.status(400).json({ success: false, error: 'status is required.' });
     }
 
+    const requestedSessionId = req.body?.sessionId || null;
+    const sessionRes = requestedSessionId
+      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
+      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
+    if (!sessionRes.rows.length) {
+      return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
+    }
+    const sessionId = sessionRes.rows[0].id;
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 
     const query = `
-      UPDATE clearances 
-      SET status = $1, 
-          remarks = COALESCE($2, remarks), 
-          cleared_by = COALESCE($3, cleared_by), 
-          cleared_at = COALESCE($4, cleared_at)
-      WHERE student_id = $5
+      UPDATE clearances
+      SET status = $1,
+          remarks = COALESCE($2, remarks),
+          cleared_by = CASE WHEN $1 = 'cleared' THEN $3 ELSE NULL END,
+          cleared_at = CASE WHEN $1 = 'cleared' THEN $4 ELSE NULL END
+      WHERE student_id = $5 AND session_id = $6
       RETURNING *;
     `;
     const result = await db.query(query, [
-      status, remarks || null, clearedBy, clearedAt, req.params.studentId
+      status, remarks || null, clearedBy, clearedAt, req.params.studentId, sessionId
     ]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'No clearance found.' });
@@ -159,6 +170,9 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
     }
     const sessionId = sessionRes.rows[0].id;
 
+    if (!['pending', 'cleared', 'rejected'].includes(String(status).toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
+    }
     const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
     const clearedAt = status === 'cleared' ? new Date() : null;
 

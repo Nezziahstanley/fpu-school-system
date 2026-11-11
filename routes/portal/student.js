@@ -174,9 +174,9 @@ router.get('/transcript', only, async (req, res, next) => {
     const studentId = req.user.id;
 
     const [student] = await db.select({
-      id: users.id, firstName: users.firstName, lastName: users.lastName,
-      matricNumber: users.matricNumber, level: users.level,
-      departmentName: departments.name, programmeName: programmes.name,
+      id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
+      matricNumber: users.matricNumber, level: users.level, email: users.email, phone: users.phone,
+      photoUrl: users.photoUrl, departmentName: departments.name, programmeName: programmes.name,
     }).from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))
       .leftJoin(programmes, eq(users.programmeId, programmes.id))

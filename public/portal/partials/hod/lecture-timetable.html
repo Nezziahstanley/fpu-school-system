@@ -113,22 +113,32 @@
       </div>
     </div>
 
+    <!-- Day Tabs -->
+    <div style="padding:1rem 1.4rem 0; background:#fff; flex-shrink:0;">
+      <div style="display:flex; gap:0.5rem; border-bottom:2px solid #e2e8f0; overflow-x:auto; padding-bottom:0px;">
+        <button class="day-tab active" data-day="Monday" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;">Monday</button>
+        <button class="day-tab" data-day="Tuesday" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;">Tuesday</button>
+        <button class="day-tab" data-day="Wednesday" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;">Wednesday</button>
+        <button class="day-tab" data-day="Thursday" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;">Thursday</button>
+        <button class="day-tab" data-day="Friday" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;white-space:nowrap;">Friday</button>
+      </div>
+    </div>
+
     <!-- Master Table -->
-    <div style="padding:1rem 1.4rem;overflow-y:auto;flex:1;">
+    <div style="padding:1rem 1.4rem;overflow-y:auto;flex:1;background:#fff;">
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #e2e8f0;text-align:left;">
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:40px;"><input type="checkbox" id="batch-select-all" style="cursor:pointer;width:16px;height:16px;" /></th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;">Course</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:180px;">Assigned Lecturer</th>
-            <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:110px;">Day</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:120px;">Venue</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">Start Time</th>
             <th style="padding:8px;font-size:11px;font-weight:800;color:#475569;width:100px;">End Time</th>
           </tr>
         </thead>
         <tbody id="batch-course-list">
-          <tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>
+          <tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>
         </tbody>
       </table>
     </div>
@@ -163,6 +173,7 @@
   let ALL_COURSES = [];     
   let ALL_LECTURERS = [];   
   let CURRENT_SLOTS = [];   
+  let activeDay = 'Monday'; 
 
   async function loadSessions() {
     try {
@@ -274,23 +285,22 @@
     });
   }
 
-  // Render the master table based on selected Level and Semester
+  // Render the master table based on selected Level, Semester, and Day
   function loadBatchTable() {
-    const selectedLevel = $('batch-level').value; // e.g. "ND 1"
-    const selectedSemester = $('batch-semester').value; // e.g. "first"
+    const selectedLevel = $('batch-level').value;
+    const selectedSemester = $('batch-semester').value;
     const tbody = $('batch-course-list');
 
     if (!selectedLevel) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Select a Level and Semester to load courses.</td></tr>';
       return;
     }
 
     const parts = selectedLevel.split(' ');
-    const targetLevel = parts[0].toUpperCase(); // "ND"
+    const targetLevel = parts[0].toUpperCase(); 
 
-    // NEW BULLETPROOF FILTER: Based on the actual API response
+    // Filter by Level and Semester
     const filtered = ALL_COURSES.filter(c => {
-      // The API returns flat properties (no nested course object)
       const dbLevel = String(c.level || '').toUpperCase().trim();
       const dbSem = String(c.semesterName || c.semester_name || '').toLowerCase().trim();
 
@@ -300,35 +310,36 @@
       if (selectedSemester === 'first') semMatch = (dbSem.includes('first') || dbSem === '1');
       if (selectedSemester === 'second') semMatch = (dbSem.includes('second') || dbSem === '2');
 
-      // WE REMOVED THE YEAR CHECK because the API doesn't provide it!
       return levelMatch && semMatch;
     });
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">No courses found for this selection.</td></tr>';
       return;
     }
 
     tbody.innerHTML = filtered.map(c => {
-      // Extract using the EXACT property names from your screenshot
       const courseId = c.courseId || c.id; 
       const courseCode = c.courseCode || c.code;
       const courseTitle = c.courseTitle || c.title;
 
-      const existingSlot = CURRENT_SLOTS.find(s => {
+      // CRITICAL: Check if this course is already scheduled for THIS specific active day
+      const existingSlotForToday = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
-        return String(slot.courseId) === String(courseId);
+        const isSameCourse = String(slot.courseId) === String(courseId);
+        // We explicitly match the day to ensure they can schedule it on other days
+        const isSameDay = String(slot.dayOfWeek).toLowerCase() === activeDay.toLowerCase();
+        return isSameCourse && isSameDay;
       });
 
-      // Use the EXACT property name from your screenshot
       let assignedLecturer = c.lecturerName;
       
       let lecturerHtml = '';
       let isLocked = false;
 
-      if (existingSlot && existingSlot.lecturer && existingSlot.lecturer.firstName) {
+      if (existingSlotForToday && existingSlotForToday.lecturer && existingSlotForToday.lecturer.firstName) {
         isLocked = true;
-        const lectName = `${existingSlot.lecturer.firstName} ${existingSlot.lecturer.lastName}`;
+        const lectName = `${existingSlotForToday.lecturer.firstName} ${existingSlotForToday.lecturer.lastName}`;
         lecturerHtml = `<div style="font-size:12px;font-weight:600;color:#065f46;background:#ecfdf5;padding:6px;border-radius:4px;border:1px solid #bbf7d0;display:flex;align-items:center;gap:4px;">🔒 ${esc(lectName)}</div>`;
       } else if (assignedLecturer && assignedLecturer !== 'unassigned') {
         isLocked = true;
@@ -343,30 +354,17 @@
         `;
       }
 
-      let dayHtml = '';
       let venueHtml = '';
       let startHtml = '';
       let endHtml = '';
 
-      if (existingSlot && existingSlot.slot) {
-        // Lock inputs if already saved in DB
-        dayHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.dayOfWeek || '—')}</div>`;
-        venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlot.slot.venue || '—')}</div>`;
-        startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.startTime || '—')}</div>`;
-        endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlot.slot.endTime || '—')}</div>`;
+      if (existingSlotForToday && existingSlotForToday.slot) {
+        // Lock inputs if already saved for today
+        venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlotForToday.slot.venue || '—')}</div>`;
+        startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlotForToday.slot.startTime || '—')}</div>`;
+        endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlotForToday.slot.endTime || '—')}</div>`;
       } else {
         // Render dropdowns and time inputs for new scheduling
-        dayHtml = `
-          <select class="batch-day form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
-            <option value="">Select Day</option>
-            <option value="Monday">Monday</option>
-            <option value="Tuesday">Tuesday</option>
-            <option value="Wednesday">Wednesday</option>
-            <option value="Thursday">Thursday</option>
-            <option value="Friday">Friday</option>
-            <option value="Saturday">Saturday</option>
-          </select>
-        `;
         venueHtml = `
           <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
             <option value="">Select</option>
@@ -382,7 +380,7 @@
         endHtml = `<input type="time" class="batch-end form-control" step="60" value="10:00" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;" />`;
       }
 
-      const checkboxHtml = existingSlot 
+      const checkboxHtml = existingSlotForToday 
         ? `<span style="color:#10b981;font-size:16px;">✓</span>` 
         : `<input type="checkbox" class="batch-checkbox" data-id="${courseId}" style="cursor:pointer;width:16px;height:16px;" />`;
 
@@ -394,7 +392,6 @@
             <div style="font-size:11px;color:#64748b;">${esc(courseTitle)}</div>
           </td>
           <td style="padding:8px;">${lecturerHtml}</td>
-          <td style="padding:8px;">${dayHtml}</td>
           <td style="padding:8px;">${venueHtml}</td>
           <td style="padding:8px;">${startHtml}</td>
           <td style="padding:8px;">${endHtml}</td>
@@ -403,14 +400,42 @@
     }).join('');
   }
 
+  // Handle Tab Clicks
+  document.querySelectorAll('.day-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Update UI
+      document.querySelectorAll('.day-tab').forEach(t => {
+        t.classList.remove('active');
+        t.style.background = '#f1f5f9'; t.style.color = '#475569'; t.style.border = '1px solid #cbd5e1'; t.style.borderBottom = 'none';
+      });
+      tab.classList.add('active');
+      tab.style.background = '#065f46'; tab.style.color = '#fff'; tab.style.border = 'none';
+
+      // Update State and re-render
+      activeDay = tab.dataset.day;
+      loadBatchTable();
+    });
+  });
+
   // Open Batch Modal
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
     // Reset UI
+    activeDay = 'Monday';
+    document.querySelectorAll('.day-tab').forEach(t => {
+      if (t.dataset.day === 'Monday') {
+        t.classList.add('active');
+        t.style.background = '#065f46'; t.style.color = '#fff'; t.style.border = 'none';
+      } else {
+        t.classList.remove('active');
+        t.style.background = '#f1f5f9'; t.style.color = '#475569'; t.style.border = '1px solid #cbd5e1'; t.style.borderBottom = 'none';
+      }
+    });
+
     $('batch-level').value = 'ND 1';
     $('batch-semester').value = $('tt-semester').value || 'first';
-    $('batch-course-list').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#94a3b8;">Loading courses...</td></tr>';
+    $('batch-course-list').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:#94a3b8;">Loading courses...</td></tr>';
     $('batch-select-all').checked = false;
 
     const btn = $('tt-add-slot');
@@ -424,7 +449,6 @@
       loadSlots() 
     ]);
 
-    // Auto-load table on open
     loadBatchTable();
 
     btn.textContent = originalText;
@@ -456,6 +480,7 @@
 
     const sessionId = Number($('tt-session').value);
     const semester = $('batch-semester').value;
+    const dayOfWeek = activeDay; // We use the active tab as the day
 
     const btn = $('batch-save-btn');
     btn.disabled = true;
@@ -471,19 +496,16 @@
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
 
-      const daySelect = row.querySelector('.batch-day');
-      const dayOfWeek = daySelect ? daySelect.value : '';
-
       const venueSelect = row.querySelector('.batch-venue');
       const venue = venueSelect ? venueSelect.value : '';
       
       const startTime = row.querySelector('.batch-start').value;
       const endTime = row.querySelector('.batch-end').value;
 
-      if (!dayOfWeek || !startTime || !endTime) {
-        core.showToast(`Please fill in Day, Start, and End times for all selected courses.`, 'warning');
+      if (!startTime || !endTime) {
+        core.showToast(`Please fill in Start and End times for all selected courses.`, 'warning');
         errorCount++;
-        continue; // Skip this one
+        continue;
       }
 
       const payload = { 
@@ -510,9 +532,9 @@
     }
 
     if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} slot(s). ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
-      $('add-slot-modal').style.display = 'none';
-      load(); // Refresh main table
+      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
+      await loadSlots();
+      loadBatchTable(); // Refresh the table to lock newly saved slots
     } else {
       core.showToast(`❌ Failed to save slots. Check console for details.`, 'error');
     }

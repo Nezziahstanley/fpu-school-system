@@ -6324,7 +6324,7 @@ async function loadComplaints() {
 
     filterComplaints(); 
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#dc2626;text-align:center;padding:20px;">Error: ${escapeHtml(err.message || "Could not load complaints.")}</td></tr>`;
   }
 }
 
@@ -7807,7 +7807,7 @@ async function loadReportsWithCharts() {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const parent = canvas.parentElement;
-    if (parent) parent.innerHTML = `<p class="muted" style="padding:40px;text-align:center;color:#94a3b8;">${msg}</p>`;
+    if (parent) { const p = document.createElement("p"); p.className = "muted"; p.style.cssText = "padding:40px;text-align:center;color:#94a3b8;"; p.textContent = String(msg || "No data available."); parent.replaceChildren(p); }
   }
 
   // ---------- Chart 1: Admission Trend ----------
@@ -10818,7 +10818,7 @@ async function loadReports() {
   function emptyState(id, msg) {
     const canvas = document.getElementById(id);
     if (canvas && canvas.parentElement) {
-      canvas.parentElement.innerHTML = `<p class="muted" style="padding:20px;text-align:center;">${msg}</p>`;
+      const p = document.createElement("p"); p.className = "muted"; p.style.cssText = "padding:20px;text-align:center;"; p.textContent = String(msg || "No data available."); canvas.parentElement.replaceChildren(p);
     }
   }
 
@@ -13923,7 +13923,7 @@ async function openTranscriptModal(studentId) {
     } catch {}
 
     if (!student || !student.id) {
-      root.innerHTML = `<div class="alert alert-danger" style="margin:20px;"><strong>Student not found.</strong> (ID: ${studentId})</div>`;
+      root.innerHTML = `<div class="alert alert-danger" style="margin:20px;"><strong>Student not found.</strong> (ID: ${escapeHtml(studentId)})</div>`;
       return;
     }
 
@@ -15286,7 +15286,7 @@ async function loadHodTimetable() {
       const res = await adminFetch('/api/admin/sessions');
       const json = await res.json();
       const sessions = json.data || [];
-      sessionSelect.innerHTML = sessions.map(s => `<option value="${s.id}" ${s.isCurrent ? 'selected' : ''}>${s.name}</option>`).join('');
+      sessionSelect.innerHTML = sessions.map(s => `<option value="${Number(s.id) || 0}" ${s.isCurrent ? 'selected' : ''}>${escapeHtml(s.name || "Unnamed session")}</option>`).join('');
     } catch (e) { console.warn('Could not load sessions', e); }
   }
 

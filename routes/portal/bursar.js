@@ -136,6 +136,20 @@ router.post('/payments/:id/verify', only, async (req, res, next) => {
     const row = await paymentQueries.verify(req.params.id, req.user.id);
     if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
     await logAudit({ req, action: 'bursar.payment_verify', entity: 'payment', entityId: row.id });
+    // Keep the student portal in sync with the Bursar's verification decision.
+    try {
+      const notifQueries = require('../../db/queries/notifications');
+      await notifQueries.createNotification({
+        userId: row.studentId,
+        title: 'Payment Verified',
+        body: `Your payment of ₦${Number(row.amount || 0).toLocaleString('en-NG')} has been verified. Your fee balance has been updated.`,
+        type: 'success',
+        link: '#student-fees',
+        showOnMarquee: false,
+      });
+    } catch (notificationError) {
+      console.error('[bursar.payment_verify] student notification failed:', notificationError?.message);
+    }
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });
@@ -145,6 +159,21 @@ router.post('/payments/:id/reject', only, async (req, res, next) => {
     const row = await paymentQueries.reject(req.params.id, req.body?.reason, req.user.id);
     if (!row) return res.status(404).json({ success: false, error: 'Payment not found.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
+    try {
+      const notifQueries = require('../../db/queries/notifications');
+      await notifQueries.createNotification({
+        userId: row.studentId,
+        title: 'Payment Not Accepted',
+        body: req.body?.reason
+          ? `Your payment of ₦${Number(row.amount || 0).toLocaleString('en-NG')} was not accepted. Reason: ${String(req.body.reason).slice(0, 400)}`
+          : `Your payment of ₦${Number(row.amount || 0).toLocaleString('en-NG')} was not accepted. Please contact the Bursar's Office.`,
+        type: 'warning',
+        link: '#student-fees',
+        showOnMarquee: false,
+      });
+    } catch (notificationError) {
+      console.error('[bursar.payment_reject] student notification failed:', notificationError?.message);
+    }
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
 });

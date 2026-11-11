@@ -200,7 +200,7 @@
     $('dept-delete').addEventListener('click', async () => {
       if (!isEdit) return;
       const code = $('dept-code').value.trim();
-      if (!confirm(`Delete department "${code}"? Programmes, courses, and students must be reassigned first.`)) return;
+      if (!(await window.fpuConfirm(`Delete department "${code}"? Programmes, courses, and students must be reassigned first.`, { title: 'Delete Department', type: 'danger', okText: 'Delete Department' }))) return;
 
       const btn = $('dept-delete');
       const original = btn.textContent;

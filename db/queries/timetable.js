@@ -9,6 +9,16 @@ const { eq, and, desc, asc, inArray } = require('drizzle-orm');
 
 const { timetableSlots, courses, users, academicSessions } = schema;
 
+async function findCourseDepartment(courseId) {
+  if (!courseId) return null;
+  const [row] = await db
+    .select({ departmentId: courses.departmentId })
+    .from(courses)
+    .where(eq(courses.id, Number(courseId)))
+    .limit(1);
+  return row || null;
+}
+
 async function findById(id) {
   if (!id) return null;
   const [row] = await db.select().from(timetableSlots).where(eq(timetableSlots.id, Number(id))).limit(1);
@@ -179,18 +189,22 @@ async function bulkUpsert(rows) {
 // ============================================
 // Admin: Bulk Approve Pending Slots for a Department
 // ============================================
-async function approvePendingByDept(departmentId) {
+async function approvePendingByDept(departmentId, sessionId, semester) {
   const deptCourses = await db.select({ id: courses.id }).from(courses).where(eq(courses.departmentId, Number(departmentId)));
   if (deptCourses.length === 0) return 0;
 
   const courseIds = deptCourses.map(c => c.id);
 
+  const conditions = [
+    inArray(timetableSlots.courseId, courseIds),
+    eq(timetableSlots.status, 'pending'),
+  ];
+  if (sessionId) conditions.push(eq(timetableSlots.sessionId, Number(sessionId)));
+  if (semester) conditions.push(eq(timetableSlots.semester, semester));
+
   const updatedRows = await db.update(timetableSlots)
     .set({ status: 'approved' })
-    .where(and(
-      inArray(timetableSlots.courseId, courseIds),
-      eq(timetableSlots.status, 'pending')
-    ))
+    .where(and(...conditions))
     .returning();
 
   return updatedRows.length;
@@ -223,6 +237,7 @@ async function submitDraftsForApproval(departmentId, sessionId, semester) {
 
 module.exports = {
   findById,
+  findCourseDepartment,
   list,
   listWithRelations,
   listForStudent,

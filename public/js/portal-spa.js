@@ -96,7 +96,7 @@
     registrar: [
       'admin-admitted', 'admin-documents', 'admin-transcript',
       'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
-      'portal-notifications', 'portal-announcements', 'admin-transcript',
+      'portal-notifications', 'portal-announcements',
     ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',

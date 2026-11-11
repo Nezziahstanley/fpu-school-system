@@ -79,6 +79,7 @@
         const link = el.dataset.link || '';
         try {
           await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' });
+          window.dispatchEvent(new Event('fpu:notifications-updated'));
         } catch (e) { /* best-effort */ }
         if (link && window.FPU_SPA && window.FPU_SPA.navigatePortal) {
           const hash = link.split('#').pop();
@@ -129,6 +130,7 @@
     }
     try {
       await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
+      window.dispatchEvent(new Event('fpu:notifications-updated'));
       core.showToast && core.showToast('All marked as read', 'success');
       load();
     } catch (err) {

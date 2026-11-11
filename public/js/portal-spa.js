@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    FPU Portal — SPA shell
    ============================================================ */
 
@@ -81,6 +81,8 @@
       'portal-notifications', 'portal-announcements',
     ],
     bursar: [
+      'bursar-dashboard', 'bursar-payments', 'bursar-fees', 'bursar-clearances',
+      'bursar-reports', 'bursar-documents', 'bursar-transcripts',
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
       'admin-documents', 'admin-transcript',
@@ -136,7 +138,7 @@
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances'].includes(it.key));
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances', 'registrar-documents', 'registrar-transcripts'].includes(it.key));
       
       const registryItems = [
         ...customRegistry,
@@ -198,6 +200,7 @@
       { key: 'lecturer-exams',       label: 'Exams',       icon: ICON.clipboard },
       { key: 'lecturer-requests',    label: 'Requests',    icon: ICON.chat },
       { key: 'lecturer-reports',     label: 'Reports',     icon: ICON.chart },
+      { key: 'lecturer-messages',    label: 'Messages',    icon: ICON.chat },
     ],
     hod: [
       { key: 'hod-dashboard',        label: 'Dashboard',       icon: ICON.dash },
@@ -211,6 +214,7 @@
       { key: 'lecture-timetable',    label: 'Lecture Timetable', icon: ICON.calendar }, // <-- ADDED THIS LINE
       { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart },
       { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
+      { key: 'hod-reports',          label: 'Department Reports', icon: ICON.chart },
     ],
     bursar: [
       { key: 'bursar-dashboard',  label: 'Dashboard',  icon: ICON.dash },
@@ -218,10 +222,16 @@
       { key: 'bursar-fees',       label: 'Fees',       icon: ICON.money },
       { key: 'bursar-clearances', label: 'Clearances', icon: ICON.check },
       { key: 'bursar-reports',    label: 'Reports',    icon: ICON.chart },
+      { key: 'bursar-documents',  label: 'Document Requests', icon: ICON.file },
+      { key: 'bursar-transcripts', label: 'Transcript Register', icon: ICON.book },
     ],
     rector: [
       { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },
-      { key: 'rector-reports',      label: 'Reports',      icon: ICON.chart },
+      { key: 'rector-students',     label: 'Students',     icon: ICON.users },
+      { key: 'rector-staff',        label: 'Staff Directory', icon: ICON.user },
+      { key: 'rector-applications', label: 'Applications Overview', icon: ICON.clipboard },
+      { key: 'rector-graduation',   label: 'Graduation Pipeline', icon: ICON.award },
+      { key: 'rector-reports',      label: 'Executive Reports', icon: ICON.chart },
     ],
     registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },
@@ -232,6 +242,8 @@
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
       { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
+      { key: 'registrar-documents',       label: 'Documents & Certificates', icon: ICON.file },
+      { key: 'registrar-transcripts',      label: 'Transcript Register', icon: ICON.book },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
@@ -239,19 +251,33 @@
       { key: 'librarian-borrows',      label: 'Borrows',      icon: ICON.book },
       { key: 'librarian-reservations', label: 'Reservations', icon: ICON.book },
       { key: 'librarian-fines',        label: 'Fines',        icon: ICON.money },
+      { key: 'librarian-reports',      label: 'Library Reports', icon: ICON.chart },
     ],
     exam_officer: [
       { key: 'exam-officer-dashboard',   label: 'Dashboard',   icon: ICON.dash },
       { key: 'exam-officer-attendance',  label: 'Attendance',  icon: ICON.check },
       { key: 'exam-officer-eligibility', label: 'Eligibility', icon: ICON.users },
       { key: 'exam-officer-publish',     label: 'Publish Results', icon: ICON.file }, 
+      { key: 'exam-officer-schedules',   label: 'Exam Schedules', icon: ICON.calendar },
+      { key: 'exam-officer-reports',     label: 'Examination Reports', icon: ICON.chart },
     ],
-    academic_officer: [{ key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash }],
+    academic_officer: [
+      { key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash },
+      { key: 'academic-officer-sessions', label: 'Academic Sessions', icon: ICON.calendar },
+      { key: 'academic-officer-programmes', label: 'Programmes', icon: ICON.book2 },
+      { key: 'academic-officer-departments', label: 'Departments', icon: ICON.users },
+      { key: 'academic-officer-courses', label: 'Course Catalogue', icon: ICON.book },
+      { key: 'academic-officer-results', label: 'Published Results', icon: ICON.chart },
+      { key: 'academic-officer-transcripts', label: 'Transcript Lookup', icon: ICON.file },
+      { key: 'academic-officer-graduation', label: 'Graduation Pipeline', icon: ICON.award },
+      { key: 'academic-officer-reports', label: 'Academic Reports', icon: ICON.clipboard },
+    ],
     admission_officer: [
       { key: 'admission-officer-dashboard',    label: 'Dashboard',    icon: ICON.dash },
       { key: 'admission-officer-applications', label: 'Applications', icon: ICON.clipboard },
       { key: 'admission-officer-admitted',     label: 'Admitted',     icon: ICON.check },
       { key: 'admission-officer-letters',      label: 'Letters',      icon: ICON.file },
+      { key: 'admission-officer-reports',      label: 'Admission Reports', icon: ICON.chart },
     ],
     admin:      [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
     superadmin: [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],

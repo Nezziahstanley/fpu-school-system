@@ -13,8 +13,18 @@
   </div>
 </section>
 
+<style>
+  .sa-dashboard-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:1rem;margin-top:1rem}
+  .sa-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem}
+  .sa-dashboard-grid .panel,.sa-stats-grid .tile{min-width:0}
+  @media(max-width:900px){.sa-dashboard-grid{grid-template-columns:1fr}.sa-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:480px){.sa-stats-grid{grid-template-columns:1fr}.sa-quick-actions{grid-template-columns:1fr!important}}
+</style>
+<div class="sa-dashboard-toolbar" style="display:flex;justify-content:flex-end;gap:.5rem;margin:.5rem 0;">
+  <button type="button" id="sa-refresh-dashboard" class="btn btn-outline btn-sm">↻ Refresh dashboard</button>
+</div>
 <!-- STATS ROW 1: PEOPLE -->
-<div class="tile-grid">
+<div class="tile-grid sa-stats-grid">
   <div class="tile">
     <div class="tile-label">Students</div>
     <div class="tile-value" id="sa-t-students">—</div>
@@ -34,7 +44,7 @@
 </div>
 
 <!-- STATS ROW 2: OPERATIONS -->
-<div class="tile-grid" style="margin-top:1rem;">
+<div class="tile-grid sa-stats-grid" style="margin-top:1rem;">
   <div class="tile" style="border-left-color:#10b981;">
     <div class="tile-label">💰 Total Revenue</div>
     <div class="tile-value" id="sa-t-revenue" style="font-size:1.35rem;">—</div>
@@ -55,7 +65,7 @@
 </div>
 
 <!-- TWO-COLUMN: ACTIVITY + QUICK ACTIONS -->
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-top:1rem;">
+<div class="sa-dashboard-grid">
 
   <!-- RECENT ACTIVITY -->
   <div class="panel">
@@ -74,7 +84,7 @@
   <div class="panel">
     <div class="panel-head"><h3 style="margin:0;">⚡ Quick Actions</h3></div>
     <div class="panel-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+      <div class="sa-quick-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
         <a href="#admin-applications-list" class="sa-quick-btn">📋 Applications</a>
         <a href="#admin-admitted" class="sa-quick-btn">✅ Admitted</a>
         <a href="#admin-users" class="sa-quick-btn">👥 Users</a>
@@ -148,36 +158,31 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-  // Load greeting + stats
-  (async function loadStats() {
+  // Load greeting + system statistics; exposed for the refresh control.
+  async function loadStats() {
     try {
       const user = core.getPortalUser && core.getPortalUser();
       if (user) {
         $('sa-dash-name').textContent = user.firstName || 'Administrator';
         if (photo) photo.renderMyAvatar($('sa-dash-avatar'), user);
       }
-
       const res = await core.portalFetch('/api/admin/reports/overview');
-      const d = (res && res.data) || {};
-
-      // Row 1: People
+      if (!res || res.success === false) throw new Error(res?.error || 'Unable to load dashboard statistics.');
+      const d = res.data || {};
       $('sa-t-students').textContent = d.students ?? 0;
       $('sa-t-lecturers').textContent = d.lecturers ?? 0;
       $('sa-t-apps').textContent = d.pendingApplications ?? 0;
       $('sa-t-results').textContent = d.pendingResults ?? 0;
-
-      // Row 2: Operations
       const revenue = Number(d.totalRevenue || 0);
-      $('sa-t-revenue').textContent = revenue > 0 ? '₦' + revenue.toLocaleString() : '₦0';
+      $('sa-t-revenue').textContent = '₦' + revenue.toLocaleString('en-NG');
       $('sa-t-pending-payments').textContent = d.pendingPayments ?? 0;
       $('sa-t-borrows').textContent = d.activeBorrows ?? 0;
       $('sa-t-overdue').textContent = d.unpaidFines ?? 0;
-
     } catch (err) {
       console.error('[dashboard] stats error:', err);
-      if (core.showToast) core.showToast(err.message, 'error');
+      if (core.showToast) core.showToast(err.message || 'Unable to refresh dashboard.', 'error');
     }
-  })();
+  }
 
   // Load recent activity feed
   async function loadActivity() {
@@ -245,10 +250,15 @@
     return fmtDate(date);
   }
 
+  $('sa-refresh-dashboard')?.addEventListener('click', async () => {
+    const button = $('sa-refresh-dashboard');
+    if (button) { button.disabled = true; button.textContent = 'Refreshing…'; }
+    await Promise.all([loadStats(), loadActivity()]);
+    if (button) { button.disabled = false; button.textContent = '↻ Refresh dashboard'; }
+  });
   $('sa-refresh-activity')?.addEventListener('click', loadActivity);
 
+  loadStats();
   loadActivity();
-  // Auto-refresh activity every 30s
-  setInterval(loadActivity, 30000);
 })();
 </script>

@@ -365,7 +365,7 @@
     $('course-delete').addEventListener('click', async () => {
       if (!isEdit) return;
       const code = $('course-code').value.trim();
-      if (!confirm(`Delete course "${code}"? This cannot be undone.`)) return;
+      if (!(await window.fpuConfirm(`Delete course "${code}"? This cannot be undone.`, { title: 'Delete Course', type: 'danger', okText: 'Delete Course' }))) return;
 
       const btn = $('course-delete');
       const original = btn.textContent;

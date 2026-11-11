@@ -93,6 +93,30 @@
     </div>
   </div>
 
+  <div style="display:flex;gap:.55rem;flex-wrap:wrap;margin:0 0 1rem;">
+    <a href="#lecturer-students" class="lec-dash-link">👥 Students</a>
+    <a href="#lecturer-attendance" class="lec-dash-link">✓ Attendance</a>
+    <a href="#lecturer-results" class="lec-dash-link">📝 Results</a>
+    <a href="#lecturer-materials" class="lec-dash-link">📂 Materials</a>
+    <a href="#lecturer-assignments" class="lec-dash-link">Assignments</a>
+    <a href="#lecturer-exams" class="lec-dash-link">Exams</a>
+    <a href="#lecturer-messages" class="lec-dash-link">Messages</a>
+    <a href="#lecturer-reports" class="lec-dash-link">Reports</a>
+  </div>
+  <div id="lec-chart-notice" hidden style="padding:.7rem .9rem;margin-bottom:1rem;border:1px solid #fde68a;background:#fffbeb;border-radius:9px;color:#92400e;font-size:.8rem;">Charts are temporarily unavailable, but your teaching figures and lists are still accessible.</div>
+  <style>
+    .lec-dash-link{display:inline-flex;align-items:center;padding:.55rem .8rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#065f46;text-decoration:none;font-size:.78rem;font-weight:750}
+    .lec-dash-link:hover{background:#ecfdf5;border-color:#86efac}
+    @media(max-width:900px){#chart-students,#chart-results,#chart-levels{max-width:100%}}
+    @media(max-width:760px){.lec-dash-link{flex:1 1 130px;justify-content:center}}
+    @media(max-width:850px){
+      div:has(> #lec-courses),div:has(> #lec-attendance){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+      div:has(> div > #chart-students){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    }
+    @media(max-width:520px){
+      div:has(> #lec-courses),div:has(> #lec-attendance),div:has(> div > #chart-students){grid-template-columns:1fr!important}
+    }
+  </style>
   <!-- CHARTS ROW -->
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.25rem;">
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
@@ -184,9 +208,10 @@
 
   function drawChart(canvasId, config) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
+    if (!canvas || typeof window.Chart === 'undefined') return false;
     if (canvas.__chart) canvas.__chart.destroy();
-    canvas.__chart = new Chart(canvas, config);
+    canvas.__chart = new window.Chart(canvas, config);
+    return true;
   }
 
   async function loadPendingSubmissions() {
@@ -263,7 +288,9 @@
         }
       }
 
-      // --- RENDER CHARTS ---
+      // --- RENDER CHARTS (dashboard data remains usable if the chart CDN is unavailable) ---
+      const chartNotice = document.getElementById('lec-chart-notice');
+      if (chartNotice) chartNotice.hidden = typeof window.Chart !== 'undefined';
       const stats = d.courseStats || [];
       drawChart('chart-students', {
         type: 'bar',
@@ -315,12 +342,13 @@
         options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
       });
 
-      // Load the new list
-      loadPendingSubmissions();
+      // Load pending submissions independently so a chart-library outage cannot hide them.
+      await loadPendingSubmissions();
       
     } catch (err) {
       core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
-      $('lec-courses-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      if ($('lec-courses-tbody')) $('lec-courses-tbody').innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      if ($('lec-pending-tbody')) $('lec-pending-tbody').innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 

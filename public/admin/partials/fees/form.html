@@ -256,7 +256,7 @@
     // ---------- Delete ----------
     $('ff-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this fee structure? Any student payments will retain their amounts, but new fee calculations will fail.')) return;
+      if (!(await window.fpuConfirm('Delete this fee structure? Any student payments will retain their amounts, but new fee calculations will fail.', { title: 'Delete Fee Structure', type: 'danger', okText: 'Delete Fee Structure' }))) return;
       try {
         const res = await A.adminFetch(`/api/admin/fees/${id}`, { method: 'DELETE' });
         const json = await res.json();

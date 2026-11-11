@@ -251,7 +251,7 @@
     // ---------- Delete (edit mode) ----------
     $('alloc-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this allocation? The course will become unassigned.')) return;
+      if (!(await window.fpuConfirm('Delete this allocation? The course will become unassigned.', { title: 'Delete Allocation', type: 'danger', okText: 'Delete Allocation' }))) return;
 
       const btn = $('alloc-delete');
       const original = btn.textContent;

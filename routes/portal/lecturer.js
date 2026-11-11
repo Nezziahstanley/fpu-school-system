@@ -436,7 +436,7 @@ router.post('/results/:courseId', only, async (req, res, next) => {
 
       const semesterValue = (course.semesterName || 'first').toLowerCase();
 
-      await db.execute(sql`
+      const savedResult = await db.execute(sql`
         INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status, assignment_score)
         VALUES (
           ${r.studentId}, ${courseId}, ${studentSessionId}, ${semesterValue}, 
@@ -449,8 +449,14 @@ router.post('/results/:courseId', only, async (req, res, next) => {
           points = EXCLUDED.points,
           assignment_score = EXCLUDED.assignment_score,
           status = 'draft',
+          rejection_reason = NULL,
           updated_at = NOW()
+        WHERE results.status IN ('draft', 'hod_rejected')
+        RETURNING id
       `);
+      if (!savedResult.rows[0] || !savedResult.rows[0].id) {
+        return res.status(409).json({ success: false, error: 'A result has already moved beyond the editable stage. Refresh the page and contact your HOD if a correction is required.' });
+      }
     }
 
     return res.json({ success: true, message: 'Results saved successfully.' });
@@ -465,17 +471,23 @@ router.put('/results/:id', only, async (req, res, next) => {
     const resultId = Number(req.params.id);
     const { score, grade, points } = req.body;
 
-    const [result] = await db.select({ courseId: results.courseId })
+    const [result] = await db.select({ courseId: results.courseId, status: results.status })
       .from(results).where(eq(results.id, resultId)).limit(1);
-      
+    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
+
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
       .limit(1);
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+    if (!['draft', 'hod_rejected'].includes(result.status)) {
+      return res.status(409).json({ success: false, error: 'Only draft or HOD-rejected results can be edited.' });
+    }
 
-    await db.update(results)
-      .set({ score: String(score), grade, points, updatedAt: new Date() })
-      .where(eq(results.id, resultId));
+    const [updated] = await db.update(results)
+      .set({ score: String(score), grade, points, status: 'draft', rejectionReason: null, updatedAt: new Date() })
+      .where(and(eq(results.id, resultId), inArray(results.status, ['draft', 'hod_rejected'])))
+      .returning({ id: results.id });
+    if (!updated) return res.status(409).json({ success: false, error: 'Result status changed. Refresh and try again.' });
 
     return res.json({ success: true });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
@@ -485,15 +497,22 @@ router.delete('/results/:id', only, async (req, res, next) => {
   try {
     const resultId = Number(req.params.id);
     
-    const [result] = await db.select({ courseId: results.courseId })
+    const [result] = await db.select({ courseId: results.courseId, status: results.status })
       .from(results).where(eq(results.id, resultId)).limit(1);
-      
+    if (!result) return res.status(404).json({ success: false, error: 'Result not found.' });
+
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, result.courseId)))
       .limit(1);
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+    if (!['draft', 'hod_rejected'].includes(result.status)) {
+      return res.status(409).json({ success: false, error: 'Only draft or HOD-rejected results can be deleted.' });
+    }
 
-    await db.delete(results).where(eq(results.id, resultId));
+    const deleted = await db.delete(results)
+      .where(and(eq(results.id, resultId), inArray(results.status, ['draft', 'hod_rejected'])))
+      .returning({ id: results.id });
+    if (!deleted.length) return res.status(409).json({ success: false, error: 'Result status changed. Refresh and try again.' });
     return res.json({ success: true });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });

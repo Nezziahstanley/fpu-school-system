@@ -121,13 +121,105 @@
   }
 
   // ----------------------------------------------------------
+  // Shared accessible confirmation dialog
+  // ----------------------------------------------------------
+  let activeConfirmDialog = null;
+
+  function portalConfirm(message, options = {}) {
+    if (activeConfirmDialog) return Promise.resolve(false);
+
+    const title = options.title || 'Please confirm';
+    const confirmText = options.confirmText || options.okText || 'Continue';
+    const cancelText = options.cancelText || 'Cancel';
+    const danger = options.type === 'danger';
+    const overlay = document.createElement('div');
+    overlay.className = 'fpu-confirm-overlay';
+    overlay.setAttribute('role', 'presentation');
+    Object.assign(overlay.style, {
+      position: 'fixed', inset: '0', zIndex: '100000',
+      display: 'grid', placeItems: 'center', padding: '1rem',
+      background: 'rgba(15, 23, 42, .62)', backdropFilter: 'blur(4px)'
+    });
+
+    const dialog = document.createElement('section');
+    dialog.className = 'fpu-confirm-dialog';
+    dialog.setAttribute('role', 'alertdialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'fpu-confirm-title');
+    dialog.setAttribute('aria-describedby', 'fpu-confirm-message');
+    Object.assign(dialog.style, {
+      width: 'min(100%, 440px)', background: '#fff', color: '#0f172a',
+      borderRadius: '18px', padding: '1.4rem',
+      boxShadow: '0 24px 80px rgba(0,0,0,.28)',
+      border: '1px solid #e2e8f0', fontFamily: 'inherit'
+    });
+
+    const icon = document.createElement('div');
+    icon.textContent = danger ? '⚠️' : '❔';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.style.cssText = 'font-size:2rem;margin-bottom:.65rem;';
+    const heading = document.createElement('h2');
+    heading.id = 'fpu-confirm-title';
+    heading.textContent = title;
+    heading.style.cssText = 'font-size:1.12rem;font-weight:800;margin:0 0 .5rem;';
+    const body = document.createElement('p');
+    body.id = 'fpu-confirm-message';
+    body.textContent = String(message || 'Are you sure you want to continue?');
+    body.style.cssText = 'font-size:.92rem;line-height:1.6;color:#475569;margin:0 0 1.25rem;white-space:pre-line;';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;justify-content:flex-end;gap:.65rem;flex-wrap:wrap;';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = cancelText;
+    cancel.style.cssText = 'padding:.65rem 1rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;font-weight:700;cursor:pointer;';
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.textContent = confirmText;
+    confirm.style.cssText = `padding:.65rem 1rem;border:1px solid ${danger ? '#b91c1c' : '#047857'};border-radius:9px;background:${danger ? '#b91c1c' : '#047857'};color:#fff;font-weight:800;cursor:pointer;`;
+    actions.append(cancel, confirm);
+    dialog.append(icon, heading, body, actions);
+    overlay.appendChild(dialog);
+
+    return new Promise(resolve => {
+      activeConfirmDialog = overlay;
+      let settled = false;
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener('keydown', onKeyDown);
+        overlay.remove();
+        activeConfirmDialog = null;
+        resolve(value);
+      };
+      const onKeyDown = event => {
+        if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+        if (event.key === 'Enter' && document.activeElement === confirm) { event.preventDefault(); finish(true); }
+        if (event.key === 'Tab') {
+          const first = cancel, last = confirm;
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      };
+      cancel.addEventListener('click', () => finish(false));
+      confirm.addEventListener('click', () => finish(true));
+      overlay.addEventListener('click', event => { if (event.target === overlay) finish(false); });
+      document.addEventListener('keydown', onKeyDown);
+      document.body.appendChild(overlay);
+      confirm.focus();
+    });
+  }
+
+  // ----------------------------------------------------------
   // Logout
   // ----------------------------------------------------------
   async function portalLogout() {
+    const confirmed = await portalConfirm('Are you sure you want to sign out of your FPU portal account?', { title: 'Sign Out?', type: 'warning', confirmText: 'Sign Out', cancelText: 'Stay Signed In' });
+    if (!confirmed) return false;
     try { await portalFetch('/api/admin/auth/logout', { method: 'POST' }); }
     catch {}
     clearPortalSession();
     window.location.href = '/login.html';
+    return true;
   }
 
   // ----------------------------------------------------------
@@ -228,7 +320,7 @@
   window.FPU_PORTAL = {
     // session
     getToken, getPortalUser, setPortalSession, clearPortalSession,
-    requirePortalAuth, portalLogout,
+    requirePortalAuth, portalLogout, portalConfirm,
     // http
     portalFetch,
     // ui

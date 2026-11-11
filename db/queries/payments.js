@@ -294,23 +294,23 @@ async function totalVerifiedForStudent(studentId, sessionId) {
 }
 
 // ------------------------------------------------------------
-// totalPaidForStudent — same as above but for ALL non-rejected
-// payments (pending + verified).
+// totalPaidForStudent — only verified payments count as money received.
 // ------------------------------------------------------------
 async function totalPaidForStudent(studentId, sessionId) {
   if (!studentId) return 0;
 
-  const conds = [eq(payments.studentId, Number(studentId))];
+  const conds = [
+    eq(payments.studentId, Number(studentId)),
+    eq(payments.status, 'verified'),
+  ];
   if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
 
   const rows = await db
-    .select({ amount: payments.amount, status: payments.status })
+    .select({ amount: payments.amount })
     .from(payments)
     .where(and(...conds));
 
-  const total = rows
-    .filter((r) => r.status !== 'rejected')
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   return total;
 }
 
@@ -327,7 +327,7 @@ async function create(data) {
       depositorName: data.depositorName || null,
       depositDate: data.depositDate || null,
       receiptUrl: data.receiptUrl || null,
-      status: data.status || 'pending',
+      status: 'pending',
     })
     .returning();
   return row;
@@ -339,7 +339,9 @@ async function update(id, patch) {
   for (const k of allowed) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   }
-  const [row] = await db.update(payments).set(clean).where(eq(payments.id, Number(id))).returning();
+  const [row] = await db.update(payments).set(clean)
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
+    .returning();
   return row || null;
 }
 
@@ -347,7 +349,7 @@ async function verify(id, verifiedBy) {
   const [row] = await db
     .update(payments)
     .set({ status: 'verified', verifiedBy: Number(verifiedBy), verifiedAt: new Date() })
-    .where(eq(payments.id, Number(id)))
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
     .returning();
   return row || null;
 }
@@ -356,13 +358,22 @@ async function reject(id, reason, rejectedBy) {
   const [row] = await db
     .update(payments)
     .set({ status: 'rejected', rejectionReason: reason, verifiedBy: Number(rejectedBy), verifiedAt: new Date() })
-    .where(eq(payments.id, Number(id)))
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
+    .returning();
+  return row || null;
+}
+
+async function refund(id) {
+  const [row] = await db
+    .update(payments)
+    .set({ status: 'refunded' })
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'verified')))
     .returning();
   return row || null;
 }
 
 async function remove(id) {
-  const [row] = await db.delete(payments).where(eq(payments.id, Number(id))).returning();
+  const [row] = await db.delete(payments).where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending'))).returning();
   return row || null;
 }
 
@@ -412,5 +423,6 @@ module.exports = {
   update,
   verify,
   reject,
+  refund,
   remove,
 };

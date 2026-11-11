@@ -31,7 +31,15 @@
   }
 
   async function performLogout() {
-    if (!confirm('Log out of the admin panel?')) return;
+    const confirmed = typeof window.fpuConfirm === 'function'
+      ? await window.fpuConfirm('Log out of the admin panel?', {
+          title: 'Sign Out?',
+          type: 'warning',
+          okText: 'Sign Out',
+          cancelText: 'Stay Signed In',
+        })
+      : window.confirm('Log out of the admin panel?');
+    if (!confirmed) return;
     const token = getToken();
     if (token) {
       try {
@@ -62,6 +70,16 @@
         }
       }
     };
+  }
+
+  function initSecurityPage() {
+    call('loadSecurityDashboard')();
+    call('wireSecurityActions')();
+  }
+
+  function initGraduationPage() {
+    call('loadGraduationsTable')();
+    call('wireGraduationPage')();
   }
 
   // ----------------------------------------------------------
@@ -204,7 +222,7 @@
     'student-profile':    { url: '/admin/partials/students/profile.html',        title: 'Student Profile', init: () => {} },
 
     'sessions':         { url: '/admin/partials/academics/sessions.html',         title: 'Sessions',        init: call('loadSessions') },
-    'session-form':     { url: '/admin/partials/academics/session-form.html',     title: 'New Session',     init: () => {} },
+    'session-form':     { url: '/admin/partials/sessions/session-form.html',       title: 'New Session',     init: () => {} },
 
     'programmes':       { url: '/admin/partials/academics/programmes.html',     title: 'Programmes',      init: call('loadProgrammes') },
     'programme-form':   { url: '/admin/partials/academics/programme-form.html', title: 'New Programme',   init: () => {} },
@@ -232,7 +250,7 @@
     'registrations-by-course': { url: '/admin/partials/registrations/by-course.html', title: 'Registrations by Course', init: call('loadCourseRegistrations') },
     'registrations-by-student':{ url: '/admin/partials/registrations/by-student.html',title: 'Student Registrations',   init: call('loadStudentRegistrations') },
 
-    'results':          { url: '/admin/partials/results/list.html',              title: 'Results',         init: call('loadResultDepartments') },
+    'results':          { url: '/admin/partials/results/list.html',              title: 'Results',         init: call('loadResultsDashboard') },
     'results-by-dept':  { url: '/admin/partials/results/by-department.html',     title: 'Department Results', init: call('loadDepartmentResults') },
     'results-approved': { url: '/admin/partials/results/approved.html',          title: 'Approved Results', init: call('loadApprovedResults') },
     'result-edit':      { url: '/admin/partials/results/edit.html',              title: 'Edit Result',     init: () => {} },
@@ -240,7 +258,7 @@
     'grade-scales':     { url: '/admin/partials/results/grade-scales.html',      title: 'Grade Scales',    init: call('loadGradeScales') },
 
     'transcript':           { url: '/admin/partials/transcript/index.html',      title: 'Transcript',      init: call('loadTranscriptLookup') },
-    'transcript-by-student':{ url: '/admin/partials/transcript/by-student.html', title: 'Student Transcript', init: call('loadStudentTranscript') },
+    'transcript-by-student':{ url: '/admin/partials/transcript/by-student.html', title: 'Student Transcript', init: call('loadTranscriptView') },
 
     'timetable':          { url: '/admin/partials/timetable/index.html',         title: 'Timetable',       init: call('loadTimetableIndex') },
     'timetable-list':     { url: '/admin/partials/timetable/list.html',          title: 'Timetable List',  init: call('loadTimetable') },
@@ -271,7 +289,7 @@
     // ---------- Finance ----------
     'fees':             { url: '/admin/partials/fees/list.html',                 title: 'Fee Structures',  init: call('loadFeeLevels') },
     'fee-form':         { url: '/admin/partials/fees/form.html',                 title: 'New Fee',         init: () => {} },
-    'fees-by-dept':     { url: '/admin/partials/fees/by-department.html',        title: 'Department Fees', init: call('loadDepartmentFees') },
+    'fees-by-dept':     { url: '/admin/partials/fees/list.html',                   title: 'Fee Structures',  init: call('loadFeeLevels') },
 
     'payments':           { url: '/admin/partials/payments/list.html',           title: 'Payments',        init: call('loadPaymentDepartments') },
     'payment-form':       { url: '/admin/partials/payments/form.html',           title: 'New Payment',     init: () => {} },
@@ -280,7 +298,7 @@
     'payments-by-student':{ url: '/admin/partials/payments/by-student.html',     title: 'Student Payment History', init: call('loadStudentPayments') },
 
     'clearances':         { url: '/admin/partials/clearances/list.html',         title: 'Clearances',      init: call('loadClearanceDepartments') },
-    'clearances-list':    { url: '/admin/partials/clearances/index.html',        title: 'Clearances',      init: call('loadClearances') },
+    'clearances-list':    { url: '/admin/partials/clearances/list.html',         title: 'Clearances',      init: call('loadClearanceDepartments') },
     'clearances-by-dept': { url: '/admin/partials/clearances/by-department.html',title: 'Department Clearances', init: call('loadDepartmentClearances') },
 
     // ---------- Communication ----------
@@ -309,14 +327,14 @@
     'documents-detail': { url: '/admin/partials/documents/detail.html',          title: 'Document',        init: call('loadDocumentDetail') },
     'document-new':     { url: '/admin/partials/documents/new.html',             title: 'New Request',     init: () => {} },
 
-    'graduation':       { url: '/admin/partials/graduations/queue.html',           title: 'Graduation',      init: call('loadGraduationsTable') },
+    'graduation':       { url: '/admin/partials/graduations/queue.html',           title: 'Graduation',      init: initGraduationPage },
     'graduation-form':  { url: '/admin/partials/graduations/form.html',           title: 'Queue Graduand',  init: () => {} },
-    'graduation-queue': { url: '/admin/partials/graduations/queue.html',          title: 'Graduation Queue',init: call('loadGraduationsTable') },
+    'graduation-queue': { url: '/admin/partials/graduations/queue.html',          title: 'Graduation Queue',init: initGraduationPage },
 
     // ---------- System ----------
     'reports':          { url: '/admin/partials/reports/index.html',             title: 'Reports',         init: call('loadReports') },
     'audit':            { url: '/admin/partials/audit/index.html',               title: 'Audit',           init: call('loadAuditTable') },
-    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: call('loadSecurity') },
+    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: initSecurityPage },
     'settings':         { url: '/admin/partials/settings/index.html',            title: 'Settings',        init: call('loadSettingsShell') },
 
     // ---------- Users ----------
@@ -325,11 +343,11 @@
     'users-admins':       { url: '/admin/partials/users/admins.html',            title: 'Admin Accounts',  init: call('loadAdminAccounts') },
     'users-with-photos':  { url: '/admin/partials/users/with-photos.html',       title: 'Photo Directory', init: call('loadUsersWithPhotos') },
     'users-login-history':{ url: '/admin/partials/users/login-history.html',     title: 'Login History',   init: call('loadLoginHistory') },
-    'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: call('loadUserForm') },
+    'user-form':          { url: '/admin/partials/users/form.html',              title: 'User Form',       init: () => {} },
     'user-profile':       { url: '/admin/partials/users/profile.html',           title: 'User Profile',    init: call('loadUserProfile') },
 
     // ---------- Security sub-pages ----------
-    'security-dashboard':   { url: '/admin/partials/security/dashboard.html',    title: 'Security Center', init: call('loadSecurityDashboard') },
+    'security-dashboard':   { url: '/admin/partials/security/dashboard.html',    title: 'Security Center', init: initSecurityPage },
     'security-events':      { url: '/admin/partials/security/events.html',       title: 'Security Events', init: call('loadSecurityEvents') },
     'security-sessions':    { url: '/admin/partials/security/sessions.html',     title: 'Active Sessions', init: call('loadSecuritySessions') },
     'security-logins':      { url: '/admin/partials/security/login-attempts.html', title: 'Login Attempts',init: call('loadLoginAttempts') },
@@ -448,7 +466,10 @@
   // ----------------------------------------------------------
   // LOAD A PAGE
   // ----------------------------------------------------------
+  let pageLoadSequence = 0;
+
   async function loadPage(key) {
+    const requestId = ++pageLoadSequence;
     let queryString = '';
     if (key && key.includes('?')) {
       const qIdx = key.indexOf('?');
@@ -482,6 +503,7 @@
         cache.set(cfg.url, html);
       }
 
+      if (requestId !== pageLoadSequence) return;
       view.innerHTML = html;
       executePartialScripts(view);
 
@@ -500,6 +522,7 @@
         }
       }
     } catch (err) {
+      if (requestId !== pageLoadSequence) return;
       console.error('[admin-spa] loadPage error:', err);
       view.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Could not load page "<strong>${escapeHtmlLocal(key)}</strong>".</p><p class="small muted" style="margin-top:10px;">${escapeHtmlLocal(err.message)}</p></div>`;
     }
@@ -562,8 +585,17 @@
       if (roleEl && !roleEl.textContent.trim()) {
         roleEl.textContent = String(user.role || 'admin').replace(/_/g, ' ');
       }
-      if (avatar && user.photoUrl) {
-        avatar.innerHTML = `<img src="${user.photoUrl}" alt="" />`;
+      const safePhotoUrl = (() => {
+        try {
+          const parsed = new URL(String(user.photoUrl || ''), window.location.origin);
+          return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+        } catch { return ''; }
+      })();
+      if (avatar && safePhotoUrl) {
+        const img = document.createElement('img');
+        img.src = safePhotoUrl;
+        img.alt = '';
+        avatar.replaceChildren(img);
       } else if (avatar && !avatar.textContent.trim()) {
         const initials = (
           (user.firstName || '')[0] || (user.email || '')[0] || 'A'
@@ -599,6 +631,8 @@
     toggleSidebar, updatePendingBadge,
     performLogout,
   };
+  // Legacy form partials call the router through FPU_ADMIN.
+  if (window.FPU_ADMIN) window.FPU_ADMIN.FPU_ADMIN_SPA = window.FPU_ADMIN_SPA;
 
   document.addEventListener('DOMContentLoaded', () => {
     if (document.body && document.body.classList.contains('admin-app') && document.getElementById('page-view')) {

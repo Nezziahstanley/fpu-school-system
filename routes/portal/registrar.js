@@ -258,6 +258,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
         r.grade, 
         r.points,
         r.semester,
+        r.session_id AS "sessionId",
         s.name AS "sessionName"
       FROM results r
       JOIN courses c ON r.course_id = c.id
@@ -271,14 +272,14 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     // Format rows to match the expected structure
     const formattedRows = rows.map(r => ({
       course: { code: r.courseCode, title: r.courseTitle, unit: r.unit },
-      result: { score: r.score, grade: r.grade, points: r.points, semester: r.semester, sessionName: r.sessionName }
+      result: { score: r.score, grade: r.grade, points: r.points, semester: r.semester, sessionId: r.sessionId, sessionName: r.sessionName }
     }));
 
     const summary = computeStudentCGPA(
       formattedRows.map((r) => ({
         unit: Number(r.course?.unit) || 0,
         points: Number(r.result?.points) || 0,
-        sessionId: null, 
+        sessionId: r.result?.sessionId,
         semester: r.result?.semester,
       }))
     );
@@ -471,15 +472,27 @@ router.get('/registrations', only, async (req, res, next) => {
 router.post('/registrations/:id/status', only, async (req, res, next) => {
   try {
     const { status } = req.body;
-    if (!['pending', 'approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ success: false, error: 'Invalid status.' });
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, error: 'Registration status must be approved or rejected.' });
     }
 
     const [row] = await db
       .update(courseRegistrations)
-      .set({ status, approvedAt: status === 'approved' ? new Date() : null, approvedBy: req.user.id })
-      .where(eq(courseRegistrations.id, Number(req.params.id)))
+      .set({ status, approvedAt: new Date(), approvedBy: req.user.id })
+      .where(and(
+        eq(courseRegistrations.id, Number(req.params.id)),
+        eq(courseRegistrations.status, 'pending')
+      ))
       .returning();
+
+    if (!row) {
+      const [existing] = await db.select({ id: courseRegistrations.id, status: courseRegistrations.status })
+        .from(courseRegistrations)
+        .where(eq(courseRegistrations.id, Number(req.params.id)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ success: false, error: 'Course registration not found.' });
+      return res.status(409).json({ success: false, error: 'Only pending registrations can be approved or rejected.' });
+    }
 
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -536,9 +549,10 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
         issuedAt: new Date(),
         issuedBy: req.user.id,
       })
-      .where(eq(documents.id, docId))
+      .where(and(eq(documents.id, docId), inArray(documents.status, ['pending', 'approved'])))
       .returning();
 
+    if (!updated) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be issued.' });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
@@ -554,9 +568,10 @@ router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
     const [updated] = await db
       .update(documents)
       .set({ status: 'issued', issuedAt: new Date(), issuedBy: req.user.id })
-      .where(eq(documents.id, docId))
+      .where(and(eq(documents.id, docId), inArray(documents.status, ['pending', 'approved'])))
       .returning();
 
+    if (!updated) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be marked as issued.' });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
@@ -772,16 +787,30 @@ router.post('/sessions', only, async (req, res, next) => {
 router.post('/sessions/:id/activate', only, async (req, res, next) => {
   try {
     const sessionId = Number(req.params.id);
-    
-    // Unset all current sessions
-    await db.update(academicSessions).set({ isCurrent: false });
-    
-    // Set the new one
-    const [updated] = await db.update(academicSessions)
-      .set({ isCurrent: true })
-      .where(eq(academicSessions.id, sessionId))
-      .returning();
+    if (!Number.isInteger(sessionId) || sessionId <= 0) {
+      return res.status(400).json({ success: false, error: 'A valid academic session ID is required.' });
+    }
 
+    // Validate before clearing the current session; a bad ID must never leave
+    // the institution without an active academic session.
+    const [targetSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.id, sessionId))
+      .limit(1);
+    if (!targetSession) {
+      return res.status(404).json({ success: false, error: 'Academic session not found.' });
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.update(academicSessions).set({ isCurrent: false });
+      await tx.update(academicSessions)
+        .set({ isCurrent: true })
+        .where(eq(academicSessions.id, sessionId));
+    });
+
+    const [updated] = await db.select().from(academicSessions)
+      .where(eq(academicSessions.id, sessionId))
+      .limit(1);
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

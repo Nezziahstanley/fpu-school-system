@@ -463,7 +463,7 @@
     // ---------- Delete ----------
     $('uf-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this user? This cannot be undone.')) return;
+      if (!(await window.fpuConfirm('Delete this user? This cannot be undone.', { title: 'Delete User', type: 'danger', okText: 'Delete User' }))) return;
       try {
         const role = $('uf-role').value;
         let url;

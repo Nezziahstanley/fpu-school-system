@@ -110,13 +110,13 @@
       if (typeof window.fpuConfirm === 'function') {
         return await window.fpuConfirm(message, options || {});
       }
-      return window.__fpuNativeConfirm ? window.__fpuNativeConfirm(message) : confirm(message);
+      return window.__fpuNativeConfirm ? window.__fpuNativeConfirm(message) : false;
     }
     async function styledPrompt(message, defaultValue, options) {
       if (typeof window.fpuPrompt === 'function') {
-        return await window.fpuPrompt(message, defaultValue || '', options || {});
+        return await window.fpuPrompt(message, '', (options && options.title) || 'Input Required', defaultValue || '', { placeholder: (options && options.placeholder) || 'Type here...', okText: (options && options.okText) || 'Submit', inputType: 'password' });
       }
-      return window.prompt(message, defaultValue || '');
+      return null;
     }
 
     // ============================================================

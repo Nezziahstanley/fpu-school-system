@@ -99,7 +99,7 @@
 // ============================================
 // CUSTOM UI MODALS (Replaces prompt/confirm)
 // ============================================
-window.fpuPrompt = function(message, hint, title = 'Input Required') {
+window.fpuPrompt = function(message, hint, title = 'Input Required', defaultValue = '', promptOptions = {}) {
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'fpu-modal-backdrop';
@@ -123,6 +123,11 @@ window.fpuPrompt = function(message, hint, title = 'Input Required') {
     document.body.appendChild(backdrop);
     
     const input = backdrop.querySelector('#fpu-prompt-input');
+    input.value = defaultValue == null ? '' : String(defaultValue);
+    input.placeholder = promptOptions.placeholder || 'Type here...';
+    input.type = promptOptions.inputType === 'password' ? 'password' : 'text';
+    const submitButton = backdrop.querySelector('#fpu-prompt-ok');
+    if (submitButton) submitButton.textContent = promptOptions.okText || 'Submit';
     input.focus();
 
     const close = () => { backdrop.remove(); resolve(null); };
@@ -309,8 +314,8 @@ function statusPill(status) {
   const m = map[status] || map.pending;
   return `<span class="badge badge-${m.cls}">${m.icon} ${escapeHtml(String(status || 'pending').replace(/_/g, ' '))}</span>`;
 }
-function promptReason(label = "Reason:") {
-  const v = prompt(label);
+async function promptReason(label = "Reason:") {
+  const v = await window.fpuPrompt(label, '', 'Reason Required');
   if (v === null) return null;
   if (!v.trim()) { showToast("⚠️ A reason is required.", "warning"); return null; }
   return v.trim();
@@ -333,6 +338,14 @@ function exportTableAsCSV(table, filename = "export.csv") {
   URL.revokeObjectURL(url);
   showToast("✅ Exported " + filename);
 }
+function goBack(pageKey = 'dashboard') {
+  const target = String(pageKey || 'dashboard').replace(/^#/, '');
+  if (window.FPU_ADMIN_SPA && typeof window.FPU_ADMIN_SPA.navigateTo === 'function') {
+    return window.FPU_ADMIN_SPA.navigateTo(target);
+  }
+  window.location.hash = '#' + target;
+}
+
 function openModal(title, bodyHtml) {
   let backdrop = document.getElementById("modal-backdrop");
   if (!backdrop) {
@@ -818,10 +831,10 @@ async function bulkApplicationAction(action) {
   if (ids.length === 0) { showToast('⚠️ Select at least one application.', 'warning'); return; }
   let reason = null;
   if (action === 'reject') {
-    reason = prompt(`Reason for rejecting ${ids.length} application(s):`);
+    reason = await window.fpuPrompt(`Reason for rejecting ${ids.length} application(s):`, 'This reason will be recorded with the selected applications.', 'Rejection Reason');
     if (reason === null) return;
     if (!reason.trim()) { showToast('⚠️ A reason is required.', 'warning'); return; }
-  } else { if (!confirm(`${action === 'delete' ? 'Delete' : 'Approve'} ${ids.length} application(s)?`)) return; }
+  } else { if (!(await window.fpuConfirm(`${action === 'delete' ? 'Delete' : 'Approve'} ${ids.length} application(s)?`, { title: action === 'delete' ? 'Delete Applications' : 'Approve Applications', type: action === 'delete' ? 'danger' : 'warning', okText: action === 'delete' ? 'Delete' : 'Approve' }))) return; }
 
   try {
     const res = await adminFetch('/api/admin/applications/bulk', { method: 'POST', body: JSON.stringify({ ids, action, reason }) });
@@ -833,7 +846,7 @@ async function bulkApplicationAction(action) {
 }
 
 async function approveApplication(id) {
-  if (!confirm('Approve this application?')) return;
+  if (!(await window.fpuConfirm('Approve this application?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/approve`, { method: 'POST' });
     const json = await res.json();
@@ -844,7 +857,7 @@ async function approveApplication(id) {
 }
 
 async function rejectApplication(id) {
-  const reason = prompt('Enter rejection reason (optional):');
+  const reason = await window.fpuPrompt('Enter rejection reason (optional):', 'You may leave this blank.', 'Reject Application');
   if (reason === null) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() || 'Did not meet requirements.' }) });
@@ -856,7 +869,7 @@ async function rejectApplication(id) {
 }
 
 async function registerApplication(id) {
-  if (!confirm('Register this applicant?\n\nThis will:\n• Generate a Matric Number\n• Create a Student Portal account\n• Send them a welcome email\n\nProceed?')) return;
+  if (!(await window.fpuConfirm('Register this applicant?\n\nThis will:\n• Generate a Matric Number\n• Create a Student Portal account\n• Send them a welcome email\n\nProceed?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
     const json = await res.json();
@@ -944,7 +957,7 @@ function updateAdmittedStats(rows, summary) {
 async function bulkRegisterAdmitted() {
   const ids = Array.from(document.querySelectorAll('.adm-check:checked')).map((cb) => Number(cb.dataset.id));
   if (ids.length === 0) { showToast('⚠️ Select at least one applicant.', 'warning'); return; }
-  if (!confirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach student will receive a unique temporary password by email and must change it after signing in.`)) return;
+  if (!(await window.fpuConfirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach student will receive a unique temporary password by email and must change it after signing in.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   let ok = 0, failed = 0, emailFailed = 0;
   for (const id of ids) {
     try {
@@ -962,7 +975,7 @@ async function bulkRegisterAdmitted() {
 }
 
 async function registerAdmitted(id) {
-  if (!confirm('Create the student account and assign a matric number?')) return;
+  if (!(await window.fpuConfirm('Create the student account and assign a matric number?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
     const json = await res.json();
@@ -1078,9 +1091,9 @@ async function bulkStudentAction(action) {
   if (ids.length === 0) { showToast('⚠️ Select at least one student.', 'warning'); return; }
   let password = null;
   if (action === 'reset-password') {
-    password = prompt(`Reset password for ${ids.length} student(s) to:`, 'student1234');
+    password = await window.fpuPrompt(`Reset password for ${ids.length} student(s) to:`, 'Enter the temporary password to assign.', 'Reset Student Password', 'student1234');
     if (password === null) return; if (!password.trim()) { showToast('⚠️ A password is required.', 'warning'); return; }
-  } else { if (!confirm(`${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} ${ids.length} student(s)?`)) return; }
+  } else { if (!(await window.fpuConfirm(`${action === 'delete' ? 'Delete' : action === 'activate' ? 'Activate' : 'Deactivate'} ${ids.length} student(s)?`, { title: 'Confirm Student Action', type: action === 'delete' ? 'danger' : 'warning', okText: action === 'delete' ? 'Delete' : 'Continue' }))) return; }
   let ok = 0, failed = 0;
   for (const id of ids) {
     try {
@@ -2459,7 +2472,7 @@ function editGradeScale(id) {
 }
 
 async function deleteGradeScale(id) {
-  if (!confirm('Are you sure you want to delete this grade band?')) return;
+  if (!(await window.fpuConfirm('Are you sure you want to delete this grade band?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/grade-scales/${id}`, { method: 'DELETE' });
     showToast('🗑️ Band deleted.', 'success');
@@ -4426,7 +4439,7 @@ async function sendLecturerNotification(id) {
 // Helper for HOD assigning
 async function assignHodDept(hodId, departmentId = null) {
   if (!hodId && departmentId) {
-    const email = prompt("HOD's email (must have role 'hod'):");
+    const email = await window.fpuPrompt("HOD's email (must have role 'hod'):", 'Enter the email address of an existing HOD.', 'Find HOD');
     if (!email) return;
     try {
       const res = await adminFetch(`/api/admin/user-list?search=${encodeURIComponent(email)}&limit=5`);
@@ -4438,7 +4451,7 @@ async function assignHodDept(hodId, departmentId = null) {
   }
 
   if (!departmentId) {
-    departmentId = prompt("Enter the department ID to assign this HOD to:");
+    departmentId = await window.fpuPrompt("Enter the department ID to assign this HOD to:", 'Use the department ID from the department register.', 'Assign Department');
     if (!departmentId) return;
   }
 
@@ -6220,7 +6233,7 @@ async function loadNotifications() {
     if (markAllBtn && !markAllBtn.__wired) {
       markAllBtn.__wired = true;
       markAllBtn.onclick = async () => {
-        if (!confirm('Mark all notifications as read?')) return;
+        if (!(await window.fpuConfirm('Mark all notifications as read?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         try {
           await adminFetch('/api/admin/notifications/read-all', { method: 'POST' });
           showToast('✅ All marked as read.', 'success');
@@ -6245,7 +6258,7 @@ async function markNotificationRead(id) {
 }
 
 async function deleteNotification(id) {
-  if (!confirm('Delete this notification?')) return;
+  if (!(await window.fpuConfirm('Delete this notification?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
     showToast('🗑️ Deleted.', 'success');
@@ -7727,7 +7740,7 @@ async function loadGraduationsTable() {
       bulkBtn.onclick = async () => {
         const ids = Array.from(tbody.querySelectorAll('.grad-check:checked')).map((c) => Number(c.dataset.id));
         if (!ids.length) { showToast('Select students first.', 'warning'); return; }
-        if (!confirm(`Approve ${ids.length} graduation record(s)?`)) return;
+        if (!(await window.fpuConfirm(`Approve ${ids.length} graduation record(s)?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         let ok = 0, failed = 0;
         for (const id of ids) {
           try { await adminFetch(`/api/admin/graduation/${id}/approve`, { method: 'POST' }); ok++; } catch { failed++; }
@@ -8369,7 +8382,7 @@ async function loadSecuritySessions() {
 }
 
 async function revokeSession(token) {
-  if (!confirm('Revoke this session?')) return;
+  if (!(await window.fpuConfirm('Revoke this session?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/portal/security/revoke/${token}`, { method: 'POST' });
     showToast('Session revoked.', 'success');
@@ -8545,7 +8558,7 @@ async function loadIpRules() {
 }
 
 async function deleteIpRule(id) {
-  if (!confirm('Are you sure you want to delete this IP rule?')) return;
+  if (!(await window.fpuConfirm('Are you sure you want to delete this IP rule?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/security/ip-rules/${id}`, { method: 'DELETE' });
     showToast('✅ IP rule deleted.', 'success');
@@ -8820,7 +8833,7 @@ async function loadBackups() {
     if (triggerBtn && !triggerBtn.__wired) {
       triggerBtn.__wired = true;
       triggerBtn.onclick = async () => {
-        if (!confirm('Trigger backup now?')) return;
+        if (!(await window.fpuConfirm('Trigger backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         try {
           await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
           showToast('Backup queued.', 'success');
@@ -8955,7 +8968,7 @@ function wireSecurityActions() {
     refreshBtn.__wired = true;
     const text = (refreshBtn.textContent || '').trim().toLowerCase();
     if (text.includes('refresh')) {
-      refreshBtn.addEventListener('click', () => loadSecurityDashboard());
+      refreshBtn.onclick = () => loadSecurityDashboard();
     }
   }
 
@@ -8964,28 +8977,7 @@ function wireSecurityActions() {
     .find((b) => /export/i.test(b.textContent || ''));
   if (exportBtn && !exportBtn.__wired) {
     exportBtn.__wired = true;
-    exportBtn.addEventListener('click', async () => {
-      try {
-        const res = await adminFetch('/api/admin/security/report');
-        if (!res.ok) throw new Error('No report endpoint');
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `security-report-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('✅ Report downloaded.', 'success');
-      } catch (err) {
-        // Fallback: export the events table as CSV
-        const table = document.querySelector('#sec-recent-events')?.closest('table');
-        if (table) {
-          exportTableAsCSV(table, 'security-events.csv');
-        } else {
-          showToast('❌ Could not export report.', 'error');
-        }
-      }
-    });
+    exportBtn.onclick = () => exportSecurityReport();
   }
 
   // Lockdown button
@@ -8993,22 +8985,41 @@ function wireSecurityActions() {
     .find((b) => /lockdown/i.test(b.textContent || ''));
   if (lockdownBtn && !lockdownBtn.__wired) {
     lockdownBtn.__wired = true;
-    lockdownBtn.addEventListener('click', async () => {
+    lockdownBtn.onclick = async () => {
       const ok = await window.fpuConfirm(
-        'Lock down ALL active sessions?\n\nAll users except you will be logged out immediately. They will need to log in again.',
+        'Lock down all active user sessions? Your current admin session will remain signed in. Each affected user will need to log in again.',
         { title: 'Emergency Lockdown', type: 'danger', okText: 'Lock Down All' }
       );
       if (!ok) return;
-
+      lockdownBtn.disabled = true;
+      const original = lockdownBtn.textContent;
+      lockdownBtn.textContent = 'Locking down…';
       try {
-        const res = await adminFetch('/api/admin/security/lockdown', { method: 'POST' });
-        if (!res.ok) throw new Error('Lockdown endpoint not available');
-        showToast('🔒 All sessions locked down.', 'success');
+        const sessionsRes = await adminFetch('/api/admin/security/sessions');
+        const sessionsJson = await sessionsRes.json();
+        if (!sessionsRes.ok || !sessionsJson.success) throw new Error(sessionsJson.error || 'Could not retrieve active sessions.');
+        const currentUserId = Number(getAdminUser()?.id || 0);
+        const userIds = [...new Set((sessionsJson.data || [])
+          .map(row => Number(row.userId || row.user_id || row.user?.id || 0))
+          .filter(id => id && id !== currentUserId))];
+        let revoked = 0, failed = 0;
+        for (const userId of userIds) {
+          try {
+            const response = await adminFetch(`/api/admin/security/revoke/${userId}`, { method: 'POST' });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || 'Session revocation failed.');
+            revoked++;
+          } catch { failed++; }
+        }
+        showToast(`Emergency lockdown completed: ${revoked} user account(s) signed out; ${failed} failed.`, failed ? 'warning' : 'success');
         loadSecurityDashboard();
       } catch (err) {
         showToast('❌ ' + err.message, 'error');
+      } finally {
+        lockdownBtn.disabled = false;
+        lockdownBtn.textContent = original;
       }
-    });
+    };
   }
 }
 
@@ -9271,7 +9282,7 @@ async function loadAdminAccounts() {
 }
 
 async function resetAdminPwd(id) {
-  const pwd = prompt('Enter a new password for this admin account:');
+  const pwd = await window.fpuPrompt('Enter a new password for this admin account:', 'Use a strong temporary password.', 'Reset Admin Password');
   if (pwd === null) return;
   if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
   try {
@@ -9606,7 +9617,7 @@ async function loadUserProfile() {
     
     const resetPwdBtn = document.getElementById('up-reset-pwd');
     if (resetPwdBtn) resetPwdBtn.onclick = async () => {
-      const pwd = prompt('Enter a new password:');
+      const pwd = await window.fpuPrompt('Enter a new password:', 'Use a strong temporary password.', 'Reset Password');
       if (pwd === null) return;
       if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
       try {
@@ -9636,7 +9647,7 @@ async function loadUserProfile() {
     
     const deleteBtn = document.getElementById('up-delete');
     if (deleteBtn) deleteBtn.onclick = async () => {
-      if (!confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) return;
+      if (!(await window.fpuConfirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       try {
         const endpoint = user.role === 'student'
           ? `/api/admin/students/${id}`
@@ -9903,7 +9914,7 @@ async function saveBankAccount(idx, key) {
 }
 
 async function deleteBankAccount(key) {
-  if (!confirm('Delete this bank account?')) return;
+  if (!(await window.fpuConfirm('Delete this bank account?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/settings/${key}`, { method: 'DELETE' });
     showToast('Deleted.', 'success');
@@ -9960,7 +9971,7 @@ async function sendTestEmail() {
   btn.__bound = true;
   btn.addEventListener('click', async () => {
     const result = document.getElementById('smtp-test-result');
-    const to = prompt('Send test email to:');
+    const to = await window.fpuPrompt('Send test email to:', 'Enter a valid email address.', 'Send Test Email');
     if (!to) return;
     result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
     try {
@@ -9986,7 +9997,7 @@ async function sendTestSMS() {
   btn.__bound = true;
   btn.addEventListener('click', async () => {
     const result = document.getElementById('sms-test-result');
-    const phone = prompt('Send test SMS to (e.g., +2348012345678):');
+    const phone = await window.fpuPrompt('Send test SMS to (e.g., +2348012345678):', 'Include the country code.', 'Send Test SMS');
     if (!phone) return;
     result.innerHTML = '<div class="loading"><span class="spinner"></span> Sending…</div>';
     try {
@@ -10089,7 +10100,7 @@ async function initSystemTab() {
     deployBtn.onclick = async () => {
       const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
       const notes = (document.getElementById('deploy-notes') || {}).value || '';
-      if (!confirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`)) return;
+      if (!(await window.fpuConfirm(`Deploy branch "${branch}"?\n\nNotes: ${notes || '(none)'}`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       const status = document.getElementById('deploy-status');
       status.innerHTML = '<div class="loading"><span class="spinner"></span> Triggering deployment…</div>';
       try {
@@ -10171,7 +10182,7 @@ async function initSystemTab() {
   if (backupNow && !backupNow.__bound) {
     backupNow.__bound = true;
     backupNow.onclick = async () => {
-      if (!confirm('Trigger backup now?')) return;
+      if (!(await window.fpuConfirm('Trigger backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       try {
         await adminFetch('/api/admin/security/backups/trigger', { method: 'POST' });
         showToast('Backup triggered.', 'success');
@@ -10242,7 +10253,7 @@ async function initSystemTab() {
     deployBtn.onclick = async () => {
       const branch = (document.getElementById('deploy-branch') || {}).value || 'main';
       const notes = (document.getElementById('deploy-notes') || {}).value || '';
-      if (!confirm(`Deploy branch "${branch}" to production?\n\nNotes: ${notes || '(none)'}\n\nThis will rebuild the app and take 2–5 minutes.`)) return;
+      if (!(await window.fpuConfirm(`Deploy branch "${branch}" to production?\n\nNotes: ${notes || '(none)'}\n\nThis will rebuild the app and take 2–5 minutes.`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
 
       const status = document.getElementById('deploy-status');
       status.innerHTML = '<div class="loading" style="padding:20px;"><span class="spinner"></span> Triggering deployment…</div>';
@@ -10294,7 +10305,7 @@ async function initSystemTab() {
   if (nowBtn && !nowBtn.__bound) {
     nowBtn.__bound = true;
     nowBtn.onclick = async () => {
-      if (!confirm('Trigger a backup now?')) return;
+      if (!(await window.fpuConfirm('Trigger a backup now?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
       const status = document.getElementById('sys-backup-status');
       status.innerHTML = '<div class="loading"><span class="spinner"></span> Backing up…</div>';
       try {
@@ -10985,7 +10996,7 @@ function wireGraduationPage() {
     approveBtn.onclick = async () => {
       const ids = Array.from(document.querySelectorAll('.grad-check:checked')).map((cb) => Number(cb.dataset.id));
       if (!ids.length) { showToast('Select at least one record.', 'warning'); return; }
-      if (!confirm(`Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`)) return;
+      if (!(await window.fpuConfirm(`Approve ${ids.length} graduation record${ids.length === 1 ? '' : 's'}?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
 
       let ok = 0, failed = 0;
       for (const id of ids) {
@@ -11238,7 +11249,7 @@ async function approveGraduation(id) {
 }
 
 async function rejectGraduation(id) {
-  const remarks = prompt('Rejection remarks (optional):');
+  const remarks = await window.fpuPrompt('Rejection remarks (optional):', 'You may leave this blank.', 'Reject Graduation');
   if (remarks === null) return;
   try {
     await adminFetch(`/api/admin/graduation/${id}/reject`, {
@@ -12061,6 +12072,710 @@ async function loadExamPeriods() {
 }
 
 // Export it in your window.FPU_ADMIN object
+
+/**
+ * Load the legacy flat timetable register.
+ * The API returns joined rows: { slot, course, lecturer }.
+ */
+async function loadTimetable() {
+  const tbody = document.getElementById('timetable-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Loading timetable…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/timetable?limit=5000');
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load timetable.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No timetable slots found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((row) => {
+      const slot = row.slot || row;
+      const course = row.course || {};
+      const lecturer = row.lecturer || {};
+      const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+      return `<tr>
+        <td><strong>${escapeHtml(course.code || '')}</strong> — ${escapeHtml(course.title || 'Course')}</td>
+        <td>${escapeHtml(slot.dayOfWeek || '—')}</td>
+        <td>${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</td>
+        <td>${escapeHtml(slot.venue || '—')}</td>
+        <td>${escapeHtml(lecturerName)}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#b91c1c;">${escapeHtml(err.message || 'Could not load timetable.')}</td></tr>`;
+    showToast('❌ ' + (err.message || 'Could not load timetable.'), 'error');
+  }
+}
+
+/**
+ * Load the legacy exam schedule register.
+ * The API returns joined rows: { exam, course }.
+ */
+async function loadExams() {
+  const tbody = document.getElementById('exams-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Loading exam schedules…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/exams?limit=5000');
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load exam schedules.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No exam schedules found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((row) => {
+      const exam = row.exam || row;
+      const course = row.course || {};
+      const invigilators = Array.isArray(exam.invigilators) ? exam.invigilators.join(', ') : (exam.invigilators || '—');
+      return `<tr>
+        <td><strong>${escapeHtml(course.code || '')}</strong> — ${escapeHtml(course.title || 'Course')}</td>
+        <td>${escapeHtml(fmtDate(exam.examDate))}</td>
+        <td>${escapeHtml(exam.startTime || '—')} – ${escapeHtml(exam.endTime || '—')}</td>
+        <td>${escapeHtml(exam.venue || '—')}</td>
+        <td>${escapeHtml(invigilators)}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#b91c1c;">${escapeHtml(err.message || 'Could not load exam schedules.')}</td></tr>`;
+    showToast('❌ ' + (err.message || 'Could not load exam schedules.'), 'error');
+  }
+}
+
+
+async function loadPaymentDetail() {
+  const root = document.getElementById('pd2-root');
+  const subtitle = document.getElementById('pd2-subtitle');
+  if (!root) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIndex = hash.indexOf('?');
+  const params = new URLSearchParams(qIndex >= 0 ? hash.slice(qIndex + 1) : '');
+  const paymentId = params.get('id') || params.get('paymentId');
+  if (!paymentId) {
+    root.innerHTML = '<div class="alert alert-warning">No payment record was selected. Return to Payments and open a receipt.</div>';
+    if (subtitle) subtitle.textContent = 'No payment selected';
+    return;
+  }
+  root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading payment receipt…</div>';
+  try {
+    const paymentRes = await adminFetch(`/api/admin/payments/${encodeURIComponent(paymentId)}`);
+    const paymentJson = await paymentRes.json();
+    if (!paymentRes.ok || !paymentJson.success || !paymentJson.data) {
+      throw new Error(paymentJson.error || 'Payment record could not be found.');
+    }
+    const payment = paymentJson.data.payment || paymentJson.data;
+    const studentId = payment.studentId || payment.student_id;
+    let student = {};
+    if (studentId) {
+      const studentRes = await adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`);
+      const studentJson = await studentRes.json();
+      if (studentRes.ok && studentJson.success) student = studentJson.data || {};
+    }
+    const studentName = [student.firstName || student.first_name, student.lastName || student.last_name].filter(Boolean).join(' ') || 'Student';
+    const matric = student.matricNumber || student.matric_number || '—';
+    const status = String(payment.status || 'pending');
+    const amount = money(payment.amount || 0);
+    const reference = payment.reference || payment.transactionReference || payment.transaction_reference || '—';
+    const date = fmtDateTime(payment.createdAt || payment.created_at);
+    const rows = [
+      ['Student', studentName],
+      ['Matric Number', matric],
+      ['Payment ID', payment.id || paymentId],
+      ['Academic Session', payment.sessionName || payment.session_name || payment.sessionId || payment.session_id || '—'],
+      ['Bank', payment.bankName || payment.bank_name || '—'],
+      ['Depositor', payment.depositorName || payment.depositor_name || '—'],
+      ['Recorded', date],
+      ['Remarks', payment.remarks || '—'],
+    ];
+    if (subtitle) subtitle.textContent = `${studentName} · ${matric}`;
+    root.innerHTML = `
+      <article class="receipt">
+        <header class="receipt-head">
+          <h1>FEDERAL POLYTECHNIC UGEP</h1>
+          <div class="sub">Official payment record</div>
+          <span class="doc-type">Payment Receipt</span>
+        </header>
+        <section class="receipt-amount">
+          <div class="num">${escapeHtml(amount)}</div>
+          <div class="ref">Reference: ${escapeHtml(reference)}</div>
+        </section>
+        <div class="receipt-status">${badge(status)}</div>
+        <section class="receipt-rows">
+          ${rows.map(([label, value]) => `<div class="receipt-row"><span class="k">${escapeHtml(label)}</span><span class="v">${escapeHtml(value)}</span></div>`).join('')}
+        </section>
+        <div class="receipt-actions no-print">
+          <button type="button" class="btn btn-outline" onclick="FPU_ADMIN.goBack('payments')">Back to Payments</button>
+          <button type="button" class="btn btn-primary" onclick="window.print()">Print Receipt</button>
+        </div>
+      </article>`;
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-error">Could not load this payment receipt: ${escapeHtml(err.message || 'Unknown error')}</div>`;
+    if (subtitle) subtitle.textContent = 'Receipt unavailable';
+    showToast('❌ ' + (err.message || 'Could not load payment receipt.'), 'error');
+  }
+}
+
+
+async function loadCourseRegistrations() {
+  const root = document.getElementById('reg-course-root');
+  if (!root) return;
+  const sessionId = document.getElementById('reg-course-session')?.value || '';
+  const semester = document.getElementById('reg-course-semester')?.value || '';
+  const departmentId = document.getElementById('reg-course-dept')?.value || '';
+  const courseId = document.getElementById('reg-course-course')?.value || '';
+  const status = document.getElementById('reg-course-status')?.value || '';
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading course registrations…</div>';
+  try {
+    const qs = new URLSearchParams({ limit: '5000' });
+    if (sessionId) qs.set('sessionId', sessionId);
+    if (semester) qs.set('semester', semester);
+    if (courseId) qs.set('courseId', courseId);
+    if (status) qs.set('status', status);
+    const res = await adminFetch('/api/admin/registrations/with-student?' + qs.toString());
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load registrations.');
+    let rows = Array.isArray(json.data) ? json.data : [];
+    if (departmentId) rows = rows.filter(r => Number(r.course?.departmentId) === Number(departmentId));
+    const pending = rows.filter(r => (r.registration || r).status === 'pending');
+    const approved = rows.filter(r => (r.registration || r).status === 'approved');
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('reg-crs-stat-courses', new Set(rows.map(r => Number(r.course?.id)).filter(Boolean)).size);
+    set('reg-crs-stat-rows', rows.length);
+    set('reg-crs-stat-pending', pending.length);
+    set('reg-crs-stat-approved', approved.length);
+    const bulk = document.getElementById('reg-course-bulk-approve');
+    if (bulk) {
+      bulk.__pendingRows = pending;
+      bulk.disabled = !pending.length;
+      bulk.textContent = pending.length ? `Approve All Pending (${pending.length})` : 'No Pending Registrations';
+      if (!bulk.__wired) {
+        bulk.__wired = true;
+        bulk.addEventListener('click', async () => {
+          const ids = (bulk.__pendingRows || []).map(r => Number((r.registration || r).id)).filter(Boolean);
+          if (!ids.length) return showToast('No pending registrations to approve.', 'info');
+          const ok = await window.fpuConfirm(`Approve ${ids.length} pending course registration(s)?`, { title: 'Bulk Approve Registrations', type: 'warning', okText: 'Approve All' });
+          if (!ok) return;
+          let done = 0, failed = 0;
+          for (const id of ids) {
+            try {
+              const response = await adminFetch(`/api/admin/registrations/${id}/approve`, { method: 'POST' });
+              const result = await response.json();
+              if (!response.ok || !result.success) throw new Error(result.error || 'Approval failed');
+              done++;
+            } catch { failed++; }
+          }
+          showToast(`Approved ${done}; ${failed} failed.`, failed ? 'warning' : 'success');
+          loadCourseRegistrations();
+        });
+      }
+    }
+    if (!rows.length) {
+      root.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>No registrations match these filters.</p></div>';
+      return;
+    }
+    const groups = new Map();
+    rows.forEach(r => {
+      const course = r.course || {};
+      const key = Number(course.id || (r.registration || r).courseId);
+      if (!groups.has(key)) groups.set(key, { course, rows: [] });
+      groups.get(key).rows.push(r);
+    });
+    root.innerHTML = Array.from(groups.values()).map(group => {
+      const c = group.course;
+      const list = group.rows.map(r => {
+        const reg = r.registration || r;
+        const student = r.student || {};
+        const name = [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student';
+        return `<tr>
+          <td>${escapeHtml(student.matricNumber || '—')}</td>
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(student.level || '—')}</td>
+          <td>${badge(reg.status || 'pending')}</td>
+          <td>${escapeHtml(fmtDate(reg.createdAt || reg.created_at))}</td>
+        </tr>`;
+      }).join('');
+      return `<section class="roster-course">
+        <header class="roster-course-head">
+          <div><span class="code">${escapeHtml(c.code || 'COURSE')}</span><span class="title">${escapeHtml(c.title || 'Course')}</span></div>
+          <span class="meta"><strong>${group.rows.length}</strong> registrations · ${escapeHtml(c.unit || 0)} units</span>
+        </header>
+        <div class="table-wrap"><table class="table-admin">
+          <thead><tr><th>Matric</th><th>Student</th><th>Level</th><th>Status</th><th>Registered</th></tr></thead>
+          <tbody>${list}</tbody>
+        </table></div>
+      </section>`;
+    }).join('');
+    const courseSelect = document.getElementById('reg-course-course');
+    if (courseSelect && !courseSelect.__fpuReloadBound) {
+      courseSelect.__fpuReloadBound = true;
+      courseSelect.addEventListener('change', loadCourseRegistrations);
+    }
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load registrations.')}</div>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadCourseAttendance() {
+  const tbody = document.getElementById('abc-tbody');
+  if (!tbody) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  const courseId = params.get('courseId') || params.get('id');
+  if (!courseId) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No course selected. Return to Attendance and open a course.</td></tr>';
+    return;
+  }
+  const qs = new URLSearchParams();
+  ['status', 'from', 'to', 'search'].forEach((key) => {
+    const id = { status: 'abc-filter-status', from: 'abc-filter-from', to: 'abc-filter-to', search: 'abc-filter-search' }[key];
+    const value = document.getElementById(id)?.value || '';
+    if (value) qs.set(key, value);
+  });
+  tbody.innerHTML = '<tr><td colspan="10" class="empty">Loading attendance…</td></tr>';
+  try {
+    const [courseRes, attendanceRes] = await Promise.all([
+      adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
+      adminFetch(`/api/admin/attendance/course/${encodeURIComponent(courseId)}?${qs.toString()}`)
+    ]);
+    const courseJson = await courseRes.json();
+    const attendanceJson = await attendanceRes.json();
+    if (!courseRes.ok || !courseJson.success) throw new Error(courseJson.error || 'Course not found.');
+    if (!attendanceRes.ok || !attendanceJson.success) throw new Error(attendanceJson.error || 'Could not load attendance.');
+    const course = courseJson.data || {};
+    const rows = Array.isArray(attendanceJson.data) ? attendanceJson.data : [];
+    const records = rows.reduce((sum, r) => sum + Number(r.totalClasses || 0), 0);
+    const attended = rows.reduce((sum, r) => sum + Number(r.present || 0) + Number(r.late || 0), 0);
+    const days = rows.reduce((max, r) => Math.max(max, Number(r.totalClasses || 0)), 0);
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('abc-title', `${course.code || 'Course'} Attendance`);
+    set('abc-subtitle', course.title || 'Attendance register');
+    set('abc-stat-students', rows.length);
+    set('abc-stat-days', days || '—');
+    set('abc-stat-rate', records ? Math.round(attended / records * 100) + '%' : '—');
+    set('abc-stat-records', records);
+    set('abc-count', `${rows.length} students`);
+    const mark = document.getElementById('abc-mark');
+    if (mark && !mark.__wired) {
+      mark.__wired = true;
+      mark.addEventListener('click', () => {
+        if (typeof openCourseAttendanceModal === 'function') openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
+        else showToast('Attendance marking is not available on this page.', 'warning');
+      });
+    }
+    const exportBtn = document.getElementById('abc-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.addEventListener('click', () => exportTableAsCSV(document.getElementById('abc-table'), `attendance-${course.code || courseId}.csv`));
+    }
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">No attendance records match these filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const rate = Number(r.rate) || 0;
+      const tone = rate >= 75 ? 'healthy' : rate >= 50 ? 'warning' : 'critical';
+      return `<tr>
+        <td>${escapeHtml(r.matric || '—')}</td>
+        <td>${escapeHtml([r.firstName, r.lastName].filter(Boolean).join(' ') || 'Student')}</td>
+        <td>${escapeHtml(r.level || '—')}</td>
+        <td>${Number(r.totalClasses) || 0}</td>
+        <td>${Number(r.present) || 0}</td>
+        <td>${Number(r.absent) || 0}</td>
+        <td>${Number(r.late) || 0}</td>
+        <td>${Number(r.excused) || 0}</td>
+        <td><span class="att-rate"><span class="att-rate-bar"><span class="att-rate-fill ${tone}" style="display:block;width:${Math.min(100, Math.max(0, rate))}%"></span></span><span class="pct ${tone}">${rate}%</span></span></td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)}})">View</button></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadStudentCourseAttendance() {
+  const tbody = document.getElementById('abs-tbody');
+  if (!tbody) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  const studentId = params.get('studentId');
+  const courseId = params.get('courseId');
+  if (!studentId || !courseId) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Student or course was not selected.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading student attendance…</td></tr>';
+  try {
+    const [studentRes, courseRes, recordsRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`),
+      adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
+      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}`)
+    ]);
+    const studentJson = await studentRes.json();
+    const courseJson = await courseRes.json();
+    const recordsJson = await recordsRes.json();
+    if (!studentRes.ok || !studentJson.success) throw new Error(studentJson.error || 'Student not found.');
+    if (!courseRes.ok || !courseJson.success) throw new Error(courseJson.error || 'Course not found.');
+    if (!recordsRes.ok || !recordsJson.success) throw new Error(recordsJson.error || 'Could not load attendance records.');
+    const student = studentJson.data || {};
+    const course = courseJson.data || {};
+    const records = Array.isArray(recordsJson.data) ? recordsJson.data : [];
+    const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+    records.forEach(r => { const status = String(r.status || '').toLowerCase(); if (counts[status] !== undefined) counts[status]++; });
+    const total = records.length;
+    const rate = total ? Math.round((counts.present + counts.late) / total * 100) : 0;
+    const fullName = [student.firstName || student.first_name, student.lastName || student.last_name].filter(Boolean).join(' ') || 'Student';
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('abs-title', 'Student Attendance');
+    set('abs-subtitle', `${course.code || 'Course'} · ${course.title || ''}`);
+    set('abs-name', fullName);
+    set('abs-meta', `${student.matricNumber || student.matric_number || '—'} · ${student.level || '—'} · ${student.email || ''}`);
+    set('abs-avatar', getInitials(fullName));
+    set('abs-total', total);
+    set('abs-present', counts.present);
+    set('abs-absent', counts.absent);
+    set('abs-late', counts.late);
+    set('abs-excused', counts.excused);
+    set('abs-rate', rate + '%');
+    set('abs-count', `${total} attendance record(s)`);
+    if (!records.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No attendance records found for this student and course.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = records.map(r => `<tr>
+      <td>${escapeHtml(fmtDate(r.date))}</td>
+      <td>${escapeHtml(r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'long' }) : '—')}</td>
+      <td>${badge(r.status || '—')}</td>
+      <td>${escapeHtml(r.remarks || '—')}</td>
+      <td>—</td>
+      <td><span class="small muted">Read only</span></td>
+    </tr>`).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadStaffWorkload() {
+  const button = document.getElementById('sw-load');
+  const select = document.getElementById('sw-lecturer');
+  const session = document.getElementById('sw-session');
+  const result = document.getElementById('sw-result');
+  if (!result) return;
+  const run = async () => {
+    const lecturerId = select?.value;
+    const sessionId = session?.value || '';
+    if (!lecturerId) {
+      result.innerHTML = '<div class="empty-state"><p>Select a staff member to view their workload.</p></div>';
+      return;
+    }
+    result.innerHTML = '<div class="loading"><span class="spinner"></span> Loading workload…</div>';
+    try {
+      const qs = new URLSearchParams();
+      if (sessionId) qs.set('sessionId', sessionId);
+      const res = await adminFetch(`/api/admin/staff/${encodeURIComponent(lecturerId)}/workload?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load staff workload.');
+      const data = json.data || {};
+      const rows = Array.isArray(data.allocations) ? data.allocations : [];
+      result.innerHTML = `
+        <div class="stats-inline">
+          <div class="stat-inline"><div class="label">Assigned Courses</div><div class="value">${Number(data.totalCourses) || rows.length}</div></div>
+          <div class="stat-inline stat-inline-primary"><div class="label">Total Credit Units</div><div class="value">${Number(data.totalUnits) || 0}</div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><h3>Course Allocations</h3><span class="small muted">${rows.length} record(s)</span></div>
+        <div class="panel-body flush"><div class="table-wrap"><table class="table-admin">
+          <thead><tr><th>Course</th><th>Level</th><th>Units</th><th>Semester</th><th>Status</th></tr></thead>
+          <tbody>${rows.length ? rows.map(row => {
+            const course = row.course || {};
+            const allocation = row.allocation || row;
+            return `<tr><td><strong>${escapeHtml(course.code || '—')}</strong> — ${escapeHtml(course.title || 'Course')}</td><td>${escapeHtml(course.level || '—')}</td><td>${Number(course.unit) || 0}</td><td>${escapeHtml(allocation.semester || '—')}</td><td>${badge(allocation.status || 'allocated')}</td></tr>`;
+          }).join('') : '<tr><td colspan="5" class="empty">No course allocations found for this session.</td></tr>'}</tbody>
+        </table></div></div></div>`;
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load workload.')}</div>`;
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+  if (button && !button.__wired) {
+    button.__wired = true;
+    button.addEventListener('click', run);
+  }
+  if (select && !select.__wired) {
+    select.__wired = true;
+    select.addEventListener('change', () => { if (select.value) run(); });
+  }
+  if (session && !session.__wired) {
+    session.__wired = true;
+    session.addEventListener('change', () => { if (select?.value) run(); });
+  }
+}
+
+
+async function loadBookDetail() {
+  const header = document.getElementById('bd-header');
+  if (!header) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const qi = hash.indexOf('?');
+  const params = new URLSearchParams(qi >= 0 ? hash.slice(qi + 1) : '');
+  const id = params.get('id') || params.get('bookId');
+  if (!id) {
+    header.innerHTML = '<div class="alert alert-warning">No book selected. Return to the library and choose a book.</div>';
+    return;
+  }
+  try {
+    const [bookRes, borrowsRes] = await Promise.all([
+      adminFetch(`/api/admin/library/books/${encodeURIComponent(id)}`),
+      adminFetch('/api/admin/library/borrows?limit=5000')
+    ]);
+    const bookJson = await bookRes.json();
+    const borrowsJson = await borrowsRes.json();
+    if (!bookRes.ok || !bookJson.success) throw new Error(bookJson.error || 'Book not found.');
+    if (!borrowsRes.ok || !borrowsJson.success) throw new Error(borrowsJson.error || 'Could not load borrow history.');
+    const book = bookJson.data || {};
+    const rows = (borrowsJson.data || []).filter(row => Number((row.borrow || row).bookId) === Number(id));
+    const active = rows.filter(row => ['borrowed', 'overdue'].includes(String((row.borrow || row).status || '').toLowerCase()));
+    const history = rows;
+    const title = book.title || 'Untitled Book';
+    const author = book.author || 'Unknown author';
+    const subtitle = document.getElementById('bd-subtitle');
+    if (subtitle) subtitle.textContent = `${author} · ${book.isbn || 'No ISBN'}`;
+    header.innerHTML = `
+      <div class="book-header-card">
+        <div class="book-header-icon">📚</div>
+        <div class="book-header-info">
+          <h2>${escapeHtml(title)}</h2>
+          <div class="author">by ${escapeHtml(author)}</div>
+          <div class="chips">${badge(book.category || 'General')}${badge(book.isActive === false ? 'Inactive' : 'Active')}</div>
+          <div class="bd-stat-row">
+            <div class="bd-stat"><div class="num">${Number(book.totalCopies) || 0}</div><div class="label">Total Copies</div></div>
+            <div class="bd-stat loan"><div class="num">${active.length}</div><div class="label">On Loan</div></div>
+            <div class="bd-stat avail"><div class="num">${Number(book.copiesAvailable) || 0}</div><div class="label">Available</div></div>
+          </div>
+        </div>
+      </div>`;
+    const metadata = document.getElementById('bd-metadata');
+    if (metadata) {
+      const fields = [['ISBN', book.isbn], ['Publisher', book.publisher], ['Year', book.publishedYear], ['Category', book.category], ['Shelf / Location', book.shelfLocation], ['Description', book.description]];
+      metadata.innerHTML = fields.map(([label, value]) => `<div class="receipt-row"><span class="k">${escapeHtml(label)}</span><span class="v">${escapeHtml(value || '—')}</span></div>`).join('');
+    }
+    const activeBox = document.getElementById('bd-active-borrows');
+    const historyBox = document.getElementById('bd-history');
+    const renderBorrow = (row) => {
+      const borrow = row.borrow || row;
+      const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'User';
+      return `<div class="borrow-row ${borrow.status === 'overdue' ? 'overdue' : ''}">
+        <div class="borrow-avatar">${escapeHtml(getInitials(name))}</div>
+        <div class="borrow-info"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(user.matricNumber || user.email || '—')} · Due ${escapeHtml(fmtDate(borrow.dueAt || borrow.due_at))}</span></div>
+        ${badge(borrow.status || 'borrowed')}
+      </div>`;
+    };
+    if (activeBox) activeBox.innerHTML = active.length ? active.map(renderBorrow).join('') : '<p class="muted" style="padding:16px;">No active borrowers.</p>';
+    if (historyBox) historyBox.innerHTML = history.length ? history.slice(0, 12).map(renderBorrow).join('') : '<p class="muted" style="padding:16px;">No borrow history yet.</p>';
+    const count = document.getElementById('bd-borrowed-count');
+    if (count) count.textContent = `${active.length} active`;
+    const issue = document.getElementById('bd-issue');
+    const edit = document.getElementById('bd-edit');
+    const del = document.getElementById('bd-delete');
+    if (issue && !issue.__wired) { issue.__wired = true; issue.addEventListener('click', () => window.FPU_ADMIN_SPA.navigateToWithQuery('borrow-issue', { bookId: id })); }
+    if (edit && !edit.__wired) { edit.__wired = true; edit.addEventListener('click', () => window.FPU_ADMIN_SPA.navigateToWithQuery('book-form', { id })); }
+    if (del && !del.__wired) {
+      del.__wired = true;
+      del.addEventListener('click', async () => {
+        const ok = await window.fpuConfirm(`Delete "${title}" from the library? This cannot be undone.`, { title: 'Delete Book', type: 'danger', okText: 'Delete Book' });
+        if (!ok) return;
+        try {
+          const response = await adminFetch(`/api/admin/library/books/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          const result = await response.json();
+          if (!response.ok || !result.success) throw new Error(result.error || 'Book deletion failed.');
+          showToast('Book deleted.', 'success');
+          window.FPU_ADMIN_SPA.navigateTo('library');
+        } catch (err) { showToast('❌ ' + err.message, 'error'); }
+      });
+    }
+  } catch (err) {
+    header.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load book details.')}</div>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadFinesTable() {
+  const tbody = document.getElementById('fines-tbody');
+  if (!tbody) return;
+  const tabs = document.getElementById('fines-status-tabs');
+  const activeTab = tabs?.querySelector('.staff-role-tab.active');
+  const status = activeTab?.dataset.status || '';
+  tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading fines…</td></tr>';
+  try {
+    const qs = new URLSearchParams();
+    if (status) qs.set('isPaid', status === 'paid' ? 'true' : 'false');
+    const res = await adminFetch('/api/admin/library/fines' + (qs.toString() ? '?' + qs.toString() : ''));
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load library fines.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    const allRes = status ? await adminFetch('/api/admin/library/fines') : null;
+    const allRows = allRes ? ((await allRes.json()).data || []) : rows;
+    const total = allRows.reduce((sum, row) => sum + Number((row.fine || row).amount || 0), 0);
+    const unpaidRows = allRows.filter(row => !(row.fine || row).isPaid);
+    const paidRows = allRows.filter(row => (row.fine || row).isPaid);
+    const amount = list => list.reduce((sum, row) => sum + Number((row.fine || row).amount || 0), 0);
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('fines-count-all', allRows.length); set('fines-count-unpaid', unpaidRows.length); set('fines-count-paid', paidRows.length);
+    set('fines-stat-total', money(total)); set('fines-stat-unpaid', money(amount(unpaidRows))); set('fines-stat-paid', money(amount(paidRows)));
+    set('fines-stat-unpaid-count', unpaidRows.length); set('fines-count', `${rows.length} fine(s)`);
+    const renderRows = rows.map(row => {
+      const fine = row.fine || row; const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || `User #${fine.userId || '—'}`;
+      return `<tr>
+        <td><input type="checkbox" class="fine-check" data-id="${Number(fine.id)}" ${fine.isPaid ? 'disabled' : ''}></td>
+        <td>${escapeHtml(name)}</td><td>${escapeHtml(money(fine.amount))}</td>
+        <td>${escapeHtml(fine.reason || '—')}</td><td>${badge(fine.isPaid ? 'paid' : 'unpaid')}</td>
+        <td>${escapeHtml(fmtDate(fine.createdAt))}</td>
+        <td>${fine.isPaid ? '<span class="small muted">Settled</span>' : `<button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN.payLibraryFine(${Number(fine.id)})">Mark Paid</button>`}</td>
+      </tr>`;
+    }).join('');
+    tbody.innerHTML = renderRows || '<tr><td colspan="7" class="empty">No fines found for this filter.</td></tr>';
+    const selectAll = document.getElementById('fines-select-all');
+    if (selectAll && !selectAll.__wired) {
+      selectAll.__wired = true;
+      selectAll.addEventListener('change', () => tbody.querySelectorAll('.fine-check:not(:disabled)').forEach(cb => { cb.checked = selectAll.checked; }));
+    }
+    if (tabs && !tabs.__wired) {
+      tabs.__wired = true;
+      tabs.addEventListener('click', (event) => {
+        const tab = event.target.closest('.staff-role-tab');
+        if (!tab) return;
+        tabs.querySelectorAll('.staff-role-tab').forEach(el => el.classList.toggle('active', el === tab));
+        loadFinesTable();
+      });
+    }
+    const bulk = document.getElementById('fines-bulk-paid');
+    if (bulk && !bulk.__wired) {
+      bulk.__wired = true;
+      bulk.addEventListener('click', async () => {
+        const ids = Array.from(tbody.querySelectorAll('.fine-check:checked')).map(cb => Number(cb.dataset.id)).filter(Boolean);
+        if (!ids.length) return showToast('Select unpaid fines first.', 'warning');
+        const ok = await window.fpuConfirm(`Mark ${ids.length} selected fine(s) as paid?`, { title: 'Settle Fines', type: 'warning', okText: 'Mark Paid' });
+        if (!ok) return;
+        let done = 0, failed = 0;
+        for (const id of ids) { try { await payLibraryFine(id, false); done++; } catch { failed++; } }
+        showToast(`Marked ${done} paid; ${failed} failed.`, failed ? 'warning' : 'success');
+        loadFinesTable();
+      });
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function payLibraryFine(id, notify = true) {
+  const res = await adminFetch(`/api/admin/library/fines/${encodeURIComponent(id)}/pay`, { method: 'POST' });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.error || 'Could not mark fine as paid.');
+  if (notify) { showToast('Fine marked as paid.', 'success'); loadFinesTable(); }
+}
+
+async function loadReservationsTable() {
+  const tbody = document.getElementById('res-tbody');
+  if (!tbody) return;
+  const tabs = document.getElementById('res-status-tabs');
+  const activeTab = tabs?.querySelector('.staff-role-tab.active');
+  const status = activeTab?.dataset.status || '';
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading reservations…</td></tr>';
+  try {
+    const qs = new URLSearchParams();
+    if (status) qs.set('status', status);
+    const res = await adminFetch('/api/admin/library/reservations' + (qs.toString() ? '?' + qs.toString() : ''));
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load reservations.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    const allRes = status ? await adminFetch('/api/admin/library/reservations') : null;
+    const allRows = allRes ? ((await allRes.json()).data || []) : rows;
+    const counts = { pending: 0, ready: 0, fulfilled: 0, cancelled: 0 };
+    allRows.forEach(row => { const st = String((row.reservation || row).status || '').toLowerCase(); if (counts[st] !== undefined) counts[st]++; });
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('res-count-all', allRows.length); set('res-count-pending', counts.pending); set('res-count-ready', counts.ready); set('res-count-fulfilled', counts.fulfilled); set('res-count-cancelled', counts.cancelled);
+    set('res-stat-total', allRows.length); set('res-stat-pending', counts.pending); set('res-stat-ready', counts.ready); set('res-stat-fulfilled', counts.fulfilled); set('res-count', `${rows.length} reservation(s)`);
+    tbody.innerHTML = rows.length ? rows.map(row => {
+      const reservation = row.reservation || row; const book = row.book || {}; const user = row.user || {};
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'User';
+      return `<tr>
+        <td><strong>${escapeHtml(book.title || 'Book')}</strong><div class="small muted">${escapeHtml(book.author || '')}</div></td>
+        <td>${escapeHtml(name)}</td><td>${badge(reservation.status || 'pending')}</td>
+        <td>${escapeHtml(fmtDate(reservation.reservedAt))}</td><td>${escapeHtml(fmtDate(reservation.expiresAt))}</td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('user-profile',{id:${Number(user.id || reservation.userId)}})">View User</button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="6" class="empty">No reservations found for this filter.</td></tr>';
+    if (tabs && !tabs.__wired) {
+      tabs.__wired = true;
+      tabs.addEventListener('click', event => {
+        const tab = event.target.closest('.staff-role-tab');
+        if (!tab) return;
+        tabs.querySelectorAll('.staff-role-tab').forEach(el => el.classList.toggle('active', el === tab));
+        loadReservationsTable();
+      });
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+
+async function exportSecurityReport() {
+  showToast('Preparing security report…', 'info');
+  try {
+    const [eventsRes, sessionsRes, loginsRes] = await Promise.all([
+      adminFetch('/api/admin/security?limit=5000'),
+      adminFetch('/api/admin/security/sessions'),
+      adminFetch('/api/admin/login-history?limit=5000')
+    ]);
+    const [eventsJson, sessionsJson, loginsJson] = await Promise.all([eventsRes.json(), sessionsRes.json(), loginsRes.json()]);
+    if (!eventsRes.ok || !eventsJson.success) throw new Error(eventsJson.error || 'Could not load security events.');
+    const events = Array.isArray(eventsJson.data) ? eventsJson.data : [];
+    const sessions = sessionsRes.ok && sessionsJson.success ? (sessionsJson.data || []) : [];
+    const logins = loginsRes.ok && loginsJson.success ? (loginsJson.data || []) : [];
+    const table = document.createElement('table');
+    const head = document.createElement('tr');
+    ['Record Type', 'Date', 'User / Actor', 'Event / Action', 'IP Address', 'Details'].forEach(label => {
+      const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
+    });
+    table.appendChild(head);
+    const add = values => {
+      const tr = document.createElement('tr');
+      values.forEach(value => { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); tr.appendChild(td); });
+      table.appendChild(tr);
+    };
+    events.forEach(item => {
+      const log = item.log || item;
+      add(['Security Event', fmtDateTime(log.createdAt || log.created_at), log.actorEmail || log.userEmail || log.email || '', log.action || log.event || '', log.ipAddress || log.ip || '', log.details || log.description || '']);
+    });
+    sessions.forEach(item => {
+      const session = item.session || item;
+      const user = item.user || {};
+      add(['Active Session', fmtDateTime(session.createdAt || session.created_at), user.email || session.email || session.userId || '', session.status || 'active', session.ipAddress || session.ip || '', session.userAgent || '']);
+    });
+    logins.forEach(item => {
+      const entry = item.entry || item;
+      add(['Login Attempt', fmtDateTime(entry.createdAt || entry.created_at), entry.email || entry.userEmail || '', entry.success === false ? 'Failed' : 'Successful', entry.ipAddress || entry.ip || '', entry.userAgent || entry.reason || '']);
+    });
+    if (table.rows.length <= 1) {
+      showToast('No security records are available to export.', 'warning');
+      return;
+    }
+    exportTableAsCSV(table, 'fpu-security-report.csv');
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Security report export failed.'), 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -13028,7 +13743,7 @@ async function loadStudentRegistrations() {
     if (bulkBtn && !bulkBtn.__wired) {
       bulkBtn.__wired = true;
       bulkBtn.onclick = async () => {
-        if (!confirm(`Approve ALL pending registrations for this student?`)) return;
+        if (!(await window.fpuConfirm(`Approve ALL pending registrations for this student?`, { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
         
         const pendingIds = regs
           .filter(r => (r.registration || r).status === 'pending')
@@ -14660,7 +15375,7 @@ async function submitHodTimetable() {
 // HOD: Delete a Draft Slot
 // ============================================
 async function deleteHodSlot(id) {
-  if (!confirm('Delete this draft slot?')) return;
+  if (!(await window.fpuConfirm('Delete this draft slot?', { title: 'Confirm action', type: 'warning', okText: 'Continue' }))) return;
   try {
     await adminFetch(`/api/admin/timetable/${id}`, { method: 'DELETE' });
     showToast('🗑️ Slot deleted.', 'success');
@@ -14803,7 +15518,7 @@ window.FPU_ADMIN = {
   // Core Helpers
   adminFetch, setAdminSession, clearAdminSession, getAdminToken, getAdminUser, requireAdminAuth,
   toast: showToast, showToast, escapeHtml, escapeQuotes, capitalize, getInitials, timeAgo,
-  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, extractArray,
+  fmtDate, fmtDateTime, money, setText, copyToClipboard, openModal, goBack, extractArray,
   badge, roleBadge, statusPill, promptReason, exportTableAsCSV,
 
   // Dashboard
@@ -14839,10 +15554,10 @@ window.FPU_ADMIN = {
   loadAllocationDepartments, loadDepartmentAllocations,
 
   // Registrations
-  loadRegistrationStudents, loadStudentRegistrations,
+  loadRegistrationStudents, loadCourseRegistrations, loadStudentRegistrations,
 
   // Results
-  loadResultsDashboard, loadDepartmentResults, loadApprovedResults, toggleAllResults,
+  loadResultsDashboard, loadResultDepartments, loadDepartmentResults, loadApprovedResults, toggleAllResults,
   toggleCourseResults, updateBulkBtnState, bulkResultAction, courseBulkAction, publishAllApproved,
 
   // Grade Scales
@@ -14853,25 +15568,25 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
+  loadTimetableIndex, loadTimetable, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
   approveDepartmentTimetable,
 
   // Exams
-  loadExamsIndex, loadExamSheet, loadExamApprovals, approveDepartmentExams,
+  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams,
 
     // Attendance
-  loadAttendanceDepartments, loadDepartmentAttendance,
+  loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
   openDepartmentAttendanceModal, openCourseAttendanceModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers
-  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
+  loadStaffDirectory, loadHodBoard, loadLecturerGrid, loadStaffWorkload, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
   viewHodDetails, replaceHod, sendHodEmail, emailAllHods, loadStaffProfile, editStaffFromProfile,
   resetStaffPassword, toggleStaffActive, deleteStaff, closeResetModal, togglePasswordVisibility,
   submitResetPassword,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
-  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend,
+  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail, loadStudentPayments,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 
   // Communication
@@ -14879,11 +15594,11 @@ window.FPU_ADMIN = {
   loadComplaints, filterComplaints, renderComplaintsTable, updateComplaintStats, openComposeNotificationModal,
 
   // Library
-  loadBooksGrid, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm,
+  loadBooksGrid, loadBookDetail, loadBorrowsTable, openReturnModal, renewBorrow, submitIssueBookForm, loadFinesTable, payLibraryFine, loadReservationsTable,
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
-  loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
+  loadSecurityDashboard, exportSecurityReport, wireSecurityActions, wireSecurityCards, wireGraduationPage,
   loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
   approveDoc, rejectDoc, issueDoc, deleteDoc, openDocEditModal,  renderDocPreview,
   approveGraduation, rejectGraduation, markGraduated, loadTranscriptView, loadDocumentDetail,

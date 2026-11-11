@@ -285,6 +285,7 @@ router.post('/pending-results/:id/verify', only, async (req, res, next) => {
     }
 
     const row = await resultQueries.hodVerify(result.id, req.user.id);
+    if (!row) return res.status(409).json({ success: false, error: 'Only submitted results can be verified. Refresh the list.' });
 
     if (result.submittedBy) {
       await db.execute(sql`
@@ -322,6 +323,7 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
 
     const reason = req.body?.reason || 'Rejected by HOD';
     const row = await resultQueries.hodReject(result.id, req.user.id, reason);
+    if (!row) return res.status(409).json({ success: false, error: 'Only submitted results can be rejected. Refresh the list.' });
 
     if (result.submittedBy) {
       await db.execute(sql`
@@ -409,10 +411,15 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       id: results.id,
       courseId: results.courseId,
       submittedBy: results.submittedBy,
-    }).from(results).where(sql`${results.id} IN ${resultIds}`);
+      status: results.status,
+    }).from(results).where(inArray(results.id, resultIds.map(Number)));
 
     if (allResults.length !== resultIds.length) {
       return res.status(404).json({ success: false, error: 'Some results were not found.' });
+    }
+
+    if (allResults.some(r => r.status !== 'submitted')) {
+      return res.status(409).json({ success: false, error: 'Only submitted results can be verified. Refresh the list.' });
     }
 
     const courseIds = [...new Set(allResults.map(r => r.courseId))];
@@ -424,13 +431,17 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Results are not in your department.' });
     }
 
-    await db.update(results)
+    const verifiedRows = await db.update(results)
       .set({ 
         status: 'hod_verified', 
         hodVerifiedAt: new Date(), 
         hodVerifiedBy: req.user.id 
       })
-      .where(sql`${results.id} IN ${resultIds}`);
+      .where(and(inArray(results.id, resultIds.map(Number)), eq(results.status, 'submitted')))
+      .returning({ id: results.id });
+    if (verifiedRows.length !== resultIds.length) {
+      return res.status(409).json({ success: false, error: 'Some results changed during verification. Refresh and review the list.' });
+    }
 
     const lecturerIds = [...new Set(allResults.map(r => r.submittedBy).filter(Boolean))];
     for (const lecturerId of lecturerIds) {
@@ -559,7 +570,7 @@ router.get('/verified-results', only, async (req, res, next) => {
       .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
       .where(and(
         eq(courses.departmentId, departmentId),
-        eq(results.status, 'hod_verified'),
+        eq(results.status, 'approved'),
         sql`${results.deletedAt} IS NULL`
       ))
       .orderBy(users.lastName);
@@ -1247,15 +1258,21 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    await db.execute(sql`
+    const published = await db.execute(sql`
       UPDATE results 
       SET status = 'published', published_at = NOW()
-      WHERE course_id = ${courseId} AND status = 'hod_verified'
+      WHERE course_id = ${courseId} AND status = 'approved'
+        AND deleted_at IS NULL
+      RETURNING id
     `);
+    const publishedCount = published.rows?.length || 0;
+    if (!publishedCount) {
+      return res.status(409).json({ success: false, error: 'No academically approved results are ready for publication.' });
+    }
 
-    await logAudit({ req, action: 'hod.publish_results', entity: 'course', entityId: courseId });
+    await logAudit({ req, action: 'hod.publish_results', entity: 'course', entityId: courseId, after: { publishedCount } });
 
-    return res.json({ success: true, message: 'Results published successfully to students.' });
+    return res.json({ success: true, message: `${publishedCount} academically approved result(s) published successfully to students.`, publishedCount });
   } catch (err) {
     console.error('[hod/publish-results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });
@@ -1727,38 +1744,62 @@ router.post('/allocate', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course is not in your department.' });
     }
 
-    // 2. Get the current session
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    // 2. Resolve the active session; never silently assign records to session ID 1.
+    const [activeSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.isCurrent, true))
+      .limit(1);
+    if (!activeSession) {
+      return res.status(409).json({ success: false, error: 'There is no active academic session. Activate a session before allocating courses.' });
+    }
 
-    // 3. Check if an allocation already exists for this course
+    // 3. Confirm the selected lecturer is a lecturer in this HOD's department.
+    const [lecturer] = await db.select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.id, Number(lecturerId)),
+        eq(users.role, 'lecturer'),
+        eq(users.departmentId, Number(departmentId))
+      ))
+      .limit(1);
+    if (!lecturer) {
+      return res.status(400).json({ success: false, error: 'Select a lecturer assigned to your department.' });
+    }
+
+    const allocationSemester = String(semester || course.semesterName || 'first').toLowerCase();
+    if (!['first', 'second'].includes(allocationSemester)) {
+      return res.status(400).json({ success: false, error: 'Semester must be first or second.' });
+    }
+
+    // 4. Match an existing allocation only within this course, session and semester.
     const [existing] = await db.select()
       .from(courseAllocations)
-      .where(eq(courseAllocations.courseId, Number(courseId)))
+      .where(and(
+        eq(courseAllocations.courseId, Number(courseId)),
+        eq(courseAllocations.sessionId, Number(activeSession.id)),
+        eq(courseAllocations.semester, allocationSemester)
+      ))
       .limit(1);
 
     if (existing) {
-      // Update existing
       await db.update(courseAllocations)
-        .set({ 
+        .set({
           lecturerId: Number(lecturerId),
-          semester: semester || 'first',
           status: 'assigned',
-          respondedAt: new Date()
+          respondedAt: null
         })
         .where(eq(courseAllocations.id, existing.id));
     } else {
-      // Create new
       await db.insert(courseAllocations).values({
         courseId: Number(courseId),
         lecturerId: Number(lecturerId),
-        sessionId: Number(sessionId),
-        semester: semester || 'first',
+        sessionId: Number(activeSession.id),
+        semester: allocationSemester,
         status: 'assigned'
       });
     }
 
-    await logAudit({ req, action: 'hod.allocate_course', entity: 'course_allocations', after: { courseId, lecturerId, semester } });
+    await logAudit({ req, action: 'hod.allocate_course', entity: 'course_allocations', after: { courseId: Number(courseId), lecturerId: Number(lecturerId), sessionId: Number(activeSession.id), semester: allocationSemester } });
     
     return res.json({ success: true, message: 'Course assigned successfully.' });
   } catch (err) {

@@ -185,8 +185,17 @@
         ['topbar-avatar', 'user-menu-avatar'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
-          if (user.photoUrl) {
-            el.innerHTML = `<img src="${user.photoUrl}" alt="" />`;
+          const safePhotoUrl = (() => {
+            try {
+              const parsed = new URL(String(user.photoUrl || ''), window.location.origin);
+              return ['http:', 'https:'].includes(parsed.protocol) ? parsed.href : '';
+            } catch { return ''; }
+          })();
+          if (safePhotoUrl) {
+            const img = document.createElement('img');
+            img.src = safePhotoUrl;
+            img.alt = '';
+            el.replaceChildren(img);
           } else {
             el.textContent = initials || 'A';
           }

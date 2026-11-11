@@ -86,7 +86,8 @@ router.get('/dashboard', only, async (req, res, next) => {
     const uniqueResults = [];
     const seen = new Set();
     allResults.forEach(r => {
-      if (!seen.has(r.courseCode)) { seen.add(r.courseCode); uniqueResults.push(r); }
+      const key = `${r.courseCode}-${r.semester}-${r.sessionName || ''}`;
+      if (!seen.has(key)) { seen.add(key); uniqueResults.push(r); }
     });
 
     let totalPoints = 0, totalUnits = 0;
@@ -250,7 +251,8 @@ router.get('/fees', only, async (req, res, next) => {
       const feeResult = await db.execute(sql`
         SELECT SUM(amount)::int AS total
         FROM fee_structures
-        WHERE session_id = ${sessionId} 
+        WHERE session_id = ${sessionId}
+          AND is_active = true
           AND (programme_id = ${student.programmeId} OR programme_id IS NULL)
           AND (level = ${student.level} OR level IS NULL)
       `);
@@ -275,13 +277,10 @@ router.get('/fees', only, async (req, res, next) => {
     
     const payments = paymentsResult.rows || [];
 
-    // 4. Calculate Total Paid
-    let totalPaid = 0;
-    payments.forEach(p => {
-      if (p.status === 'verified' || p.status === 'completed' || p.status === 'success') {
-        totalPaid += Number(p.amount || 0);
-      }
-    });
+    // 4. Count only canonical verified payments as paid. Pending, rejected
+    // and refunded records remain visible in history but never reduce the balance.
+    const paymentQueries = require('../../db/queries/payments');
+    const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
 
     // 5. Calculate Balance
     const balance = Math.max(0, totalDue - totalPaid);
@@ -361,12 +360,46 @@ router.post('/register-course', only, async (req, res, next) => {
     const sessionId = await resolveCurrentAcademicSessionId(req);
     if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
-    if (!courseId || !semester) return res.status(400).json({ success: false, error: 'courseId and semester are required.' });
+    const numericCourseId = Number(courseId);
+    const normalizedSemester = String(semester || '').toLowerCase();
+    if (!Number.isInteger(numericCourseId) || numericCourseId <= 0 || !['first', 'second'].includes(normalizedSemester)) {
+      return res.status(400).json({ success: false, error: 'A valid course and semester (first or second) are required.' });
+    }
+
+    const [student] = await db.select({
+      departmentId: users.departmentId,
+      level: users.level,
+      programmeId: users.programmeId
+    }).from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student account not found.' });
+
+    const [course] = await db.select({
+      id: courses.id,
+      departmentId: courses.departmentId,
+      level: courses.level
+    }).from(courses).where(eq(courses.id, numericCourseId)).limit(1);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (Number(course.departmentId) !== Number(student.departmentId) || String(course.level) !== String(student.level)) {
+      return res.status(403).json({ success: false, error: 'You can only register courses assigned to your department and level.' });
+    }
+
+    const [existing] = await db.select({ id: courseRegistrations.id })
+      .from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.courseId, numericCourseId),
+        eq(courseRegistrations.sessionId, sessionId),
+        eq(courseRegistrations.semester, normalizedSemester),
+        inArray(courseRegistrations.status, ['pending', 'approved'])
+      ))
+      .limit(1);
+    if (existing) return res.status(409).json({ success: false, error: 'You already have a pending or approved registration for this course in this semester.' });
 
     const [row] = await db.insert(courseRegistrations).values({
-      studentId, courseId: Number(courseId), sessionId, semester, status: 'pending',
+      studentId, courseId: numericCourseId, sessionId, semester: normalizedSemester, status: 'pending',
     }).onConflictDoNothing().returning();
 
+    if (!row) return res.status(409).json({ success: false, error: 'This course registration already exists. Refresh your registrations.' });
     return res.status(201).json({ success: true, data: row });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });

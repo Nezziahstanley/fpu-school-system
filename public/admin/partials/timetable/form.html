@@ -286,7 +286,7 @@
     // ---------- Delete ----------
     $('ttf-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this timetable slot? This cannot be undone.')) return;
+      if (!(await window.fpuConfirm('Delete this timetable slot? This cannot be undone.', { title: 'Delete Timetable Slot', type: 'danger', okText: 'Delete Slot' }))) return;
 
       const btn = $('ttf-delete');
       const original = btn.textContent;

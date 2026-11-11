@@ -1,0 +1,78 @@
+<!-- Librarian → Library Reports -->
+<section class="lib-report-page" style="display:grid;gap:1rem;">
+  <style>
+    .lib-report-page .lr-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+    .lib-report-page .lr-btn{border:0;border-radius:9px;padding:.65rem 1rem;background:#047857;color:#fff;font-weight:700;cursor:pointer}
+    .lib-report-page .lr-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem}
+    .lib-report-page .lr-card,.lib-report-page .lr-panel{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:1rem;min-width:0}
+    .lib-report-page .lr-label{font-size:.7rem;color:var(--text-muted,#64748b);font-weight:800;text-transform:uppercase}
+    .lib-report-page .lr-value{font-size:1.55rem;font-weight:800;color:var(--text-color,#0f172a);margin-top:.3rem}
+    .lib-report-page table{width:100%;border-collapse:collapse;font-size:.85rem}
+    .lib-report-page th,.lib-report-page td{padding:.7rem;text-align:left;border-bottom:1px solid var(--border-color,#e5e7eb)}
+    .lib-report-page th{font-size:.68rem;text-transform:uppercase;color:var(--text-muted,#64748b)}
+    .lib-report-page .lr-muted{color:var(--text-muted,#64748b)}
+    @media(max-width:850px){.lib-report-page .lr-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:480px){.lib-report-page .lr-grid{grid-template-columns:1fr}}
+    @media print{.lib-report-page .lr-actions{display:none!important}.lib-report-page .lr-card,.lib-report-page .lr-panel{break-inside:avoid}}
+  </style>
+  <div class="lr-head">
+    <div><h2 style="margin:0 0 .25rem;">Library Reports</h2><div class="lr-muted">Circulation, overdue activity and fine collection overview.</div></div>
+    <div class="lr-actions" style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button class="lr-btn" type="button" id="lr-refresh">Refresh report</button>
+      <button class="lr-btn" type="button" id="lr-print" style="background:#334155;">Print report</button>
+    </div>
+  </div>
+  <div class="lr-grid">
+    <div class="lr-card"><div class="lr-label">Borrowed</div><div class="lr-value" id="lr-borrowed">—</div></div>
+    <div class="lr-card"><div class="lr-label">Overdue</div><div class="lr-value" id="lr-overdue">—</div></div>
+    <div class="lr-card"><div class="lr-label">Returned</div><div class="lr-value" id="lr-returned">—</div></div>
+    <div class="lr-card"><div class="lr-label">Outstanding fines</div><div class="lr-value" id="lr-outstanding">—</div></div>
+  </div>
+  <div class="lr-panel">
+    <h3 style="margin:0 0 .75rem;">Borrowing by status</h3>
+    <div style="overflow-x:auto;"><table><thead><tr><th>Status</th><th>Records</th></tr></thead><tbody id="lr-status-body"><tr><td colspan="2" class="lr-muted">Loading report…</td></tr></tbody></table></div>
+  </div>
+  <div class="lr-panel">
+    <h3 style="margin:0 0 .75rem;">Fine collection</h3>
+    <div style="overflow-x:auto;"><table><thead><tr><th>Payment status</th><th>Fine records</th><th>Total amount</th></tr></thead><tbody id="lr-fines-body"><tr><td colspan="3" class="lr-muted">Loading report…</td></tr></tbody></table></div>
+  </div>
+  <div id="lr-updated" class="lr-muted" style="font-size:.75rem;" aria-live="polite"></div>
+</section>
+<script>
+(function(){
+  'use strict';
+  const core=window.FPU_PORTAL||{};
+  const $=id=>document.getElementById(id);
+  const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v);
+  const money=v=>'₦'+Number(v||0).toLocaleString('en-NG',{maximumFractionDigits:2});
+  const set=(id,v)=>{const el=$(id);if(el)el.textContent=v;};
+  async function load(){
+    const statusBody=$('lr-status-body'), finesBody=$('lr-fines-body');
+    if(statusBody)statusBody.innerHTML='<tr><td colspan="2">Loading…</td></tr>';
+    if(finesBody)finesBody.innerHTML='<tr><td colspan="3">Loading…</td></tr>';
+    try{
+      const res=await core.portalFetch('/api/librarian/reports');
+      if(!res||res.success===false)throw new Error(res?.error||'Unable to load library report');
+      const data=res.data||{};
+      const statuses=Array.isArray(data.borrowsByStatus)?data.borrowsByStatus:[];
+      const fines=Array.isArray(data.fines)?data.fines:[];
+      const count=status=>Number((statuses.find(x=>String(x.status||'').toLowerCase()===status)||{}).count||0);
+      set('lr-borrowed',count('borrowed'));
+      set('lr-overdue',count('overdue'));
+      set('lr-returned',count('returned'));
+      const unpaid=fines.filter(x=>x.isPaid===false||x.isPaid==='false');
+      set('lr-outstanding',money(unpaid.reduce((n,x)=>n+Number(x.total||0),0)));
+      statusBody.innerHTML=statuses.length?statuses.map(x=>'<tr><td>'+esc(String(x.status||'Unknown').replace(/_/g,' '))+'</td><td>'+Number(x.count||0).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="2" class="lr-muted">No borrowing records yet.</td></tr>';
+      finesBody.innerHTML=fines.length?fines.map(x=>'<tr><td>'+((x.isPaid===true||x.isPaid==='true')?'Paid':'Outstanding')+'</td><td>'+Number(x.count||0).toLocaleString()+'</td><td>'+money(x.total)+'</td></tr>').join(''):'<tr><td colspan="3" class="lr-muted">No fines recorded yet.</td></tr>';
+      set('lr-updated','Last refreshed: '+new Date().toLocaleString());
+    }catch(err){
+      if(statusBody)statusBody.innerHTML='<tr><td colspan="2" class="lr-muted">'+esc(err.message)+'</td></tr>';
+      if(finesBody)finesBody.innerHTML='<tr><td colspan="3" class="lr-muted">Report data could not be loaded.</td></tr>';
+      core.showToast&&core.showToast(err.message||'Failed to load report','error');
+    }
+  }
+  $('lr-refresh')?.addEventListener('click',load);
+  $('lr-print')?.addEventListener('click',()=>window.print());
+  load();
+})();
+</script>

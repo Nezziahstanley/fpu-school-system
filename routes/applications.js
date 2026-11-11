@@ -353,8 +353,11 @@ router.post('/:id/register', requireRole(STAFF), async (req, res, next) => {
       year,
     });
 
-    const plain = req.body?.password || 'student1234';
-    const passwordHash = await hashPassword(plain);
+    // Never issue a shared or predictable default password.
+    // A cryptographically random temporary password is emailed to the student,
+    // and the account is forced to change it on first sign-in.
+    const temporaryPassword = crypto.randomBytes(18).toString('base64url');
+    const passwordHash = await hashPassword(temporaryPassword);
     const passportUrl = app.passportUrl || null;
 
     const user = await userQueries.create({
@@ -393,7 +396,12 @@ router.post('/:id/register', requireRole(STAFF), async (req, res, next) => {
     }
 
     await applications.markRegistered(app.id, { userId: user.id, matricNumber: matric });
-    await sendRegistrationComplete(user).catch(() => {});
+    const emailSent = await sendRegistrationComplete(user, temporaryPassword)
+      .then(() => true)
+      .catch((emailError) => {
+        console.error('[application.register] registration email failed:', emailError.message);
+        return false;
+      });
     await logAudit({
       req,
       action: 'application.register',
@@ -402,9 +410,19 @@ router.post('/:id/register', requireRole(STAFF), async (req, res, next) => {
       after: { userId: user.id, matric, hasPhoto: !!passportUrl },
     });
 
+    const { passwordHash: _passwordHash, ...safeUser } = user;
     return res.json({
       success: true,
-      data: { user, matricNumber: matric, passportUrl },
+      data: {
+        user: safeUser,
+        matricNumber: matric,
+        passportUrl,
+        emailSent,
+        requiresPasswordChange: true,
+        message: emailSent
+          ? 'Student account created. Temporary login details were emailed to the student.'
+          : 'Student account created, but the welcome email could not be sent. Reset the student password and share the new credentials securely.',
+      },
     });
   } catch (err) { return next(err); }
 });

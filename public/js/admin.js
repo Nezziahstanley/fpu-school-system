@@ -9035,8 +9035,9 @@ async function loadAdminAccounts() {
 }
 
 async function resetAdminPwd(id) {
-  const pwd = prompt('New password (default: admin1234):', 'admin1234');
+  const pwd = prompt('Enter a new password for this admin account:');
   if (pwd === null) return;
+  if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
   try {
     await adminFetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password: pwd }) });
     showToast('Password reset.', 'success');
@@ -9351,15 +9352,16 @@ async function loadUserProfile() {
     
     const resetPwdBtn = document.getElementById('up-reset-pwd');
     if (resetPwdBtn) resetPwdBtn.onclick = async () => {
-      const pwd = prompt('New password (leave blank for default):', '');
+      const pwd = prompt('Enter a new password:');
       if (pwd === null) return;
+      if (!pwd.trim()) { showToast('A new password is required.', 'warning'); return; }
       try {
         const endpoint = user.role === 'student'
           ? `/api/admin/students/${id}/reset-password`
           : user.role === 'admin'
             ? `/api/admin/users/${id}/reset-password`
             : `/api/admin/staff/${id}/reset-password`;
-        await adminFetch(endpoint, { method: 'POST', body: JSON.stringify({ password: pwd || undefined }) });
+        await adminFetch(endpoint, { method: 'POST', body: JSON.stringify({ password: pwd }) });
         showToast('Password reset.', 'success');
       } catch (err) { showToast('❌ ' + err.message, 'error'); }
     };

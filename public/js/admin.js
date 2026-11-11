@@ -12625,18 +12625,31 @@ async function bulkResultAction(action) {
 }
 
 async function courseBulkAction(courseId, action) {
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIdx = hash.indexOf('?');
+  const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
+  const sessionId = params.get('sessionId') || document.getElementById('res-filter-session')?.value || '';
+  const semester = document.getElementById('rd-filter-semester')?.value || params.get('semester') || '';
+
+  if (!sessionId) {
+    showToast('Select an academic session before applying a course-wide result action.', 'warning');
+    return;
+  }
+
   const ok = await window.fpuConfirm(
-    `Apply "${action}" to ALL results for this course?`,
+    `Apply "${action}" to eligible results for this course in the selected session${semester && semester !== 'all' ? ` (${semester})` : ''}?`,
     { title: 'Confirm', type: 'warning', okText: 'Yes' }
   );
   if (!ok) return;
 
   try {
-    await adminFetch('/api/admin/results/bulk-action', {
+    const res = await adminFetch('/api/admin/results/bulk-action', {
       method: 'POST',
-      body: JSON.stringify({ courseId, action })
+      body: JSON.stringify({ courseId, action, sessionId, semester })
     });
-    showToast(`✅ Course results updated.`, 'success');
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Course result action failed.');
+    showToast(`✅ Updated ${json.count || 0} eligible result(s).`, 'success');
     loadDepartmentResults();
   } catch (err) {
     showToast(`❌ ${err.message}`, 'error');

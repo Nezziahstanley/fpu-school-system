@@ -327,7 +327,7 @@ async function create(data) {
       depositorName: data.depositorName || null,
       depositDate: data.depositDate || null,
       receiptUrl: data.receiptUrl || null,
-      status: data.status || 'pending',
+      status: 'pending',
     })
     .returning();
   return row;
@@ -339,7 +339,9 @@ async function update(id, patch) {
   for (const k of allowed) {
     if (patch[k] !== undefined) clean[k] = patch[k];
   }
-  const [row] = await db.update(payments).set(clean).where(eq(payments.id, Number(id))).returning();
+  const [row] = await db.update(payments).set(clean)
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
+    .returning();
   return row || null;
 }
 
@@ -371,7 +373,7 @@ async function refund(id, refundedBy) {
 }
 
 async function remove(id) {
-  const [row] = await db.delete(payments).where(eq(payments.id, Number(id))).returning();
+  const [row] = await db.delete(payments).where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending'))).returning();
   return row || null;
 }
 

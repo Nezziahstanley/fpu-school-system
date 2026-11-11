@@ -69,6 +69,7 @@ router.use('/admin/library',        require('./library'));
 // Admin — comms
 // ------------------------------------------------------------
 router.use('/admin/documents',      require('./documents'));
+router.use('/admin/id-cards',        require('./idCards'));
 router.use('/admin/announcements',  require('./announcements'));
 router.use('/admin/notifications',  require('./notifications'));
 router.use('/admin/complaints',     require('./complaints'));

@@ -12074,6 +12074,78 @@ async function loadExamPeriods() {
 }
 
 // Export it in your window.FPU_ADMIN object
+
+/**
+ * Load the legacy flat timetable register.
+ * The API returns joined rows: { slot, course, lecturer }.
+ */
+async function loadTimetable() {
+  const tbody = document.getElementById('timetable-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Loading timetable…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/timetable?limit=5000');
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load timetable.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No timetable slots found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((row) => {
+      const slot = row.slot || row;
+      const course = row.course || {};
+      const lecturer = row.lecturer || {};
+      const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+      return `<tr>
+        <td><strong>${escapeHtml(course.code || '')}</strong> — ${escapeHtml(course.title || 'Course')}</td>
+        <td>${escapeHtml(slot.dayOfWeek || '—')}</td>
+        <td>${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</td>
+        <td>${escapeHtml(slot.venue || '—')}</td>
+        <td>${escapeHtml(lecturerName)}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#b91c1c;">${escapeHtml(err.message || 'Could not load timetable.')}</td></tr>`;
+    showToast('❌ ' + (err.message || 'Could not load timetable.'), 'error');
+  }
+}
+
+/**
+ * Load the legacy exam schedule register.
+ * The API returns joined rows: { exam, course }.
+ */
+async function loadExams() {
+  const tbody = document.getElementById('exams-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;">Loading exam schedules…</td></tr>';
+  try {
+    const res = await adminFetch('/api/admin/exams?limit=5000');
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load exam schedules.');
+    const rows = Array.isArray(json.data) ? json.data : [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No exam schedules found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map((row) => {
+      const exam = row.exam || row;
+      const course = row.course || {};
+      const invigilators = Array.isArray(exam.invigilators) ? exam.invigilators.join(', ') : (exam.invigilators || '—');
+      return `<tr>
+        <td><strong>${escapeHtml(course.code || '')}</strong> — ${escapeHtml(course.title || 'Course')}</td>
+        <td>${escapeHtml(fmtDate(exam.examDate))}</td>
+        <td>${escapeHtml(exam.startTime || '—')} – ${escapeHtml(exam.endTime || '—')}</td>
+        <td>${escapeHtml(exam.venue || '—')}</td>
+        <td>${escapeHtml(invigilators)}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:#b91c1c;">${escapeHtml(err.message || 'Could not load exam schedules.')}</td></tr>`;
+    showToast('❌ ' + (err.message || 'Could not load exam schedules.'), 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -14866,11 +14938,11 @@ window.FPU_ADMIN = {
   loadTranscriptLookup, loadTranscriptView, openTranscriptModal,
 
   // Timetable
-  loadTimetableIndex, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
+  loadTimetableIndex, loadTimetable, loadTimetableSheet, loadTimetableApprovals, bulkApproveTimetable, debugTimetableData,
   approveDepartmentTimetable,
 
   // Exams
-  loadExamsIndex, loadExamSheet, loadExamApprovals, approveDepartmentExams,
+  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams,
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance,

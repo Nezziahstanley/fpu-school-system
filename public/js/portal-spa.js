@@ -214,6 +214,7 @@
       { key: 'lecture-timetable',    label: 'Lecture Timetable', icon: ICON.calendar }, // <-- ADDED THIS LINE
       { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart },
       { key: 'hod-transcript',       label: 'Transcript',      icon: ICON.file }, 
+      { key: 'hod-reports',          label: 'Department Reports', icon: ICON.chart },
     ],
     bursar: [
       { key: 'bursar-dashboard',  label: 'Dashboard',  icon: ICON.dash },

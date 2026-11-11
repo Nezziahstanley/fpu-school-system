@@ -189,7 +189,7 @@
   // ----------------------------------------------------------
   const SPA_PAGES = {
     // ---------- Dashboard ----------
-    'dashboard':        { url: '/admin/partials/dashboard/index.html',           title: 'Dashboard',       init: () => {} },
+    'dashboard':        { url: '/admin/partials/dashboard/index.html',           title: 'Dashboard',       init: () => window.initDashboard ? window.initDashboard() : undefined },
 
     // ---------- Admissions ----------
     'applications':     { url: '/admin/partials/applications/list.html',         title: 'Applications',    init: call('loadApplications') },

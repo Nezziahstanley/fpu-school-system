@@ -13038,6 +13038,8 @@ async function openTranscriptModal(studentId) {
         const j = await resultsRes.json(); 
         results = j.data || j || []; 
         if (results.rows) results = results.rows;
+        // Official transcripts must only include published results.
+        results = results.filter(r => String((r.result || r).status || '').toLowerCase() === 'published');
       } 
     } catch {}
     

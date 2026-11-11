@@ -144,13 +144,10 @@
       if (r.status === 'pending') {
         actions = `
           <button class="btn btn-primary btn-xs" data-act="approve" data-id="${r.id}" style="margin-right:.25rem;">Approve</button>
-          <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}">Reject</button>
+          <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}" style="margin-right:.25rem;">Reject</button>
         `;
-      } else if (r.status === 'approved') {
-        actions = `<a href="#registrar-student-profile?id=${r.studentId}" class="btn btn-outline btn-xs">👁 View Student</a>`;
-      } else {
-        actions = `<span class="muted small">—</span>`;
       }
+      actions += `<a href="#registrar-student-profile?id=${r.studentId}" class="btn btn-outline btn-xs" style="margin-left:.25rem;">👁 View Student</a>`;
 
       return `
         <tr>

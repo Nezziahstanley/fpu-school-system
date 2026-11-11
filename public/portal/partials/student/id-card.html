@@ -115,7 +115,7 @@
     try {
       const res = await core.portalFetch('/api/student/id-card');
       const d = res.data || {};
-      const name = `${d.firstName || ''} ${d.lastName || ''}`.trim() || '—';
+      const name = [d.firstName, d.middleName, d.lastName].filter(Boolean).join(' ') || '—';
       $('id-name').textContent = name;
       $('id-matric').textContent = d.matricNumber || '—';
       $('id-level').textContent = d.level || '—';

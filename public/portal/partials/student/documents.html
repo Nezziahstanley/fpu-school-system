@@ -248,14 +248,14 @@
       const studentRes = await core.portalFetch('/api/student/id-card'); 
       const student = studentRes.data || studentRes || {};
       
-      const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim() || '—';
+      const fullName = [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' ') || '—';
       const dateObj = new Date();
       const dateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
       
       const progName = student.programmeName || student.programme?.name || '—';
       const deptName = student.departmentName || student.department?.name || '—';
       const level = student.level || 'ND';
-      const sessionName = student.sessionName || '2025/2026';
+      const sessionName = student.sessionName || '—';
       const idValue = student.matricNumber || '—';
       const t = String(type).toLowerCase();
       const docRecord = ALL.find((row) => Number(row.id) === Number(docId)) || {};
@@ -293,6 +293,8 @@
               <tr><td style="color:#64748b;">Department:</td><td style="font-weight:bold;">${esc(deptName)}</td></tr>
               <tr><td style="color:#64748b;">Level:</td><td style="font-weight:bold;">${esc(level)}</td></tr>
               <tr><td style="color:#64748b;">Session:</td><td style="font-weight:bold;">${esc(sessionName)}</td></tr>
+              <tr><td style="color:#64748b;">Email:</td><td style="font-weight:bold;">${esc(student.email || '—')}</td></tr>
+              <tr><td style="color:#64748b;">Telephone:</td><td style="font-weight:bold;">${esc(student.phone || '—')}</td></tr>
             </table>
             <p>This document is issued at the request of the student for official purposes.</p>
             <br><p>Date: ${dateStr}</p>
@@ -384,36 +386,47 @@
         `;
       } 
       else if (t.includes('transcript')) {
-        html = a4Wrapper(`
-          <div class="official-letterhead" style="border-bottom: 2px solid #065f46; padding-bottom: 16px; margin-bottom: 24px; display: flex; align-items: center; gap: 20px;">
-            <img src="/images/logo.png" onerror="this.style.display='none'" style="width: 70px;" />
-            <div style="text-align: left;">
-              <div style="font-family:'Poppins', sans-serif; font-size: 22px; font-weight: 800; color: #065f46; letter-spacing: 1px;">FEDERAL POLYTECHNIC UGEP</div>
-              <div style="font-size: 11px; color: #6b7280; font-style: italic;">Citadel of Technical Excellence</div>
-              <div style="font-size: 12px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 2px; margin-top: 2px;">Official Student Transcript</div>
-            </div>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px;">
-            <div>
-              <h2 style="font-family:'Poppins', sans-serif; font-size: 24px; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">${esc(fullName)}</h2>
-              <div style="font-size: 13px; color: #475569; font-family: monospace; margin-bottom: 4px; background: #ecfdf5; color: #065f46; display: inline-block; padding: 2px 8px; border-radius: 4px; font-weight: 700;">
-                ${esc(idValue)}
-              </div>
-              <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-                ${esc(level)} · ${esc(progName)}<br>
-                ${esc(student.email || '')} ${deptName !== '—' ? ' · ' + esc(deptName) : ''}
-              </div>
-            </div>
-          </div>
-          <div style="text-align: center; padding: 40px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; color: #b45309; font-weight: 600;">
-            Transcript data is being processed. Please check back later or contact the registry.
-          </div>
-          <div style="margin-top: 60px; display: flex; justify-content: space-between; padding: 0 20px;">
-            <div style="text-align: center;"><div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Registrar</div></div>
-            <div style="text-align: center;"><div style="border-bottom: 1px solid #000; width: 180px; margin-bottom: 6px;"></div><div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569;">Date</div></div>
-          </div>
-        `);
-      } 
+        const transcriptRes = await core.portalFetch('/api/student/transcript');
+        const transcriptData = transcriptRes.data || {};
+        const transcriptStudent = transcriptData.student || student;
+        const transcriptRows = Array.isArray(transcriptData.results) ? transcriptData.results : [];
+        const cgpaValue = Number(transcriptData.cgpa);
+        const cgpaText = Number.isFinite(cgpaValue) ? cgpaValue.toFixed(2) : '0.00';
+        const transcriptTable = transcriptRows.length ? transcriptRows.map(r =>
+          '<tr style="border-bottom:1px solid #e2e8f0;">' +
+          '<td style="padding:8px;font-weight:700;">' + esc(r.courseCode || '—') + '</td>' +
+          '<td style="padding:8px;">' + esc(r.courseTitle || '—') + '</td>' +
+          '<td style="padding:8px;text-align:center;">' + esc(r.unit == null ? '—' : r.unit) + '</td>' +
+          '<td style="padding:8px;text-align:center;">' + esc(r.score == null ? '—' : r.score) + '</td>' +
+          '<td style="padding:8px;text-align:center;font-weight:800;">' + esc(r.grade || '—') + '</td>' +
+          '<td style="padding:8px;text-align:center;">' + esc(r.points == null ? '—' : r.points) + '</td>' +
+          '<td style="padding:8px;text-align:center;">' + esc(r.semester || '—') + '</td>' +
+          '<td style="padding:8px;text-align:center;">' + esc(r.sessionName || '—') + '</td></tr>'
+        ).join('') : '<tr><td colspan="8" style="padding:24px;text-align:center;color:#991b1b;">No published results are available on this transcript yet.</td></tr>';
+        html = a4Wrapper(
+          '<div class="official-letterhead" style="border-bottom:3px double #065f46;padding-bottom:16px;margin-bottom:22px;display:flex;align-items:center;gap:18px;">' +
+            '<img src="/images/logo.png" alt="FPU" style="width:76px;height:76px;object-fit:contain;" onerror="this.style.display=\'none\'">' +
+            '<div><div style="font:900 22px Arial,sans-serif;color:#065f46;letter-spacing:1px;">FEDERAL POLYTECHNIC UGEP</div><div style="font:12px Arial,sans-serif;color:#64748b;margin-top:5px;">P.M.B. 1038, Ugep, Cross River State, Nigeria</div><div style="font:800 11px Arial,sans-serif;color:#0f172a;letter-spacing:2px;margin-top:8px;">OFFICIAL ACADEMIC TRANSCRIPT</div></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;font:12px Arial,sans-serif;">' +
+            '<div><small style="color:#64748b;">Student Name</small><strong style="display:block;margin-top:3px;">' + esc([transcriptStudent.firstName,transcriptStudent.middleName,transcriptStudent.lastName].filter(Boolean).join(' ')) + '</strong></div>' +
+            '<div><small style="color:#64748b;">Matric Number</small><strong style="display:block;margin-top:3px;">' + esc(transcriptStudent.matricNumber || idValue) + '</strong></div>' +
+            '<div><small style="color:#64748b;">Level</small><strong style="display:block;margin-top:3px;">' + esc(transcriptStudent.level || level) + '</strong></div>' +
+            '<div><small style="color:#64748b;">Department</small><strong style="display:block;margin-top:3px;">' + esc(transcriptStudent.departmentName || deptName) + '</strong></div>' +
+            '<div><small style="color:#64748b;">Programme</small><strong style="display:block;margin-top:3px;">' + esc(transcriptStudent.programmeName || progName) + '</strong></div>' +
+            '<div><small style="color:#64748b;">Email / Phone</small><strong style="display:block;margin-top:3px;">' + esc(transcriptStudent.email || '') + '<br>' + esc(transcriptStudent.phone || '') + '</strong></div>' +
+          '</div>' +
+          '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font:11px Arial,sans-serif;"><thead><tr style="background:#ecfdf5;color:#064e3b;">' +
+            '<th style="padding:8px;text-align:left;">Code</th><th style="padding:8px;text-align:left;">Course Title</th><th style="padding:8px;">Units</th><th style="padding:8px;">Score</th><th style="padding:8px;">Grade</th><th style="padding:8px;">Points</th><th style="padding:8px;">Semester</th><th style="padding:8px;">Session</th>' +
+          '</tr></thead><tbody>' + transcriptTable + '</tbody></table></div>' +
+          '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:18px;padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font:13px Arial,sans-serif;">' +
+            '<div><small style="color:#64748b;">Total Units</small><strong style="display:block;font-size:18px;color:#064e3b;">' + esc(transcriptData.totalUnits == null ? '0' : transcriptData.totalUnits) + '</strong></div>' +
+            '<div><small style="color:#64748b;">CGPA</small><strong style="display:block;font-size:18px;color:#064e3b;">' + cgpaText + '</strong></div>' +
+            '<div><small style="color:#64748b;">Classification</small><strong style="display:block;font-size:14px;color:#064e3b;">' + esc(transcriptData.classification || '—') + '</strong></div>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;margin-top:42px;font:11px Arial,sans-serif;"><div style="width:42%;text-align:center;border-top:1px solid #0f172a;padding-top:6px;">REGISTRAR</div><div style="width:42%;text-align:center;border-top:1px solid #0f172a;padding-top:6px;">DATE ISSUED: ' + esc(dateStr) + '</div></div>'
+        );
+      }
       else if (t.includes('clearance')) {
         html = a4Wrapper(`
           <div style="border:8px double #065f46;padding:28px;min-height:850px;position:relative;background:linear-gradient(135deg,#fff 0%,#fbfdfb 100%);">

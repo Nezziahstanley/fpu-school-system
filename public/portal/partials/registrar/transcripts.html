@@ -1,47 +1,43 @@
-<section class="reg-transcript-page">
-  <header class="reg-transcript-head">
-    <div><h2>Transcript Register</h2><p>Find students and open their official academic transcript for review or printing.</p></div>
-    <button type="button" id="reg-transcript-refresh">↻ Refresh</button>
-  </header>
-  <div class="reg-transcript-tools">
-    <label for="reg-transcript-search">Search students</label>
-    <input id="reg-transcript-search" type="search" placeholder="Name, matric number or department">
-    <span id="reg-transcript-count">Loading records…</span>
-  </div>
-  <div class="reg-transcript-table-wrap">
-    <table><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead>
-    <tbody id="reg-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table>
-  </div>
-  <p class="reg-transcript-note">Only published results are included in the transcript. Opening a transcript does not issue or certify it.</p>
+<!-- Registrar transcript register -->
+<section class="tr-register">
+<header class="tr-head"><div><h2>Transcript Register</h2><p>Search the student record, review published results and open the complete official transcript.</p></div><button id="tr-refresh">↻ Refresh</button></header>
+<div class="tr-stats"><article><span>Students</span><strong id="tr-total">—</strong></article><article><span>Departments</span><strong id="tr-depts">—</strong></article><article><span>ND students</span><strong id="tr-nd">—</strong></article><article><span>HND students</span><strong id="tr-hnd">—</strong></article></div>
+<section class="tr-panel"><div class="tr-panel-head"><div><h3>Department transcript directory</h3><p>Select a department to narrow the register.</p></div><button id="tr-all-depts" type="button">All departments</button></div><div id="tr-department-cards" class="tr-depts"><div class="tr-empty">Loading departments…</div></div></section>
+<section class="tr-panel"><div class="tr-panel-head"><div><h3 id="tr-current-dept">All student transcripts</h3><p>Only published academic results appear in the official transcript.</p></div><span id="tr-count" class="tr-count">Loading…</span></div>
+<div class="tr-filters"><input id="tr-search" type="search" placeholder="Search student name, matric number, email"><select id="tr-level"><option value="">All levels</option><option value="ND">ND</option><option value="HND">HND</option></select><button id="tr-export" type="button">Export register</button></div>
+<div class="tr-table-wrap"><table><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="tr-body"><tr><td colspan="7" class="tr-empty">Loading transcript register…</td></tr></tbody></table></div></section>
+<p class="tr-note">Opening a transcript is a preview only. A transcript request is marked as issued separately in Documents & Certificates.</p>
 </section>
 <style>
-.reg-transcript-page{color:#0f172a}.reg-transcript-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}.reg-transcript-head h2{margin:0;font-size:1.35rem}.reg-transcript-head p{margin:.35rem 0;color:#64748b;font-size:.85rem}.reg-transcript-head button,.reg-transcript-open{background:#065f46;color:#fff;border:0;border-radius:8px;padding:.62rem .9rem;font-weight:700;cursor:pointer;min-height:40px}.reg-transcript-tools{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:.35rem .8rem;align-items:center;margin-bottom:.85rem}.reg-transcript-tools label{grid-column:1/-1;font-size:.75rem;color:#475569;font-weight:700}.reg-transcript-tools input{padding:.72rem .85rem;border:1px solid #cbd5e1;border-radius:9px;min-width:0}.reg-transcript-tools span{font-size:.78rem;color:#64748b;white-space:nowrap}.reg-transcript-table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.reg-transcript-table-wrap table{width:100%;min-width:850px;border-collapse:collapse;font-size:.82rem}.reg-transcript-table-wrap th,.reg-transcript-table-wrap td{padding:.78rem .85rem;text-align:left;border-bottom:1px solid #f1f5f9}.reg-transcript-table-wrap th{background:#f8fafc;color:#475569;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em}.reg-transcript-table-wrap td{color:#334155}.reg-transcript-note{font-size:.78rem;color:#64748b;margin-top:.8rem}@media(max-width:600px){.reg-transcript-tools{grid-template-columns:1fr}.reg-transcript-tools span{white-space:normal}}
+.tr-register{color:#0f172a}.tr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}.tr-head h2{margin:0;font-size:1.4rem}.tr-head p,.tr-panel-head p{margin:.35rem 0 0;color:#64748b;font-size:.83rem}.tr-head button,.tr-filters button{border:0;background:#065f46;color:#fff;padding:.62rem .9rem;border-radius:8px;font-weight:800;cursor:pointer}.tr-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}.tr-stats article{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}.tr-stats span{font-size:.7rem;color:#64748b;font-weight:800;text-transform:uppercase}.tr-stats strong{display:block;margin-top:.35rem;font-size:1.55rem;color:#065f46}.tr-panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;margin-bottom:1rem}.tr-panel-head{padding:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:1px solid #eef2f7}.tr-panel-head h3{margin:0;font-size:1rem}.tr-panel-head button{border:1px solid #bbf7d0;background:#f0fdf4;color:#065f46;padding:.5rem .7rem;border-radius:8px;font-weight:800;cursor:pointer}.tr-depts{padding:1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.7rem}.tr-dept{border:1px solid #e2e8f0;border-radius:11px;padding:.85rem;background:#fff;text-align:left;cursor:pointer}.tr-dept.active,.tr-dept:hover{background:#f0fdf4;border-color:#059669}.tr-dept strong{display:block;font-size:.85rem}.tr-dept span{display:block;margin-top:.3rem;color:#64748b;font-size:.72rem}.tr-dept b{display:block;margin-top:.45rem;color:#065f46;font-size:1.2rem}.tr-filters{display:grid;grid-template-columns:2fr 1fr auto;gap:.55rem;padding:.85rem}.tr-filters input,.tr-filters select{padding:.65rem .75rem;border:1px solid #cbd5e1;border-radius:8px;min-width:0}.tr-table-wrap{overflow:auto}.tr-table-wrap table{width:100%;min-width:900px;border-collapse:collapse;font-size:.8rem}.tr-table-wrap th,.tr-table-wrap td{padding:.75rem .8rem;text-align:left;border-bottom:1px solid #f1f5f9}.tr-table-wrap th{background:#f8fafc;color:#64748b;text-transform:uppercase;font-size:.66rem;letter-spacing:.05em}.tr-open{border:0;background:#065f46;color:#fff;padding:.45rem .7rem;border-radius:7px;font-size:.72rem;font-weight:800;cursor:pointer}.tr-empty{text-align:center!important;color:#94a3b8;padding:2rem!important}.tr-count{background:#ecfdf5;color:#065f46;border-radius:99px;padding:.35rem .6rem;font-size:.72rem;font-weight:800}.tr-note{font-size:.76rem;color:#64748b}@media(max-width:700px){.tr-stats{grid-template-columns:repeat(2,1fr)}.tr-filters{grid-template-columns:1fr 1fr}.tr-filters input{grid-column:1/-1}}
 </style>
 <script>
 (function(){
- 'use strict';
- const core=window.FPU_PORTAL||{};
- const $=id=>document.getElementById(id);
- const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
- let records=[];
- function render(){
-   const q=($('reg-transcript-search').value||'').trim().toLowerCase();
-   const list=records.filter(s=>[s.firstName,s.lastName,s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
-   $('reg-transcript-count').textContent=list.length+' of '+records.length+' students';
-   $('reg-transcript-body').innerHTML=list.length?list.map(s=>'<tr><td><strong>'+esc([s.firstName,s.lastName].filter(Boolean).join(' '))+'</strong></td><td>'+esc(s.matricNumber||'—')+'</td><td>'+esc(s.departmentName||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td><strong>'+Number(s.cgpa||0).toFixed(2)+'</strong></td><td><button class="reg-transcript-open" type="button" data-student-id="'+Number(s.id)+'">Open Transcript</button></td></tr>').join(''):'<tr><td colspan="7">No matching transcript records found.</td></tr>';
-   $('reg-transcript-body').querySelectorAll('[data-student-id]').forEach(btn=>btn.addEventListener('click',()=>{
-     const id=Number(btn.dataset.studentId);if(!Number.isInteger(id)||id<1)return;
-     const url='/portal/partials/registrar/document-template.html?studentId='+encodeURIComponent(id);
-     window.open(url,'_blank','noopener');
-   }));
- }
- async function load(){
-   $('reg-transcript-body').innerHTML='<tr><td colspan="7">Loading transcript register…</td></tr>';
-   try{const res=await core.portalFetch('/api/registrar/transcripts');records=Array.isArray(res.data)?res.data:[];render()}
-   catch(err){$('reg-transcript-body').innerHTML='<tr><td colspan="7">Unable to load transcripts: '+esc(err.message)+'</td></tr>';core.showToast&&core.showToast('Could not load transcript register','error')}
- }
- $('reg-transcript-refresh').addEventListener('click',load);
- $('reg-transcript-search').addEventListener('input',render);
- load();
+'use strict';
+const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id);
+const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let ALL=[],DEPT='';
+const name=s=>[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ')||'Student';
+function renderDepts(){
+ const counts={};ALL.forEach(s=>{const d=s.departmentName||'Unassigned';counts[d]=(counts[d]||0)+1});
+ const depts=Object.keys(counts).sort();
+ $('tr-department-cards').innerHTML=depts.length?depts.map(d=>'<button class="tr-dept '+(DEPT===d?'active':'')+'" type="button" data-dept="'+esc(d)+'"><strong>'+esc(d)+'</strong><span>Official transcript records</span><b>'+counts[d]+' students</b></button>').join(''):'<div class="tr-empty">No departments found.</div>';
+ $('tr-department-cards').querySelectorAll('[data-dept]').forEach(b=>b.addEventListener('click',()=>{DEPT=DEPT===b.dataset.dept?'':b.dataset.dept;renderDepts();render()}));
+}
+function render(){
+ const q=$('tr-search').value.trim().toLowerCase(),level=$('tr-level').value;
+ const rows=ALL.filter(s=>(!DEPT||(s.departmentName||'Unassigned')===DEPT)&&(!level||String(s.level||'').toUpperCase().startsWith(level))&&(!q||[name(s),s.matricNumber,s.departmentName,s.programmeName,s.email].join(' ').toLowerCase().includes(q)));
+ $('tr-count').textContent=rows.length+' of '+ALL.length+' students';$('tr-current-dept').textContent=DEPT||'All student transcripts';
+ $('tr-body').innerHTML=rows.length?rows.map(s=>'<tr><td><strong>'+esc(name(s))+'</strong><div style="font-size:.68rem;color:#64748b">'+esc(s.email||'')+'</div></td><td><code>'+esc(s.matricNumber||'—')+'</code></td><td>'+esc(s.departmentName||'Unassigned')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td><strong>'+Number(s.cgpa||0).toFixed(2)+'</strong></td><td><button class="tr-open" type="button" data-id="'+Number(s.id)+'">Preview Transcript</button></td></tr>').join(''):'<tr><td colspan="7" class="tr-empty">No transcript records match your filters.</td></tr>';
+ $('tr-body').querySelectorAll('[data-id]').forEach(b=>b.addEventListener('click',()=>{const id=Number(b.dataset.id);if(id>0)window.open('/portal/partials/registrar/document-template.html?studentId='+encodeURIComponent(id),'_blank','noopener')}));
+}
+async function load(){
+ $('tr-body').innerHTML='<tr><td colspan="7" class="tr-empty">Loading transcript register…</td></tr>';
+ try{const r=await core.portalFetch('/api/registrar/transcripts');ALL=Array.isArray(r.data)?r.data:[];const depts=[...new Set(ALL.map(s=>s.departmentName||'Unassigned'))];$('tr-total').textContent=ALL.length;$('tr-depts').textContent=depts.length;$('tr-nd').textContent=ALL.filter(s=>String(s.level||'').toUpperCase().startsWith('ND')).length;$('tr-hnd').textContent=ALL.filter(s=>String(s.level||'').toUpperCase().startsWith('HND')).length;renderDepts();render()}
+ catch(e){$('tr-body').innerHTML='<tr><td colspan="7" class="tr-empty">Unable to load transcript register: '+esc(e.message)+'</td></tr>';core.showToast&&core.showToast(e.message,'error')}
+}
+$('tr-search').addEventListener('input',render);$('tr-level').addEventListener('change',render);$('tr-refresh').addEventListener('click',load);$('tr-all-depts').addEventListener('click',()=>{DEPT='';renderDepts();render()});
+$('tr-export').addEventListener('click',()=>{const rows=[['Student','Matric Number','Department','Programme','Level','CGPA'],...ALL.map(s=>[name(s),s.matricNumber,s.departmentName,s.programmeName,s.level,s.cgpa])];const csv=rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='registrar-transcript-register.csv';a.click();URL.revokeObjectURL(url)});
+load();
 })();
 </script>

@@ -94,9 +94,9 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-admitted', 'admin-documents',
+      'admin-admitted', 'admin-documents', 'admin-transcript',
       'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
-      'portal-notifications', 'portal-announcements', 'admin-transcript',
+      'portal-notifications', 'portal-announcements',
     ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
@@ -134,11 +134,11 @@
         'registrar-registrations'
       ];
       
-      const registryKeys = ['admin-admitted', 'admin-documents']; 
+      const registryKeys = ['admin-admitted', 'admin-documents', 'admin-transcript']; 
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances', 'registrar-documents', 'registrar-transcripts'].includes(it.key));
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances'].includes(it.key));
       
       const registryItems = [
         ...customRegistry,
@@ -242,8 +242,6 @@
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
       { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
-      { key: 'registrar-documents',       label: 'Documents & Certificates', icon: ICON.file },
-      { key: 'registrar-transcripts',      label: 'Transcript Register', icon: ICON.book },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
@@ -343,6 +341,16 @@
         title: 'Student Profile'
       };
     }
+    if (role === 'registrar') {
+      const registrarPages = {
+        'admin-admitted': { url: '/portal/partials/registrar/admitted.html', title: 'Admitted Students' },
+        'admin-documents': { url: '/portal/partials/registrar/documents.html', title: 'Documents & Certificates' },
+        'admin-transcript': { url: '/portal/partials/registrar/transcripts.html', title: 'Transcript Register' },
+        'admin-id-cards': { url: '/portal/partials/shared/admin-id-cards.html', title: 'Student & Staff ID Cards' },
+      };
+      if (registrarPages[cleanKey]) return registrarPages[cleanKey];
+    }
+
     const folder = ROLE_FOLDER[role] || 'shared';
 
     const adminOnly = ['admin-settings', 'admin-users'];
@@ -476,6 +484,8 @@
 
   let lastRequestedPageKey = '';
   let activeLoadId = 0;
+  const partialHtmlCache = new Map();
+  let registrarPrefetchStarted = false;
 
   async function loadPage(pageKey) {
     const requestId = ++activeLoadId;
@@ -498,15 +508,24 @@
     if (window.location.hash !== `#${pageKey}`) window.location.hash = `#${pageKey}`;
 
     try {
-      let res = await fetch(cfg.url, { cache: 'no-cache' });
-      if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
-        res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
+      let html = partialHtmlCache.get(cfg.url);
+      if (!html) {
+        let res = await fetch(cfg.url, { cache: 'no-cache' });
+        if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
+          res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
+          if (res.ok) { html = await res.text(); partialHtmlCache.set(cfg.fallbackUrl, html); }
+        }
+        if (!res.ok) throw new Error('Partial not found: ' + cfg.url);
+        if (!html) html = await res.text();
+        partialHtmlCache.set(cfg.url, html);
       }
-      if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
-      const html = await res.text();
       if (requestId !== activeLoadId) return;
       view.innerHTML = html;
       executePartialScripts(view);
+      if (core.getPortalUser && core.getPortalUser()?.role === 'registrar' && !registrarPrefetchStarted) {
+        registrarPrefetchStarted = true;
+        setTimeout(prefetchRegistrarPages, 0);
+      }
     } catch (err) {
       if (requestId !== activeLoadId) return;
       console.error('[portal-spa] load error:', err);
@@ -515,6 +534,22 @@
       </div></div>`;
       core.showToast && core.showToast(err.message, 'error');
     }
+  }
+
+  function prefetchRegistrarPages() {
+    const user = core.getPortalUser && core.getPortalUser();
+    if (!user || user.role !== 'registrar') return;
+    const keys = ['registrar-students','registrar-sessions','registrar-programmes','registrar-registrations','registrar-applications','registrar-clearances','registrar-graduations','admin-admitted','admin-documents','admin-transcript','admin-id-cards','portal-id-card','portal-profile','portal-photo','portal-messages','portal-notifications','portal-announcements','portal-security'];
+    keys.forEach((key) => {
+      const cfg = resolvePageConfig(key);
+      if (!cfg || partialHtmlCache.has(cfg.url)) return;
+      fetch(cfg.url, { cache: 'no-cache' }).then(async (res) => {
+        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
+        if (!res.ok) return;
+        const html = await res.text();
+        partialHtmlCache.set(cfg.url, html);
+      }).catch(() => {});
+    });
   }
 
   function navigatePortal(pageKey) {

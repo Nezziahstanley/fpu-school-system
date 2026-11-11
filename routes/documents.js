@@ -196,27 +196,27 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
           </div>
 
           <div style="padding: 1.2rem; display: flex; gap: 1rem;">
-            <div style="width: 100px; height: 120px; border-radius: 10px; background: ${photoUrl ? `url('${photoUrl}') center/cover` : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 2rem; flex-shrink: 0; border: 2px solid #f1f5f9;">
+            <div style="width: 100px; height: 120px; border-radius: 10px; background: ${safePhotoUrl ? `url('${escapeHtml(safePhotoUrl)}') center/cover` : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 2rem; flex-shrink: 0; border: 2px solid #f1f5f9;">
               ${photoUrl ? '' : (stu.firstName || 'S')[0].toUpperCase()}
             </div>
             <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 800; color: #065f46; font-size: 1.05rem; margin-bottom: .5rem; line-height: 1.2;">${studentName}</div>
+              <div style="font-weight: 800; color: #065f46; font-size: 1.05rem; margin-bottom: .5rem; line-height: 1.2;">${escapeHtml(studentName)}</div>
               <div style="font-size: .78rem; color: #475569; display: flex; flex-direction: column; gap: .35rem;">
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Matric</span>
-                  <strong style="color: #0f172a;">${matricNumber || '—'}</strong>
+                  <strong style="color: #0f172a;">${escapeHtml(matricNumber || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Level</span>
-                  <strong style="color: #0f172a;">${level || '—'}</strong>
+                  <strong style="color: #0f172a;">${escapeHtml(level || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Programme</span>
-                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${progName || '—'}</strong>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${escapeHtml(progName || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: #64748b;">Dept</span>
-                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${deptName || '—'}</strong>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${escapeHtml(deptName || '—')}</strong>
                 </div>
               </div>
             </div>
@@ -253,6 +253,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
             <p style="font-size:20px;color:#475569;font-style:italic;margin:55px 0 18px;">This certificate is respectfully issued to</p>
             <div style="font-size:35px;font-weight:bold;color:#064e3b;border-bottom:2px solid #c9a84c;display:inline-block;min-width:75%;padding:0 10px 14px;">${escapeHtml(studentName)}</div>
             <p style="font-size:17px;line-height:2;color:#334155;margin:38px auto;">Matriculation Number: <strong>${escapeHtml(matricNumber || '—')}</strong><br/>Department: <strong>${escapeHtml(deptName || '—')}</strong><br/>Programme: <strong>${escapeHtml(progName || '—')}</strong> · Level: <strong>${escapeHtml(level || '—')}</strong></p>
+            <p style="font-size:13px;line-height:1.8;color:#475569;">Student contact details on record: <strong>Email:</strong> ${escapeHtml(stu.email || '—')} · <strong>Telephone:</strong> ${escapeHtml(stu.phone || '—')}.</p>
             <p style="font-size:16px;line-height:1.9;color:#475569;max-width:650px;margin:25px auto;">In recognition of the official record described as <strong>${escapeHtml(doc.title || 'Certificate request')}</strong>. This certificate is issued subject to verification of the institution's records.</p>
             <div style="display:flex;justify-content:space-between;gap:55px;margin:100px 30px 0;"><div style="width:45%;text-align:center;">${signerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">REGISTRAR</div></div><div style="width:45%;text-align:center;"><div style="height:48px;"></div><div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">RECTOR</div></div></div>
             <div style="font:10px Arial,sans-serif;color:#64748b;letter-spacing:1px;margin-top:55px;">ISSUED ${today} · CERTIFICATE NO: FPU/CERT/${String(doc.id).padStart(6,'0')}</div>
@@ -269,6 +270,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
             <h1 style="text-align:center;font:800 22px Arial,sans-serif;letter-spacing:2px;color:#064e3b;text-decoration:underline;margin:30px 0 42px;">ATTESTATION LETTER</h1>
             <p style="font-size:16px;line-height:2.1;text-align:justify;">This is to attest that <strong>${escapeHtml(studentName)}</strong>, Matriculation Number <strong>${escapeHtml(matricNumber || '—')}</strong>, is recorded as a student of Federal Polytechnic Ugep in the <strong>${escapeHtml(deptName || '—')}</strong> Department, studying <strong>${escapeHtml(progName || '—')}</strong> at <strong>${escapeHtml(level || '—')}</strong> level.</p>
             <p style="font-size:16px;line-height:2.1;text-align:justify;">This letter is issued upon the student's request for the stated purpose: <strong>${escapeHtml(doc.title || 'Official use')}</strong>. It reflects the details available in the institution's records as at the date of issue.</p>
+            <p style="font-size:13px;line-height:1.8;color:#475569;">Student contact details on record: <strong>Email:</strong> ${escapeHtml(stu.email || '—')} · <strong>Telephone:</strong> ${escapeHtml(stu.phone || '—')}.</p>
             <p style="font-size:16px;line-height:2.1;">Yours faithfully,</p><div style="margin-top:70px;text-align:right;">${signerHtml}<div style="display:inline-block;border-top:1px solid #111;min-width:220px;padding-top:8px;text-align:center;font:800 12px Arial,sans-serif;">REGISTRAR</div></div>
             <div style="margin-top:65px;border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;font:10px Arial,sans-serif;color:#64748b;">This document is issued by Federal Polytechnic Ugep and may be verified with the Registry.</div>
           </div>
@@ -292,34 +294,36 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
               <p style="margin: .3rem 0 0; color: #64748b; font-size: .8rem;">P.M.B. 1038, Ugep, Cross River State, Nigeria</p>
             </div>
 
-            <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${docType}</h2>
+            <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${escapeHtml(docType)}</h2>
 
             <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
-              This is to certify that <strong>${studentName}</strong> with Matric Number <strong>${matricNumber || '—'}</strong> 
+              This is to certify that <strong>${escapeHtml(studentName)}</strong> with Matric Number <strong>${escapeHtml(matricNumber || '—')}</strong> 
               is a bona fide student of Federal Polytechnic Ugep, currently enrolled in the following programme:
             </p>
 
             <table style="width: 100%; margin: 1.5rem 0; font-size: .9rem; border-collapse: collapse;">
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b; width: 40%;">Programme</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${progName || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(progName || '—')}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b;">Department</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${deptName || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(deptName || '—')}</td>
               </tr>
               <tr style="border-bottom: 1px solid #e5e7eb;">
                 <td style="padding: .6rem 0; color: #64748b;">Level</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${level || '—'}</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">${escapeHtml(level || '—')}</td>
               </tr>
+              <tr><td style="padding:.6rem 0;color:#64748b;">Email</td><td style="padding:.6rem 0;text-align:right;font-weight:700;color:#0f172a;">${escapeHtml(stu.email || '—')}</td></tr>
+              <tr><td style="padding:.6rem 0;color:#64748b;">Telephone</td><td style="padding:.6rem 0;text-align:right;font-weight:700;color:#0f172a;">${escapeHtml(stu.phone || '—')}</td></tr>
               <tr>
                 <td style="padding: .6rem 0; color: #64748b;">Session</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">2025/2026</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">Academic records on file</td>
               </tr>
             </table>
 
             <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
-              ${doc.remarks || `This document is issued at the request of the student for official purposes.`}
+              ${escapeHtml(doc.remarks || 'This document is issued at the request of the student for official purposes.')}
             </p>
 
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 3.5rem;">

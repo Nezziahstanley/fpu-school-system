@@ -1,224 +1,44 @@
-<!-- Portal → Registrar → Students -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">🎓</div>
-    <div>
-      <h1>All Students</h1>
-      <div class="sub">Institution-wide student records</div>
-    </div>
-  </div>
-</section>
-
-<!-- Filter bar -->
-<div class="filter-bar">
-  <input type="search" id="rs-search" placeholder="Search matric, name, or email…" />
-  <select id="rs-level">
-    <option value="">All Levels</option>
-    <option value="ND">ND</option>
-    <option value="HND">HND</option>
-  </select>
-  <select id="rs-department"><option value="">All Departments</option></select>
-  <select id="rs-programme"><option value="">All Programmes</option></select>
-  <select id="rs-status">
-    <option value="">All Status</option>
-    <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="rs-export">Export CSV</button>
-</div>
-
-<!-- Stats row -->
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Students</span><span class="value" id="rs-total">—</span></div><div class="ic">🎓</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">ND Students</span><span class="value" id="rs-nd">—</span></div><div class="ic">📘</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">HND Students</span><span class="value" id="rs-hnd">—</span></div><div class="ic">📗</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">Active</span><span class="value" id="rs-active">—</span></div><div class="ic">✅</div></div>
-</div>
-
-<!-- Table -->
-<section class="panel">
-  <div class="panel-head">
-    <h3>Students</h3>
-    <span class="badge" id="rs-count">0</span>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Matric No.</th>
-            <th>Full Name</th>
-            <th>Level</th>
-            <th>Programme</th>
-            <th>Department</th>
-            <th>CGPA</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="rs-tbody">
-          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
+<!-- Registrar student directory -->
+<section class="reg-students">
+<header class="rs-head"><div><h2>Student Directory</h2><p>Browse students by department, level or programme. Select any student to open the complete profile.</p></div><button id="rs-refresh" type="button">↻ Refresh</button></header>
+<div class="rs-stats"><article><span>Total students</span><strong id="rs-total">—</strong></article><article><span>ND students</span><strong id="rs-nd">—</strong></article><article><span>HND students</span><strong id="rs-hnd">—</strong></article><article><span>Active students</span><strong id="rs-active">—</strong></article></div>
+<section class="rs-panel"><div class="rs-panel-head"><div><h3>Departments</h3><p>Choose a department card to see only its students.</p></div><button type="button" class="rs-clear" id="rs-clear">All departments</button></div><div class="rs-departments" id="rs-departments"><div class="rs-empty">Loading departments…</div></div></section>
+<section class="rs-panel"><div class="rs-panel-head"><div><h3 id="rs-list-title">All students</h3><p id="rs-list-subtitle">Student register</p></div><span class="rs-count" id="rs-count">0 records</span></div>
+<div class="rs-filters"><input id="rs-search" type="search" placeholder="Search name, matric number, email or phone"><select id="rs-level"><option value="">All levels</option><option value="ND">ND</option><option value="HND">HND</option></select><select id="rs-programme"><option value="">All programmes</option></select><select id="rs-status"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select><button type="button" id="rs-export">Export CSV</button></div>
+<div class="rs-table-wrap"><table><thead><tr><th>Student</th><th>Matric number</th><th>Level</th><th>Programme</th><th>Department</th><th>CGPA</th><th>Status</th><th>Action</th></tr></thead><tbody id="rs-tbody"><tr><td colspan="8" class="rs-empty">Loading student records…</td></tr></tbody></table></div></section></section>
+<style>
+.reg-students{color:#0f172a}.rs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}.rs-head h2{font-size:1.4rem;margin:0;font-weight:850}.rs-head p,.rs-panel-head p{margin:.35rem 0 0;color:#64748b;font-size:.83rem}.rs-head button,.rs-filters button{border:0;border-radius:9px;background:#065f46;color:#fff;padding:.65rem .95rem;font-weight:800;cursor:pointer;min-height:40px}.rs-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}.rs-stats article{padding:1rem;border:1px solid #e2e8f0;background:#fff;border-radius:12px}.rs-stats span{display:block;color:#64748b;font-size:.72rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.rs-stats strong{display:block;font-size:1.6rem;margin-top:.35rem;color:#064e3b}.rs-panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:1rem;overflow:hidden}.rs-panel-head{padding:1rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;border-bottom:1px solid #eef2f7}.rs-panel-head h3{margin:0;font-size:1rem}.rs-clear{border:1px solid #bbf7d0;background:#f0fdf4;color:#065f46;padding:.5rem .75rem;border-radius:8px;font-weight:800;cursor:pointer}.rs-departments{padding:1rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:.75rem}.rs-dept-card{border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:1rem;text-align:left;cursor:pointer;min-height:110px}.rs-dept-card:hover,.rs-dept-card.active{border-color:#059669;background:#f0fdf4;box-shadow:0 5px 16px #065f4610}.rs-dept-card strong{display:block;font-size:.9rem;color:#0f172a}.rs-dept-card span{display:block;font-size:.75rem;color:#64748b;margin-top:.35rem}.rs-dept-card b{display:block;color:#065f46;font-size:1.35rem;margin-top:.55rem}.rs-count{font-size:.75rem;font-weight:800;color:#065f46;background:#ecfdf5;padding:.35rem .6rem;border-radius:99px}.rs-filters{padding:.9rem;display:grid;grid-template-columns:minmax(220px,2fr) repeat(3,minmax(130px,1fr)) auto;gap:.55rem}.rs-filters input,.rs-filters select{min-width:0;padding:.65rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;font:inherit;font-size:.82rem}.rs-filters button{padding:.55rem .8rem}.rs-table-wrap{overflow:auto}.rs-table-wrap table{width:100%;min-width:950px;border-collapse:collapse;font-size:.8rem}.rs-table-wrap th,.rs-table-wrap td{padding:.72rem .8rem;text-align:left;border-bottom:1px solid #f1f5f9}.rs-table-wrap th{font-size:.67rem;letter-spacing:.05em;text-transform:uppercase;color:#64748b;background:#f8fafc}.rs-table-wrap tr:hover td{background:#f8fafc}.rs-open{border:0;border-radius:7px;padding:.42rem .65rem;background:#065f46;color:white;font-size:.72rem;font-weight:800;cursor:pointer}.rs-empty{text-align:center!important;color:#94a3b8;padding:2rem!important}.rs-status{display:inline-flex;padding:.22rem .5rem;border-radius:99px;font-size:.66rem;font-weight:800}.rs-status.active{background:#dcfce7;color:#166534}.rs-status.inactive{background:#fee2e2;color:#991b1b}@media(max-width:800px){.rs-stats{grid-template-columns:repeat(2,1fr)}.rs-filters{grid-template-columns:1fr 1fr}.rs-filters input{grid-column:1/-1}}@media(max-width:480px){.rs-departments{grid-template-columns:1fr 1fr}.rs-dept-card{padding:.75rem}.rs-filters{grid-template-columns:1fr}.rs-filters input{grid-column:auto}}
+</style>
 <script>
-(function () {
-  'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-
-  let ALL = [];
-  let FILTERED = [];
-
-  function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
-  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
-  function getDepartment(s) { return s.departmentName || s.department?.name || '—'; }
-  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
-  function isActive(s) { return s.isActive === true || s.isActive === 'true' || s.isActive === 1; }
-
-  function render() {
-    const countEl = $('rs-count');
-    const tbody = $('rs-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">No students match your filters.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = FILTERED.map((s) => {
-      const level = getLevel(s);
-      const chipClass = 'chip-' + level.toLowerCase();
-      const active = isActive(s);
-      return `
-        <tr data-id="${s.id}" style="cursor:pointer;">
-          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
-          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
-          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
-          <td>${esc(getProgramme(s))}</td>
-          <td>${esc(getDepartment(s))}</td>
-          <td>${getCGPA(s)}</td>
-          <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
-        </tr>`;
-    }).join('');
-
-    // Row click → student profile
-    tbody.querySelectorAll('tr[data-id]').forEach((row) => {
-      row.addEventListener('click', () => {
-        window.location.hash = `registrar-student-profile?id=${row.dataset.id}`;
-      });
-    });
-  }
-
-  function applyFilter() {
-    const searchEl = $('rs-search');
-    const levelEl = $('rs-level');
-    const deptEl = $('rs-department');
-    const progEl = $('rs-programme');
-    const statusEl = $('rs-status');
-
-    const q = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
-    const lvl = levelEl ? levelEl.value : '';
-    const dept = deptEl ? deptEl.value : '';
-    const prog = progEl ? progEl.value : '';
-    const st = statusEl ? statusEl.value : '';
-
-    FILTERED = ALL.filter((s) => {
-      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''} ${s.email || ''}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (lvl && getLevel(s) !== lvl) return false;
-      if (dept && getDepartment(s) !== dept) return false;
-      if (prog && getProgramme(s) !== prog) return false;
-      if (st === 'active' && !isActive(s)) return false;
-      if (st === 'inactive' && isActive(s)) return false;
-      return true;
-    });
-
-    render();
-  }
-
-  function updateStats() {
-    setText('rs-total', ALL.length);
-    setText('rs-nd', ALL.filter((s) => getLevel(s) === 'ND').length);
-    setText('rs-hnd', ALL.filter((s) => getLevel(s) === 'HND').length);
-    setText('rs-active', ALL.filter(isActive).length);
-  }
-
-  function populateDropdowns() {
-    // Departments
-    const deptSel = $('rs-department');
-    if (deptSel) {
-      const depts = [...new Set(ALL.map(getDepartment).filter((d) => d && d !== '—'))].sort();
-      const curDept = deptSel.value;
-      deptSel.innerHTML = '<option value="">All Departments</option>' +
-        depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-      deptSel.value = curDept;
-    }
-
-    // Programmes
-    const progSel = $('rs-programme');
-    if (progSel) {
-      const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
-      const curProg = progSel.value;
-      progSel.innerHTML = '<option value="">All Programmes</option>' +
-        progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-      progSel.value = curProg;
-    }
-  }
-
-  async function load() {
-    const tbody = $('rs-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
-    try {
-      const res = await core.portalFetch('/api/registrar/students');
-      const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
-      console.log('[registrar-students] Loaded', ALL.length);
-      populateDropdowns();
-      updateStats();
-      applyFilter();
-    } catch (err) {
-      console.error('[registrar-students]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
-    }
-  }
-
-  function exportCsv() {
-    const headers = ['Matric No', 'Full Name', 'Level', 'Programme', 'Department', 'CGPA', 'Status'];
-    const rows = FILTERED.map((s) => [
-      s.matricNumber || '',
-      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
-      getLevel(s),
-      getProgramme(s),
-      getDepartment(s),
-      getCGPA(s),
-      isActive(s) ? 'Active' : 'Inactive',
-    ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `registrar-students-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  // Safe wire-up
-  const searchEl = $('rs-search'); if (searchEl) searchEl.addEventListener('input', applyFilter);
-  const levelEl = $('rs-level'); if (levelEl) levelEl.addEventListener('change', applyFilter);
-  const deptEl = $('rs-department'); if (deptEl) deptEl.addEventListener('change', applyFilter);
-  const progEl = $('rs-programme'); if (progEl) progEl.addEventListener('change', applyFilter);
-  const statusEl = $('rs-status'); if (statusEl) statusEl.addEventListener('change', applyFilter);
-  const exportEl = $('rs-export'); if (exportEl) exportEl.addEventListener('click', exportCsv);
-
-  load();
+(function(){
+'use strict';
+const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id);
+const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let ALL=[],DEPT='';
+const fullName=s=>[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ')||'Student';
+const active=s=>s.isActive===true||s.isActive===1||s.isActive==='true';
+function renderDepartments(){
+ const counts={};ALL.forEach(s=>{const n=s.departmentName||'Unassigned';counts[n]=(counts[n]||0)+1});
+ const names=Object.keys(counts).sort();
+ $('rs-departments').innerHTML=names.length?names.map(n=>'<button type="button" class="rs-dept-card '+(DEPT===n?'active':'')+'" data-dept="'+esc(n)+'"><strong>'+esc(n)+'</strong><span>Click to view department students</span><b>'+counts[n]+' <small style="font-size:.68rem;font-weight:700">students</small></b></button>').join(''):'<div class="rs-empty">No department records found.</div>';
+ $('rs-departments').querySelectorAll('[data-dept]').forEach(b=>b.addEventListener('click',()=>{DEPT=DEPT===b.dataset.dept?'':b.dataset.dept;renderDepartments();render()}));
+}
+function render(){
+ const q=$('rs-search').value.trim().toLowerCase(),level=$('rs-level').value,programme=$('rs-programme').value,status=$('rs-status').value;
+ const rows=ALL.filter(s=>(!DEPT||(s.departmentName||'Unassigned')===DEPT)&&(!level||String(s.level||'').toUpperCase().startsWith(level))&&(!programme||s.programmeName===programme)&&(!status||(status==='active')===active(s))&&(!q||[fullName(s),s.matricNumber,s.email,s.phone,s.departmentName,s.programmeName].join(' ').toLowerCase().includes(q)));
+ $('rs-count').textContent=rows.length+' of '+ALL.length+' students';$('rs-list-title').textContent=DEPT||'All students';$('rs-list-subtitle').textContent=DEPT?'Students enrolled in '+DEPT:'Select a department card above to filter the register';
+ $('rs-tbody').innerHTML=rows.length?rows.map(s=>'<tr><td><strong>'+esc(fullName(s))+'</strong><div style="font-size:.7rem;color:#64748b">'+esc(s.email||'')+'</div></td><td><code>'+esc(s.matricNumber||'—')+'</code></td><td>'+esc(s.level||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.departmentName||'Unassigned')+'</td><td><strong>'+Number(s.cgpa||0).toFixed(2)+'</strong></td><td><span class="rs-status '+(active(s)?'active':'inactive')+'">'+(active(s)?'Active':'Inactive')+'</span></td><td><button class="rs-open" type="button" data-profile="'+Number(s.id)+'">View Profile</button></td></tr>').join(''):'<tr><td colspan="8" class="rs-empty">No students match these filters.</td></tr>';
+ $('rs-tbody').querySelectorAll('[data-profile]').forEach(b=>b.addEventListener('click',()=>{const id=Number(b.dataset.profile);if(id>0)window.FPU_SPA?.navigatePortal('registrar-student-profile?id='+id)}));
+}
+async function load(){
+ $('rs-tbody').innerHTML='<tr><td colspan="8" class="rs-empty">Loading student records…</td></tr>';
+ try{const r=await core.portalFetch('/api/registrar/students');ALL=Array.isArray(r.data)?r.data:[];$('rs-total').textContent=ALL.length;$('rs-nd').textContent=ALL.filter(s=>String(s.level||'').toUpperCase().startsWith('ND')).length;$('rs-hnd').textContent=ALL.filter(s=>String(s.level||'').toUpperCase().startsWith('HND')).length;$('rs-active').textContent=ALL.filter(active).length;
+ const programmes=[...new Set(ALL.map(s=>s.programmeName).filter(Boolean))].sort();$('rs-programme').innerHTML='<option value="">All programmes</option>'+programmes.map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');renderDepartments();render();
+ }catch(e){$('rs-tbody').innerHTML='<tr><td colspan="8" class="rs-empty">Unable to load students: '+esc(e.message)+'</td></tr>';core.showToast&&core.showToast(e.message,'error')}
+}
+['rs-search','rs-level','rs-programme','rs-status'].forEach(id=>$(id).addEventListener(id==='rs-search'?'input':'change',render));
+$('rs-clear').addEventListener('click',()=>{DEPT='';renderDepartments();render()});$('rs-refresh').addEventListener('click',load);
+$('rs-export').addEventListener('click',()=>{const rows=[['Name','Matric Number','Level','Programme','Department','Email','Phone','CGPA','Status'],...ALL.filter(s=>!DEPT||(s.departmentName||'Unassigned')===DEPT).map(s=>[fullName(s),s.matricNumber,s.level,s.programmeName,s.departmentName,s.email,s.phone,s.cgpa,active(s)?'Active':'Inactive'])];const csv=rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='registrar-students.csv';a.click();URL.revokeObjectURL(a.href)});
+load();
 })();
 </script>

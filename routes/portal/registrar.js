@@ -536,9 +536,10 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
         issuedAt: new Date(),
         issuedBy: req.user.id,
       })
-      .where(eq(documents.id, docId))
+      .where(and(eq(documents.id, docId), inArray(documents.status, ['pending', 'approved'])))
       .returning();
 
+    if (!updated) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be issued.' });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });
@@ -554,9 +555,10 @@ router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
     const [updated] = await db
       .update(documents)
       .set({ status: 'issued', issuedAt: new Date(), issuedBy: req.user.id })
-      .where(eq(documents.id, docId))
+      .where(and(eq(documents.id, docId), inArray(documents.status, ['pending', 'approved'])))
       .returning();
 
+    if (!updated) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be marked as issued.' });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

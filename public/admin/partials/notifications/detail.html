@@ -92,7 +92,7 @@
         };
 
         document.getElementById('nd-delete').onclick = async () => {
-          if (!confirm('Delete this notification?')) return;
+          if (!(await window.fpuConfirm('Delete this notification?', { title: 'Delete Notification', type: 'danger', okText: 'Delete Notification' }))) return;
           try {
             await A.adminFetch(`/api/admin/notifications/${id}`, { method: 'DELETE' });
             A.showToast('🗑️ Deleted.', 'success');

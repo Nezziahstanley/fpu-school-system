@@ -14316,9 +14316,16 @@ async function approveDepartmentTimetable(departmentId, deptName) {
   if (!ok) return;
 
   try {
+    const hash = window.location.hash.replace(/^#/, '');
+    const queryIndex = hash.indexOf('?');
+    const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+    const sessionId = params.get('sessionId');
+    const semester = params.get('semester') || 'first';
+    if (!sessionId) throw new Error('Select an academic session before approving this department timetable.');
+
     const res = await adminFetch('/api/admin/timetable/approve', {
       method: 'POST',
-      body: JSON.stringify({ departmentId: Number(departmentId) }),
+      body: JSON.stringify({ departmentId: Number(departmentId), sessionId: Number(sessionId), semester }),
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Approve failed');
@@ -14345,13 +14352,19 @@ async function approveDepartmentTimetable(departmentId, deptName) {
 })();
 
 async function bulkApproveTimetable(deptId) {
-  const ok = await window.fpuConfirm('Approve ALL pending timetable slots for this department?', { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve' });
+  const sessionId = document.getElementById('tt-session')?.value || '';
+  const semester = document.getElementById('tt-semester')?.value || 'first';
+  if (!sessionId) {
+    showToast('Select an academic session before approving a timetable.', 'warning');
+    return;
+  }
+  const ok = await window.fpuConfirm(`Approve pending timetable slots for this department in ${semester} semester?`, { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve' });
   if (!ok) return;
 
   try {
     const res = await adminFetch('/api/admin/timetable/approve', {
       method: 'POST',
-      body: JSON.stringify({ departmentId: deptId })
+      body: JSON.stringify({ departmentId: Number(deptId), sessionId: Number(sessionId), semester })
     });
 
     const json = await res.json();

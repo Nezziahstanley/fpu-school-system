@@ -23,42 +23,60 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 // ============================================================
 router.post('/bulk-action', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
-    const { ids, courseId, action } = req.body || {};
+    const { ids, courseId, action, sessionId, semester } = req.body || {};
 
-    if (!action) {
-      return res.status(400).json({ success: false, error: 'Action is required.' });
+    // Bulk actions must follow the same approval sequence as single-result actions.
+    const transitions = {
+      approved: 'hod_verified',
+      published: 'approved',
+    };
+    const requiredStatus = transitions[action];
+    if (!requiredStatus) {
+      return res.status(400).json({ success: false, error: 'Unsupported bulk action. Use approved or published.' });
     }
 
     const { db, schema } = require('../db');
-    const { eq, inArray } = require('drizzle-orm');
+    const { eq, inArray, and } = require('drizzle-orm');
+    const conditions = [eq(schema.results.status, requiredStatus)];
 
-    let updatedRows;
-
-    if (ids && Array.isArray(ids) && ids.length > 0) {
-      updatedRows = await db
-        .update(schema.results)
-        .set({ status: action })
-        .where(inArray(schema.results.id, ids.map(Number)))
-        .returning();
+    if (Array.isArray(ids) && ids.length > 0) {
+      const numericIds = ids.map(Number);
+      if (numericIds.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+        return res.status(400).json({ success: false, error: 'One or more result IDs are invalid.' });
+      }
+      conditions.push(inArray(schema.results.id, numericIds));
     } else if (courseId) {
-      updatedRows = await db
-        .update(schema.results)
-        .set({ status: action })
-        .where(eq(schema.results.courseId, Number(courseId)))
-        .returning();
+      const numericCourseId = Number(courseId);
+      if (!Number.isSafeInteger(numericCourseId) || numericCourseId <= 0) {
+        return res.status(400).json({ success: false, error: 'Course ID is invalid.' });
+      }
+      conditions.push(eq(schema.results.courseId, numericCourseId));
     } else {
       return res.status(400).json({ success: false, error: 'No IDs or Course ID provided.' });
     }
 
-    await logAudit({ 
-      req, 
-      action: `result.bulk_${action}`, 
-      entity: 'result', 
-      after: { count: updatedRows.length, action } 
+    if (sessionId) conditions.push(eq(schema.results.sessionId, Number(sessionId)));
+    if (semester && semester !== 'all') conditions.push(eq(schema.results.semester, semester));
+
+    const now = new Date();
+    const updateFields = action === 'approved'
+      ? { status: 'approved', approvedBy: Number(req.user.id), approvedAt: now, updatedAt: now }
+      : { status: 'published', publishedAt: now, updatedAt: now };
+
+    const updatedRows = await db
+      .update(schema.results)
+      .set(updateFields)
+      .where(and(...conditions))
+      .returning();
+
+    await logAudit({
+      req,
+      action: `result.bulk_${action}`,
+      entity: 'result',
+      after: { count: updatedRows.length, action, requiredStatus, sessionId: sessionId || null, semester: semester || null },
     });
 
-    return res.json({ success: true, data: updatedRows, count: updatedRows.length });
-    
+    return res.json({ success: true, data: updatedRows, count: updatedRows.length, skipped: (Array.isArray(ids) ? ids.length : 0) - updatedRows.length });
   } catch (err) {
     console.error('Bulk action error:', err);
     return next(err);

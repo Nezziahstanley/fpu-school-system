@@ -145,7 +145,7 @@
     $('school-delete').addEventListener('click', async () => {
       if (!isEdit) return;
       const code = $('school-code').value.trim();
-      if (!confirm(`Delete school "${code}"? Departments must be reassigned first.`)) return;
+      if (!(await window.fpuConfirm(`Delete school "${code}"? Departments must be reassigned first.`, { title: 'Delete School', type: 'danger', okText: 'Delete School' }))) return;
 
       const btn = $('school-delete');
       const original = btn.textContent;

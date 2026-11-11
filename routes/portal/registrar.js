@@ -775,16 +775,30 @@ router.post('/sessions', only, async (req, res, next) => {
 router.post('/sessions/:id/activate', only, async (req, res, next) => {
   try {
     const sessionId = Number(req.params.id);
-    
-    // Unset all current sessions
-    await db.update(academicSessions).set({ isCurrent: false });
-    
-    // Set the new one
-    const [updated] = await db.update(academicSessions)
-      .set({ isCurrent: true })
-      .where(eq(academicSessions.id, sessionId))
-      .returning();
+    if (!Number.isInteger(sessionId) || sessionId <= 0) {
+      return res.status(400).json({ success: false, error: 'A valid academic session ID is required.' });
+    }
 
+    // Validate before clearing the current session; a bad ID must never leave
+    // the institution without an active academic session.
+    const [targetSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.id, sessionId))
+      .limit(1);
+    if (!targetSession) {
+      return res.status(404).json({ success: false, error: 'Academic session not found.' });
+    }
+
+    await db.transaction(async (tx) => {
+      await tx.update(academicSessions).set({ isCurrent: false });
+      await tx.update(academicSessions)
+        .set({ isCurrent: true })
+        .where(eq(academicSessions.id, sessionId));
+    });
+
+    const [updated] = await db.select().from(academicSessions)
+      .where(eq(academicSessions.id, sessionId))
+      .limit(1);
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

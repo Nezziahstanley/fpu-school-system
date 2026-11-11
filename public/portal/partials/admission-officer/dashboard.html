@@ -6,6 +6,25 @@
   .greeting .meta strong, .greeting [class*="session"] { color: #ffffff !important; }
 </style>
 <!-- Portal → Admission Officer → Dashboard -->
+<style>
+  @media(max-width:850px){
+    .ao-row{align-items:flex-start;flex-wrap:wrap}
+    .ao-row>div:last-child{width:100%;padding-left:3.2rem;flex-wrap:wrap}
+    .ao-row .ao-action-btn{min-height:34px}
+  }
+  @media(max-width:760px){
+    div[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    div[style*="grid-template-columns:1fr 2fr"]{grid-template-columns:1fr!important}
+    .greeting h1{font-size:1.25rem!important}
+  }
+  @media(max-width:420px){
+    div[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:1fr 1fr!important}
+    .ao-row{gap:.5rem}
+    .ao-row>div:first-child{width:34px!important;height:34px!important}
+    .ao-badge{margin-top:.2rem}
+  }
+</style>
+
 <div style="padding:0;">
 
   <!-- HERO -->
@@ -119,6 +138,12 @@
         " onmouseover="this.style.background='#fde68a';" onmouseout="this.style.background='#fef3c7';">
           <span style="font-size:1.15rem;">✅</span> View Admitted
         </a>
+
+        <a href="#admission-officer-reports" style="
+          display:flex;align-items:center;gap:.5rem;padding:.7rem .85rem;
+          background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;
+          text-decoration:none;color:#5b21b6;font-weight:700;font-size:.8rem;
+        "><span style="font-size:1.15rem;">📊</span> Admission Reports</a>
 
         <a href="#admission-officer-letters" style="
           display:flex;align-items:center;gap:.5rem;

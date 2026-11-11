@@ -839,10 +839,15 @@ async function loadAdmitted() {
 
   container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
   try {
-    const res = await adminFetch(`/api/admin/applications?${qs}`);
+    const [res, statsRes] = await Promise.all([
+      adminFetch(`/api/admin/applications?${qs}`),
+      adminFetch('/api/admin/applications/stats/summary'),
+    ]);
+    if (!res.ok) throw new Error('Unable to load admitted applicants.');
     const json = await res.json();
+    const statsJson = statsRes.ok ? await statsRes.json() : null;
     const rows = json.data || [];
-    updateAdmittedStats(rows);
+    updateAdmittedStats(rows, statsJson);
     if (!rows.length) { container.innerHTML = `<tr><td colspan="7" class="empty">No applicants found.</td></tr>`; return; }
 
     if (window.FPU_PAGINATE && typeof window.FPU_PAGINATE.mount === 'function') {
@@ -877,12 +882,15 @@ async function loadAdmitted() {
   } catch (err) { container.innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(err.message)}</td></tr>`; }
 }
 
-function updateAdmittedStats(rows) {
-  const awaiting = rows.filter((r) => r.status === 'approved').length;
-  const registered = rows.filter((r) => r.status === 'registered').length;
+function updateAdmittedStats(rows, summary) {
+  const byStatus = summary?.byStatus || {};
+  const hasSummary = summary && summary.success !== false && Object.keys(byStatus).length > 0;
+  const awaiting = hasSummary ? Number(byStatus.approved || 0) : rows.filter((r) => r.status === 'approved').length;
+  const registered = hasSummary ? Number(byStatus.registered || 0) : rows.filter((r) => r.status === 'registered').length;
   const nd = rows.filter((r) => r.type === 'ND').length;
   const hnd = rows.filter((r) => r.type === 'HND').length;
-  setText('adm-stat-total', rows.length);
+  const total = hasSummary ? Number(summary.total || 0) : rows.length;
+  setText('adm-stat-total', total);
   setText('adm-stat-awaiting', awaiting);
   setText('adm-stat-registered', registered);
   setText('adm-stat-split', `${nd} / ${hnd}`);

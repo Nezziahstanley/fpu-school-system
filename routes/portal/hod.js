@@ -285,6 +285,7 @@ router.post('/pending-results/:id/verify', only, async (req, res, next) => {
     }
 
     const row = await resultQueries.hodVerify(result.id, req.user.id);
+    if (!row) return res.status(409).json({ success: false, error: 'Only submitted results can be verified. Refresh the list.' });
 
     if (result.submittedBy) {
       await db.execute(sql`
@@ -322,6 +323,7 @@ router.post('/pending-results/:id/reject', only, async (req, res, next) => {
 
     const reason = req.body?.reason || 'Rejected by HOD';
     const row = await resultQueries.hodReject(result.id, req.user.id, reason);
+    if (!row) return res.status(409).json({ success: false, error: 'Only submitted results can be rejected. Refresh the list.' });
 
     if (result.submittedBy) {
       await db.execute(sql`
@@ -409,10 +411,15 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       id: results.id,
       courseId: results.courseId,
       submittedBy: results.submittedBy,
-    }).from(results).where(sql`${results.id} IN ${resultIds}`);
+      status: results.status,
+    }).from(results).where(inArray(results.id, resultIds.map(Number)));
 
     if (allResults.length !== resultIds.length) {
       return res.status(404).json({ success: false, error: 'Some results were not found.' });
+    }
+
+    if (allResults.some(r => r.status !== 'submitted')) {
+      return res.status(409).json({ success: false, error: 'Only submitted results can be verified. Refresh the list.' });
     }
 
     const courseIds = [...new Set(allResults.map(r => r.courseId))];
@@ -424,13 +431,17 @@ router.post('/results/bulk-approve', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Results are not in your department.' });
     }
 
-    await db.update(results)
+    const verifiedRows = await db.update(results)
       .set({ 
         status: 'hod_verified', 
         hodVerifiedAt: new Date(), 
         hodVerifiedBy: req.user.id 
       })
-      .where(sql`${results.id} IN ${resultIds}`);
+      .where(and(inArray(results.id, resultIds.map(Number)), eq(results.status, 'submitted')))
+      .returning({ id: results.id });
+    if (verifiedRows.length !== resultIds.length) {
+      return res.status(409).json({ success: false, error: 'Some results changed during verification. Refresh and review the list.' });
+    }
 
     const lecturerIds = [...new Set(allResults.map(r => r.submittedBy).filter(Boolean))];
     for (const lecturerId of lecturerIds) {
@@ -559,7 +570,7 @@ router.get('/verified-results', only, async (req, res, next) => {
       .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
       .where(and(
         eq(courses.departmentId, departmentId),
-        eq(results.status, 'hod_verified'),
+        eq(results.status, 'approved'),
         sql`${results.deletedAt} IS NULL`
       ))
       .orderBy(users.lastName);
@@ -1247,15 +1258,21 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Not in your department.' });
     }
 
-    await db.execute(sql`
+    const published = await db.execute(sql`
       UPDATE results 
       SET status = 'published', published_at = NOW()
-      WHERE course_id = ${courseId} AND status = 'hod_verified'
+      WHERE course_id = ${courseId} AND status = 'approved'
+        AND deleted_at IS NULL
+      RETURNING id
     `);
+    const publishedCount = published.rows?.length || 0;
+    if (!publishedCount) {
+      return res.status(409).json({ success: false, error: 'No academically approved results are ready for publication.' });
+    }
 
-    await logAudit({ req, action: 'hod.publish_results', entity: 'course', entityId: courseId });
+    await logAudit({ req, action: 'hod.publish_results', entity: 'course', entityId: courseId, after: { publishedCount } });
 
-    return res.json({ success: true, message: 'Results published successfully to students.' });
+    return res.json({ success: true, message: `${publishedCount} academically approved result(s) published successfully to students.`, publishedCount });
   } catch (err) {
     console.error('[hod/publish-results] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

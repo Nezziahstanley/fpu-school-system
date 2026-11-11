@@ -12146,6 +12146,79 @@ async function loadExams() {
   }
 }
 
+
+async function loadPaymentDetail() {
+  const root = document.getElementById('pd2-root');
+  const subtitle = document.getElementById('pd2-subtitle');
+  if (!root) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const qIndex = hash.indexOf('?');
+  const params = new URLSearchParams(qIndex >= 0 ? hash.slice(qIndex + 1) : '');
+  const paymentId = params.get('id') || params.get('paymentId');
+  if (!paymentId) {
+    root.innerHTML = '<div class="alert alert-warning">No payment record was selected. Return to Payments and open a receipt.</div>';
+    if (subtitle) subtitle.textContent = 'No payment selected';
+    return;
+  }
+  root.innerHTML = '<div class="loading" style="padding:40px;text-align:center;"><span class="spinner"></span> Loading payment receipt…</div>';
+  try {
+    const paymentRes = await adminFetch(`/api/admin/payments/${encodeURIComponent(paymentId)}`);
+    const paymentJson = await paymentRes.json();
+    if (!paymentRes.ok || !paymentJson.success || !paymentJson.data) {
+      throw new Error(paymentJson.error || 'Payment record could not be found.');
+    }
+    const payment = paymentJson.data.payment || paymentJson.data;
+    const studentId = payment.studentId || payment.student_id;
+    let student = {};
+    if (studentId) {
+      const studentRes = await adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`);
+      const studentJson = await studentRes.json();
+      if (studentRes.ok && studentJson.success) student = studentJson.data || {};
+    }
+    const studentName = [student.firstName || student.first_name, student.lastName || student.last_name].filter(Boolean).join(' ') || 'Student';
+    const matric = student.matricNumber || student.matric_number || '—';
+    const status = String(payment.status || 'pending');
+    const amount = money(payment.amount || 0);
+    const reference = payment.reference || payment.transactionReference || payment.transaction_reference || '—';
+    const date = fmtDateTime(payment.createdAt || payment.created_at);
+    const rows = [
+      ['Student', studentName],
+      ['Matric Number', matric],
+      ['Payment ID', payment.id || paymentId],
+      ['Academic Session', payment.sessionName || payment.session_name || payment.sessionId || payment.session_id || '—'],
+      ['Bank', payment.bankName || payment.bank_name || '—'],
+      ['Depositor', payment.depositorName || payment.depositor_name || '—'],
+      ['Recorded', date],
+      ['Remarks', payment.remarks || '—'],
+    ];
+    if (subtitle) subtitle.textContent = `${studentName} · ${matric}`;
+    root.innerHTML = `
+      <article class="receipt">
+        <header class="receipt-head">
+          <h1>FEDERAL POLYTECHNIC UGEP</h1>
+          <div class="sub">Official payment record</div>
+          <span class="doc-type">Payment Receipt</span>
+        </header>
+        <section class="receipt-amount">
+          <div class="num">${escapeHtml(amount)}</div>
+          <div class="ref">Reference: ${escapeHtml(reference)}</div>
+        </section>
+        <div class="receipt-status">${badge(status)}</div>
+        <section class="receipt-rows">
+          ${rows.map(([label, value]) => `<div class="receipt-row"><span class="k">${escapeHtml(label)}</span><span class="v">${escapeHtml(value)}</span></div>`).join('')}
+        </section>
+        <div class="receipt-actions no-print">
+          <button type="button" class="btn btn-outline" onclick="FPU_ADMIN.goBack('payments')">Back to Payments</button>
+          <button type="button" class="btn btn-primary" onclick="window.print()">Print Receipt</button>
+        </div>
+      </article>`;
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-error">Could not load this payment receipt: ${escapeHtml(err.message || 'Unknown error')}</div>`;
+    if (subtitle) subtitle.textContent = 'Receipt unavailable';
+    showToast('❌ ' + (err.message || 'Could not load payment receipt.'), 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -14956,7 +15029,7 @@ window.FPU_ADMIN = {
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
-  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend,
+  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 
   // Communication

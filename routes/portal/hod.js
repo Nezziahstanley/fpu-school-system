@@ -1516,8 +1516,9 @@ router.delete('/results/:resultId', only, async (req, res, next) => {
 // ============================================================
 // TIMETABLE: HOD Fetch, Submit, Delete
 // ============================================================
-
+// ============================================================
 // GET /api/hod/timetable
+// ============================================================
 router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
   try {
     const { sessionId, semester } = req.query;
@@ -1527,18 +1528,68 @@ router.get('/timetable', requireRole(['hod']), async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Not assigned to a department.' });
     }
 
-    const rows = await ttQueries.listWithRelations({ 
-      sessionId: Number(sessionId), 
-      semester 
-    });
-    
-    const filtered = rows.filter(r => {
-      const c = r.course || {};
-      return Number(c.departmentId) === Number(departmentId);
-    });
+    const result = await db.execute(sql`
+      SELECT 
+        ts.id              AS "slotId",
+        ts.course_id       AS "courseId",
+        ts.day_of_week     AS "dayOfWeek",
+        ts.start_time      AS "startTime",
+        ts.end_time        AS "endTime",
+        ts.venue,
+        ts.status,
+        c.code             AS "courseCode",
+        c.title            AS "courseTitle",
+        c.level,
+        c.unit,
+        u.id               AS "lecturerId",
+        u.first_name || ' ' || u.last_name AS "lecturerName"
+      FROM timetable_slots ts
+      INNER JOIN courses c ON ts.course_id = c.id
+      LEFT JOIN course_allocations ca 
+        ON ca.course_id = c.id 
+        AND ca.session_id = ts.session_id
+      LEFT JOIN users u ON u.id = ca.lecturer_id
+      WHERE c.department_id = ${Number(departmentId)}
+        ${sessionId ? sql`AND ts.session_id = ${Number(sessionId)}` : sql``}
+        ${semester ? sql`AND ts.semester = ${semester}` : sql``}
+      ORDER BY ts.day_of_week, ts.start_time
+    `);
 
-    res.json({ success: true, data: filtered });
-  } catch (err) { next(err); }
+    // Reshape the rows to match what the frontend expects
+    const data = (result.rows || []).map(r => ({
+      slot: {
+        id: r.slotId,
+        courseId: r.courseId,
+        dayOfWeek: r.dayOfWeek,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        venue: r.venue,
+        status: r.status,
+      },
+      course: {
+        id: r.courseId,
+        code: r.courseCode,
+        title: r.courseTitle,
+        level: r.level,
+        unit: r.unit,
+      },
+      lecturer: r.lecturerId ? {
+        id: r.lecturerId,
+        firstName: (r.lecturerName || '').split(' ')[0] || '',
+        lastName: (r.lecturerName || '').split(' ').slice(1).join(' ') || '',
+      } : null,
+      // Also include flat fields so frontend fallbacks work
+      courseCode: r.courseCode,
+      courseTitle: r.courseTitle,
+      lecturerName: r.lecturerName,
+      level: r.level,
+    }));
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[hod/timetable] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // POST /api/hod/timetable/submit-for-approval

@@ -250,16 +250,24 @@
       const s = r.slot || r;
       const c = r.course || {};
       
-      // SMART LECTURER NAME LOOKUP
+      // SMART LECTURER NAME LOOKUP (multiple fallbacks)
       let lectName = '—';
+      const courseId = s.courseId || c.id;
       
-      const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
-      if (allocatedCourse && allocatedCourse.lecturerName) {
-        lectName = allocatedCourse.lecturerName;
-      } else if (r.lecturer && r.lecturer.firstName) {
+      // 1. Try nested lecturer object (from raw SQL reshape)
+      if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
-      } else if (s.lecturerName) {
-        lectName = s.lecturerName;
+      }
+      // 2. Try flat lecturerName from API
+      else if (r.lecturerName) {
+        lectName = r.lecturerName;
+      }
+      // 3. Try matching against ALL_COURSES (allocations data)
+      else if (courseId) {
+        const allocated = ALL_COURSES.find(ac => String(ac.courseId) === String(courseId));
+        if (allocated && allocated.lecturerName) {
+          lectName = allocated.lecturerName;
+        }
       }
       
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
@@ -269,8 +277,8 @@
       return `
         <tr>
           <td>
-            <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
+            <div style="font-weight:700;color:#0f172a;">${esc(c.code || r.courseCode || '—')}</div>
+            <div style="font-size:.72rem;color:#64748b;">${esc(c.title || r.courseTitle || '')}</div>
           </td>
           <td style="font-weight:600;color:#065f46;">${esc(lectName)}</td>
           <td>${esc(s.dayOfWeek || '—')}</td>
@@ -295,7 +303,7 @@
       });
     });
   }
-
+  
   // Render the master table based on selected Level, Semester, and Day
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value;

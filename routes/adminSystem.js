@@ -5,6 +5,8 @@
 
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/auth');
+const { adminLimiter } = require('../middleware/rateLimits');
 
 // Safe require for db (handles both { query } and default exports)
 let query;
@@ -19,7 +21,7 @@ try {
 // ------------------------------------------------------------
 // POST /api/admin/system/deploy
 // ------------------------------------------------------------
-router.post('/deploy', async (req, res) => {
+router.post('/deploy', requireAdmin, adminLimiter, async (req, res) => {
   try {
     const { branch = 'main', notes = '' } = req.body || {};
 
@@ -48,14 +50,15 @@ router.post('/deploy', async (req, res) => {
       notes,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('[adminSystem] request failed:', err?.message);
+    res.status(500).json({ success: false, error: 'Unable to complete the system request.' });
   }
 });
 
 // ------------------------------------------------------------
 // GET /api/admin/system/deployments
 // ------------------------------------------------------------
-router.get('/deployments', async (req, res) => {
+router.get('/deployments', requireAdmin, async (req, res) => {
   try {
     let rows = [];
     try {
@@ -76,7 +79,7 @@ router.get('/deployments', async (req, res) => {
 // ------------------------------------------------------------
 // GET /api/admin/system/github-status
 // ------------------------------------------------------------
-router.get('/github-status', async (req, res) => {
+router.get('/github-status', requireAdmin, async (req, res) => {
   try {
     const token = process.env.GITHUB_TOKEN;
     const repo  = process.env.GITHUB_REPO;

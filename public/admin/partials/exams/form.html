@@ -212,7 +212,7 @@
     $('exf-cancel').onclick = () => history.back();
     $('exf-back').onclick = () => history.back();
     $('exf-delete').onclick = async () => {
-      if (!confirm('Delete this exam?')) return;
+      if (!(await window.fpuConfirm('Delete this exam?', { title: 'Delete Exam', type: 'danger', okText: 'Delete Exam' }))) return;
       try {
         await A.adminFetch(`/api/admin/exams/${id}`, { method: 'DELETE' });
         A.showToast('🗑️ Exam deleted.', 'success');

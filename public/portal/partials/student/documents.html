@@ -407,24 +407,60 @@
           </div>
         `);
       } 
-      else {
-        // Generic Document (Certificate, Clearance)
+      else if (t.includes('clearance')) {
         html = a4Wrapper(`
-          <div class="official-letterhead">
-            <img src="/images/logo.png" onerror="this.style.display='none'" />
-            <div><div class="inst-name">FEDERAL POLYTECHNIC Ugep</div><div class="inst-motto">Office of the Registrar</div></div>
-          </div>
-          <div class="official-title">${t.replace('-', ' ')}</div>
-          <div class="official-body">
-            <p>This is to certify that <strong>${esc(fullName)}</strong> with Matric Number <strong>${esc(idValue)}</strong> has fulfilled the requirements for this document.</p>
-            <p>The student is currently enrolled in the programme: <strong>${esc(progName)}</strong> in the <strong>${esc(deptName)}</strong> department.</p>
-            <p>This document is valid for official use.</p>
-            <div style="margin-top:60px; display:flex; justify-content:space-between;">
-              <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Bursar</div></div>
-              <div style="text-align:center;"><div style="border-bottom:1px solid #000; width:200px; margin-bottom:10px;"></div><div style="font-size:14px; font-weight:bold;">Registrar</div></div>
+          <div style="border:8px double #065f46;padding:28px;min-height:850px;position:relative;background:linear-gradient(135deg,#fff 0%,#fbfdfb 100%);">
+            <div style="position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);opacity:.055;pointer-events:none;"><img src="/images/logo.png" style="width:390px;height:390px;object-fit:contain;" /></div>
+            <div style="position:relative;z-index:1;">
+              <div class="official-letterhead" style="border:0;border-bottom:3px solid #065f46;padding-bottom:18px;margin-bottom:26px;">
+                <img src="/images/logo.png" onerror="this.style.display='none'" style="width:82px;height:82px;object-fit:contain;" />
+                <div><div class="inst-name">FEDERAL POLYTECHNIC UGEP</div><div class="inst-motto">Office of the Registrar · Ugep, Cross River State</div><div style="font-size:10px;letter-spacing:2px;font-weight:800;color:#a16207;margin-top:5px;">OFFICIAL INSTITUTIONAL DOCUMENT</div></div>
+              </div>
+              <div style="text-align:center;margin:35px 0 28px;"><div style="display:inline-block;border:1px solid #d6b45a;color:#8a6512;padding:7px 22px;font-size:10px;letter-spacing:3px;font-weight:800;">STUDENT SERVICES</div><h1 style="font-family:'Poppins',sans-serif;font-size:29px;letter-spacing:3px;color:#064e3b;margin:15px 0 4px;">CLEARANCE CERTIFICATE</h1><div style="height:3px;width:110px;background:#c9a84c;margin:12px auto;"></div><p style="font-size:11px;color:#64748b;letter-spacing:1px;">DOCUMENT REFERENCE: FPU/CLR/${String(docId).padStart(6,'0')}</p></div>
+              <div class="official-body" style="font-size:16px;line-height:2.1;">
+                <p>This document is issued to <strong style="color:#064e3b;font-size:18px;">${esc(fullName)}</strong>, holder of Matriculation Number <strong>${esc(idValue)}</strong>, of the <strong>${esc(deptName)}</strong> Department, enrolled in <strong>${esc(progName)}</strong> (${esc(level)}).</p>
+                <div style="margin:30px 0;padding:18px 22px;background:#f0fdf4;border-left:5px solid #065f46;border-radius:4px;"><div style="font-size:10px;font-weight:800;letter-spacing:1.5px;color:#64748b;margin-bottom:7px;">REQUEST DETAILS</div><div style="font-size:15px;font-weight:700;color:#0f172a;">${esc(title || 'Student clearance')}</div><div style="font-size:12px;color:#64748b;margin-top:7px;">This document records the institution's response to the student's clearance-document request. The clearance status remains subject to the official student record.</div></div>
+                <p>Issued on <strong>${dateStr}</strong> for presentation to the relevant authority. This document should be validated through the institution before reliance is placed on it.</p>
+              </div>
+              <div class="official-signatures" style="margin-top:75px;grid-template-columns:1fr 1fr;gap:50px;">
+                <div style="text-align:center;"><div class="official-sig-line"></div><div class="official-sig-role">BURSAR</div><div style="font-size:10px;color:#64748b;">Finance clearance</div></div>
+                <div style="text-align:center;"><div class="official-sig-line"></div><div class="official-sig-role">REGISTRAR</div><div style="font-size:10px;color:#64748b;">For the Institution</div></div>
+              </div>
+              <div style="margin-top:48px;border-top:1px solid #dbe4dc;padding-top:12px;text-align:center;font-size:9px;letter-spacing:1px;color:#64748b;">FEDERAL POLYTECHNIC UGEP · OFFICIAL DOCUMENT · FPU/CLR/${String(docId).padStart(6,'0')}</div>
             </div>
-            <p style="margin-top:50px; font-size:14px;">Date: ${dateStr}</p>
           </div>
+        `);
+      }
+      else if (t.includes('certificate')) {
+        html = a4Wrapper(`
+          <div style="min-height:850px;padding:34px;border:12px solid #064e3b;outline:2px solid #c9a84c;outline-offset:-22px;position:relative;background:#fffdf7;">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.055;"><img src="/images/logo.png" style="width:420px;height:420px;object-fit:contain;" /></div>
+            <div style="position:relative;z-index:1;text-align:center;padding:24px 18px;">
+              <img src="/images/logo.png" alt="Federal Polytechnic Ugep crest" onerror="this.style.display='none'" style="width:100px;height:100px;object-fit:contain;margin:0 auto 12px;" />
+              <div style="font-family:'Poppins',sans-serif;font-size:24px;font-weight:900;letter-spacing:2px;color:#064e3b;">FEDERAL POLYTECHNIC UGEP</div>
+              <div style="font-size:11px;letter-spacing:3px;color:#9a741b;font-weight:800;margin-top:5px;">CROSS RIVER STATE · NIGERIA</div>
+              <div style="width:150px;height:3px;background:#c9a84c;margin:24px auto;"></div>
+              <div style="font-family:'Poppins',sans-serif;font-size:34px;letter-spacing:5px;font-weight:900;color:#0f172a;margin:20px 0 5px;">CERTIFICATE</div>
+              <div style="font-size:12px;letter-spacing:4px;color:#64748b;font-weight:700;">OF OFFICIAL RECORD</div>
+              <p style="font-family:Georgia,serif;font-size:18px;color:#475569;margin:42px 0 16px;font-style:italic;">This certificate is respectfully issued to</p>
+              <div style="font-family:Georgia,serif;font-size:31px;font-weight:700;color:#064e3b;border-bottom:1px solid #c9a84c;padding:0 12px 12px;display:inline-block;min-width:70%;">${esc(fullName)}</div>
+              <p style="font-family:Georgia,serif;font-size:16px;line-height:1.9;color:#334155;margin:28px auto;max-width:620px;">Matriculation Number <strong>${esc(idValue)}</strong><br/>Department of <strong>${esc(deptName)}</strong><br/>Programme: <strong>${esc(progName)}</strong> · Level: <strong>${esc(level)}</strong></p>
+              <p style="font-family:Georgia,serif;font-size:15px;line-height:1.8;color:#475569;max-width:620px;margin:20px auto;">In recognition of the official record described as <strong>${esc(title || 'Certificate request')}</strong>. This certificate is issued by Federal Polytechnic Ugep subject to verification of the institution's records.</p>
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:30px;margin:75px 25px 0;">
+                <div style="width:220px;text-align:center;"><div style="height:35px;border-bottom:1px solid #0f172a;"></div><div style="font-size:11px;font-weight:800;letter-spacing:1px;margin-top:8px;color:#064e3b;">REGISTRAR</div></div>
+                <div style="width:220px;text-align:center;"><div style="height:35px;border-bottom:1px solid #0f172a;"></div><div style="font-size:11px;font-weight:800;letter-spacing:1px;margin-top:8px;color:#064e3b;">RECTOR</div></div>
+              </div>
+              <div style="margin-top:45px;font-size:10px;color:#64748b;letter-spacing:1px;">ISSUED: ${dateStr} · CERTIFICATE NO: FPU/CERT/${String(docId).padStart(6,'0')}</div>
+            </div>
+          </div>
+        `);
+      }
+      else {
+        // Fallback for any other approved document request.
+        html = a4Wrapper(`
+          <div class="official-letterhead"><img src="/images/logo.png" onerror="this.style.display='none'" /><div><div class="inst-name">FEDERAL POLYTECHNIC UGEP</div><div class="inst-motto">Office of the Registrar</div></div></div>
+          <div class="official-title">${esc(t.replace(/-/g, ' '))}</div>
+          <div class="official-body"><p>This document is issued to <strong>${esc(fullName)}</strong> (Matriculation Number <strong>${esc(idValue)}</strong>), of <strong>${esc(progName)}</strong>, Department of <strong>${esc(deptName)}</strong>.</p><p>Request: ${esc(title || 'Official document request')}</p><p>Issued on ${dateStr} for official purposes, subject to institutional verification.</p><div class="official-signatures"><div><div class="official-sig-line"></div><div class="official-sig-role">REGISTRAR</div></div><div><div class="official-sig-line"></div><div class="official-sig-role">AUTHORISED OFFICER</div></div></div></div>
         `);
       }
 

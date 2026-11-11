@@ -905,16 +905,20 @@ function updateAdmittedStats(rows, summary) {
 async function bulkRegisterAdmitted() {
   const ids = Array.from(document.querySelectorAll('.adm-check:checked')).map((cb) => Number(cb.dataset.id));
   if (ids.length === 0) { showToast('⚠️ Select at least one applicant.', 'warning'); return; }
-  if (!confirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach will be assigned a matric number and default password "student1234".`)) return;
-  let ok = 0, failed = 0;
+  if (!confirm(`Create student accounts for ${ids.length} applicant(s)?\n\nEach student will receive a unique temporary password by email and must change it after signing in.`)) return;
+  let ok = 0, failed = 0, emailFailed = 0;
   for (const id of ids) {
     try {
       const res = await adminFetch(`/api/admin/applications/${id}/register`, { method: 'POST' });
       const json = await res.json();
-      if (json.success) ok++; else failed++;
+      if (json.success) {
+        ok++;
+        if (!json.data?.emailSent) emailFailed++;
+      } else failed++;
     } catch (e) { failed++; }
   }
-  showToast(failed === 0 ? `✅ Registered ${ok} applicant(s).` : `⚠️ ${ok} registered, ${failed} failed.`, failed > 0 ? 'warning' : 'success');
+  const summary = `Registered ${ok}; email failures ${emailFailed}; registration failures ${failed}.`;
+  showToast(summary, (failed || emailFailed) ? 'warning' : 'success');
   loadAdmitted();
 }
 

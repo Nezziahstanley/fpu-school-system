@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { db, schema } = require('../db');
-const { eq, asc } = require('drizzle-orm');
+const { eq, asc, sql } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
 const { users, departments, programmes, schools, staffProfiles } = schema;
 
@@ -20,7 +20,8 @@ router.get('/', requireRole(ACCESS), async (req, res, next) => {
       email: users.email, phone: users.phone, role: users.role, matricNumber: users.matricNumber,
       level: users.level, photoUrl: users.idCardPhotoUrl, profilePhotoUrl: users.photoUrl,
       isActive: users.isActive, departmentName: departments.name, programmeName: programmes.name,
-      schoolName: schools.name, staffNumber: staffProfiles.staffNumber, rank: staffProfiles.rank,
+      schoolName: schools.name, departmentName: sql`COALESCE(${departments.name}, (SELECT d.name FROM departments d WHERE d.id = ${staffProfiles.departmentId}))`,
+      staffNumber: staffProfiles.staffNumber, rank: staffProfiles.rank, qualification: staffProfiles.qualification,
       specialization: staffProfiles.specialization, employmentDate: staffProfiles.employmentDate,
     }).from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))

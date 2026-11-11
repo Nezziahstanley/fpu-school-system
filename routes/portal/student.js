@@ -86,7 +86,8 @@ router.get('/dashboard', only, async (req, res, next) => {
     const uniqueResults = [];
     const seen = new Set();
     allResults.forEach(r => {
-      if (!seen.has(r.courseCode)) { seen.add(r.courseCode); uniqueResults.push(r); }
+      const key = `${r.courseCode}-${r.semester}-${r.sessionName || ''}`;
+      if (!seen.has(key)) { seen.add(key); uniqueResults.push(r); }
     });
 
     let totalPoints = 0, totalUnits = 0;

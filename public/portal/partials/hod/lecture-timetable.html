@@ -224,9 +224,8 @@
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
+    // Load slots AND courses so we can map the lecturer names
     const rows = await loadSlots();
-
-    // Populate ALL_COURSES if it's empty so we have the lecturer names
     if (!ALL_COURSES.length) await loadCoursesWithAllocations();
 
     const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
@@ -252,19 +251,19 @@
       const s = r.slot || r;
       const c = r.course || {};
       
-      // SMART LECTURER NAME LOOKUP
+      // FIX: Look up the lecturer name from the ALL_COURSES array using courseId
       let lectName = '—';
       
-      // Attempt 1: Match by courseId against the allocations API data
+      // 1. Try to find the course in ALL_COURSES to get the allocated lecturer name
       const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
       if (allocatedCourse && allocatedCourse.lecturerName) {
         lectName = allocatedCourse.lecturerName;
       } 
-      // Attempt 2: Check if backend returned a nested lecturer object
+      // 2. Fallback: Check if the API already returned a nested lecturer object
       else if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
       }
-      // Attempt 3: Check if backend returned lecturerName directly on the slot
+      // 3. Fallback: Check if the API returned a direct lecturerName
       else if (s.lecturerName) {
         lectName = s.lecturerName;
       }
@@ -504,11 +503,9 @@
       const cb = row.querySelector('.batch-checkbox');
       const courseId = Number(cb.dataset.id);
       
-      // Find the lecturer ID from the locked UI or the dropdown
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
 
-      // If the dropdown is missing (locked), find the assigned lecturer from ALL_COURSES
       if (!lecturerSelect) {
         const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
         if (found && found.lecturerId) lecturerId = Number(found.lecturerId);

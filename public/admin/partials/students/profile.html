@@ -114,7 +114,7 @@
     }
     async function styledPrompt(message, defaultValue, options) {
       if (typeof window.fpuPrompt === 'function') {
-        return await window.fpuPrompt(message, '', (options && options.title) || 'Input Required', defaultValue || '');
+        return await window.fpuPrompt(message, '', (options && options.title) || 'Input Required', defaultValue || '', { placeholder: (options && options.placeholder) || 'Type here...', okText: (options && options.okText) || 'Submit', inputType: 'password' });
       }
       return null;
     }

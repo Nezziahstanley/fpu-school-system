@@ -303,7 +303,7 @@ async function update(id, patch) {
     'gender', 'dateOfBirth', 'stateOfOrigin', 'nationality', 'address',
     'matricNumber', 'level', 'programmeId', 'departmentId', 'schoolId',
     'currentSessionId', 'isActive', 'mustChangePassword',
-    'photoUrl',
+    'photoUrl', 'signatureUrl',
     'passwordHash',
   ];
   const clean = {};

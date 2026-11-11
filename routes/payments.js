@@ -48,10 +48,14 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
 router.post('/', requireRole(['admin', 'bursar']), async (req, res, next) => {
   try {
     const { studentId, sessionId, amount, reference } = req.body || {};
-    if (!studentId || !sessionId || amount === undefined || !reference) {
+    const numericAmount = Number(amount);
+    if (!studentId || !sessionId || amount === undefined || !String(reference || '').trim()) {
       return res.status(400).json({ success: false, error: 'studentId, sessionId, amount, reference are required.' });
     }
-    const row = await paymentQueries.create(req.body);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Payment amount must be a positive number.' });
+    }
+    const row = await paymentQueries.create({ ...req.body, amount: numericAmount });
     await logAudit({ req, action: 'payment.create', entity: 'payment', entityId: row.id, after: row });
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
@@ -64,6 +68,9 @@ router.put('/:id', requireRole(['admin', 'bursar']), async (req, res, next) => {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be edited.' });
+    if (req.body?.amount !== undefined && (!Number.isFinite(Number(req.body.amount)) || Number(req.body.amount) <= 0)) {
+      return res.status(400).json({ success: false, error: 'Payment amount must be a positive number.' });
+    }
     const patch = { ...req.body };
     delete patch.id;
     delete patch.status;

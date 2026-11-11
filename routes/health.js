@@ -17,21 +17,19 @@ const BOOT_TIME = Date.now();
 // ------------------------------------------------------------
 router.get('/health', async (_req, res) => {
   let dbOk = false;
-  let dbError = null;
   try {
     dbOk = await ping();
   } catch (err) {
-    dbError = err.message;
+    // Keep diagnostic details in server logs, not in the public response.
+    console.error('[health] database ping failed:', err?.message);
   }
 
-  return res.json({
-    success: true,
+  return res.status(dbOk ? 200 : 503).json({
+    success: dbOk,
     app: 'FPU School Management System',
-    env: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.round((Date.now() - BOOT_TIME) / 1000),
     now: new Date().toISOString(),
     db: dbOk ? 'up' : 'down',
-    dbError,
     email: isEmailEnabled() ? 'enabled' : 'disabled',
   });
 });

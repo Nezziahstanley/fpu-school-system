@@ -273,6 +273,7 @@
       { key: 'admission-officer-applications', label: 'Applications', icon: ICON.clipboard },
       { key: 'admission-officer-admitted',     label: 'Admitted',     icon: ICON.check },
       { key: 'admission-officer-letters',      label: 'Letters',      icon: ICON.file },
+      { key: 'admission-officer-reports',      label: 'Admission Reports', icon: ICON.chart },
     ],
     admin:      [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],
     superadmin: [{ key: 'superadmin-dashboard', label: 'Dashboard', icon: ICON.dash }],

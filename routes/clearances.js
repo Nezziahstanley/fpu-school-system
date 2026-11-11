@@ -53,9 +53,14 @@ router.get('/stats', requireRole(STAFF), async (req, res, next) => {
 // GET /api/admin/clearances/student/:studentId
 router.get('/student/:studentId', requireRole(STAFF), async (req, res, next) => {
   try {
+    const requestedSessionId = req.query?.sessionId || null;
     const result = await db.query(
-      'SELECT * FROM clearances WHERE student_id = $1 LIMIT 1',
-      [req.params.studentId]
+      `SELECT * FROM clearances
+       WHERE student_id = $1
+         AND session_id = COALESCE($2::int, (SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1))
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.params.studentId, requestedSessionId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'No clearance found.' });
@@ -83,11 +88,12 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
     }
     const sessionId = sessionRes.rows[0].id;
 
-    if (!['pending', 'cleared', 'rejected'].includes(String(status).toLowerCase())) {
+    const normalizedStatus = String(status).toLowerCase();
+    if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
     }
-    const clearedBy = status === 'cleared' ? (req.user?.id || null) : null;
-    const clearedAt = status === 'cleared' ? new Date() : null;
+    const clearedBy = normalizedStatus === 'cleared' ? (req.user?.id || null) : null;
+    const clearedAt = normalizedStatus === 'cleared' ? new Date() : null;
 
     // THE FIX IS HERE: ${status}::clearance_status forces PostgreSQL to cast the string properly
     const query = `
@@ -103,7 +109,7 @@ router.post('/', requireRole(['admin', 'bursar', 'registrar']), async (req, res,
       RETURNING *;
     `;
     const result = await db.query(query, [
-      studentId, sessionId, status, remarks || null, clearedBy, clearedAt
+      studentId, sessionId, normalizedStatus, remarks || null, clearedBy, clearedAt
     ]);
     
     await logAudit({ req, action: 'clearance.upsert', entity: 'clearance', entityId: result.rows[0].id });

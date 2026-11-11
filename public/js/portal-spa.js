@@ -307,14 +307,16 @@
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return null;
     
+    const role = user.role;
     if (cleanKey === 'registrar-student-profile') {
-      return { 
-        url: '/portal/partials/registrar/student-profile.html', 
-        title: 'Student Profile' 
+      if (!['registrar', 'admin', 'superadmin'].includes(role)) {
+        return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
+      }
+      return {
+        url: '/portal/partials/registrar/student-profile.html',
+        title: 'Student Profile'
       };
     }
-
-    const role = user.role;
     const folder = ROLE_FOLDER[role] || 'shared';
 
     const adminOnly = ['admin-settings', 'admin-users'];
@@ -359,7 +361,12 @@
       };
     }
 
-    if (SHARED_PAGES.some((p) => p.key === cleanKey) || cleanKey.startsWith('admin-')) {
+    const sharedPage = SHARED_PAGES.find((p) => p.key === cleanKey);
+    if (sharedPage) {
+      const allowedSharedPage = getSharedItemsForRole(role).some((p) => p.key === cleanKey);
+      if (!allowedSharedPage) {
+        return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
+      }
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       return {
         url: `/portal/partials/shared/${file}.html`,
@@ -367,7 +374,16 @@
       };
     }
 
-    return { url: `/portal/partials/${folder}/${cleanKey}.html`, title: cleanKey };
+    // Permit only role-owned detail pages and explicitly registered special pages.
+    // Never let an unregistered admin-* key fall through to an arbitrary partial.
+    const rolePrefix = role.replace(/_/g, '-') + '-';
+    const isRoleOwnedPage = cleanKey.startsWith(rolePrefix);
+    const isHodTimetable = role === 'hod' && cleanKey === 'lecture-timetable';
+    if (isRoleOwnedPage || isHodTimetable) {
+      return { url: `/portal/partials/${folder}/${cleanKey}.html`, title: cleanKey.replace(/-/g, ' ') };
+    }
+
+    return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
   }
 
   function renderSidebar(activeKey) {
@@ -432,7 +448,12 @@
     });
   }
 
+  let lastRequestedPageKey = '';
+  let activeLoadId = 0;
+
   async function loadPage(pageKey) {
+    const requestId = ++activeLoadId;
+    lastRequestedPageKey = pageKey;
     const cfg = resolvePageConfig(pageKey);
     if (!cfg) return;
 
@@ -448,7 +469,7 @@
 
     view.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
     renderSidebar(pageKey);
-    window.location.hash = `#${pageKey}`;
+    if (window.location.hash !== `#${pageKey}`) window.location.hash = `#${pageKey}`;
 
     try {
       let res = await fetch(cfg.url, { cache: 'no-cache' });
@@ -457,9 +478,11 @@
       }
       if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
       const html = await res.text();
+      if (requestId !== activeLoadId) return;
       view.innerHTML = html;
       executePartialScripts(view);
     } catch (err) {
+      if (requestId !== activeLoadId) return;
       console.error('[portal-spa] load error:', err);
       view.innerHTML = `<div class="panel"><div class="panel-body">
         <div class="alert alert-error">Failed to load this page: ${err.message}</div>
@@ -567,7 +590,7 @@
 
     window.addEventListener('hashchange', () => {
       const h = (window.location.hash || '').replace(/^#/, '');
-      if (h) loadPage(h);
+      if (h && h !== lastRequestedPageKey) loadPage(h);
     });
   }
 

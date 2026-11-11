@@ -718,11 +718,21 @@ router.post('/clearances/:id/status', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Invalid status. Must be cleared or rejected.' });
     }
 
+    if (status === 'cleared') {
+      const [signer] = await db.select({ signatureUrl: users.signatureUrl })
+        .from(users).where(eq(users.id, req.user.id)).limit(1);
+      if (!signer?.signatureUrl) {
+        return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before approving a clearance.' });
+      }
+    }
+    const patch = status === 'cleared'
+      ? { status, clearedBy: req.user.id, clearedAt: new Date() }
+      : { status, clearedBy: null, clearedAt: null };
     const [updated] = await db.update(clearances)
-      .set({ status: status })
+      .set(patch)
       .where(eq(clearances.id, Number(req.params.id)))
       .returning();
-
+    if (!updated) return res.status(404).json({ success: false, error: 'Clearance not found.' });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

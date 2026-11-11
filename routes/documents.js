@@ -196,27 +196,27 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
           </div>
 
           <div style="padding: 1.2rem; display: flex; gap: 1rem;">
-            <div style="width: 100px; height: 120px; border-radius: 10px; background: ${photoUrl ? `url('${photoUrl}') center/cover` : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 2rem; flex-shrink: 0; border: 2px solid #f1f5f9;">
+            <div style="width: 100px; height: 120px; border-radius: 10px; background: ${safePhotoUrl ? `url('${escapeHtml(safePhotoUrl)}') center/cover` : 'linear-gradient(135deg,#065f46,#f59e0b)'}; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 2rem; flex-shrink: 0; border: 2px solid #f1f5f9;">
               ${photoUrl ? '' : (stu.firstName || 'S')[0].toUpperCase()}
             </div>
             <div style="flex: 1; min-width: 0;">
-              <div style="font-weight: 800; color: #065f46; font-size: 1.05rem; margin-bottom: .5rem; line-height: 1.2;">${studentName}</div>
+              <div style="font-weight: 800; color: #065f46; font-size: 1.05rem; margin-bottom: .5rem; line-height: 1.2;">${escapeHtml(studentName)}</div>
               <div style="font-size: .78rem; color: #475569; display: flex; flex-direction: column; gap: .35rem;">
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Matric</span>
-                  <strong style="color: #0f172a;">${matricNumber || '—'}</strong>
+                  <strong style="color: #0f172a;">${escapeHtml(matricNumber || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Level</span>
-                  <strong style="color: #0f172a;">${level || '—'}</strong>
+                  <strong style="color: #0f172a;">${escapeHtml(level || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e5e7eb; padding-bottom: .25rem;">
                   <span style="color: #64748b;">Programme</span>
-                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${progName || '—'}</strong>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${escapeHtml(progName || '—')}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                   <span style="color: #64748b;">Dept</span>
-                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${deptName || '—'}</strong>
+                  <strong style="color: #0f172a; text-align: right; font-size: .72rem;">${escapeHtml(deptName || '—')}</strong>
                 </div>
               </div>
             </div>
@@ -292,7 +292,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
               <p style="margin: .3rem 0 0; color: #64748b; font-size: .8rem;">P.M.B. 1038, Ugep, Cross River State, Nigeria</p>
             </div>
 
-            <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${docType}</h2>
+            <h2 style="text-align: center; color: #0f172a; text-transform: uppercase; font-size: 1rem; letter-spacing: 2px; margin-bottom: 2rem; text-decoration: underline;">${escapeHtml(docType)}</h2>
 
             <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
               This is to certify that <strong>${studentName}</strong> with Matric Number <strong>${matricNumber || '—'}</strong> 
@@ -314,12 +314,12 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
               </tr>
               <tr>
                 <td style="padding: .6rem 0; color: #64748b;">Session</td>
-                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">2025/2026</td>
+                <td style="padding: .6rem 0; text-align: right; font-weight: 700; color: #0f172a;">Academic records on file</td>
               </tr>
             </table>
 
             <p style="color: #0f172a; line-height: 1.9; font-size: .92rem;">
-              ${doc.remarks || `This document is issued at the request of the student for official purposes.`}
+              ${escapeHtml(doc.remarks || 'This document is issued at the request of the student for official purposes.')}
             </p>
 
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 3.5rem;">

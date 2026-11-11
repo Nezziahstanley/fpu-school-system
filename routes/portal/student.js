@@ -362,12 +362,46 @@ router.post('/register-course', only, async (req, res, next) => {
     const sessionId = await resolveCurrentAcademicSessionId(req);
     if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
-    if (!courseId || !semester) return res.status(400).json({ success: false, error: 'courseId and semester are required.' });
+    const numericCourseId = Number(courseId);
+    const normalizedSemester = String(semester || '').toLowerCase();
+    if (!Number.isInteger(numericCourseId) || numericCourseId <= 0 || !['first', 'second'].includes(normalizedSemester)) {
+      return res.status(400).json({ success: false, error: 'A valid course and semester (first or second) are required.' });
+    }
+
+    const [student] = await db.select({
+      departmentId: users.departmentId,
+      level: users.level,
+      programmeId: users.programmeId
+    }).from(users).where(eq(users.id, studentId)).limit(1);
+    if (!student) return res.status(404).json({ success: false, error: 'Student account not found.' });
+
+    const [course] = await db.select({
+      id: courses.id,
+      departmentId: courses.departmentId,
+      level: courses.level
+    }).from(courses).where(eq(courses.id, numericCourseId)).limit(1);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (Number(course.departmentId) !== Number(student.departmentId) || String(course.level) !== String(student.level)) {
+      return res.status(403).json({ success: false, error: 'You can only register courses assigned to your department and level.' });
+    }
+
+    const [existing] = await db.select({ id: courseRegistrations.id })
+      .from(courseRegistrations)
+      .where(and(
+        eq(courseRegistrations.studentId, studentId),
+        eq(courseRegistrations.courseId, numericCourseId),
+        eq(courseRegistrations.sessionId, sessionId),
+        eq(courseRegistrations.semester, normalizedSemester),
+        inArray(courseRegistrations.status, ['pending', 'approved'])
+      ))
+      .limit(1);
+    if (existing) return res.status(409).json({ success: false, error: 'You already have a pending or approved registration for this course in this semester.' });
 
     const [row] = await db.insert(courseRegistrations).values({
-      studentId, courseId: Number(courseId), sessionId, semester, status: 'pending',
+      studentId, courseId: numericCourseId, sessionId, semester: normalizedSemester, status: 'pending',
     }).onConflictDoNothing().returning();
 
+    if (!row) return res.status(409).json({ success: false, error: 'This course registration already exists. Refresh your registrations.' });
     return res.status(201).json({ success: true, data: row });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });

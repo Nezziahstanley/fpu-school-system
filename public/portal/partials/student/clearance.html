@@ -143,10 +143,13 @@
       <img src="/images/logo.png" class="clearance-watermark" alt="FPU Logo Watermark">
       
       <div class="cert-content">
-        <div style="text-align:center;border-bottom:2px solid #065f46;padding-bottom:1rem;margin-bottom:2rem;">
-          <h1 style="margin:0;color:#065f46;font-size:1.8rem;letter-spacing:1px;">FEDERAL POLYTECHNIC UGEP</h1>
-          <p style="margin:.25rem 0 0;color:#475569;font-size:1rem;">Office of the Registrar</p>
-          <h2 style="margin:1.5rem 0 0;color:#0f172a;font-size:1.4rem;text-transform:uppercase;" id="cert-title">CLEARANCE CERTIFICATE</h2>
+        <div style="text-align:center;border-bottom:4px double #065f46;padding-bottom:1.2rem;margin-bottom:2rem;">
+          <img src="/images/logo.png" alt="Federal Polytechnic Ugep logo" style="width:88px;height:88px;object-fit:contain;margin:0 auto 10px;display:block;" onerror="this.style.display='none'" />
+          <h1 style="margin:0;color:#065f46;font-family:Arial,sans-serif;font-size:1.75rem;letter-spacing:1.5px;font-weight:900;">FEDERAL POLYTECHNIC UGEP</h1>
+          <p style="margin:.35rem 0 0;color:#475569;font-size:.9rem;">P.M.B. 1038, Ugep, Cross River State, Nigeria</p>
+          <p style="margin:.35rem 0 0;color:#a16207;font-family:Arial,sans-serif;font-size:.68rem;font-weight:800;letter-spacing:2px;">OFFICE OF THE REGISTRAR</p>
+          <h2 style="margin:1.5rem 0 .4rem;color:#0f172a;font-family:Arial,sans-serif;font-size:1.45rem;letter-spacing:2px;text-transform:uppercase;" id="cert-title">CLEARANCE CERTIFICATE</h2>
+          <div id="cert-reference" style="font:700 10px Arial,sans-serif;color:#64748b;letter-spacing:1px;">REFERENCE: FPU/CLR/000000</div>
         </div>
 
         <div style="font-size:1.1rem;line-height:2;color:#1e293b;">
@@ -162,10 +165,11 @@
             <div style="font-weight:700;color:#0f172a;">Date Printed</div>
             <div id="cert-date" style="font-size:.9rem;color:#475569;">Today's Date</div>
           </div>
-          <div style="text-align:center;">
-            <div style="width:150px;border-bottom:1px solid #0f172a;margin-bottom:.5rem;"></div>
-            <div style="font-weight:700;color:#0f172a;">Registrar</div>
-            <div style="font-size:.9rem;color:#475569;">Signature & Stamp</div>
+          <div style="text-align:center;min-width:190px;">
+            <img id="cert-signature" src="" alt="Electronic signature" style="display:none;max-width:165px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />
+            <div style="width:190px;border-bottom:1px solid #0f172a;margin:0 auto .5rem;"></div>
+            <div id="cert-signer-name" style="font-weight:700;color:#0f172a;">Authorised Officer</div>
+            <div id="cert-signer-role" style="font-size:.78rem;color:#475569;">Registrar · Electronically signed</div>
           </div>
         </div>
       </div>
@@ -263,9 +267,15 @@
     $('cert-matric').textContent = (c.matricNumber || '').replace(/SMT/gi, '').trim() || 'MATRIC';
     $('cert-type').textContent = c.type;
     $('cert-status').textContent = c.status;
-    
+    $('cert-reference').textContent = 'REFERENCE: FPU/CLR/' + String(c.id).padStart(6, '0');
+    const signature = $('cert-signature');
+    if (c.signerSignatureUrl) { signature.src = c.signerSignatureUrl; signature.style.display = 'block'; }
+    else { signature.removeAttribute('src'); signature.style.display = 'none'; }
+    $('cert-signer-name').textContent = [c.signerFirstName, c.signerLastName].filter(Boolean).join(' ') || 'Authorised Officer';
+    $('cert-signer-role').textContent = c.signerRole ? String(c.signerRole).replace(/_/g, ' ').toUpperCase() + ' · Electronically signed' : 'Registrar · Signature pending';
+
     const today = new Date().toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
-    $('cert-date').textContent = today;
+    $('cert-date').textContent = c.clearedAt ? new Date(c.clearedAt).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : today;
 
     $('cert-modal').style.display = 'flex';
   }

@@ -12249,12 +12249,13 @@ async function loadCourseRegistrations() {
     set('reg-crs-stat-approved', approved.length);
     const bulk = document.getElementById('reg-course-bulk-approve');
     if (bulk) {
+      bulk.__pendingRows = pending;
       bulk.disabled = !pending.length;
       bulk.textContent = pending.length ? `Approve All Pending (${pending.length})` : 'No Pending Registrations';
       if (!bulk.__wired) {
         bulk.__wired = true;
         bulk.addEventListener('click', async () => {
-          const ids = rows.filter(r => (r.registration || r).status === 'pending').map(r => Number((r.registration || r).id)).filter(Boolean);
+          const ids = (bulk.__pendingRows || []).map(r => Number((r.registration || r).id)).filter(Boolean);
           if (!ids.length) return showToast('No pending registrations to approve.', 'info');
           const ok = await window.fpuConfirm(`Approve ${ids.length} pending course registration(s)?`, { title: 'Bulk Approve Registrations', type: 'warning', okText: 'Approve All' });
           if (!ok) return;

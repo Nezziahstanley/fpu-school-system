@@ -507,15 +507,26 @@ router.get('/documents', only, async (req, res, next) => {
       .select({
         document: documents,
         student: users,
+        department: departments,
+        programme: programmes,
       })
       .from(documents)
       .leftJoin(users, eq(documents.userId, users.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .orderBy(desc(documents.requestedAt));
 
     const data = rows.map((r) => ({
       ...r.document,
-      studentName: `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim() || 'Unknown',
+      studentId: r.student?.id || r.document.userId,
+      studentName: `${r.student?.firstName || ''} ${r.student?.middleName || ''} ${r.student?.lastName || ''}`.trim() || 'Unknown',
       matricNumber: r.student?.matricNumber || '—',
+      email: r.student?.email || '',
+      phone: r.student?.phone || '',
+      level: r.student?.level || '',
+      departmentName: r.department?.name || '',
+      programmeName: r.programme?.name || '',
+      photoUrl: r.student?.photoUrl || r.student?.idCardPhotoUrl || '',
     }));
 
     return res.json({ success: true, data });

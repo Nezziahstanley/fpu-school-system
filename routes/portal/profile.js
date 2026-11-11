@@ -23,10 +23,16 @@ const { logAudit } = require('../../utils/audit');
 // Cloudinary for photo uploads
 const multer = require('multer');
 const { storage } = require('../../utils/cloudinary');
-const upload = multer({ storage });
-
 const MAX_SIZE_MB = Number(process.env.MAX_UPLOAD_MB) || 5;
 const ALLOWED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_SIZE_MB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME.includes(file.mimetype)) return cb(new Error('Only PNG, JPG and WEBP images are allowed.'));
+    cb(null, true);
+  },
+});
 
 // ============================================================
 // GET /api/portal/profile

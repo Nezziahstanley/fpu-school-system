@@ -137,12 +137,13 @@ async function remove(id) {
 // ============================================================
 // ALLOCATIONS
 // ============================================================
-async function listAllocationsWithRelations({ sessionId, lecturerId, courseId, semester } = {}) {
+async function listAllocationsWithRelations({ sessionId, lecturerId, courseId, semester, departmentId } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(courseAllocations.sessionId, Number(sessionId)));
   if (lecturerId) conds.push(eq(courseAllocations.lecturerId, Number(lecturerId)));
   if (courseId) conds.push(eq(courseAllocations.courseId, Number(courseId)));
   if (semester) conds.push(eq(courseAllocations.semester, semester));
+  if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
   const where = conds.length ? and(...conds) : undefined;
 
   const rows = await db

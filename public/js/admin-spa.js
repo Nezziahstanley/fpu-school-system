@@ -248,7 +248,7 @@
     'grade-scales':     { url: '/admin/partials/results/grade-scales.html',      title: 'Grade Scales',    init: call('loadGradeScales') },
 
     'transcript':           { url: '/admin/partials/transcript/index.html',      title: 'Transcript',      init: call('loadTranscriptLookup') },
-    'transcript-by-student':{ url: '/admin/partials/transcript/by-student.html', title: 'Student Transcript', init: call('loadStudentTranscript') },
+    'transcript-by-student':{ url: '/admin/partials/transcript/by-student.html', title: 'Student Transcript', init: call('loadTranscriptView') },
 
     'timetable':          { url: '/admin/partials/timetable/index.html',         title: 'Timetable',       init: call('loadTimetableIndex') },
     'timetable-list':     { url: '/admin/partials/timetable/list.html',          title: 'Timetable List',  init: call('loadTimetable') },
@@ -288,7 +288,7 @@
     'payments-by-student':{ url: '/admin/partials/payments/by-student.html',     title: 'Student Payment History', init: call('loadStudentPayments') },
 
     'clearances':         { url: '/admin/partials/clearances/list.html',         title: 'Clearances',      init: call('loadClearanceDepartments') },
-    'clearances-list':    { url: '/admin/partials/clearances/index.html',        title: 'Clearances',      init: call('loadClearances') },
+    'clearances-list':    { url: '/admin/partials/clearances/list.html',         title: 'Clearances',      init: call('loadClearanceDepartments') },
     'clearances-by-dept': { url: '/admin/partials/clearances/by-department.html',title: 'Department Clearances', init: call('loadDepartmentClearances') },
 
     // ---------- Communication ----------

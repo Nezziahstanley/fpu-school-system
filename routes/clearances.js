@@ -18,13 +18,14 @@ const STAFF = ['admin', 'bursar', 'registrar', 'rector', 'librarian'];
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId, status } = req.query;
-    let query = 'SELECT * FROM clearances';
-    const params = [];
-    const where = [];
-    if (sessionId) { params.push(sessionId); where.push(`session_id = $${params.length}`); }
-    if (status) { params.push(status); where.push(`status = $${params.length}`); }
-    if (where.length) query += ' WHERE ' + where.join(' AND ');
-    query += ' ORDER BY created_at DESC';
+    const sessionRes = sessionId
+      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [sessionId])
+      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
+    if (!sessionRes.rows.length) return res.status(400).json({ success: false, error: 'Selected or current academic session was not found.' });
+    const params = [sessionRes.rows[0].id];
+    const where = ['session_id = $1'];
+    if (status) { params.push(status); where.push('status = $' + params.length); }
+    const query = 'SELECT * FROM clearances WHERE ' + where.join(' AND ') + ' ORDER BY created_at DESC';
     const result = await db.query(query, params);
     return res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -37,12 +38,13 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
 router.get('/stats', requireRole(STAFF), async (req, res, next) => {
   try {
     const { sessionId } = req.query;
+    const sessionRes = sessionId
+      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [sessionId])
+      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
+    if (!sessionRes.rows.length) return res.status(400).json({ success: false, error: 'Selected or current academic session was not found.' });
     const result = await db.query(
-      `SELECT status, COUNT(*)::int AS count
-       FROM clearances
-       ${sessionId ? 'WHERE session_id = $1' : ''}
-       GROUP BY status`,
-      sessionId ? [sessionId] : []
+      `SELECT status, COUNT(*)::int AS count FROM clearances WHERE session_id = $1 GROUP BY status`,
+      [sessionRes.rows[0].id]
     );
     return res.json({ success: true, data: result.rows });
   } catch (err) {
@@ -214,7 +216,7 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
 });
 
 // POST /api/admin/clearances/:id/clear
-router.post('/:id/clear', requireRole(STAFF), async (req, res, next) => {
+router.post('/:id/clear', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
     const result = await db.query(
       `UPDATE clearances 
@@ -223,12 +225,13 @@ router.post('/:id/clear', requireRole(STAFF), async (req, res, next) => {
       [req.user?.id || null, req.body?.remarks || null, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found.' });
+    await logAudit({ req, action: 'clearance.clear', entity: 'clearance', entityId: result.rows[0].id, after: result.rows[0] });
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) { return next(err); }
 });
 
 // POST /api/admin/clearances/:id/reject
-router.post('/:id/reject', requireRole(STAFF), async (req, res, next) => {
+router.post('/:id/reject', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
     const result = await db.query(
       `UPDATE clearances 
@@ -237,6 +240,7 @@ router.post('/:id/reject', requireRole(STAFF), async (req, res, next) => {
       [req.user?.id || null, req.body?.remarks || null, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found.' });
+    await logAudit({ req, action: 'clearance.reject', entity: 'clearance', entityId: result.rows[0].id, after: result.rows[0] });
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) { return next(err); }
 });

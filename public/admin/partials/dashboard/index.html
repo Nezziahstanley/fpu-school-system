@@ -1517,11 +1517,7 @@
     setTimeout(loadAll, 50);
   };
 
-  // Auto-run on load (in case initDashboard isn't called externally)
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
-  } else {
-    setTimeout(loadAll, 100);
-  }
+  // The SPA invokes initDashboard after this partial's scripts execute.
+  // Avoid a second automatic request cycle on every dashboard navigation.
 })();
 </script>

@@ -56,6 +56,7 @@ router.get('/dashboard', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
@@ -231,6 +232,7 @@ router.get('/fees', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     // 1. Get the Student's Programme and Level
     const userResult = await db.execute(sql`
@@ -823,12 +825,16 @@ router.get('/graduation', only, async (req, res, next) => {
     try {
       const paymentQueries = require('../../db/queries/payments');
       const sessionId = await resolveCurrentAcademicSessionId(req);
-      const feeStructure = sessionId ? await paymentQueries.findFeeStructureWithFallback({
-        programmeId: student.programmeId, level: student.level || 'ND', sessionId,
-      }) : null;
-      const totalDue = Number(feeStructure?.total || 0);
-      const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
-      feesCleared = totalDue === 0 || totalPaid >= totalDue;
+      if (sessionId) {
+        const feeStructure = await paymentQueries.findFeeStructureWithFallback({
+          programmeId: student.programmeId, level: student.level || 'ND', sessionId,
+        });
+        const totalDue = Number(feeStructure?.total || 0);
+        const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
+        feesCleared = totalDue === 0 || totalPaid >= totalDue;
+      } else {
+        feesCleared = false;
+      }
     } catch (e) { console.warn('[graduation/fees]', e.message); }
 
     let clearancesOk = false;

@@ -224,7 +224,6 @@
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
-    // Load slots AND courses so we can map the lecturer names
     const rows = await loadSlots();
     if (!ALL_COURSES.length) await loadCoursesWithAllocations();
 
@@ -251,20 +250,15 @@
       const s = r.slot || r;
       const c = r.course || {};
       
-      // FIX: Look up the lecturer name from the ALL_COURSES array using courseId
+      // SMART LECTURER NAME LOOKUP
       let lectName = '—';
       
-      // 1. Try to find the course in ALL_COURSES to get the allocated lecturer name
       const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
       if (allocatedCourse && allocatedCourse.lecturerName) {
         lectName = allocatedCourse.lecturerName;
-      } 
-      // 2. Fallback: Check if the API already returned a nested lecturer object
-      else if (r.lecturer && r.lecturer.firstName) {
+      } else if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
-      }
-      // 3. Fallback: Check if the API returned a direct lecturerName
-      else if (s.lecturerName) {
+      } else if (s.lecturerName) {
         lectName = s.lecturerName;
       }
       
@@ -534,8 +528,6 @@
         venue 
       };
 
-      console.log('[DEBUG] Saving slot:', payload);
-
       try {
         const res = await core.portalFetch('/api/hod/timetable', {
           method: 'POST',
@@ -555,11 +547,11 @@
     }
 
     if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}. ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
+      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
       await loadSlots();
       loadBatchTable(); 
     } else {
-      core.showToast(`❌ Failed to save slots. Check console (F12) for errors.`, 'error');
+      core.showToast(`❌ Failed to save slots. Check console.`, 'error');
     }
 
     btn.disabled = false;

@@ -514,6 +514,8 @@ router.get('/documents', only, async (req, res, next) => {
 // ============================================================
 router.post('/documents/:id/issue', only, upload.single('file'), async (req, res, next) => {
   try {
+    const [issuer] = await db.select({ signatureUrl: users.signatureUrl }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!issuer?.signatureUrl) return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before issuing official documents.' });
     const docId = Number(req.params.id);
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded.' });
 
@@ -546,6 +548,8 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
 // ============================================================
 router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
   try {
+    const [issuer] = await db.select({ signatureUrl: users.signatureUrl }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!issuer?.signatureUrl) return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before issuing official documents.' });
     const docId = Number(req.params.id);
     const [updated] = await db
       .update(documents)

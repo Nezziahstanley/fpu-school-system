@@ -99,7 +99,7 @@
 // ============================================
 // CUSTOM UI MODALS (Replaces prompt/confirm)
 // ============================================
-window.fpuPrompt = function(message, hint, title = 'Input Required', defaultValue = '') {
+window.fpuPrompt = function(message, hint, title = 'Input Required', defaultValue = '', promptOptions = {}) {
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'fpu-modal-backdrop';
@@ -124,6 +124,10 @@ window.fpuPrompt = function(message, hint, title = 'Input Required', defaultValu
     
     const input = backdrop.querySelector('#fpu-prompt-input');
     input.value = defaultValue == null ? '' : String(defaultValue);
+    input.placeholder = promptOptions.placeholder || 'Type here...';
+    input.type = promptOptions.inputType === 'password' ? 'password' : 'text';
+    const submitButton = backdrop.querySelector('#fpu-prompt-ok');
+    if (submitButton) submitButton.textContent = promptOptions.okText || 'Submit';
     input.focus();
 
     const close = () => { backdrop.remove(); resolve(null); };

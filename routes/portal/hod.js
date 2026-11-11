@@ -1744,38 +1744,62 @@ router.post('/allocate', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course is not in your department.' });
     }
 
-    // 2. Get the current session
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    // 2. Resolve the active session; never silently assign records to session ID 1.
+    const [activeSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.isCurrent, true))
+      .limit(1);
+    if (!activeSession) {
+      return res.status(409).json({ success: false, error: 'There is no active academic session. Activate a session before allocating courses.' });
+    }
 
-    // 3. Check if an allocation already exists for this course
+    // 3. Confirm the selected lecturer is a lecturer in this HOD's department.
+    const [lecturer] = await db.select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.id, Number(lecturerId)),
+        eq(users.role, 'lecturer'),
+        eq(users.departmentId, Number(departmentId))
+      ))
+      .limit(1);
+    if (!lecturer) {
+      return res.status(400).json({ success: false, error: 'Select a lecturer assigned to your department.' });
+    }
+
+    const allocationSemester = String(semester || course.semesterName || 'first').toLowerCase();
+    if (!['first', 'second'].includes(allocationSemester)) {
+      return res.status(400).json({ success: false, error: 'Semester must be first or second.' });
+    }
+
+    // 4. Match an existing allocation only within this course, session and semester.
     const [existing] = await db.select()
       .from(courseAllocations)
-      .where(eq(courseAllocations.courseId, Number(courseId)))
+      .where(and(
+        eq(courseAllocations.courseId, Number(courseId)),
+        eq(courseAllocations.sessionId, Number(activeSession.id)),
+        eq(courseAllocations.semester, allocationSemester)
+      ))
       .limit(1);
 
     if (existing) {
-      // Update existing
       await db.update(courseAllocations)
-        .set({ 
+        .set({
           lecturerId: Number(lecturerId),
-          semester: semester || 'first',
           status: 'assigned',
-          respondedAt: new Date()
+          respondedAt: null
         })
         .where(eq(courseAllocations.id, existing.id));
     } else {
-      // Create new
       await db.insert(courseAllocations).values({
         courseId: Number(courseId),
         lecturerId: Number(lecturerId),
-        sessionId: Number(sessionId),
-        semester: semester || 'first',
+        sessionId: Number(activeSession.id),
+        semester: allocationSemester,
         status: 'assigned'
       });
     }
 
-    await logAudit({ req, action: 'hod.allocate_course', entity: 'course_allocations', after: { courseId, lecturerId, semester } });
+    await logAudit({ req, action: 'hod.allocate_course', entity: 'course_allocations', after: { courseId: Number(courseId), lecturerId: Number(lecturerId), sessionId: Number(activeSession.id), semester: allocationSemester } });
     
     return res.json({ success: true, message: 'Course assigned successfully.' });
   } catch (err) {

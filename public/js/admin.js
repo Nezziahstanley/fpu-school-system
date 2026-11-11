@@ -11490,7 +11490,13 @@ async function submitResetPassword() {
   const btn = document.getElementById('reset-pwd-submit');
   const errorBox = document.getElementById('reset-pwd-error');
   
-  const newPassword = input.value.trim();
+  const newPassword = input.value;
+  if (!newPassword.trim()) {
+    errorBox.textContent = 'Please enter a new password.';
+    errorBox.style.display = 'block';
+    input.focus();
+    return;
+  }
   
   // UI Loading state
   btn.disabled = true;
@@ -11500,7 +11506,7 @@ async function submitResetPassword() {
   try {
     await adminFetch(`/api/admin/staff/${id}/reset-password`, {
       method: 'POST',
-      body: JSON.stringify({ password: newPassword || undefined }),
+      body: JSON.stringify({ password: newPassword }),
     });
     
     closeResetModal();

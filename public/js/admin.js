@@ -4635,8 +4635,6 @@ async function loadDepartmentPayments() {
   const departmentId = params.get('departmentId');
   const sessionId = params.get('sessionId') || '';
   const deptName = params.get('name') || 'Department';
-  const sessionId = params.get('sessionId') || document.getElementById('res-filter-session')?.value || '';
-  const routeSemester = params.get('semester') || '';
 
   if (!departmentId) {
     root.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#dc2626;">No department selected.</td></tr>';
@@ -12419,6 +12417,8 @@ async function loadDepartmentResults() {
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   const deptId = params.get('departmentId');
   const deptName = params.get('name') || 'Department';
+  const sessionId = params.get('sessionId') || document.getElementById('res-filter-session')?.value || '';
+  const routeSemester = params.get('semester') || '';
 
   if (!deptId) {
     root.innerHTML = '<div style="text-align:center; padding: 40px; color: #dc2626;">No department selected. Please go back.</div>';

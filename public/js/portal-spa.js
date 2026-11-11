@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    FPU Portal — SPA shell
    ============================================================ */
 
@@ -246,7 +246,17 @@
       { key: 'exam-officer-eligibility', label: 'Eligibility', icon: ICON.users },
       { key: 'exam-officer-publish',     label: 'Publish Results', icon: ICON.file }, 
     ],
-    academic_officer: [{ key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash }],
+    academic_officer: [
+      { key: 'academic-officer-dashboard', label: 'Dashboard', icon: ICON.dash },
+      { key: 'academic-officer-sessions', label: 'Academic Sessions', icon: ICON.calendar },
+      { key: 'academic-officer-programmes', label: 'Programmes', icon: ICON.book2 },
+      { key: 'academic-officer-departments', label: 'Departments', icon: ICON.users },
+      { key: 'academic-officer-courses', label: 'Course Catalogue', icon: ICON.book },
+      { key: 'academic-officer-results', label: 'Published Results', icon: ICON.chart },
+      { key: 'academic-officer-transcripts', label: 'Transcript Lookup', icon: ICON.file },
+      { key: 'academic-officer-graduation', label: 'Graduation Pipeline', icon: ICON.award },
+      { key: 'academic-officer-reports', label: 'Academic Reports', icon: ICON.clipboard },
+    ],
     admission_officer: [
       { key: 'admission-officer-dashboard',    label: 'Dashboard',    icon: ICON.dash },
       { key: 'admission-officer-applications', label: 'Applications', icon: ICON.clipboard },

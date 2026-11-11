@@ -293,7 +293,15 @@ router.post('/applications/:id/matriculate', only, async (req, res, next) => {
     }
 
     const updated = await appQueries.setStatus(app.id, 'matriculated', { matricNumber, reviewedBy: req.user.id });
-    await logAudit({ req, action: 'admission.matriculate', entity: 'application', entityId: app.id, after: { matricNumber } });
+
+    // Keep the student account in sync with the authoritative application record.
+    // Matriculation can be performed before account creation, so absence is valid.
+    const registeredStudent = await userQueries.findByEmail(app.email);
+    if (registeredStudent && registeredStudent.role === 'student') {
+      await userQueries.update(registeredStudent.id, { matricNumber });
+    }
+
+    await logAudit({ req, action: 'admission.matriculate', entity: 'application', entityId: app.id, after: { matricNumber, studentAccountUpdated: !!registeredStudent } });
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

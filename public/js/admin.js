@@ -99,7 +99,7 @@
 // ============================================
 // CUSTOM UI MODALS (Replaces prompt/confirm)
 // ============================================
-window.fpuPrompt = function(message, hint, title = 'Input Required') {
+window.fpuPrompt = function(message, hint, title = 'Input Required', defaultValue = '') {
   return new Promise((resolve) => {
     const backdrop = document.createElement('div');
     backdrop.className = 'fpu-modal-backdrop';
@@ -123,6 +123,7 @@ window.fpuPrompt = function(message, hint, title = 'Input Required') {
     document.body.appendChild(backdrop);
     
     const input = backdrop.querySelector('#fpu-prompt-input');
+    input.value = defaultValue == null ? '' : String(defaultValue);
     input.focus();
 
     const close = () => { backdrop.remove(); resolve(null); };
@@ -309,7 +310,7 @@ function statusPill(status) {
   const m = map[status] || map.pending;
   return `<span class="badge badge-${m.cls}">${m.icon} ${escapeHtml(String(status || 'pending').replace(/_/g, ' '))}</span>`;
 }
-function promptReason(label = "Reason:") {
+async function promptReason(label = "Reason:") {
   const v = await window.fpuPrompt(label, '', 'Reason Required');
   if (v === null) return null;
   if (!v.trim()) { showToast("⚠️ A reason is required.", "warning"); return null; }

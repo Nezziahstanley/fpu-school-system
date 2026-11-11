@@ -251,7 +251,8 @@ router.get('/fees', only, async (req, res, next) => {
       const feeResult = await db.execute(sql`
         SELECT SUM(amount)::int AS total
         FROM fee_structures
-        WHERE session_id = ${sessionId} 
+        WHERE session_id = ${sessionId}
+          AND is_active = true
           AND (programme_id = ${student.programmeId} OR programme_id IS NULL)
           AND (level = ${student.level} OR level IS NULL)
       `);

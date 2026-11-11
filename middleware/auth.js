@@ -125,7 +125,11 @@ function requireRole(...roles) {
       if (!ok) {
         return res.status(401).json({ success: false, error: 'Authentication required.' });
       }
-      if (allowed.length && !allowed.includes(req.user.role)) {
+      // A superadmin inherits every route permission granted to admin.
+      // Other role checks remain explicit, so HOD/lecturer scoping is unchanged.
+      const isSuperAdmin = String(req.user.role || '').toLowerCase() === 'superadmin';
+      const hasAdminPermission = isSuperAdmin && allowed.includes('admin');
+      if (allowed.length && !allowed.includes(req.user.role) && !hasAdminPermission) {
         return res.status(403).json({
           success: false,
           error: 'You do not have permission to perform this action.',
@@ -151,7 +155,7 @@ async function requireAdmin(req, res, next) {
     if (!ok) {
       return res.status(401).json({ success: false, error: 'Authentication required.' });
     }
-    if (req.user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(String(req.user.role || '').toLowerCase())) {
       return res.status(403).json({ success: false, error: 'Admin access required.' });
     }
     applyDepartmentScope(req);

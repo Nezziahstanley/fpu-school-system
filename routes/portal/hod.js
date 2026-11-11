@@ -1643,24 +1643,59 @@ router.post('/timetable', requireRole(['hod']), async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
     }
 
+    // 1. Verify the course belongs to this HOD's department
     const [course] = await db.select().from(courses).where(eq(courses.id, Number(courseId))).limit(1);
     if (!course || Number(course.departmentId) !== Number(departmentId)) {
       return res.status(403).json({ success: false, error: 'Course is not in your department.' });
     }
 
-    const row = await ttQueries.create({
-      courseId: Number(courseId),
-      sessionId: Number(sessionId),
-      semester,
-      dayOfWeek,
-      startTime,
-      endTime,
-      venue: venue || null,
-    });
+    // 2. Auto-look up the assigned lecturer from course_allocations
+    let lecturerId = null;
+    try {
+      const allocResult = await db.execute(sql`
+        SELECT lecturer_id
+        FROM course_allocations
+        WHERE course_id = ${Number(courseId)}
+        LIMIT 1
+      `);
+      lecturerId = allocResult.rows?.[0]?.lecturer_id || null;
+    } catch (allocErr) {
+      console.warn('[hod/timetable] Could not look up allocation:', allocErr.message);
+    }
 
-    await logAudit({ req, action: 'hod.create_timetable_slot', entity: 'timetable_slot', entityId: row.id, after: row });
-    return res.status(201).json({ success: true, data: row });
-  } catch (err) { next(err); }
+    // 3. Insert the slot with the lecturer_id
+    const result = await db.execute(sql`
+      INSERT INTO timetable_slots (
+        course_id,
+        session_id,
+        semester,
+        day_of_week,
+        start_time,
+        end_time,
+        venue,
+        lecturer_id,
+        status
+      ) VALUES (
+        ${Number(courseId)},
+        ${Number(sessionId)},
+        ${String(semester)}::text::semester,
+        ${String(dayOfWeek)},
+        ${String(startTime)}::time,
+        ${String(endTime)}::time,
+        ${venue || null},
+        ${lecturerId},
+        'draft'
+      )
+      RETURNING id
+    `);
+
+    const newId = result.rows?.[0]?.id;
+    await logAudit({ req, action: 'hod.create_timetable_slot', entity: 'timetable_slot', entityId: newId });
+    return res.status(201).json({ success: true, data: { id: newId, lecturerId } });
+  } catch (err) {
+    console.error('[hod/create-timetable-slot] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // GET /api/hod/sessions

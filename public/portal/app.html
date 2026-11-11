@@ -289,6 +289,7 @@
       var link = el.dataset.link || '';
       try { await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' }); }
       catch (e) { /* silent */ }
+      window.dispatchEvent(new Event('fpu:notifications-updated'));
       closePanel();
       refresh();
       if (link) {
@@ -332,6 +333,7 @@
       try {
         await core.portalFetch('/api/portal/notifications/read-all', { method: 'POST' });
         if (core.showToast) core.showToast('All marked as read.', 'success');
+        window.dispatchEvent(new Event('fpu:notifications-updated'));
         refresh();
       } catch (err) { if (core.showToast) core.showToast(err.message, 'error'); }
     }
@@ -353,6 +355,7 @@
       list = $('notif-list');
       if (!panel || !bell || !list) return false;
       bound = true;
+      window.addEventListener('fpu:notifications-updated', refresh);
 
       bell.addEventListener('click', function (e) {
         e.stopPropagation();

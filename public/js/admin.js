@@ -5602,7 +5602,7 @@ async function loadClearanceDepartments() {
 
     grid.querySelectorAll('.clr-dept-card[data-dept-id]').forEach(card => {
       card.addEventListener('click', () => {
-        window.location.hash = `#clearances-by-dept?departmentId=${card.dataset.deptId}&name=${encodeURIComponent(card.dataset.deptName)}`;
+        window.location.hash = `#clearances-by-dept?departmentId=${card.dataset.deptId}&sessionId=${encodeURIComponent(sessionId)}&name=${encodeURIComponent(card.dataset.deptName)}`;
       });
     });
 
@@ -5664,12 +5664,12 @@ async function loadDepartmentClearances() {
     
     const enrichedStudents = students.map(s => {
       const clr = clearanceByStudent.get(Number(s.id));
-      const status = clr?.status ? String(clr.status).toLowerCase() : 'pending';
+      const status = clr?.status ? String(clr.status).toLowerCase() : 'missing';
       const remarks = clr?.remarks || '—';
 
       if (status === 'cleared') cleared++;
       else if (status === 'rejected') rejected++;
-      else pending++;
+      else if (status === 'pending' || status === 'missing') pending++;
 
       return { s, status, remarks };
     });
@@ -5704,7 +5704,7 @@ async function loadDepartmentClearances() {
     root.innerHTML = filtered.map(({ s, status, remarks }) => {
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unknown';
       
-      let badgeClass = 'badge-pending';
+      let badgeClass = status === 'missing' ? 'badge-missing' : 'badge-pending';
       let actions = '';
 
       if (status === 'cleared') {

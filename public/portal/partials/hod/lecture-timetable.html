@@ -191,6 +191,7 @@
     try {
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
       ALL_COURSES = Array.isArray(res) ? res : (res.data || []);
+      console.log('[DEBUG] ALL_COURSES loaded:', ALL_COURSES.length, 'courses');
     } catch (err) { console.error('Could not load courses:', err); }
   }
 
@@ -224,8 +225,12 @@
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading slots...</td></tr>';
 
+    // FORCE load ALL_COURSES so lecturer lookup always works
+    if (!ALL_COURSES.length) {
+      await loadCoursesWithAllocations();
+    }
+
     const rows = await loadSlots();
-    if (!ALL_COURSES.length) await loadCoursesWithAllocations();
 
     const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
     rows.forEach(r => {
@@ -249,27 +254,41 @@
     tbody.innerHTML = rows.map(r => {
       const s = r.slot || r;
       const c = r.course || {};
-      
-      // SMART LECTURER NAME LOOKUP (multiple fallbacks)
-      let lectName = '—';
       const courseId = s.courseId || c.id;
+
+      // LECTURER NAME LOOKUP — Try 4 methods in order
+      let lectName = '—';
       
-      // 1. Try nested lecturer object (from raw SQL reshape)
+      // Method 1: Backend already returned nested lecturer object
       if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
       }
-      // 2. Try flat lecturerName from API
-      else if (r.lecturerName) {
+      // Method 2: Backend returned flat lecturerName field
+      else if (r.lecturerName && r.lecturerName !== 'unassigned') {
         lectName = r.lecturerName;
       }
-      // 3. Try matching against ALL_COURSES (allocations data)
+      // Method 3: Match courseId against ALL_COURSES (allocations data)
       else if (courseId) {
-        const allocated = ALL_COURSES.find(ac => String(ac.courseId) === String(courseId));
-        if (allocated && allocated.lecturerName) {
+        const allocated = ALL_COURSES.find(ac => 
+          String(ac.courseId || ac.id) === String(courseId)
+        );
+        if (allocated && allocated.lecturerName && allocated.lecturerName !== 'unassigned') {
           lectName = allocated.lecturerName;
         }
       }
-      
+
+      // Debug: log if still not found
+      if (lectName === '—') {
+        console.log('[Timetable] No lecturer found for:', { 
+          slotId: s.id, 
+          courseId, 
+          courseCode: c.code || r.courseCode,
+          hasNestedLecturer: !!r.lecturer,
+          hasFlatLecturerName: !!r.lecturerName,
+          allocatedMatch: ALL_COURSES.find(ac => String(ac.courseId || ac.id) === String(courseId))
+        });
+      }
+
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
       if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
       else if (s.status === 'approved') statusBadge = '<span class="badge badge-success">Approved</span>';
@@ -303,7 +322,7 @@
       });
     });
   }
-  
+
   // Render the master table based on selected Level, Semester, and Day
   function loadBatchTable() {
     const selectedLevel = $('batch-level').value;
@@ -555,11 +574,11 @@
     }
 
     if (successCount > 0) {
-      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
+      core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}. ${errorCount > 0 ? `(${errorCount} failed)` : ''}`, errorCount > 0 ? 'warning' : 'success');
       await loadSlots();
       loadBatchTable(); 
     } else {
-      core.showToast(`❌ Failed to save slots. Check console.`, 'error');
+      core.showToast(`❌ Failed to save slots. Check console (F12) for errors.`, 'error');
     }
 
     btn.disabled = false;
@@ -591,7 +610,7 @@
     try {
       const res = await core.portalFetch('/api/hod/timetable/submit-for-approval', {
         method: 'POST',
-        body: { sessionId: Number(sessionId), semester }
+        body: JSON.stringify({ sessionId: Number(sessionId), semester })
       });
       
       $('custom-confirm-modal').style.display = 'none';

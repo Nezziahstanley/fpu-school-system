@@ -12730,6 +12730,54 @@ async function loadReservationsTable() {
   }
 }
 
+
+async function exportSecurityReport() {
+  showToast('Preparing security report…', 'info');
+  try {
+    const [eventsRes, sessionsRes, loginsRes] = await Promise.all([
+      adminFetch('/api/admin/security?limit=5000'),
+      adminFetch('/api/admin/security/sessions'),
+      adminFetch('/api/admin/login-history?limit=5000')
+    ]);
+    const [eventsJson, sessionsJson, loginsJson] = await Promise.all([eventsRes.json(), sessionsRes.json(), loginsRes.json()]);
+    if (!eventsRes.ok || !eventsJson.success) throw new Error(eventsJson.error || 'Could not load security events.');
+    const events = Array.isArray(eventsJson.data) ? eventsJson.data : [];
+    const sessions = sessionsRes.ok && sessionsJson.success ? (sessionsJson.data || []) : [];
+    const logins = loginsRes.ok && loginsJson.success ? (loginsJson.data || []) : [];
+    const table = document.createElement('table');
+    const head = document.createElement('tr');
+    ['Record Type', 'Date', 'User / Actor', 'Event / Action', 'IP Address', 'Details'].forEach(label => {
+      const th = document.createElement('th'); th.textContent = label; head.appendChild(th);
+    });
+    table.appendChild(head);
+    const add = values => {
+      const tr = document.createElement('tr');
+      values.forEach(value => { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); tr.appendChild(td); });
+      table.appendChild(tr);
+    };
+    events.forEach(item => {
+      const log = item.log || item;
+      add(['Security Event', fmtDateTime(log.createdAt || log.created_at), log.actorEmail || log.userEmail || log.email || '', log.action || log.event || '', log.ipAddress || log.ip || '', log.details || log.description || '']);
+    });
+    sessions.forEach(item => {
+      const session = item.session || item;
+      const user = item.user || {};
+      add(['Active Session', fmtDateTime(session.createdAt || session.created_at), user.email || session.email || session.userId || '', session.status || 'active', session.ipAddress || session.ip || '', session.userAgent || '']);
+    });
+    logins.forEach(item => {
+      const entry = item.entry || item;
+      add(['Login Attempt', fmtDateTime(entry.createdAt || entry.created_at), entry.email || entry.userEmail || '', entry.success === false ? 'Failed' : 'Successful', entry.ipAddress || entry.ip || '', entry.userAgent || entry.reason || '']);
+    });
+    if (table.rows.length <= 1) {
+      showToast('No security records are available to export.', 'warning');
+      return;
+    }
+    exportTableAsCSV(table, 'fpu-security-report.csv');
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Security report export failed.'), 'error');
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -15552,7 +15600,7 @@ window.FPU_ADMIN = {
 
   // Records & System
   loadDocumentsTable, loadGraduationsTable, loadReportsWithCharts, loadAuditTable,
-  loadSecurityDashboard, wireSecurityActions, wireSecurityCards, wireGraduationPage,
+  loadSecurityDashboard, exportSecurityReport, wireSecurityActions, wireSecurityCards, wireGraduationPage,
   loadSettingsShell, prefillSettingsForm, loadLoginHistoryIntoAudit, loadReports,
   approveDoc, rejectDoc, issueDoc, deleteDoc, openDocEditModal,  renderDocPreview,
   approveGraduation, rejectGraduation, markGraduated, loadTranscriptView, loadDocumentDetail,

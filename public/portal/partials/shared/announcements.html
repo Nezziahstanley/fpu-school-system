@@ -191,12 +191,13 @@
       var editable = IS_STAFF && (IS_ADMIN || a.authorId === MY_ID);
       var draft = a.isPublished === false;
       var prioClass = a.priority === 'high' ? 'priority-high' : (a.priority === 'low' ? 'priority-low' : '');
-      var actions = editable
-        ? '<div class="an-actions">'
-          + '<button class="btn btn-outline btn-sm" data-edit="' + esc(a.id) + '">Edit</button>'
-          + '<button class="btn btn-ghost btn-sm" data-del="' + esc(a.id) + '" style="color:#dc2626;">Delete</button>'
-          + '</div>'
-        : '';
+      var actions = '<div class="an-actions">'
+        + '<button class="btn btn-outline btn-sm" data-read="' + esc(a.id) + '">Mark read</button>'
+        + (editable
+          ? '<button class="btn btn-outline btn-sm" data-edit="' + esc(a.id) + '">Edit</button>'
+            + '<button class="btn btn-ghost btn-sm" data-del="' + esc(a.id) + '" style="color:#dc2626;">Delete</button>'
+          : '')
+        + '</div>';
       return '<div class="an-card ' + prioClass + '">'
         + '<div class="an-card-head">'
         +   '<div class="an-meta">'
@@ -220,6 +221,20 @@
       b.addEventListener('click', function () {
         var row = ALL.find(function (x) { return String(x.id) === b.dataset.edit; });
         openForm(row);
+      });
+    });
+    $('an-list').querySelectorAll('button[data-read]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        try {
+          await core.portalFetch('/api/portal/announcements/' + b.dataset.read + '/read', { method: 'POST' });
+          b.textContent = 'Read ✓';
+          b.classList.add('btn-primary');
+          window.dispatchEvent(new Event('fpu:notifications-updated'));
+        } catch (err) {
+          core.showToast && core.showToast(err.message || 'Could not mark announcement as read.', 'error');
+          b.disabled = false;
+        }
       });
     });
     $('an-list').querySelectorAll('button[data-del]').forEach(function (b) {

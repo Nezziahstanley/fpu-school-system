@@ -212,7 +212,7 @@
     'student-profile':    { url: '/admin/partials/students/profile.html',        title: 'Student Profile', init: () => {} },
 
     'sessions':         { url: '/admin/partials/academics/sessions.html',         title: 'Sessions',        init: call('loadSessions') },
-    'session-form':     { url: '/admin/partials/academics/session-form.html',     title: 'New Session',     init: () => {} },
+    'session-form':     { url: '/admin/partials/sessions/session-form.html',       title: 'New Session',     init: () => {} },
 
     'programmes':       { url: '/admin/partials/academics/programmes.html',     title: 'Programmes',      init: call('loadProgrammes') },
     'programme-form':   { url: '/admin/partials/academics/programme-form.html', title: 'New Programme',   init: () => {} },
@@ -621,6 +621,8 @@
     toggleSidebar, updatePendingBadge,
     performLogout,
   };
+  // Legacy form partials call the router through FPU_ADMIN.
+  if (window.FPU_ADMIN) window.FPU_ADMIN.FPU_ADMIN_SPA = window.FPU_ADMIN_SPA;
 
   document.addEventListener('DOMContentLoaded', () => {
     if (document.body && document.body.classList.contains('admin-app') && document.getElementById('page-view')) {

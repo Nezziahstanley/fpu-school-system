@@ -12219,6 +12219,304 @@ async function loadPaymentDetail() {
   }
 }
 
+
+async function loadCourseRegistrations() {
+  const root = document.getElementById('reg-course-root');
+  if (!root) return;
+  const sessionId = document.getElementById('reg-course-session')?.value || '';
+  const semester = document.getElementById('reg-course-semester')?.value || '';
+  const departmentId = document.getElementById('reg-course-dept')?.value || '';
+  const courseId = document.getElementById('reg-course-course')?.value || '';
+  const status = document.getElementById('reg-course-status')?.value || '';
+  root.innerHTML = '<div class="loading"><span class="spinner"></span> Loading course registrations…</div>';
+  try {
+    const qs = new URLSearchParams({ limit: '5000' });
+    if (sessionId) qs.set('sessionId', sessionId);
+    if (semester) qs.set('semester', semester);
+    if (courseId) qs.set('courseId', courseId);
+    if (status) qs.set('status', status);
+    const res = await adminFetch('/api/admin/registrations/with-student?' + qs.toString());
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'Could not load registrations.');
+    let rows = Array.isArray(json.data) ? json.data : [];
+    if (departmentId) rows = rows.filter(r => Number(r.course?.departmentId) === Number(departmentId));
+    const pending = rows.filter(r => (r.registration || r).status === 'pending');
+    const approved = rows.filter(r => (r.registration || r).status === 'approved');
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('reg-crs-stat-courses', new Set(rows.map(r => Number(r.course?.id)).filter(Boolean)).size);
+    set('reg-crs-stat-rows', rows.length);
+    set('reg-crs-stat-pending', pending.length);
+    set('reg-crs-stat-approved', approved.length);
+    const bulk = document.getElementById('reg-course-bulk-approve');
+    if (bulk) {
+      bulk.disabled = !pending.length;
+      bulk.textContent = pending.length ? `Approve All Pending (${pending.length})` : 'No Pending Registrations';
+      if (!bulk.__wired) {
+        bulk.__wired = true;
+        bulk.addEventListener('click', async () => {
+          const ids = rows.filter(r => (r.registration || r).status === 'pending').map(r => Number((r.registration || r).id)).filter(Boolean);
+          if (!ids.length) return showToast('No pending registrations to approve.', 'info');
+          const ok = await window.fpuConfirm(`Approve ${ids.length} pending course registration(s)?`, { title: 'Bulk Approve Registrations', type: 'warning', okText: 'Approve All' });
+          if (!ok) return;
+          let done = 0, failed = 0;
+          for (const id of ids) {
+            try {
+              const response = await adminFetch(`/api/admin/registrations/${id}/approve`, { method: 'POST' });
+              const result = await response.json();
+              if (!response.ok || !result.success) throw new Error(result.error || 'Approval failed');
+              done++;
+            } catch { failed++; }
+          }
+          showToast(`Approved ${done}; ${failed} failed.`, failed ? 'warning' : 'success');
+          loadCourseRegistrations();
+        });
+      }
+    }
+    if (!rows.length) {
+      root.innerHTML = '<div class="empty-state"><div class="icon">📚</div><p>No registrations match these filters.</p></div>';
+      return;
+    }
+    const groups = new Map();
+    rows.forEach(r => {
+      const course = r.course || {};
+      const key = Number(course.id || (r.registration || r).courseId);
+      if (!groups.has(key)) groups.set(key, { course, rows: [] });
+      groups.get(key).rows.push(r);
+    });
+    root.innerHTML = Array.from(groups.values()).map(group => {
+      const c = group.course;
+      const list = group.rows.map(r => {
+        const reg = r.registration || r;
+        const student = r.student || {};
+        const name = [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student';
+        return `<tr>
+          <td>${escapeHtml(student.matricNumber || '—')}</td>
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(student.level || '—')}</td>
+          <td>${badge(reg.status || 'pending')}</td>
+          <td>${escapeHtml(fmtDate(reg.createdAt || reg.created_at))}</td>
+        </tr>`;
+      }).join('');
+      return `<section class="roster-course">
+        <header class="roster-course-head">
+          <div><span class="code">${escapeHtml(c.code || 'COURSE')}</span><span class="title">${escapeHtml(c.title || 'Course')}</span></div>
+          <span class="meta"><strong>${group.rows.length}</strong> registrations · ${escapeHtml(c.unit || 0)} units</span>
+        </header>
+        <div class="table-wrap"><table class="table-admin">
+          <thead><tr><th>Matric</th><th>Student</th><th>Level</th><th>Status</th><th>Registered</th></tr></thead>
+          <tbody>${list}</tbody>
+        </table></div>
+      </section>`;
+    }).join('');
+    const courseSelect = document.getElementById('reg-course-course');
+    if (courseSelect && !courseSelect.__fpuReloadBound) {
+      courseSelect.__fpuReloadBound = true;
+      courseSelect.addEventListener('change', loadCourseRegistrations);
+    }
+  } catch (err) {
+    root.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load registrations.')}</div>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadCourseAttendance() {
+  const tbody = document.getElementById('abc-tbody');
+  if (!tbody) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  const courseId = params.get('courseId') || params.get('id');
+  if (!courseId) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No course selected. Return to Attendance and open a course.</td></tr>';
+    return;
+  }
+  const qs = new URLSearchParams();
+  ['status', 'from', 'to', 'search'].forEach((key) => {
+    const id = { status: 'abc-filter-status', from: 'abc-filter-from', to: 'abc-filter-to', search: 'abc-filter-search' }[key];
+    const value = document.getElementById(id)?.value || '';
+    if (value) qs.set(key, value);
+  });
+  tbody.innerHTML = '<tr><td colspan="10" class="empty">Loading attendance…</td></tr>';
+  try {
+    const [courseRes, attendanceRes] = await Promise.all([
+      adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
+      adminFetch(`/api/admin/attendance/course/${encodeURIComponent(courseId)}?${qs.toString()}`)
+    ]);
+    const courseJson = await courseRes.json();
+    const attendanceJson = await attendanceRes.json();
+    if (!courseRes.ok || !courseJson.success) throw new Error(courseJson.error || 'Course not found.');
+    if (!attendanceRes.ok || !attendanceJson.success) throw new Error(attendanceJson.error || 'Could not load attendance.');
+    const course = courseJson.data || {};
+    const rows = Array.isArray(attendanceJson.data) ? attendanceJson.data : [];
+    const records = rows.reduce((sum, r) => sum + Number(r.totalClasses || 0), 0);
+    const attended = rows.reduce((sum, r) => sum + Number(r.present || 0) + Number(r.late || 0), 0);
+    const days = rows.reduce((max, r) => Math.max(max, Number(r.totalClasses || 0)), 0);
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('abc-title', `${course.code || 'Course'} Attendance`);
+    set('abc-subtitle', course.title || 'Attendance register');
+    set('abc-stat-students', rows.length);
+    set('abc-stat-days', days || '—');
+    set('abc-stat-rate', records ? Math.round(attended / records * 100) + '%' : '—');
+    set('abc-stat-records', records);
+    set('abc-count', `${rows.length} students`);
+    const mark = document.getElementById('abc-mark');
+    if (mark && !mark.__wired) {
+      mark.__wired = true;
+      mark.addEventListener('click', () => {
+        if (typeof openCourseAttendanceModal === 'function') openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
+        else showToast('Attendance marking is not available on this page.', 'warning');
+      });
+    }
+    const exportBtn = document.getElementById('abc-export');
+    if (exportBtn && !exportBtn.__wired) {
+      exportBtn.__wired = true;
+      exportBtn.addEventListener('click', () => exportTableAsCSV(document.getElementById('abc-table'), `attendance-${course.code || courseId}.csv`));
+    }
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">No attendance records match these filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const rate = Number(r.rate) || 0;
+      const tone = rate >= 75 ? 'healthy' : rate >= 50 ? 'warning' : 'critical';
+      return `<tr>
+        <td>${escapeHtml(r.matric || '—')}</td>
+        <td>${escapeHtml([r.firstName, r.lastName].filter(Boolean).join(' ') || 'Student')}</td>
+        <td>${escapeHtml(r.level || '—')}</td>
+        <td>${Number(r.totalClasses) || 0}</td>
+        <td>${Number(r.present) || 0}</td>
+        <td>${Number(r.absent) || 0}</td>
+        <td>${Number(r.late) || 0}</td>
+        <td>${Number(r.excused) || 0}</td>
+        <td><span class="att-rate"><span class="att-rate-bar"><span class="att-rate-fill ${tone}" style="display:block;width:${Math.min(100, Math.max(0, rate))}%"></span></span><span class="pct ${tone}">${rate}%</span></span></td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)}})">View</button></td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="10" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadStudentCourseAttendance() {
+  const tbody = document.getElementById('abs-tbody');
+  if (!tbody) return;
+  const hash = window.location.hash.replace(/^#/, '');
+  const queryIndex = hash.indexOf('?');
+  const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
+  const studentId = params.get('studentId');
+  const courseId = params.get('courseId');
+  if (!studentId || !courseId) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Student or course was not selected.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading student attendance…</td></tr>';
+  try {
+    const [studentRes, courseRes, recordsRes] = await Promise.all([
+      adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`),
+      adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
+      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}`)
+    ]);
+    const studentJson = await studentRes.json();
+    const courseJson = await courseRes.json();
+    const recordsJson = await recordsRes.json();
+    if (!studentRes.ok || !studentJson.success) throw new Error(studentJson.error || 'Student not found.');
+    if (!courseRes.ok || !courseJson.success) throw new Error(courseJson.error || 'Course not found.');
+    if (!recordsRes.ok || !recordsJson.success) throw new Error(recordsJson.error || 'Could not load attendance records.');
+    const student = studentJson.data || {};
+    const course = courseJson.data || {};
+    const records = Array.isArray(recordsJson.data) ? recordsJson.data : [];
+    const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+    records.forEach(r => { const status = String(r.status || '').toLowerCase(); if (counts[status] !== undefined) counts[status]++; });
+    const total = records.length;
+    const rate = total ? Math.round((counts.present + counts.late) / total * 100) : 0;
+    const fullName = [student.firstName || student.first_name, student.lastName || student.last_name].filter(Boolean).join(' ') || 'Student';
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    set('abs-title', 'Student Attendance');
+    set('abs-subtitle', `${course.code || 'Course'} · ${course.title || ''}`);
+    set('abs-name', fullName);
+    set('abs-meta', `${student.matricNumber || student.matric_number || '—'} · ${student.level || '—'} · ${student.email || ''}`);
+    set('abs-avatar', getInitials(fullName));
+    set('abs-total', total);
+    set('abs-present', counts.present);
+    set('abs-absent', counts.absent);
+    set('abs-late', counts.late);
+    set('abs-excused', counts.excused);
+    set('abs-rate', rate + '%');
+    set('abs-count', `${total} attendance record(s)`);
+    if (!records.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No attendance records found for this student and course.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = records.map(r => `<tr>
+      <td>${escapeHtml(fmtDate(r.date))}</td>
+      <td>${escapeHtml(r.date ? new Date(r.date).toLocaleDateString('en-GB', { weekday: 'long' }) : '—')}</td>
+      <td>${badge(r.status || '—')}</td>
+      <td>${escapeHtml(r.remarks || '—')}</td>
+      <td>—</td>
+      <td><span class="small muted">Read only</span></td>
+    </tr>`).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty" style="color:#b91c1c;">${escapeHtml(err.message)}</td></tr>`;
+    showToast('❌ ' + err.message, 'error');
+  }
+}
+
+async function loadStaffWorkload() {
+  const button = document.getElementById('sw-load');
+  const select = document.getElementById('sw-lecturer');
+  const session = document.getElementById('sw-session');
+  const result = document.getElementById('sw-result');
+  if (!result) return;
+  const run = async () => {
+    const lecturerId = select?.value;
+    const sessionId = session?.value || '';
+    if (!lecturerId) {
+      result.innerHTML = '<div class="empty-state"><p>Select a staff member to view their workload.</p></div>';
+      return;
+    }
+    result.innerHTML = '<div class="loading"><span class="spinner"></span> Loading workload…</div>';
+    try {
+      const qs = new URLSearchParams();
+      if (sessionId) qs.set('sessionId', sessionId);
+      const res = await adminFetch(`/api/admin/staff/${encodeURIComponent(lecturerId)}/workload?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load staff workload.');
+      const data = json.data || {};
+      const rows = Array.isArray(data.allocations) ? data.allocations : [];
+      result.innerHTML = `
+        <div class="stats-inline">
+          <div class="stat-inline"><div class="label">Assigned Courses</div><div class="value">${Number(data.totalCourses) || rows.length}</div></div>
+          <div class="stat-inline stat-inline-primary"><div class="label">Total Credit Units</div><div class="value">${Number(data.totalUnits) || 0}</div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><h3>Course Allocations</h3><span class="small muted">${rows.length} record(s)</span></div>
+        <div class="panel-body flush"><div class="table-wrap"><table class="table-admin">
+          <thead><tr><th>Course</th><th>Level</th><th>Units</th><th>Semester</th><th>Status</th></tr></thead>
+          <tbody>${rows.length ? rows.map(row => {
+            const course = row.course || {};
+            const allocation = row.allocation || row;
+            return `<tr><td><strong>${escapeHtml(course.code || '—')}</strong> — ${escapeHtml(course.title || 'Course')}</td><td>${escapeHtml(course.level || '—')}</td><td>${Number(course.unit) || 0}</td><td>${escapeHtml(allocation.semester || '—')}</td><td>${badge(allocation.status || 'allocated')}</td></tr>`;
+          }).join('') : '<tr><td colspan="5" class="empty">No course allocations found for this session.</td></tr>'}</tbody>
+        </table></div></div></div>`;
+    } catch (err) {
+      result.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load workload.')}</div>`;
+      showToast('❌ ' + err.message, 'error');
+    }
+  };
+  if (button && !button.__wired) {
+    button.__wired = true;
+    button.addEventListener('click', run);
+  }
+  if (select && !select.__wired) {
+    select.__wired = true;
+    select.addEventListener('change', () => { if (select.value) run(); });
+  }
+  if (session && !session.__wired) {
+    session.__wired = true;
+    session.addEventListener('change', () => { if (select?.value) run(); });
+  }
+}
+
 window.FPU_ADMIN = {
   // ... existing functions
   loadExamPeriods,
@@ -14997,10 +15295,10 @@ window.FPU_ADMIN = {
   loadAllocationDepartments, loadDepartmentAllocations,
 
   // Registrations
-  loadRegistrationStudents, loadStudentRegistrations,
+  loadRegistrationStudents, loadCourseRegistrations, loadStudentRegistrations,
 
   // Results
-  loadResultsDashboard, loadDepartmentResults, loadApprovedResults, toggleAllResults,
+  loadResultsDashboard, loadResultDepartments, loadDepartmentResults, loadApprovedResults, toggleAllResults,
   toggleCourseResults, updateBulkBtnState, bulkResultAction, courseBulkAction, publishAllApproved,
 
   // Grade Scales
@@ -15018,18 +15316,18 @@ window.FPU_ADMIN = {
   loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams,
 
     // Attendance
-  loadAttendanceDepartments, loadDepartmentAttendance,
+  loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
   openDepartmentAttendanceModal, openCourseAttendanceModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers
-  loadStaffDirectory, loadHodBoard, loadLecturerGrid, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
+  loadStaffDirectory, loadHodBoard, loadLecturerGrid, loadStaffWorkload, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,
   viewHodDetails, replaceHod, sendHodEmail, emailAllHods, loadStaffProfile, editStaffFromProfile,
   resetStaffPassword, toggleStaffActive, deleteStaff, closeResetModal, togglePasswordVisibility,
   submitResetPassword,
 
   // Fees, Payments, Clearances
   loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
-  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail,
+  loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail, loadStudentPayments,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 
   // Communication

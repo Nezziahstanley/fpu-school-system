@@ -11984,17 +11984,20 @@ async function loadExamSheet() {
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   
   const schoolId = params.get('schoolId');
+  const departmentId = params.get('departmentId');
+  const departmentName = params.get('departmentName') || '';
   const sessionId = params.get('sessionId');
   const semester = params.get('semester') || 'first';
   const schoolName = params.get('name') || 'School';
+  const pageTitle = departmentId ? (departmentName || 'Department') : schoolName;
 
-  if (!schoolId) {
-    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">No school selected.</div>';
+  if (!schoolId && !departmentId) {
+    root.innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">No school or department selected.</div>';
     return;
   }
 
   // Wire Top Buttons
-  if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { schoolId, sessionId, semester });
+  if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('exam-form', { schoolId, departmentId, sessionId, semester });
   if (printBtn) printBtn.onclick = () => window.print();
   if (exportBtn) exportBtn.onclick = () => {
     const table = document.querySelector('.ex-table');
@@ -12002,13 +12005,15 @@ async function loadExamSheet() {
     else showToast('⚠️ No table to export.', 'warning');
   };
 
-  if (titleEl) titleEl.textContent = `${schoolName} Exam Timetable`;
+  if (titleEl) titleEl.textContent = `${pageTitle} Exam Timetable`;
   if (subtitleEl) subtitleEl.textContent = `Loading schedules...`;
 
   try {
     // 1. Fetch everything once
+    const examParams = new URLSearchParams({ sessionId: sessionId || '', semester, limit: '5000' });
+    if (departmentId) examParams.set('departmentId', departmentId);
     const [examsRes, deptsRes, coursesRes] = await Promise.all([
-      adminFetch(`/api/admin/exams?schoolId=${schoolId}&sessionId=${sessionId}&semester=${semester}&limit=5000`),
+      adminFetch(`/api/admin/exams?${examParams.toString()}`),
       adminFetch(`/api/admin/departments`),
       adminFetch(`/api/admin/courses?limit=5000`),
     ]);
@@ -12026,7 +12031,7 @@ async function loadExamSheet() {
     if (!approvedExams.length) {
       root.innerHTML = `
         <div style="text-align:center;padding:60px;background:#fff;color:#64748b;font-size:16px;">
-          No approved exams scheduled for this school yet.
+          No approved exams scheduled for this selection yet.
           <br><small style="color:#94a3b8;margin-top:8px;display:block;">HODs must submit their timetables and the Admin must approve them before they appear here.</small>
         </div>`;
       return;
@@ -12046,7 +12051,9 @@ async function loadExamSheet() {
     
     // Initialize buckets for this school's departments
     depts.forEach(d => {
-      if (Number(d.schoolId) === Number(schoolId)) {
+      const isSelectedDepartment = departmentId && Number(d.id) === Number(departmentId);
+      const isSelectedSchool = !departmentId && schoolId && Number(d.schoolId) === Number(schoolId);
+      if (isSelectedDepartment || isSelectedSchool) {
         byDept.set(Number(d.id), { dept: d, exams: [] });
       }
     });

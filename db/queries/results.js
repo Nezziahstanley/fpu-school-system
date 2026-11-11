@@ -143,7 +143,7 @@ async function hodVerify(id, userId) {
   const [row] = await db
     .update(results)
     .set({ status: 'hod_verified', hodVerifiedBy: Number(userId), hodVerifiedAt: new Date(), updatedAt: new Date() })
-    .where(eq(results.id, Number(id)))
+    .where(and(eq(results.id, Number(id)), eq(results.status, 'submitted')))
     .returning();
   return row || null;
 }
@@ -158,7 +158,7 @@ async function hodReject(id, userId, reason) {
       rejectionReason: reason || 'Rejected by HOD.',
       updatedAt: new Date(),
     })
-    .where(eq(results.id, Number(id)))
+    .where(and(eq(results.id, Number(id)), eq(results.status, 'submitted')))
     .returning();
   return row || null;
 }
@@ -167,7 +167,7 @@ async function adminApprove(id, userId) {
   const [row] = await db
     .update(results)
     .set({ status: 'approved', approvedBy: Number(userId), approvedAt: new Date(), updatedAt: new Date() })
-    .where(eq(results.id, Number(id)))
+    .where(and(eq(results.id, Number(id)), eq(results.status, 'hod_verified')))
     .returning();
   return row || null;
 }
@@ -182,7 +182,7 @@ async function adminReject(id, userId, reason) {
       rejectionReason: reason || 'Rejected by admin.',
       updatedAt: new Date(),
     })
-    .where(eq(results.id, Number(id)))
+    .where(and(eq(results.id, Number(id)), eq(results.status, 'hod_verified')))
     .returning();
   return row || null;
 }
@@ -191,7 +191,7 @@ async function publish(id) {
   const [row] = await db
     .update(results)
     .set({ status: 'published', publishedAt: new Date(), updatedAt: new Date() })
-    .where(eq(results.id, Number(id)))
+    .where(and(eq(results.id, Number(id)), eq(results.status, 'approved')))
     .returning();
   return row || null;
 }
@@ -201,7 +201,7 @@ async function publishBatch(ids) {
   return db
     .update(results)
     .set({ status: 'published', publishedAt: new Date(), updatedAt: new Date() })
-    .where(inArray(results.id, ids.map(Number)))
+    .where(and(inArray(results.id, ids.map(Number)), eq(results.status, 'approved')))
     .returning();
 }
 

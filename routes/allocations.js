@@ -82,6 +82,13 @@ router.post('/', requireRole(['admin', 'registrar', 'academic_officer', 'hod']),
       if (!course || Number(course.departmentId) !== Number(req.user.departmentId)) {
         return res.status(403).json({ success: false, error: 'You can only allocate courses in your assigned department.' });
       }
+      const lecturer = await userQueries.findById(lecturerId);
+      if (!lecturer || !['lecturer', 'hod'].includes(lecturer.role)) {
+        return res.status(400).json({ success: false, error: 'Select a valid lecturer or HOD account.' });
+      }
+      if (Number(lecturer.departmentId) !== Number(req.user.departmentId)) {
+        return res.status(403).json({ success: false, error: 'You can only assign courses to teaching staff in your department.' });
+      }
     }
     const row = await courseQueries.createAllocation({ courseId, lecturerId, sessionId, semester });
     await logAudit({ req, action: 'allocation.create', entity: 'course_allocation', entityId: row.id, after: row });
@@ -114,10 +121,18 @@ router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer', 'hod']
     if (!(await assertAllocationScope(req, res, existing))) return;
     const patch = { ...req.body };
     delete patch.id;
-    if (req.user?.role === 'hod' && patch.courseId !== undefined) {
-      const targetCourse = await courseQueries.findById(patch.courseId);
-      if (!targetCourse || Number(targetCourse.departmentId) !== Number(req.user.departmentId)) {
-        return res.status(403).json({ success: false, error: 'You cannot move an allocation outside your department.' });
+    if (req.user?.role === 'hod') {
+      if (patch.courseId !== undefined) {
+        const targetCourse = await courseQueries.findById(patch.courseId);
+        if (!targetCourse || Number(targetCourse.departmentId) !== Number(req.user.departmentId)) {
+          return res.status(403).json({ success: false, error: 'You cannot move an allocation outside your department.' });
+        }
+      }
+      if (patch.lecturerId !== undefined) {
+        const targetLecturer = await userQueries.findById(patch.lecturerId);
+        if (!targetLecturer || !['lecturer', 'hod'].includes(targetLecturer.role) || Number(targetLecturer.departmentId) !== Number(req.user.departmentId)) {
+          return res.status(403).json({ success: false, error: 'You can only assign courses to teaching staff in your department.' });
+        }
       }
     }
     const row = await courseQueries.updateAllocation(existing.id, patch);

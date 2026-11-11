@@ -740,6 +740,8 @@ async function loadApplications() {
   const country = (document.getElementById("applications-country-filter") || {}).value || "";
   const state = (document.getElementById("applications-state-filter") || {}).value || "";
   const search = (document.getElementById("applications-search") || {}).value || "";
+  const dateFrom = (document.getElementById("applications-date-from") || {}).value || "";
+  const dateTo = (document.getElementById("applications-date-to") || {}).value || "";
 
   const qs = new URLSearchParams({ limit: 5000 });
   if (status) qs.set("status", status);
@@ -750,9 +752,26 @@ async function loadApplications() {
 
   container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
   try {
-    const apps = await fetchAllApplicationRows(qs);
+    let apps = await fetchAllApplicationRows(qs);
+    // Date filters are applied to the full fetched result set so historical
+    // records remain searchable even when the API does not expose date filters.
+    if (dateFrom) {
+      const fromTime = new Date(dateFrom + 'T00:00:00').getTime();
+      apps = apps.filter((a) => {
+        const created = new Date(a.createdAt || 0).getTime();
+        return Number.isFinite(created) && created >= fromTime;
+      });
+    }
+    if (dateTo) {
+      const toTime = new Date(dateTo + 'T23:59:59.999').getTime();
+      apps = apps.filter((a) => {
+        const created = new Date(a.createdAt || 0).getTime();
+        return Number.isFinite(created) && created <= toTime;
+      });
+    }
+    apps.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     updateApplicationStats(apps);
-    if (!apps.length) { container.innerHTML = `<tr><td colspan="7" class="empty">No applications found.</td></tr>`; return; }
+    if (!apps.length) { container.innerHTML = `<tr><td colspan="7" class="empty">No applications found for these filters.</td></tr>`; return; }
 
     if (window.FPU_PAGINATE && typeof window.FPU_PAGINATE.mount === 'function') {
       window.__appsPager = window.FPU_PAGINATE.mount(container, apps, {
@@ -1865,7 +1884,7 @@ async function loadAllocationDepartments() {
     // Fetch filter values
     const sessionId = (document.getElementById('alloc-filter-session') || {}).value || '';
     const semester = (document.getElementById('alloc-filter-semester') || {}).value || '';
-    const search = (document.getElementById('alloc-search') || {}).value || '';
+    const search = (document.getElementById('alloc-filter-search') || {}).value || '';
 
     const [deptsRes, allocsRes, schoolsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
@@ -1917,7 +1936,9 @@ async function loadAllocationDepartments() {
           String(course.code || '').toLowerCase().includes(q) ||
           String(course.title || '').toLowerCase().includes(q) ||
           String(lecturer.firstName || '').toLowerCase().includes(q) ||
-          String(lecturer.lastName || '').toLowerCase().includes(q);
+          String(lecturer.lastName || '').toLowerCase().includes(q) ||
+          String(lecturer.email || '').toLowerCase().includes(q) ||
+          String(lecturer.staffNumber || lecturer.employeeNumber || '').toLowerCase().includes(q);
         if (!match) continue;
       }
 

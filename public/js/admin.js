@@ -3176,10 +3176,12 @@ async function loadExamsIndex() {
   try {
     const sessionId = document.getElementById('ex-session')?.value || '';
     const semester = document.getElementById('ex-semester')?.value || 'first';
+    const selectedSchoolId = document.getElementById('ex-school')?.value || '';
 
     const res = await adminFetch(`/api/admin/exams/schools?sessionId=${sessionId}&semester=${semester}`);
     const json = await res.json();
-    const schools = json.data || [];
+    const allSchools = json.data || [];
+    const schools = selectedSchoolId ? allSchools.filter(s => String(s.id) === String(selectedSchoolId)) : allSchools;
 
     // Update Stats Bar
     let totalExams = 0, totalDays = 0, totalVenues = 0;
@@ -3236,7 +3238,7 @@ async function loadExamsIndex() {
       `;
     }).join('');
 
-    await loadInstitutionExamDailySchedule(sessionId, semester);
+    await loadInstitutionExamDailySchedule(sessionId, semester, selectedSchoolId);
 
   } catch (err) {
     console.error('Failed to load exams index:', err);
@@ -3249,7 +3251,7 @@ async function loadExamsIndex() {
  * Institution-wide daily examination schedule.
  * Shows approved examinations across every department for the selected date.
  */
-async function loadInstitutionExamDailySchedule(sessionId, semester) {
+async function loadInstitutionExamDailySchedule(sessionId, semester, schoolId = '') {
   const grid = document.getElementById('ex-school-grid');
   if (!grid) return;
 
@@ -3279,7 +3281,8 @@ async function loadInstitutionExamDailySchedule(sessionId, semester) {
       const dept = deptById.get(Number(course.departmentId));
       return { exam, course, dept };
     }).filter(x => String(x.exam.status || '').toLowerCase() === 'approved')
-      .filter(x => x.exam.examDate);
+      .filter(x => x.exam.examDate)
+      .filter(x => !schoolId || String(x.dept?.schoolId || '') === String(schoolId));
 
     approved.sort((a, b) =>
       String(a.exam.examDate).localeCompare(String(b.exam.examDate)) ||
@@ -13964,7 +13967,7 @@ async function loadExamApprovals() {
 
     grid.innerHTML = visible.map(({ dept, draft, submitted, approved }) => {
       let badgeClass = 'badge-warning', badgeText = 'Draft';
-      if (approved > 0 && submitted === 0 && draft === 0) { badgeClass = 'badge-success'; badgeText = 'Published'; }
+      if (approved > 0 && submitted === 0 && draft === 0) { badgeClass = 'badge-success'; badgeText = 'Approved'; }
       else if (submitted > 0) { badgeClass = 'badge-info'; badgeText = 'Pending Approval'; }
 
       return `
@@ -14106,7 +14109,9 @@ async function approveDepartmentExams(deptId) {
       })
     );
 
-    await Promise.all(promises);
+    const responses = await Promise.all(promises);
+    const failed = responses.filter(response => !response.ok);
+    if (failed.length) throw new Error(`${failed.length} exam approval(s) failed. Refresh and review the remaining submissions.`);
     showToast(`✅ Approved ${exams.length} exams.`, 'success');
     loadExamApprovals();
   } catch (err) {

@@ -363,10 +363,10 @@ async function reject(id, reason, rejectedBy) {
   return row || null;
 }
 
-async function refund(id, refundedBy) {
+async function refund(id) {
   const [row] = await db
     .update(payments)
-    .set({ status: 'refunded', verifiedBy: Number(refundedBy), verifiedAt: new Date() })
+    .set({ status: 'refunded' })
     .where(and(eq(payments.id, Number(id)), eq(payments.status, 'verified')))
     .returning();
   return row || null;

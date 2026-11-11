@@ -745,6 +745,7 @@ router.get('/id-card', only, async (req, res, next) => {
       .select({
         id: users.id,
         firstName: users.firstName,
+        middleName: users.middleName,
         lastName: users.lastName,
         matricNumber: users.matricNumber,
         level: users.level,

@@ -98,6 +98,8 @@ router.post('/:id/reset-password', requireAdmin, async (req, res, next) => {
 
     const passwordHash = await hashPassword(plain);
     await userQueries.updatePassword(user.id, passwordHash);
+    // Require the account owner to choose their own password at next sign-in.
+    await userQueries.update(user.id, { mustChangePassword: true });
     await sessionQueries.revokeAllAdminSessions(user.id);
     await logAudit({ req, action: 'admin_user.password_reset', entity: 'user', entityId: user.id });
     return res.json({ success: true });

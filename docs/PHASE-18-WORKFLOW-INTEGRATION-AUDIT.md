@@ -22,6 +22,14 @@ The public admission-letter route explicitly allows the `matriculated` state and
 
 The endpoint now uses the shared `appQueries.setStatus(app.id, 'matriculated', { matricNumber, reviewedBy })` transition. This also applies the shared timestamp and letter tracking fields.
 
+## Payment workflow correction
+
+The Bursar and Admin payment verification/rejection actions previously updated a payment by ID without restricting the prior state. This allowed a previously verified or rejected record to be overwritten by a later action.
+
+The shared payment query now applies a database-side `status = 'pending'` condition to both verification and rejection. Both the Bursar and Admin routes now distinguish missing records (404) from non-pending records (409), and return a conflict if the record changes between the initial read and conditional update. This protects the Student fee balance from accidental repeat or contradictory payment decisions.
+
+Student fee balances were also traced to count only `verified`, `completed` or `success` payment statuses; pending and rejected payments are not included in `totalPaid`.
+
 ## Remaining validation
 
 - Exercise public ND and HND application submissions with test records.

@@ -761,32 +761,28 @@ router.get('/exams', only, async (req, res, next) => {
     const departmentId = deptId(req);
     const { sessionId, semester } = req.query;
 
-    const rows = await db
-      .select({
-        id: examSchedules.id,
-        examDate: examSchedules.examDate,
-        startTime: examSchedules.startTime,
-        endTime: examSchedules.endTime,
-        venue: examSchedules.venue,
-        status: examSchedules.status,
-        // FIX: include these fields under BOTH naming conventions so the frontend matches
-        courseCode: courses.code,
-        course_code: courses.code,
-        courseTitle: courses.title,
-        course_title: courses.title,
-        level: courses.level,
-        courseId: examSchedules.courseId,
-      })
-      .from(examSchedules)
-      .innerJoin(courses, eq(examSchedules.courseId, courses.id))
-      .where(and(
-        eq(courses.departmentId, departmentId),
-        sessionId ? eq(examSchedules.sessionId, Number(sessionId)) : sql`true`,
-        semester ? eq(examSchedules.semester, semester) : sql`true`
-      ))
-      .orderBy(examSchedules.examDate);
+    const result = await db.execute(sql`
+      SELECT 
+        es.id,
+        es.course_id         AS "courseId",
+        es.exam_date         AS "examDate",
+        es.start_time        AS "startTime",
+        es.end_time          AS "endTime",
+        es.venue,
+        es.status,
+        c.code               AS "courseCode",
+        c.title              AS "courseTitle",
+        c.level,
+        c.unit
+      FROM exam_schedules es
+      INNER JOIN courses c ON es.course_id = c.id
+      WHERE c.department_id = ${Number(departmentId)}
+        ${sessionId ? sql`AND es.session_id = ${Number(sessionId)}` : sql``}
+        ${semester ? sql`AND es.semester = ${semester}` : sql``}
+      ORDER BY es.exam_date ASC, es.start_time ASC
+    `);
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('[hod/exams] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

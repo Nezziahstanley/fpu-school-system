@@ -252,14 +252,21 @@
       const s = r.slot || r;
       const c = r.course || {};
       
-      // Find the lecturer name by matching the courseId from the allocation data
+      // SMART LECTURER NAME LOOKUP
       let lectName = '—';
-      const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
       
+      // Attempt 1: Match by courseId against the allocations API data
+      const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
       if (allocatedCourse && allocatedCourse.lecturerName) {
         lectName = allocatedCourse.lecturerName;
-      } else if (r.lecturer && r.lecturer.firstName) {
+      } 
+      // Attempt 2: Check if backend returned a nested lecturer object
+      else if (r.lecturer && r.lecturer.firstName) {
         lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
+      }
+      // Attempt 3: Check if backend returned lecturerName directly on the slot
+      else if (s.lecturerName) {
+        lectName = s.lecturerName;
       }
       
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
@@ -272,7 +279,7 @@
             <div style="font-weight:700;color:#0f172a;">${esc(c.code || '—')}</div>
             <div style="font-size:.72rem;color:#64748b;">${esc(c.title || '')}</div>
           </td>
-          <td>${esc(lectName)}</td>
+          <td style="font-weight:600;color:#065f46;">${esc(lectName)}</td>
           <td>${esc(s.dayOfWeek || '—')}</td>
           <td>${esc(s.startTime || '')} - ${esc(s.endTime || '')}</td>
           <td>${esc(s.venue || '—')}</td>
@@ -410,7 +417,6 @@
   // Handle Tab Clicks
   document.querySelectorAll('.day-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      // Update UI
       document.querySelectorAll('.day-tab').forEach(t => {
         t.classList.remove('active');
         t.style.background = '#f1f5f9'; t.style.color = '#475569'; t.style.border = '1px solid #cbd5e1'; t.style.borderBottom = 'none';
@@ -418,7 +424,6 @@
       tab.classList.add('active');
       tab.style.background = '#065f46'; tab.style.color = '#fff'; tab.style.border = 'none';
 
-      // Update State and re-render
       activeDay = tab.dataset.day;
       loadBatchTable();
     });
@@ -428,7 +433,6 @@
   $('tt-add-slot')?.addEventListener('click', async () => {
     $('add-slot-modal').style.display = 'flex';
     
-    // Reset UI
     activeDay = 'Monday';
     document.querySelectorAll('.day-tab').forEach(t => {
       if (t.dataset.day === 'Monday') {
@@ -487,7 +491,7 @@
 
     const sessionId = Number($('tt-session').value);
     const semester = $('batch-semester').value;
-    const dayOfWeek = activeDay; // We use the active tab as the day
+    const dayOfWeek = activeDay;
 
     const btn = $('batch-save-btn');
     btn.disabled = true;
@@ -502,6 +506,12 @@
       
       const lecturerSelect = row.querySelector('.batch-lecturer');
       let lecturerId = lecturerSelect ? Number(lecturerSelect.value) : null;
+
+      // CRITICAL: If the lecturer select doesn't exist (because it's locked), find the pre-assigned one
+      if (!lecturerSelect) {
+        const found = ALL_COURSES.find(c => String(c.courseId || c.id) === String(courseId));
+        if (found && found.lecturerId) lecturerId = Number(found.lecturerId);
+      }
 
       const venueSelect = row.querySelector('.batch-venue');
       const venue = venueSelect ? venueSelect.value : '';
@@ -541,7 +551,7 @@
     if (successCount > 0) {
       core.showToast(`✅ Saved ${successCount} slot(s) for ${dayOfWeek}.`, 'success');
       await loadSlots();
-      loadBatchTable(); // Refresh the table to lock newly saved slots
+      loadBatchTable(); 
     } else {
       core.showToast(`❌ Failed to save slots. Check console for details.`, 'error');
     }

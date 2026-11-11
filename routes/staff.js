@@ -38,7 +38,8 @@ router.get('/', requireRole(STAFF_ADMINS), async (req, res, next) => {
 router.get('/:id', requireRole(STAFF_ADMINS), async (req, res, next) => {
   try {
     const user = await userQueries.findByIdWithRelations(req.params.id);
-    if (!user || user.role === 'student') {
+    if (!user || user.role === 'student' ||
+        (req.user.role === 'hod' && Number(user.departmentId) !== Number(req.user.departmentId))) {
       return res.status(404).json({ success: false, error: 'Staff member not found.' });
     }
     return res.json({ success: true, data: user });
@@ -219,6 +220,11 @@ router.post('/:id/toggle-active', requireRole(['admin']), async (req, res, next)
 router.get('/:id/workload', requireRole(STAFF_ADMINS), async (req, res, next) => {
   try {
     const { sessionId } = req.query;
+    const target = await userQueries.findById(req.params.id);
+    if (!target || target.role === 'student' ||
+        (req.user.role === 'hod' && Number(target.departmentId) !== Number(req.user.departmentId))) {
+      return res.status(404).json({ success: false, error: 'Staff member not found.' });
+    }
     const rows = await courseQueries.listAllocationsWithRelations({ lecturerId: req.params.id, sessionId });
     const totalUnits = rows.reduce((s, r) => s + (Number(r.course?.unit) || 0), 0);
     return res.json({ success: true, data: { allocations: rows, totalUnits, totalCourses: rows.length } });

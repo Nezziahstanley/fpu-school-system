@@ -221,7 +221,11 @@
     ],
     rector: [
       { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },
-      { key: 'rector-reports',      label: 'Reports',      icon: ICON.chart },
+      { key: 'rector-students',     label: 'Students',     icon: ICON.users },
+      { key: 'rector-staff',        label: 'Staff Directory', icon: ICON.user },
+      { key: 'rector-applications', label: 'Applications Overview', icon: ICON.clipboard },
+      { key: 'rector-graduation',   label: 'Graduation Pipeline', icon: ICON.award },
+      { key: 'rector-reports',      label: 'Executive Reports', icon: ICON.chart },
     ],
     registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },

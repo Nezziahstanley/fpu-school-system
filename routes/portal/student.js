@@ -628,10 +628,15 @@ router.get('/documents', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const result = await db.execute(sql`
-      SELECT id, type, title, status, requested_at AS "createdAt", file_url AS "fileUrl"
-      FROM documents
-      WHERE user_id = ${studentId}
-      ORDER BY requested_at DESC
+      SELECT d.id, d.type, d.title, d.status,
+             d.requested_at AS "createdAt", d.file_url AS "fileUrl",
+             d.issued_by AS "issuedBy", d.issued_at AS "issuedAt",
+             issuer.first_name AS "issuerFirstName", issuer.last_name AS "issuerLastName",
+             issuer.role AS "issuerRole", issuer.signature_url AS "issuerSignatureUrl"
+      FROM documents d
+      LEFT JOIN users issuer ON issuer.id = d.issued_by
+      WHERE d.user_id = ${studentId}
+      ORDER BY d.requested_at DESC
     `);
     return res.json({ success: true, data: result.rows || [] });
   } catch (err) {

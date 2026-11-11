@@ -707,6 +707,31 @@ async function loadAll() {
 // ============================================
 // APPLICATIONS
 // ============================================
+// Fetch every matching application in bounded pages so the admin list
+// never silently stops at the first 5,000 records.
+async function fetchAllApplicationRows(filters = {}) {
+  const query = new URLSearchParams(filters);
+  const pageSize = 5000;
+  query.set('limit', String(pageSize));
+  query.delete('offset');
+
+  const rows = [];
+  let total = Infinity;
+  while (rows.length < total) {
+    query.set('offset', String(rows.length));
+    const res = await adminFetch(`/api/admin/applications?${query}`);
+    if (!res.ok) throw new Error(`Applications request failed (HTTP ${res.status}).`);
+    const json = await res.json();
+    if (json.success === false) throw new Error(json.error || 'Applications could not be loaded.');
+    const page = Array.isArray(json.data) ? json.data : extractArray(json);
+    if (!page.length) break;
+    rows.push(...page);
+    total = Number.isFinite(Number(json.total)) ? Number(json.total) : rows.length;
+    if (page.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function loadApplications() {
   const container = document.getElementById("applications-tbody");
   if (!container) return;
@@ -725,9 +750,7 @@ async function loadApplications() {
 
   container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
   try {
-    const res = await adminFetch(`/api/admin/applications?${qs}`);
-    const result = await res.json();
-    const apps = extractArray(result);
+    const apps = await fetchAllApplicationRows(qs);
     updateApplicationStats(apps);
     if (!apps.length) { container.innerHTML = `<tr><td colspan="7" class="empty">No applications found.</td></tr>`; return; }
 
@@ -845,14 +868,11 @@ async function loadAdmitted() {
 
   container.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
   try {
-    const [res, statsRes] = await Promise.all([
-      adminFetch(`/api/admin/applications?${qs}`),
+    const [rows, statsRes] = await Promise.all([
+      fetchAllApplicationRows(qs),
       adminFetch('/api/admin/applications/stats/summary'),
     ]);
-    if (!res.ok) throw new Error('Unable to load admitted applicants.');
-    const json = await res.json();
     const statsJson = statsRes.ok ? await statsRes.json() : null;
-    const rows = json.data || [];
     updateAdmittedStats(rows, statsJson);
     if (!rows.length) { container.innerHTML = `<tr><td colspan="7" class="empty">No applicants found.</td></tr>`; return; }
 

@@ -4632,6 +4632,7 @@ async function loadDepartmentPayments() {
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   const departmentId = params.get('departmentId');
+  const sessionId = params.get('sessionId') || '';
   const deptName = params.get('name') || 'Department';
 
   if (!departmentId) {
@@ -5636,12 +5637,19 @@ async function loadDepartmentClearances() {
   try {
     // Fetch students and clearances
     const [studentsRes, clrRes] = await Promise.all([
-      adminFetch(`/api/admin/students?departmentId=${departmentId}&limit=5000`).catch(() => null),
-      adminFetch('/api/admin/clearances').catch(() => null),
+      adminFetch(`/api/admin/students?departmentId=${encodeURIComponent(departmentId)}&limit=5000`),
+      adminFetch(`/api/admin/clearances${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`),
     ]);
 
-    const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
-    const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
+    if (!studentsRes.ok) throw new Error('Unable to load students for this department.');
+    if (!clrRes.ok) throw new Error('Unable to load clearance records for the selected session.');
+
+    const studentsJson = await studentsRes.json();
+    const clearancesJson = await clrRes.json();
+    if (studentsJson.success === false) throw new Error(studentsJson.error || 'Student data could not be loaded.');
+    if (clearancesJson.success === false) throw new Error(clearancesJson.error || 'Clearance data could not be loaded.');
+    const students = Array.isArray(studentsJson.data) ? studentsJson.data : [];
+    const clearances = Array.isArray(clearancesJson.data) ? clearancesJson.data : [];
 
     // Match clearances to students
     const clearanceByStudent = new Map();

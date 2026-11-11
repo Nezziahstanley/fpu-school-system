@@ -44,7 +44,23 @@ try {
 // ------------------------------------------------------------
 try {
   const cors = require('cors');
-  app.use(cors({ credentials: true, origin: true }));
+  // Same-origin hosting needs no CORS headers. Cross-origin clients must be
+  // explicitly listed in CORS_ORIGINS (comma-separated) before credentials
+  // are allowed; never reflect arbitrary Origin headers.
+  const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+  app.use(cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+  }));
 } catch {}
 
 // ------------------------------------------------------------

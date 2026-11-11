@@ -227,9 +227,9 @@
       btn.addEventListener('click', async () => {
         const doc = ALL.find(d => Number(d.id) === Number(btn.dataset.id));
         if (!doc) return;
-        const ok = window.fpuConfirm
-          ? await window.fpuConfirm({ title: 'Issue transcript?', message: 'Mark this transcript request as officially issued?', type: 'warning', okText: 'Mark Issued', cancelText: 'Cancel' })
-          : window.confirm('Mark this transcript request as issued?');
+        const ok = core.portalConfirm
+          ? await core.portalConfirm('Mark this document request as officially issued? The student will be able to view the prepared document in their portal.', { title: 'Generate & Issue Document?', type: 'warning', confirmText: 'Generate & Issue', cancelText: 'Cancel' })
+          : window.confirm('Mark this document request as issued?');
         if (!ok) return;
         btn.disabled = true;
         try {

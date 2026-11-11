@@ -668,6 +668,8 @@ router.post('/exams', only, async (req, res, next) => {
       venue 
     } = req.body;
 
+    console.log('[DEBUG] POST /exams payload:', req.body);
+
     if (!courseId || !examDate || !startTime || !endTime) {
       return res.status(400).json({ success: false, error: 'Missing required fields.' });
     }
@@ -677,25 +679,61 @@ router.post('/exams', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
-    const finalSemester = semester || course.semesterName || 'first';
+    const finalSemester = String(semester || course.semesterName || 'first').toLowerCase();
     const finalSessionId = sessionId ? Number(sessionId) : (req.user.currentSessionId || 1);
 
-    const [row] = await db.insert(examSchedules).values({
-      courseId: Number(courseId),
-      sessionId: finalSessionId,
-      semester: finalSemester,
-      examDate: new Date(examDate),
-      startTime,
-      endTime,
-      venue: venue || null,
-      status: 'draft',
-    }).returning();
+    // Normalize the date to YYYY-MM-DD (strip time if present)
+    const dateStr = String(examDate).substring(0, 10);
 
-    await logAudit({ req, action: 'hod.create_exam', entity: 'exam_schedule', entityId: row.id, after: row });
-    return res.status(201).json({ success: true, data: row });
+    // Normalize the times to HH:MM:SS
+    const startStr = String(startTime).length === 5 ? String(startTime) + ':00' : String(startTime);
+    const endStr   = String(endTime).length === 5   ? String(endTime)   + ':00' : String(endTime);
+
+    console.log('[DEBUG] Casting:', { dateStr, startStr, endStr, finalSemester, finalSessionId });
+
+    const result = await db.execute(sql`
+      INSERT INTO exam_schedules (
+        course_id,
+        session_id,
+        semester,
+        exam_date,
+        start_time,
+        end_time,
+        venue,
+        status
+      ) VALUES (
+        ${Number(courseId)}::int,
+        ${finalSessionId}::int,
+        ${finalSemester}::text::semester,
+        ${dateStr}::date,
+        ${startStr}::time,
+        ${endStr}::time,
+        ${venue || null},
+        'draft'
+      )
+      RETURNING id
+    `);
+
+    const newId = result.rows?.[0]?.id;
+    await logAudit({ req, action: 'hod.create_exam', entity: 'exam_schedule', entityId: newId });
+    return res.status(201).json({ success: true, data: { id: newId } });
   } catch (err) {
     console.error('[hod/create-exam] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error('[hod/create-exam] Details:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      constraint: err.constraint,
+      table: err.table,
+      column: err.column,
+    });
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      code: err.code,
+      detail: err.detail,
+      constraint: err.constraint,
+    });
   }
 });
 

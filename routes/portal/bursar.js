@@ -332,6 +332,11 @@ router.post('/documents/:id/approve', only, async (req, res, next) => {
 // ---- POST /api/bursar/documents/:id/issue ----
 router.post('/documents/:id/issue', only, async (req, res, next) => {
   try {
+    const [issuer] = await db.select({ signatureUrl: users.signatureUrl })
+      .from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!issuer?.signatureUrl) {
+      return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before issuing official documents.' });
+    }
     const [row] = await db
       .update(documents)
       .set({

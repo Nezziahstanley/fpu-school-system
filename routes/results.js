@@ -18,6 +18,15 @@ const { scoreToGrade, getActiveGradeScale, invalidateCache } = require('../utils
 
 const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 
+async function respondWithTransitionConflict(res, resultId, expectedStatus, actionLabel) {
+  const existing = await resultQueries.findById(resultId);
+  if (!existing) return res.status(404).json({ success: false, error: 'Result not found.' });
+  return res.status(409).json({
+    success: false,
+    error: `Cannot ${actionLabel} a result with status "${existing.status}". Expected "${expectedStatus}".`,
+  });
+}
+
 // ============================================================
 // BULK ACTION — MUST BE BEFORE /:id routes!
 // ============================================================
@@ -321,7 +330,7 @@ router.post('/:id/submit', requireRole(['lecturer', 'admin', 'academic_officer']
 router.post('/:id/hod-verify', requireRole(['hod', 'admin']), async (req, res, next) => {
   try {
     const row = await resultQueries.hodVerify(req.params.id, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!row) return respondWithTransitionConflict(res, req.params.id, 'submitted', 'verify');
 
     // ✅ FIX: Private notification to just this student (no announcement spam)
     try {
@@ -349,7 +358,7 @@ router.post('/:id/hod-verify', requireRole(['hod', 'admin']), async (req, res, n
 router.post('/:id/approve', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.adminApprove(req.params.id, req.user.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!row) return respondWithTransitionConflict(res, req.params.id, 'hod_verified', 'approve');
 
     // ✅ FIX: Private notification only
     try {
@@ -377,7 +386,7 @@ router.post('/:id/approve', requireRole(['admin', 'academic_officer']), async (r
 router.post('/:id/publish', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.publish(req.params.id);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!row) return respondWithTransitionConflict(res, req.params.id, 'approved', 'publish');
 
     // ✅ FIX: Private notification only
     try {
@@ -405,7 +414,7 @@ router.post('/:id/publish', requireRole(['admin', 'academic_officer']), async (r
 router.post('/:id/hod-reject', requireRole(['hod', 'admin']), async (req, res, next) => {
   try {
     const row = await resultQueries.hodReject(req.params.id, req.user.id, req.body?.reason);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!row) return respondWithTransitionConflict(res, req.params.id, 'submitted', 'reject');
     await logAudit({ req, action: 'result.hod_reject', entity: 'result', entityId: row.id, after: { reason: req.body?.reason } });
     return res.json({ success: true, data: row });
   } catch (err) {
@@ -427,7 +436,7 @@ router.post('/:id/approve', requireRole(['admin', 'academic_officer']), async (r
 router.post('/:id/reject', requireRole(['admin', 'academic_officer']), async (req, res, next) => {
   try {
     const row = await resultQueries.adminReject(req.params.id, req.user.id, req.body?.reason);
-    if (!row) return res.status(404).json({ success: false, error: 'Result not found.' });
+    if (!row) return respondWithTransitionConflict(res, req.params.id, 'hod_verified', 'reject');
     await logAudit({ req, action: 'result.admin_reject', entity: 'result', entityId: row.id, after: { reason: req.body?.reason } });
     return res.json({ success: true, data: row });
   } catch (err) {

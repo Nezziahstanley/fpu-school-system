@@ -1,6 +1,7 @@
 ﻿// ============================================================
 // FPU — HOD portal API
 // Mounted at /api/hod
+// File: routes/portal/hod.js
 // ============================================================
 
 'use strict';
@@ -8,6 +9,7 @@
 const express = require('express');
 const router = express.Router();
 
+// CRITICAL FIX: Paths go up TWO levels because this file is in routes/portal/
 const userQueries    = require('../../db/queries/users');
 const courseQueries  = require('../../db/queries/courses');
 const resultQueries  = require('../../db/queries/results');
@@ -15,6 +17,7 @@ const regQueries     = require('../../db/queries/registrations');
 const ttQueries      = require('../../db/queries/timetable');
 const notifQueries   = require('../../db/queries/notifications');
 const sessionQueries = require('../../db/queries/sessions');
+
 const { db, schema } = require('../../db');
 const { eq, and, sql, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../../middleware/auth');

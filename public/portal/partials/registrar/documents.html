@@ -193,11 +193,8 @@
       
       let actions = `<button class="rd-btn-sm" data-action="preview" data-id="${d.id}" style="background:#eff6ff;color:#1e40af;margin-right:.3rem;">👁 Preview</button>`;
       if (st === 'pending' || st === 'approved') {
-        if (docType.includes('transcript')) {
-          actions += `<button class="rd-btn-sm" data-action="mark-issued" data-id="${d.id}" style="background:#065f46;color:#fff;">✓ Mark Issued</button>`;
-        } else {
-          actions += `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload & Issue</button>`;
-        }
+        actions += `<button class="rd-btn-sm" data-action="mark-issued" data-id="${d.id}" style="background:#065f46;color:#fff;margin-right:.3rem;">✓ Generate & Issue</button>`;
+        actions += `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#fff;color:#065f46;border:1px solid #bbf7d0;">Upload PDF</button>`;
       } else if (st === 'issued' && d.fileUrl) {
         actions += `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" rel="noopener" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
       }
@@ -270,6 +267,10 @@
     $('reg-doc-preview-modal').style.display = 'flex';
     frame.srcdoc = '<!doctype html><html><body style="font:14px Arial;padding:2rem;color:#64748b">Preparing official preview…</body></html>';
     try {
+      if (doc.fileUrl) {
+        frame.src = doc.fileUrl;
+        return;
+      }
       if (String(doc.type || '').toLowerCase().includes('transcript')) {
         frame.src = '/portal/partials/registrar/document-template.html?studentId=' + encodeURIComponent(doc.studentId || doc.userId);
         return;

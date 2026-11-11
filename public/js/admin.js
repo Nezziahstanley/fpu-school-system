@@ -3143,9 +3143,114 @@ async function loadExamsIndex() {
       `;
     }).join('');
 
+    await loadInstitutionExamDailySchedule(sessionId, semester);
+
   } catch (err) {
     console.error('Failed to load exams index:', err);
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Failed to load exams data.</div>';
+  }
+}
+
+
+/**
+ * Institution-wide daily examination schedule.
+ * Shows approved examinations across every department for the selected date.
+ */
+async function loadInstitutionExamDailySchedule(sessionId, semester) {
+  const grid = document.getElementById('ex-school-grid');
+  if (!grid) return;
+
+  let panel = document.getElementById('ex-daily-schedule');
+  if (!panel) {
+    panel = document.createElement('section');
+    panel.id = 'ex-daily-schedule';
+    panel.style.cssText = 'grid-column:1/-1;margin-top:24px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(15,23,42,.04);';
+    grid.insertAdjacentElement('afterend', panel);
+  }
+  panel.innerHTML = '<div style="padding:24px;text-align:center;color:#64748b;"><span class="spinner"></span> Loading institution-wide examination schedule…</div>';
+
+  try {
+    const [examRes, deptRes] = await Promise.all([
+      adminFetch(`/api/admin/exams?sessionId=${encodeURIComponent(sessionId || '')}&semester=${encodeURIComponent(semester || '')}&limit=5000`),
+      adminFetch('/api/admin/departments?limit=5000')
+    ]);
+    if (!examRes.ok || !deptRes.ok) throw new Error('Unable to retrieve examination schedules or departments.');
+    const examJson = await examRes.json();
+    const deptJson = await deptRes.json();
+    const rows = Array.isArray(examJson.data) ? examJson.data : [];
+    const departments = Array.isArray(deptJson.data) ? deptJson.data : [];
+    const deptById = new Map(departments.map(d => [Number(d.id), d]));
+    const approved = rows.map(row => {
+      const exam = row.exam || row;
+      const course = row.course || {};
+      const dept = deptById.get(Number(course.departmentId));
+      return { exam, course, dept };
+    }).filter(x => String(x.exam.status || '').toLowerCase() === 'approved')
+      .filter(x => x.exam.examDate);
+
+    approved.sort((a, b) =>
+      String(a.exam.examDate).localeCompare(String(b.exam.examDate)) ||
+      String(a.exam.startTime || '').localeCompare(String(b.exam.startTime || '')) ||
+      String(a.dept?.name || '').localeCompare(String(b.dept?.name || ''))
+    );
+
+    const dates = [...new Set(approved.map(x => String(x.exam.examDate).slice(0, 10)))];
+    const today = new Date().toISOString().slice(0, 10);
+    const firstUpcoming = dates.find(d => d >= today);
+    const defaultDate = firstUpcoming || dates[0] || today;
+
+    const renderRows = (dateValue) => {
+      const selected = dateValue ? approved.filter(x => String(x.exam.examDate).slice(0, 10) === dateValue) : approved;
+      if (!selected.length) return '<tr><td colspan="7" style="padding:28px;text-align:center;color:#64748b;">No approved examinations scheduled for this date.</td></tr>';
+      return selected.map(({exam, course, dept}) => `<tr>
+        <td style="white-space:nowrap;">${escapeHtml(fmtDate(exam.examDate))}</td>
+        <td>${escapeHtml(dept?.name || 'Department not assigned')}</td>
+        <td><strong>${escapeHtml(course.code || '—')}</strong><br>${escapeHtml(course.title || 'Course title unavailable')}</td>
+        <td style="white-space:nowrap;">${escapeHtml(exam.startTime || '—')} – ${escapeHtml(exam.endTime || '—')}</td>
+        <td>${escapeHtml(exam.venue || '—')}</td>
+        <td>${escapeHtml(exam.invigilators || '—')}</td>
+        <td><span class="badge badge-success">Approved</span></td>
+      </tr>`).join('');
+    };
+
+    panel.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <h3 style="margin:0 0 5px;color:#0f172a;">Institution-wide Daily Examination Schedule</h3>
+          <p style="margin:0;color:#64748b;font-size:13px;">Official approved examinations from all departments, in date and time order.</p>
+        </div>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:#334155;">
+          Examination date
+          <input id="ex-daily-date" type="date" value="${escapeHtml(defaultDate)}" style="padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;">
+        </label>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 14px;"><strong>${approved.length}</strong><div style="font-size:11px;color:#64748b;">Approved exams</div></div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 14px;"><strong>${new Set(approved.map(x => Number(x.dept?.id)).filter(Boolean)).size}</strong><div style="font-size:11px;color:#64748b;">Departments</div></div>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:10px 14px;"><strong>${dates.length}</strong><div style="font-size:11px;color:#64748b;">Exam dates</div></div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:900px;">
+          <thead><tr style="background:#f8fafc;text-align:left;">
+            <th style="padding:11px;">Date</th><th style="padding:11px;">Department</th><th style="padding:11px;">Course</th><th style="padding:11px;">Time</th><th style="padding:11px;">Venue</th><th style="padding:11px;">Invigilator(s)</th><th style="padding:11px;">Status</th>
+          </tr></thead>
+          <tbody id="ex-daily-rows">${renderRows(defaultDate)}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+        <button type="button" class="btn btn-sm btn-outline" id="ex-daily-show-all">Show all scheduled dates</button>
+      </div>`;
+
+    const dateInput = panel.querySelector('#ex-daily-date');
+    const body = panel.querySelector('#ex-daily-rows');
+    dateInput.addEventListener('change', () => { body.innerHTML = renderRows(dateInput.value); });
+    panel.querySelector('#ex-daily-show-all').addEventListener('click', () => {
+      dateInput.value = '';
+      body.innerHTML = renderRows('');
+    });
+  } catch (err) {
+    console.error('Failed to load institution-wide examination schedule:', err);
+    panel.innerHTML = `<div style="color:#b91c1c;padding:12px;">Could not load the institution-wide schedule: ${escapeHtml(err.message)}</div>`;
   }
 }
 

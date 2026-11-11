@@ -102,10 +102,16 @@ app.get('/api/public/verify', async (req, res) => {
         u.matric_number AS "matricNumber", 
         u.level,
         p.name AS "programmeName",
-        d.name AS "departmentName"
+        d.name AS "departmentName",
+        COALESCE(
+          student_session.name,
+          (SELECT current_session.name FROM academic_sessions current_session
+           WHERE current_session.is_current = true LIMIT 1)
+        ) AS "sessionName"
       FROM users u
       LEFT JOIN programmes p ON u.programme_id = p.id
       LEFT JOIN departments d ON u.department_id = d.id
+      LEFT JOIN academic_sessions student_session ON student_session.id = u.current_session_id
       WHERE UPPER(u.matric_number) = UPPER($1)
       LIMIT 1
     `, [matric]);
@@ -115,8 +121,6 @@ app.get('/api/public/verify', async (req, res) => {
     }
 
     const studentData = result.rows[0];
-    studentData.sessionName = '2025/2026';
-
     res.json({ success: true, data: studentData });
   } catch (err) {
     console.error('Verify error:', err?.message || 'Unknown verification error');

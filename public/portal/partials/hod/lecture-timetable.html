@@ -226,6 +226,9 @@
 
     const rows = await loadSlots();
 
+    // Populate ALL_COURSES if it's empty so we have the lecturer names
+    if (!ALL_COURSES.length) await loadCoursesWithAllocations();
+
     const counts = { total: rows.length, draft: 0, pending: 0, approved: 0 };
     rows.forEach(r => {
       const s = r.slot || r;
@@ -248,8 +251,16 @@
     tbody.innerHTML = rows.map(r => {
       const s = r.slot || r;
       const c = r.course || {};
-      const lecturer = r.lecturer || {};
-      const lectName = lecturer.firstName ? `${lecturer.firstName} ${lecturer.lastName}` : '—';
+      
+      // Find the lecturer name by matching the courseId from the allocation data
+      let lectName = '—';
+      const allocatedCourse = ALL_COURSES.find(ac => String(ac.courseId) === String(s.courseId));
+      
+      if (allocatedCourse && allocatedCourse.lecturerName) {
+        lectName = allocatedCourse.lecturerName;
+      } else if (r.lecturer && r.lecturer.firstName) {
+        lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
+      }
       
       let statusBadge = '<span class="badge badge-warning">Draft</span>';
       if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
@@ -299,7 +310,6 @@
     const parts = selectedLevel.split(' ');
     const targetLevel = parts[0].toUpperCase(); 
 
-    // Filter by Level and Semester
     const filtered = ALL_COURSES.filter(c => {
       const dbLevel = String(c.level || '').toUpperCase().trim();
       const dbSem = String(c.semesterName || c.semester_name || '').toLowerCase().trim();
@@ -323,11 +333,10 @@
       const courseCode = c.courseCode || c.code;
       const courseTitle = c.courseTitle || c.title;
 
-      // CRITICAL: Check if this course is already scheduled for THIS specific active day
+      // Check if this course is already scheduled for THIS specific active day
       const existingSlotForToday = CURRENT_SLOTS.find(s => {
         const slot = s.slot || s;
         const isSameCourse = String(slot.courseId) === String(courseId);
-        // We explicitly match the day to ensure they can schedule it on other days
         const isSameDay = String(slot.dayOfWeek).toLowerCase() === activeDay.toLowerCase();
         return isSameCourse && isSameDay;
       });
@@ -359,12 +368,10 @@
       let endHtml = '';
 
       if (existingSlotForToday && existingSlotForToday.slot) {
-        // Lock inputs if already saved for today
         venueHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;">${esc(existingSlotForToday.slot.venue || '—')}</div>`;
         startHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlotForToday.slot.startTime || '—')}</div>`;
         endHtml = `<div style="font-size:12px;font-weight:600;color:#475569;background:#f1f5f9;padding:6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">${esc(existingSlotForToday.slot.endTime || '—')}</div>`;
       } else {
-        // Render dropdowns and time inputs for new scheduling
         venueHtml = `
           <select class="batch-venue form-control" style="width:100%;padding:6px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;">
             <option value="">Select</option>

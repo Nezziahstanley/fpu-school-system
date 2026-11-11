@@ -111,22 +111,26 @@ router.post('/photo', requireUser, async (req, res, next) => {
       .where(eq(users.id, req.user.id))
       .returning();
 
-    // Also record in photo_uploads history
+    // Also record in photo_uploads history. Clear the previous current
+    // row before inserting the new one, atomically, so the new row remains current.
     try {
-      await db.insert(photoUploads).values({
-        userId: req.user.id,
-        url,
-        mimeType: req.body?.mimeType || null,
-        sizeBytes: req.body?.sizeBytes ? Number(req.body.sizeBytes) : null,
-        isCurrent: true,
+      await db.transaction(async (tx) => {
+        await tx
+          .update(photoUploads)
+          .set({ isCurrent: false })
+          .where(and(eq(photoUploads.userId, req.user.id), eq(photoUploads.isCurrent, true)));
+
+        await tx.insert(photoUploads).values({
+          userId: req.user.id,
+          url,
+          mimeType: req.body?.mimeType || null,
+          sizeBytes: req.body?.sizeBytes ? Number(req.body.sizeBytes) : null,
+          isCurrent: true,
+        });
       });
-      // Mark older uploads as not current
-      await db
-        .update(photoUploads)
-        .set({ isCurrent: false })
-        .where(and(eq(photoUploads.userId, req.user.id), eq(photoUploads.isCurrent, true)));
-    } catch {
-      // history is optional — ignore failures
+    } catch (historyError) {
+      // Photo history is optional; keep the profile update successful.
+      console.error('[portal/photo] photo history update failed:', historyError?.message);
     }
 
     return res.json({ success: true, data: row });

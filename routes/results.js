@@ -201,6 +201,7 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
           departmentId: schema.departments.id,
           departmentName: schema.departments.name,
           departmentCode: schema.departments.code,
+          schoolId: schema.departments.schoolId,
         }
       })
       .from(schema.results)

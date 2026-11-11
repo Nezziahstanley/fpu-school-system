@@ -41,13 +41,13 @@ router.get('/:id', requireAdmin, async (req, res, next) => {
 router.post('/', requireAdmin, async (req, res, next) => {
   try {
     const { email, password, firstName, lastName, middleName, phone } = req.body || {};
-    if (!email || !firstName || !lastName) {
-      return res.status(400).json({ success: false, error: 'email, firstName, lastName are required.' });
+    if (!email || !firstName || !lastName || !password) {
+      return res.status(400).json({ success: false, error: 'email, password, firstName and lastName are required.' });
     }
     if (await userQueries.emailExists(email)) {
       return res.status(409).json({ success: false, error: 'A user with this email already exists.' });
     }
-    const plain = password || 'admin1234';
+    const plain = String(password);
     const { valid, reasons } = validatePassword(plain);
     if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
 
@@ -89,7 +89,10 @@ router.post('/:id/reset-password', requireAdmin, async (req, res, next) => {
     const user = await userQueries.findById(req.params.id);
     if (!user || user.role !== 'admin') return res.status(404).json({ success: false, error: 'Admin not found.' });
 
-    const plain = req.body?.password || 'admin1234';
+    const plain = req.body?.password;
+    if (typeof plain !== 'string' || !plain.trim()) {
+      return res.status(400).json({ success: false, error: 'A new password is required.' });
+    }
     const { valid, reasons } = validatePassword(plain);
     if (!valid) return res.status(400).json({ success: false, error: reasons.join(' ') });
 

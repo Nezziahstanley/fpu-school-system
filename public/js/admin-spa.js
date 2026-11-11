@@ -72,6 +72,16 @@
     };
   }
 
+  function initSecurityPage() {
+    call('loadSecurityDashboard')();
+    call('wireSecurityActions')();
+  }
+
+  function initGraduationPage() {
+    call('loadGraduationsTable')();
+    call('wireGraduationPage')();
+  }
+
   // ----------------------------------------------------------
   // SIDEBAR
   // ----------------------------------------------------------
@@ -317,14 +327,14 @@
     'documents-detail': { url: '/admin/partials/documents/detail.html',          title: 'Document',        init: call('loadDocumentDetail') },
     'document-new':     { url: '/admin/partials/documents/new.html',             title: 'New Request',     init: () => {} },
 
-    'graduation':       { url: '/admin/partials/graduations/queue.html',           title: 'Graduation',      init: call('loadGraduationsTable') },
+    'graduation':       { url: '/admin/partials/graduations/queue.html',           title: 'Graduation',      init: initGraduationPage },
     'graduation-form':  { url: '/admin/partials/graduations/form.html',           title: 'Queue Graduand',  init: () => {} },
-    'graduation-queue': { url: '/admin/partials/graduations/queue.html',          title: 'Graduation Queue',init: call('loadGraduationsTable') },
+    'graduation-queue': { url: '/admin/partials/graduations/queue.html',          title: 'Graduation Queue',init: initGraduationPage },
 
     // ---------- System ----------
     'reports':          { url: '/admin/partials/reports/index.html',             title: 'Reports',         init: call('loadReports') },
     'audit':            { url: '/admin/partials/audit/index.html',               title: 'Audit',           init: call('loadAuditTable') },
-    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: call('loadSecurityDashboard') },
+    'security':         { url: '/admin/partials/security/dashboard.html',            title: 'Security',        init: initSecurityPage },
     'settings':         { url: '/admin/partials/settings/index.html',            title: 'Settings',        init: call('loadSettingsShell') },
 
     // ---------- Users ----------
@@ -337,7 +347,7 @@
     'user-profile':       { url: '/admin/partials/users/profile.html',           title: 'User Profile',    init: call('loadUserProfile') },
 
     // ---------- Security sub-pages ----------
-    'security-dashboard':   { url: '/admin/partials/security/dashboard.html',    title: 'Security Center', init: call('loadSecurityDashboard') },
+    'security-dashboard':   { url: '/admin/partials/security/dashboard.html',    title: 'Security Center', init: initSecurityPage },
     'security-events':      { url: '/admin/partials/security/events.html',       title: 'Security Events', init: call('loadSecurityEvents') },
     'security-sessions':    { url: '/admin/partials/security/sessions.html',     title: 'Active Sessions', init: call('loadSecuritySessions') },
     'security-logins':      { url: '/admin/partials/security/login-attempts.html', title: 'Login Attempts',init: call('loadLoginAttempts') },

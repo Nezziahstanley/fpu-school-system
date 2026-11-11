@@ -26,13 +26,36 @@ const {
 
 const only = requireRole('student', 'admin');
 
+// Resolve the active academic session from the database. A user's cached session
+// is only used when no session is marked current and that session still exists.
+async function resolveCurrentAcademicSessionId(req) {
+  const [activeSession] = await db
+    .select({ id: academicSessions.id })
+    .from(academicSessions)
+    .where(eq(academicSessions.isCurrent, true))
+    .limit(1);
+
+  if (activeSession?.id) return activeSession.id;
+
+  const userSessionId = Number(req.user?.currentSessionId);
+  if (!Number.isInteger(userSessionId) || userSessionId <= 0) return null;
+
+  const [userSession] = await db
+    .select({ id: academicSessions.id })
+    .from(academicSessions)
+    .where(eq(academicSessions.id, userSessionId))
+    .limit(1);
+
+  return userSession?.id || null;
+}
+
 // ============================================================
 // GET /api/student/dashboard
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
@@ -207,7 +230,7 @@ router.get('/transcript', only, async (req, res, next) => {
 router.get('/fees', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     // 1. Get the Student's Programme and Level
     const userResult = await db.execute(sql`
@@ -278,7 +301,7 @@ router.get('/fees', only, async (req, res, next) => {
 router.get('/courses', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const rows = await db
       .select({
@@ -297,7 +320,7 @@ router.get('/courses', only, async (req, res, next) => {
 router.get('/registered-courses', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const rows = await db
       .select({
@@ -333,7 +356,8 @@ router.post('/register-course', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const { courseId, semester } = req.body || {};
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     if (!courseId || !semester) return res.status(400).json({ success: false, error: 'courseId and semester are required.' });
 
@@ -367,7 +391,7 @@ router.delete('/drop-course/:id', only, async (req, res, next) => {
 router.get('/materials', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
@@ -396,7 +420,7 @@ router.get('/materials', only, async (req, res, next) => {
 router.get('/assignments', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const regs = await db
       .select({ courseId: courseRegistrations.courseId })
@@ -499,7 +523,7 @@ router.get('/attendance', only, async (req, res, next) => {
 router.get('/timetable', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
@@ -529,7 +553,7 @@ router.get('/timetable', only, async (req, res, next) => {
 router.get('/exam-schedule', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
       .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
@@ -597,7 +621,8 @@ router.post('/clearance/request', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const { type } = req.body || {};
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
+    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     if (!type) return res.status(400).json({ success: false, error: 'Clearance type is required.' });
 
@@ -695,16 +720,16 @@ router.get('/id-card', only, async (req, res, next) => {
 
     const [session] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
-    const regs = await db
+    const regs = session ? await db
       .select({ code: courses.code })
       .from(courseRegistrations)
       .innerJoin(courses, eq(courseRegistrations.courseId, courses.id))
       .where(and(
         eq(courseRegistrations.studentId, studentId),
-        eq(courseRegistrations.sessionId, session?.id || 1),
+        eq(courseRegistrations.sessionId, session.id),
         eq(courseRegistrations.status, 'approved')
       ))
-      .orderBy(courses.code);
+      .orderBy(courses.code) : [];
 
     const cleanMatric = (student.matricNumber || '').replace(/SMT/gi, '').trim();
     const verifyUrl = `https://fpu-school-systems.onrender.com/portal/verify.html?matric=${encodeURIComponent(cleanMatric)}`;
@@ -714,7 +739,7 @@ router.get('/id-card', only, async (req, res, next) => {
       data: {
         ...student,
         matricNumber: cleanMatric,
-        sessionName: session?.name || '2026/2027',
+        sessionName: session?.name || 'No active session',
         courses: regs.map(r => r.code),
         verifyUrl: verifyUrl,
       }
@@ -797,10 +822,10 @@ router.get('/graduation', only, async (req, res, next) => {
     let feesCleared = false;
     try {
       const paymentQueries = require('../../db/queries/payments');
-      const sessionId = req.user.currentSessionId || 1;
-      const feeStructure = await paymentQueries.findFeeStructureWithFallback({
+      const sessionId = await resolveCurrentAcademicSessionId(req);
+      const feeStructure = sessionId ? await paymentQueries.findFeeStructureWithFallback({
         programmeId: student.programmeId, level: student.level || 'ND', sessionId,
-      });
+      }) : null;
       const totalDue = Number(feeStructure?.total || 0);
       const totalPaid = Number(await paymentQueries.totalVerifiedForStudent(studentId, sessionId)) || 0;
       feesCleared = totalDue === 0 || totalPaid >= totalDue;
@@ -849,7 +874,7 @@ router.get('/graduation', only, async (req, res, next) => {
 router.post('/graduation/apply', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
-    const sessionId = req.user.currentSessionId || 1;
+    const sessionId = await resolveCurrentAcademicSessionId(req);
 
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });

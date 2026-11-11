@@ -2702,19 +2702,22 @@ async function loadTranscriptLookup() {
       }
     }
 
-    // 3. Fetch students
-    let url = '/api/admin/students?limit=50';
-    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
-    if (deptFilter) url += `&departmentId=${deptFilter}`;
-    if (levelFilter) url += `&level=${encodeURIComponent(levelFilter)}`;
-
-    const res = await adminFetch(url);
+    // 3. Use the transcript lookup endpoint so CGPA and the full student
+    // directory are sourced consistently; the general student list is paginated.
+    const res = await adminFetch('/api/admin/transcript/students');
+    if (!res.ok) throw new Error('Could not load transcript student records.');
     const json = await res.json();
-    let students = json.data || [];
+    let students = Array.isArray(json.data) ? json.data : [];
 
-    // Client-side fallback filter if backend doesn't support departmentId/level natively
     if (deptFilter) students = students.filter(s => Number(s.departmentId) === Number(deptFilter));
-    if (levelFilter) students = students.filter(s => String(s.level).toUpperCase() === levelFilter.toUpperCase());
+    if (levelFilter) students = students.filter(s => String(s.level || '').toUpperCase() === levelFilter.toUpperCase());
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      students = students.filter(s =>
+        [s.matricNumber, s.firstName, s.lastName, s.email]
+          .some(value => String(value || '').toLowerCase().includes(q))
+      );
+    }
 
     const countEl = document.getElementById('tx-count');
     if (countEl) countEl.textContent = `${students.length} results`;

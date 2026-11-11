@@ -294,23 +294,23 @@ async function totalVerifiedForStudent(studentId, sessionId) {
 }
 
 // ------------------------------------------------------------
-// totalPaidForStudent — same as above but for ALL non-rejected
-// payments (pending + verified).
+// totalPaidForStudent — only verified payments count as money received.
 // ------------------------------------------------------------
 async function totalPaidForStudent(studentId, sessionId) {
   if (!studentId) return 0;
 
-  const conds = [eq(payments.studentId, Number(studentId))];
+  const conds = [
+    eq(payments.studentId, Number(studentId)),
+    eq(payments.status, 'verified'),
+  ];
   if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
 
   const rows = await db
-    .select({ amount: payments.amount, status: payments.status })
+    .select({ amount: payments.amount })
     .from(payments)
     .where(and(...conds));
 
-  const total = rows
-    .filter((r) => r.status !== 'rejected')
-    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+  const total = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   return total;
 }
 

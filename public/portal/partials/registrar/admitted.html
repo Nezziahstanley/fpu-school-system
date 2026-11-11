@@ -1,0 +1,53 @@
+<!-- Registrar admitted applicants register -->
+<section class="admitted-page">
+<header class="ad-head"><div><h2>Admitted Applicants</h2><p>Complete register of approved, registered and matriculated applicants.</p></div><div class="ad-actions"><button id="ad-refresh">↻ Refresh</button><button id="ad-export" class="secondary">Export CSV</button></div></header>
+<div class="ad-stats" id="ad-stats"></div>
+<div class="ad-filters"><input id="ad-search" type="search" placeholder="Search name, application number, email, matric number…"><select id="ad-level"><option value="">All entry levels</option><option value="ND">ND</option><option value="HND">HND</option></select><select id="ad-status"><option value="">All admission statuses</option><option value="approved">Approved</option><option value="registered">Registered</option><option value="matriculated">Matriculated</option></select><select id="ad-dept"><option value="">All departments</option></select></div>
+<div class="ad-table-wrap"><div class="ad-table-head"><div><h3>Admission Register</h3><p id="ad-count">Loading admitted applicants…</p></div></div><table><thead><tr><th>Applicant</th><th>Application No.</th><th>Department</th><th>Programme</th><th>Entry</th><th>Matric No.</th><th>Admitted</th><th>Status</th><th>Action</th></tr></thead><tbody id="ad-body"><tr><td colspan="9" class="ad-empty">Loading…</td></tr></tbody></table></div>
+</section>
+<div id="ad-detail-modal" class="ad-modal" hidden><div class="ad-modal-card"><header><div><span>APPLICATION RECORD</span><h3 id="ad-detail-title">Applicant details</h3></div><button id="ad-detail-close" aria-label="Close">×</button></header><div id="ad-detail-content" class="ad-detail-grid"></div><footer><button id="ad-detail-close-bottom">Close details</button></footer></div></div>
+<style>
+.admitted-page{color:#0f172a}.ad-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}.ad-head h2{margin:0;font-size:1.4rem}.ad-head p,.ad-table-head p{margin:.35rem 0 0;color:#64748b;font-size:.83rem}.ad-actions{display:flex;gap:.5rem}.ad-actions button,.ad-modal footer button{border:0;background:#065f46;color:#fff;border-radius:8px;padding:.62rem .9rem;font-weight:800;cursor:pointer}.ad-actions .secondary{background:#fff;color:#065f46;border:1px solid #bbf7d0}.ad-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem}.ad-stat{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}.ad-stat span{display:block;color:#64748b;font-size:.7rem;font-weight:800;text-transform:uppercase}.ad-stat strong{display:block;margin-top:.35rem;font-size:1.55rem;color:#064e3b}.ad-filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:.55rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:.9rem;margin-bottom:1rem}.ad-filters input,.ad-filters select{min-width:0;padding:.68rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.ad-table-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden}.ad-table-head{padding:1rem;border-bottom:1px solid #eef2f7}.ad-table-head h3{margin:0;font-size:1rem}.ad-table-wrap table{width:100%;min-width:1120px;border-collapse:collapse;font-size:.79rem}.ad-table-wrap th,.ad-table-wrap td{padding:.75rem .8rem;text-align:left;border-bottom:1px solid #f1f5f9}.ad-table-wrap th{font-size:.66rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;background:#f8fafc}.ad-status{display:inline-flex;border-radius:99px;padding:.25rem .55rem;font-size:.65rem;font-weight:850;text-transform:uppercase}.ad-status.approved{background:#dcfce7;color:#166534}.ad-status.registered{background:#e0e7ff;color:#3730a3}.ad-status.matriculated{background:#d1fae5;color:#065f46}.ad-view{border:0;background:#eff6ff;color:#1d4ed8;border-radius:7px;padding:.42rem .65rem;font-weight:800;cursor:pointer}.ad-empty{text-align:center;padding:2.5rem!important;color:#94a3b8}.ad-modal{position:fixed;inset:0;background:#0f172acc;z-index:10020;display:flex;align-items:center;justify-content:center;padding:1rem;overflow:auto}.ad-modal[hidden]{display:none}.ad-modal-card{width:min(900px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 70px #0005}.ad-modal-card header{display:flex;justify-content:space-between;align-items:center;padding:1.1rem 1.3rem;border-bottom:1px solid #e2e8f0}.ad-modal-card header span{font-size:.65rem;color:#059669;font-weight:900;letter-spacing:.12em}.ad-modal-card header h3{margin:.25rem 0 0;font-size:1.15rem}.ad-modal-card header button{border:0;background:#f1f5f9;border-radius:8px;width:36px;height:36px;font-size:1.4rem;cursor:pointer}.ad-detail-grid{padding:1.2rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}.ad-detail{border:1px solid #e2e8f0;background:#f8fafc;border-radius:9px;padding:.75rem;min-width:0}.ad-detail small{display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase}.ad-detail strong{display:block;color:#0f172a;font-size:.82rem;margin-top:.3rem;overflow-wrap:anywhere}.ad-modal footer{padding:0 1.2rem 1.2rem;display:flex;justify-content:flex-end}@media(max-width:760px){.ad-stats{grid-template-columns:repeat(2,1fr)}.ad-filters{grid-template-columns:1fr 1fr}.ad-filters input{grid-column:1/-1}.ad-detail-grid{grid-template-columns:1fr 1fr}}@media(max-width:480px){.ad-filters,.ad-detail-grid{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){
+'use strict';
+const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id);
+const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const label=k=>String(k).replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,c=>c.toUpperCase());
+let ALL=[];
+const name=a=>[a.firstName,a.middleName,a.lastName].filter(Boolean).join(' ')||'Applicant';
+const fmt=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+function renderStats(){
+const statuses=['approved','registered','matriculated'];const counts=statuses.map(s=>ALL.filter(a=>a.status===s).length);
+const tiles=[['Total admitted',ALL.length],['Approved',counts[0]],['Registered',counts[1]],['Matriculated',counts[2]]];
+$('ad-stats').innerHTML=tiles.map(t=>'<article class="ad-stat"><span>'+t[0]+'</span><strong>'+t[1]+'</strong></article>').join('');
+}
+function render(){
+const q=$('ad-search').value.trim().toLowerCase(),level=$('ad-level').value,status=$('ad-status').value,dept=$('ad-dept').value;
+const rows=ALL.filter(a=>(!level||String(a.type||a.level||'').toUpperCase().includes(level))&&(!status||a.status===status)&&(!dept||(a.departmentName||'Unassigned')===dept)&&(!q||[name(a),a.applicationNumber,a.email,a.phone,a.matricNumber,a.departmentName,a.programmeName].join(' ').toLowerCase().includes(q)));
+$('ad-count').textContent=rows.length+' of '+ALL.length+' admitted applicants';
+$('ad-body').innerHTML=rows.length?rows.map(a=>'<tr><td><strong>'+esc(name(a))+'</strong><div style="color:#64748b;font-size:.69rem">'+esc(a.email||'')+'</div></td><td><code>'+esc(a.applicationNumber||('APP-'+a.id))+'</code></td><td>'+esc(a.departmentName||'Unassigned')+'</td><td>'+esc(a.programmeName||'—')+'</td><td>'+esc(a.type||a.level||'—')+'</td><td>'+esc(a.matricNumber||'—')+'</td><td>'+fmt(a.admittedAt||a.reviewedAt||a.createdAt)+'</td><td><span class="ad-status '+esc(a.status)+'">'+esc(a.status)+'</span></td><td><button type="button" class="ad-view" data-view="'+Number(a.id)+'">View details</button></td></tr>').join(''):'<tr><td colspan="9" class="ad-empty">No admitted applicants match the selected filters.</td></tr>';
+$('ad-body').querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showDetails(ALL.find(a=>Number(a.id)===Number(b.dataset.view)))));
+}
+function showDetails(a){
+if(!a)return;
+$('ad-detail-title').textContent=name(a);
+const preferred=['applicationNumber','status','type','level','firstName','middleName','lastName','email','phone','gender','dateOfBirth','dob','address','departmentName','programmeName','matricNumber','jambNumber','jambScore','olevelResult','qualification','admittedAt','reviewedAt','createdAt'];
+const fields=preferred.filter(k=>a[k]!==undefined&&a[k]!==null&&a[k]!=='').map(k=>[label(k),k.toLowerCase().includes('at')||k==='dateOfBirth'||k==='dob'?fmt(a[k]):a[k]]);
+Object.keys(a).filter(k=>!preferred.includes(k)&&!['id','userId','departmentId','programmeId','metadata','password','createdAt','updatedAt'].includes(k)&&a[k]!==null&&typeof a[k]!=='object').forEach(k=>fields.push([label(k),a[k]]));
+$('ad-detail-content').innerHTML=fields.map(f=>'<div class="ad-detail"><small>'+esc(f[0])+'</small><strong>'+esc(String(f[1]))+'</strong></div>').join('')||'<p>No additional application details were supplied.</p>';
+$('ad-detail-modal').hidden=false;
+}
+function close(){ $('ad-detail-modal').hidden=true }
+async function load(){
+$('ad-body').innerHTML='<tr><td colspan="9" class="ad-empty">Loading admitted applicants…</td></tr>';
+try{const r=await core.portalFetch('/api/registrar/admitted');ALL=Array.isArray(r.data)?r.data:[];renderStats();const depts=[...new Set(ALL.map(a=>a.departmentName||'Unassigned'))].sort();$('ad-dept').innerHTML='<option value="">All departments</option>'+depts.map(d=>'<option value="'+esc(d)+'">'+esc(d)+'</option>').join('');render()}
+catch(e){$('ad-body').innerHTML='<tr><td colspan="9" class="ad-empty">Unable to load admitted register: '+esc(e.message)+'</td></tr>';core.showToast&&core.showToast(e.message,'error')}
+}
+['ad-search','ad-level','ad-status','ad-dept'].forEach(id=>$(id).addEventListener(id==='ad-search'?'input':'change',render));
+$('ad-refresh').addEventListener('click',load);$('ad-detail-close').addEventListener('click',close);$('ad-detail-close-bottom').addEventListener('click',close);$('ad-detail-modal').addEventListener('click',e=>{if(e.target.id==='ad-detail-modal')close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+$('ad-export').addEventListener('click',()=>{const rows=[['Applicant','Application No','Department','Programme','Type','Matric','Email','Phone','Status','Admitted'],...ALL.map(a=>[name(a),a.applicationNumber,a.departmentName,a.programmeName,a.type,a.matricNumber,a.email,a.phone,a.status,a.admittedAt])];const csv=rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='registrar-admitted-applicants.csv';a.click();URL.revokeObjectURL(url)});
+load();
+})();
+</script>

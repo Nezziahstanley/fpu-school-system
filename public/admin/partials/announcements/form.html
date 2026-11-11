@@ -207,7 +207,7 @@
     // Delete
     $('af-delete').addEventListener('click', async () => {
       if (!isEdit) return;
-      if (!confirm('Delete this announcement? This cannot be undone.')) return;
+      if (!(await window.fpuConfirm('Delete this announcement? This cannot be undone.', { title: 'Delete Announcement', type: 'danger', okText: 'Delete Announcement' }))) return;
       try {
         const res = await A.adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
         const json = await res.json();

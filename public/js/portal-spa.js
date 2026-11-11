@@ -218,6 +218,8 @@
       { key: 'bursar-fees',       label: 'Fees',       icon: ICON.money },
       { key: 'bursar-clearances', label: 'Clearances', icon: ICON.check },
       { key: 'bursar-reports',    label: 'Reports',    icon: ICON.chart },
+      { key: 'bursar-documents',  label: 'Document Requests', icon: ICON.file },
+      { key: 'bursar-transcripts', label: 'Transcript Register', icon: ICON.book },
     ],
     rector: [
       { key: 'rector-dashboard',    label: 'Dashboard',    icon: ICON.dash },

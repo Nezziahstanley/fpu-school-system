@@ -5379,17 +5379,24 @@ async function loadClearanceDepartments() {
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><div class="spinner"></div> Loading departments…</div>';
 
   try {
+    const sessionId = document.getElementById('clr-session')?.value || '';
+    const clearanceUrl = '/api/admin/clearances' + (sessionId ? '?sessionId=' + encodeURIComponent(sessionId) : '');
     const [deptsRes, studentsRes, schoolsRes, clrRes] = await Promise.all([
-      adminFetch('/api/admin/departments').catch(() => null),
-      adminFetch('/api/admin/students?limit=5000').catch(() => null),
-      adminFetch('/api/admin/schools').catch(() => null),
-      adminFetch('/api/admin/clearances').catch(() => null),
+      adminFetch('/api/admin/departments'),
+      adminFetch('/api/admin/students?limit=5000'),
+      adminFetch('/api/admin/schools'),
+      adminFetch(clearanceUrl),
     ]);
 
-    const depts = deptsRes && deptsRes.ok ? (await deptsRes.json()).data || [] : [];
-    const students = studentsRes && studentsRes.ok ? (await studentsRes.json()).data || [] : [];
-    const schools = schoolsRes && schoolsRes.ok ? (await schoolsRes.json()).data || [] : [];
-    const clearances = clrRes && clrRes.ok ? (await clrRes.json()).data || [] : [];
+    const responses = [deptsRes, studentsRes, schoolsRes, clrRes];
+    if (responses.some(response => !response || !response.ok)) {
+      throw new Error('Some clearance data could not be loaded. Please refresh and try again.');
+    }
+    const [deptsJson, studentsJson, schoolsJson, clearancesJson] = await Promise.all(responses.map(response => response.json()));
+    const depts = deptsJson.data || [];
+    const students = studentsJson.data || [];
+    const schools = schoolsJson.data || [];
+    const clearances = clearancesJson.data || [];
 
     console.log('[clearances] Depts:', depts.length, 'Students:', students.length, 'Clearances:', clearances.length);
 

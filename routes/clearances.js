@@ -238,7 +238,7 @@ router.post('/:id/clear', requireRole(['admin', 'bursar', 'registrar']), async (
       `UPDATE clearances 
        SET status = 'cleared', cleared_by = $1, cleared_at = NOW(), remarks = COALESCE($2, remarks)
        WHERE id = $3 RETURNING *`,
-      [req.user?.id || null, req.body?.remarks || null, req.params.id]
+      [req.body?.remarks || null, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found.' });
     await logAudit({ req, action: 'clearance.clear', entity: 'clearance', entityId: result.rows[0].id, after: result.rows[0] });
@@ -251,8 +251,8 @@ router.post('/:id/reject', requireRole(['admin', 'bursar', 'registrar']), async 
   try {
     const result = await db.query(
       `UPDATE clearances 
-       SET status = 'rejected', cleared_by = $1, cleared_at = NOW(), remarks = COALESCE($2, remarks)
-       WHERE id = $3 RETURNING *`,
+       SET status = 'rejected', cleared_by = NULL, cleared_at = NULL, remarks = COALESCE($1, remarks)
+       WHERE id = $2 RETURNING *`,
       [req.user?.id || null, req.body?.remarks || null, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found.' });

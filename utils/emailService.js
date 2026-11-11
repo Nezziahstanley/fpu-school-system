@@ -213,8 +213,14 @@ async function sendRejectionLetter(app) {
   return sendMail({ to: app.email, subject: `Application Outcome — ${app.applicationNumber}`, html: baseTemplate('Application Outcome', body) });
 }
 
-async function sendRegistrationComplete(user) {
+async function sendRegistrationComplete(user, temporaryPassword = null) {
   const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+  const credentials = temporaryPassword
+    ? `<p style="background:#eff6ff;border-left:4px solid #2563eb;padding:12px 14px;border-radius:4px;">
+        <strong>Temporary Password:</strong> ${escapeHtml(temporaryPassword)}<br/>
+        <strong>Important:</strong> Sign in and change this password immediately. Do not share it with anyone.
+      </p>`
+    : '';
   const body = `
     <p>Dear <strong>${escapeHtml(name)}</strong>,</p>
     <p>Welcome to <strong>${escapeHtml(INSTITUTION)}</strong>! Your registration is complete.</p>
@@ -222,6 +228,7 @@ async function sendRegistrationComplete(user) {
       <strong>Matric Number:</strong> ${escapeHtml(user.matricNumber || '—')}<br/>
       <strong>Email:</strong> ${escapeHtml(user.email)}
     </p>
+    ${credentials}
     <p>Warm regards,<br/><strong>Registrar\'s Office</strong></p>
   `;
   return sendMail({ to: user.email, subject: `Welcome to ${INSTITUTION} — Registration Complete`, html: baseTemplate('Registration Complete', body) });

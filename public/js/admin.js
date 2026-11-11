@@ -1853,9 +1853,18 @@ async function loadAllocationDepartments() {
       adminFetch('/api/admin/schools'),
     ]);
 
-    const depts   = (await deptsRes.json()).data   || [];
-    const allocs  = (await allocsRes.json()).data  || [];
-    const schools = (await schoolsRes.json()).data || [];
+    if (!deptsRes.ok || !allocsRes.ok || !schoolsRes.ok) {
+      throw new Error('Unable to load departments, course allocations or schools. Please refresh and try again.');
+    }
+    const [deptsJson, allocsJson, schoolsJson] = await Promise.all([
+      deptsRes.json(), allocsRes.json(), schoolsRes.json()
+    ]);
+    if (deptsJson.success === false || allocsJson.success === false || schoolsJson.success === false) {
+      throw new Error(deptsJson.error || allocsJson.error || schoolsJson.error || 'The allocation data could not be loaded.');
+    }
+    const depts   = deptsJson.data   || [];
+    const allocs  = allocsJson.data  || [];
+    const schools = schoolsJson.data || [];
 
     const schoolMap = new Map(schools.map((s) => [s.id, s]));
 
@@ -1954,6 +1963,8 @@ async function loadAllocationDepartments() {
       const openDepartmentAllocations = () => {
         FPU_ADMIN_SPA.navigateToWithQuery('allocations-by-dept', {
           departmentId: Number(card.dataset.deptId),
+          sessionId: sessionId || '',
+          semester: semester || '',
           name: card.dataset.deptName,
         });
       };
@@ -9279,6 +9290,8 @@ async function loadDepartmentAllocations() {
   const qIdx = hash.indexOf('?');
   const params = new URLSearchParams(qIdx >= 0 ? hash.slice(qIdx + 1) : '');
   const departmentId = params.get('departmentId') || '';
+  const sessionId = params.get('sessionId') || '';
+  const semester = params.get('semester') || '';
   const deptName = params.get('name') || 'Department';
 
   const titleEl = document.getElementById('alloc-dept-title');
@@ -9294,13 +9307,22 @@ async function loadDepartmentAllocations() {
   grid.innerHTML = '<div class="loading"><span class="spinner"></span> Loading allocations…</div>';
 
   try {
+    const allocationQuery = new URLSearchParams({ limit: '5000' });
+    if (sessionId) allocationQuery.set('sessionId', sessionId);
+    if (semester) allocationQuery.set('semester', semester);
     const [allocsRes, deptRes] = await Promise.all([
-      adminFetch(`/api/admin/allocations?limit=2000`), // Fetch all to be safe
+      adminFetch(`/api/admin/allocations?${allocationQuery}`),
       adminFetch(`/api/admin/departments/${departmentId}`),
     ]);
-
-    const allocs = (await allocsRes.json()).data || [];
-    const dept = (await deptRes.json()).data;
+    if (!allocsRes.ok || !deptRes.ok) {
+      throw new Error('Unable to load this department’s allocations. Please refresh and try again.');
+    }
+    const [allocsJson, deptJson] = await Promise.all([allocsRes.json(), deptRes.json()]);
+    if (allocsJson.success === false || deptJson.success === false) {
+      throw new Error(allocsJson.error || deptJson.error || 'The department allocation data could not be loaded.');
+    }
+    const allocs = allocsJson.data || [];
+    const dept = deptJson.data;
 
     if (dept?.name && titleEl) titleEl.textContent = dept.name;
 

@@ -161,12 +161,12 @@ router.post('/bulk-status', requireRole(['admin', 'bursar', 'registrar']), async
       return res.status(400).json({ success: false, error: 'status is required.' });
     }
 
-    // Get current session
-    const sessionRes = await db.query(
-      'SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1'
-    );
-    if (sessionRes.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'No active academic session found.' });
+    const requestedSessionId = req.body?.sessionId || null;
+    const sessionRes = requestedSessionId
+      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
+      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
+    if (!sessionRes.rows.length) {
+      return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
     }
     const sessionId = sessionRes.rows[0].id;
 

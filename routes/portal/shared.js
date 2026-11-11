@@ -271,6 +271,16 @@ router.delete('/notifications/:id', requireUser, async (req, res, next) => {
   }
 });
 
+// Mark the current user's linked general-announcement alert as read.
+router.post('/announcements/:id/read', requireUser, async (req, res, next) => {
+  try {
+    const link = `/announcements.html?id=${Number(req.params.id)}`;
+    await db.update(notifications).set({ isRead: true, readAt: new Date() })
+      .where(and(eq(notifications.userId, req.user.id), eq(notifications.link, link)));
+    const unread = await notifQueries.countUnreadNotifications(req.user.id);
+    return res.json({ success: true, unread });
+  } catch (err) { return next(err); }
+});
 // ============================================================
 // ANNOUNCEMENTS
 // ============================================================

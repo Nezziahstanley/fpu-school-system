@@ -169,6 +169,17 @@
 
 </div>
 
+<div id="ao-action-modal" hidden style="position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.58);display:grid;place-items:center;padding:1rem;">
+ <section role="dialog" aria-modal="true" aria-labelledby="ao-action-title" style="position:relative;width:min(100%,460px);background:#fff;border-radius:16px;padding:1.3rem;box-shadow:0 24px 70px #0004;">
+  <button id="ao-action-close" type="button" aria-label="Close dialog" style="position:absolute;right:1rem;top:.7rem;border:0;background:none;font-size:1.5rem;color:#64748b;cursor:pointer;">×</button>
+  <h3 id="ao-action-title" style="margin:0 2rem .45rem 0;color:#0f172a;">Confirm application action</h3>
+  <p id="ao-action-message" style="margin:.3rem 0 .8rem;color:#475569;font-size:.88rem;">Please confirm this action.</p>
+  <label id="ao-action-reason-label" for="ao-action-reason" hidden style="display:block;font-size:.78rem;font-weight:700;color:#475569;margin:.6rem 0 .35rem;">Reason for rejection</label>
+  <textarea id="ao-action-reason" rows="3" hidden placeholder="Enter the reason…" style="box-sizing:border-box;width:100%;padding:.7rem;border:1px solid #cbd5e1;border-radius:9px;resize:vertical;"></textarea>
+  <div style="display:flex;justify-content:flex-end;gap:.55rem;margin-top:1rem;"><button id="ao-action-cancel" type="button" style="padding:.65rem .9rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-weight:700;cursor:pointer;">Cancel</button><button id="ao-action-confirm" type="button" style="padding:.65rem .9rem;border:0;border-radius:8px;background:#065f46;color:#fff;font-weight:800;cursor:pointer;">Confirm</button></div>
+ </section>
+</div>
+<style>#ao-action-modal[hidden]{display:none!important}#ao-action-modal textarea:focus{outline:2px solid #6ee7b7;outline-offset:1px}#ao-action-confirm:disabled{opacity:.55;cursor:wait}@media(max-width:600px){#ao-action-modal>section{padding:1rem}}</style>
 <style>
   @keyframes aoSpin { to { transform: rotate(360deg); } }
   .ao-spin {
@@ -200,7 +211,7 @@
   'use strict';
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
+  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s).replace(/[&<>\"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[ch]));
   const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
   const STATUS_META = {
@@ -402,78 +413,79 @@
   // ------------------------------------------------------------
   // Handle approve / reject / register with OPTIMISTIC UI update
   // ------------------------------------------------------------
-  async function handleAction(action, id) {
-    let endpoint;
-    let payload = null;
-    let confirmMsg;
-
-    switch (action) {
-      case 'approve':
-        endpoint = `/api/admission-officer/applications/${id}/approve`;
-        confirmMsg = 'Approve this application?';
-        break;
-      case 'reject': {
-        const reason = prompt('Reason for rejection (optional):');
-        if (reason === null) return;
-        endpoint = `/api/admission-officer/applications/${id}/reject`;
-        payload = { reason: reason || 'Application did not meet requirements.' };
-        confirmMsg = null;
-        break;
-      }
-      case 'register':
-        endpoint = `/api/admission-officer/applications/${id}/register`;
-        confirmMsg = 'Create the student account and assign a matric number?';
-        break;
-      default:
-        return;
-    }
-
-    if (confirmMsg && !confirm(confirmMsg)) return;
-
+  let pendingAction = null;
+  function closeActionModal() {
+    $('ao-action-modal').hidden = true;
+    pendingAction = null;
+    $('ao-action-confirm').disabled = false;
+  }
+  function handleAction(action, id) {
+    const config = {
+      approve: { title: 'Approve application?', message: 'This will approve the selected applicant and trigger the configured approval notification.' },
+      reject: { title: 'Reject application?', message: 'The applicant will be marked as rejected. Add a reason to explain the decision.' },
+      register: { title: 'Register applicant?', message: 'This will create a student account and assign a matriculation number.' }
+    }[action];
+    if (!config) return;
+    pendingAction = { action, id };
+    $('ao-action-title').textContent = config.title;
+    $('ao-action-message').textContent = config.message;
+    const reject = action === 'reject';
+    $('ao-action-reason').hidden = !reject;
+    $('ao-action-reason-label').hidden = !reject;
+    $('ao-action-reason').value = '';
+    $('ao-action-modal').hidden = false;
+    if (reject) $('ao-action-reason').focus();
+    else $('ao-action-confirm').focus();
+  }
+  async function performPendingAction() {
+    if (!pendingAction) return;
+    const { action, id } = pendingAction;
+    const payload = action === 'reject'
+      ? { reason: $('ao-action-reason').value.trim() || 'Application did not meet requirements.' }
+      : null;
+    const endpoint = action === 'approve'
+      ? `/api/admission-officer/applications/${id}/approve`
+      : action === 'reject'
+        ? `/api/admission-officer/applications/${id}/reject`
+        : `/api/admission-officer/applications/${id}/register`;
+    const confirmButton = $('ao-action-confirm');
     const btn = document.querySelector(`[data-action="${action}"][data-id="${id}"]`);
     const oldText = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = 'Working…'; }
-
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'Processing…';
+    if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
     try {
       const opts = { method: 'POST' };
       if (payload) opts.body = payload;
       const res = await core.portalFetch(endpoint, opts);
-
-      // ---- Optimistic UI update ----
       const row = (window.__ao_recent || []).find((a) => Number(a.id) === Number(id));
-
       if (row) {
-        if (action === 'approve') {
-          row.status = 'approved';
-        } else if (action === 'reject') {
-          row.status = 'rejected';
-          if (payload?.reason) row.rejectionReason = payload.reason;
-        } else if (action === 'register') {
-          row.status = 'registered';
-          if (res?.data?.matricNumber) row.matricNumber = res.data.matricNumber;
-        }
+        if (action === 'approve') row.status = 'approved';
+        else if (action === 'reject') { row.status = 'rejected'; row.rejectionReason = payload.reason; }
+        else { row.status = 'registered'; if (res?.data?.matricNumber) row.matricNumber = res.data.matricNumber; }
         renderRecent(window.__ao_recent);
-      } else {
-        await load();
-      }
-
-      if (action === 'register') {
-        const matric = res?.data?.matricNumber || '';
-        core.showToast && core.showToast(`Student registered! Matric: ${matric}`, 'success');
-      } else if (action === 'approve') {
-        core.showToast && core.showToast('Application approved.', 'success');
-      } else if (action === 'reject') {
-        core.showToast && core.showToast('Application rejected.', 'success');
-      }
-
-      // Refresh only the top stats
+      } else await load();
+      closeActionModal();
+      if (action === 'register') core.showToast && core.showToast(`Student registered! Matric: ${res?.data?.matricNumber || ''}`, 'success');
+      else core.showToast && core.showToast(action === 'approve' ? 'Application approved.' : 'Application rejected.', 'success');
       refreshStatsOnly();
-
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
+      core.showToast && core.showToast(err.message || 'The action could not be completed.', 'error');
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = oldText; }
+    } finally {
+      confirmButton.disabled = false;
+      confirmButton.textContent = 'Confirm';
     }
   }
+  $('ao-action-confirm')?.addEventListener('click', performPendingAction);
+  $('ao-action-cancel')?.addEventListener('click', closeActionModal);
+  $('ao-action-close')?.addEventListener('click', closeActionModal);
+  $('ao-action-modal')?.addEventListener('click', (event) => {
+    if (event.target.id === 'ao-action-modal') closeActionModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && $('ao-action-modal') && !$('ao-action-modal').hidden) closeActionModal();
+  });
 
   // ------------------------------------------------------------
   // Wire refresh button

@@ -11218,51 +11218,45 @@ async function bulkClearClearances(newStatus) {
     return;
   }
 
-  const studentIds = Array.from(checkboxes).map(cb => Number(cb.value));
-  
+  const sessionId = getClearanceSessionId();
+  if (!sessionId) {
+    showToast('Select an academic session before applying clearance actions.', 'warning');
+    return;
+  }
+
+  const studentIds = Array.from(checkboxes).map(cb => Number(cb.value)).filter(Number.isSafeInteger);
   const ok = await window.fpuConfirm(
-    `Mark ${studentIds.length} student(s) as ${newStatus.toUpperCase()}?`,
+    `Mark ${studentIds.length} student(s) as ${newStatus.toUpperCase()} for the selected session?`,
     { title: `Bulk ${newStatus}`, type: newStatus === 'rejected' ? 'danger' : 'success', okText: 'Confirm' }
   );
   if (!ok) return;
 
   let success = 0;
   let failed = 0;
-
-  // Show a loading toast
   showToast(`Processing ${studentIds.length} students...`, 'info');
 
   for (const id of studentIds) {
     try {
-      // We use the individual update function to avoid bulk API errors
-      const res = await adminFetch(`/api/admin/clearances/student/${id}`, {
+      let res = await adminFetch(`/api/admin/clearances/student/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, sessionId }),
       });
-
-      if (res.ok) {
-        success++;
-      } else {
-        // If PUT fails (404), try POST to create it
-        const createRes = await adminFetch('/api/admin/clearances', {
+      if (!res.ok) {
+        res = await adminFetch('/api/admin/clearances', {
           method: 'POST',
-          body: JSON.stringify({ studentId: id, status: newStatus, remarks: 'Bulk action' }),
+          body: JSON.stringify({ studentId: id, status: newStatus, remarks: 'Bulk action', sessionId }),
         });
-        if (createRes.ok) success++;
-        else failed++;
       }
+      if (res.ok) success++;
+      else failed++;
     } catch (err) {
       failed++;
     }
   }
 
-  if (failed === 0) {
-    showToast(`✅ Successfully updated ${success} students.`, 'success');
-  } else {
-    showToast(`⚠️ Updated ${success}, failed ${failed}.`, 'warning');
-  }
-  
-  // Reload the table to show new stats
+  if (failed === 0) showToast(`✅ Successfully updated ${success} students for the selected session.`, 'success');
+  else showToast(`⚠️ Updated ${success}, failed ${failed}.`, 'warning');
+
   loadDepartmentClearances();
 }
 

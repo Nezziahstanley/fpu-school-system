@@ -247,12 +247,17 @@ router.get('/fees', only, async (req, res, next) => {
     // 2. Calculate Total Due
     let totalDue = 0;
     try {
+      // Bursar fee structures store the payable amount in "total";
+      // the legacy "fees" table is separate and must not be summed here.
+      // Only active structures for this student's exact programme,
+      // level and active session contribute to the current balance.
       const feeResult = await db.execute(sql`
-        SELECT SUM(amount)::int AS total
+        SELECT COALESCE(SUM(total), 0)::float AS total
         FROM fee_structures
-        WHERE session_id = ${sessionId} 
-          AND (programme_id = ${student.programmeId} OR programme_id IS NULL)
-          AND (level = ${student.level} OR level IS NULL)
+        WHERE session_id = ${sessionId}
+          AND programme_id = ${student.programmeId}
+          AND level = ${student.level}
+          AND is_active = TRUE
       `);
       totalDue = feeResult.rows?.[0]?.total || 0;
     } catch (e) {

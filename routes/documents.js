@@ -68,6 +68,14 @@ router.post('/:id/approve', requireRole(['admin', 'registrar']), async (req, res
 
 router.post('/:id/issue', requireRole(['admin', 'registrar']), async (req, res, next) => {
   try {
+    const [issuer] = await db.select({ signatureUrl: users.signatureUrl })
+      .from(users).where(eq(users.id, req.user.id)).limit(1);
+    if (!issuer?.signatureUrl) {
+      return res.status(409).json({
+        success: false,
+        error: 'Upload your electronic signature in My Profile before issuing official documents.',
+      });
+    }
     const [row] = await db
       .update(documents)
       .set({ status: 'issued', issuedAt: new Date(), issuedBy: req.user.id, fileUrl: req.body?.fileUrl || null })

@@ -53,6 +53,14 @@ The results workflow is now guarded across the Lecturer and HOD portal endpoints
 
 These changes align the portal-specific endpoints with the central result transition helpers in `routes/results.js` and `db/queries/results.js`.
 
+## Student registration, lecturer allocation and session safeguards
+
+- Student course registration validates the requested course against the student's department and level, accepts only first/second semester values, checks for an existing pending/approved registration in the same session, and returns clear conflict/not-found responses.
+- Registrar approval/rejection is now a one-way decision from `pending`; a previously decided registration cannot be silently reset or overwritten.
+- HOD lecturer allocation now requires a real active academic session, a lecturer account belonging to the HOD's department, and a valid semester. Existing allocations are matched by course + session + semester so a new academic session does not overwrite a prior session's allocation.
+- Registrar session activation validates the target before changing the current session and performs the switch in a database transaction. An invalid session ID cannot clear the current session.
+- Removed the HOD allocation fallback to session ID 1.
+
 ## Remaining validation
 
 - Exercise public ND and HND application submissions with test records.

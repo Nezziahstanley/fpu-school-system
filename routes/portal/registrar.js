@@ -660,51 +660,24 @@ router.post('/graduations/:id/mark', only, async (req, res, next) => {
 // ============================================================
 router.get('/clearances', only, async (req, res, next) => {
   try {
-    // 1. Fetch all clearances
-    const clearancesResult = await db.execute(sql`
-      SELECT id, student_id AS "studentId", type, status, created_at AS "requestedAt"
-      FROM clearances
-      ORDER BY 
-        CASE WHEN status = 'pending' THEN 1 ELSE 2 END,
-        created_at DESC
+    const result = await db.execute(sql`
+      SELECT c.id, c.student_id AS "studentId", c.type, c.status,
+             c.created_at AS "requestedAt", c.cleared_at AS "clearedAt",
+             c.session_id AS "sessionId", s.name AS "sessionName",
+             student.first_name AS "firstName", student.last_name AS "lastName",
+             student.matric_number AS "matricNumber", student.level,
+             signer.first_name AS "signerFirstName", signer.last_name AS "signerLastName",
+             signer.role AS "signerRole", signer.signature_url AS "signerSignatureUrl"
+      FROM clearances c
+      LEFT JOIN users student ON student.id = c.student_id
+      LEFT JOIN users signer ON signer.id = c.cleared_by
+      LEFT JOIN academic_sessions s ON s.id = c.session_id
+      ORDER BY CASE WHEN c.status = 'pending' THEN 1 ELSE 2 END, c.created_at DESC
     `);
-    const clearances = clearancesResult.rows || [];
-
-    if (!clearances.length) {
-      return res.json({ success: true, data: [] });
-    }
-
-    // 2. Get the unique student IDs from the clearances
-    const studentIds = [...new Set(clearances.map(c => c.studentId))];
-
-    // 3. Fetch the student details for those specific IDs
-    const usersResult = await db.execute(sql`
-      SELECT id, first_name AS "firstName", last_name AS "lastName", matric_number AS "matricNumber", level
-      FROM users
-      WHERE id IN (${sql.join(studentIds, sql`, `)})
-    `);
-    const usersList = usersResult.rows || [];
-
-    // 4. Map the users by ID for quick lookup
-    const userMap = {};
-    usersList.forEach(u => { userMap[u.id] = u; });
-
-    // 5. Combine the clearances with their student details
-    const data = clearances.map(c => ({
-      id: c.id,
-      type: c.type,
-      status: c.status,
-      requestedAt: c.requestedAt,
-      firstName: userMap[c.studentId]?.firstName || 'Unknown',
-      lastName: userMap[c.studentId]?.lastName || '',
-      matricNumber: userMap[c.studentId]?.matricNumber || '—',
-      level: userMap[c.studentId]?.level || '—',
-    }));
-
-    return res.json({ success: true, data });
+    return res.json({ success: true, data: result.rows || [] });
   } catch (err) {
     console.error('[registrar/clearances] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    return next(err);
   }
 });
 

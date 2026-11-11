@@ -436,7 +436,7 @@ router.post('/results/:courseId', only, async (req, res, next) => {
 
       const semesterValue = (course.semesterName || 'first').toLowerCase();
 
-      await db.execute(sql`
+      const savedResult = await db.execute(sql`
         INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status, assignment_score)
         VALUES (
           ${r.studentId}, ${courseId}, ${studentSessionId}, ${semesterValue}, 
@@ -454,7 +454,7 @@ router.post('/results/:courseId', only, async (req, res, next) => {
         WHERE results.status IN ('draft', 'hod_rejected')
         RETURNING id
       `);
-      if (!regResult.rows[0] || !regResult.rows[0].id) {
+      if (!savedResult.rows[0] || !savedResult.rows[0].id) {
         return res.status(409).json({ success: false, error: 'A result has already moved beyond the editable stage. Refresh the page and contact your HOD if a correction is required.' });
       }
     }

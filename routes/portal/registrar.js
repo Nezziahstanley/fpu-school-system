@@ -258,6 +258,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
         r.grade, 
         r.points,
         r.semester,
+        r.session_id AS "sessionId",
         s.name AS "sessionName"
       FROM results r
       JOIN courses c ON r.course_id = c.id
@@ -271,14 +272,14 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     // Format rows to match the expected structure
     const formattedRows = rows.map(r => ({
       course: { code: r.courseCode, title: r.courseTitle, unit: r.unit },
-      result: { score: r.score, grade: r.grade, points: r.points, semester: r.semester, sessionName: r.sessionName }
+      result: { score: r.score, grade: r.grade, points: r.points, semester: r.semester, sessionId: r.sessionId, sessionName: r.sessionName }
     }));
 
     const summary = computeStudentCGPA(
       formattedRows.map((r) => ({
         unit: Number(r.course?.unit) || 0,
         points: Number(r.result?.points) || 0,
-        sessionId: null, 
+        sessionId: r.result?.sessionId,
         semester: r.result?.semester,
       }))
     );

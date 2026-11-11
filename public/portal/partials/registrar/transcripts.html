@@ -1,0 +1,47 @@
+<section class="reg-transcript-page">
+  <header class="reg-transcript-head">
+    <div><h2>Transcript Register</h2><p>Find students and open their official academic transcript for review or printing.</p></div>
+    <button type="button" id="reg-transcript-refresh">↻ Refresh</button>
+  </header>
+  <div class="reg-transcript-tools">
+    <label for="reg-transcript-search">Search students</label>
+    <input id="reg-transcript-search" type="search" placeholder="Name, matric number or department">
+    <span id="reg-transcript-count">Loading records…</span>
+  </div>
+  <div class="reg-transcript-table-wrap">
+    <table><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead>
+    <tbody id="reg-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table>
+  </div>
+  <p class="reg-transcript-note">Only published results are included in the transcript. Opening a transcript does not issue or certify it.</p>
+</section>
+<style>
+.reg-transcript-page{color:#0f172a}.reg-transcript-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}.reg-transcript-head h2{margin:0;font-size:1.35rem}.reg-transcript-head p{margin:.35rem 0;color:#64748b;font-size:.85rem}.reg-transcript-head button,.reg-transcript-open{background:#065f46;color:#fff;border:0;border-radius:8px;padding:.62rem .9rem;font-weight:700;cursor:pointer;min-height:40px}.reg-transcript-tools{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:.35rem .8rem;align-items:center;margin-bottom:.85rem}.reg-transcript-tools label{grid-column:1/-1;font-size:.75rem;color:#475569;font-weight:700}.reg-transcript-tools input{padding:.72rem .85rem;border:1px solid #cbd5e1;border-radius:9px;min-width:0}.reg-transcript-tools span{font-size:.78rem;color:#64748b;white-space:nowrap}.reg-transcript-table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.reg-transcript-table-wrap table{width:100%;min-width:850px;border-collapse:collapse;font-size:.82rem}.reg-transcript-table-wrap th,.reg-transcript-table-wrap td{padding:.78rem .85rem;text-align:left;border-bottom:1px solid #f1f5f9}.reg-transcript-table-wrap th{background:#f8fafc;color:#475569;text-transform:uppercase;font-size:.68rem;letter-spacing:.04em}.reg-transcript-table-wrap td{color:#334155}.reg-transcript-note{font-size:.78rem;color:#64748b;margin-top:.8rem}@media(max-width:600px){.reg-transcript-tools{grid-template-columns:1fr}.reg-transcript-tools span{white-space:normal}}
+</style>
+<script>
+(function(){
+ 'use strict';
+ const core=window.FPU_PORTAL||{};
+ const $=id=>document.getElementById(id);
+ const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ let records=[];
+ function render(){
+   const q=($('reg-transcript-search').value||'').trim().toLowerCase();
+   const list=records.filter(s=>[s.firstName,s.lastName,s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
+   $('reg-transcript-count').textContent=list.length+' of '+records.length+' students';
+   $('reg-transcript-body').innerHTML=list.length?list.map(s=>'<tr><td><strong>'+esc([s.firstName,s.lastName].filter(Boolean).join(' '))+'</strong></td><td>'+esc(s.matricNumber||'—')+'</td><td>'+esc(s.departmentName||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td><strong>'+Number(s.cgpa||0).toFixed(2)+'</strong></td><td><button class="reg-transcript-open" type="button" data-student-id="'+Number(s.id)+'">Open Transcript</button></td></tr>').join(''):'<tr><td colspan="7">No matching transcript records found.</td></tr>';
+   $('reg-transcript-body').querySelectorAll('[data-student-id]').forEach(btn=>btn.addEventListener('click',()=>{
+     const id=Number(btn.dataset.studentId);if(!Number.isInteger(id)||id<1)return;
+     const url='/portal/partials/registrar/document-template.html?studentId='+encodeURIComponent(id);
+     window.open(url,'_blank','noopener');
+   }));
+ }
+ async function load(){
+   $('reg-transcript-body').innerHTML='<tr><td colspan="7">Loading transcript register…</td></tr>';
+   try{const res=await core.portalFetch('/api/registrar/transcripts');records=Array.isArray(res.data)?res.data:[];render()}
+   catch(err){$('reg-transcript-body').innerHTML='<tr><td colspan="7">Unable to load transcripts: '+esc(err.message)+'</td></tr>';core.showToast&&core.showToast('Could not load transcript register','error')}
+ }
+ $('reg-transcript-refresh').addEventListener('click',load);
+ $('reg-transcript-search').addEventListener('input',render);
+ load();
+})();
+</script>

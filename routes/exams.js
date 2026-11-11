@@ -51,7 +51,26 @@ router.get('/schools', requireRole(STAFF), async (req, res, next) => {
       .from(schema.schools)
       .leftJoin(schema.departments, eq(schema.schools.id, schema.departments.schoolId))
       .leftJoin(schema.courses, eq(schema.departments.id, schema.courses.departmentId))
-      .leftJoin(schema.examSchedules, eq(schema.courses.id, schema.examSchedules.courseId))
+      .leftJoin(
+        schema.examSchedules,
+        sessionId && semester
+          ? and(
+              eq(schema.courses.id, schema.examSchedules.courseId),
+              eq(schema.examSchedules.sessionId, Number(sessionId)),
+              eq(schema.examSchedules.semester, semester)
+            )
+          : sessionId
+            ? and(
+                eq(schema.courses.id, schema.examSchedules.courseId),
+                eq(schema.examSchedules.sessionId, Number(sessionId))
+              )
+            : semester
+              ? and(
+                  eq(schema.courses.id, schema.examSchedules.courseId),
+                  eq(schema.examSchedules.semester, semester)
+                )
+              : eq(schema.courses.id, schema.examSchedules.courseId)
+      )
       .groupBy(schema.schools.id, schema.schools.name, schema.schools.code);
 
     return res.json({ success: true, data: stats });

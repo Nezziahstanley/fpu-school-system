@@ -716,7 +716,7 @@ async function loadApplications() {
   const state = (document.getElementById("applications-state-filter") || {}).value || "";
   const search = (document.getElementById("applications-search") || {}).value || "";
 
-  const qs = new URLSearchParams({ limit: 500 });
+  const qs = new URLSearchParams({ limit: 5000 });
   if (status) qs.set("status", status);
   if (type) qs.set("type", type);
   if (country) qs.set("country", country);
@@ -832,7 +832,7 @@ async function loadAdmitted() {
   const typeFilter = (document.getElementById("admitted-type-filter") || {}).value || "";
   const search = (document.getElementById("admitted-search") || {}).value || "";
   const status = statusFilter === undefined ? "approved" : statusFilter;
-  const qs = new URLSearchParams({ limit: 500 });
+  const qs = new URLSearchParams({ limit: 5000 });
   if (status) qs.set("status", status);
   if (typeFilter) qs.set("type", typeFilter);
   if (search) qs.set("search", search);

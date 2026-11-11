@@ -13795,8 +13795,12 @@ async function loadExamApprovals() {
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading submissions…</div>';
 
   try {
+    const sessionId = document.getElementById('ex-session')?.value || '';
+    const semester = document.getElementById('ex-semester')?.value || 'first';
+    if (!sessionId) throw new Error('Select an academic session to view exam approvals.');
+    const query = new URLSearchParams({ sessionId, semester, limit: '5000' });
     const [examsRes, deptsRes] = await Promise.all([
-      adminFetch('/api/admin/exams?limit=5000'),
+      adminFetch(`/api/admin/exams?${query.toString()}`),
       adminFetch('/api/admin/departments'),
     ]);
 
@@ -13864,7 +13868,7 @@ async function loadExamApprovals() {
           </div>
 
           <div style="margin-top:auto; padding-top:12px; border-top:1px solid #f1f5f9; display:flex; gap:8px; justify-content:space-between;">
-            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: ${dept.schoolId}, sessionId: '', semester: 'first', name: '${escapeQuotes(dept.name)}' })">👁 View</button>
+            <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('exam-sheet', { schoolId: ${dept.schoolId}, sessionId: '${sessionId}', semester: '${semester}', name: '${escapeQuotes(dept.name)}' })">👁 View</button>
             ${submitted > 0 ? `<button class="btn btn-sm btn-primary" onclick="FPU_ADMIN.approveDepartmentExams(${dept.id}, '${escapeQuotes(dept.name)}')">✅ Approve All</button>` : ''}
           </div>
         </div>
@@ -13955,11 +13959,18 @@ async function approveDepartmentExams(deptId, deptName) {
 }
 
 async function approveDepartmentExams(deptId) {
-  const ok = await window.fpuConfirm('Approve ALL submitted exams for this department?', { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' });
+  const sessionId = document.getElementById('ex-session')?.value || '';
+  const semester = document.getElementById('ex-semester')?.value || 'first';
+  if (!sessionId) {
+    showToast('Select an academic session before approving examination schedules.', 'warning');
+    return;
+  }
+  const ok = await window.fpuConfirm(`Approve submitted exams for this department in ${semester} semester?`, { title: 'Approve Timetable', type: 'success', okText: 'Yes, Approve All' });
   if (!ok) return;
 
   try {
-    const res = await adminFetch(`/api/admin/exams?departmentId=${deptId}&limit=5000`);
+    const query = new URLSearchParams({ departmentId: String(deptId), sessionId, semester, limit: '5000' });
+    const res = await adminFetch(`/api/admin/exams?${query.toString()}`);
     const json = await res.json();
     const exams = (json.data || []).filter(e => (e.exam?.status || 'draft') === 'submitted');
 

@@ -81,12 +81,14 @@
           await core.portalFetch('/api/portal/notifications/' + id + '/read', { method: 'POST' });
           window.dispatchEvent(new Event('fpu:notifications-updated'));
         } catch (e) { /* best-effort */ }
-        if (link && window.FPU_SPA && window.FPU_SPA.navigatePortal) {
-          const hash = link.split('#').pop();
-          if (hash && hash.indexOf('portal') === 0 || hash.match(/^[a-z-]+$/)) {
+        if (link) {
+          const hash = link.indexOf('#') >= 0 ? link.split('#').pop() : '';
+          if (hash && window.FPU_SPA && window.FPU_SPA.navigatePortal && /^[a-z-]+$/.test(hash)) {
             window.FPU_SPA.navigatePortal(hash);
             return;
           }
+          window.location.href = link;
+          return;
         }
         load();
       });

@@ -81,6 +81,8 @@
       'portal-notifications', 'portal-announcements',
     ],
     bursar: [
+      'bursar-dashboard', 'bursar-payments', 'bursar-fees', 'bursar-clearances',
+      'bursar-reports', 'bursar-documents', 'bursar-transcripts',
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
       'admin-documents', 'admin-transcript',

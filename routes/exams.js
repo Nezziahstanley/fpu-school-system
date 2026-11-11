@@ -87,8 +87,9 @@ router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
     const filters = { ...req.query };
 
-    // Force HOD to only see their own department's exams
-    if (req.user && req.user.role === 'hod' && req.user.departmentId) {
+    // HOD access is always restricted to the department assigned to the account.
+    if (req.user?.role === 'hod') {
+      if (!req.user.departmentId) return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
       filters.departmentId = String(req.user.departmentId);
     }
 
@@ -103,6 +104,11 @@ router.get('/:id', requireRole(STAFF), async (req, res, next) => {
   try {
     const row = await examQueries.findById(req.params.id);
     if (!row) return res.status(404).json({ success: false, error: 'Exam schedule not found.' });
+    if (req.user?.role === 'hod') {
+      if (!req.user.departmentId || Number(row.course?.departmentId) !== Number(req.user.departmentId)) {
+        return res.status(403).json({ success: false, error: 'You can only view examination schedules for your assigned department.' });
+      }
+    }
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);
@@ -116,13 +122,15 @@ router.post('/', requireRole(['admin', 'exam_officer', 'academic_officer', 'hod'
       return res.status(400).json({ success: false, error: 'courseId, sessionId, semester, examDate, startTime, endTime are required.' });
     }
 
-    // Validate status
-    const validStatuses = ['draft', 'submitted', 'approved'];
-    if (req.body.status && !validStatuses.includes(req.body.status)) {
-      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    if (req.user?.role === 'hod') {
+      if (!req.user.departmentId) return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
+      const course = await examQueries.findCourseDepartment(courseId);
+      if (!course || Number(course.departmentId) !== Number(req.user.departmentId)) {
+        return res.status(403).json({ success: false, error: 'You can only create examination schedules for your assigned department.' });
+      }
     }
-
-    const row = await examQueries.create(req.body);
+    // Every new schedule starts as a draft. Submission and approval are separate actions.
+    const row = await examQueries.create({ ...req.body, status: 'draft' });
     await logAudit({ req, action: 'exam.create', entity: 'exam_schedule', entityId: row.id, after: row });
     return res.status(201).json({ success: true, data: row });
   } catch (err) {
@@ -134,18 +142,48 @@ router.put('/:id', requireRole(['admin', 'exam_officer', 'academic_officer', 'ho
   try {
     const existing = await examQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Exam schedule not found.' });
+    if (req.user?.role === 'hod') {
+      if (!req.user.departmentId || Number(existing.course?.departmentId) !== Number(req.user.departmentId)) {
+        return res.status(403).json({ success: false, error: 'You can only manage examination schedules for your assigned department.' });
+      }
+      if (existing.exam.status !== 'draft') return res.status(409).json({ success: false, error: 'Only draft examination schedules can be edited or submitted by an HOD.' });
+    }
 
     const patch = { ...req.body };
     delete patch.id;
+    const requestedStatus = patch.status;
+    delete patch.status;
 
-    // Validate status
-    const validStatuses = ['draft', 'submitted', 'approved'];
-    if (patch.status && !validStatuses.includes(patch.status)) {
-      return res.status(400).json({ success: false, error: 'Invalid status value.' });
+    if (req.user?.role === 'hod') {
+      if (requestedStatus !== undefined) {
+        if (!['submitted', 'pending'].includes(requestedStatus)) {
+          return res.status(403).json({ success: false, error: 'HODs may only submit examination schedules for approval.' });
+        }
+        patch.status = 'submitted';
+      }
+    } else if (requestedStatus !== undefined) {
+      if (['admin', 'exam_officer'].includes(req.user?.role)) {
+        if (requestedStatus !== 'approved' || existing.exam.status !== 'submitted') {
+          return res.status(409).json({ success: false, error: 'Only submitted examination schedules can be approved.' });
+        }
+        patch.status = 'approved';
+      } else {
+        if (requestedStatus !== 'submitted' || existing.exam.status !== 'draft') {
+          return res.status(403).json({ success: false, error: 'Only an HOD may submit a draft examination schedule; an examiner or administrator approves it.' });
+        }
+        patch.status = 'submitted';
+      }
     }
 
-    const row = await examQueries.update(existing.id, patch);
-    await logAudit({ req, action: 'exam.update', entity: 'exam_schedule', entityId: existing.id, before: existing, after: row });
+    if (patch.courseId && req.user?.role === 'hod') {
+      const course = await examQueries.findCourseDepartment(patch.courseId);
+      if (!course || Number(course.departmentId) !== Number(req.user.departmentId)) {
+        return res.status(403).json({ success: false, error: 'You cannot move this examination to another department.' });
+      }
+    }
+
+    const row = await examQueries.update(existing.exam.id, patch);
+    await logAudit({ req, action: 'exam.update', entity: 'exam_schedule', entityId: existing.exam.id, before: existing, after: row });
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);

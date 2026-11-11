@@ -356,7 +356,16 @@ async function reject(id, reason, rejectedBy) {
   const [row] = await db
     .update(payments)
     .set({ status: 'rejected', rejectionReason: reason, verifiedBy: Number(rejectedBy), verifiedAt: new Date() })
-    .where(eq(payments.id, Number(id)))
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'pending')))
+    .returning();
+  return row || null;
+}
+
+async function refund(id, refundedBy) {
+  const [row] = await db
+    .update(payments)
+    .set({ status: 'refunded', verifiedBy: Number(refundedBy), verifiedAt: new Date() })
+    .where(and(eq(payments.id, Number(id)), eq(payments.status, 'verified')))
     .returning();
   return row || null;
 }
@@ -412,5 +421,6 @@ module.exports = {
   update,
   verify,
   reject,
+  refund,
   remove,
 };

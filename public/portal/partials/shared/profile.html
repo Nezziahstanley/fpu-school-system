@@ -17,6 +17,7 @@
 <div class="filter-bar" style="padding:.5rem;gap:.25rem;">
   <button class="btn btn-primary btn-sm" data-tab="details">📝 My Details</button>
   <button class="btn btn-outline btn-sm" data-tab="photo">📷 Photo</button>
+  <button class="btn btn-outline btn-sm" data-tab="signature">✍️ E-Signature</button>
   <button class="btn btn-outline btn-sm" data-tab="password">🔒 Change Password</button>
 </div>
 
@@ -122,6 +123,23 @@
   </div>
 </section>
 
+<!-- ============ TAB: ELECTRONIC SIGNATURE ============ -->
+<section class="panel" id="pf-tab-signature" style="display:none;">
+  <div class="panel-head"><h3>Electronic Signature</h3></div>
+  <div class="panel-body">
+    <p class="muted small" style="margin-top:0;">Upload a clear image of your handwritten signature. Authorised officers can use this signature when signing official documents in workflows that require their approval.</p>
+    <div style="max-width:520px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;padding:1.25rem;text-align:center;">
+      <img id="pf-signature-preview" alt="Saved electronic signature" style="display:none;max-width:100%;max-height:130px;object-fit:contain;background:#fff;padding:12px;border:1px solid #e2e8f0;border-radius:8px;" />
+      <div id="pf-signature-empty" style="padding:1.5rem;color:#94a3b8;">No signature uploaded yet</div>
+    </div>
+    <input type="file" id="pf-signature-file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+    <div class="quick-actions" style="margin-top:1rem;">
+      <button class="btn btn-primary btn-sm" id="pf-signature-upload" type="button">✍️ Upload Signature</button>
+      <span class="muted small">PNG, JPG or WEBP · Max 5 MB</span>
+    </div>
+    <div id="pf-signature-status" class="muted small" style="margin-top:.5rem;"></div>
+  </div>
+</section>
 <!-- ============ TAB: PASSWORD ============ -->
 <section class="panel" id="pf-tab-password" style="display:none;">
   <div class="panel-head"><h3>Change Password</h3></div>
@@ -173,7 +191,7 @@
       document.querySelectorAll('[data-tab]').forEach((b) => {
         b.className = b.dataset.tab === tab ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
       });
-      ['details','photo','password'].forEach((t) => {
+      ['details','photo','signature','password'].forEach((t) => {
         const el = $('pf-tab-' + t);
         if (el) el.style.display = (t === tab) ? '' : 'none';
       });
@@ -256,6 +274,8 @@
       refreshHeader(u);
       fillForm(u);
 
+      renderSignature(u.signatureUrl || '');
+
       // Load photo
       if (u.photoUrl) {
         $('pf-photo-img').src = u.photoUrl;
@@ -272,6 +292,30 @@
     }
   }
 
+  // ---------------------------------------------------------
+  // Electronic signature
+  // ---------------------------------------------------------
+  function renderSignature(url) {
+    const img = $('pf-signature-preview');
+    const empty = $('pf-signature-empty');
+    if (url) { img.src = url; img.style.display = 'block'; empty.style.display = 'none'; }
+    else { img.removeAttribute('src'); img.style.display = 'none'; empty.style.display = 'block'; }
+  }
+  $('pf-signature-upload').addEventListener('click', () => $('pf-signature-file').click());
+  $('pf-signature-file').addEventListener('change', async () => {
+    const file = $('pf-signature-file').files && $('pf-signature-file').files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { core.showToast && core.showToast('Signature image must be 5 MB or smaller.', 'warning'); return; }
+    const form = new FormData(); form.append('signature', file);
+    const btn = $('pf-signature-upload'); btn.disabled = true; btn.textContent = 'Uploading…';
+    try {
+      const result = await core.portalFetch('/api/portal/profile/signature', { method: 'POST', body: form });
+      const url = (result.data && result.data.signatureUrl) || '';
+      USER = { ...(USER || {}), signatureUrl: url }; renderSignature(url);
+      core.showToast && core.showToast('Electronic signature saved.', 'success');
+    } catch (err) { core.showToast && core.showToast(err.message || 'Signature upload failed.', 'error'); }
+    finally { btn.disabled = false; btn.textContent = '✍️ Upload Signature'; $('pf-signature-file').value = ''; }
+  });
   // ---------------------------------------------------------
   // Save details
   // ---------------------------------------------------------

@@ -192,6 +192,10 @@
   .eo-status-btn.active[data-status="excused"] { background: #6366f1; color: #fff; }
 
   #eo-att-tbody tr:nth-child(even){background:#fbfdff}
+  @media(max-width:900px){#eo-att-dept,#eo-att-course,#eo-att-schedule{min-width:0}#eo-att-load{width:100%}}
+  @media(max-width:680px){#eo-att-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}#eo-att-bulk{align-items:flex-start!important;flex-direction:column}#eo-att-bulk>div:last-child{width:100%}#eo-att-bulk>div:last-child button{flex:1}}
+  #eo-att-context{box-shadow:0 4px 16px rgba(15,23,42,.04)}
+  #eo-att-search:focus,#eo-att-filter:focus,#eo-att-dept:focus,#eo-att-course:focus,#eo-att-schedule:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
   #eo-att-tbody tr:hover{background:#fff7ed}
   #eo-attendance-page input:focus,#eo-attendance-page select:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
   @media(max-width:760px){#eo-att-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}#eo-att-bulk{align-items:flex-start!important;flex-direction:column}}

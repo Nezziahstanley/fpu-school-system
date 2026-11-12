@@ -379,9 +379,14 @@
         `${finalFile}.html`,
         `${cleanKey}.html`,
       ];
+      // Registrar Documents is a request-queue-only page. Version its URL so
+      // browsers cannot reuse the older combined transcript-register partial.
+      const isRegistrarDocuments = role === 'registrar' && cleanKey === 'registrar-documents';
+      const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
+      const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
-        url: `/portal/partials/${folder}/${candidates[0]}`,
-        fallbackUrl: `/portal/partials/${folder}/${candidates[1]}`,
+        url: isRegistrarDocuments ? primaryUrl + '?v=20261112-doc-queue-only' : primaryUrl,
+        fallbackUrl: isRegistrarDocuments ? fallbackUrl + '?v=20261112-doc-queue-only' : fallbackUrl,
         title: roleItem.label,
       };
     }
@@ -486,8 +491,8 @@
     keys.forEach((key) => {
       const cfg = resolvePageConfig(key);
       if (!cfg || partialHtmlCache.has(cfg.url)) return;
-      fetch(cfg.url, { cache: 'force-cache' }).then(async (res) => {
-        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: 'force-cache' });
+      fetch(cfg.url, { cache: cfg.url.includes('doc-queue-only') ? 'no-store' : 'force-cache' }).then(async (res) => {
+        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: cfg.fallbackUrl.includes('doc-queue-only') ? 'no-store' : 'force-cache' });
         if (!res.ok) return;
         const html = await res.text();
         partialHtmlCache.set(cfg.url, html);

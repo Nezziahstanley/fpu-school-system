@@ -21,7 +21,7 @@
   </div>
 
   <!-- SUMMARY KPIs -->
-  <div id="rep-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+  <div id="rep-kpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div><div class="rep-executive-grid"><section class="rep-panel"><h3>Executive Attention</h3><div id="rep-attention"></div></section><section class="rep-panel"><h3>Enrollment by Department</h3><div id="rep-departments"></div></section></div>
 
   <!-- 2-col: Enrollment + Gender -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
@@ -111,12 +111,29 @@
       const d = dash.data || {};
       const s = summary.data || {};
 
+      $('rep-attention').innerHTML = [
+        ['Pending applications', d.pendingApplications ?? 0], ['Pending result submissions', d.pendingResults ?? 0],
+        ['Payments awaiting verification', d.pendingPayments ?? 0], ['Open complaints', d.openComplaints ?? 0],
+        ['Overdue library books', d.overdueBooks ?? 0],
+      ].map(([label, value]) => '<div class="rep-attention-row"><span>'+esc(label)+'</span><strong>'+Number(value).toLocaleString()+'</strong></div>').join('');
+      renderBars($('rep-departments'), (d.enrollmentByDepartment || []).map(x => ({ label: x.name || x.code || 'Unassigned', value: Number(x.students || 0), color: '#10b981' })));
+
       // KPIs
       const kpis = [
-        { label: 'Total Students',   value: d.students ?? 0,            bg: '#d1fae5', fg: '#065f46', icon: '👥' },
-        { label: 'Total Staff',      value: d.staff ?? 0,               bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
-        { label: 'Total Revenue',    value: fmtMoney(d.revenue ?? 0),   bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
-        { label: 'Pending Payment',  value: fmtMoney(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
+        { label: 'Total Students', value: d.students ?? 0, bg: '#d1fae5', fg: '#065f46', icon: '👥' },
+        { label: 'Total Staff', value: d.staff ?? 0, bg: '#dbeafe', fg: '#1e40af', icon: '👔' },
+        { label: 'Lecturers', value: d.lecturers ?? 0, bg: '#e0f2fe', fg: '#075985', icon: '🧑‍🏫' },
+        { label: 'Departments', value: d.departments ?? 0, bg: '#dcfce7', fg: '#166534', icon: '🏛️' },
+        { label: 'Programmes', value: d.programmes ?? 0, bg: '#f1f5f9', fg: '#334155', icon: '📚' },
+        { label: 'Courses', value: d.courses ?? 0, bg: '#e0e7ff', fg: '#3730a3', icon: '📖' },
+        { label: 'Published Results', value: d.resultsPublished ?? 0, bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+        { label: 'Course Registrations', value: d.totalRegistrations ?? 0, bg: '#cffafe', fg: '#155e75', icon: '📋' },
+        { label: 'Pending Applications', value: d.pendingApplications ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
+        { label: 'Pending Results', value: d.pendingResults ?? 0, bg: '#ffedd5', fg: '#9a3412', icon: '📄' },
+        { label: 'Pending Payments', value: d.pendingPayments ?? 0, bg: '#fee2e2', fg: '#991b1b', icon: '💳' },
+        { label: 'Open Complaints', value: d.openComplaints ?? 0, bg: '#fce7f3', fg: '#9d174d', icon: '📣' },
+        { label: 'Verified Revenue', value: fmtMoney(d.revenue ?? 0), bg: '#ede9fe', fg: '#5b21b6', icon: '💰' },
+        { label: 'Outstanding Fees', value: fmtMoney(d.outstandingFees ?? 0), bg: '#fef3c7', fg: '#92400e', icon: '⚠️' },
       ];
 
       $('rep-kpis').innerHTML = kpis.map((t) => `
@@ -233,7 +250,7 @@
 </script>
 
 <style>
-#rep-kpis>div{border-radius:14px!important;box-shadow:0 4px 16px rgba(15,23,42,.045);border-color:#dfe9e5!important}
+#rep-kpis>div{border-radius:14px!important;box-shadow:0 4px 16px rgba(15,23,42,.045);border-color:#dfe9e5!important}.rep-executive-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}.rep-panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:1rem;box-shadow:0 4px 16px rgba(15,23,42,.04)}.rep-panel h3{margin:0 0 .8rem;font-size:.95rem}.rep-attention-row{display:flex;justify-content:space-between;gap:1rem;padding:.62rem 0;border-bottom:1px solid #f1f5f9;font-size:.8rem}.rep-attention-row span{color:#475569}.rep-attention-row strong{color:#065f46}
 #rep-kpis>div>div:first-child{border-radius:13px!important}
 #rep-levels,#rep-gender,#rep-apps,#rep-results,#rep-revenue,#rep-states,#rep-grad{background:#fff}
 #rep-levels,#rep-gender,#rep-apps,#rep-results{min-height:130px}
@@ -241,7 +258,7 @@
 #rep-revenue th{background:#ecfdf5!important;color:#065f46!important}
 #rep-revenue td,#rep-revenue th{padding:.7rem .85rem!important}
 #rep-grad>div{border:1px solid rgba(15,23,42,.06)}
-@media(max-width:760px){#rep-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}#rep-grad{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:760px){#rep-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}#rep-grad{grid-template-columns:repeat(2,minmax(0,1fr))!important}.rep-executive-grid{grid-template-columns:1fr}}
 @media(max-width:480px){#rep-kpis,#rep-grad{grid-template-columns:1fr 1fr!important}#rep-kpis>div{padding:.7rem!important}#rep-kpis>div>div:first-child{width:36px!important;height:36px!important;font-size:1rem!important}}
 @media print{@page{size:A4 portrait;margin:14mm}#rep-kpis>div{break-inside:avoid;box-shadow:none!important;border:1px solid #cbd5e1!important}#rep-levels,#rep-gender,#rep-apps,#rep-results,#rep-revenue,#rep-states,#rep-grad{break-inside:avoid;border:1px solid #cbd5e1;padding:.5rem!important}}
 </style>

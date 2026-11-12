@@ -238,7 +238,7 @@
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
       { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
-      { key: 'registrar-documents',       label: 'Documents', icon: ICON.file },
+      { key: 'registrar-documents',       label: 'Documents & Certificates', icon: ICON.file },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

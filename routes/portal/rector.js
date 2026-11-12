@@ -504,44 +504,34 @@ router.get('/transcripts', only, async (req, res, next) => {
 // GET /api/rector/transcripts
 // Returns all students with their calculated CGPA for transcript viewing
 // ============================================================
-router.get('/transcripts', only, async (req, res, next) => {
+router.get('/transcripts/:studentId', only, async (req, res, next) => {
   try {
+    const userQueries = require('../../db/queries/users');
     const resultQueries = require('../../db/queries/results');
-    const { computeStudentCGPA } = require('../../utils/gpa');
-    const { users, programmes, departments } = schema;
-
-    const rows = await db
-      .select({
-        id: users.id,
-        matricNumber: users.matricNumber,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        level: users.level,
-        programmeName: programmes.name,
-        departmentId: departments.id,
-        departmentName: departments.name,
-      })
-      .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .leftJoin(departments, eq(users.departmentId, departments.id))
-      .where(eq(users.role, 'student'))
-      .orderBy(departments.name, users.lastName);
-
-    const data = [];
-    for (const s of rows) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
-      data.push({ ...s, cgpa: summary.cgpa || 0 });
+    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId) || studentId < 1) {
+      return res.status(400).json({ success: false, error: 'A valid student ID is required.' });
     }
-
-    return res.json({ success: true, data });
+    const student = await userQueries.findByIdWithRelations(studentId);
+    if (!student || student.role !== 'student') {
+      return res.status(404).json({ success: false, error: 'Student record not found.' });
+    }
+    const rows = await resultQueries.publishedForStudent(studentId, {});
+    const summary = computeStudentCGPA(rows.map((r) => ({
+      unit: Number(r.course?.unit) || 0,
+      points: Number(r.result?.points) || 0,
+      sessionId: r.result?.sessionId,
+      semester: r.result?.semester,
+    })));
+    return res.json({
+      success: true,
+      data: {
+        student,
+        summary: { ...summary, classification: classifyDegree(summary.cgpa) },
+        rows,
+      },
+    });
   } catch (err) { return next(err); }
 });
 

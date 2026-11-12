@@ -1674,3 +1674,107 @@ body.portal-app #page-view .student-quick-access ~ div[style*="border-radius:12p
   #page-view #sm-grid { grid-template-columns:1fr; }
   #page-view .exam-sheet-table { min-width:720px; }
 }
+
+
+/* ============================================================
+   STUDENT PORTAL — unified premium workspace styling
+   Scoped to authenticated student sessions only.
+   ============================================================ */
+body.portal-app.student-portal-theme #page-view {
+  color:#0f172a;
+}
+body.portal-app.student-portal-theme #page-view .page-head {
+  display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  margin:0 0 1rem;padding:1.05rem 1.2rem;border:1px solid #dbece5;
+  border-radius:15px;background:linear-gradient(115deg,#f0fdf4 0%,#fff 68%);
+  box-shadow:0 5px 18px rgba(6,95,70,.045);
+}
+body.portal-app.student-portal-theme #page-view .page-head h2,
+body.portal-app.student-portal-theme #page-view h2 {
+  color:#064e3b;letter-spacing:-.02em;
+}
+body.portal-app.student-portal-theme #page-view .panel,
+body.portal-app.student-portal-theme #page-view .panel-head,
+body.portal-app.student-portal-theme #page-view .panel-body,
+body.portal-app.student-portal-theme #page-view .card {
+  border-color:#e2e8f0;border-radius:14px;
+}
+body.portal-app.student-portal-theme #page-view .panel,
+body.portal-app.student-portal-theme #page-view .card {
+  box-shadow:0 5px 18px rgba(15,23,42,.045);
+  overflow:hidden;
+}
+body.portal-app.student-portal-theme #page-view .panel-head {
+  padding:.9rem 1rem;background:linear-gradient(90deg,#f0fdf4,#fff);
+  border-bottom:1px solid #e2e8f0;
+}
+body.portal-app.student-portal-theme #page-view .panel-head h3 {
+  color:#064e3b;font-weight:850;
+}
+body.portal-app.student-portal-theme #page-view button,
+body.portal-app.student-portal-theme #page-view .btn,
+body.portal-app.student-portal-theme #page-view a.button {
+  border-radius:9px;transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+body.portal-app.student-portal-theme #page-view button:hover,
+body.portal-app.student-portal-theme #page-view .btn:hover,
+body.portal-app.student-portal-theme #page-view a.button:hover {
+  box-shadow:0 5px 14px rgba(6,95,70,.12);
+}
+body.portal-app.student-portal-theme #page-view input:not([type=checkbox]):not([type=radio]),
+body.portal-app.student-portal-theme #page-view select,
+body.portal-app.student-portal-theme #page-view textarea {
+  min-height:42px;border:1px solid #cbd5e1;border-radius:9px;
+  background:#fff;color:#0f172a;padding:.62rem .75rem;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+body.portal-app.student-portal-theme #page-view input:focus,
+body.portal-app.student-portal-theme #page-view select:focus,
+body.portal-app.student-portal-theme #page-view textarea:focus {
+  outline:none;border-color:#059669;box-shadow:0 0 0 3px rgba(16,185,129,.13);
+}
+body.portal-app.student-portal-theme #page-view table {
+  border-collapse:separate;border-spacing:0;
+}
+body.portal-app.student-portal-theme #page-view table thead th {
+  background:#f0fdf4;color:#065f46;font-size:.68rem;font-weight:850;
+  letter-spacing:.055em;text-transform:uppercase;border-bottom:1px solid #d1fae5;
+}
+body.portal-app.student-portal-theme #page-view table tbody td {
+  border-bottom:1px solid #eef2f7;vertical-align:middle;
+}
+body.portal-app.student-portal-theme #page-view table tbody tr:hover {
+  background:#f8fdf9;
+}
+body.portal-app.student-portal-theme #page-view .student-quick-access {
+  border-color:#d7e9df;box-shadow:0 8px 24px rgba(15,23,42,.05);
+}
+body.portal-app.student-portal-theme #page-view .student-quick-grid a {
+  min-height:94px;border-color:#dce9e2;box-shadow:0 3px 12px rgba(15,23,42,.025);
+}
+body.portal-app.student-portal-theme #page-view .student-quick-grid a:focus-visible,
+body.portal-app.student-portal-theme #page-view button:focus-visible,
+body.portal-app.student-portal-theme #page-view a:focus-visible {
+  outline:3px solid rgba(16,185,129,.45);outline-offset:2px;
+}
+body.portal-app.student-portal-theme #page-view .stat-card,
+body.portal-app.student-portal-theme #page-view .stat-tile,
+body.portal-app.student-portal-theme #page-view .summary-card {
+  border:1px solid #e2e8f0;border-radius:13px;
+  box-shadow:0 5px 16px rgba(15,23,42,.045);
+}
+body.portal-app.student-portal-theme #page-view .modal,
+body.portal-app.student-portal-theme #page-view [role=dialog] {
+  border-radius:16px;box-shadow:0 22px 60px rgba(15,23,42,.2);
+}
+body.portal-app.student-portal-theme #page-view .empty-state,
+body.portal-app.student-portal-theme #page-view .empty,
+body.portal-app.student-portal-theme #page-view .loading {
+  color:#64748b;
+}
+@media(max-width:760px) {
+  body.portal-app.student-portal-theme #page-view .page-head {padding:.9rem;flex-direction:column}
+  body.portal-app.student-portal-theme #page-view .page-head .actions {width:100%;display:flex;flex-wrap:wrap;gap:.5rem}
+  body.portal-app.student-portal-theme #page-view .page-head .actions>* {flex:1 1 auto;min-height:42px}
+  body.portal-app.student-portal-theme #page-view table {min-width:620px}
+}

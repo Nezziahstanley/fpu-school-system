@@ -7,11 +7,11 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Attendance</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Pick a department → course → exam, then mark attendance</p>
     </div>
-    <button id="eo-att-refresh" style="
-      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-      background:#fff;color:#9a3412;border:1px solid #fed7aa;
-      border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
-    ">↻ Refresh</button>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="eo-att-print" type="button" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">🖨 Print Register</button>
+      <button id="eo-att-export" type="button" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↓ Export CSV</button>
+      <button id="eo-att-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#9a3412;border:1px solid #fed7aa;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    </div>
   </div>
 
   <!-- CASCADING FILTERS -->
@@ -191,6 +191,11 @@
   .eo-status-btn.active[data-status="late"]    { background: #f59e0b; color: #fff; }
   .eo-status-btn.active[data-status="excused"] { background: #6366f1; color: #fff; }
 
+  #eo-att-tbody tr:nth-child(even){background:#fbfdff}
+  #eo-att-tbody tr:hover{background:#fff7ed}
+  #eo-attendance-page input:focus,#eo-attendance-page select:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
+  @media(max-width:760px){#eo-att-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}#eo-att-bulk{align-items:flex-start!important;flex-direction:column}}
+  @media print{#eo-att-print,#eo-att-export,#eo-att-refresh,#eo-att-bulk,#eo-att-bulk-mark,#eo-att-filter-row,#eo-att-load{display:none!important}body{background:#fff!important}}
   @keyframes eoSpin { to { transform: rotate(360deg); } }
 </style>
 
@@ -713,6 +718,20 @@
       btn.disabled = false;
       btn.textContent = '💾 Save Changes';
     }
+  });
+
+  $('eo-att-export')?.addEventListener('click', () => {
+    if (!ROWS.length || !CURRENT_SCHEDULE) { core.showToast && core.showToast('Load an exam register before exporting.', 'warning'); return; }
+    const quote = (v) => '"' + String(v == null ? '' : v).replaceAll('"', '""') + '"';
+    const rows = [['S/N','Student Name','Matric Number','Status']];
+    ROWS.forEach((r,i) => rows.push([i+1, ((r.student?.firstName || '') + ' ' + (r.student?.lastName || '')).trim(), r.student?.matricNumber || '', r.status || 'unmarked']));
+    const blob = new Blob(['\\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\\r\\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = 'exam-attendance-register.csv'; link.click(); URL.revokeObjectURL(url);
+  });
+  $('eo-att-print')?.addEventListener('click', () => {
+    if (!ROWS.length || !CURRENT_SCHEDULE) { core.showToast && core.showToast('Load an exam register before printing.', 'warning'); return; }
+    window.print();
   });
 
   // ============================================================

@@ -1103,7 +1103,7 @@ router.get('/exams', only, async (req, res, next) => {
     `);
     const unique = new Map();
     for (const row of (result.rows || [])) {
-      const key = [row.courseId, row.sessionId, String(row.semester).toLowerCase()].join(':');
+      const key = String(row.courseId); // one timetable entry per allocated course; newest approved schedule wins
       if (!unique.has(key)) unique.set(key, row);
     }
     const data = Array.from(unique.values()).sort((a, b) => String(a.examDate).localeCompare(String(b.examDate)));

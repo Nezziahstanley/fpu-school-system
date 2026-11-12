@@ -95,6 +95,25 @@
   .dept-name { font-weight: 800; color: #0f172a; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dept-count { font-size: .7rem; color: #64748b; margin-top: .15rem; }
   .dept-arrow { color: #94a3b8; font-size: 1rem; flex-shrink: 0; }
+  .eo-published-result-row:hover{background:#ecfdf5!important}
+  .eo-result-actions{display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+  .eo-result-actions button{padding:.65rem .9rem;border:0;border-radius:8px;background:#065f46;color:#fff;font-weight:800;cursor:pointer}
+  .eo-result-actions button:first-child{background:#e2e8f0;color:#334155}
+  .eo-result-sheet{position:relative;isolation:isolate;overflow:hidden;background:#fff;border:1px solid #dbe3ec;border-radius:14px;padding:1.5rem;max-width:820px;margin:auto;box-shadow:0 8px 28px rgba(15,23,42,.08)}
+  .eo-result-watermark{position:absolute;inset:15% 20%;background:url('/images/logo.png') center/contain no-repeat;opacity:.055;z-index:-1;pointer-events:none}
+  .eo-result-brand{display:flex;align-items:center;justify-content:center;gap:1rem;text-align:center;border-bottom:3px solid #065f46;padding-bottom:1rem}
+  .eo-result-brand img{width:76px;height:76px;object-fit:contain}.eo-result-brand h2{font-size:1.1rem;margin:0 0 .35rem;color:#064e3b}.eo-result-brand p{font-size:.65rem;letter-spacing:.12em;margin:.2rem;color:#64748b}.eo-result-brand strong{font-size:.72rem;color:#065f46}
+  .eo-result-status{text-align:center;margin:1.2rem 0 .4rem;font-size:.7rem;font-weight:900;letter-spacing:.16em;color:#047857}
+  .eo-result-sheet>h3{text-align:center;font-size:1rem;margin:.3rem 0 1rem}
+  .eo-result-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #e2e8f0}
+  .eo-result-grid>div{padding:.8rem;border:1px solid #e2e8f0;min-height:66px}.eo-result-grid .wide{grid-column:1/-1}
+  .eo-result-grid small{display:block;font-size:.62rem;color:#64748b;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-bottom:.35rem}
+  .eo-result-grid strong{font-size:.84rem;color:#0f172a}.eo-result-score,.eo-result-grade{color:#065f46!important;font-size:1.05rem!important}
+  .eo-result-footnote{font-size:.7rem;color:#64748b;line-height:1.6;margin-top:1.2rem;border-top:1px solid #e2e8f0;padding-top:.8rem}
+  .eo-result-signline{display:flex;justify-content:space-between;gap:1rem;margin-top:2.5rem;font-size:.7rem;color:#334155}
+  .eo-result-signline span{border-top:1px solid #64748b;padding-top:.4rem;min-width:160px}
+  @media(max-width:600px){.eo-result-grid{grid-template-columns:1fr}.eo-result-grid .wide{grid-column:auto}.eo-result-sheet{padding:.8rem}.eo-result-brand img{width:54px;height:54px}}
+  @media print{.eo-result-actions{display:none!important}.eo-result-sheet{box-shadow:none;border:0}}
 </style>
 
 <script>
@@ -286,7 +305,7 @@
           </thead>
           <tbody>
             ${results.map(r => `
-              <tr style="border-bottom:1px solid #f1f5f9;">
+              <tr class="eo-published-result-row" data-result-id="${r.id}" title="Click to view full result details" style="border-bottom:1px solid #f1f5f9;cursor:pointer;">
                 <td style="padding:.65rem .75rem;color:#64748b;font-size:.75rem;">${r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—'}</td>
                 <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
                 <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
@@ -298,7 +317,69 @@
           </tbody>
         </table>
       `;
+      body.querySelectorAll('.eo-published-result-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const result = results.find(item => String(item.id) === String(row.dataset.resultId));
+          if (result) showPublishedResult(result);
+        });
+      });
     }
+  }
+
+  function showPublishedResult(r) {
+    const published = r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('en-GB', {day:'2-digit',month:'long',year:'numeric'}) : '—';
+    const score = Number(r.score || 0);
+    const body = $('modal-body');
+    $('modal-title').textContent = 'Published Result';
+    $('modal-sub').textContent = (r.studentName || 'Student') + ' · ' + (r.matricNumber || 'No matric number');
+    body.innerHTML = `
+      <div class="eo-result-detail">
+        <div class="eo-result-actions"><button type="button" id="eo-result-back">← Back to results</button><button type="button" id="eo-result-print">🖨 Print Official Result</button></div>
+        <article class="eo-result-sheet">
+          <div class="eo-result-watermark"></div>
+          <header class="eo-result-brand">
+            <img src="/images/logo.png" alt="Federal Polytechnic Ugep logo">
+            <div><h2>FEDERAL POLYTECHNIC UGEP</h2><p>OFFICE OF THE EXAMINATIONS OFFICER</p><strong>OFFICIAL RESULT RECORD</strong></div>
+          </header>
+          <div class="eo-result-status">PUBLISHED RESULT</div>
+          <h3>STUDENT ACADEMIC RESULT</h3>
+          <div class="eo-result-grid">
+            <div><small>Student Name</small><strong>${esc(r.studentName || '—')}</strong></div>
+            <div><small>Matriculation Number</small><strong>${esc(r.matricNumber || '—')}</strong></div>
+            <div><small>Department</small><strong>${esc(r.departmentName || '—')}</strong></div>
+            <div><small>Programme</small><strong>${esc(r.programmeName || '—')}</strong></div>
+            <div><small>Academic Level</small><strong>${esc(r.level || '—')}</strong></div>
+            <div><small>Academic Session</small><strong>${esc(r.sessionName || '—')}</strong></div>
+            <div><small>Semester</small><strong>${esc(r.semester || '—')}</strong></div>
+            <div><small>Course Code</small><strong>${esc(r.courseCode || '—')}</strong></div>
+            <div class="wide"><small>Course Title</small><strong>${esc(r.courseTitle || '—')}</strong></div>
+            <div><small>Credit Units</small><strong>${esc(r.courseUnit == null ? '—' : r.courseUnit)}</strong></div>
+            <div><small>Score</small><strong class="eo-result-score">${esc(score.toFixed(2))} / 100</strong></div>
+            <div><small>Grade</small><strong class="eo-result-grade">${esc(r.grade || '—')}</strong></div>
+            <div><small>Grade Points</small><strong>${esc(r.points == null ? '—' : r.points)}</strong></div>
+            <div><small>Date Published</small><strong>${esc(published)}</strong></div>
+          </div>
+          <p class="eo-result-footnote">This record reflects the result published in the institution's academic system. Any correction must follow the approved result-amendment procedure.</p>
+          <div class="eo-result-signline"><span>Examinations Office</span><span>Official digital record</span></div>
+        </article>
+      </div>`;
+    $('eo-result-back').addEventListener('click', () => openModal(r.departmentName || 'Unassigned Department', ALL_PUBLISHED.filter(x => (x.departmentName || 'Unassigned Department') === (r.departmentName || 'Unassigned Department')), 'published'));
+    $('eo-result-print').addEventListener('click', () => printPublishedResult(r));
+  }
+
+  function printPublishedResult(r) {
+    const win = window.open('', '_blank', 'width=900,height=1100');
+    if (!win) { core.showToast && core.showToast('Allow pop-ups to print the result.', 'warning'); return; }
+    const escPrint = value => esc(value == null ? '—' : value);
+    const fields = [
+      ['Student Name',r.studentName],['Matriculation Number',r.matricNumber],['Department',r.departmentName],
+      ['Programme',r.programmeName],['Level',r.level],['Academic Session',r.sessionName],['Semester',r.semester],
+      ['Course Code',r.courseCode],['Course Title',r.courseTitle],['Credit Units',r.courseUnit],
+      ['Score',Number(r.score || 0).toFixed(2) + ' / 100'],['Grade',r.grade],['Grade Points',r.points],
+      ['Date Published',r.publishedAt ? new Date(r.publishedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}) : '—']
+    ];
+    win.document.write('<!doctype html><html><head><title>Official Student Result</title><style>@page{size:A4;margin:16mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;position:relative}body:before{content:"";position:fixed;inset:18% 20%;background:url("/images/logo.png") center/contain no-repeat;opacity:.07;z-index:-1}.brand{display:flex;align-items:center;justify-content:center;gap:18px;text-align:center;border-bottom:3px solid #065f46;padding-bottom:14px}.brand img{width:78px;height:78px;object-fit:contain}.brand h1{font-size:19px;margin:0 0 5px}.brand p{font-size:10px;letter-spacing:1px;margin:3px}.status{text-align:center;margin:20px auto 12px;color:#065f46;font-weight:bold;letter-spacing:2px}h2{text-align:center;font-size:17px;margin:8px 0 20px}.grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #d5dce5}.item{padding:12px;border:1px solid #e2e8f0;min-height:62px}.item small{display:block;color:#64748b;font-size:9px;text-transform:uppercase;margin-bottom:6px}.item strong{font-size:13px}.wide{grid-column:1/-1}.foot{font-size:10px;line-height:1.6;color:#64748b;margin-top:25px;border-top:1px solid #cbd5e1;padding-top:12px}.sign{display:flex;justify-content:space-between;margin-top:55px;font-size:11px}.sign span{border-top:1px solid #334155;padding-top:7px;min-width:180px}@media print{button{display:none}}</style></head><body><header class="brand"><img src="/images/logo.png" alt="School logo"><div><h1>FEDERAL POLYTECHNIC UGEP</h1><p>OFFICE OF THE EXAMINATIONS OFFICER</p><p><b>OFFICIAL RESULT RECORD</b></p></div></header><div class="status">PUBLISHED RESULT</div><h2>STUDENT ACADEMIC RESULT</h2><div class="grid">'+fields.map((field,index)=>'<div class="item '+(index===8?'wide':'')+'"><small>'+escPrint(field[0])+'</small><strong>'+escPrint(field[1])+'</strong></div>').join('')+'</div><p class="foot">This record reflects the result published in the institution academic system. Any correction must follow the approved result-amendment procedure.</p><div class="sign"><span>Examinations Office</span><span>Official digital record</span></div><script>window.onload=function(){window.print()}<\/script></body></html>');
+    win.document.close();
   }
 
   function closeModal() {

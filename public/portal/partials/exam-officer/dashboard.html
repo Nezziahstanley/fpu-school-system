@@ -19,9 +19,13 @@
       <p style="margin:.35rem 0 0;font-size:.88rem;color:#d1fae5;">Schedule oversight, attendance tracking, eligibility verification, and result publication</p>
       <button type="button" id="eo-dashboard-refresh" style="margin-top:.85rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.45);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:.78rem;font-weight:750;cursor:pointer;">↻ Refresh dashboard</button>
     </div>
-    <div style="position:absolute;top:1rem;right:1.5rem;text-align:right;z-index:2;">
-      <div style="font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">Session</div>
-      <div style="font-size:1.1rem;font-weight:800;" id="eo-session">—</div>
+    <div style="position:absolute;top:1rem;right:1.25rem;display:flex;align-items:center;gap:.85rem;z-index:2;">
+      <div id="eo-profile-circle" title="Exam Officer profile" style="width:58px;height:58px;border-radius:50%;border:3px solid rgba(255,255,255,.8);background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;font-weight:850;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.15);">EO</div>
+      <div style="text-align:right;">
+        <div style="font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">Current Session</div>
+        <div style="font-size:1.05rem;font-weight:800;" id="eo-session">—</div>
+        <div id="eo-profile-role" style="font-size:.68rem;color:#d1fae5;margin-top:.15rem;">Examinations Officer</div>
+      </div>
     </div>
     <div style="position:absolute;right:-40px;bottom:-40px;width:180px;height:180px;background:rgba(255,255,255,.05);border-radius:50%;"></div>
   </div>
@@ -223,6 +227,16 @@
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
       if ($('eo-name')) $('eo-name').textContent = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Exam Officer';
+      const fullName = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Exam Officer';
+      const avatar = $('eo-profile-circle');
+      if ($('eo-profile-role')) $('eo-profile-role').textContent = String(user.role || 'exam_officer').replaceAll('_', ' ');
+      const initials = fullName.split(/\\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'EO';
+      if (avatar) avatar.textContent = initials;
+      try {
+        const profileRes = await core.portalFetch('/api/exam-officer/profile');
+        const profile = profileRes.data || {};
+        if (avatar && profile.photoUrl) avatar.innerHTML = `<img src="${esc(profile.photoUrl)}" alt="Exam Officer profile photo" style="width:100%;height:100%;object-fit:cover;">`;
+      } catch (_) { /* Keep the initials if the profile photo is unavailable. */ }
 
       const res = await core.portalFetch('/api/exam-officer/dashboard');
       const d = res.data || {};

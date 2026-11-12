@@ -7,11 +7,11 @@
       <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Exam Attendance</h2>
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Pick a department → course → exam, then mark attendance</p>
     </div>
-    <button id="eo-att-refresh" style="
-      padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-      background:#fff;color:#9a3412;border:1px solid #fed7aa;
-      border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
-    ">↻ Refresh</button>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="eo-att-print" type="button" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">🖨 Print Register</button>
+      <button id="eo-att-export" type="button" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↓ Export CSV</button>
+      <button id="eo-att-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#9a3412;border:1px solid #fed7aa;border-radius:8px;cursor:pointer;">↻ Refresh</button>
+    </div>
   </div>
 
   <!-- CASCADING FILTERS -->
@@ -191,6 +191,15 @@
   .eo-status-btn.active[data-status="late"]    { background: #f59e0b; color: #fff; }
   .eo-status-btn.active[data-status="excused"] { background: #6366f1; color: #fff; }
 
+  #eo-att-tbody tr:nth-child(even){background:#fbfdff}
+  @media(max-width:900px){#eo-att-dept,#eo-att-course,#eo-att-schedule{min-width:0}#eo-att-load{width:100%}}
+  @media(max-width:680px){#eo-att-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}#eo-att-bulk{align-items:flex-start!important;flex-direction:column}#eo-att-bulk>div:last-child{width:100%}#eo-att-bulk>div:last-child button{flex:1}}
+  #eo-att-context{box-shadow:0 4px 16px rgba(15,23,42,.04)}
+  #eo-att-search:focus,#eo-att-filter:focus,#eo-att-dept:focus,#eo-att-course:focus,#eo-att-schedule:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
+  #eo-att-tbody tr:hover{background:#fff7ed}
+  #eo-attendance-page input:focus,#eo-attendance-page select:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
+  @media(max-width:760px){#eo-att-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}#eo-att-bulk{align-items:flex-start!important;flex-direction:column}}
+  @media print{#eo-att-print,#eo-att-export,#eo-att-refresh,#eo-att-bulk,#eo-att-bulk-mark,#eo-att-filter-row,#eo-att-load{display:none!important}body{background:#fff!important}}
   @keyframes eoSpin { to { transform: rotate(360deg); } }
 </style>
 
@@ -713,6 +722,27 @@
       btn.disabled = false;
       btn.textContent = '💾 Save Changes';
     }
+  });
+
+  $('eo-att-export')?.addEventListener('click', () => {
+    if (!ROWS.length || !CURRENT_SCHEDULE) { core.showToast && core.showToast('Load an exam register before exporting.', 'warning'); return; }
+    const quote = (v) => '"' + String(v == null ? '' : v).replaceAll('"', '""') + '"';
+    const rows = [['S/N','Student Name','Matric Number','Status']];
+    ROWS.forEach((r,i) => rows.push([i+1, ((r.student?.firstName || '') + ' ' + (r.student?.lastName || '')).trim(), r.student?.matricNumber || '', r.status || 'unmarked']));
+    const blob = new Blob(['\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\r\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = 'exam-attendance-register.csv'; link.click(); URL.revokeObjectURL(url);
+  });
+  $('eo-att-print')?.addEventListener('click', () => {
+    if (!ROWS.length || !CURRENT_SCHEDULE) { core.showToast && core.showToast('Load an exam register before printing.', 'warning'); return; }
+    const win = window.open('', '_blank', 'width=1000,height=900');
+    if (!win) { core.showToast && core.showToast('Allow pop-ups to print the attendance register.', 'warning'); return; }
+    const exam = CURRENT_SCHEDULE.exam || CURRENT_SCHEDULE;
+    const dept = DEPARTMENTS.find(d => Number(d.id) === Number(CURRENT_COURSE?.departmentId)) || {};
+    const date = exam.examDate ? new Date(exam.examDate + 'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}) : '—';
+    const rows = ROWS.map((r,i) => '<tr><td>'+(i+1)+'</td><td>'+esc(((r.student?.firstName||'')+' '+(r.student?.lastName||'')).trim())+'</td><td>'+esc(r.student?.matricNumber||'—')+'</td><td>'+esc(r.status||'unmarked')+'</td><td></td></tr>').join('');
+    win.document.write('<!doctype html><html><head><title>Exam Attendance Register</title><style>@page{size:A4 landscape;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;position:relative}body:before{content:"";position:fixed;inset:15% 30%;background:url("/images/logo.png") center/contain no-repeat;opacity:.05;z-index:-1}.brand{display:flex;align-items:center;justify-content:center;gap:15px;text-align:center;border-bottom:3px solid #065f46;padding-bottom:12px}.brand img{width:65px;height:65px;object-fit:contain}.brand h1{font-size:18px;margin:0 0 4px}.brand p{font-size:10px;margin:3px}.meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:18px 0}.meta div{border:1px solid #dbe3ec;padding:8px;font-size:11px}.meta b{display:block;font-size:9px;text-transform:uppercase;color:#64748b;margin-bottom:4px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left}th{background:#f1f5f9;text-transform:uppercase;font-size:9px}.sign{display:flex;justify-content:space-between;margin-top:45px;font-size:10px}.sign span{border-top:1px solid #334155;padding-top:6px;min-width:180px}</style></head><body><header class="brand"><img src="/images/logo.png" alt="School logo"><div><h1>FEDERAL POLYTECHNIC UGEP</h1><p>EXAMINATIONS OFFICE</p><p><b>EXAMINATION ATTENDANCE REGISTER</b></p></div></header><div class="meta"><div><b>Department</b>'+esc(dept.name||'—')+'</div><div><b>Course</b>'+esc((CURRENT_COURSE?.code||'')+' - '+(CURRENT_COURSE?.title||''))+'</div><div><b>Date</b>'+esc(date)+'</div><div><b>Time</b>'+esc((exam.startTime||'—')+' – '+(exam.endTime||'—'))+'</div><div><b>Venue</b>'+esc(exam.venue||'—')+'</div><div><b>Students on register</b>'+ROWS.length+'</div></div><table><thead><tr><th>#</th><th>Student Name</th><th>Matric Number</th><th>Attendance Status</th><th>Signature</th></tr></thead><tbody>'+rows+'</tbody></table><div class="sign"><span>Invigilator</span><span>Exam Officer</span></div><script>window.onload=function(){window.print()}<\/script></body></html>');
+    win.document.close();
   });
 
   // ============================================================

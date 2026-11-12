@@ -70,13 +70,14 @@ async function getApprovedExamRoster(examScheduleId) {
 // ============================================================
 router.get('/lookups', only, async (req, res, next) => {
   try {
-    const [depts, crs, progs, schs] = await Promise.all([
+    const [depts, crs, progs, schs, sessions] = await Promise.all([
       db.select().from(departments).orderBy(asc(departments.name)),
       db.select().from(courses).orderBy(asc(courses.code)),
       db.select().from(programmes).orderBy(asc(programmes.code)),
       db.select().from(schools).orderBy(asc(schools.name)),
+      db.select().from(academicSessions).orderBy(desc(academicSessions.startDate)),
     ]);
-    return res.json({ success: true, departments: depts, courses: crs, programmes: progs, schools: schs });
+    return res.json({ success: true, departments: depts, courses: crs, programmes: progs, schools: schs, sessions });
   } catch (err) { return next(err); }
 });
 
@@ -259,14 +260,23 @@ router.get('/eligibility', only, async (req, res, next) => {
             programmeId: r.student.programmeId, level: r.student.level || 'ND', sessionId: effectiveSession,
           })
         : null;
+      const feeStructureFound = Boolean(feeStructure);
       const totalDue = Number(feeStructure?.total || 0);
-      const cleared = totalDue === 0 || Number(totalPaid) >= totalDue;
+      const cleared = feeStructureFound && Number(totalPaid) >= totalDue;
       const clear = effectiveSession ? await clearQueries.findOne({ studentId, sessionId: effectiveSession }) : null;
       const clearanceOk = !clear || clear.status === 'cleared';
+      const reasons = [];
+      if (!feeStructureFound) reasons.push('Fee structure is not configured for this programme, level and session. Manual review required.');
+      else if (!cleared) reasons.push('Verified fee payments are below the configured fee total.');
+      if (clear && clear.status !== 'cleared') reasons.push(clear.status === 'rejected' ? 'Clearance was rejected.' : 'Clearance is pending.');
+      if (!clear) reasons.push('No separate clearance record is recorded for this session; fee verification remains required.');
+      const eligible = feeStructureFound && cleared && clearanceOk;
 
       resultsList.push({
         student: r.student, registration: r.registration,
-        totalPaid: Number(totalPaid), totalDue, cleared, clearanceOk, eligible: cleared && clearanceOk,
+        totalPaid: Number(totalPaid), totalDue, feeStructureFound,
+        clearanceStatus: clear?.status || 'not_required_or_not_recorded',
+        cleared, clearanceOk, eligible, reasons,
       });
     }
 
@@ -291,9 +301,54 @@ router.get('/reports', only, async (req, res, next) => {
     const schedules = await examQueries.listWithCourse({ sessionId });
     const attendanceTotals = await examQueries.countAttendanceAggregate({ sessionId });
     const coveredSchedules = await examQueries.countCoveredSchedules({ sessionId });
+    const scheduleIds = schedules.map((row) => Number((row.exam || row).id)).filter(Boolean);
+    let attendanceBySchedule = [];
+    if (scheduleIds.length) {
+      const grouped = await db.select({
+        examScheduleId: schema.examAttendance.examScheduleId,
+        status: schema.examAttendance.status,
+        count: sql`count(*)::int`,
+      }).from(schema.examAttendance)
+        .where(inArray(schema.examAttendance.examScheduleId, scheduleIds))
+        .groupBy(schema.examAttendance.examScheduleId, schema.examAttendance.status);
+      const byId = new Map();
+      grouped.forEach((row) => {
+        const id = Number(row.examScheduleId);
+        if (!byId.has(id)) byId.set(id, { marked: 0, present: 0, absent: 0, late: 0, excused: 0 });
+        const item = byId.get(id), status = String(row.status || '').toLowerCase(), count = Number(row.count || 0);
+        item.marked += count;
+        if (Object.prototype.hasOwnProperty.call(item, status)) item[status] += count;
+      });
+      const registrationCounts = await db.select({
+        examScheduleId: schema.examSchedules.id,
+        registered: sql`count(${schema.courseRegistrations.id})::int`,
+      }).from(schema.examSchedules)
+        .leftJoin(schema.courseRegistrations, and(
+          eq(schema.courseRegistrations.courseId, schema.examSchedules.courseId),
+          eq(schema.courseRegistrations.sessionId, schema.examSchedules.sessionId),
+          eq(schema.courseRegistrations.semester, schema.examSchedules.semester),
+          eq(schema.courseRegistrations.status, 'approved')
+        ))
+        .where(inArray(schema.examSchedules.id, scheduleIds))
+        .groupBy(schema.examSchedules.id);
+      const regMap = new Map(registrationCounts.map((row) => [Number(row.examScheduleId), Number(row.registered || 0)]));
+      const departmentRows = await db.select({ id: departments.id, name: departments.name }).from(departments);
+      const departmentMap = new Map(departmentRows.map((row) => [Number(row.id), row.name]));
+      attendanceBySchedule = schedules.map((row) => {
+        const exam = row.exam || row, course = row.course || {};
+        const counts = byId.get(Number(exam.id)) || { marked: 0, present: 0, absent: 0, late: 0, excused: 0 };
+        return {
+          examScheduleId: exam.id, examDate: exam.examDate, venue: exam.venue,
+          courseCode: course.code, courseTitle: course.title,
+          departmentName: departmentMap.get(Number(course.departmentId)) || '—',
+          registered: regMap.get(Number(exam.id)) || 0,
+          ...counts,
+        };
+      });
+    }
     return res.json({
       success: true,
-      data: { schedules, attendanceTotals, coveredSchedules, attendanceBySchedule: {} },
+      data: { schedules, attendanceTotals, coveredSchedules, attendanceBySchedule },
     });
   } catch (err) { return next(err); }
 });
@@ -401,16 +456,24 @@ router.get('/published-results', only, async (req, res, next) => {
       id: results.id,
       studentName: sql`${users.firstName} || ' ' || ${users.lastName}`,
       matricNumber: users.matricNumber,
+      programmeName: programmes.name,
       courseCode: courses.code,
       courseTitle: courses.title,
+      courseUnit: courses.unit,
+      level: courses.level,
       score: results.score,
       grade: results.grade,
+      points: results.points,
+      semester: results.semester,
+      sessionName: academicSessions.name,
       publishedAt: results.publishedAt,
       departmentName: departments.name,
     })
     .from(results)
     .innerJoin(users, eq(results.studentId, users.id))
     .innerJoin(courses, eq(results.courseId, courses.id))
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(academicSessions, eq(results.sessionId, academicSessions.id))
     .leftJoin(departments, eq(courses.departmentId, departments.id))
     .where(eq(results.status, 'published'))
     .orderBy(desc(results.publishedAt));

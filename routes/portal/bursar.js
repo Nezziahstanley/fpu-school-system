@@ -148,7 +148,7 @@ router.post('/payments/:id/reject', only, async (req, res, next) => {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be rejected.' });
-    const row = await paymentQueries.reject(req.params.id, req.body?.reason, req.user.id);
+    const reason = String(req.body?.reason || '').trim();\n    if (!reason || reason.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });\n    const row = await paymentQueries.reject(req.params.id, reason, req.user.id);
     if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });
@@ -164,7 +164,7 @@ router.get('/fees', only, async (req, res, next) => {
       programmeId: req.query.programmeId,
       level: req.query.level,
       sessionId: req.query.sessionId,
-      isActive: req.query.isActive,
+      isActive: req.query.isActive === undefined ? undefined : req.query.isActive === 'true',
     });
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
@@ -180,7 +180,7 @@ router.post('/fees', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'level must be ND or HND.' });
     }
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
-    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {\n      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });\n    }\n    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
 
     const row = await paymentQueries.createFeeStructure({
       programmeId: b.programmeId, level: b.level, sessionId: b.sessionId,
@@ -202,7 +202,7 @@ router.put('/fees/:id', only, async (req, res, next) => {
   try {
     const b = req.body || {};
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
-    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {\n      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });\n    }\n    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
     const row = await paymentQueries.updateFeeStructure(req.params.id, {
       tuition: b.tuition, acceptance: b.acceptance, medical: b.medical,
       library: b.library, ict: b.ict, sports: b.sports, other: b.other,
@@ -364,7 +364,7 @@ router.post('/documents/:id/reject', only, async (req, res, next) => {
   try {
     const [row] = await db
       .update(documents)
-      .set({ status: 'rejected', remarks: req.body?.remarks || null })
+      .set({ status: 'rejected', remarks })
       .where(and(eq(documents.id, Number(req.params.id)), inArray(documents.status, ['pending', 'approved'])))
       .returning();
     if (!row) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be rejected.' });

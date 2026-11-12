@@ -47,6 +47,24 @@ const only = requireRole(
   'admin'
 );
 
+// Resolve the approved student roster for an exam. Attendance must never be
+// recorded for students outside the approved course/session/semester roster.
+async function getApprovedExamRoster(examScheduleId) {
+  const schedule = await examQueries.findById(examScheduleId);
+  if (!schedule) return { error: 'Exam schedule not found.', status: 404 };
+  if (!schedule.courseId || !schedule.sessionId || !schedule.semester) {
+    return { error: 'The exam schedule is missing its course, session, or semester details.', status: 400 };
+  }
+  const registrations = await regQueries.listWithStudent({
+    courseId: schedule.courseId,
+    sessionId: schedule.sessionId,
+    semester: schedule.semester,
+    status: 'approved',
+  });
+  const studentIds = new Set(registrations.map((row) => Number(row.student?.id)).filter(Boolean));
+  return { schedule, studentIds };
+}
+
 // ============================================================
 // GET /api/exam-officer/lookups
 // ============================================================
@@ -154,8 +172,17 @@ router.get('/attendance', only, async (req, res, next) => {
 router.post('/attendance', only, async (req, res, next) => {
   try {
     const { examScheduleId, studentId, status, remarks } = req.body || {};
+    const allowedStatuses = new Set(['present', 'absent', 'late', 'excused']);
     if (!examScheduleId || !studentId || !status) {
       return res.status(400).json({ success: false, error: 'examScheduleId, studentId, status are required.' });
+    }
+    if (!Number.isInteger(Number(studentId)) || Number(studentId) <= 0 || !allowedStatuses.has(status)) {
+      return res.status(400).json({ success: false, error: 'A valid student and attendance status are required.' });
+    }
+    const roster = await getApprovedExamRoster(examScheduleId);
+    if (roster.error) return res.status(roster.status).json({ success: false, error: roster.error });
+    if (!roster.studentIds.has(Number(studentId))) {
+      return res.status(403).json({ success: false, error: 'This student is not on the approved registration list for this exam.' });
     }
     const row = await examQueries.upsertAttendance({
       examScheduleId, studentId, status, invigilatorId: req.user.id, remarks,
@@ -173,10 +200,27 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
     if (!examScheduleId || !Array.isArray(records) || !records.length) {
       return res.status(400).json({ success: false, error: 'examScheduleId and records[] are required.' });
     }
+    const allowedStatuses = new Set(['present', 'absent', 'late', 'excused']);
+    const studentIds = records.map((record) => Number(record.studentId));
+    if (studentIds.some((id) => !Number.isInteger(id) || id <= 0) ||
+        records.some((record) => !allowedStatuses.has(record.status)) ||
+        new Set(studentIds).size !== studentIds.length) {
+      return res.status(400).json({ success: false, error: 'Each attendance entry must contain a unique valid student and status.' });
+    }
+    const roster = await getApprovedExamRoster(examScheduleId);
+    if (roster.error) return res.status(roster.status).json({ success: false, error: roster.error });
+    const unregisteredIds = studentIds.filter((id) => !roster.studentIds.has(id));
+    if (unregisteredIds.length) {
+      return res.status(403).json({
+        success: false,
+        error: 'Attendance was not saved because one or more students are not approved for this exam.',
+        rejectedStudentIds: unregisteredIds,
+      });
+    }
     const rows = records.map(r => ({
       examScheduleId: Number(examScheduleId),
       studentId: Number(r.studentId),
-      status: r.status || 'present',
+      status: r.status,
       invigilatorId: req.user.id,
       remarks: r.remarks || null,
     }));

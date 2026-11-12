@@ -690,10 +690,13 @@ router.post('/graduations/:id/mark', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Student already marked as graduated.' });
     }
 
-    // 3. Insert using their real data
+    // 3. Use the active academic session; never assume session ID 1.
+    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    if (!currentSession) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
+
     const [row] = await db.insert(graduations).values({
       studentId: studentId,
-      sessionId: req.user.currentSessionId || 1,
+      sessionId: currentSession.id,
       programmeId: student.programmeId, // Fixed: Uses actual programme
       level: student.level,             // Fixed: Uses actual level (ND or HND)
       status: 'graduated',

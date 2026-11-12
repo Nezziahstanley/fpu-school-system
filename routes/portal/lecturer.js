@@ -206,7 +206,8 @@ router.get('/students', only, async (req, res, next) => {
     if (!courseId) return res.status(400).json({ success: false, error: 'courseId is required.' });
     const allocationConditions = [
       eq(courseAllocations.lecturerId, req.user.id),
-      eq(courseAllocations.courseId, Number(courseId))
+      eq(courseAllocations.courseId, Number(courseId)),
+      sql`${courseAllocations.status} <> 'cancelled'`
     ];
     if (sessionId) allocationConditions.push(eq(courseAllocations.sessionId, Number(sessionId)));
     if (semester) allocationConditions.push(eq(courseAllocations.semester, String(semester).toLowerCase()));
@@ -301,7 +302,8 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
         eq(courseAllocations.lecturerId, req.user.id),
         eq(courseAllocations.courseId, courseId),
         eq(courseAllocations.sessionId, sessionId),
-        eq(courseAllocations.semester, semester)
+        eq(courseAllocations.semester, semester),
+        sql`${courseAllocations.status} <> 'cancelled'`
       ))
       .limit(1);
 

@@ -228,7 +228,7 @@
         const entries = Object.entries(dm.byDept).sort((x,y)=>y[1]-x[1]).slice(0,10);
         makeBar('reg-chart-dept', entries.map(x=>x[0]), entries.map(x=>x[1]), { colors: COLORS.blue });
       } else emptyChart('reg-chart-dept');
-      if (dm.byGender) makeDoughnut('reg-chart-gender', Object.keys(dm.byGender), Object.values(dm.byGender), [COLORS.blue, COLORS.pink, COLORS.slate]);
+      if (dm.byGender) makeDoughnut('reg-chart-gender', Object.keys(dm.byGender), Object.values(dm.byGender), [COLORS.blue, COLORS.pink, COLORS.slate, '#94a3b8']);
       else emptyChart('reg-chart-gender');
     } else showError('Failed to load dashboard statistics: ' + statsResult.reason.message);
     if (trendsResult.status === 'fulfilled') {

@@ -403,6 +403,7 @@
   $('att-course')?.addEventListener('change', () => {
     const selected = ALL_COURSES.find(c => String(c.allocationId) === String($('att-course').value));
     if (selected && selected.allocationSemester) $('att-semester').value = String(selected.allocationSemester).toLowerCase();
+    $('att-semester').disabled = !!selected;
     CURRENT_STUDENTS = [];
     $('att-save').disabled = true;
     loadStudents();

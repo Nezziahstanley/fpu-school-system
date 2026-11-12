@@ -227,6 +227,7 @@
       { key: 'rector-applications', label: 'Applications Overview', icon: ICON.clipboard },
       { key: 'rector-graduation',   label: 'Graduation Pipeline', icon: ICON.award },
       { key: 'rector-reports',      label: 'Executive Reports', icon: ICON.chart },
+      { key: 'rector-transcripts',  label: 'Transcript Register', icon: ICON.file },
     ],
     registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },

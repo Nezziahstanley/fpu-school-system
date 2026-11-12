@@ -68,10 +68,11 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Venue</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Session</th>
           </tr>
         </thead>
         <tbody id="tt-tbody">
-          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
             <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:ttSpin .8s linear infinite;"></div>
             <div style="margin-top:.65rem;font-size:.82rem;">Loading timetable…</div>
           </td></tr>
@@ -144,6 +145,7 @@
             <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(s.level)}</span>
           </td>
           <td style="padding:.65rem .75rem;text-align:center;font-size:.78rem;color:#64748b;">${esc(s.semester)}</td>
+          <td style="padding:.65rem .75rem;font-size:.78rem;color:#64748b;">${esc(s.sessionName || '—')}</td>
         </tr>
       `).join('');
 

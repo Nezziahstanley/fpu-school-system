@@ -343,7 +343,7 @@
       await Promise.all([loadPending(), loadPublished()]);
     } finally {
       PUBLISHING = false;
-      if (allButton) { allButton.disabled = false; allButton.textContent = 'Publish All'; }
+      if (allButton) { allButton.disabled = false; allButton.textContent = '📤 Publish All'; }
     }
   }
 

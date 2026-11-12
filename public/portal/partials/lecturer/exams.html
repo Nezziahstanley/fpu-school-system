@@ -65,7 +65,8 @@
     const tbody = $('exm-tbody');
     try {
       const res = await core.portalFetch('/api/lecturer/exams');
-      const rows = (res.data || []).filter(e => String(e.status || 'approved').trim().toLowerCase() === 'approved');
+      const approvedRows = (res.data || []).filter(e => String(e.status || '').trim().toLowerCase() === 'approved');
+      const rows = Array.from(new Map(approvedRows.map(e => [String(e.courseId), e])).values());
 
       if (!rows.length) {
         tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">Exam timetable not ready yet. No exam schedule has been approved for your allocated courses.</td></tr>`;

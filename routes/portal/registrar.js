@@ -23,7 +23,8 @@ const {
   departments,
   courses,
   documents,
-  graduations
+  graduations,
+  results
 } = schema;
 
 const only = requireRole('registrar', 'admin', 'rector');
@@ -145,7 +146,6 @@ router.get('/trends', only, async (req, res, next) => {
 // ============================================================
 router.get('/students', only, async (req, res, next) => {
   try {
-    const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA } = require('../../utils/gpa');
 
     const rows = await db
@@ -182,22 +182,27 @@ router.get('/students', only, async (req, res, next) => {
       .where(eq(users.role, 'student'))
       .orderBy(desc(users.createdAt));
 
-    // Calculate CGPA for each student
-    const data = [];
-    for (const s of rows) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
-      
-      // Attach the calculated CGPA to the student object
-      data.push({ ...s, cgpa: summary.cgpa || 0 });
-    }
+    // Fetch all published results in one query instead of one query per student.
+    const publishedRows = rows.length ? await db
+      .select({ studentId: results.studentId, result: results, course: courses })
+      .from(results)
+      .leftJoin(courses, eq(results.courseId, courses.id))
+      .where(and(inArray(results.studentId, rows.map((student) => student.id)), eq(results.status, 'published'))) : [];
+    const resultsByStudent = new Map();
+    publishedRows.forEach((row) => {
+      if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);
+      resultsByStudent.get(row.studentId).push(row);
+    });
+    const data = rows.map((student) => {
+      const studentResults = resultsByStudent.get(student.id) || [];
+      const summary = computeStudentCGPA(studentResults.map((row) => ({
+        unit: Number(row.course?.unit) || 0,
+        points: Number(row.result?.points) || 0,
+        sessionId: row.result?.sessionId,
+        semester: row.result?.semester,
+      })));
+      return { ...student, cgpa: summary.cgpa || 0 };
+    });
 
     return res.json({ success: true, data });
   } catch (err) {
@@ -211,7 +216,6 @@ router.get('/students', only, async (req, res, next) => {
 // ============================================================
 router.get('/transcripts', only, async (req, res, next) => {
   try {
-    const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA } = require('../../utils/gpa');
 
     const rows = await db
@@ -231,19 +235,27 @@ router.get('/transcripts', only, async (req, res, next) => {
       .where(eq(users.role, 'student'))
       .orderBy(departments.name, users.lastName);
 
-    const data = [];
-    for (const s of rows) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
-      data.push({ ...s, cgpa: summary.cgpa || 0 });
-    }
+    // Batch published results for the entire transcript register.
+    const publishedRows = rows.length ? await db
+      .select({ studentId: results.studentId, result: results, course: courses })
+      .from(results)
+      .leftJoin(courses, eq(results.courseId, courses.id))
+      .where(and(inArray(results.studentId, rows.map((student) => student.id)), eq(results.status, 'published'))) : [];
+    const resultsByStudent = new Map();
+    publishedRows.forEach((row) => {
+      if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);
+      resultsByStudent.get(row.studentId).push(row);
+    });
+    const data = rows.map((student) => {
+      const studentResults = resultsByStudent.get(student.id) || [];
+      const summary = computeStudentCGPA(studentResults.map((row) => ({
+        unit: Number(row.course?.unit) || 0,
+        points: Number(row.result?.points) || 0,
+        sessionId: row.result?.sessionId,
+        semester: row.result?.semester,
+      })));
+      return { ...student, cgpa: summary.cgpa || 0 };
+    });
 
     return res.json({ success: true, data });
   } catch (err) { return next(err); }
@@ -626,8 +638,6 @@ router.post('/documents/:id/mark-issued', only, async (req, res, next) => {
 // ============================================================
 router.get('/graduations', only, async (req, res, next) => {
   try {
-    const userQueries = require('../../db/queries/users');
-    const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
 
     const students = await db
@@ -665,30 +675,36 @@ router.get('/graduations', only, async (req, res, next) => {
     const graduatedRecords = await db.select({ studentId: graduations.studentId }).from(graduations);
     const graduatedSet = new Set(graduatedRecords.map(r => r.studentId));
 
-    const data = [];
-    for (const s of students) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
-
+    // Batch all published results once; avoid a sequential database request per student.
+    const publishedRows = students.length ? await db
+      .select({ studentId: results.studentId, result: results, course: courses })
+      .from(results)
+      .leftJoin(courses, eq(results.courseId, courses.id))
+      .where(and(inArray(results.studentId, students.map((student) => student.id)), eq(results.status, 'published'))) : [];
+    const resultsByStudent = new Map();
+    publishedRows.forEach((row) => {
+      if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);
+      resultsByStudent.get(row.studentId).push(row);
+    });
+    const data = students.map((student) => {
+      const studentResults = resultsByStudent.get(student.id) || [];
+      const summary = computeStudentCGPA(studentResults.map((row) => ({
+        unit: Number(row.course?.unit) || 0,
+        points: Number(row.result?.points) || 0,
+        sessionId: row.result?.sessionId,
+        semester: row.result?.semester,
+      })));
       const cgpa = summary.cgpa || 0;
       const isEligible = cgpa >= 2.0;
-      const isGraduated = graduatedSet.has(s.id);
-
-      data.push({
-        ...s,
-        cgpa: cgpa,
+      const isGraduated = graduatedSet.has(student.id);
+      return {
+        ...student,
+        cgpa,
         classification: classifyDegree(cgpa),
         eligible: isEligible,
         status: isGraduated ? 'Graduated' : (isEligible ? 'Eligible' : 'Not Eligible'),
-      });
-    }
+      };
+    });
 
     return res.json({ success: true, data });
   } catch (err) { return next(err); }

@@ -100,7 +100,7 @@ router.get('/dashboard', only, async (req, res, next) => {
 
       const att = await db.select({ count: sql`count(distinct ${attendance.id})::int` })
         .from(attendance)
-        .where(inArray(attendance.courseId, courseIds));
+        .where(and(inArray(attendance.courseId, courseIds), eq(attendance.lecturerId, lecturerId)));
       attendanceCount = att[0]?.count || 0;
     }
 
@@ -250,7 +250,7 @@ router.get('/attendance', only, async (req, res, next) => {
       .from(attendance)
       .leftJoin(users, eq(attendance.studentId, users.id))
       .leftJoin(courses, eq(attendance.courseId, courses.id))
-      .where(inArray(attendance.courseId, courseIds))
+      .where(and(inArray(attendance.courseId, courseIds), eq(attendance.lecturerId, req.user.id)))
       .orderBy(desc(attendance.date))
       .limit(500);
 
@@ -925,7 +925,7 @@ router.get('/reports', only, async (req, res, next) => {
 
     const attRows = await db.execute(sql`
       SELECT COUNT(*)::int AS count
-      FROM (SELECT DISTINCT course_id, date FROM attendance WHERE course_id IN (${sql.join(courseIds, sql`, `)})) sessions
+      FROM (SELECT DISTINCT course_id, date FROM attendance WHERE course_id IN (${sql.join(courseIds, sql`, `)}) AND lecturer_id = ${lecturerId}) sessions
     `);
     const attendanceSessions = Number(attRows.rows[0]?.count || 0);
 

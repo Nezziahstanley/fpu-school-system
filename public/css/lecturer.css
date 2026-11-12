@@ -204,3 +204,80 @@
     display:flex;flex-wrap:wrap;gap:.5rem;
   }
 }
+
+
+/* ==========================================================
+   Lecturer pages — My Courses typography + soft FPU surfaces
+   Sidebar and global portal navigation are intentionally
+   excluded from this page-content-only refinement.
+   ========================================================== */
+.lecturer-design-scope{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:15px!important;
+  line-height:1.6!important;
+  color:#183047!important;
+  background:#f3f8f5!important;
+  border-radius:16px;
+  padding:12px;
+}
+.lecturer-design-scope :where(*){
+  font-family:inherit;
+}
+.lecturer-design-scope :where(h1,h2,h3,h4){
+  color:#173d32!important;
+  letter-spacing:-.025em!important;
+  line-height:1.28!important;
+  font-weight:800!important;
+}
+.lecturer-design-scope :where(p,span,div,label,li,td,th,small){
+  line-height:1.55;
+}
+.lecturer-design-scope :where(.sub,.meta,.muted,.hint,.helper-text,.text-muted){
+  color:#526b60!important;
+}
+.lecturer-design-scope :where(.stat,.panel,.card,.la-stat,.ls-stat,.course-card,.dept-card,.session-item){
+  background:#f8fbf9!important;
+  border-color:#d8e7df!important;
+}
+.lecturer-design-scope :where(.panel-body,.card-body,.table-wrap,.table-responsive,[style*="overflow-x:auto"]){
+  background:#f8fbf9!important;
+  border-color:#d8e7df!important;
+}
+.lecturer-design-scope [style*="background:#fff"],
+.lecturer-design-scope [style*="background: #fff"],
+.lecturer-design-scope [style*="background-color:#fff"],
+.lecturer-design-scope [style*="background-color: #fff"]{
+  background-color:#f8fbf9!important;
+}
+.lecturer-design-scope :where(.filter-bar,.toolbar,.table-toolbar){
+  background:#eef5f1!important;
+  border-color:#d5e5dc!important;
+}
+.lecturer-design-scope :where(input:not([type="checkbox"]):not([type="radio"]),select,textarea){
+  background:#fff!important;
+  color:#183047!important;
+  border-color:#cbded3!important;
+  font-family:inherit!important;
+  font-size:.9rem!important;
+}
+.lecturer-design-scope :where(button,.btn){
+  font-family:inherit!important;
+  font-weight:750!important;
+}
+.lecturer-design-scope :where(thead th){
+  background:#eaf3ee!important;
+  color:#315447!important;
+}
+.lecturer-design-scope :where(tbody tr:nth-child(even)){
+  background:#f2f7f4!important;
+}
+.lecturer-design-scope :where(tbody tr:hover){
+  background:#eaf5ef!important;
+}
+.lecturer-design-scope .greeting{
+  background:linear-gradient(115deg,#e6f4eb,#f2f7f4 72%,#eaf0ed)!important;
+  border-color:#cfe2d6!important;
+}
+@media(max-width:640px){
+  .lecturer-design-scope{padding:8px!important;border-radius:12px}
+}

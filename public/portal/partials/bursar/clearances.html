@@ -347,9 +347,7 @@
   // ---------- wire chrome ----------
   $('bur-clr-refresh').addEventListener('click', load);
   $('bur-clr-type').addEventListener('change', load);
-  $('bur-clr-export').addEventListener('click', function(){var val=v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"';var lines=[['Student','Matric Number','Type','Session','Status','Requested','Remarks'].map(val).join(','),...CLEARANCE_ROWS.map(r=>{var c=r.clearance||{},u=r.student||{},ss=r.session||{};return [[u.firstName,u.lastName].filter(Boolean).join(' '),u.matricNumber,c.type,ss.name,c.status,c.createdAt,c.remarks].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-clearances.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-clr-status').addEventListener('change', load);
-  $('bur-clr-type').addEventListener('change', load);
   $('bur-clr-export').addEventListener('click', function(){var val=v=>'"'+String(v??'').replace(/"/g,'""')+'"';var lines=[['Student','Matric Number','Type','Session','Status','Requested','Remarks'].map(val).join(','),...CLEARANCE_ROWS.map(r=>{var c=r.clearance||{},u=r.student||{},ss=r.session||{};return [[u.firstName,u.lastName].filter(Boolean).join(' '),u.matricNumber,c.type,ss.name,c.status,c.createdAt,c.remarks].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-clearances.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-clr-session').addEventListener('change', load);
 

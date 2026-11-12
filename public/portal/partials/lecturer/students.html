@@ -119,7 +119,7 @@
 
   function updateStats() {
     const myDept = ALL_STUDENTS.filter(s => s.departmentId === LECTURER_DEPT_ID);
-    const otherDept = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    const otherDept = ALL_STUDENTS.filter(s => s.departmentId != null && Number(s.departmentId) !== Number(LECTURER_DEPT_ID));
     const active = ALL_STUDENTS.filter(s => s.isActive);
 
     $('stat-total').textContent = ALL_STUDENTS.length;
@@ -183,7 +183,7 @@
   }
 
   function renderOtherDepts() {
-    const otherStudents = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    const otherStudents = ALL_STUDENTS.filter(s => s.departmentId != null && Number(s.departmentId) !== Number(LECTURER_DEPT_ID));
     
     if (!otherStudents.length) {
       $('other-dept-cards').innerHTML = '<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;">No students from other departments found.</div>';

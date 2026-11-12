@@ -399,20 +399,6 @@
         });
       }
 
-      attendanceRecords.forEach((r) => {
-        const sid = Number((r.student || {}).id);
-        if (sid && !seen.has(sid)) {
-          seen.add(sid);
-          ROWS.push({
-            student: r.student,
-            registration: null,
-            status: (r.record || {}).status || 'unmarked',
-            originalStatus: (r.record || {}).status || 'unmarked',
-            changed: false,
-          });
-        }
-      });
-
       ROWS.sort((a, b) => {
         const an = `${a.student.lastName || ''} ${a.student.firstName || ''}`.toLowerCase();
         const bn = `${b.student.lastName || ''} ${b.student.firstName || ''}`.toLowerCase();
@@ -713,7 +699,11 @@
         method: 'POST',
         body: { examScheduleId: Number(scheduleId), records },
       });
-      core.showToast && core.showToast(`Saved ${res.saved || records.length} record(s).`, 'success');
+      const savedCount = Number(res.saved);
+      if (!Number.isFinite(savedCount) || savedCount !== records.length) {
+        throw new Error(`Only ${Number.isFinite(savedCount) ? savedCount : 0} of ${records.length} attendance records were confirmed saved. Refresh the register before trying again.`);
+      }
+      core.showToast && core.showToast(`Saved ${savedCount} record(s).`, 'success');
 
       ROWS.forEach((r) => { r.originalStatus = r.status; r.changed = false; });
       updateBulkBar();

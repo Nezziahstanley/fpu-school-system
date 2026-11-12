@@ -51,6 +51,7 @@
             <th>Reference</th>
             <th>Student</th>
             <th>Bank / Depositor</th>
+            <th>Receipt</th>
             <th>Amount</th>
             <th>Status</th>
             <th>Date</th>
@@ -58,7 +59,7 @@
           </tr>
         </thead>
         <tbody id="bur-pay-tbody">
-          <tr><td colspan="7" class="empty">Loading…</td></tr>
+          <tr><td colspan="8" class="empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -91,7 +92,7 @@
 </div>
 
 <style>
-.bur-pay-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:0 0 1rem}.bur-pay-stats article{padding:.8rem 1rem;background:#fff;border:1px solid #e2e8f0;border-radius:11px}.bur-pay-stats small{display:block;color:#64748b;font-size:.66rem;font-weight:800;text-transform:uppercase}.bur-pay-stats strong{display:block;margin-top:.3rem;color:#065f46;font-size:1.1rem;font-variant-numeric:tabular-nums}.bur-pay-sub{font-size:.7rem;color:#64748b;margin-top:.15rem}@media(max-width:700px){.bur-pay-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bur-pay-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:0 0 1rem}.bur-pay-stats article{padding:.8rem 1rem;background:#fff;border:1px solid #e2e8f0;border-radius:11px}.bur-pay-stats small{display:block;color:#64748b;font-size:.66rem;font-weight:800;text-transform:uppercase}.bur-pay-stats strong{display:block;margin-top:.3rem;color:#065f46;font-size:1.1rem;font-variant-numeric:tabular-nums}.bur-pay-sub{font-size:.7rem;color:#64748b;margin-top:.15rem}.bur-pay-stats+ .filters{align-items:end}.table-admin td a{color:#047857;font-weight:750;text-decoration:none;white-space:nowrap}@media(max-width:700px){.bur-pay-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
 <script>
@@ -114,7 +115,7 @@
     return '<span class="badge badge-' + cls + '">' + esc(s || '—') + '</span>';
   }
 
-  function studentName(r) {
+  function receiptLink(p) {\n    var url = String(p.receiptUrl || '').trim();\n    if (!url) return '—';\n    if (url.startsWith('//') || (!url.startsWith('/') && !/^https?:\\/\\//i.test(url))) return 'Attached';\n    return '<a href=\"' + esc(url) + '\" target=\"_blank\" rel=\"noopener noreferrer\">View receipt ↗</a>';\n  }\n\n  function studentName(r) {
     var s = r.student || {};
     var full = [s.firstName, s.lastName].filter(Boolean).join(' ');
     return full || s.fullName || s.email || '—';
@@ -173,6 +174,7 @@
           + '<td style="font-family:ui-monospace,monospace;font-size:.75rem;">' + esc(p.reference || '—') + '</td>'
           + '<td>' + esc(studentName(r)) + '</td>'
           + '<td><strong>' + esc(p.bankName || '—') + '</strong><div class="bur-pay-sub">' + esc(p.depositorName || '') + '</div></td>'
+          + '<td>' + receiptLink(p) + '</td>'
           + '<td class="num" style="font-variant-numeric:tabular-nums;font-weight:600;">' + esc(money(p.amount || 0)) + '</td>'
           + '<td>' + statusBadge(p.status) + '</td>'
           + '<td style="color:#94a3b8;font-size:.8rem;">' + esc(dateFmt(p.createdAt)) + '</td>'

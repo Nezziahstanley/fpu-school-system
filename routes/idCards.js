@@ -5,7 +5,7 @@ const router = express.Router();
 const { db, schema } = require('../db');
 const { eq, asc, sql } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
-const { users, departments, programmes, schools, staffProfiles } = schema;
+const { users, departments, programmes, schools, staffProfiles, academicSessions } = schema;
 
 const ACCESS = ['admin', 'registrar', 'rector', 'academic_officer'];
 
@@ -27,6 +27,7 @@ router.get('/', requireRole(ACCESS), async (req, res, next) => {
       .leftJoin(departments, eq(users.departmentId, departments.id))
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .leftJoin(schools, eq(users.schoolId, schools.id))
+      .leftJoin(academicSessions, eq(users.currentSessionId, academicSessions.id))
       .leftJoin(staffProfiles, eq(staffProfiles.userId, users.id))
       .where(role ? eq(users.role, role) : undefined)
       .orderBy(asc(users.role), asc(users.lastName), asc(users.firstName));

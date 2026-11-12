@@ -269,6 +269,7 @@ router.get('/eligibility', only, async (req, res, next) => {
       if (!feeStructureFound) reasons.push('Fee structure is not configured for this programme, level and session. Manual review required.');
       else if (!cleared) reasons.push('Verified fee payments are below the configured fee total.');
       if (clear && clear.status !== 'cleared') reasons.push(clear.status === 'rejected' ? 'Clearance was rejected.' : 'Clearance is pending.');
+      if (!clear) reasons.push('No separate clearance record is recorded for this session; fee verification remains required.');
       const eligible = feeStructureFound && cleared && clearanceOk;
 
       resultsList.push({

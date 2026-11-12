@@ -106,7 +106,8 @@
 
   let ALL_PENDING = [];
   let ALL_PUBLISHED = [];
-  let MODE = 'pending'; // 'pending' or 'published'
+  let MODE = 'pending';
+  let PUBLISHING = false; // 'pending' or 'published'
 
   function getDeptColor(name) {
     const colors = ['#065f46', '#dc2626', '#7c3aed', '#ea580c', '#0891b2', '#0284c7', '#ca8a04', '#9333ea', '#db2777', '#059669'];
@@ -314,20 +315,35 @@
   }
 
   async function publishResults(ids) {
-    if (!ids.length) return;
+    if (!ids.length || PUBLISHING) return;
     if (!confirm(`Publish ${ids.length} results to students?`)) return;
 
+    PUBLISHING = true;
+    const allButton = $('btn-publish-all');
+    const modalButton = $('modal-publish-btn');
+    if (allButton) { allButton.disabled = true; allButton.textContent = 'Publishing…'; }
+    if (modalButton) { modalButton.disabled = true; modalButton.textContent = 'Publishing…'; }
+
     try {
-      await core.portalFetch('/api/exam-officer/publish', {
+      const response = await core.portalFetch('/api/exam-officer/publish', {
         method: 'POST',
         body: { resultIds: ids }
       });
-      core.showToast && core.showToast('Results published successfully!', 'success');
+      const publishedCount = Number(response.publishedCount);
+      if (!Number.isFinite(publishedCount) || publishedCount !== ids.length) {
+        throw new Error('The server did not confirm that every selected result was published. The lists will be refreshed.');
+      }
+      core.showToast && core.showToast(`Published ${publishedCount} result(s) successfully.`, 'success');
       closeModal();
-      loadPending();
-      loadPublished();
+      await Promise.all([loadPending(), loadPublished()]);
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
+      // A stale selection may have partially changed on the server; always
+      // refresh both lists so the screen reflects the authoritative state.
+      await Promise.all([loadPending(), loadPublished()]);
+    } finally {
+      PUBLISHING = false;
+      if (allButton) { allButton.disabled = false; allButton.textContent = '📤 Publish All'; }
     }
   }
 

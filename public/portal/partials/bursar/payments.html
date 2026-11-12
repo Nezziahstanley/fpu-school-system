@@ -118,7 +118,8 @@
   function receiptLink(p) {
     var url = String(p.receiptUrl || '').trim();
     if (!url) return '—';
-    if (url.startsWith('//') || (!url.startsWith('/') && !/^https?:\\/\\//i.test(url))) return 'Attached';
+    var lower = url.toLowerCase();
+    if (url.startsWith('//') || (!url.startsWith('/') && !lower.startsWith('http://') && !lower.startsWith('https://'))) return 'Attached';
     return '<a href=\"' + esc(url) + '\" target=\"_blank\" rel=\"noopener noreferrer\">View receipt ↗</a>';
   }\n
   function studentName(r) {

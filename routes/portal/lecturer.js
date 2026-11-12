@@ -442,7 +442,7 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const allocation = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId),
         eq(courseAllocations.sessionId, sessionId), eq(courseAllocations.semester, semester),
-        sql`${courseAllocations.status} <> 'cancelled'\`)).limit(1);
+        sql`${courseAllocations.status} <> 'cancelled'`)).limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course/session.' });
 
     const rows = await db.execute(sql`

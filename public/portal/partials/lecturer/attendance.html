@@ -277,7 +277,7 @@
       }
 
       sel.innerHTML = '<option value="">Select Course</option>' + 
-        ALL_COURSES.map(c => `<option value="${c.id}">${c.code} - ${c.title}</option>`).join('');
+        ALL_COURSES.map(c => `<option value="${Number(c.id)}">${esc(c.code)} - ${esc(c.title)}${c.sessionName ? ' · ' + esc(c.sessionName) : ''}</option>`).join('');
         
     } catch (err) {
       sel.innerHTML = '<option value="">Error loading courses</option>';
@@ -395,6 +395,13 @@
   $('att-modal-close')?.addEventListener('click', closeModal);
   $('att-cancel')?.addEventListener('click', closeModal);
   $('att-load-students')?.addEventListener('click', loadStudents);
+  $('att-course')?.addEventListener('change', () => {
+    const selected = ALL_COURSES.find(c => String(c.id) === String($('att-course').value));
+    if (selected && selected.allocationSemester) $('att-semester').value = String(selected.allocationSemester).toLowerCase();
+    CURRENT_STUDENTS = [];
+    $('att-save').disabled = true;
+    loadStudents();
+  });
   $('att-save')?.addEventListener('click', saveAttendance);
   $('att-modal')?.addEventListener('click', (e) => { if (e.target.id === 'att-modal') closeModal(); });
 

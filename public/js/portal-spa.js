@@ -385,7 +385,8 @@
       const isAdmissionOfficerPage = role === 'admission_officer' && cleanKey.startsWith('admission-officer-');
       const isExamOfficerPage = role === 'exam_officer' && cleanKey.startsWith('exam-officer-');
       const isRectorPage = role === 'rector' && cleanKey.startsWith('rector-');
-      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : '')));
+      const isBursarPage = role === 'bursar' && cleanKey.startsWith('bursar-');
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v2' : ''))));
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {

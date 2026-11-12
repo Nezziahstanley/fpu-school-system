@@ -84,6 +84,7 @@
   <div style="background:#fff; border-radius:12px; max-width:800px; width:100%; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
     <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e5e7eb; background:#f8fafc;">
       <h3 style="margin:0; font-size:1.05rem;">Document Preview</h3>
+      <button id="dc-print-preview" type="button" style="background:#065f46;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;">🖨 Print Document</button>
       <button onclick="document.getElementById('dc-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; line-height:1; color:#64748b;">×</button>
     </div>
     <div id="dc-modal-body" style="flex:1; overflow-y:auto; padding:1.5rem; background:#f8fafc;">
@@ -277,18 +278,47 @@
 
     try {
       // Use the correct base (admin or bursar)
-      const base = apiBase();
-      const res = await core.portalFetch(`${base}/${id}/preview`);
-      if (res.success && res.html) {
-        body.innerHTML = res.html;
+      const request = ALL.find((item) => String(item.id) === String(id));
+      if (request && request.type === 'id-card') {
+        const res = await core.portalFetch(`/api/registrar/documents/${id}/preview`);
+        body.innerHTML = idCardPreviewMarkup(res.data || {});
       } else {
-        body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+        const base = apiBase();
+        const res = await core.portalFetch(`${base}/${id}/preview`);
+        if (res.success && res.html) {
+          body.innerHTML = res.html;
+        } else {
+          body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+        }
       }
     } catch (err) {
       body.innerHTML = `<div style="padding:2rem; color:#ef4444;">⚠️ Failed to load preview: ${esc(err.message)}</div>`;
     }
   }
 
+  function idCardPreviewMarkup(data) {
+    const s = data.student || {};
+    const name = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ') || '—';
+    const matric = s.matricNumber || '—';
+    const photo = s.idCardPhotoUrl || s.photoUrl || '';
+    const verify = window.location.origin + '/portal/verify.html?matric=' + encodeURIComponent(matric);
+    const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(verify) + '&color=065f46&bgcolor=ffffff&margin=1';
+    const val = (v) => esc(v || '—');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0;color:#065f46;font-size:19px">Student ID Card Preview</h2><p style="margin:4px 0 0;color:#64748b;font-size:12px">Both sides of the requested card are shown below.</p></div><span style="background:#ecfdf5;color:#065f46;padding:7px 11px;border-radius:20px;font-size:11px;font-weight:800">FRONT + BACK</span></div>' +
+      '<div class="dc-idcard-preview">' +
+      '<div><div class="dc-id-label">FRONT VIEW</div><div class="dc-idcard-side">' +
+      '<div class="dc-id-front-head"><img src="/images/logo.png" alt="FPU logo"><div><div style="font-size:13px;font-weight:900;letter-spacing:.3px">FEDERAL POLYTECHNIC UGEP</div><div style="font-size:8px;color:#fef08a;font-weight:800;letter-spacing:1px">CROSS RIVER STATE</div></div></div><div style="height:2px;background:#fbbf24"></div>' +
+      '<div class="dc-id-front-body"><img class="dc-id-photo" src="' + esc(photo) + '" alt="Student passport photo" onerror="this.style.display=\'none\'"><div class="dc-id-fields">' +
+      '<div><small>Student Name</small><b>' + val(name) + '</b></div><div><small>Matric Number</small><b style="color:#065f46;font-family:monospace">' + val(matric) + '</b></div>' +
+      '<div style="display:flex;gap:12px"><div><small>Level</small><b>' + val(s.level) + '</b></div><div><small>Session</small><b>' + val(s.sessionName || 'Current Session') + '</b></div></div>' +
+      '<div><small>Programme</small><b>' + val(s.programmeName) + '</b></div><div><small>Department</small><b>' + val(s.departmentName) + '</b></div></div><img class="dc-id-qr" src="' + qr + '" alt="Student verification QR"></div>' +
+      '<div class="dc-id-foot"><span>OFFICIAL STUDENT ID</span><span>FEDPOLYUGEB</span></div></div></div>' +
+      '<div><div class="dc-id-label">BACK VIEW</div><div class="dc-idcard-side"><div class="dc-id-back-inner">' +
+      '<div class="dc-id-back-head"><img src="/images/logo.png" alt="FPU logo"><img class="dc-id-qr" src="' + qr + '" alt="Student verification QR"><div style="text-align:right"><b style="font-size:10px;color:#065f46">FEDERAL POLYTECHNIC, UGEP</b><div style="font-size:8px;color:#64748b">Cross River State</div></div></div>' +
+      '<p>The person whose photograph appears overleaf is a student of the above-mentioned <strong>FEDERAL POLYTECHNIC, UGEP</strong>.</p><p>If found, please return to the nearest police station or contact the institution.</p>' +
+      '<p style="font-size:8px;margin:0">Phone: <strong>07069096879</strong><br>Email: <strong>contact@fedpolyugep.edu.ng</strong></p><div class="dc-id-sign">Fed Poly</div><div style="width:115px;border-top:1px solid #0f172a;margin:1px auto 0;padding-top:3px;font-size:7px;color:#475569;font-weight:800">AUTHORISED SIGNATURE</div>' +
+      '</div></div></div></div>';
+  }
   // ============================================================
   // ACTIONS
   // ============================================================
@@ -352,6 +382,7 @@
   $('dc-status').addEventListener('change', applyFilter);
   $('dc-refresh').addEventListener('click', load);
   $('dc-export').addEventListener('click', exportCsv);
+  $('dc-print-preview').addEventListener('click', () => window.print());
 
   load();
 })();

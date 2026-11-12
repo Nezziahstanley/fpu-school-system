@@ -719,7 +719,9 @@ router.get('/assignments', only, async (req, res, next) => {
         a.title, 
         a.description, 
         a.due_date AS "dueDate", 
-        a.max_score AS "maxScore", 
+        a.max_score AS "maxScore",
+        a.session_id AS "sessionId",
+        a.semester AS "semester",
         a.created_at AS "createdAt",
         c.id AS "courseId",
         c.code AS "courseCode",
@@ -738,6 +740,8 @@ router.get('/assignments', only, async (req, res, next) => {
       description: r.description,
       dueDate: r.dueDate,
       maxScore: r.maxScore,
+      sessionId: r.sessionId,
+      semester: r.semester,
       createdAt: r.createdAt,
       courseId: r.courseId,
       courseCode: r.courseCode || '—',
@@ -760,10 +764,12 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
-    const [allocation] = await db.select({ id: courseAllocations.id }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)))).limit(1);
+    const [allocation] = await db.select({
+      id: courseAllocations.id,
+      sessionId: courseAllocations.sessionId,
+      semester: courseAllocations.semester
+    }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)))).limit(1);
     if (!allocation) return res.status(403).json({ success: false, error: 'You can only create assignments for courses allocated to you.' });
-    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
-    if (!currentSession) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
     const parsedDueDate = dueDate ? new Date(dueDate) : null;
     if (dueDate && Number.isNaN(parsedDueDate.getTime())) return res.status(400).json({ success: false, error: 'A valid assignment due date is required.' });
     const scoreLimit = Number(maxScore || 100);
@@ -774,8 +780,8 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
     }
 
     const [row] = await db.insert(assignments).values({
-      courseId: Number(courseId), lecturerId: req.user.id, sessionId: currentSession.id,
-      semester: 'first', title, description: description || null, dueDate: parsedDueDate,
+      courseId: Number(courseId), lecturerId: req.user.id, sessionId: allocation.sessionId,
+      semester: allocation.semester, title, description: description || null, dueDate: parsedDueDate,
       maxScore: scoreLimit, attachmentUrl,
     }).returning();
 
@@ -874,7 +880,9 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
       studentId: assignmentSubmissions.studentId,
       assignmentId: assignmentSubmissions.assignmentId,
       courseId: assignments.courseId,
-      maxScore: assignments.maxScore
+      maxScore: assignments.maxScore,
+      sessionId: assignments.sessionId,
+      semester: assignments.semester
     })
     .from(assignmentSubmissions)
     .innerJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
@@ -893,15 +901,10 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     const maxScore = Number(submission.maxScore) || 100;
     const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
 
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
-
-    const [course] = await db.select().from(courses).where(eq(courses.id, submission.courseId)).limit(1);
-
     await db.execute(sql`
       INSERT INTO results (student_id, course_id, session_id, semester, assignment_score, status)
       VALUES (
-        ${submission.studentId}, ${submission.courseId}, ${sessionId}, ${(course?.semesterName || 'first').toLowerCase()}, 
+        ${submission.studentId}, ${submission.courseId}, ${submission.sessionId}, ${submission.semester}, 
         ${calculated10Marks}, 'draft'
       )
       ON CONFLICT (student_id, course_id, session_id) 

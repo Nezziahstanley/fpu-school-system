@@ -1616,3 +1616,61 @@ body.portal-app #page-view .student-quick-access ~ div[style*="border-radius:12p
   body.portal-app .toast-wrap, body.portal-app .student-quick-access,
   body.portal-app .tr-print-hide { display:none !important; }
 }
+
+/* Student page polish: registration, timetable, exams, learning and records */
+#page-view #registered-tbody tr:hover,
+#page-view #fee-tbody tr:hover,
+#page-view #doc-tbody tr:hover { background:#f8fafc; }
+#page-view #registered-tbody td,
+#page-view #fee-tbody td,
+#page-view #doc-tbody td { vertical-align:middle; }
+#page-view #filter-session,
+#page-view #filter-day,
+#page-view #ex-search,
+#page-view #ex-semester,
+#page-view #sm-search,
+#page-view #asg-search,
+#page-view #doc-type,
+#page-view #doc-title {
+  min-height:40px; background:#fff; color:#0f172a; outline:none;
+}
+#page-view #filter-session:focus,
+#page-view #filter-day:focus,
+#page-view #ex-search:focus,
+#page-view #ex-semester:focus,
+#page-view #sm-search:focus,
+#page-view #asg-search:focus,
+#page-view #doc-type:focus,
+#page-view #doc-title:focus {
+  border-color:#059669 !important; box-shadow:0 0 0 3px rgba(16,185,129,.12);
+}
+#page-view .sm-card,
+#page-view .asg-card {
+  border-radius:14px !important; box-shadow:0 4px 16px rgba(15,23,42,.045);
+}
+#page-view .sm-card:hover,
+#page-view .asg-card:hover { box-shadow:0 10px 24px rgba(15,23,42,.08); }
+#page-view #sm-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; }
+#page-view .exam-sheet-table {
+  width:100%; border-collapse:separate; border-spacing:0; background:#fff;
+  border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;
+}
+#page-view .exam-sheet-table th {
+  background:#065f46; color:#fff; padding:.75rem .65rem; font-size:.7rem;
+  letter-spacing:.04em; text-align:center; border-color:rgba(255,255,255,.15);
+}
+#page-view .exam-sheet-table td {
+  padding:.7rem .65rem; border-bottom:1px solid #e2e8f0;
+  color:#334155; font-size:.78rem;
+}
+#page-view .exam-sheet-table tr:last-child td { border-bottom:0; }
+#page-view #assignments-list { gap:.85rem !important; }
+#page-view .filter-pill { min-height:38px; padding:.5rem .95rem; }
+#page-view #view-doc-modal { z-index:10050; }
+#page-view #view-doc-modal > div { overflow:hidden; }
+#page-view #view-doc-body .portal-id-container,
+#page-view #view-doc-body .portal-id-container-back { border-radius:12px; }
+@media (max-width:760px) {
+  #page-view #sm-grid { grid-template-columns:1fr; }
+  #page-view .exam-sheet-table { min-width:720px; }
+}

@@ -1778,3 +1778,93 @@ body.portal-app.student-portal-theme #page-view .loading {
   body.portal-app.student-portal-theme #page-view .page-head .actions>* {flex:1 1 auto;min-height:42px}
   body.portal-app.student-portal-theme #page-view table {min-width:620px}
 }
+
+
+/* ============================================================
+   Registrar workspace visual system
+   ============================================================ */
+body.registrar-portal-theme #page-view { color:#0f172a; }
+body.registrar-portal-theme #page-view .greeting,
+body.registrar-portal-theme #page-view .panel,
+body.registrar-portal-theme #page-view .rsd-stat,
+body.registrar-portal-theme #page-view .rsd-dept,
+body.registrar-portal-theme #page-view .rsd-table,
+body.registrar-portal-theme #page-view .filter-bar,
+body.registrar-portal-theme #page-view .stat {
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  box-shadow:0 5px 18px rgba(15,23,42,.045);
+}
+body.registrar-portal-theme #page-view .greeting {
+  background:linear-gradient(120deg,#064e3b,#047857);
+  color:#fff;
+  padding:1.15rem 1.35rem;
+}
+body.registrar-portal-theme #page-view .greeting .sub { color:#d1fae5; }
+body.registrar-portal-theme #page-view .panel { overflow:hidden; }
+body.registrar-portal-theme #page-view .panel-head {
+  padding:1rem 1.15rem;
+  background:#f8fafc;
+  border-bottom:1px solid #e8eef4;
+}
+body.registrar-portal-theme #page-view .panel-body { padding:1.1rem; }
+body.registrar-portal-theme #page-view input:not([type=checkbox]):not([type=radio]),
+body.registrar-portal-theme #page-view select,
+body.registrar-portal-theme #page-view textarea {
+  border:1px solid #cbd5e1;
+  border-radius:9px;
+  min-height:42px;
+  padding:.62rem .75rem;
+  background:#fff;
+  color:#0f172a;
+}
+body.registrar-portal-theme #page-view input:focus,
+body.registrar-portal-theme #page-view select:focus,
+body.registrar-portal-theme #page-view textarea:focus {
+  outline:3px solid rgba(16,185,129,.16);
+  border-color:#059669;
+}
+body.registrar-portal-theme #page-view button,
+body.registrar-portal-theme #page-view .btn {
+  border-radius:9px;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease;
+}
+body.registrar-portal-theme #page-view button:hover,
+body.registrar-portal-theme #page-view .btn:hover {
+  transform:translateY(-1px);
+  box-shadow:0 5px 12px rgba(15,23,42,.09);
+}
+body.registrar-portal-theme #page-view table { border-collapse:separate; border-spacing:0; }
+body.registrar-portal-theme #page-view thead th {
+  background:#f1f5f9;
+  color:#475569;
+  font-size:.68rem;
+  font-weight:850;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+}
+body.registrar-portal-theme #page-view tbody tr:hover { background:#f0fdf4; }
+body.registrar-portal-theme #page-view td,
+body.registrar-portal-theme #page-view th { vertical-align:middle; }
+body.registrar-portal-theme #page-view .rsd-stat { padding:1.05rem; background:linear-gradient(180deg,#fff,#fbfefd); }
+body.registrar-portal-theme #page-view .rsd-stat small { color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+body.registrar-portal-theme #page-view .rsd-stat h2 { color:#065f46; font-size:1.7rem; margin:.35rem 0 0; }
+body.registrar-portal-theme #page-view .rsd-dept { border-left:4px solid #059669; }
+body.registrar-portal-theme #page-view .rsd-dept strong { color:#065f46; }
+body.registrar-portal-theme #page-view .rsd-view { min-height:38px; padding:.5rem .8rem; }
+body.registrar-portal-theme #page-view .filter-bar { background:#fff; padding:.85rem; }
+body.registrar-portal-theme #page-view .stat-grid { gap:.8rem; }
+body.registrar-portal-theme #page-view .table-wrap,
+body.registrar-portal-theme #page-view .rsd-table { overflow-x:auto; }
+body.registrar-portal-theme #page-view [role=dialog],
+body.registrar-portal-theme #page-view .modal { border-radius:16px; }
+@media(max-width:760px) {
+  body.registrar-portal-theme #page-view .stat-grid,
+  body.registrar-portal-theme #page-view .rsd-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.registrar-portal-theme #page-view .filter-bar { display:flex; flex-wrap:wrap; }
+  body.registrar-portal-theme #page-view .filter-bar > * { min-width:0; flex:1 1 145px; }
+}
+@media(max-width:480px) {
+  body.registrar-portal-theme #page-view .rsd-stats { grid-template-columns:1fr 1fr; }
+  body.registrar-portal-theme #page-view .greeting { padding:1rem; }
+}

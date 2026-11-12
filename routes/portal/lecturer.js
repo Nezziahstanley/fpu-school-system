@@ -726,7 +726,7 @@ router.get('/assignments', only, async (req, res, next) => {
         c.id AS "courseId",
         c.code AS "courseCode",
         c.title AS "courseTitle",
-        (SELECT COUNT(*) FROM course_registrations cr WHERE cr.course_id = a.course_id AND cr.status = 'approved') AS "totalStudents",
+        (SELECT COUNT(*) FROM course_registrations cr WHERE cr.course_id = a.course_id AND cr.session_id = a.session_id AND cr.semester = a.semester AND cr.status = 'approved') AS "totalStudents",
         (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS "submissionCount"
       FROM assignments a
       LEFT JOIN courses c ON a.course_id = c.id
@@ -762,13 +762,19 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
     const { courseId, sessionId, semester, title, description, dueDate, maxScore } = req.body || {};
     let attachmentUrl = null;
 
-    if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+    if (!courseId || !title || !sessionId || !semester) return res.status(400).json({ success: false, error: 'Course, session, semester and title are required.' });
+    if (!['first', 'second'].includes(String(semester).toLowerCase())) return res.status(400).json({ success: false, error: 'Select a valid semester.' });
 
     const [allocation] = await db.select({
       id: courseAllocations.id,
       sessionId: courseAllocations.sessionId,
       semester: courseAllocations.semester
-    }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)), ...(sessionId ? [eq(courseAllocations.sessionId, Number(sessionId))] : []), ...(semester ? [eq(courseAllocations.semester, String(semester).toLowerCase())] : []))).limit(1);
+    }).from(courseAllocations).where(and(
+      eq(courseAllocations.lecturerId, req.user.id),
+      eq(courseAllocations.courseId, Number(courseId)),
+      eq(courseAllocations.sessionId, Number(sessionId)),
+      eq(courseAllocations.semester, String(semester).toLowerCase())
+    )).limit(1);
     if (!allocation) return res.status(403).json({ success: false, error: 'You can only create assignments for courses allocated to you.' });
     const parsedDueDate = dueDate ? new Date(dueDate) : null;
     if (dueDate && Number.isNaN(parsedDueDate.getTime())) return res.status(400).json({ success: false, error: 'A valid assignment due date is required.' });
@@ -854,6 +860,8 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       .from(courseRegistrations)
       .where(and(
         eq(courseRegistrations.courseId, assignment.courseId),
+        eq(courseRegistrations.sessionId, assignment.sessionId),
+        eq(courseRegistrations.semester, assignment.semester),
         eq(courseRegistrations.status, 'approved')
       ));
     

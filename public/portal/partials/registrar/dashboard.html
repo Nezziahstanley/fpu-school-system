@@ -8,21 +8,35 @@
   <strong>⚠️ Error loading dashboard:</strong> <span id="reg-error-text"></span>
 </div>
 
-<section class="page-head">
-  <div>
-    <h2>Dashboard Overview</h2>
-    <p class="muted small" id="reg-sub">Live analytics for the Registry</p>
+<section class="reg-hero">
+  <div class="reg-hero-copy">
+    <span class="reg-eyebrow">FEDERAL POLYTECHNIC UGEP · REGISTRY</span>
+    <h2>Registrar Dashboard</h2>
+    <p id="reg-sub">Your institutional records and academic administration at a glance.</p>
+    <div class="reg-hero-meta"><span><i></i> Registry workspace</span><span>Student records · Admissions · Academic operations</span></div>
   </div>
-  <div class="actions">
-    <select id="reg-range" class="form-select" style="max-width: 180px;">
+  <div class="reg-hero-actions">
+    <label class="reg-range-label" for="reg-range">Analytics period</label>
+    <select id="reg-range" class="form-select">
       <option value="365" selected>Last 12 months</option>
     </select>
-    <button class="btn btn-outline btn-sm" id="reg-refresh">Refresh</button>
-    <a class="btn btn-primary btn-sm" href="#registrar-students">Manage Students</a>
+    <button class="btn btn-light btn-sm" id="reg-refresh" type="button">↻ Refresh data</button>
+    <a class="btn btn-gold btn-sm" href="#registrar-students">Manage students →</a>
   </div>
 </section>
 
-<!-- KPI tiles row 1 -->
+<section class="reg-shortcuts" aria-label="Registrar quick actions">
+  <a href="#registrar-students" class="reg-shortcut"><span class="reg-shortcut-icon">♙</span><span><strong>Student Directory</strong><small>Profiles and departments</small></span><b>→</b></a>
+  <a href="#registrar-registrations" class="reg-shortcut"><span class="reg-shortcut-icon">▤</span><span><strong>Registrations</strong><small>Review student records</small></span><b>→</b></a>
+  <a href="#registrar-applications" class="reg-shortcut"><span class="reg-shortcut-icon">✉</span><span><strong>Applications</strong><small>Admissions and decisions</small></span><b>→</b></a>
+  <a href="#registrar-clearances" class="reg-shortcut"><span class="reg-shortcut-icon">✓</span><span><strong>Clearances</strong><small>Track approval progress</small></span><b>→</b></a>
+  <a href="#registrar-graduations" class="reg-shortcut"><span class="reg-shortcut-icon">♜</span><span><strong>Graduations</strong><small>Completion and awards</small></span><b>→</b></a>
+  <a href="#registrar-documents" class="reg-shortcut"><span class="reg-shortcut-icon">▧</span><span><strong>Documents</strong><small>Official student documents</small></span><b>→</b></a>
+</section>
+
+<div class="reg-section-heading"><div><span>INSTITUTIONAL SNAPSHOT</span><h3>Registry at a glance</h3></div><p>Key student and workflow indicators</p></div>
+
+<div class="reg-kpi-grid"><!-- KPI tiles row 1 -->
 <div class="stat-grid">
   <div class="stat"><div class="meta"><span class="label">Total Students</span><span class="value" id="reg-stat-students">—</span></div><div class="ic">🎓</div></div>
   <div class="stat blue"><div class="meta"><span class="label">ND Students</span><span class="value" id="reg-stat-nd">—</span></div><div class="ic">📘</div></div>
@@ -38,7 +52,7 @@
   <div class="stat accent"><div class="meta"><span class="label">Pending Clearances</span><span class="value" id="reg-stat-clearances">—</span></div><div class="ic">✅</div></div>
 </div>
 
-<!-- Charts row 1: Demographics -->
+</div><div class="reg-section-heading reg-analytics-heading"><div><span>DATA & INSIGHTS</span><h3>Student demographics</h3></div><p>Explore enrolment distribution across the institution</p></div><!-- Charts row 1: Demographics -->
 <section class="panel">
   <div class="panel-head"><h3>👥 Student Demographics</h3><span class="small muted">Institution-wide</span></div>
   <div class="panel-body">
@@ -59,7 +73,7 @@
   </div>
 </section>
 
-<!-- Charts row 2: Trends -->
+<div class="reg-section-heading reg-analytics-heading"><div><span>PERFORMANCE MONITORING</span><h3>Institutional trends</h3></div><p>Monitor enrolment and registration activity over time</p></div><!-- Charts row 2: Trends -->
 <section class="panel">
   <div class="panel-head"><h3>📈 Trends</h3><span class="small muted">Time-based analytics</span></div>
   <div class="panel-body">
@@ -80,7 +94,7 @@
   </div>
 </section>
 
-<!-- Recent tables -->
+<div class="reg-section-heading reg-analytics-heading"><div><span>RECENT ACTIVITY</span><h3>Latest records</h3></div><p>Recently added students and submitted applications</p></div><!-- Recent tables -->
 <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
   <div class="panel">
     <div class="panel-head"><h3>📋 Recent Students</h3><a class="btn btn-outline btn-sm" href="#registrar-students">View all →</a></div>
@@ -243,13 +257,13 @@
     if (studentsResult.status === 'fulfilled') {
       const rows = studentsResult.value.data || [];
       $('reg-recent-students').innerHTML = rows.length
-        ? rows.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td><td><a class="btn btn-outline btn-xs" href="#registrar-student-profile?id=${Number(x.id)}">View</a></td></tr>`).join('')
+        ? rows.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc([x.firstName,x.middleName,x.lastName].filter(Boolean).join(' '))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td><td><a class="btn btn-outline btn-xs" href="#registrar-student-profile?id=${Number(x.id)}">View</a></td></tr>`).join('')
         : '<tr><td colspan="5" class="empty">No students.</td></tr>';
     } else $('reg-recent-students').innerHTML = '<tr><td colspan="5" class="empty">Could not load recent students.</td></tr>';
     if (appsResult.status === 'fulfilled') {
       const rows = appsResult.value.data || [];
       $('reg-recent-apps').innerHTML = rows.length
-        ? rows.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
+        ? rows.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc([x.firstName,x.middleName,x.lastName].filter(Boolean).join(' '))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
         : '<tr><td colspan="4" class="empty">No applications.</td></tr>';
     } else $('reg-recent-apps').innerHTML = '<tr><td colspan="4" class="empty">Could not load recent applications.</td></tr>';
   }

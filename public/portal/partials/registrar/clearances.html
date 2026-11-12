@@ -205,9 +205,11 @@
         actions = '<span style="font-size:.72rem;color:#94a3b8;">—</span>';
       }
 
+      actions = `<button class="btn-view-clear" data-id="${c.id}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;background:#eff6ff;color:#1d4ed8;border:0;border-radius:6px;cursor:pointer;margin-right:.25rem;">View Student</button>` + actions;
+
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(c.firstName)} ${esc(c.lastName)}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc([c.firstName,c.middleName,c.lastName].filter(Boolean).join(' '))}</td>
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(c.matricNumber || '—')}</code></td>
           <td style="padding:.65rem .75rem;text-transform:capitalize;color:#475569;">${esc(c.type)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#64748b;">${fmtDate(c.requestedAt)}</td>
@@ -218,6 +220,9 @@
     }).join('');
 
     // Wire up buttons
+    document.querySelectorAll('.btn-view-clear').forEach(btn => {
+      btn.addEventListener('click', () => { const record = ALL.find(row => Number(row.id) === Number(btn.dataset.id)); if (record) openStudentDetails(record); });
+    });
     document.querySelectorAll('.btn-approve').forEach(btn => {
       btn.addEventListener('click', () => updateStatus(btn.dataset.id, 'cleared'));
     });
@@ -229,12 +234,28 @@
     });
   }
 
+  function openStudentDetails(record) {
+    let modal = $('clr-student-detail-modal');
+    if (!modal) {
+      modal = document.createElement('div'); modal.id='clr-student-detail-modal';
+      modal.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:10030;display:none;align-items:center;justify-content:center;padding:1rem;';
+      modal.innerHTML='<section style="background:#fff;width:min(820px,100%);max-height:90vh;overflow:auto;border-radius:16px;box-shadow:0 24px 70px #0005;"><header style="padding:1rem 1.2rem;background:#064e3b;color:#fff;display:flex;justify-content:space-between;align-items:center;"><strong id="clr-detail-title">Student details</strong><button type="button" id="clr-detail-close" style="border:0;border-radius:8px;padding:.4rem .7rem;cursor:pointer;">Close</button></header><div id="clr-detail-body" style="padding:1.2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.7rem;"></div></section>';
+      document.body.appendChild(modal); modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+      modal.querySelector('#clr-detail-close').addEventListener('click',()=>{modal.style.display='none';});
+    }
+    $('clr-detail-title').textContent=[record.firstName,record.middleName,record.lastName].filter(Boolean).join(' ')||'Student details';
+    const label=key=>key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').trim().replace(/\b\w/g,ch=>ch.toUpperCase());
+    $('clr-detail-body').innerHTML=Object.entries(record).filter(([key,value])=>!['signerSignatureUrl'].includes(key)&&value!==null&&value!==undefined&&value!=='').map(([key,value])=>{
+      const display=/At$|Date$/i.test(key)?new Date(value).toLocaleString('en-GB'):String(value);
+      return '<div style="padding:.75rem;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;"><small style="display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase;">'+esc(label(key))+'</small><strong style="display:block;color:#0f172a;font-size:.82rem;margin-top:.25rem;overflow-wrap:anywhere;">'+esc(display)+'</strong></div>';
+    }).join(''); modal.style.display='flex';
+  }
   function openCertificate(id) {
     const c = ALL.find(x => x.id === id);
     if (!c) return;
 
     $('cert-title').textContent = 'CLEARANCE CERTIFICATE';
-    $('cert-name').textContent = `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Student Name';
+    $('cert-name').textContent = [c.firstName,c.middleName,c.lastName].filter(Boolean).join(' ').trim() || 'Student Name';
     $('cert-matric').textContent = (c.matricNumber || '').replace(/SMT/gi, '').trim() || 'MATRIC';
     $('cert-type').textContent = String(c.type || 'general').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()) + ' Clearance';
     $('cert-status').textContent = c.status;

@@ -115,7 +115,7 @@
       sessionName,
       semester,
       studentId: stu.id || reg.studentId,
-      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || `Student ${reg.studentId || ''}`,
+      studentName: [stu.firstName, stu.middleName, stu.lastName].filter(Boolean).join(' ').trim() || `Student ${reg.studentId || ''}`,
       matric: stu.matricNumber || 'No Matric', // Changed from '—' to 'No Matric'
       courseCode: crs.code || reg.courseCode || `Course ${reg.courseId || ''}`,
       courseTitle: crs.title || reg.courseTitle || '',

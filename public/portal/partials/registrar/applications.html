@@ -244,6 +244,12 @@
         <span style="font-size:.82rem;color:#0f172a;font-weight:700;text-align:right;max-width:60%;">${esc(value || '—')}</span>
       </div>`;
 
+    const knownFields = new Set(['id','applicationNumber','type','level','jambRegNo','jambScore','createdAt','programmeId','departmentId','programmeName','departmentName','firstName','middleName','lastName','email','phone','gender','dateOfBirth','stateOfOrigin','lga','status','rejectionReason','updatedAt','admittedAt','reviewedAt']);
+    const extraFields = Object.entries(app).filter(([key,value]) => !knownFields.has(key) && value !== null && value !== undefined && value !== '').map(([key,value]) => {
+      const display = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      const title = key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').trim().replace(/\b\w/g,ch=>ch.toUpperCase());
+      return row(title, display);
+    }).join('');
     $('reg-apps-modal-title').textContent = 'Application Details';
     $('reg-apps-modal-body').innerHTML = `
       <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;">
@@ -286,6 +292,12 @@
         ${row('State of Origin', app.stateOfOrigin)}
         ${row('LGA', app.lga)}
       </div>
+
+      ${extraFields ? `
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:.68rem;font-weight:800;color:#065f46;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem;">Other Submitted Details</div>
+          ${extraFields}
+        </div>` : ''}
 
       ${app.rejectionReason ? `
         <div style="margin-top:1rem;padding:.85rem 1rem;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">

@@ -338,6 +338,10 @@
         title: 'Student Profile'
       };
     }
+    if (role === 'registrar' && cleanKey === 'admin-admitted') {
+      return { url: '/portal/partials/registrar/admitted.html', title: 'Admitted Students' };
+    }
+
     const folder = ROLE_FOLDER[role] || 'shared';
 
     const adminOnly = ['admin-settings', 'admin-users'];

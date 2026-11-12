@@ -209,7 +209,7 @@
 
       return `
         <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(c.firstName)} ${esc(c.lastName)}</td>
+          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc([c.firstName,c.middleName,c.lastName].filter(Boolean).join(' '))}</td>
           <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(c.matricNumber || '—')}</code></td>
           <td style="padding:.65rem .75rem;text-transform:capitalize;color:#475569;">${esc(c.type)}</td>
           <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#64748b;">${fmtDate(c.requestedAt)}</td>

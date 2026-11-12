@@ -52,3 +52,76 @@
 }
 @media(prefers-reduced-motion:reduce){.lecturer-design-scope *{transition:none!important;scroll-behavior:auto!important}}
 @media print{.lecturer-design-scope{box-shadow:none!important}.lecturer-design-scope button{display:none!important}}
+
+
+/* ==========================================================
+   Lecturer workspace — readable layout refinement (v2)
+   Consistent hierarchy, stronger contrast and page spacing.
+   ========================================================== */
+.lecturer-design-scope{
+  --lec-ink:#17243b;--lec-muted:#52627a;--lec-line:#dce4ee;
+  --lec-soft:#f4f7fb;--lec-primary:#0f766e;--lec-primary-dark:#115e59;
+  color:var(--lec-ink)!important;font-size:15px;line-height:1.6;
+}
+.lecturer-design-scope :where(p,li,label,td,dd,dt){line-height:1.6}
+.lecturer-design-scope :where(small,.small,.muted,.sub,.hint,.helper-text){color:#52627a}
+.lecturer-design-scope :where(h1,h2,h3,h4){line-height:1.25!important;margin-top:0}
+.lecturer-design-scope h2{font-size:clamp(1.35rem,2.2vw,1.75rem)!important;margin-bottom:.35rem!important}
+.lecturer-design-scope h3{font-size:1.08rem!important}
+.lecturer-design-scope h4{font-size:.96rem!important}
+.lecturer-design-scope :where(.page-head,.greeting,.who,.filter-bar){gap:1rem}
+.lecturer-design-scope :where(.panel,.card,.session-item,.course-card,.dept-card,.stat-card){
+  border:1px solid #dce4ee!important;border-radius:16px!important;
+  box-shadow:0 5px 18px rgba(18,35,58,.055)!important;
+}
+.lecturer-design-scope :where(.panel-head,.card-header){
+  border-bottom:1px solid #e7edf4!important;padding:1rem 1.15rem!important;
+}
+.lecturer-design-scope :where(.panel-body,.card-body){padding:1.1rem!important}
+.lecturer-design-scope :where(.muted,.text-muted,.small,.sub,.hint){color:#52627a!important}
+.lecturer-design-scope [style*="color:#94a3b8"],.lecturer-design-scope [style*="color: #94a3b8"],
+.lecturer-design-scope [style*="color:#9ca3af"],.lecturer-design-scope [style*="color: #9ca3af"]{color:#64748b!important}
+.lecturer-design-scope [style*="font-size:.6rem"],.lecturer-design-scope [style*="font-size: .6rem"],
+.lecturer-design-scope [style*="font-size:.62rem"],.lecturer-design-scope [style*="font-size: .62rem"]{font-size:.7rem!important;line-height:1.4!important}
+.lecturer-design-scope [style*="font-size:.65rem"],.lecturer-design-scope [style*="font-size: .65rem"],
+.lecturer-design-scope [style*="font-size:.68rem"],.lecturer-design-scope [style*="font-size: .68rem"]{font-size:.73rem!important;line-height:1.45!important}
+.lecturer-design-scope :where(input,select,textarea){font:inherit!important;font-size:.9rem!important}
+.lecturer-design-scope :where(label,.form-label){display:block;font-size:.8rem!important;font-weight:750!important;color:#334155!important;margin-bottom:.35rem}
+.lecturer-design-scope :where(button,.btn){font-size:.82rem}
+.lecturer-design-scope :where(button:disabled,.btn:disabled){opacity:.58;cursor:not-allowed}
+.lecturer-design-scope :where(.tabs,.tab-list){display:flex;gap:.45rem;flex-wrap:wrap;border-bottom:1px solid #e2e8f0;padding-bottom:.55rem;margin-bottom:1rem}
+.lecturer-design-scope :where(.tab,.tabs button){padding:.6rem .9rem!important;border-radius:10px!important;font-weight:750!important}
+.lecturer-design-scope :where(.tab.active,.tabs button.active){background:#e6f5f2!important;color:#075e56!important;border:1px solid #b8e1d9!important}
+.lecturer-design-scope :where(.table-wrap,.table-responsive,[style*="overflow-x:auto"]){max-width:100%;overflow-x:auto!important;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+.lecturer-design-scope table{font-size:.88rem!important}
+.lecturer-design-scope thead th{padding:.9rem!important;color:#334155!important;background:#f1f5f9!important}
+.lecturer-design-scope tbody td{color:#26364d}
+.lecturer-design-scope tbody tr:nth-child(even){background:#fbfdff}
+.lecturer-design-scope :where(.empty-state,.loading,.alert){border-radius:14px}
+.lecturer-design-scope :where(.empty-state){font-size:.9rem!important;line-height:1.65}
+.lecturer-design-scope :where(.status,.badge,.chip,[class*="status"]){letter-spacing:.01em}
+.lecturer-design-scope :where(.form-grid,[style*="display:grid"]){min-width:0}
+.lecturer-design-scope :where(.form-grid){gap:1rem!important}
+.lecturer-design-scope :where(img,canvas,svg){max-width:100%}
+.lecturer-design-scope :where(.greeting){color:#183047!important}
+.lecturer-design-scope .greeting :where(h1,.sub,.meta){color:inherit!important}
+.lecturer-design-scope .greeting .sub{color:#42566d!important}
+.lecturer-design-scope :where(.course-card,.dept-card,.session-item):hover{border-color:#b8d8d4!important;box-shadow:0 10px 25px rgba(15,65,75,.09)!important}
+.lecturer-design-scope :where(.page-head,.header-row){display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:1.2rem}
+.lecturer-design-scope :where(.page-head h2,.header-row h2){margin:0!important}
+.lecturer-design-scope :where(.page-head p,.header-row p){margin:.35rem 0 0;color:#52627a!important}
+@media(max-width:900px){
+  .lecturer-design-scope :where([style*="grid-template-columns:repeat(4"],[style*="grid-template-columns: repeat(4"]){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:640px){
+  .lecturer-design-scope{font-size:14px}
+  .lecturer-design-scope :where(.page-head,.header-row){align-items:stretch}
+  .lecturer-design-scope :where(.page-head .actions,.header-row .actions){display:flex;flex-wrap:wrap;gap:.5rem}
+  .lecturer-design-scope :where(.panel-body,.card-body){padding:.85rem!important}
+  .lecturer-design-scope :where(.form-grid){grid-template-columns:1fr!important}
+  .lecturer-design-scope :where(button,.btn){min-height:42px}
+  .lecturer-design-scope table{min-width:620px}
+}
+@media print{
+  .lecturer-design-scope :where(.panel,.card,.session-item){box-shadow:none!important}
+}

@@ -125,12 +125,12 @@
 
   function studentName(r) {
     var s = r.student || {};
-    var full = [s.firstName, s.lastName].filter(Boolean).join(' ');
+    var full = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ');
     return full || s.fullName || s.email || '—';
   }
 
   function renderStats(rows) {
-    var sum = key => rows.filter(r => (r.payment || {}).status === key);
+    var sum = key => rows.filter(r => String((r.payment || {}).status || '').toLowerCase() === key);
     var amount = list => list.reduce((n,r)=>n+Number((r.payment||{}).amount||0),0);
     $('bur-pay-stats').innerHTML = [['Loaded records',rows.length],['Verified amount',money(amount(sum('verified')))],['Pending amount',money(amount(sum('pending')))],['Rejected records',sum('rejected').length],['Refunded amount',money(amount(sum('refunded')))]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></article>').join('');
   }
@@ -180,7 +180,7 @@
         var isPending = p.status === 'pending';
         return '<tr data-pid="' + esc(p.id) + '">'
           + '<td style="font-family:ui-monospace,monospace;font-size:.75rem;">' + esc(p.reference || '—') + '</td>'
-          + '<td>' + esc(studentName(r)) + '</td>'
+          + '<td><strong>' + esc(studentName(r)) + '</strong><div class="bur-pay-sub">' + esc((r.student||{}).matricNumber || (r.student||{}).email || 'Matric not available') + '</div></td>'
           + '<td><strong>' + esc(p.bankName || '—') + '</strong><div class="bur-pay-sub">' + esc(p.depositorName || '') + '</div></td>'
           + '<td>' + receiptLink(p) + '</td>'
           + '<td class="num" style="font-variant-numeric:tabular-nums;font-weight:600;">' + esc(money(p.amount || 0)) + '</td>'

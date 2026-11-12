@@ -433,13 +433,20 @@ router.get('/results/pending', only, async (req, res, next) => {
 router.get('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    
-    const allocation = await db
-      .select({ id: courseAllocations.id })
+    const sessionId = Number(req.query.sessionId);
+    const semester = String(req.query.semester || '').toLowerCase();
+    if (!Number.isInteger(sessionId) || sessionId < 1 || !['first', 'second'].includes(semester)) {
+      return res.status(400).json({ success: false, error: 'A valid course session and semester are required.' });
+    }
+    const allocation = await db.select({ id: courseAllocations.id })
       .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, courseId),
+        eq(courseAllocations.sessionId, sessionId),
+        eq(courseAllocations.semester, semester)
+      )).limit(1);
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course/session.' });
 
     const rows = await db.execute(sql`
       SELECT DISTINCT ON (u.id)
@@ -455,9 +462,12 @@ router.get('/results/:courseId', only, async (req, res, next) => {
              r.status AS "resultStatus"
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id
+      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = cr.session_id
       WHERE cr.course_id = ${courseId}
-      ORDER BY u.id, r.updated_at DESC
+        AND cr.session_id = ${sessionId}
+        AND cr.semester = ${semester}
+        AND cr.status = 'approved'
+      ORDER BY u.id, r.updated_at DESC NULLS LAST
     `);
 
     return res.json({ success: true, data: rows.rows || [] });
@@ -470,13 +480,20 @@ router.get('/results/:courseId', only, async (req, res, next) => {
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    
-    const allocation = await db
-      .select({ id: courseAllocations.id })
+    const sessionId = Number(req.query.sessionId);
+    const semester = String(req.query.semester || '').toLowerCase();
+    if (!Number.isInteger(sessionId) || sessionId < 1 || !['first', 'second'].includes(semester)) {
+      return res.status(400).json({ success: false, error: 'A valid course session and semester are required.' });
+    }
+    const allocation = await db.select({ id: courseAllocations.id })
       .from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, courseId),
+        eq(courseAllocations.sessionId, sessionId),
+        eq(courseAllocations.semester, semester)
+      )).limit(1);
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course/session.' });
 
     const { results: resultRows } = req.body || {};
     if (!Array.isArray(resultRows) || resultRows.length === 0 || resultRows.length > 1000) return res.status(400).json({ success: false, error: 'Provide between 1 and 1000 student results.' });
@@ -499,6 +516,8 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       sessionId: courseRegistrations.sessionId
     }).from(courseRegistrations).where(and(
       eq(courseRegistrations.courseId, courseId),
+      eq(courseRegistrations.sessionId, sessionId),
+      eq(courseRegistrations.semester, semester),
       eq(courseRegistrations.status, 'approved'),
       inArray(courseRegistrations.studentId, studentIds)
     ));
@@ -519,7 +538,7 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       
       const { grade, points } = await scoreToGrade(total, gradeScale);
 
-      const semesterValue = (course.semesterName || 'first').toLowerCase();
+      const semesterValue = semester;
 
       const savedResult = await db.execute(sql`
         INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status, assignment_score)
@@ -605,19 +624,33 @@ router.delete('/results/:id', only, async (req, res, next) => {
 router.post('/results/:courseId/submit-all', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    
+    const sessionId = Number(req.query.sessionId);
+    const semester = String(req.query.semester || '').toLowerCase();
+    if (!Number.isInteger(sessionId) || sessionId < 1 || !['first', 'second'].includes(semester)) {
+      return res.status(400).json({ success: false, error: 'A valid course session and semester are required.' });
+    }
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId)))
-      .limit(1);
-    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
+      .where(and(
+        eq(courseAllocations.lecturerId, req.user.id),
+        eq(courseAllocations.courseId, courseId),
+        eq(courseAllocations.sessionId, sessionId),
+        eq(courseAllocations.semester, semester)
+      )).limit(1);
+    if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course/session.' });
 
-    await db.execute(sql`
-      UPDATE results 
+    const submitted = await db.execute(sql`
+      UPDATE results
       SET status = 'submitted', submitted_at = NOW(), submitted_by = ${req.user.id}
-      WHERE course_id = ${courseId} AND status = 'draft'
+      WHERE course_id = ${courseId}
+        AND session_id = ${sessionId}
+        AND semester = ${semester}
+        AND status = 'draft'
+      RETURNING id
     `);
+    const submittedCount = submitted.rows?.length || 0;
+    if (!submittedCount) return res.status(409).json({ success: false, error: 'There are no saved draft results for this course session to submit.' });
 
-    return res.json({ success: true, message: 'Results submitted to HOD successfully.' });
+    return res.json({ success: true, submittedCount, message: 'Results submitted to HOD successfully.' });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 

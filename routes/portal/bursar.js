@@ -245,25 +245,39 @@ router.delete('/fees/:id', only, async (req, res, next) => {
 // ============================================================
 router.get('/clearances', only, async (req, res, next) => {
   try {
-    const rows = await clearQueries.listWithStudent({
-      sessionId: req.query.sessionId,
-      status: req.query.status,
-      type: req.query.type,
-      search: req.query.search,
-    });
+    const conds = [];
+    if (req.query.sessionId) conds.push(eq(schema.clearances.sessionId, Number(req.query.sessionId)));
+    if (req.query.status) conds.push(eq(schema.clearances.status, req.query.status));
+    if (req.query.type) conds.push(eq(schema.clearances.type, req.query.type));
+    if (req.query.search) {
+      const term = `%${String(req.query.search).trim()}%`;
+      conds.push(or(ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term), ilike(users.email, term)));
+    }
+    const rows = await db.select({
+      clearance: schema.clearances,
+      student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId },
+      session: academicSessions,
+    }).from(schema.clearances)
+      .leftJoin(users, eq(schema.clearances.studentId, users.id))
+      .leftJoin(academicSessions, eq(schema.clearances.sessionId, academicSessions.id))
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(schema.clearances.createdAt));
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
 });
 
 router.post('/clearances/:id/clear', only, async (req, res, next) => {
   try {
+    const existing = await clearQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending clearances can be approved.' });
     const [signer] = await db.select({ signatureUrl: users.signatureUrl })
       .from(users).where(eq(users.id, req.user.id)).limit(1);
     if (!signer?.signatureUrl) {
       return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before approving a clearance.' });
     }
     const row = await clearQueries.markCleared(req.params.id, req.user.id, req.body?.remarks);
-    if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Clearance status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.clearance_clear', entity: 'clearance', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -271,8 +285,13 @@ router.post('/clearances/:id/clear', only, async (req, res, next) => {
 
 router.post('/clearances/:id/reject', only, async (req, res, next) => {
   try {
-    const row = await clearQueries.markRejected(req.params.id, req.user.id, req.body?.remarks);
-    if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    const existing = await clearQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending clearances can be rejected.' });
+    const remarks = String(req.body?.remarks || '').trim();
+    if (!remarks || remarks.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
+    const row = await clearQueries.markRejected(req.params.id, req.user.id, remarks);
+    if (!row) return res.status(409).json({ success: false, error: 'Clearance status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.clearance_reject', entity: 'clearance', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -446,7 +465,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
 
     return res.json({
       success: true,
-      student,
+      student: safeStudent,
       rows: results,
       summary: { cgpa, totalUnits },
     });

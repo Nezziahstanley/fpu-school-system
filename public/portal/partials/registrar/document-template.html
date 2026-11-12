@@ -25,6 +25,8 @@
         
         <div style="font-size: 0.85rem; color: #475569; margin-top: 0.8rem; margin-bottom: 0.2rem;">Matric Number:</div>
         <div style="font-weight: bold; font-family: monospace; font-size: 1rem;" id="doc-student-matric">...</div>
+        <div style="font-size:.8rem;color:#475569;margin-top:.6rem;">Email: <strong id="doc-student-email">—</strong></div>
+        <div style="font-size:.8rem;color:#475569;margin-top:.3rem;">Phone: <strong id="doc-student-phone">—</strong></div>
       </div>
       <div style="text-align: right;">
         <div style="font-size: 0.85rem; color: #475569; margin-bottom: 0.2rem;">Programme:</div>
@@ -32,6 +34,8 @@
         
         <div style="font-size: 0.85rem; color: #475569; margin-top: 0.8rem; margin-bottom: 0.2rem;">Department:</div>
         <div style="font-weight: bold;" id="doc-student-dept">...</div>
+        <div style="font-size:.8rem;color:#475569;margin-top:.6rem;">Level: <strong id="doc-student-level">—</strong></div>
+        <div style="font-size:.8rem;color:#475569;margin-top:.3rem;">Gender: <strong id="doc-student-gender">—</strong></div>
       </div>
     </div>
 
@@ -39,6 +43,8 @@
     <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; position: relative; z-index: 1;">
       <thead>
         <tr style="background: #ecfdf5; border-bottom: 2px solid #065f46;">
+          <th style="padding: 0.75rem; text-align: left;">Session</th>
+          <th style="padding: 0.75rem; text-align: left;">Semester</th>
           <th style="padding: 0.75rem; text-align: left;">Course Code</th>
           <th style="padding: 0.75rem; text-align: left;">Course Title</th>
           <th style="padding: 0.75rem; text-align: center;">Units</th>
@@ -84,7 +90,7 @@
 </div>
 
 <style>
-  @media print {
+  @media print {\n    @page { size: A4 landscape; margin: 12mm; }
     body * { visibility: hidden; }
     #doc-paper, #doc-paper * { visibility: visible; }
     #doc-paper { position: absolute; left: 0; top: 0; box-shadow: none; margin: 0; padding: 2rem; width: 100%; }
@@ -122,6 +128,10 @@
 
       document.getElementById('doc-student-name').textContent = `${escapeHtml(s.firstName)} ${escapeHtml(s.lastName)}`;
       document.getElementById('doc-student-matric').textContent = s.matricNumber || '—';
+      document.getElementById('doc-student-email').textContent = s.email || '—';
+      document.getElementById('doc-student-phone').textContent = s.phone || '—';
+      document.getElementById('doc-student-level').textContent = s.level || '—';
+      document.getElementById('doc-student-gender').textContent = s.gender || '—';
       document.getElementById('doc-student-prog').textContent = s.programmeName || '—';
       document.getElementById('doc-student-dept').textContent = s.departmentName || '—';
       document.getElementById('doc-date').textContent = new Date().toLocaleDateString('en-GB');
@@ -132,18 +142,20 @@
       } else {
         tbody.innerHTML = rows.map(r => `
           <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 0.75rem;">${escapeHtml(r.result.sessionName || "—")}</td>
+            <td style="padding: 0.75rem;">${escapeHtml(r.result.semester || "—")}</td>
             <td style="padding: 0.75rem; font-weight: bold;">${escapeHtml(r.course.code)}</td>
             <td style="padding: 0.75rem;">${escapeHtml(r.course.title)}</td>
             <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.course.unit)}</td>
-            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.score || '—')}</td>
+            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.score ?? '—')}</td>
             <td style="padding: 0.75rem; text-align: center; font-weight: bold;">${escapeHtml(r.result.grade || '—')}</td>
-            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.points || '—')}</td>
+            <td style="padding: 0.75rem; text-align: center;">${escapeHtml(r.result.points ?? '—')}</td>
           </tr>
         `).join('');
       }
 
       document.getElementById('doc-total-units').textContent = summary.totalUnits;
-      document.getElementById('doc-cgpa').textContent = summary.cgpa;
+      document.getElementById('doc-cgpa').textContent = Number.isFinite(Number(summary.cgpa)) ? Number(summary.cgpa).toFixed(2) : '—';
 
     })
     .catch(err => {

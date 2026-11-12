@@ -17,6 +17,8 @@ const path = require('path');
 const router = express.Router();
 
 const { requireUser } = require('../../middleware/auth');
+const { db, schema } = require('../../db');
+const { eq, and } = require('drizzle-orm');
 const userQueries = require('../../db/queries/users');
 const { logAudit } = require('../../utils/audit');
 
@@ -32,6 +34,22 @@ const upload = multer({
     if (!ALLOWED_MIME.includes(file.mimetype)) return cb(new Error('Only PNG, JPG and WEBP images are allowed.'));
     cb(null, true);
   },
+});
+
+// Return only the saved signature and display name for an active designated officer.
+// Authenticated portal documents use this endpoint to render their correct signatory.
+router.get('/signatories/:role', requireUser, async (req, res, next) => {
+  try {
+    const allowedRoles = ['admission_officer', 'bursar', 'registrar', 'rector', 'hod', 'academic_officer', 'exam_officer', 'lecturer', 'admin', 'superadmin'];
+    const role = String(req.params.role || '').toLowerCase();
+    if (!allowedRoles.includes(role)) return res.status(400).json({ success: false, error: 'Unsupported signatory role.' });
+    const matches = await db.select({ id: schema.users.id, firstName: schema.users.firstName, lastName: schema.users.lastName, signatureUrl: schema.users.signatureUrl })
+      .from(schema.users).where(and(eq(schema.users.role, role), eq(schema.users.isActive, true))).limit(2);
+    if (matches.length > 1) return res.status(409).json({ success: false, error: 'More than one active officer has this signing role. Please resolve the duplicate accounts.' });
+    const signer = matches[0] || null;
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, data: signer ? { fullName: [signer.firstName, signer.lastName].filter(Boolean).join(' ').trim(), signatureUrl: signer.signatureUrl || null } : { fullName: '', signatureUrl: null } });
+  } catch (err) { return next(err); }
 });
 
 // ============================================================

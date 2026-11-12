@@ -225,7 +225,14 @@
     try {
       const res = await core.portalFetch('/api/lecturer/results');
       ALL_RESULTS = res.data || [];
+      ALL_COURSES = res.courses || [];
       LECTURER_DEPT_ID = res.lecturerDeptId;
+      const courseSelect = $('bulk-course-select');
+      if (courseSelect) {
+        courseSelect.innerHTML = '<option value="">— Select a course —</option>' + ALL_COURSES.map(c =>
+          `<option value="${Number(c.allocationId)}">${esc(c.code)} — ${esc(c.title)} · ${esc(c.sessionName || 'Session')} · ${esc(c.allocationSemester || '')}</option>`
+        ).join('');
+      }
 
       buildDepartmentsView();
     } catch (err) {
@@ -242,66 +249,58 @@
     $('view-departments').style.display = 'block';
 
     const deptMap = {};
-    ALL_RESULTS.forEach(r => {
-      if (!deptMap[r.courseDeptId]) {
-        deptMap[r.courseDeptId] = {
-          id: r.courseDeptId, name: r.courseDepartment || 'Unknown',
-          courses: new Set(), totalResults: 0, drafts: 0, published: 0
-        };
-      }
-      const d = deptMap[r.courseDeptId];
-      d.courses.add(r.courseCode);
-      d.totalResults++;
-      if (r.status === 'draft') d.drafts++;
-      else if (r.status === 'published' || r.status === 'approved') d.published++;
+    ALL_COURSES.forEach(c => {
+      const key = String(c.courseDeptId ?? 'unknown');
+      if (!deptMap[key]) deptMap[key] = {
+        id: c.courseDeptId, name: c.courseDepartment || 'Other Department',
+        courses: new Set(), totalResults: 0, drafts: 0, published: 0, allocations: []
+      };
+      const d = deptMap[key];
+      d.courses.add(c.code);
+      d.allocations.push(c);
+      const courseRows = ALL_RESULTS.filter(r =>
+        Number(r.courseId) === Number(c.id) &&
+        Number(r.sessionId) === Number(c.sessionId) &&
+        String(r.semester).toLowerCase() === String(c.allocationSemester).toLowerCase()
+      );
+      d.totalResults += courseRows.length;
+      d.drafts += courseRows.filter(r => r.status === 'draft').length;
+      d.published += courseRows.filter(r => ['published', 'approved'].includes(r.status)).length;
     });
 
     const DEPARTMENTS_DATA = Object.values(deptMap);
     const container = $('dept-cards-container');
-    
     if (!DEPARTMENTS_DATA.length) {
-      container.innerHTML = `<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;background:#fff;border-radius:12px;border:1px solid #e5e7eb;">You currently have no assigned courses or results.</div>`;
+      container.innerHTML = `<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;background:#fff;border-radius:12px;border:1px solid #e5e7eb;">You currently have no active course allocations.</div>`;
       return;
     }
 
     DEPARTMENTS_DATA.sort((a, b) => {
-      if (a.id === LECTURER_DEPT_ID) return -1;
-      if (b.id === LECTURER_DEPT_ID) return 1;
+      if (Number(a.id) === Number(LECTURER_DEPT_ID)) return -1;
+      if (Number(b.id) === Number(LECTURER_DEPT_ID)) return 1;
       return a.name.localeCompare(b.name);
     });
 
     container.innerHTML = DEPARTMENTS_DATA.map(d => {
-      const isMyDept = d.id === LECTURER_DEPT_ID;
+      const isMyDept = Number(d.id) === Number(LECTURER_DEPT_ID);
       const badgeColor = isMyDept ? '#065f46' : '#1e40af';
       const badgeBg = isMyDept ? '#d1fae5' : '#dbeafe';
       const badgeText = isMyDept ? 'My Department' : 'External Allocation';
       const coursesList = Array.from(d.courses).join(', ');
-
       return `
-        <div class="dept-card" onclick="window.__openDept(${d.id})" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;cursor:pointer;transition:all .2s;">
+        <div class="dept-card" onclick="window.__openDept(${JSON.stringify(d.id)})" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;cursor:pointer;transition:all .2s;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
             <div style="width:44px;height:44px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🏛️</div>
             <span style="font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:12px;background:${badgeBg};color:${badgeColor};text-transform:uppercase;">${badgeText}</span>
           </div>
           <h3 style="margin:0 0 .35rem;font-size:1.05rem;font-weight:800;color:#0f172a;">${esc(d.name)}</h3>
           <div style="font-size:.75rem;color:#64748b;margin-bottom:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(coursesList)}">${esc(coursesList)}</div>
-          
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;border-top:1px solid #f1f5f9;padding-top:.85rem;">
-            <div style="text-align:center;">
-              <div style="font-size:1.1rem;font-weight:800;color:#0f172a;">${d.totalResults}</div>
-              <div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Results</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:1.1rem;font-weight:800;color:#92400e;">${d.drafts}</div>
-              <div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Drafts</div>
-            </div>
-            <div style="text-align:center;">
-              <div style="font-size:1.1rem;font-weight:800;color:#065f46;">${d.published}</div>
-              <div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Published</div>
-            </div>
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:800;color:#0f172a;">${d.allocations.length}</div><div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Courses</div></div>
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:800;color:#92400e;">${d.drafts}</div><div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Drafts</div></div>
+            <div style="text-align:center;"><div style="font-size:1.1rem;font-weight:800;color:#065f46;">${d.published}</div><div style="font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;">Published</div></div>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('');
   }
 
@@ -309,48 +308,44 @@
   let CURRENT_DEPT_ID = null;
   window.__openDept = function(deptId) {
     CURRENT_DEPT_ID = deptId;
-    const dept = ALL_RESULTS.find(r => r.courseDeptId === deptId);
-    
+    const dept = ALL_COURSES.find(c => String(c.courseDeptId) === String(deptId));
     $('view-departments').style.display = 'none';
     $('view-courses').style.display = 'block';
     $('view-students').style.display = 'none';
     $('current-course-dept-title').textContent = dept ? dept.courseDepartment : 'Department';
 
-    const coursesMap = {};
-    ALL_RESULTS.filter(r => r.courseDeptId === deptId).forEach(r => {
-      if (!coursesMap[r.courseId]) {
-        coursesMap[r.courseId] = { id: r.courseId, code: r.courseCode, title: r.courseTitle, count: 0 };
-      }
-      coursesMap[r.courseId].count++;
-    });
-
-    const courses = Object.values(coursesMap);
-
-    $('courses-tbody').innerHTML = courses.map(c => `
-      <tr class="course-row" onclick="window.__openCourse(${c.id})" style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:all .15s;">
-        <td style="padding:.85rem .75rem;font-weight:800;color:#065f46;">${esc(c.code)}</td>
-        <td style="padding:.85rem .75rem;font-weight:700;color:#0f172a;">${esc(c.title)}</td>
-        <td style="padding:.85rem .75rem;text-align:center;font-weight:700;">${c.count}</td>
-        <td style="padding:.85rem .75rem;text-align:right;">
-          <span style="font-size:.75rem;font-weight:700;color:#1e40af;">View Students →</span>
-        </td>
-      </tr>
-    `).join('');
+    const allocations = ALL_COURSES.filter(c => String(c.courseDeptId) === String(deptId));
+    $('courses-tbody').innerHTML = allocations.map(c => {
+      const count = ALL_RESULTS.filter(r => Number(r.courseId) === Number(c.id) &&
+        Number(r.sessionId) === Number(c.sessionId) &&
+        String(r.semester).toLowerCase() === String(c.allocationSemester).toLowerCase()).length;
+      return `
+        <tr class="course-row" onclick="window.__openCourse(${Number(c.allocationId)})" style="border-bottom:1px solid #f1f5f9;cursor:pointer;transition:all .15s;">
+          <td style="padding:.85rem .75rem;font-weight:800;color:#065f46;">${esc(c.code)}</td>
+          <td style="padding:.85rem .75rem;font-weight:700;color:#0f172a;">${esc(c.title)}<div style="font-size:.7rem;color:#64748b;font-weight:500;">${esc(c.sessionName || 'Session')} · ${esc(c.allocationSemester || '')}</div></td>
+          <td style="padding:.85rem .75rem;text-align:center;font-weight:700;">${count}</td>
+          <td style="padding:.85rem .75rem;text-align:right;"><span style="font-size:.75rem;font-weight:700;color:#1e40af;">View Students →</span></td>
+        </tr>`;
+    }).join('');
   };
 
   // --- LEVEL 3: STUDENTS ---
-  window.__openCourse = function(courseId) {
-    CURRENT_COURSE_ID = courseId;
-    const course = ALL_RESULTS.find(r => r.courseId === courseId);
-    
+  window.__openCourse = function(allocationIdOrCourseId) {
+    const course = ALL_COURSES.find(c => Number(c.allocationId) === Number(allocationIdOrCourseId))
+      || ALL_COURSES.find(c => Number(c.id) === Number(allocationIdOrCourseId));
+    if (!course) return;
+    CURRENT_COURSE_ID = Number(course.id);
+    CURRENT_SESSION_ID = Number(course.sessionId);
+    CURRENT_SEMESTER = String(course.allocationSemester || 'first').toLowerCase();
+
     $('view-departments').style.display = 'none';
     $('view-courses').style.display = 'none';
     $('view-students').style.display = 'block';
-    $('current-student-course-title').textContent = course ? `${course.courseCode} — ${course.courseTitle}` : 'Course';
-    $('current-student-course-dept').textContent = course ? course.courseDepartment : '';
+    $('current-student-course-title').textContent = `${course.code} — ${course.title}`;
+    $('current-student-course-dept').textContent = course.courseDepartment || '';
 
     CURRENT_STUDENT_TAB = 'my';
-    $('btn-tab-my-students').click(); // Trigger the tab logic to default to "My Dept"
+    $('btn-tab-my-students').click();
   };
 
   $('btn-tab-my-students')?.addEventListener('click', () => {
@@ -385,7 +380,7 @@
 
   function renderMyDeptStudents() {
     const tbody = $('my-students-tbody');
-    let courseResults = ALL_RESULTS.filter(r => r.courseId === CURRENT_COURSE_ID && r.studentDeptId === LECTURER_DEPT_ID);
+    let courseResults = ALL_RESULTS.filter(r => Number(r.courseId) === Number(CURRENT_COURSE_ID) && Number(r.sessionId) === Number(CURRENT_SESSION_ID) && String(r.semester).toLowerCase() === String(CURRENT_SEMESTER).toLowerCase() && Number(r.studentDeptId) === Number(LECTURER_DEPT_ID));
 
     if (!courseResults.length) {
       tbody.innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No students from your department found.</td></tr>`;
@@ -396,7 +391,7 @@
   }
 
   function renderOtherDepts() {
-    const otherResults = ALL_RESULTS.filter(r => r.courseId === CURRENT_COURSE_ID && r.studentDeptId !== LECTURER_DEPT_ID);
+    const otherResults = ALL_RESULTS.filter(r => Number(r.courseId) === Number(CURRENT_COURSE_ID) && Number(r.sessionId) === Number(CURRENT_SESSION_ID) && String(r.semester).toLowerCase() === String(CURRENT_SEMESTER).toLowerCase() && Number(r.studentDeptId) !== Number(LECTURER_DEPT_ID));
     
     if (!otherResults.length) {
       $('other-dept-cards-container').innerHTML = `<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;">No students from other departments found.</div>`;
@@ -428,7 +423,7 @@
 
   window.__viewOtherDept = function(deptId) {
     $('other-dept-table-panel').style.display = 'block';
-    const otherResults = ALL_RESULTS.filter(r => r.courseId === CURRENT_COURSE_ID && r.studentDeptId === deptId);
+    const otherResults = ALL_RESULTS.filter(r => Number(r.courseId) === Number(CURRENT_COURSE_ID) && Number(r.sessionId) === Number(CURRENT_SESSION_ID) && String(r.semester).toLowerCase() === String(CURRENT_SEMESTER).toLowerCase() && Number(r.studentDeptId) === Number(deptId));
     
     const prefix = otherResults[0]?.matricNumber.split('/')[2] || 'Dept';
     $('other-dept-title').textContent = `Students from Dept ${prefix}`;

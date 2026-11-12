@@ -697,7 +697,9 @@ router.post('/exams', only, async (req, res, next) => {
     }
 
     const finalSemester = String(semester || course.semesterName || 'first').toLowerCase();
-    const finalSessionId = sessionId ? Number(sessionId) : (req.user.currentSessionId || 1);
+    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    const finalSessionId = sessionId ? Number(sessionId) : (currentSession?.id || null);
+    if (!finalSessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     // Normalize the date to YYYY-MM-DD (strip time if present)
     const dateStr = String(examDate).substring(0, 10);

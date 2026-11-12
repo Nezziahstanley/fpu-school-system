@@ -3,8 +3,8 @@
 .rector-transcripts .rt-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap}
 .rector-transcripts .rt-head h2{margin:0;font-size:1.45rem}.rector-transcripts .rt-muted{color:#64748b;font-size:.84rem}
 .rector-transcripts .rt-panel{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:14px;padding:1rem;min-width:0}
-.rector-transcripts .rt-tools{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center}
-.rector-transcripts input{min-width:220px;max-width:100%;padding:.7rem .8rem;border:1px solid #cbd5e1;border-radius:9px}
+.rector-transcripts .rt-tools{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center}.rt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem}.rt-stats article{background:#fff;border:1px solid #e2e8f0;border-radius:11px;padding:.8rem}.rt-stats small{display:block;color:#64748b;font-size:.65rem;text-transform:uppercase;font-weight:800}.rt-stats strong{display:block;color:#065f46;font-size:1.35rem;margin-top:.2rem}
+.rector-transcripts input,.rector-transcripts select{min-width:180px;max-width:100%;padding:.7rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff}
 .rector-transcripts button{border:0;border-radius:9px;padding:.65rem .9rem;background:#065f46;color:#fff;font-weight:700;cursor:pointer}
 .rector-transcripts button.secondary{background:#e2e8f0;color:#0f172a}
 .rector-transcripts table{width:100%;border-collapse:collapse;min-width:760px;font-size:.84rem}
@@ -25,12 +25,13 @@
 .rector-transcripts .rt-official-brand h2{margin:.25rem 0;font-size:1.2rem;color:#064e3b}
 .rector-transcripts .rt-official-brand p{margin:.15rem 0;color:#64748b;font-size:.72rem}
 .rector-transcripts .rt-empty{padding:1.5rem;text-align:center;color:#64748b}
-@media(max-width:650px){.rector-transcripts .rt-meta{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media print{@page{size:A4 portrait;margin:14mm}body *{visibility:hidden!important}.rector-transcripts .rt-modal,.rector-transcripts .rt-dialog,.rector-transcripts .rt-dialog *{visibility:visible!important}.rector-transcripts .rt-modal{display:block!important;position:absolute;inset:0;background:#fff;padding:0}.rector-transcripts .rt-dialog{max-height:none;overflow:visible;box-shadow:none;width:100%;border-radius:0}.rector-transcripts .rt-modal-head{position:static;border-bottom:2px solid #065f46}.rector-transcripts .rt-modal-head button{display:none!important}.rector-transcripts .rt-doc{padding:0;overflow:visible}.rector-transcripts .rt-doc:before{position:fixed}.rector-transcripts table{min-width:0;font-size:9px}.rector-transcripts th,.rector-transcripts td{padding:6px}.rector-transcripts .rt-meta{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:10px}.rector-transcripts .rt-meta div{padding:6px}.rector-transcripts .rt-official-brand img{width:58px;height:58px}}
+@media(max-width:650px){.rector-transcripts .rt-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.rector-transcripts .rt-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{@page{size:A4 portrait;margin:14mm}body *{visibility:hidden!important}.rector-transcripts .rt-modal,.rector-transcripts .rt-dialog,.rector-transcripts .rt-dialog *{visibility:visible!important}body.rt-print-register *{visibility:visible!important}body.rt-print-register .rector-transcripts .rt-modal{display:none!important}.rector-transcripts .rt-modal{display:block!important;position:absolute;inset:0;background:#fff;padding:0}.rector-transcripts .rt-dialog{max-height:none;overflow:visible;box-shadow:none;width:100%;border-radius:0}.rector-transcripts .rt-modal-head{position:static;border-bottom:2px solid #065f46}.rector-transcripts .rt-modal-head button{display:none!important}.rector-transcripts .rt-doc{padding:0;overflow:visible}.rector-transcripts .rt-doc:before{position:fixed}.rector-transcripts table{min-width:0;font-size:9px}.rector-transcripts th,.rector-transcripts td{padding:6px}.rector-transcripts .rt-meta{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:10px}.rector-transcripts .rt-meta div{padding:6px}.rector-transcripts .rt-official-brand img{width:58px;height:58px}}
 </style>
-<div class="rt-head"><div><div style="font-size:.68rem;font-weight:800;letter-spacing:.14em;color:#047857">OFFICE OF THE RECTOR</div><h2>Student Transcript Register</h2><p class="rt-muted">Search students, review published academic records and preview transcript details.</p></div><div class="rt-tools"><button type="button" id="rt-refresh">Refresh register</button></div></div>
+<div class="rt-head"><div><div style="font-size:.68rem;font-weight:800;letter-spacing:.14em;color:#047857">OFFICE OF THE RECTOR</div><h2>Student Transcript Register</h2><p class="rt-muted">Search students, review published academic records and preview transcript details.</p></div><div class="rt-tools"><button type="button" id="rt-refresh">Refresh register</button><button type="button" id="rt-export">Export CSV</button><button type="button" id="rt-print-list" class="secondary">Print register</button></div></div>
+<div class="rt-stats" id="rt-stats"></div>
 <div class="rt-panel">
- <div class="rt-tools" style="justify-content:space-between;margin-bottom:.8rem"><input id="rt-search" type="search" placeholder="Search name, matric number, department…" aria-label="Search transcript register"><span class="rt-muted" id="rt-count">Loading students…</span></div>
+ <div class="rt-tools" style="justify-content:space-between;margin-bottom:.8rem"><input id="rt-search" type="search" placeholder="Search name, matric number, department…" aria-label="Search transcript register"><select id="rt-dept" aria-label="Filter by department"><option value="">All departments</option></select><select id="rt-level" aria-label="Filter by level"><option value="">All levels</option><option>ND1</option><option>ND2</option><option>HND1</option><option>HND2</option></select><span class="rt-muted" id="rt-count">Loading students…</span></div>
  <div class="rt-table"><table><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="rt-body"><tr><td colspan="7" class="rt-empty">Loading transcript register…</td></tr></tbody></table></div>
 </div>
 <div class="rt-modal" id="rt-modal" role="dialog" aria-modal="true" aria-labelledby="rt-modal-title">
@@ -46,12 +47,13 @@
  const core=window.FPU_PORTAL||{};
  const $=id=>document.getElementById(id);
  const esc=v=>core.escapeHtml?core.escapeHtml(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- let rows=[];
+ let rows=[]; let departmentFilter=''; let levelFilter='';
  const studentName=s=>[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ')||'Student';
  function render(){
   const q=($('rt-search').value||'').trim().toLowerCase();
-  const filtered=rows.filter(s=>[studentName(s),s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
+  const filtered=rows.filter(s=>(!departmentFilter||String(s.departmentId)===departmentFilter)&&(!levelFilter||String(s.level||'').toUpperCase()===levelFilter)&&[studentName(s),s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
   $('rt-count').textContent=filtered.length+' of '+rows.length+' students';
+  $('rt-stats').innerHTML=[['Total students',rows.length],['With published results',rows.filter(s=>Number(s.cgpa)>0).length],['ND students',rows.filter(s=>String(s.level||'').startsWith('ND')).length],['HND students',rows.filter(s=>String(s.level||'').startsWith('HND')).length]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+Number(x[1]).toLocaleString()+'</strong></article>').join('');
   $('rt-body').innerHTML=filtered.length?filtered.map(s=>'<tr><td><strong>'+esc(studentName(s))+'</strong></td><td>'+esc(s.matricNumber||'—')+'</td><td>'+esc(s.departmentName||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td><strong>'+esc((s.cgpa!==null&&s.cgpa!==undefined&&s.cgpa!=='')?Number(s.cgpa).toFixed(2):'—')+'</strong></td><td><button type="button" data-preview="'+Number(s.id)+'">Preview</button></td></tr>').join(''):'<tr><td colspan="7" class="rt-empty">No students match this search.</td></tr>';
   $('rt-body').querySelectorAll('[data-preview]').forEach(btn=>btn.addEventListener('click',()=>preview(btn.dataset.preview)));
  }
@@ -61,6 +63,8 @@
    const response=await core.portalFetch('/api/rector/transcripts');
    if(!response||response.success===false)throw new Error(response?.error||'Unable to load transcript register.');
    rows=Array.isArray(response.data)?response.data:[];
+   const depts=[...new Map(rows.filter(x=>x.departmentId).map(x=>[String(x.departmentId),{id:x.departmentId,name:x.departmentName||'Department'}])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+   $('rt-dept').innerHTML='<option value="">All departments</option>'+depts.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
    render();
   }catch(error){$('rt-body').innerHTML='<tr><td colspan="7" class="rt-empty">'+esc(error.message)+'</td></tr>';$('rt-count').textContent='Register unavailable';core.showToast&&core.showToast(error.message,'error');}
  }
@@ -76,6 +80,10 @@
   }catch(error){$('rt-document').innerHTML='<div class="rt-empty">'+esc(error.message)+'</div>';core.showToast&&core.showToast(error.message,'error');}
  }
  $('rt-search').addEventListener('input',render);
+ $('rt-dept').addEventListener('change',e=>{departmentFilter=e.target.value;render()});
+ $('rt-level').addEventListener('change',e=>{levelFilter=e.target.value.toUpperCase();render()});
+ $('rt-export').addEventListener('click',()=>{const q=($('rt-search').value||'').trim().toLowerCase(),data=rows.filter(s=>(!departmentFilter||String(s.departmentId)===departmentFilter)&&(!levelFilter||String(s.level||'').toUpperCase()===levelFilter)&&[studentName(s),s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));const val=x=>'"'+String(x??'').replace(/"/g,'""')+'"';const lines=[['Student','Matric Number','Department','Programme','Level','CGPA'].map(val).join(','),...data.map(s=>[studentName(s),s.matricNumber,s.departmentName,s.programmeName,s.level,s.cgpa].map(val).join(','))];const a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv'}));a.href=url;a.download='fpu-rector-transcript-register.csv';a.click();URL.revokeObjectURL(url)});
+ $('rt-print-list').addEventListener('click',()=>{document.body.classList.add('rt-print-register');window.print();setTimeout(()=>document.body.classList.remove('rt-print-register'),500)});
  $('rt-refresh').addEventListener('click',load);
  $('rt-close').addEventListener('click',()=>$('rt-modal').style.display='none');
  $('rt-modal').addEventListener('click',e=>{if(e.target.id==='rt-modal')$('rt-modal').style.display='none';});

@@ -466,8 +466,9 @@ router.get('/published-results', only, async (req, res, next) => {
       points: results.points,
       semester: results.semester,
       sessionName: academicSessions.name,
-      publishedAt: sql`coalesce(${results.publishedAt}, ${results.createdAt})`,
+      publishedAt: sql`coalesce(${results.publishedAt}, ${results.updatedAt}, ${results.createdAt})`,
       createdAt: results.createdAt,
+      updatedAt: results.updatedAt,
       departmentName: departments.name,
     })
     .from(results)

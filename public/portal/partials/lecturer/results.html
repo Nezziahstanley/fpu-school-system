@@ -635,7 +635,7 @@
     $('lecturer-results-preview-summary').innerHTML = [
       ['Students', rows.length], ['Average', average + '%'],
       ['Highest', Math.max(0, ...rows.map(r => r.total)) + '%'],
-      ['Lowest', Math.min(0, ...rows.map(r => r.total)) < 0 ? '0%' : Math.min(...rows.map(r => r.total)) + '%']
+      ['Lowest', (rows.length ? Math.min(...rows.map(r => r.total)) : 0) + '%']
     ].map(([label, value]) => '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:.7rem;"><div style="font-size:.65rem;color:#64748b;text-transform:uppercase;font-weight:800;">'+label+'</div><div style="font-size:1.15rem;color:#0f172a;font-weight:800;margin-top:.2rem;">'+value+'</div></div>').join('');
     $('lecturer-results-preview-body').innerHTML = rows.map(r => '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:.65rem;">'+esc(r.student ? (r.student.lastName+', '+r.student.firstName) : 'Student')+'</td><td style="padding:.65rem;">'+esc(r.student?.matricNumber || '—')+'</td><td style="padding:.65rem;text-align:center;">'+r.p.assignmentScore+'</td><td style="padding:.65rem;text-align:center;">'+r.p.classworkScore+'</td><td style="padding:.65rem;text-align:center;">'+r.p.examScore+'</td><td style="padding:.65rem;text-align:center;font-weight:800;">'+r.total+'</td><td style="padding:.65rem;text-align:center;font-weight:800;">'+r.grade+'</td></tr>').join('');
     $('lecturer-results-preview').style.display = 'flex';

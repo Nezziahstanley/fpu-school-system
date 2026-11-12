@@ -48,7 +48,8 @@ function deptId(req) {
 router.get('/dashboard', only, async (req, res, next) => {
   try {
     const departmentId = deptId(req);
-    const sessionId = req.user.currentSessionId || 1;
+    const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    const sessionId = currentSession?.id || null;
 
     const [dept] = await db.select().from(departments).where(eq(departments.id, departmentId)).limit(1);
 
@@ -102,16 +103,21 @@ router.get('/dashboard', only, async (req, res, next) => {
     }
 
     let registeredThisSession = 0;
-    if (courseIds.length > 0) {
-      const regs = await db.select({ id: courseRegistrations.id })
+    let registeredStudentIds = new Set();
+    if (courseIds.length > 0 && sessionId) {
+      const regs = await db.select({ id: courseRegistrations.id, studentId: courseRegistrations.studentId })
         .from(courseRegistrations)
         .where(and(
-          sql`${courseRegistrations.courseId} IN ${courseIds}`,
+          inArray(courseRegistrations.courseId, courseIds),
           eq(courseRegistrations.sessionId, sessionId),
           eq(courseRegistrations.status, 'approved')
         ));
       registeredThisSession = regs.length;
+      registeredStudentIds = new Set(regs.map(row => Number(row.studentId)));
     }
+    const noRegistration = sessionId
+      ? Math.max(0, totalStudents - registeredStudentIds.size)
+      : null;
 
     return res.json({
       success: true,
@@ -119,7 +125,7 @@ router.get('/dashboard', only, async (req, res, next) => {
         departmentName: dept?.name || 'Department',
         totalStudents, totalStaff, activeCourses,
         pendingResults, verifiedResults, publishedResults,
-        registeredThisSession, noRegistration: 0,
+        activeSessionName: currentSession?.name || '—',\n        registeredThisSession, noRegistration,
         studentsByLevel, studentsByProgramme, studentsByGender
       }
     });
@@ -691,7 +697,9 @@ router.post('/exams', only, async (req, res, next) => {
     }
 
     const finalSemester = String(semester || course.semesterName || 'first').toLowerCase();
-    const finalSessionId = sessionId ? Number(sessionId) : (req.user.currentSessionId || 1);
+    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    const finalSessionId = sessionId ? Number(sessionId) : (currentSession?.id || null);
+    if (!finalSessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
 
     // Normalize the date to YYYY-MM-DD (strip time if present)
     const dateStr = String(examDate).substring(0, 10);

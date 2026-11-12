@@ -85,13 +85,12 @@
       'bursar-reports', 'bursar-documents', 'bursar-transcripts',
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-documents', 'admin-transcript',
     ],
     rector: [
       'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
       'portal-complaints',
-      'admin-audit', 'admin-transcript',
+      'admin-audit',
     ],
     registrar: [
       'admin-admitted', 'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
@@ -100,17 +99,14 @@
     librarian: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-library', 'admin-borrows',
     ],
     exam_officer: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-exams', 'admin-courses',
     ],
     academic_officer: [
       'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
       'portal-notifications', 'portal-announcements',
-      'admin-programmes', 'admin-courses', 'admin-sessions', 'admin-exams',
     ],
     admission_officer: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
@@ -231,6 +227,7 @@
       { key: 'rector-applications', label: 'Applications Overview', icon: ICON.clipboard },
       { key: 'rector-graduation',   label: 'Graduation Pipeline', icon: ICON.award },
       { key: 'rector-reports',      label: 'Executive Reports', icon: ICON.chart },
+      { key: 'rector-transcripts',  label: 'Transcript Register', icon: ICON.file },
     ],
     registrar: [
       { key: 'registrar-dashboard',       label: 'Dashboard',       icon: ICON.dash },

@@ -5,6 +5,7 @@
   <div>
     <h2>Dashboard Overview</h2>
     <p class="muted small" id="hod-dept-line">Live analytics for your department</p>
+    <p class="muted small" id="hod-session-line">Academic session: loading…</p>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" id="hod-dash-refresh">Refresh</button>
@@ -37,6 +38,10 @@
   <div class="stat">
     <div class="meta"><span class="label">Registered This Session</span><span class="value" id="hod-stat-registered">—</span></div>
     <div class="ic">📝</div>
+  </div>
+  <div class="stat purple">
+    <div class="meta"><span class="label">Students Without Registration</span><span class="value" id="hod-stat-no-registration">—</span></div>
+    <div class="ic">⚠️</div>
   </div>
   <div class="stat purple">
     <div class="meta"><span class="label">HOD-Verified Results</span><span class="value" id="hod-stat-verified">—</span></div>
@@ -81,6 +86,17 @@
   function drawChart(canvasId, config) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
+    if (!window.Chart) {
+      const fallback = canvas.parentElement?.querySelector('.hod-chart-fallback') || document.createElement('div');
+      fallback.className = 'hod-chart-fallback muted small';
+      fallback.textContent = 'Chart library unavailable. Refresh to try again.';
+      if (!fallback.parentElement) canvas.parentElement?.appendChild(fallback);
+      canvas.style.display = 'none';
+      return;
+    }
+    canvas.style.display = '';
+    const fallback = canvas.parentElement?.querySelector('.hod-chart-fallback');
+    if (fallback) fallback.remove();
     if (canvas.__chart) canvas.__chart.destroy();
     canvas.__chart = new Chart(canvas, config);
   }
@@ -102,6 +118,8 @@
 
       // Header
       if (d.departmentName) $('hod-dept-line').textContent = 'Live analytics for ' + d.departmentName;
+      if ($('hod-session-line')) $('hod-session-line').textContent = 'Academic session: ' + (d.activeSessionName || 'No active session');
+      if ($('hod-stat-no-registration')) $('hod-stat-no-registration').textContent = d.noRegistration == null ? '—' : d.noRegistration;
 
       // Charts
       const levelDist = d.studentsByLevel || {};

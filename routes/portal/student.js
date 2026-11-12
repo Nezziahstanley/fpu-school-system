@@ -56,7 +56,7 @@ router.get('/dashboard', only, async (req, res, next) => {
   try {
     const studentId = req.user.id;
     const sessionId = await resolveCurrentAcademicSessionId(req);
-    if (!sessionId) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
+    // Keep the personal dashboard available even when no session is active; current-session registrations will simply be empty.
 
     const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });

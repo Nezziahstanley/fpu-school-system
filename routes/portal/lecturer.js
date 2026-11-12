@@ -264,16 +264,20 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 
     if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
 
+    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    const defaultSessionId = currentSession?.id || null;
     const insertData = rows.map(r => ({
       courseId: Number(r.courseId),
       studentId: Number(r.studentId),
       lecturerId: req.user.id,
-      sessionId: Number(r.sessionId) || req.user.currentSessionId || 1,
+      sessionId: Number(r.sessionId) || defaultSessionId,
       semester: r.semester,
       date: r.date,
       status: r.status || 'present',
       remarks: r.remarks || null,
     }));
+
+    if (insertData.some(row => !row.sessionId)) return res.status(409).json({ success: false, error: 'Select an academic session before recording attendance.' });
 
     let savedCount = 0;
     for (const r of insertData) {
@@ -640,12 +644,15 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
+    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
+    if (!currentSession) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
+
     if (req.file) {
       attachmentUrl = req.file.path;
     }
 
     const [row] = await db.insert(assignments).values({
-      courseId: Number(courseId), lecturerId: req.user.id, sessionId: req.user.currentSessionId || 1,
+      courseId: Number(courseId), lecturerId: req.user.id, sessionId: currentSession.id,
       semester: 'first', title, description: description || null, dueDate: dueDate ? new Date(dueDate) : null,
       maxScore: maxScore ? Number(maxScore) : 100, attachmentUrl,
     }).returning();

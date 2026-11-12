@@ -28,8 +28,6 @@
     <button class="btn btn-outline btn-sm" id="reg-doc-export" type="button">Export CSV</button>
   </div>
 
-  <!-- STATS -->
-  <section class="panel" style="margin-bottom:1rem"><div class="panel-head"><div><h3>Transcript Register</h3><p class="muted small">Search students and preview their published academic records here.</p></div><span class="badge" id="reg-doc-transcript-count">Loading…</span></div><div class="panel-body"><input id="reg-doc-transcript-search" type="search" placeholder="Search name, matric number, department or programme" style="width:100%;max-width:520px;padding:.7rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.8rem"><div style="overflow:auto"><table class="data-table"><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="reg-doc-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table></div></div></section>
 <div id="reg-doc-stats" class="stat-grid"></div>
 
   <!-- Document queue follows the Admin dashboard table layout -->
@@ -64,6 +62,10 @@
     </div>
   </section>
 </div>
+
+  <!-- Additional transcript lookup panel; the primary document queue stays in Admin layout order -->
+<!-- STATS -->
+  <section class="panel" style="margin-bottom:1rem"><div class="panel-head"><div><h3>Transcript Register</h3><p class="muted small">Search students and preview their published academic records here.</p></div><span class="badge" id="reg-doc-transcript-count">Loading…</span></div><div class="panel-body"><input id="reg-doc-transcript-search" type="search" placeholder="Search name, matric number, department or programme" style="width:100%;max-width:520px;padding:.7rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.8rem"><div style="overflow:auto"><table class="data-table"><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="reg-doc-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table></div></div></section>
 
 <!-- MODAL (for manual uploads like Certificates) -->
 <div id="reg-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">

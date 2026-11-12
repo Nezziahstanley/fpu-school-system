@@ -92,7 +92,7 @@
     </div>
 
     <!-- Document Body -->
-    <div id="view-doc-body" style="flex-grow:1;overflow-y:auto;padding:2rem;display:flex;justify-content:center;align-items:flex-start;background: #e2e8f0;">
+    <div id="view-doc-body" style="flex-grow:1;overflow-y:auto;padding:2rem;display:flex;justify-content:center;align-items:center;background: #e2e8f0;gap:1.5rem;">
       <!-- Document injects here -->
     </div>
   </div>
@@ -144,6 +144,26 @@
   .pic-back-text { text-align: center; margin-top: 6px; font-family: 'Times New Roman', serif; font-size: 8px; color: #475569; line-height: 1.4; }
   .pic-back-return { text-align: center; margin-top: 5px; font-size: 7px; color: #475569; line-height: 1.5; }
   .pic-back-sign { text-align: center; margin-top: auto; }
+
+  /* Keep document previews centered and the two-sided student ID card readable. */
+  #view-doc-modal > div { max-width:1100px !important; width:min(1100px,96vw) !important; }
+  #view-doc-body { min-width:0; }
+  #view-doc-body .portal-id-container,
+  #view-doc-body .portal-id-container-back {
+    width:100%; display:flex; justify-content:center; align-items:center;
+    padding:20px 12px; box-sizing:border-box; overflow-x:auto;
+  }
+  #view-doc-body .portal-id-card,
+  #view-doc-body .portal-id-card-back { margin:0 auto; flex:0 0 450px; }
+  #view-doc-body .official-doc { margin:0 auto; max-width:100%; }
+  @media (max-width:640px) {
+    #view-doc-modal { padding:.35rem !important; }
+    #view-doc-modal > div { width:100% !important; height:96vh !important; }
+    #view-doc-body { padding:.6rem !important; align-items:flex-start !important; }
+    #view-doc-body .portal-id-container,
+    #view-doc-body .portal-id-container-back { justify-content:flex-start; }
+  }
+
 </style>
 
 <script>

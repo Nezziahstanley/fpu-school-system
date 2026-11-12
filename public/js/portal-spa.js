@@ -94,9 +94,8 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-admitted', 'admin-documents',
-      'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
-      'portal-notifications', 'portal-announcements', 'admin-transcript',
+      'admin-admitted', 'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
     ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',

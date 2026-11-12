@@ -149,10 +149,14 @@
 
       // Stat tiles
       const tiles = [
-        { label: 'Programmes',  value: d.programmes ?? 0,      bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
-        { label: 'Courses',     value: d.courses ?? 0,         bg: '#d1fae5', fg: '#065f46', icon: '📖' },
-        { label: 'Departments', value: d.departments ?? 0,     bg: '#fef3c7', fg: '#92400e', icon: '🏛️' },
-        { label: 'Results',     value: d.resultsPublished ?? 0,bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+        { label: 'Programmes', value: d.programmes ?? 0, bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
+        { label: 'Courses', value: d.courses ?? 0, bg: '#d1fae5', fg: '#065f46', icon: '📖' },
+        { label: 'Departments', value: d.departments ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '🏛️' },
+        { label: 'Schools', value: d.schools ?? 0, bg: '#e0f2fe', fg: '#075985', icon: '🏫' },
+        { label: 'Students', value: d.students ?? 0, bg: '#fce7f3', fg: '#9d174d', icon: '👥' },
+        { label: 'Published Results', value: d.resultsPublished ?? 0, bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+        { label: 'Pending Results', value: d.pendingResults ?? 0, bg: '#ffedd5', fg: '#9a3412', icon: '⏳' },
+        { label: 'Pending Graduations', value: d.queuedGraduations ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '🎓' },
       ];
 
       $('aco-stats').innerHTML = tiles.map(t => `

@@ -140,16 +140,12 @@
                        : r.status === 'rejected' ? 'badge-inactive'
                        : 'badge-warning';
                        
-      let actions = '';
+      let actions = `<a href="#registrar-student-profile?id=${Number(r.studentId)}" class="btn btn-outline btn-xs" style="margin-right:.25rem;">👁 View Student</a>`;
       if (r.status === 'pending') {
-        actions = `
+        actions += `
           <button class="btn btn-primary btn-xs" data-act="approve" data-id="${r.id}" style="margin-right:.25rem;">Approve</button>
           <button class="btn btn-outline btn-xs" data-act="reject" data-id="${r.id}">Reject</button>
         `;
-      } else if (r.status === 'approved') {
-        actions = `<a href="#registrar-student-profile?id=${r.studentId}" class="btn btn-outline btn-xs">👁 View Student</a>`;
-      } else {
-        actions = `<span class="muted small">—</span>`;
       }
 
       return `

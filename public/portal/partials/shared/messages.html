@@ -350,6 +350,10 @@
       var res = await core.portalFetch('/api/portal/messages/' + id);
       var m = (res && res.data) || {};
       var mine = Number(m.senderId) === MY_ID;
+      if (Number(m.recipientId) === MY_ID && m.isRead) {
+        var inboxRow = ALL.find(function (item) { return String(item.id) === String(id); });
+        if (inboxRow) { inboxRow.isRead = true; applyFilter(); }
+      }
       $('ms-thread-list').innerHTML = '<div class="bubble ' + (mine ? 'mine' : 'theirs') + '">'
         + esc(m.body || '')
         + '<span class="bubble-time">' + esc(timeAgo(m.createdAt) || dateFmt(m.createdAt)) + '</span>'

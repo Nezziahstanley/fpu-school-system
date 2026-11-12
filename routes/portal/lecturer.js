@@ -1116,4 +1116,45 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ============================================================
+// COURSE ALLOCATION RESPONSES
+// ============================================================
+router.post('/allocations/:id/accept', only, async (req, res, next) => {
+  try {
+    const allocationId = Number(req.params.id);
+    const [updated] = await db.update(courseAllocations)
+      .set({ status: 'accepted', respondedAt: new Date(), flagReason: null, flagNote: null })
+      .where(and(
+        eq(courseAllocations.id, allocationId),
+        eq(courseAllocations.lecturerId, req.user.id),
+        inArray(courseAllocations.status, ['assigned', 'flagged'])
+      ))
+      .returning({ id: courseAllocations.id, status: courseAllocations.status, respondedAt: courseAllocations.respondedAt });
+    if (!updated) return res.status(409).json({ success: false, error: 'This course allocation is no longer awaiting your response. Refresh your course list.' });
+    await logAudit({ req, action: 'lecturer.allocation_accept', entity: 'course_allocation', entityId: allocationId, after: updated });
+    return res.json({ success: true, data: updated, message: 'Course allocation accepted.' });
+  } catch (err) { return next(err); }
+});
+
+router.post('/allocations/:id/flag', only, async (req, res, next) => {
+  try {
+    const allocationId = Number(req.params.id);
+    const { reason, note } = req.body || {};
+    const allowedReasons = ['study-leave', 'overload', 'specialty', 'medical', 'other'];
+    if (!allowedReasons.includes(String(reason || ''))) return res.status(400).json({ success: false, error: 'Select a valid reason for flagging this allocation.' });
+    if (note != null && String(note).length > 500) return res.status(400).json({ success: false, error: 'The note must not exceed 500 characters.' });
+    const [updated] = await db.update(courseAllocations)
+      .set({ status: 'flagged', flagReason: String(reason), flagNote: String(note || '').trim() || null, respondedAt: new Date() })
+      .where(and(
+        eq(courseAllocations.id, allocationId),
+        eq(courseAllocations.lecturerId, req.user.id),
+        inArray(courseAllocations.status, ['assigned', 'flagged'])
+      ))
+      .returning({ id: courseAllocations.id, status: courseAllocations.status, flagReason: courseAllocations.flagReason, flagNote: courseAllocations.flagNote, respondedAt: courseAllocations.respondedAt });
+    if (!updated) return res.status(409).json({ success: false, error: 'This course allocation can no longer be flagged. Refresh your course list.' });
+    await logAudit({ req, action: 'lecturer.allocation_flag', entity: 'course_allocation', entityId: allocationId, after: updated });
+    return res.json({ success: true, data: updated, message: 'Your HOD has been notified of the flagged allocation.' });
+  } catch (err) { return next(err); }
+});
+
 module.exports = router;

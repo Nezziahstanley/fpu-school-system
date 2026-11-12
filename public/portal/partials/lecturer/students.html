@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/css/lecturer.css?v=20261112-1">
+<div class="lecturer-design-scope">
 <!-- Lecturer Students: students are scoped to the lecturer's allocated courses -->
 <div id="lecturer-students-page" style="padding:0">
  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem"><div><h2 style="margin:0;font-size:1.45rem;font-weight:850;color:#0f172a">My Students</h2><p style="margin:.35rem 0 0;color:#64748b;font-size:.86rem">Only approved students registered in your allocated courses are shown.</p></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><input id="search-input" type="search" placeholder="Search course, department or student…" style="padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;min-width:245px"><button id="refresh-btn" type="button" style="padding:.65rem .9rem;border:1px solid #bbf7d0;background:#fff;color:#065f46;border-radius:9px;font-weight:750;cursor:pointer">↻ Refresh</button></div></div>
@@ -24,3 +26,4 @@ async function load(){ $('students-loading').style.display='block';$('students-e
 $('search-input')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.ls-course-card').forEach(b=>{const c=COURSES.find(x=>Number(x.allocationId)===Number(b.dataset.allocation));b.style.display=!q||[c.courseCode,c.courseTitle,c.departmentName].some(v=>String(v||'').toLowerCase().includes(q))?'block':'none'})});$('course-student-search')?.addEventListener('input',e=>{COURSE_SEARCH=e.target.value;renderStudents()});$('students-detail-close')?.addEventListener('click',closeStudentsModal);$('refresh-btn')?.addEventListener('click',load);load();
 })();
 </script>
+</div>

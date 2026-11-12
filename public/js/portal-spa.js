@@ -431,6 +431,7 @@
     const user = core.getPortalUser && core.getPortalUser();
     if (!user) return;
     const role = user.role;
+    document.body.classList.toggle('lecturer-portal', role === 'lecturer');
 
     const container = document.getElementById('sidebar-nav');
     if (!container) return;

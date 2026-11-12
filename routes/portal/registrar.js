@@ -41,8 +41,8 @@ router.get('/dashboard', only, async (req, res, next) => {
     const allStudents = await db.select({ id: users.id, level: users.level, gender: users.gender, departmentId: users.departmentId }).from(users).where(eq(users.role, 'student'));
     
     const totalStudents = allStudents.length;
-    const ndStudents = allStudents.filter(s => s.level === 'ND').length;
-    const hndStudents = allStudents.filter(s => s.level === 'HND').length;
+    const ndStudents = allStudents.filter(s => /^ND(?:\\b|[0-9])/i.test(String(s.level || '').trim())).length;
+    const hndStudents = allStudents.filter(s => /^HND(?:\\b|[0-9])/i.test(String(s.level || '').trim())).length;
 
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 
@@ -57,18 +57,17 @@ router.get('/dashboard', only, async (req, res, next) => {
 
     const byDept = {};
     allStudents.forEach(s => {
-      if (s.departmentId) {
-        const name = deptMap[s.departmentId] || 'Unknown';
-        byDept[name] = (byDept[name] || 0) + 1;
-      }
+      const name = s.departmentId ? (deptMap[s.departmentId] || 'Unknown Department') : 'Unassigned Department';
+      byDept[name] = (byDept[name] || 0) + 1;
     });
 
-    const byGender = { Male: 0, Female: 0, Other: 0 };
+    const byGender = { Male: 0, Female: 0, Other: 0, Unknown: 0 };
     allStudents.forEach(s => {
       const g = String(s.gender || '').trim().toLowerCase();
       if (g === 'male' || g === 'm') byGender.Male++;
       else if (g === 'female' || g === 'f') byGender.Female++;
-      else byGender.Other++;
+      else if (g === 'other' || g === 'o') byGender.Other++;
+      else byGender.Unknown++;
     });
 
     return res.json({

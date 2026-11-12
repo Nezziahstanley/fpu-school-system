@@ -28,7 +28,13 @@
     <button class="btn btn-outline btn-sm" id="reg-doc-export" type="button">Export CSV</button>
   </div>
 
-<div id="reg-doc-stats" class="stat-grid"></div>
+<!-- Same four-card statistics pattern used by the Admin Documents workspace -->
+<div class="stat-grid">
+  <div class="stat"><div class="meta"><span class="label">Total Requests</span><span class="value" id="reg-doc-total-count">—</span></div><div class="ic">📄</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Pending</span><span class="value" id="reg-doc-pending-count">—</span></div><div class="ic">⏳</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Approved</span><span class="value" id="reg-doc-approved-count">—</span></div><div class="ic">✅</div></div>
+  <div class="stat blue"><div class="meta"><span class="label">Issued</span><span class="value" id="reg-doc-issued-count">—</span></div><div class="ic">📬</div></div>
+</div>
 
   <!-- Document queue follows the Admin dashboard table layout -->
   <section class="panel">
@@ -38,7 +44,6 @@
     </div>
     <div class="panel-body flush">
       <div class="table-wrap">
-      <div style="padding:.55rem 1rem;font-size:.78rem;color:#64748b;">Showing <strong id="reg-doc-shown">0</strong> of <strong id="reg-doc-total">0</strong> requests</div>
       <table class="data-table">
         <thead>
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
@@ -141,17 +146,10 @@
       if (counts[st] !== undefined) counts[st]++; 
     });
 
-    const tiles = [
-      { label: 'Total Requests', value: counts.total, cls: '' , icon: '📄' },
-      { label: 'Pending', value: counts.pending, cls: 'red', icon: '⏳' },
-      { label: 'Approved', value: counts.approved, cls: 'accent', icon: '✅' },
-      { label: 'Issued', value: counts.issued, cls: 'blue', icon: '📬' },
-    ];
-    $('reg-doc-stats').innerHTML = tiles.map(t => `
-      <div class="stat ${t.cls}">
-        <div class="meta"><span class="label">${t.label}</span><span class="value">${t.value}</span></div>
-        <div class="ic">${t.icon}</div>
-      </div>`).join('');
+    $('reg-doc-total-count').textContent = counts.total;
+    $('reg-doc-pending-count').textContent = counts.pending;
+    $('reg-doc-approved-count').textContent = counts.approved;
+    $('reg-doc-issued-count').textContent = counts.issued;
   }
 
   function applyFilters() {
@@ -172,8 +170,6 @@
     });
 
     renderTable(filtered);
-    $('reg-doc-shown').textContent = filtered.length;
-    $('reg-doc-total').textContent = ALL.length;
     if ($('reg-doc-count')) $('reg-doc-count').textContent = filtered.length;
   }
 
@@ -202,18 +198,18 @@
 
       return `
         <tr>
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(d.studentName)}</td>
-          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(d.matricNumber)}</code></td>
-          <td style="padding:.65rem .75rem;"><span style="font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;padding:2px 8px;border-radius:5px;text-transform:uppercase;">${esc(d.type)}</span></td>
-          <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(d.title || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:center;font-size:.75rem;color:#64748b;">${fmtDate(d.requestedAt)}</td>
+          <td>${esc(d.studentName)}</td>
+          <td><code>${esc(d.matricNumber)}</code></td>
+          <td><span class="chip chip-${esc(d.type)}">${esc(d.type)}</span></td>
+          <td>${esc(d.title || '—')}</td>
+          <td>${fmtDate(d.requestedAt)}</td>
           <td style="padding:.65rem .75rem;text-align:center;">
             <span class="rd-badge" style="background:${meta.bg};color:${meta.fg};">
               <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
               ${meta.label}
             </span>
           </td>
-          <td style="padding:.65rem .75rem;text-align:right;">${actions}</td>
+          <td class="row-actions" style="white-space:nowrap;">${actions}</td>
         </tr>`;
     }).join('');
 

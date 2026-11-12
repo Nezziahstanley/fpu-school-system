@@ -28,16 +28,10 @@ const VALID_LEVELS = ['ND', 'HND'];
 // ============================================================
 router.get('/dashboard', only, async (_req, res, next) => {
   try {
-    const byStatus = await paymentQueries.countByStatus({});
-    const [totalVerified] = await db
-      .select({ total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
+    const byStatus = await db
+      .select({ status: payments.status, count: sql`count(*)::int`, total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
       .from(payments)
-      .where(eq(payments.status, 'verified'));
-
-    const [totalPending] = await db
-      .select({ total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
-      .from(payments)
-      .where(eq(payments.status, 'pending'));
+      .groupBy(payments.status);
 
     const pendingClearances = await clearQueries.countByStatus({});
 
@@ -72,7 +66,8 @@ router.get('/dashboard', only, async (_req, res, next) => {
       recentPayments = [];
     }
 
-    const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
+    const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: Number(r.count || 0) }), {});
+    const amountMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: Number(r.total || 0) }), {});
     const clearMap  = pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.count }), {});
 
     return res.json({
@@ -81,10 +76,13 @@ router.get('/dashboard', only, async (_req, res, next) => {
         todayPayments:  Number(todayRow?.count || 0),
         todayAmount:    Number(todayRow?.total || 0),
         pendingCount:   Number(statusMap.pending || 0),
-        totalVerified:  Number(totalVerified?.total || 0),
-        totalPending:   Number(totalPending?.total || 0),
+        totalVerified:  Number(amountMap.verified || 0),
+        totalPending:   Number(amountMap.pending || 0),
+        totalRejected:  Number(amountMap.rejected || 0),
+        totalRefunded:  Number(amountMap.refunded || 0),
         clearancesAwaiting: Number(clearMap.pending || 0),
         byStatus: statusMap,
+        amountByStatus: amountMap,
         pendingClearances: clearMap,
         recentPayments,
       },

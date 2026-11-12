@@ -5,6 +5,7 @@
     <p class="muted small">Tuition and other fees per programme, level and session</p>
   </div>
   <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-fees-export">⬇ Export CSV</button>
     <button class="btn btn-primary btn-sm" id="bur-fees-new">+ New Fee Structure</button>
     <button class="btn btn-outline btn-sm" id="bur-fees-refresh">↻ Refresh</button>
   </div>
@@ -30,8 +31,10 @@
     <select class="form-select" id="bur-fees-f-session">
       <option value="">All sessions</option>
     </select>
+    <div class="form-group"><label class="form-label">Availability</label><select class="form-select" id="bur-fees-f-active"><option value="">All structures</option><option value="true">Active</option><option value="false">Inactive</option></select></div>
   </div>
 </div>
+<div class="bur-fees-stats" id="bur-fees-stats"></div>
 
 <div class="panel">
   <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
@@ -173,7 +176,7 @@
 
   var LOOKUPS = { programmes: [], sessions: [], levels: ['ND', 'HND'] };
   var EDITING_ID = null;
-  var DELETING_ID = null;
+  var DELETING_ID = null;\n  var FEE_ROWS = [];
 
   function programmeLabel(p) {
     if (!p) return '—';
@@ -227,19 +230,19 @@
     var countEl = $('bur-fees-count');
     var pid = $('bur-fees-f-programme').value;
     var lvl = $('bur-fees-f-level').value;
-    var sid = $('bur-fees-f-session').value;
+    var sid = $('bur-fees-f-session').value;\n    var active = $('bur-fees-f-active').value;
 
     var qs = new URLSearchParams();
     if (pid) qs.set('programmeId', pid);
     if (lvl) qs.set('level', lvl);
-    if (sid) qs.set('sessionId', sid);
+    if (sid) qs.set('sessionId', sid);\n    if (active !== '') qs.set('isActive', active);
 
     tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
     countEl.textContent = '';
 
     try {
       var res = await core.portalFetch('/api/bursar/fees?' + qs.toString());
-      var rows = Array.isArray(res.data) ? res.data : [];
+      var rows = Array.isArray(res.data) ? res.data : [];\n      FEE_ROWS = rows;\n      var activeRows = rows.filter(r => (r.feeStructure || r).isActive !== false);\n      var inactiveRows = rows.length - activeRows.length;\n      var totalValue = rows.reduce((n,r)=>n+Number((r.feeStructure || r).total || 0),0);\n      $('bur-fees-stats').innerHTML = [['Structures',rows.length],['Active',activeRows.length],['Inactive',inactiveRows],['Combined listed value',money(totalValue)]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></article>').join('');
 
       countEl.textContent = rows.length
         ? rows.length + ' structure' + (rows.length === 1 ? '' : 's')
@@ -437,7 +440,7 @@
 
   // ---------- wire chrome ----------
   $('bur-fees-new').addEventListener('click', function () { openForm(null); });
-  $('bur-fees-refresh').addEventListener('click', loadFees);
+  $('bur-fees-refresh').addEventListener('click', loadFees);\n  $('bur-fees-f-active').addEventListener('change', loadFees);\n  $('bur-fees-export').addEventListener('click', function(){var val=v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"';var lines=[['Programme','Level','Session','Tuition','Acceptance','Medical','Library','ICT','Sports','Other','Total','Status'].map(val).join(','),...FEE_ROWS.map(r=>{var f=r.feeStructure||r,p=r.programme||{},ss=r.session||{};return [programmeLabel(p),f.level,ss.name,f.tuition,f.acceptance,f.medical,f.library,f.ict,f.sports,f.other,f.total,f.isActive===false?'Inactive':'Active'].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-fee-structures.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-fees-f-programme').addEventListener('change', loadFees);
   $('bur-fees-f-level').addEventListener('change', loadFees);
   $('bur-fees-f-session').addEventListener('change', loadFees);

@@ -433,7 +433,8 @@
     </div>`;
 
     try {
-      const res = await core.portalFetch(`/api/admin/transcript/${studentId}`);
+      const [res, signerResponse] = await Promise.all([core.portalFetch(`/api/admin/transcript/${studentId}`), core.portalFetch('/api/portal/signatories/registrar')]);
+      const registrar = signerResponse.data || {};
       const s = res.student || {};
       const rows = res.rows || [];
       const summary = res.summary || {};
@@ -535,8 +536,9 @@
             <div class="tr-signature">
               <div>Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
               <div class="tr-sign-block">
-                <div style="font-weight:800;">REGISTRAR</div>
-                <div style="font-size:.7rem;color:#64748b;">Signature / Stamp</div>
+                ${registrar.signatureUrl ? '<img src="' + esc(registrar.signatureUrl) + '" alt="Registrar saved electronic signature" style="display:block;max-width:170px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />' : ''}
+                <div style="font-weight:800;">${esc(registrar.fullName || 'REGISTRAR')}</div>
+                <div style="font-size:.7rem;color:#64748b;">Registrar · Signature / Stamp</div>
               </div>
             </div>
 
@@ -548,16 +550,28 @@
 
         <!-- On-screen only buttons (hidden when printing) -->
         <div class="tr-print-hide" style="margin-top:1.5rem;display:flex;justify-content:flex-end;gap:.5rem;">
-          <button onclick="window.print()" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print / Save as PDF</button>
+          <button id="tr-print-transcript" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">🖨 Print / Save as PDF</button>
           <button onclick="document.getElementById('tr-modal').style.display='none'" style="padding:.6rem 1rem;font-size:.85rem;font-weight:700;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Close</button>
         </div>
       `;
+      $('tr-print-transcript')?.addEventListener('click', printTranscriptOnly);
 
     } catch (err) {
       body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
     }
   }
 
+  function printTranscriptOnly() {
+    const article = $('tr-modal-body')?.querySelector('.tr-printable');
+    if (!article) return;
+    const frame = document.createElement('iframe'); frame.setAttribute('aria-hidden','true');
+    frame.style.cssText='position:fixed;width:0;height:0;right:0;bottom:0;border:0;visibility:hidden'; document.body.appendChild(frame);
+    const doc=frame.contentDocument;
+    const css='@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111827;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tr-printable{position:relative;width:186mm;max-width:186mm;margin:0 auto;padding:0;background:#fff;color:#111827;font-size:10pt}.tr-watermark{position:absolute;top:65mm;left:0;right:0;margin:auto;width:75mm;height:75mm;object-fit:contain;opacity:.07}.tr-content{position:relative;z-index:1}.tr-letterhead{text-align:center;border-bottom:3px double #065f46;padding-bottom:5mm}.tr-letterhead img{width:18mm;height:18mm;object-fit:contain}.tr-letterhead h1{margin:2mm 0 1mm;color:#065f46;font-size:16pt;text-transform:uppercase}.tr-letterhead p{margin:1mm;color:#64748b;font-size:8pt}.tr-title{text-align:center;margin:5mm 0;font-size:12pt;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-decoration:underline}.tr-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3mm 5mm;margin:4mm 0 5mm}.tr-info-grid>div{border-bottom:1px solid #ddd;padding:2mm 1mm}.tr-info-grid span{display:block;color:#64748b;font-size:7pt;font-weight:800;text-transform:uppercase}.tr-info-grid strong{font-size:8pt}.tr-results-table{width:100%;border-collapse:collapse;font-size:7.5pt}.tr-results-table thead{display:table-header-group}.tr-results-table tr{break-inside:avoid;page-break-inside:avoid}.tr-results-table th{background:#065f46!important;color:#fff!important;padding:2mm 1.5mm;text-align:left}.tr-results-table td{padding:1.7mm 1.5mm;border:1px solid #ddd}.tr-results-table .center{text-align:center}.tr-summary{display:flex;justify-content:space-between;margin-top:4mm;padding-top:3mm;border-top:2px solid #065f46}.tr-cgpa-big{font-size:16pt;font-weight:900;color:#065f46}.tr-signature{display:flex;justify-content:space-between;align-items:flex-end;gap:10mm;margin-top:10mm;font-size:8pt}.tr-sign-block{min-width:48mm;text-align:center}.tr-sign-block img{display:block;max-width:42mm;max-height:15mm;object-fit:contain;margin:0 auto 1mm}.tr-sign-block>div:first-of-type{border-top:1px solid #111;padding-top:1.5mm}.tr-footer{margin-top:5mm;padding-top:2mm;border-top:1px solid #ddd;text-align:center;font-size:7pt;color:#64748b}';
+    doc.open();doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Student Transcript</title><style>'+css+'</style></head><body>'+article.outerHTML+'</body></html>');doc.close();
+    const win=frame.contentWindow,cleanup=()=>{if(frame.isConnected)frame.remove()};win.addEventListener('afterprint',cleanup,{once:true});
+    Promise.all(Array.from(doc.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}))).then(()=>{win.focus();win.print();setTimeout(cleanup,60000)});
+  }
   // Wiring
   let searchTimer;
   $('tr-search')?.addEventListener('input', () => {

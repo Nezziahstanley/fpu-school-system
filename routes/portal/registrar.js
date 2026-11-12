@@ -646,6 +646,8 @@ router.get('/graduations', only, async (req, res, next) => {
         address: users.address,
         photoUrl: users.photoUrl,
         isActive: users.isActive,
+        schoolId: users.schoolId,
+        currentSessionId: users.currentSessionId,
         createdAt: users.createdAt,
         level: users.level,
         programmeName: programmes.name,
@@ -747,11 +749,17 @@ router.get('/clearances', only, async (req, res, next) => {
              student.state_of_origin AS "stateOfOrigin", student.nationality, student.address,
              student.photo_url AS "photoUrl", student.is_active AS "isActive",
              student.matric_number AS "matricNumber", student.level,
+             student.school_id AS "schoolId", student.programme_id AS "programmeId",
+             student.department_id AS "departmentId", student.current_session_id AS "currentSessionId",
+             student.created_at AS "studentCreatedAt",
+             programme.name AS "programmeName", department.name AS "departmentName",
              signer.first_name AS "signerFirstName", signer.last_name AS "signerLastName",
              signer.role AS "signerRole", signer.signature_url AS "signerSignatureUrl"
       FROM clearances c
       LEFT JOIN users student ON student.id = c.student_id
       LEFT JOIN users signer ON signer.id = c.cleared_by
+      LEFT JOIN programmes programme ON programme.id = student.programme_id
+      LEFT JOIN departments department ON department.id = student.department_id
       LEFT JOIN academic_sessions s ON s.id = c.session_id
       ORDER BY CASE WHEN c.status = 'pending' THEN 1 ELSE 2 END, c.created_at DESC
     `);

@@ -179,7 +179,7 @@ router.get('/messages', requireUser, async (req, res, next) => {
 
 router.get('/messages/:id', requireUser, async (req, res, next) => {
   try {
-    const [row] = await db
+    let [row] = await db
       .select()
       .from(messages)
       .where(eq(messages.id, Number(req.params.id)))

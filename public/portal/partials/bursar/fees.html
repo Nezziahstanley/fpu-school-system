@@ -449,7 +449,6 @@
   // ---------- wire chrome ----------
   $('bur-fees-new').addEventListener('click', function () { openForm(null); });
   $('bur-fees-refresh').addEventListener('click', loadFees);
-  $('bur-fees-f-active').addEventListener('change', loadFees);
   $('bur-fees-export').addEventListener('click', function(){var val=v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"';var lines=[['Programme','Level','Session','Tuition','Acceptance','Medical','Library','ICT','Sports','Other','Total','Status'].map(val).join(','),...FEE_ROWS.map(r=>{var f=r.feeStructure||r,p=r.programme||{},ss=r.session||{};return [programmeLabel(p),f.level,ss.name,f.tuition,f.acceptance,f.medical,f.library,f.ict,f.sports,f.other,f.total,f.isActive===false?'Inactive':'Active'].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-fee-structures.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-fees-f-programme').addEventListener('change', loadFees);
   $('bur-fees-f-level').addEventListener('change', loadFees);

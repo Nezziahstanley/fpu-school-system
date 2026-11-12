@@ -336,9 +336,10 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
                 <div>Date: ${today}</div>
               </div>
               <div style="text-align: center;">
-                <div style="border-top: 1px solid #0f172a; padding-top: .4rem; min-width: 180px;">
-                  <div style="font-weight: 800; font-size: .85rem;">REGISTRAR</div>
-                  <div style="font-size: .7rem; color: #64748b;">Signature / Stamp</div>
+                <div style="min-width:180px;">
+                  \${registrarSignerHtml}
+                  <div style="border-top:1px solid #0f172a;padding-top:.4rem;font-weight:800;font-size:.85rem;">REGISTRAR</div>
+                  <div style="font-size:.7rem;color:#64748b;">Signature / Stamp</div>
                 </div>
               </div>
             </div>

@@ -477,9 +477,9 @@
       $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
         ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}" data-course-id="${Number(c.id)}" data-session-id="${Number(c.sessionId)}" data-semester="${esc(c.allocationSemester || c.semesterName || 'first')}">${esc(c.code)} — ${esc(c.title)} · ${esc(c.sessionName || 'Session unavailable')} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
       
-      const course = ALL_COURSES.find(c => c.code === courseCode);
+      const course = ALL_COURSES.find(c => Number(c.id) === Number(result.courseId) && Number(c.sessionId) === Number(result.sessionId) && String(c.allocationSemester || c.semesterName).toLowerCase() === String(result.semester).toLowerCase()) || ALL_COURSES.find(c => c.code === courseCode);
       if (course) {
-        $('bulk-course-select').value = course.id;
+        $('bulk-course-select').value = course.allocationId;
         $('bulk-course-select').dispatchEvent(new Event('change'));
       }
     });
@@ -507,7 +507,7 @@
       const res = await core.portalFetch('/api/lecturer/courses');
       ALL_COURSES = res.data || [];
       $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
-        ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+        ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}" data-course-id="${Number(c.id)}" data-session-id="${Number(c.sessionId)}" data-semester="${esc(c.allocationSemester || c.semesterName || 'first')}">${esc(c.code)} — ${esc(c.title)} · ${esc(c.sessionName || 'Session unavailable')} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
     } catch (err) { core.showToast(err.message, 'error'); }
   });
 

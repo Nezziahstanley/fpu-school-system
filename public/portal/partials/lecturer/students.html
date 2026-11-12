@@ -130,6 +130,15 @@
     if (otherTab) {
       otherTab.hidden = otherDept.length === 0;
       if (!otherDept.length) {
+        $('other-dept-view').style.display = 'none'; $('my-dept-view').style.display = 'block';
+        otherTab.style.background = '#fff'; otherTab.style.color = '#475569';
+        $('tab-my-dept').style.background = '#065f46'; $('tab-my-dept').style.color = '#fff';
+      }
+    }
+    const otherTab = $('tab-other-dept');
+    if (otherTab) {
+      otherTab.hidden = otherDept.length === 0;
+      if (!otherDept.length) {
         $('other-dept-view').style.display = 'none';
         $('my-dept-view').style.display = 'block';
         otherTab.style.background = '#fff'; otherTab.style.color = '#475569';

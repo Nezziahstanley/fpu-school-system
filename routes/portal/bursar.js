@@ -124,7 +124,7 @@ router.get('/lookups', only, async (_req, res, next) => {
 router.get('/payments', only, async (req, res, next) => {
   try {
     const { sessionId, status, search } = req.query;
-    const rows = await paymentQueries.listWithStudent({ sessionId, status, search });
+    const conds = [];\n    if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));\n    if (status) conds.push(eq(payments.status, status));\n    if (search) { const term = `%${String(search).trim()}%`; conds.push(or(ilike(payments.reference, term), ilike(payments.bankName, term), ilike(payments.depositorName, term), ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term))); }\n    const rows = await db.select({ payment: payments, student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } }).from(payments).leftJoin(users, eq(payments.studentId, users.id)).where(conds.length ? and(...conds) : undefined).orderBy(desc(payments.createdAt)).limit(200);
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -311,7 +311,7 @@ router.get('/documents', only, async (req, res, next) => {
     const where = conds.length ? and(...conds) : undefined;
 
     const rows = await db
-      .select({ document: documents, user: users })
+      .select({ document: documents, user: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } })
       .from(documents)
       .leftJoin(users, eq(documents.userId, users.id))
       .where(where)
@@ -419,7 +419,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     const student = await userQueries.findByIdWithRelations(studentId);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const results = await resultQueries.publishedForStudent(studentId, {});
+    const results = await resultQueries.publishedForStudent(studentId, {});\n    const safeStudent = { id: student.id, firstName: student.firstName, lastName: student.lastName, matricNumber: student.matricNumber, level: student.level, programmeName: student.programmeName || student.programme?.name || null, departmentName: student.departmentName || student.department?.name || null };
     
     let totalPoints = 0, totalUnits = 0;
     results.forEach(r => {

@@ -121,6 +121,38 @@
   }
   .aco-row:last-child { border-bottom:none; }
   .aco-row:hover { background:#f8fafc; }
+
+  /* Academic Officer dashboard visual system */
+  .aco-quick-link{border-color:#e2e8f0!important;border-radius:15px!important;padding:1rem!important;box-shadow:0 5px 18px rgba(15,23,42,.045)!important;min-height:76px;position:relative}
+  .aco-quick-link:after{content:"";position:absolute;inset:auto 1rem 0;height:3px;border-radius:9px;background:linear-gradient(90deg,#047857,#fbbf24);transform:scaleX(0);transform-origin:left;transition:transform .2s}
+  .aco-quick-link:hover:after,.aco-quick-link:focus-visible:after{transform:scaleX(1)}
+  .aco-quick-link:hover{box-shadow:0 12px 26px rgba(6,95,70,.10)!important;transform:translateY(-3px)!important}
+  #aco-stats>div{border-radius:15px!important;padding:1.1rem!important;box-shadow:0 5px 18px rgba(15,23,42,.045)!important;transition:transform .18s,box-shadow .18s;border-color:#e8edf2!important}
+  #aco-stats>div:hover{transform:translateY(-3px);box-shadow:0 12px 26px rgba(15,23,42,.09)!important}
+  #aco-stats>div>div:first-child{border-radius:14px!important;width:48px!important;height:48px!important}
+  #aco-stats>div>div:last-child>div:first-child{font-size:1.7rem!important;letter-spacing:-.04em}
+  #aco-stats>div>div:last-child>div:last-child{font-size:.66rem!important;letter-spacing:.075em!important}
+  #aco-by-level,#aco-by-semester{padding:1.15rem!important}
+  #aco-by-level>div:last-child{border-radius:10px!important;padding:.75rem!important}
+  #aco-top-depts,#aco-recent-results{padding:.35rem 0!important}
+  #aco-top-depts .aco-row,#aco-recent-results .aco-row{padding:.85rem 1.1rem!important}
+  #aco-top-depts .aco-row:hover,#aco-recent-results .aco-row:hover{background:#f7fbf9!important}
+  #aco-top-depts .aco-row>div:first-child,#aco-recent-results .aco-row>div:first-child{box-shadow:0 3px 9px rgba(6,95,70,.12)}
+  #aco-stats+section{margin-top:.2rem}
+  #aco-stats~div[style*="grid-template-columns"]>div,
+  #aco-stats~div[style*="border:1px solid #e5e7eb"]{border-color:#e5eaf0!important;border-radius:16px!important;box-shadow:0 5px 20px rgba(15,23,42,.045)}
+  #aco-stats~div[style*="grid-template-columns"]>div>div:first-child,
+  #aco-stats~div[style*="border:1px solid #e5e7eb"]>div:first-child{background:linear-gradient(180deg,#fff,#fbfdfc)}
+  #aco-stats~div[style*="grid-template-columns"]>div>div:first-child,
+  #aco-stats~div[style*="border:1px solid #e5e7eb"]>div:first-child{padding:1rem 1.1rem!important}
+  #aco-profile-avatar{box-shadow:0 0 0 5px rgba(255,255,255,.10),0 8px 20px rgba(0,0,0,.16);flex-shrink:0}
+  @media(max-width:640px){
+    .greeting h1{font-size:1.25rem!important}
+    #aco-profile-avatar{width:56px!important;height:56px!important;flex-basis:56px!important}
+    #aco-session{font-size:.85rem!important}
+    #aco-stats>div{padding:.85rem!important}
+  }
+
 </style>
 
 <script>

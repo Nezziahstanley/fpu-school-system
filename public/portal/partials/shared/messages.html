@@ -235,7 +235,7 @@
           body: msg.body,
           senderId: msg.senderId,
           recipientId: msg.recipientId,
-          isRead: msg.isRead,
+          isRead: CURRENT_BOX === 'sent' ? true : msg.isRead,
           createdAt: msg.createdAt,
         };
       });
@@ -417,7 +417,7 @@
   // ---------- wire up ----------
   $('ms-search').addEventListener('input', applyFilter);
   $('ms-status').addEventListener('change', applyFilter);
-  $('ms-refresh').addEventListener('click', load);
+  $('ms-refresh').addEventListener('click', function () { load(); });
   document.querySelectorAll('.ms-box-tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
       CURRENT_BOX = tab.dataset.box === 'sent' ? 'sent' : 'inbox';

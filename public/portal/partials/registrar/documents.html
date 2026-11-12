@@ -212,7 +212,15 @@
     }).join('');
 
     tbody.querySelectorAll('[data-action="preview-document"]').forEach(btn => {
-      btn.addEventListener('click', () => window.open(`/portal/partials/registrar/document-preview.html?documentId=${Number(btn.dataset.id)}`, '_blank', 'noopener'));
+      btn.addEventListener('click', () => {
+        const doc = ALL.find(item => Number(item.id) === Number(btn.dataset.id));
+        if (!doc) return;
+        const isTranscript = (String(doc.type || '') + ' ' + String(doc.title || '')).toLowerCase().includes('transcript');
+        const url = isTranscript
+          ? '/portal/partials/registrar/document-template.html?studentId=' + Number(doc.userId)
+          : '/portal/partials/registrar/document-preview.html?documentId=' + Number(doc.id);
+        window.open(url, '_blank', 'noopener');
+      });
     });
 
     tbody.querySelectorAll('[data-action="issue"]').forEach(btn => {

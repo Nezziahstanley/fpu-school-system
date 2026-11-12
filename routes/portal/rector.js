@@ -288,13 +288,14 @@ router.get('/enrollment-by-department', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
+        departmentId: departments.id,
         code: departments.code,
         name: departments.name,
         students: sql`count(${users.id})::int`,
       })
       .from(departments)
       .leftJoin(users, and(eq(users.departmentId, departments.id), eq(users.role, 'student')))
-      .groupBy(departments.code, departments.name)
+      .groupBy(departments.id, departments.code, departments.name)
       .orderBy(desc(sql`count(${users.id})`));
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
@@ -459,42 +460,67 @@ router.get('/security', only, async (req, res, next) => {
 // ============================================================
 router.get('/transcripts', only, async (req, res, next) => {
   try {
-    const userQueries = require('../../db/queries/users');
-    const resultQueries = require('../../db/queries/results');
     const { computeStudentCGPA } = require('../../utils/gpa');
-    const { users, programmes, departments } = schema;
 
+    // Fetch every student and all of their published result components in one
+    // joined query. The previous implementation ran one additional query per
+    // student, making the register slow as enrolment grew.
     const rows = await db
       .select({
         id: users.id,
         matricNumber: users.matricNumber,
         firstName: users.firstName,
+        middleName: users.middleName,
         lastName: users.lastName,
         level: users.level,
         programmeName: programmes.name,
-        departmentId: departments.id,
+        departmentId: users.departmentId,
         departmentName: departments.name,
+        unit: courses.unit,
+        points: results.points,
+        sessionId: results.sessionId,
+        semester: results.semester,
       })
       .from(users)
       .leftJoin(programmes, eq(users.programmeId, programmes.id))
       .leftJoin(departments, eq(users.departmentId, departments.id))
+      .leftJoin(results, and(eq(results.studentId, users.id), eq(results.status, 'published')))
+      .leftJoin(courses, eq(results.courseId, courses.id))
       .where(eq(users.role, 'student'))
-      .orderBy(departments.name, users.lastName);
+      .orderBy(departments.name, users.lastName, users.firstName);
 
-    // Calculate CGPA for each student
-    const data = [];
-    for (const s of rows) {
-      const results = await resultQueries.publishedForStudent(s.id, {});
-      const summary = computeStudentCGPA(
-        results.map((r) => ({
-          unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
-          sessionId: r.result?.sessionId,
-          semester: r.result?.semester,
-        }))
-      );
-      data.push({ ...s, cgpa: summary.cgpa || 0 });
+    const students = new Map();
+    for (const row of rows) {
+      if (!students.has(row.id)) {
+        students.set(row.id, {
+          id: row.id,
+          matricNumber: row.matricNumber,
+          firstName: row.firstName,
+          middleName: row.middleName,
+          lastName: row.lastName,
+          level: row.level,
+          programmeName: row.programmeName,
+          departmentId: row.departmentId,
+          departmentName: row.departmentName,
+          gradeRows: [],
+        });
+      }
+
+      if (row.sessionId !== null && row.sessionId !== undefined) {
+        students.get(row.id).gradeRows.push({
+          unit: Number(row.unit) || 0,
+          points: Number(row.points) || 0,
+          sessionId: row.sessionId,
+          semester: row.semester,
+        });
+      }
     }
+
+    const data = Array.from(students.values()).map((student) => {
+      const summary = computeStudentCGPA(student.gradeRows);
+      const { gradeRows, ...profile } = student;
+      return { ...profile, cgpa: summary.cgpa ?? 0 };
+    });
 
     return res.json({ success: true, data });
   } catch (err) { return next(err); }

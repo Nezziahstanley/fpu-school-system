@@ -16,20 +16,24 @@
     <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
 
     <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;color:#fff;">
-          🎓 Office of the Rector
+      <div style="display:flex;align-items:center;gap:1rem;min-width:0;position:relative;z-index:1;">
+        <div id="rector-profile-circle" aria-label="Rector profile photo" style="width:58px;height:58px;border-radius:50%;border:3px solid rgba(255,255,255,.9);background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.05rem;font-weight:850;overflow:hidden;box-shadow:0 5px 16px rgba(0,0,0,.18);flex:0 0 58px;">R</div>
+        <div style="min-width:0;">
+          <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;color:#fff;">
+            🎓 Office of the Rector
+          </div>
+          <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;color:#fff;">
+            Welcome, <span id="rector-name" style="color:#fff;">Rector</span>
+          </h1>
+          <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;color:#fff;">
+            Institution-wide oversight and executive reporting
+          </p>
         </div>
-        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;color:#fff;">
-          Welcome, <span id="rector-name" style="color:#fff;">Rector</span>
-        </h1>
-        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;color:#fff;">
-          Institution-wide oversight and executive reporting
-        </p>
       </div>
-      <div style="text-align:right;flex-shrink:0;">
+      <div style="text-align:right;flex-shrink:0;position:relative;z-index:1;">
         <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;color:#fff;">Session</div>
         <div style="font-size:1rem;font-weight:800;margin-top:.15rem;color:#fff;" id="rector-session">—</div>
+        <button id="rector-refresh" type="button" style="margin-top:.65rem;border:1px solid rgba(255,255,255,.65);background:rgba(255,255,255,.14);color:#fff;border-radius:9px;padding:.5rem .75rem;font-size:.75rem;font-weight:800;cursor:pointer;">↻ Refresh dashboard</button>
       </div>
     </div>
   </div>
@@ -215,6 +219,35 @@
   const timeAgo = (d) => core.timeAgo ? core.timeAgo(d) : '';
 
   // ============================================================
+  // PROFILE
+  // ============================================================
+  function renderRectorAvatar(profile) {
+    const avatar = $('rector-profile-circle');
+    if (!avatar) return;
+    const first = profile.firstName || profile.first_name || '';
+    const last = profile.lastName || profile.last_name || '';
+    const name = [first, last].filter(Boolean).join(' ').trim();
+    const initials = (first.charAt(0) + last.charAt(0)).toUpperCase() || 'R';
+    const photo = String(profile.photoUrl || profile.photo_url || profile.avatarUrl || '').trim();
+    avatar.textContent = initials;
+    if (photo && (/^https:\/\//i.test(photo) || /^\//.test(photo))) {
+      avatar.innerHTML = '<img src="' + esc(photo) + '" alt="Rector profile" style="width:100%;height:100%;object-fit:cover;">';
+    }
+    if (name && $('rector-name')) $('rector-name').textContent = name;
+  }
+
+  async function loadRectorProfile(user) {
+    renderRectorAvatar(user || {});
+    try {
+      const response = await core.portalFetch('/api/rector/profile');
+      const profile = response.data || response || {};
+      renderRectorAvatar(profile);
+    } catch (err) {
+      // Keep the signed-in user's initials visible if profile details are unavailable.
+    }
+  }
+
+  // ============================================================
   // MAIN LOADER
   // ============================================================
   async function load() {
@@ -223,6 +256,14 @@
       $('rector-name').textContent = user.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : 'Rector';
+    }
+    loadRectorProfile(user);
+
+    const refreshButton = $('rector-refresh');
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.textContent = 'Refreshing…';
+      refreshButton.style.opacity = '.7';
     }
 
     try {
@@ -268,8 +309,8 @@
       renderLevels(d.enrollmentByLevel || []);
       renderPending(d);
 
-      // Load extra panels in parallel
-      Promise.all([
+      // Load extra panels in parallel and finish the refresh only when all panels settle.
+      await Promise.all([
         loadActivity(),
         loadGradPipeline(),
         loadStaffComposition(),
@@ -277,6 +318,12 @@
     } catch (err) {
       console.error('[rector/dashboard]', err);
       core.showToast && core.showToast('Failed to load: ' + err.message, 'error');
+    } finally {
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.textContent = '↻ Refresh dashboard';
+        refreshButton.style.opacity = '1';
+      }
     }
   }
 
@@ -562,10 +609,16 @@
     `).join('');
   }
 
+  $('rector-refresh')?.addEventListener('click', load);
   load();
 })();
 </script>
 <style>
 @media(max-width:900px){#rector-stats,#rector-stats-2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:640px){#rector-stats,#rector-stats-2{grid-template-columns:1fr 1fr!important}#rector-stats>div,#rector-stats-2>div{padding:.75rem!important}#rector-stats>div>div:first-child,#rector-stats-2>div>div:first-child{width:36px!important;height:36px!important;font-size:1rem!important}}
+</style>
+
+<style>
+#rector-profile-circle img{display:block;width:100%;height:100%;object-fit:cover}
+@media(max-width:600px){#rector-profile-circle{width:48px!important;height:48px!important;flex-basis:48px!important}.rector-hero-actions{width:100%}}
 </style>

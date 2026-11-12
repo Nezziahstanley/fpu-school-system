@@ -5,7 +5,7 @@
     <p class="muted small">Mark students as cleared, or reject with remarks</p>
   </div>
   <div class="actions">
-    <button class="btn btn-outline btn-sm" id="bur-clr-refresh">↻ Refresh</button>
+    <button class="btn btn-outline btn-sm" id="bur-clr-export">⬇ Export CSV</button>\n    <button class="btn btn-outline btn-sm" id="bur-clr-refresh">↻ Refresh</button>
   </div>
 </section>
 
@@ -114,7 +114,7 @@
 
   var MODE = null;      // 'clear' | 'reject'
   var TARGET_ID = null;
-  var SESSIONS = [];
+  var SESSIONS = [];\n  var CLEARANCE_ROWS = [];
 
   // ---------- helpers ----------
   function studentLabel(r) {
@@ -161,19 +161,19 @@
     var countEl = $('bur-clr-count');
     var status = $('bur-clr-status').value;
     var sessionId = $('bur-clr-session').value;
-    var search = $('bur-clr-search').value.trim();
+    var search = $('bur-clr-search').value.trim();\n    var type = $('bur-clr-type').value;
 
     var qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (sessionId) qs.set('sessionId', sessionId);
-    if (search) qs.set('search', search);
+    if (search) qs.set('search', search);\n    if (type) qs.set('type', type);
 
     tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
     countEl.textContent = '';
 
     try {
       var res = await core.portalFetch('/api/bursar/clearances?' + qs.toString());
-      var rows = Array.isArray(res.data) ? res.data : [];
+      var rows = Array.isArray(res.data) ? res.data : [];\n      CLEARANCE_ROWS = rows;\n      var statuses = ['pending','cleared','rejected'];\n      $('bur-clr-stats').innerHTML = [['Total records',rows.length],...statuses.map(st=>[st.charAt(0).toUpperCase()+st.slice(1),rows.filter(x=>(x.clearance||{}).status===st).length])].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+Number(x[1]).toLocaleString()+'</strong></article>').join('');\n      var types = [...new Set(rows.map(x=>(x.clearance||{}).type).filter(Boolean))].sort();\n      var typeSelect=$('bur-clr-type'),oldType=typeSelect.value;typeSelect.innerHTML='<option value="">All types</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');typeSelect.value=oldType;
 
       countEl.textContent = rows.length
         ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
@@ -330,7 +330,7 @@
   }
 
   // ---------- wire chrome ----------
-  $('bur-clr-refresh').addEventListener('click', load);
+  $('bur-clr-refresh').addEventListener('click', load);\n  $('bur-clr-type').addEventListener('change', load);\n  $('bur-clr-export').addEventListener('click', function(){var val=v=>'\"'+String(v??'').replace(/\"/g,'\"\"')+'\"';var lines=[['Student','Matric Number','Type','Session','Status','Requested','Remarks'].map(val).join(','),...CLEARANCE_ROWS.map(r=>{var c=r.clearance||{},u=r.student||{},ss=r.session||{};return [[u.firstName,u.lastName].filter(Boolean).join(' '),u.matricNumber,c.type,ss.name,c.status,c.createdAt,c.remarks].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-clearances.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-clr-status').addEventListener('change', load);
   $('bur-clr-session').addEventListener('change', load);
 

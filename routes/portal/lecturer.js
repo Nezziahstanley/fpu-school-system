@@ -1047,7 +1047,8 @@ router.get('/exams', only, async (req, res, next) => {
     const rows = await db
       .select({
         id: examSchedules.id, examDate: examSchedules.examDate, startTime: examSchedules.startTime,
-        endTime: examSchedules.endTime, venue: examSchedules.venue,
+        endTime: examSchedules.endTime, venue: examSchedules.venue, invigilators: examSchedules.invigilators,
+        semester: examSchedules.semester, sessionName: academicSessions.name,
         courseCode: courses.code, courseTitle: courses.title, departmentName: departments.name,
       })
       .from(examSchedules)
@@ -1058,6 +1059,7 @@ router.get('/exams', only, async (req, res, next) => {
         eq(examSchedules.semester, courseAllocations.semester)
       ))
       .leftJoin(departments, eq(courses.departmentId, departments.id))
+      .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(examSchedules.status, 'approved')))
       .orderBy(examSchedules.examDate);
 

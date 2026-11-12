@@ -256,10 +256,6 @@
 
   $('reg-refresh')?.addEventListener('click', loadAll);
   
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
-  } else {
-    setTimeout(loadAll, 100);
-  }
+  loadAll();
 })();
 </script>

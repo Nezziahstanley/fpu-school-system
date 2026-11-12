@@ -165,13 +165,22 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
     const escapeHtml = (value) => String(value == null ? '' : value)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    const signerRows = doc.issuedBy
-      ? await db.select().from(users).where(eq(users.id, doc.issuedBy)).limit(1)
-      : [];
-    const signer = signerRows[0] || null;
-    const signerHtml = signer && signer.signatureUrl
-      ? `<img src="${escapeHtml(signer.signatureUrl)}" alt="Authorised electronic signature" style="display:block;max-width:170px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />`
+    const findActiveSigner = async (role) => {
+      const matches = await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, role: users.role, signatureUrl: users.signatureUrl })
+        .from(users).where(and(eq(users.role, role), eq(users.isActive, true))).limit(2);
+      return matches.length === 1 ? matches[0] : null;
+    };
+    const registrarSigner = await findActiveSigner('registrar');
+    const bursarSigner = doc.type === 'clearance' ? await findActiveSigner('bursar') : null;
+    const rectorSigner = doc.type === 'certificate' ? await findActiveSigner('rector') : null;
+    const signer = doc.type === 'clearance' ? bursarSigner : registrarSigner;
+    const signatureMarkup = (person, alt) => person && person.signatureUrl
+      ? `<img src="${escapeHtml(person.signatureUrl)}" alt="${alt}" style="display:block;max-width:170px;max-height:58px;object-fit:contain;margin:0 auto 5px;" />`
       : '<div style="height:48px;"></div>';
+    const signerHtml = signatureMarkup(signer, 'Authorised electronic signature');
+    const registrarSignerHtml = signatureMarkup(registrarSigner, 'Registrar electronic signature');
+    const rectorSignerHtml = signatureMarkup(rectorSigner, 'Rector electronic signature');
+    const signerName = signer ? escapeHtml([signer.firstName, signer.lastName].filter(Boolean).join(' ').trim()) : '';
 
     // Institution logo
     const LOGO_URL = '/images/logo.png';
@@ -237,7 +246,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
             <p style="font-size:18px;line-height:2.1;color:#1f2937;">This document is issued to <strong style="color:#065f46;">${escapeHtml(studentName)}</strong>, Matriculation Number <strong>${escapeHtml(matricNumber || '—')}</strong>, of the Department of <strong>${escapeHtml(deptName || '—')}</strong>, enrolled in <strong>${escapeHtml(progName || '—')}</strong> (${escapeHtml(level || '—')}).</p>
             <div style="margin:35px 0;padding:22px;background:#f0fdf4;border-left:5px solid #065f46;"><div style="font:800 10px Arial,sans-serif;letter-spacing:2px;color:#64748b;">REQUESTED DOCUMENT</div><div style="font:bold 17px Arial,sans-serif;color:#0f172a;margin-top:8px;">${escapeHtml(doc.title || 'Student clearance')}</div><p style="font-size:13px;line-height:1.8;color:#475569;margin-bottom:0;">This certificate records the institution's response to the student's clearance-document request. The official clearance status remains subject to the institution's clearance register.</p></div>
             <p style="font-size:15px;line-height:2;color:#334155;">Issued on ${today} for presentation to the relevant authority. The authenticity of this document may be confirmed through the institution.</p>
-            <div style="display:flex;justify-content:space-between;gap:35px;margin-top:100px;"><div style="width:45%;text-align:center;">${signerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">${signer ? escapeHtml((signer.firstName+' '+signer.lastName).trim()) : 'BURSAR / AUTHORISED OFFICER'}</div><div style="font:10px Arial,sans-serif;color:#64748b;margin-top:4px;">${signer ? escapeHtml(String(signer.role||'').replace(/_/g,' ').toUpperCase()) : 'FINANCE CLEARANCE'}</div></div><div style="width:45%;text-align:center;"><div style="height:48px;"></div><div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">REGISTRAR</div><div style="font:10px Arial,sans-serif;color:#64748b;margin-top:4px;">For the Institution</div></div></div>
+            <div style="display:flex;justify-content:space-between;gap:35px;margin-top:100px;"><div style="width:45%;text-align:center;">${signerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">${signerName || 'BURSAR / AUTHORISED OFFICER'}</div><div style="font:10px Arial,sans-serif;color:#64748b;margin-top:4px;">${signer ? escapeHtml(String(signer.role||'').replace(/_/g,' ').toUpperCase()) : 'FINANCE CLEARANCE'}</div></div><div style="width:45%;text-align:center;"> ${registrarSignerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">${registrarSigner ? escapeHtml([registrarSigner.firstName, registrarSigner.lastName].filter(Boolean).join(' ')) : 'REGISTRAR'}</div><div style="font:10px Arial,sans-serif;color:#64748b;margin-top:4px;">For the Institution</div></div></div>
             <div style="margin-top:60px;padding-top:12px;border-top:1px solid #dbe4dc;text-align:center;font:10px Arial,sans-serif;color:#64748b;letter-spacing:1px;">FEDERAL POLYTECHNIC UGEP · FPU/CLR/${String(doc.id).padStart(6,'0')}</div>
           </div>
         </div>
@@ -254,7 +263,7 @@ router.get('/:id/preview', requireRole(STAFF), async (req, res, next) => {
             <div style="font-size:35px;font-weight:bold;color:#064e3b;border-bottom:2px solid #c9a84c;display:inline-block;min-width:75%;padding:0 10px 14px;">${escapeHtml(studentName)}</div>
             <p style="font-size:17px;line-height:2;color:#334155;margin:38px auto;">Matriculation Number: <strong>${escapeHtml(matricNumber || '—')}</strong><br/>Department: <strong>${escapeHtml(deptName || '—')}</strong><br/>Programme: <strong>${escapeHtml(progName || '—')}</strong> · Level: <strong>${escapeHtml(level || '—')}</strong></p>
             <p style="font-size:16px;line-height:1.9;color:#475569;max-width:650px;margin:25px auto;">In recognition of the official record described as <strong>${escapeHtml(doc.title || 'Certificate request')}</strong>. This certificate is issued subject to verification of the institution's records.</p>
-            <div style="display:flex;justify-content:space-between;gap:55px;margin:100px 30px 0;"><div style="width:45%;text-align:center;">${signerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">REGISTRAR</div></div><div style="width:45%;text-align:center;"><div style="height:48px;"></div><div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">RECTOR</div></div></div>
+            <div style="display:flex;justify-content:space-between;gap:55px;margin:100px 30px 0;"><div style="width:45%;text-align:center;">${signerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">REGISTRAR</div></div><div style="width:45%;text-align:center;">${rectorSignerHtml}<div style="border-top:1px solid #111;padding-top:8px;font:800 12px Arial,sans-serif;">${rectorSigner ? escapeHtml([rectorSigner.firstName, rectorSigner.lastName].filter(Boolean).join(' ')) : 'RECTOR'}</div></div></div>
             <div style="font:10px Arial,sans-serif;color:#64748b;letter-spacing:1px;margin-top:55px;">ISSUED ${today} · CERTIFICATE NO: FPU/CERT/${String(doc.id).padStart(6,'0')}</div>
           </div>
         </div>

@@ -368,7 +368,7 @@ router.get('/results', only, async (req, res, next) => {
     const rows = await db.execute(sql`
       SELECT cr.student_id AS "studentId",
         r.id AS "id", r.score AS "score", r.grade AS "grade", r.points AS "points",
-        COALESCE(r.status, 'not_started') AS "status",
+        COALESCE(r.status::text, 'not_started') AS "status",
         COALESCE(assignment_marks.score, 0) AS "assignmentScore",
         cr.session_id AS "sessionId", cr.semester AS "semester",
         u.first_name AS "studentFirstName", u.last_name AS "studentLastName",
@@ -1064,11 +1064,13 @@ router.get('/exams', only, async (req, res, next) => {
       ))
       .leftJoin(departments, eq(courses.departmentId, departments.id))
       .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`LOWER(TRIM(${examSchedules.status})) = 'approved'`, sql`${courseAllocations.status} <> 'cancelled'`))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`LOWER(TRIM(${examSchedules.status}::text)) = 'approved'`, sql`${courseAllocations.status} <> 'cancelled'`))
       .orderBy(examSchedules.examDate);
 
-    return res.json({ success: true, data: rows });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+    // Multiple matching allocation rows must never duplicate the same scheduled exam.
+    const uniqueExams = Array.from(new Map(rows.map(row => [Number(row.id), row])).values());
+    return res.json({ success: true, data: uniqueExams });
+  } catch (err) { console.error('[lecturer/exams] Error:', err); return res.status(500).json({ success: false, error: err.message }); }
 });
 
 router.get('/exams/:id/students', only, async (req, res, next) => {

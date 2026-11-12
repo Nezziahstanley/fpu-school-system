@@ -109,7 +109,8 @@
 </div>
 
 <style>
-  #bur-rep-cards{grid-template-columns:repeat(5,minmax(0,1fr))!important}\n  .bur-rep-bar-wrap { margin-bottom: .75rem; }
+  #bur-rep-cards{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+  .bur-rep-bar-wrap { margin-bottom: .75rem; }
   .bur-rep-bar-head {
     display: flex; justify-content: space-between; align-items: center;
     font-size: .8rem; color: #334155; margin-bottom: .35rem;
@@ -133,7 +134,8 @@
   .bur-rep-status-chip.other    { background: #f1f5f9; color: #475569; }
   .bur-rep-pct { color: #94a3b8; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  @media(max-width:850px){#bur-rep-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}}\n  @media print {
+  @media(max-width:850px){#bur-rep-cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+  @media print {
     .sidebar, .topbar, .page-head .actions, .filters, .sidebar-toggle { display: none !important; }
     .page-view { padding: 0 !important; }
     .panel { page-break-inside: avoid; }
@@ -336,7 +338,8 @@
   // ---------- CSV export ----------
   function csv() {
     var lines = [];
-    var val = function(v){return '\"'+String(v == null ? '' : v).replace(/\"/g,'\"\"')+'\"';};\n    lines.push(['Report','Status','Count','Amount'].map(val).join(','));
+    var val = function(v){return '\"'+String(v == null ? '' : v).replace(/\"/g,'\"\"')+'\"';};
+    lines.push(['Report','Status','Count','Amount'].map(val).join(','));
     LAST_STATUS_ROWS.forEach(function (r) {
       lines.push(['By Status', r.status, r.count, Number(r.total || 0)].map(val).join(','));
     });

@@ -458,21 +458,39 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       .limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-    const { results } = req.body; 
-    if (!Array.isArray(results)) return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    const { results: resultRows } = req.body || {};
+    if (!Array.isArray(resultRows) || resultRows.length === 0 || resultRows.length > 1000) return res.status(400).json({ success: false, error: 'Provide between 1 and 1000 student results.' });
+
+    const studentIds = resultRows.map(r => Number(r.studentId));
+    if (studentIds.some(id => !Number.isInteger(id) || id < 1) || new Set(studentIds).size !== studentIds.length) {
+      return res.status(400).json({ success: false, error: 'Student IDs must be valid and unique.' });
+    }
+    const validScores = resultRows.every(r => {
+      const a = Number(r.assignmentScore), c = Number(r.classworkScore), e = Number(r.examScore);
+      return [a, c, e].every(Number.isFinite) && a >= 0 && a <= 10 && c >= 0 && c <= 20 && e >= 0 && e <= 70;
+    });
+    if (!validScores) return res.status(400).json({ success: false, error: 'Scores must be within the approved components: Assignment 0–10, Classwork 0–20, Exam 0–70.' });
 
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
     if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
 
+    const registrations = await db.select({
+      studentId: courseRegistrations.studentId,
+      sessionId: courseRegistrations.sessionId
+    }).from(courseRegistrations).where(and(
+      eq(courseRegistrations.courseId, courseId),
+      eq(courseRegistrations.status, 'approved'),
+      inArray(courseRegistrations.studentId, studentIds)
+    ));
+    const registrationByStudent = new Map(registrations.map(r => [Number(r.studentId), r]));
+    if (studentIds.some(id => !registrationByStudent.has(id))) {
+      return res.status(400).json({ success: false, error: 'Results can only be entered for students with approved registration in this course.' });
+    }
+
     const gradeScale = await getActiveGradeScale();
 
-    for (const r of results) {
-      const regResult = await db.execute(sql`
-        SELECT session_id FROM course_registrations 
-        WHERE student_id = ${r.studentId} AND course_id = ${courseId} 
-        LIMIT 1
-      `);
-      const studentSessionId = regResult.rows[0]?.session_id || 1;
+    for (const r of resultRows) {
+      const studentSessionId = registrationByStudent.get(Number(r.studentId)).sessionId;
 
       const assign = Number(r.assignmentScore) || 0;
       const cw = Number(r.classworkScore) || 0;
@@ -608,6 +626,8 @@ router.post('/materials', only, upload.single('file'), async (req, res, next) =>
     let fileUrl = req.body.fileUrl || null;
 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
+    const [allocation] = await db.select({ id: courseAllocations.id }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)))).limit(1);
+    if (!allocation) return res.status(403).json({ success: false, error: 'You can only upload materials for courses allocated to you.' });
 
     if (req.file) {
       fileUrl = req.file.path;
@@ -687,8 +707,14 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
 
+    const [allocation] = await db.select({ id: courseAllocations.id }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)))).limit(1);
+    if (!allocation) return res.status(403).json({ success: false, error: 'You can only create assignments for courses allocated to you.' });
     const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
     if (!currentSession) return res.status(409).json({ success: false, error: 'There is no active academic session. Please contact the Academic Office.' });
+    const parsedDueDate = dueDate ? new Date(dueDate) : null;
+    if (dueDate && Number.isNaN(parsedDueDate.getTime())) return res.status(400).json({ success: false, error: 'A valid assignment due date is required.' });
+    const scoreLimit = Number(maxScore || 100);
+    if (!Number.isFinite(scoreLimit) || scoreLimit < 1 || scoreLimit > 1000) return res.status(400).json({ success: false, error: 'Maximum score must be between 1 and 1000.' });
 
     if (req.file) {
       attachmentUrl = req.file.path;
@@ -696,8 +722,8 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
 
     const [row] = await db.insert(assignments).values({
       courseId: Number(courseId), lecturerId: req.user.id, sessionId: currentSession.id,
-      semester: 'first', title, description: description || null, dueDate: dueDate ? new Date(dueDate) : null,
-      maxScore: maxScore ? Number(maxScore) : 100, attachmentUrl,
+      semester: 'first', title, description: description || null, dueDate: parsedDueDate,
+      maxScore: scoreLimit, attachmentUrl,
     }).returning();
 
     return res.status(201).json({ success: true, data: row });
@@ -788,6 +814,7 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     if (score === undefined) return res.status(400).json({ success: false, error: 'Score is required.' });
 
     const submissionId = Number(req.params.id);
+    const numericScore = Number(score);
 
     const [submission] = await db.select({
       id: assignmentSubmissions.id,
@@ -798,13 +825,16 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     })
     .from(assignmentSubmissions)
     .innerJoin(assignments, eq(assignmentSubmissions.assignmentId, assignments.id))
-    .where(eq(assignmentSubmissions.id, submissionId))
+    .where(and(eq(assignmentSubmissions.id, submissionId), eq(assignments.lecturerId, req.user.id)))
     .limit(1);
 
-    if (!submission) return res.status(404).json({ success: false, error: 'Submission not found.' });
+    if (!submission) return res.status(404).json({ success: false, error: 'Submission not found for your assignments.' });
+    if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > Number(submission.maxScore || 100)) {
+      return res.status(400).json({ success: false, error: 'Score must be between 0 and the assignment maximum score.' });
+    }
 
     await db.update(assignmentSubmissions)
-      .set({ score: String(score), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
+      .set({ score: String(numericScore), feedback: feedback || null, gradedAt: new Date(), gradedBy: req.user.id })
       .where(eq(assignmentSubmissions.id, submissionId));
 
     const maxScore = Number(submission.maxScore) || 100;

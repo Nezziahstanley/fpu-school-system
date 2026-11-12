@@ -6,7 +6,7 @@
 'use strict';
 
 const { db, schema, sql } = require('..');
-const { eq, and, or, desc, asc } = require('drizzle-orm');
+const { eq, and, or, desc, asc, inArray } = require('drizzle-orm');
 
 const { courseRegistrations, courses, users, academicSessions } = schema;
 
@@ -55,7 +55,8 @@ async function listWithStudent({ courseId, sessionId, semester, status } = {}) {
   if (courseId) conds.push(eq(courseRegistrations.courseId, Number(courseId)));
   if (sessionId) conds.push(eq(courseRegistrations.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(courseRegistrations.semester, semester));
-  if (status) conds.push(eq(courseRegistrations.status, status));
+  if (status === 'active') conds.push(inArray(courseRegistrations.status, ['pending', 'approved']));
+  else if (status) conds.push(eq(courseRegistrations.status, status));
   const where = conds.length ? and(...conds) : undefined;
 
   const rows = await db

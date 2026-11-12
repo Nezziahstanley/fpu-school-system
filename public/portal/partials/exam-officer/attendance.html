@@ -363,7 +363,7 @@
       const exam = schedule.exam || schedule;
       const registrationParams = new URLSearchParams({
         courseId: String(exam.courseId),
-        status: 'approved',
+        status: 'active',
       });
       if (exam.sessionId) registrationParams.set('sessionId', String(exam.sessionId));
       if (exam.semester) registrationParams.set('semester', String(exam.semester));
@@ -402,6 +402,7 @@
         ROWS.push({
           student: s.student,
           registration: s.registration,
+          registrationStatus: s.registration?.status || 'approved',
           status: existing ? existing.status : 'unmarked',
           originalStatus: existing ? existing.status : 'unmarked',
           changed: false,
@@ -545,18 +546,19 @@
       const s = r.student || {};
       const initials = ((s.firstName || '?')[0] + (s.lastName || '?')[0]).toUpperCase();
       const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim() || '—';
+      const canMark = r.registrationStatus === 'approved';
 
       return `
         <tr class="eo-att-row" data-student-id="${s.id}">
           <td style="padding:.65rem .75rem;">
-            <input type="checkbox" class="eo-row-check" data-id="${s.id}"
+            <input type="checkbox" class="eo-row-check" data-id="${s.id}" ${canMark ? "" : "disabled title=\"Registration is awaiting approval\""}
                    style="cursor:pointer;width:16px;height:16px;" />
           </td>
           <td style="padding:.65rem .75rem;color:#94a3b8;font-size:.75rem;">${idx + 1}</td>
           <td style="padding:.65rem .75rem;">
             <div style="display:flex;align-items:center;gap:.6rem;">
               <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#c2410c,#ea580c);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.7rem;flex-shrink:0;">${initials}</div>
-              <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>
+              <div><div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(fullName)}</div>${canMark ? "" : '<small style="font-size:.65rem;color:#b45309;">Registration awaiting approval</small>'}</div>
             </div>
           </td>
           <td style="padding:.65rem .75rem;">
@@ -564,10 +566,10 @@
           </td>
           <td style="padding:.65rem .75rem;text-align:center;">
             <div class="eo-status-group">
-              <button class="eo-status-btn ${r.status === 'present' ? 'active' : ''}" data-status="present" data-id="${s.id}">Present</button>
-              <button class="eo-status-btn ${r.status === 'absent' ? 'active' : ''}" data-status="absent" data-id="${s.id}">Absent</button>
-              <button class="eo-status-btn ${r.status === 'late' ? 'active' : ''}" data-status="late" data-id="${s.id}">Late</button>
-              <button class="eo-status-btn ${r.status === 'excused' ? 'active' : ''}" data-status="excused" data-id="${s.id}">Excused</button>
+              <button class="eo-status-btn ${r.status === 'present' ? 'active' : ''}" data-status="present" data-id="${s.id}" ${canMark ? '' : 'disabled title="Registration is awaiting approval"'}>Present</button>
+              <button class="eo-status-btn ${r.status === 'absent' ? 'active' : ''}" data-status="absent" data-id="${s.id}" ${canMark ? '' : 'disabled title="Registration is awaiting approval"'}>Absent</button>
+              <button class="eo-status-btn ${r.status === 'late' ? 'active' : ''}" data-status="late" data-id="${s.id}" ${canMark ? '' : 'disabled title="Registration is awaiting approval"'}>Late</button>
+              <button class="eo-status-btn ${r.status === 'excused' ? 'active' : ''}" data-status="excused" data-id="${s.id}" ${canMark ? '' : 'disabled title="Registration is awaiting approval"'}>Excused</button>
             </div>
           </td>
         </tr>`;
@@ -626,7 +628,7 @@
     checked.forEach((cb) => {
       const sid = Number(cb.dataset.id);
       const row = ROWS.find((r) => Number(r.student?.id) === sid);
-      if (row) {
+      if (row && row.registrationStatus === 'approved') {
         row.status = status;
         row.changed = row.status !== row.originalStatus;
         n++;
@@ -640,6 +642,7 @@
   function setStatus(studentId, newStatus) {
     const row = ROWS.find((r) => Number(r.student?.id) === studentId);
     if (!row) return;
+    if (row.registrationStatus !== 'approved') { core.showToast && core.showToast('This registration is awaiting approval.', 'warning'); return; }
     row.status = newStatus;
     row.changed = row.status !== row.originalStatus;
 

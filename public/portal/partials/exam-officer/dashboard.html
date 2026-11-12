@@ -267,10 +267,25 @@
         const upcomingRes = await core.portalFetch('/api/exam-officer/schedules');
         const allSchedules = upcomingRes.data || [];
         
-        const now = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const upcoming = allSchedules
-          .filter(ex => ex.examDate && new Date(ex.examDate) >= now)
-          .sort((a, b) => new Date(a.examDate) - new Date(b.examDate))
+          .map((row) => {
+            const exam = row.exam || row;
+            const course = row.course || row;
+            return {
+              ...exam,
+              courseCode: course.code || row.courseCode || exam.courseCode || '',
+              courseTitle: course.title || row.courseTitle || exam.courseTitle || '',
+            };
+          })
+          .filter((exam) => {
+            if (!exam.examDate) return false;
+            const dateOnly = String(exam.examDate).slice(0, 10);
+            const examDay = new Date(dateOnly + 'T00:00:00');
+            return !Number.isNaN(examDay.getTime()) && examDay >= today;
+          })
+          .sort((a, b) => String(a.examDate).localeCompare(String(b.examDate)))
           .slice(0, 5);
 
         if (!upcoming.length) {

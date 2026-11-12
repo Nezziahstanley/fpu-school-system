@@ -186,7 +186,8 @@
       CLEARANCE_ROWS = rows;
       var statuses = ['pending','cleared','rejected'];
       $('bur-clr-stats').innerHTML = [['Total records',rows.length],...statuses.map(st=>[st.charAt(0).toUpperCase()+st.slice(1),rows.filter(x=>(x.clearance||{}).status===st).length])].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+Number(x[1]).toLocaleString()+'</strong></article>').join('');
-      var types = [...new Set(rows.map(x=>(x.clearance||{}).type).filter(Boolean))].sort();\n      if (oldType && !types.includes(oldType)) types.unshift(oldType);
+      var types = [...new Set(rows.map(x=>(x.clearance||{}).type).filter(Boolean))].sort();
+      if (oldType && !types.includes(oldType)) types.unshift(oldType);
       var typeSelect=$('bur-clr-type'),oldType=typeSelect.value;typeSelect.innerHTML='<option value="">All types</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');typeSelect.value=oldType;
 
       countEl.textContent = rows.length

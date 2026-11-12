@@ -571,11 +571,15 @@ router.get('/documents/:id/preview', only, async (req, res, next) => {
       .where(eq(documents.id, docId)).limit(1);
     if (!row || !row.student) return res.status(404).json({ success: false, error: 'Document request or student record not found.' });
     const [issuer] = await db.select({ signatureUrl: users.signatureUrl }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    const registrarSigners = await db.select({ firstName: users.firstName, lastName: users.lastName, signatureUrl: users.signatureUrl }).from(users).where(and(eq(users.role, 'registrar'), eq(users.isActive, true))).limit(2);
+    const designatedRegistrar = registrarSigners.length === 1 ? registrarSigners[0] : null;
     const [currentSession] = await db.select({ name: academicSessions.name }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
     return res.json({ success: true, data: {
       document: row.document,
       student: { ...row.student, programmeName: row.programmeName, departmentName: row.departmentName, sessionName: currentSession?.name || null },
       issuerSignatureUrl: issuer?.signatureUrl || null,
+      registrarSignatureUrl: designatedRegistrar?.signatureUrl || null,
+      registrarName: designatedRegistrar ? [designatedRegistrar.firstName, designatedRegistrar.lastName].filter(Boolean).join(' ') : null,
     }});
   } catch (err) { return next(err); }
 });

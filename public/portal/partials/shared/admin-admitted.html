@@ -101,7 +101,7 @@
 
     try {
       // Request relations to get programme names
-      const res = await core.portalFetch('/api/admin/applications?limit=500&withRelations=true');
+      const res = await core.portalFetch('/api/registrar/admitted');
       
       const allApps = Array.isArray(res.data) ? res.data : [];
       

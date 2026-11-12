@@ -167,6 +167,7 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_COURSES = [];
+  let CURRENT_COURSE = null;
   let CURRENT_STUDENTS = [];
   let ALL_RECORDS = []; // Global cache for the search bar
 
@@ -277,7 +278,7 @@
       }
 
       sel.innerHTML = '<option value="">Select Course</option>' + 
-        ALL_COURSES.map(c => `<option value="${Number(c.id)}">${esc(c.code)} - ${esc(c.title)}${c.sessionName ? ' · ' + esc(c.sessionName) : ''}</option>`).join('');
+        ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}">${esc(c.code)} - ${esc(c.title)}${c.sessionName ? ' · ' + esc(c.sessionName) : ''} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
         
     } catch (err) {
       sel.innerHTML = '<option value="">Error loading courses</option>';
@@ -291,15 +292,17 @@
 
   // --- Load Students ---
   async function loadStudents() {
-    const courseId = $('att-course').value;
-    if (!courseId) return core.showToast && core.showToast('Please select a course.', 'warning');
+    const selectedAllocationId = $('att-course').value;
+    CURRENT_COURSE = ALL_COURSES.find(c => String(c.allocationId) === String(selectedAllocationId)) || null;
+    if (!CURRENT_COURSE) return core.showToast && core.showToast('Please select a valid course allocation.', 'warning');
+    const courseId = CURRENT_COURSE.id;
 
     const list = $('att-student-list');
     list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading students…</div>`;
     $('att-header').style.display = 'none';
 
     try {
-      const res = await core.portalFetch(`/api/lecturer/students?courseId=${courseId}`);
+      const res = await core.portalFetch(`/api/lecturer/students?courseId=${courseId}&sessionId=${CURRENT_COURSE.sessionId}&semester=${encodeURIComponent(CURRENT_COURSE.allocationSemester || CURRENT_COURSE.semesterName || 'first')}`);
       const rows = res.data || [];
       CURRENT_STUDENTS = rows.map(r => r.student).filter(Boolean);
 
@@ -351,17 +354,19 @@
 
   // --- Save Attendance ---
   async function saveAttendance() {
-    const courseId = $('att-course').value;
+    const selectedAllocationId = $('att-course').value;
+    const selectedCourse = ALL_COURSES.find(c => String(c.allocationId) === String(selectedAllocationId));
     const date = $('att-date').value;
-    const semester = $('att-semester').value;
+    const semester = String(selectedCourse?.allocationSemester || selectedCourse?.semesterName || $('att-semester').value).toLowerCase();
 
-    if (!courseId || !date) return core.showToast && core.showToast('Course and date are required.', 'warning');
+    if (!selectedCourse || !date) return core.showToast && core.showToast('Course and date are required.', 'warning');
     if (!CURRENT_STUDENTS.length) return core.showToast && core.showToast('No students to save.', 'warning');
 
     const rows = CURRENT_STUDENTS.map(s => {
       const checked = document.querySelector(`input[name="status_${s.id}"]:checked`);
       return {
-        courseId: Number(courseId),
+        courseId: Number(selectedCourse.id),
+        sessionId: Number(selectedCourse.sessionId),
         studentId: s.id,
         date: date,
         semester: semester,
@@ -396,7 +401,7 @@
   $('att-cancel')?.addEventListener('click', closeModal);
   $('att-load-students')?.addEventListener('click', loadStudents);
   $('att-course')?.addEventListener('change', () => {
-    const selected = ALL_COURSES.find(c => String(c.id) === String($('att-course').value));
+    const selected = ALL_COURSES.find(c => String(c.allocationId) === String($('att-course').value));
     if (selected && selected.allocationSemester) $('att-semester').value = String(selected.allocationSemester).toLowerCase();
     CURRENT_STUDENTS = [];
     $('att-save').disabled = true;

@@ -303,6 +303,8 @@
     const name = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ') || '—';
     const matric = s.matricNumber || '—';
     const photo = s.idCardPhotoUrl || s.photoUrl || '';
+    const registrarSignature = data.registrarSignatureUrl || '';
+    const registrarName = data.registrarName || 'REGISTRAR';
     const verify = window.location.origin + '/portal/verify.html?matric=' + encodeURIComponent(matric);
     const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(verify) + '&color=065f46&bgcolor=ffffff&margin=1';
     const val = (v) => esc(v || '—');
@@ -318,7 +320,7 @@
       '<div><div class="dc-id-label">BACK VIEW</div><div class="dc-idcard-side"><div class="dc-id-back-inner">' +
       '<div class="dc-id-back-head"><img src="/images/logo.png" alt="FPU logo"><img class="dc-id-qr" src="' + qr + '" alt="Student verification QR"><div style="text-align:right"><b style="font-size:10px;color:#065f46">FEDERAL POLYTECHNIC, UGEP</b><div style="font-size:8px;color:#64748b">Cross River State</div></div></div>' +
       '<p>The person whose photograph appears overleaf is a student of the above-mentioned <strong>FEDERAL POLYTECHNIC, UGEP</strong>.</p><p>If found, please return to the nearest police station or contact the institution.</p>' +
-      '<p style="font-size:8px;margin:0">Phone: <strong>07069096879</strong><br>Email: <strong>contact@fedpolyugep.edu.ng</strong></p><div class="dc-id-sign">Fed Poly</div><div style="width:115px;border-top:1px solid #0f172a;margin:1px auto 0;padding-top:3px;font-size:7px;color:#475569;font-weight:800">AUTHORISED SIGNATURE</div>' +
+      '<p style="font-size:8px;margin:0">Phone: <strong>07069096879</strong><br>Email: <strong>contact@fedpolyugep.edu.ng</strong></p>' + (registrarSignature ? '<img src="' + esc(registrarSignature) + '" alt="Registrar saved signature" style="display:block;max-width:115px;max-height:28px;object-fit:contain;margin:4px auto 0">' : '<div style="height:28px"></div>') + '<div style="width:115px;border-top:1px solid #0f172a;margin:1px auto 0;padding-top:3px;font-size:7px;color:#475569;font-weight:800">' + val(registrarName) + ' · REGISTRAR</div>' +
       '</div></div></div></div>';
   }
   // ============================================================

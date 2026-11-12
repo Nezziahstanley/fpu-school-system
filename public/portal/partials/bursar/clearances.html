@@ -186,9 +186,9 @@
       CLEARANCE_ROWS = rows;
       var statuses = ['pending','cleared','rejected'];
       $('bur-clr-stats').innerHTML = [['Total records',rows.length],...statuses.map(st=>[st.charAt(0).toUpperCase()+st.slice(1),rows.filter(x=>(x.clearance||{}).status===st).length])].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+Number(x[1]).toLocaleString()+'</strong></article>').join('');
+      var typeSelect=$('bur-clr-type'),oldType=typeSelect.value;
       var types = [...new Set(rows.map(x=>(x.clearance||{}).type).filter(Boolean))].sort();
-      if (oldType && !types.includes(oldType)) types.unshift(oldType);
-      var typeSelect=$('bur-clr-type'),oldType=typeSelect.value;typeSelect.innerHTML='<option value="">All types</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');typeSelect.value=oldType;
+      if (oldType && !types.includes(oldType)) types.unshift(oldType);typeSelect.innerHTML='<option value="">All types</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');typeSelect.value=oldType;
 
       countEl.textContent = rows.length
         ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
@@ -203,11 +203,9 @@
         var c = r.clearance || {};
         var s = r.session || {};
         var isPending = c.status === 'pending';
-        var hasDetails = c.status !== 'pending' || c.remarks || c.clearedBy;
+        var hasDetails = true;
         var detailId = 'bur-clr-detail-' + c.id;
-        var expandBtn = hasDetails
-          ? '<button type="button" class="btn btn-sm btn-ghost" data-expand="' + esc(detailId) + '" title="Show details">▸</button>'
-          : '';
+        var expandBtn = '';
 
         var detailRow = '';
         if (hasDetails) {
@@ -228,17 +226,14 @@
             + '</tr>';
         }
 
-        var actions = '';
+        var actions = '<button type="button" class="btn btn-sm btn-outline" data-expand="' + esc(detailId) + '" title="View clearance details">View</button>';
         if (isPending) {
-          actions = ''
-            + '<button type="button" class="btn btn-sm btn-primary" data-act="clear" data-id="' + esc(c.id) + '">Clear</button> '
-            + '<button type="button" class="btn btn-sm btn-ghost" data-act="reject" data-id="' + esc(c.id) + '" style="color:#dc2626;">Reject</button>';
-        } else {
-          actions = '<span class="muted small">—</span>';
+          actions += ' <button type="button" class="btn btn-sm btn-primary" data-act="clear" data-id="' + esc(c.id) + '">Clear</button>'
+            + ' <button type="button" class="btn btn-sm btn-ghost" data-act="reject" data-id="' + esc(c.id) + '" style="color:#dc2626;">Reject</button>';
         }
 
         return '<tr>'
-          + '<td>' + expandBtn + '</td>'
+          + '<td></td>'
           + '<td>' + esc(studentLabel(r)) + '</td>'
           + '<td style="font-family:ui-monospace,monospace;font-size:.78rem;color:#475569;">' + esc(matricOf(r)) + '</td>'
           + '<td>' + typeChip(c.type) + '</td>'
@@ -374,3 +369,4 @@
   })();
 })();
 </script>
+<style>.bur-clr-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:.25rem 0 1rem}.bur-clr-stats article{background:linear-gradient(145deg,#fff,#f3fbf7);border:1px solid #dce9e2;border-radius:12px;padding:.9rem;box-shadow:0 4px 16px #0f172a08}.bur-clr-stats small{display:block;color:#64748b;font-size:.66rem;font-weight:850;text-transform:uppercase}.bur-clr-stats strong{display:block;margin-top:.3rem;color:#065f46;font-size:1.25rem}#bur-clr-tbody td{vertical-align:middle}#bur-clr-tbody tr:hover>td{background:#f8fffb}#bur-clr-tbody button{white-space:nowrap}.bur-clr-detail-row{gap:1rem;align-items:flex-start}.bur-clr-detail-row strong{max-width:75%;text-align:right;overflow-wrap:anywhere}@media(max-width:800px){.bur-clr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>

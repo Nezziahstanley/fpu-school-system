@@ -227,7 +227,9 @@
 
       buildDepartmentsView();
     } catch (err) {
-      core.showToast(err.message, 'error');
+      const box = $('dept-cards-container');
+      if (box) box.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;border:1px solid #fecaca;background:#fff7f7;border-radius:12px;color:#991b1b;"><strong>Results could not be loaded.</strong><div style="font-size:.8rem;margin-top:.35rem;">${esc(err.message || 'Please refresh and try again.')}</div></div>`;
+      core.showToast(err.message || 'Unable to load results.', 'error');
     }
   }
 

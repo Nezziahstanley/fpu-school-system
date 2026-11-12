@@ -248,7 +248,7 @@ router.get('/eligibility', only, async (req, res, next) => {
       courseId,
       ...(effectiveSession ? { sessionId: effectiveSession } : {}),
       ...(semester ? { semester } : {}),
-      status: 'approved',
+      status: 'active',
     });
 
     const resultsList = [];
@@ -466,7 +466,8 @@ router.get('/published-results', only, async (req, res, next) => {
       points: results.points,
       semester: results.semester,
       sessionName: academicSessions.name,
-      publishedAt: results.publishedAt,
+      publishedAt: sql`coalesce(${results.publishedAt}, ${results.createdAt})`,
+      createdAt: results.createdAt,
       departmentName: departments.name,
     })
     .from(results)

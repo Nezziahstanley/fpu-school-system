@@ -451,7 +451,15 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
     const results = await resultQueries.publishedForStudent(studentId, {});
-    const safeStudent = { id: student.id, firstName: student.firstName, lastName: student.lastName, matricNumber: student.matricNumber, level: student.level, programmeName: student.programmeName || student.programme?.name || null, departmentName: student.departmentName || student.department?.name || null };
+    const safeStudent = {
+      id: student.id, firstName: student.firstName, middleName: student.middleName || null,
+      lastName: student.lastName, email: student.email || null, phone: student.phone || null,
+      gender: student.gender || null, dateOfBirth: student.dateOfBirth || null,
+      nationality: student.nationality || null, stateOfOrigin: student.stateOfOrigin || null,
+      address: student.address || null, matricNumber: student.matricNumber, level: student.level,
+      programmeName: student.programmeName || student.programme?.name || null,
+      departmentName: student.departmentName || student.department?.name || null,
+    };
     
     let totalPoints = 0, totalUnits = 0;
     results.forEach(r => {

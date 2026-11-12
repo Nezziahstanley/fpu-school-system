@@ -23,7 +23,39 @@
     return response;
   }
   function shell(title,subtitle){
-    root.innerHTML='<section class="aco-page-head"><div><span class="aco-eyebrow">ACADEMIC OFFICE</span><h2>'+esc(title)+'</h2><p>'+esc(subtitle)+'</p></div><div class="aco-head-actions"><button class="aco-refresh" type="button" id="aco-refresh">↻ Refresh</button></div></section><div id="aco-summary" class="aco-summary-grid"></div><section class="aco-panel"><div class="aco-toolbar" id="aco-toolbar"><input id="aco-search" type="search" placeholder="Search records…" aria-label="Search records"><span id="aco-count" class="aco-count">Loading records…</span></div><div class="aco-table-wrap"><table class="aco-table"><thead id="aco-head"></thead><tbody id="aco-body"><tr><td class="aco-empty">Loading records…</td></tr></tbody></table></div></section><div id="aco-detail-modal" class="aco-modal" hidden><div class="aco-modal-card" role="dialog" aria-modal="true" aria-labelledby="aco-modal-title"><div class="aco-modal-head"><div><span class="aco-eyebrow">RECORD DETAILS</span><h3 id="aco-modal-title">Details</h3></div><button type="button" class="aco-modal-close" id="aco-modal-close" aria-label="Close">×</button></div><div id="aco-modal-body" class="aco-modal-body"></div></div></div>';
+    root.innerHTML='<style>
+      #aco-workspace{color:#172033}
+      #aco-workspace .aco-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.7rem;margin:0 0 1rem}
+      #aco-workspace .aco-summary-card{background:#fff;border:1px solid #e5e7eb;border-radius:13px;padding:.9rem;box-shadow:0 2px 8px rgba(15,23,42,.035)}
+      #aco-workspace .aco-summary-card span{display:block;color:#64748b;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+      #aco-workspace .aco-summary-card strong{display:block;color:#064e3b;font-size:1.5rem;line-height:1.25;margin:.2rem 0}
+      #aco-workspace .aco-summary-card small{color:#94a3b8;font-size:.68rem}
+      #aco-workspace .aco-toolbar select{border:1px solid #dbe2ea;border-radius:8px;padding:.68rem .75rem;background:#fff;color:#334155;font:inherit;min-width:140px}
+      #aco-workspace .aco-toolbar input{min-width:210px}
+      #aco-workspace .aco-head-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+      #aco-workspace .aco-export,#aco-workspace .aco-row-action{border:1px solid #bbf7d0;border-radius:8px;background:#f0fdf4;color:#065f46;padding:.62rem .8rem;font-weight:800;cursor:pointer}
+      #aco-workspace .aco-row-action{padding:.4rem .65rem;font-size:.72rem}
+      #aco-workspace .aco-export:hover,#aco-workspace .aco-row-action:hover{background:#dcfce7}
+      #aco-workspace .aco-modal[hidden]{display:none}
+      #aco-workspace .aco-modal{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.58);display:grid;place-items:center;padding:1rem}
+      #aco-workspace .aco-modal-card{width:min(760px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 25px 70px rgba(0,0,0,.25)}
+      #aco-workspace .aco-modal-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.2rem;border-bottom:1px solid #e5e7eb}
+      #aco-workspace .aco-modal-head h3{margin:.2rem 0 0;color:#0f172a}
+      #aco-workspace .aco-modal-close{border:0;background:#f1f5f9;border-radius:50%;width:36px;height:36px;font-size:1.4rem;cursor:pointer}
+      #aco-workspace .aco-modal-body{padding:1.2rem}
+      #aco-workspace .aco-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.7rem}
+      #aco-workspace .aco-detail-field{padding:.7rem;background:#f8fafc;border:1px solid #eef2f7;border-radius:9px;min-width:0}
+      #aco-workspace .aco-detail-field small{display:block;color:#64748b;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+      #aco-workspace .aco-detail-field strong{display:block;color:#0f172a;font-size:.82rem;margin-top:.2rem;overflow-wrap:anywhere}
+      #aco-workspace .aco-transcript-profile{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem;padding:1rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px}
+      #aco-workspace .aco-transcript-profile h3{margin:0;color:#064e3b}
+      #aco-workspace .aco-transcript-profile p{margin:.2rem 0 0;color:#64748b;font-size:.8rem}
+      #aco-workspace .aco-transcript-avatar{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:#065f46;color:#fff;font-weight:900}
+      #aco-workspace .aco-transcript-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:1rem 0}
+      #aco-workspace .aco-report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;padding:1rem}
+      @media(max-width:640px){#aco-workspace .aco-toolbar input{width:100%;min-width:0}#aco-workspace .aco-toolbar select{flex:1;min-width:130px}#aco-workspace .aco-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media print{body *{visibility:hidden!important}#aco-workspace,#aco-workspace *{visibility:visible!important}#aco-workspace{position:absolute;left:0;top:0;width:100%}#aco-workspace .aco-page-head button,#aco-workspace .aco-toolbar,#aco-workspace .aco-modal{display:none!important}#aco-workspace .aco-panel{border:0}#aco-workspace .aco-table{min-width:0}#aco-workspace .aco-table th,#aco-workspace .aco-table td{font-size:8pt;padding:5px}}
+    </style><section class="aco-page-head"><div><span class="aco-eyebrow">ACADEMIC OFFICE</span><h2>'+esc(title)+'</h2><p>'+esc(subtitle)+'</p></div><div class="aco-head-actions"><button class="aco-refresh" type="button" id="aco-refresh">↻ Refresh</button></div></section><div id="aco-summary" class="aco-summary-grid"></div><section class="aco-panel"><div class="aco-toolbar" id="aco-toolbar"><input id="aco-search" type="search" placeholder="Search records…" aria-label="Search records"><span id="aco-count" class="aco-count">Loading records…</span></div><div class="aco-table-wrap"><table class="aco-table"><thead id="aco-head"></thead><tbody id="aco-body"><tr><td class="aco-empty">Loading records…</td></tr></tbody></table></div></section><div id="aco-detail-modal" class="aco-modal" hidden><div class="aco-modal-card" role="dialog" aria-modal="true" aria-labelledby="aco-modal-title"><div class="aco-modal-head"><div><span class="aco-eyebrow">RECORD DETAILS</span><h3 id="aco-modal-title">Details</h3></div><button type="button" class="aco-modal-close" id="aco-modal-close" aria-label="Close">×</button></div><div id="aco-modal-body" class="aco-modal-body"></div></div></div>';
     document.getElementById('aco-refresh').addEventListener('click',()=>loadPage(true));
     document.getElementById('aco-modal-close').addEventListener('click',closeModal);
     document.getElementById('aco-detail-modal').addEventListener('click',e=>{if(e.target.id==='aco-detail-modal')closeModal()});

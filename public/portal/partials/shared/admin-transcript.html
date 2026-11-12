@@ -433,7 +433,7 @@
     </div>`;
 
     try {
-      const [res, signerResponse] = await Promise.all([core.portalFetch(`/api/admin/transcript/${studentId}`), core.portalFetch('/api/portal/signatories/registrar')]);
+      const [res, signerResponse] = await Promise.all([core.portalFetch(`/api/admin/transcript/${studentId}`), core.portalFetch('/api/portal/signatories/registrar').catch(() => ({ data: {} }))]);
       const registrar = signerResponse.data || {};
       const s = res.student || {};
       const rows = res.rows || [];

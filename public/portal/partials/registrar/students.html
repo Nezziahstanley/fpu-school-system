@@ -1,224 +1,34 @@
-<!-- Portal → Registrar → Students -->
-<section class="greeting">
-  <div class="who">
-    <div class="avatar">🎓</div>
-    <div>
-      <h1>All Students</h1>
-      <div class="sub">Institution-wide student records</div>
-    </div>
-  </div>
-</section>
-
-<!-- Filter bar -->
-<div class="filter-bar">
-  <input type="search" id="rs-search" placeholder="Search matric, name, or email…" />
-  <select id="rs-level">
-    <option value="">All Levels</option>
-    <option value="ND">ND</option>
-    <option value="HND">HND</option>
-  </select>
-  <select id="rs-department"><option value="">All Departments</option></select>
-  <select id="rs-programme"><option value="">All Programmes</option></select>
-  <select id="rs-status">
-    <option value="">All Status</option>
-    <option value="active">Active</option>
-    <option value="inactive">Inactive</option>
-  </select>
-  <button class="btn btn-outline btn-sm" id="rs-export">Export CSV</button>
+<!-- Registrar student directory -->
+<section class="greeting"><div class="who"><div class="avatar">🎓</div><div><h1>Student Directory</h1><div class="sub">Browse all students by department, programme and academic level</div></div></div></section>
+<style>
+.rsd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin:1rem 0}.rsd-stat,.rsd-dept{background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:1rem}.rsd-depts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.75rem;margin:1rem 0}.rsd-dept{cursor:pointer;text-align:left;transition:.18s;border-left:4px solid #059669}.rsd-dept:hover,.rsd-dept.active{border-color:#059669;background:#f0fdf4;transform:translateY(-2px)}.rsd-dept strong{display:block;font-size:1.5rem;color:#064e3b}.rsd-tools{display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0}.rsd-tools input,.rsd-tools select{padding:.7rem .8rem;border:1px solid #cbd5e1;border-radius:8px;min-width:180px}.rsd-table{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.rsd-table table{width:100%;min-width:850px;border-collapse:collapse}.rsd-table th,.rsd-table td{padding:.75rem .8rem;border-bottom:1px solid #f1f5f9;text-align:left;font-size:.82rem}.rsd-table th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}.rsd-view{background:#065f46;color:#fff;border:0;border-radius:7px;padding:.45rem .7rem;font-weight:700;cursor:pointer}@media(max-width:700px){.rsd-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<div class="rsd-stats">
+ <div class="rsd-stat"><small>Total Students</small><h2 id="rsd-total">—</h2></div>
+ <div class="rsd-stat"><small>ND Students</small><h2 id="rsd-nd">—</h2></div>
+ <div class="rsd-stat"><small>HND Students</small><h2 id="rsd-hnd">—</h2></div>
+ <div class="rsd-stat"><small>Active Students</small><h2 id="rsd-active">—</h2></div>
 </div>
-
-<!-- Stats row -->
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Students</span><span class="value" id="rs-total">—</span></div><div class="ic">🎓</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">ND Students</span><span class="value" id="rs-nd">—</span></div><div class="ic">📘</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">HND Students</span><span class="value" id="rs-hnd">—</span></div><div class="ic">📗</div></div>
-  <div class="stat purple"><div class="meta"><span class="label">Active</span><span class="value" id="rs-active">—</span></div><div class="ic">✅</div></div>
-</div>
-
-<!-- Table -->
-<section class="panel">
-  <div class="panel-head">
-    <h3>Students</h3>
-    <span class="badge" id="rs-count">0</span>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Matric No.</th>
-            <th>Full Name</th>
-            <th>Level</th>
-            <th>Programme</th>
-            <th>Department</th>
-            <th>CGPA</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="rs-tbody">
-          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-
+<section class="panel"><div class="panel-head"><h3>Students by Department</h3><button class="btn btn-outline btn-sm" id="rsd-clear">Show All Departments</button></div><div class="panel-body"><div id="rsd-departments" class="rsd-depts"><div class="muted">Loading departments…</div></div></div></section>
+<div class="rsd-tools"><input id="rsd-search" type="search" placeholder="Search name, matric number or email"><select id="rsd-level"><option value="">All Levels</option><option value="ND">ND</option><option value="HND">HND</option></select><select id="rsd-programme"><option value="">All Programmes</option></select><select id="rsd-status"><option value="">All Statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select><span id="rsd-current" class="muted">All departments</span></div>
+<section class="panel"><div class="panel-head"><h3>Student Records</h3><span class="badge" id="rsd-count">0</span></div><div class="rsd-table"><table><thead><tr><th>Matric Number</th><th>Student Name</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Status</th><th>Profile</th></tr></thead><tbody id="rsd-body"><tr><td colspan="8">Loading student records…</td></tr></tbody></table></div></section>
 <script>
-(function () {
-  'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-
-  let ALL = [];
-  let FILTERED = [];
-
-  function getLevel(s) { return String(s.level || '').toUpperCase().trim() || '—'; }
-  function getProgramme(s) { return s.programmeName || s.programme?.name || '—'; }
-  function getDepartment(s) { return s.departmentName || s.department?.name || '—'; }
-  function getCGPA(s) { return s.cgpa != null ? Number(s.cgpa).toFixed(2) : '—'; }
-  function isActive(s) { return s.isActive === true || s.isActive === 'true' || s.isActive === 1; }
-
-  function render() {
-    const countEl = $('rs-count');
-    const tbody = $('rs-tbody');
-    if (countEl) countEl.textContent = FILTERED.length;
-    if (!tbody) return;
-
-    if (!FILTERED.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">No students match your filters.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = FILTERED.map((s) => {
-      const level = getLevel(s);
-      const chipClass = 'chip-' + level.toLowerCase();
-      const active = isActive(s);
-      return `
-        <tr data-id="${s.id}" style="cursor:pointer;">
-          <td><strong>${esc(s.matricNumber || '—')}</strong></td>
-          <td>${esc((s.firstName || '') + ' ' + (s.lastName || ''))}</td>
-          <td><span class="chip ${chipClass}">${esc(level)}</span></td>
-          <td>${esc(getProgramme(s))}</td>
-          <td>${esc(getDepartment(s))}</td>
-          <td>${getCGPA(s)}</td>
-          <td><span class="badge-status ${active ? 'badge-active' : 'badge-inactive'}">${active ? 'Active' : 'Inactive'}</span></td>
-        </tr>`;
-    }).join('');
-
-    // Row click → student profile
-    tbody.querySelectorAll('tr[data-id]').forEach((row) => {
-      row.addEventListener('click', () => {
-        window.location.hash = `registrar-student-profile?id=${row.dataset.id}`;
-      });
-    });
-  }
-
-  function applyFilter() {
-    const searchEl = $('rs-search');
-    const levelEl = $('rs-level');
-    const deptEl = $('rs-department');
-    const progEl = $('rs-programme');
-    const statusEl = $('rs-status');
-
-    const q = searchEl ? (searchEl.value || '').trim().toLowerCase() : '';
-    const lvl = levelEl ? levelEl.value : '';
-    const dept = deptEl ? deptEl.value : '';
-    const prog = progEl ? progEl.value : '';
-    const st = statusEl ? statusEl.value : '';
-
-    FILTERED = ALL.filter((s) => {
-      const hay = `${s.matricNumber || ''} ${s.firstName || ''} ${s.lastName || ''} ${s.email || ''}`.toLowerCase();
-      if (q && !hay.includes(q)) return false;
-      if (lvl && getLevel(s) !== lvl) return false;
-      if (dept && getDepartment(s) !== dept) return false;
-      if (prog && getProgramme(s) !== prog) return false;
-      if (st === 'active' && !isActive(s)) return false;
-      if (st === 'inactive' && isActive(s)) return false;
-      return true;
-    });
-
-    render();
-  }
-
-  function updateStats() {
-    setText('rs-total', ALL.length);
-    setText('rs-nd', ALL.filter((s) => getLevel(s) === 'ND').length);
-    setText('rs-hnd', ALL.filter((s) => getLevel(s) === 'HND').length);
-    setText('rs-active', ALL.filter(isActive).length);
-  }
-
-  function populateDropdowns() {
-    // Departments
-    const deptSel = $('rs-department');
-    if (deptSel) {
-      const depts = [...new Set(ALL.map(getDepartment).filter((d) => d && d !== '—'))].sort();
-      const curDept = deptSel.value;
-      deptSel.innerHTML = '<option value="">All Departments</option>' +
-        depts.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-      deptSel.value = curDept;
-    }
-
-    // Programmes
-    const progSel = $('rs-programme');
-    if (progSel) {
-      const progs = [...new Set(ALL.map(getProgramme).filter((p) => p && p !== '—'))].sort();
-      const curProg = progSel.value;
-      progSel.innerHTML = '<option value="">All Programmes</option>' +
-        progs.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
-      progSel.value = curProg;
-    }
-  }
-
-  async function load() {
-    const tbody = $('rs-tbody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
-
-    try {
-      const res = await core.portalFetch('/api/registrar/students');
-      const payload = res.data || res || {};
-      ALL = Array.isArray(payload) ? payload : (payload.rows || payload.students || []);
-      console.log('[registrar-students] Loaded', ALL.length);
-      populateDropdowns();
-      updateStats();
-      applyFilter();
-    } catch (err) {
-      console.error('[registrar-students]', err);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
-    }
-  }
-
-  function exportCsv() {
-    const headers = ['Matric No', 'Full Name', 'Level', 'Programme', 'Department', 'CGPA', 'Status'];
-    const rows = FILTERED.map((s) => [
-      s.matricNumber || '',
-      `${s.firstName || ''} ${s.lastName || ''}`.trim(),
-      getLevel(s),
-      getProgramme(s),
-      getDepartment(s),
-      getCGPA(s),
-      isActive(s) ? 'Active' : 'Inactive',
-    ]);
-    const csv = [headers, ...rows]
-      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `registrar-students-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-
-  // Safe wire-up
-  const searchEl = $('rs-search'); if (searchEl) searchEl.addEventListener('input', applyFilter);
-  const levelEl = $('rs-level'); if (levelEl) levelEl.addEventListener('change', applyFilter);
-  const deptEl = $('rs-department'); if (deptEl) deptEl.addEventListener('change', applyFilter);
-  const progEl = $('rs-programme'); if (progEl) progEl.addEventListener('change', applyFilter);
-  const statusEl = $('rs-status'); if (statusEl) statusEl.addEventListener('change', applyFilter);
-  const exportEl = $('rs-export'); if (exportEl) exportEl.addEventListener('click', exportCsv);
-
-  load();
+(function(){
+ 'use strict';
+ const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id),esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let all=[],department='';
+ const active=s=>s.isActive===true||s.isActive===1||s.isActive==='true';
+ function filtered(){const q=$('rsd-search').value.trim().toLowerCase(),level=$('rsd-level').value,prog=$('rsd-programme').value,status=$('rsd-status').value;
+ return all.filter(s=>{const dept=s.departmentName||'Unassigned';if(department&&dept!==department)return false;if(level&&String(s.level||'').toUpperCase()!==level)return false;if(prog&&(s.programmeName||'')!==prog)return false;if(status==='active'&&!active(s))return false;if(status==='inactive'&&active(s))return false;return !q||[s.firstName,s.lastName,s.matricNumber,s.email,dept,s.programmeName].join(' ').toLowerCase().includes(q)})}
+ function render(){const rows=filtered();$('rsd-count').textContent=rows.length;$('rsd-current').textContent=department?'Department: '+department:'All departments';
+ $('rsd-body').innerHTML=rows.length?rows.map(s=>'<tr><td><strong>'+esc(s.matricNumber||'Not assigned')+'</strong></td><td>'+esc([s.firstName,s.lastName].filter(Boolean).join(' '))+'</td><td>'+esc(s.departmentName||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td>'+Number(s.cgpa||0).toFixed(2)+'</td><td>'+ (active(s)?'<span class="badge-status badge-active">Active</span>':'<span class="badge-status badge-inactive">Inactive</span>')+'</td><td><button class="rsd-view" data-id="'+Number(s.id)+'">View Profile</button></td></tr>').join(''):'<tr><td colspan="8" style="padding:2rem;text-align:center;color:#64748b">No students match this selection.</td></tr>';
+ $('rsd-body').querySelectorAll('[data-id]').forEach(b=>b.addEventListener('click',()=>{location.hash='registrar-student-profile?id='+Number(b.dataset.id)}));
+ }
+ function renderDepartments(){const counts={};all.forEach(s=>{const d=s.departmentName||'Unassigned';counts[d]=(counts[d]||0)+1});const list=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0]));
+ $('rsd-departments').innerHTML=list.length?list.map(([name,count])=>'<button class="rsd-dept '+(department===name?'active':'')+'" data-dept="'+esc(name)+'"><span style="font-size:.72rem;color:#64748b;font-weight:700">DEPARTMENT</span><strong>'+count+'</strong><span>'+esc(name)+'</span><small style="display:block;color:#64748b;margin-top:.25rem">Click to view students →</small></button>').join(''):'<div class="muted">No department records found.</div>';
+ $('rsd-departments').querySelectorAll('[data-dept]').forEach(b=>b.addEventListener('click',()=>{department=b.dataset.dept;renderDepartments();render()}));
+ }
+ async function load(){ $('rsd-body').innerHTML='<tr><td colspan="8">Loading student records…</td></tr>';try{const r=await core.portalFetch('/api/registrar/students');all=Array.isArray(r.data)?r.data:[];$('rsd-total').textContent=all.length;$('rsd-nd').textContent=all.filter(s=>String(s.level).toUpperCase()==='ND').length;$('rsd-hnd').textContent=all.filter(s=>String(s.level).toUpperCase()==='HND').length;$('rsd-active').textContent=all.filter(active).length;const ps=[...new Set(all.map(s=>s.programmeName).filter(Boolean))].sort();$('rsd-programme').innerHTML='<option value="">All Programmes</option>'+ps.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('');renderDepartments();render()}catch(e){$('rsd-body').innerHTML='<tr><td colspan="8">Could not load students: '+esc(e.message)+'</td></tr>';core.showToast&&core.showToast(e.message,'error')}}
+ ['rsd-search','rsd-level','rsd-programme','rsd-status'].forEach(id=>$(id).addEventListener(id==='rsd-search'?'input':'change',render));$('rsd-clear').addEventListener('click',()=>{department='';renderDepartments();render()});load();
 })();
 </script>

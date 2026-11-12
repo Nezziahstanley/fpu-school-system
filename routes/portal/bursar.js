@@ -124,7 +124,11 @@ router.get('/lookups', only, async (_req, res, next) => {
 router.get('/payments', only, async (req, res, next) => {
   try {
     const { sessionId, status, search } = req.query;
-    const conds = [];\n    if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));\n    if (status) conds.push(eq(payments.status, status));\n    if (search) { const term = `%${String(search).trim()}%`; conds.push(or(ilike(payments.reference, term), ilike(payments.bankName, term), ilike(payments.depositorName, term), ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term))); }\n    const rows = await db.select({ payment: payments, student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } }).from(payments).leftJoin(users, eq(payments.studentId, users.id)).where(conds.length ? and(...conds) : undefined).orderBy(desc(payments.createdAt)).limit(200);
+    const conds = [];
+    if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+    if (status) conds.push(eq(payments.status, status));
+    if (search) { const term = `%${String(search).trim()}%`; conds.push(or(ilike(payments.reference, term), ilike(payments.bankName, term), ilike(payments.depositorName, term), ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term))); }
+    const rows = await db.select({ payment: payments, student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } }).from(payments).leftJoin(users, eq(payments.studentId, users.id)).where(conds.length ? and(...conds) : undefined).orderBy(desc(payments.createdAt)).limit(200);
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -148,7 +152,9 @@ router.post('/payments/:id/reject', only, async (req, res, next) => {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be rejected.' });
-    const reason = String(req.body?.reason || '').trim();\n    if (!reason || reason.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });\n    const row = await paymentQueries.reject(req.params.id, reason, req.user.id);
+    const reason = String(req.body?.reason || '').trim();
+    if (!reason || reason.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
+    const row = await paymentQueries.reject(req.params.id, reason, req.user.id);
     if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });
@@ -180,7 +186,10 @@ router.post('/fees', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'level must be ND or HND.' });
     }
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
-    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {\n      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });\n    }\n    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {
+      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });
+    }
+    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
 
     const row = await paymentQueries.createFeeStructure({
       programmeId: b.programmeId, level: b.level, sessionId: b.sessionId,
@@ -202,7 +211,10 @@ router.put('/fees/:id', only, async (req, res, next) => {
   try {
     const b = req.body || {};
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
-    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {\n      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });\n    }\n    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {
+      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });
+    }
+    const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
     const row = await paymentQueries.updateFeeStructure(req.params.id, {
       tuition: b.tuition, acceptance: b.acceptance, medical: b.medical,
       library: b.library, ict: b.ict, sports: b.sports, other: b.other,
@@ -419,7 +431,8 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     const student = await userQueries.findByIdWithRelations(studentId);
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
-    const results = await resultQueries.publishedForStudent(studentId, {});\n    const safeStudent = { id: student.id, firstName: student.firstName, lastName: student.lastName, matricNumber: student.matricNumber, level: student.level, programmeName: student.programmeName || student.programme?.name || null, departmentName: student.departmentName || student.department?.name || null };
+    const results = await resultQueries.publishedForStudent(studentId, {});
+    const safeStudent = { id: student.id, firstName: student.firstName, lastName: student.lastName, matricNumber: student.matricNumber, level: student.level, programmeName: student.programmeName || student.programme?.name || null, departmentName: student.departmentName || student.department?.name || null };
     
     let totalPoints = 0, totalUnits = 0;
     results.forEach(r => {

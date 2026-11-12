@@ -94,9 +94,8 @@
       'admin-audit', 'admin-transcript',
     ],
     registrar: [
-      'admin-admitted', 'admin-documents',
-      'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
-      'portal-notifications', 'portal-announcements', 'admin-transcript',
+      'admin-admitted', 'admin-id-cards', 'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
+      'portal-notifications', 'portal-announcements',
     ],
     librarian: [
       'portal-profile', 'portal-photo', 'portal-id-card', 'portal-messages',
@@ -134,11 +133,11 @@
         'registrar-registrations'
       ];
       
-      const registryKeys = ['admin-admitted', 'admin-documents']; 
+      const registryKeys = ['admin-admitted']; 
       
       const mainItems = roleItems.filter((it) => mainKeys.includes(it.key));
       
-      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances', 'registrar-documents', 'registrar-transcripts'].includes(it.key));
+      const customRegistry = roleItems.filter((it) => ['registrar-applications', 'registrar-graduations', 'registrar-clearances', 'registrar-documents'].includes(it.key));
       
       const registryItems = [
         ...customRegistry,
@@ -243,7 +242,6 @@
       { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
       { key: 'registrar-documents',       label: 'Documents & Certificates', icon: ICON.file },
-      { key: 'registrar-transcripts',      label: 'Transcript Register', icon: ICON.book },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },

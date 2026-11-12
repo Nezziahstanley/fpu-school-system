@@ -156,6 +156,7 @@ router.get('/students', only, async (req, res, next) => {
         firstName: users.firstName,
         lastName: users.lastName,
         level: users.level,
+        departmentId: departments.id,
         email: users.email,
         phone: users.phone,
         programmeName: programmes.name,
@@ -522,6 +523,37 @@ router.get('/documents', only, async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
+// GET /api/registrar/documents/:id/preview — complete student/request data for official templates
+router.get('/documents/:id/preview', only, async (req, res, next) => {
+  try {
+    const docId = Number(req.params.id);
+    if (!Number.isInteger(docId) || docId < 1) return res.status(400).json({ success: false, error: 'Invalid document request ID.' });
+    const [row] = await db.select({
+      document: documents,
+      student: {
+        id: users.id, firstName: users.firstName, middleName: users.middleName, lastName: users.lastName,
+        email: users.email, phone: users.phone, gender: users.gender, dateOfBirth: users.dateOfBirth,
+        stateOfOrigin: users.stateOfOrigin, nationality: users.nationality, address: users.address,
+        matricNumber: users.matricNumber, level: users.level, photoUrl: users.photoUrl,
+        isActive: users.isActive, createdAt: users.createdAt,
+      },
+      programmeName: programmes.name,
+      departmentName: departments.name,
+    }).from(documents)
+      .leftJoin(users, eq(documents.userId, users.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .leftJoin(departments, eq(users.departmentId, departments.id))
+      .where(eq(documents.id, docId)).limit(1);
+    if (!row || !row.student) return res.status(404).json({ success: false, error: 'Document request or student record not found.' });
+    const [issuer] = await db.select({ signatureUrl: users.signatureUrl }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    return res.json({ success: true, data: {
+      document: row.document,
+      student: { ...row.student, programmeName: row.programmeName, departmentName: row.departmentName },
+      issuerSignatureUrl: issuer?.signatureUrl || null,
+    }});
+  } catch (err) { return next(err); }
+});
+
 // ============================================================
 // POST /api/registrar/documents/:id/issue
 // ============================================================
@@ -552,7 +584,7 @@ router.post('/documents/:id/issue', only, upload.single('file'), async (req, res
       .where(and(eq(documents.id, docId), inArray(documents.status, ['pending', 'approved'])))
       .returning();
 
-    if (!updated) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be issued.' });
+    if (!updated) { try { fs.unlinkSync(newPath); } catch (_) {} return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be issued.' }); }
     return res.json({ success: true, data: updated });
   } catch (err) { return next(err); }
 });

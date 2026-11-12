@@ -25,7 +25,8 @@
   </div>
 
   <!-- STATS -->
-  <div id="reg-doc-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+  <section class="panel" style="margin-bottom:1rem"><div class="panel-head"><div><h3>Transcript Register</h3><p class="muted small">Search students and preview their published academic records here.</p></div><span class="badge" id="reg-doc-transcript-count">Loading…</span></div><div class="panel-body"><input id="reg-doc-transcript-search" type="search" placeholder="Search name, matric number, department or programme" style="width:100%;max-width:520px;padding:.7rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.8rem"><div style="overflow:auto"><table class="data-table"><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="reg-doc-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table></div></div></section>
+<div id="reg-doc-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
 
   <!-- TABLE -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -67,7 +68,7 @@
       <button id="reg-doc-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
     </div>
     <div style="padding:1.25rem;">
-      <p style="font-size:.85rem;color:#475569;margin-bottom:1rem;">Upload the official PDF document for <strong id="reg-doc-student-name"></strong>.</p>
+      <p style="font-size:.85rem;color:#475569;margin-bottom:1rem;">Preview the pre-designed template first, print or save it as a PDF, then upload the approved file for <strong id="reg-doc-student-name"></strong>.</p>
       
       <input type="file" id="reg-doc-file" accept=".pdf,image/jpeg,image/png" style="display:block;width:100%;padding:.75rem;border:1px dashed #cbd5e1;border-radius:8px;margin-bottom:1rem;font-size:.85rem;" />
       
@@ -104,6 +105,7 @@
   const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
 
   let ALL = [];
+  let TRANSCRIPT_STUDENTS = [];
   let SELECTED_DOC = null;
 
   async function load() {
@@ -114,10 +116,12 @@
     </td></tr>`;
 
     try {
-      const res = await core.portalFetch('/api/registrar/documents');
+      const [res, transcriptRes] = await Promise.all([core.portalFetch('/api/registrar/documents'), core.portalFetch('/api/registrar/transcripts')]);
       ALL = Array.isArray(res.data) ? res.data : [];
+      TRANSCRIPT_STUDENTS = Array.isArray(transcriptRes.data) ? transcriptRes.data : [];
       renderStats();
       applyFilters();
+      renderTranscriptRegister();
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
@@ -181,25 +185,13 @@
       let actions = '';
       const docType = (d.type || '').toLowerCase();
 
+      actions = `<button class="rd-btn-sm" data-action="preview-document" data-id="${d.id}" style="background:#eff6ff;color:#1e40af;margin-right:.3rem;">👁 Preview</button>`;
       if (st === 'pending' || st === 'approved') {
-        if (docType.includes('transcript')) {
-          actions = `
-            <button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#eff6ff;color:#1e40af;margin-right:.35rem;">👁 Preview</button>
-            <button class="rd-btn-sm" data-action="generate-transcript" data-id="${d.id}" data-userid="${d.userId}" style="background:#065f46;color:#fff;">📄 Issue</button>
-          `;
-        } else {
-          actions = `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload</button>`;
-        }
+        actions += `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload & Issue</button>`;
+      } else if (st === 'issued' && d.fileUrl) {
+        actions += `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" rel="noopener" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
       } else if (st === 'issued') {
-        if (d.fileUrl) {
-          actions = `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
-        } else if (docType.includes('transcript')) {
-          actions = `<button class="rd-btn-sm" data-action="preview-transcript" data-userid="${d.userId}" style="background:#f1f5f9;color:#475569;">👁 View</button>`;
-        } else {
-          actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;
-        }
-      } else {
-        actions = `<span style="font-size:.72rem;color:#94a3b8;">—</span>`;
+        actions += `<span style="font-size:.72rem;color:#64748b;">Issued · PDF not attached</span>`;
       }
 
       return `
@@ -219,19 +211,15 @@
         </tr>`;
     }).join('');
 
-    tbody.querySelectorAll('[data-action="preview-transcript"]').forEach(btn => {
+    tbody.querySelectorAll('[data-action="preview-document"]').forEach(btn => {
       btn.addEventListener('click', () => {
-        window.open(`/portal/partials/registrar/document-template.html?studentId=${btn.dataset.userid}`, '_blank');
-      });
-    });
-
-    tbody.querySelectorAll('[data-action="generate-transcript"]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        window.open(`/portal/partials/registrar/document-template.html?studentId=${btn.dataset.userid}`, '_blank');
-        try {
-          await core.portalFetch(`/api/registrar/documents/${btn.dataset.id}/mark-issued`, { method: 'POST' });
-          load();
-        } catch (err) { console.error(err); }
+        const doc = ALL.find(item => Number(item.id) === Number(btn.dataset.id));
+        if (!doc) return;
+        const isTranscript = (String(doc.type || '') + ' ' + String(doc.title || '')).toLowerCase().includes('transcript');
+        const url = isTranscript
+          ? '/portal/partials/registrar/document-template.html?studentId=' + Number(doc.userId)
+          : '/portal/partials/registrar/document-preview.html?documentId=' + Number(doc.id);
+        window.open(url, '_blank', 'noopener');
       });
     });
 
@@ -242,6 +230,19 @@
         if (doc) openIssueModal(doc);
       });
     });
+  }
+
+  function renderTranscriptRegister() {
+    const q = ($('reg-doc-transcript-search')?.value || '').trim().toLowerCase();
+    const rows = TRANSCRIPT_STUDENTS.filter(s => [s.firstName,s.lastName,s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
+    const count = $('reg-doc-transcript-count'); if (count) count.textContent = rows.length + ' students';
+    const body = $('reg-doc-transcript-body'); if (!body) return;
+    body.innerHTML = rows.length ? rows.map(s => `<tr><td><strong>${esc([s.firstName,s.lastName].filter(Boolean).join(' '))}</strong></td><td>${esc(s.matricNumber || '—')}</td><td>${esc(s.departmentName || '—')}</td><td>${esc(s.programmeName || '—')}</td><td>${esc(s.level || '—')}</td><td><strong>${Number(s.cgpa || 0).toFixed(2)}</strong></td><td><button class="rd-btn-sm" data-student-id="${Number(s.id)}" style="background:#065f46;color:#fff">Preview Transcript</button></td></tr>`).join('') : '<tr><td colspan="7">No transcript records match your search.</td></tr>';
+    body.querySelectorAll('[data-student-id]').forEach(btn => btn.addEventListener('click', () => {
+      const student = TRANSCRIPT_STUDENTS.find(s => Number(s.id) === Number(btn.dataset.studentId));
+      if (!student) return;
+      window.open('/portal/partials/registrar/document-template.html?studentId=' + Number(student.id), '_blank', 'noopener');
+    }));
   }
 
   function openIssueModal(doc) {
@@ -289,6 +290,7 @@
   $('reg-doc-modal-close')?.addEventListener('click', closeModal);
   $('reg-doc-cancel')?.addEventListener('click', closeModal);
   $('reg-doc-refresh')?.addEventListener('click', load);
+  $('reg-doc-transcript-search')?.addEventListener('input', renderTranscriptRegister);
   $('doc-search').addEventListener('input', applyFilters);
   $('doc-filter-status').addEventListener('change', applyFilters);
   $('reg-doc-modal')?.addEventListener('click', (e) => { if (e.target.id === 'reg-doc-modal') closeModal(); });

@@ -15,6 +15,7 @@
         <option value="ND">ND</option>
         <option value="HND">HND</option>
       </select>
+      <select id="ado-filter-department" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;"><option value="">All Departments</option></select>
       <button id="ado-refresh" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -45,14 +46,17 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">App No.</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Applicant Name</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Email</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric No.</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Programme</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Application Type</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Admitted On</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
+            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Details</th>
           </tr>
         </thead>
         <tbody id="ado-tbody">
-          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
+          <tr><td colspan="10" style="padding:3rem;text-align:center;color:#94a3b8;">
             <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:adoSpin .8s linear infinite;"></div>
             <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
           </td></tr>
@@ -62,6 +66,12 @@
   </div>
 </div>
 
+<div id="ado-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:10000;align-items:center;justify-content:center;padding:1rem;">
+ <div style="background:#fff;width:min(760px,100%);max-height:90vh;overflow:auto;border-radius:16px;box-shadow:0 24px 60px #0003">
+  <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 1.25rem;display:flex;justify-content:space-between;align-items:center"><div><h3 style="margin:0;color:#0f172a">Admission Record Details</h3><p style="margin:.25rem 0 0;color:#64748b;font-size:.78rem">Complete information submitted by the admitted applicant</p></div><button id="ado-detail-close" type="button" style="border:0;background:#f1f5f9;border-radius:8px;padding:.5rem .7rem;cursor:pointer">✕</button></div>
+  <div id="ado-detail-content" style="padding:1.25rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem"></div>
+ </div>
+</div>
 <style>
   @keyframes adoSpin { to { transform: rotate(360deg); } }
   #ado-tbody tr { transition: background .1s; }
@@ -101,7 +111,7 @@
 
     try {
       // Request relations to get programme names
-      const res = await core.portalFetch('/api/admin/applications?limit=500&withRelations=true');
+      const res = await core.portalFetch('/api/registrar/admitted');
       
       const allApps = Array.isArray(res.data) ? res.data : [];
       
@@ -109,7 +119,8 @@
       ALL = allApps.filter(app => 
         ['approved', 'registered', 'matriculated'].includes(app.status)
       );
-      
+      const deptSel = $('ado-filter-department');
+      if (deptSel) deptSel.innerHTML = '<option value="">All Departments</option>' + [...new Set(ALL.map(a => a.departmentName).filter(Boolean))].sort().map(d => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
       renderStats();
       applyFilters();
     } catch (err) {
@@ -145,11 +156,13 @@
   function applyFilters() {
     const q = ($('ado-search')?.value || '').trim().toLowerCase();
     const level = $('ado-filter-level')?.value || '';
+    const department = $('ado-filter-department')?.value || '';
 
     FILTERED = ALL.filter(a => {
       if (level && String(a.level).toUpperCase() !== level) return false;
+      if (department && (a.departmentName || '') !== department) return false;
       if (q) {
-        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.phone || ''} ${a.applicationNumber || ''} ${a.matricNumber || ''} ${a.departmentName || ''} ${a.programmeName || ''} ${a.type || ''} ${a.jambRegNo || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -186,10 +199,12 @@
           <td style="padding:.65rem .75rem;font-size:.78rem;color:#64748b;">
             ${esc(a.email || '—')}
           </td>
+          <td style="padding:.65rem .75rem;"><code>${esc(a.matricNumber || 'Not assigned')}</code></td>
           <td style="padding:.65rem .75rem;">
             <div style="font-size:.8rem;color:#0f172a;font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.programmeName || '—')}</div>
             <div style="font-size:.7rem;color:#94a3b8;">${esc(a.departmentName || '')}</div>
           </td>
+          <td style="padding:.65rem .75rem;text-align:center;">${esc(String(a.type || 'ND').toUpperCase())}</td>
           <td style="padding:.65rem .75rem;text-align:center;">
             <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:#f1f5f9;color:#334155;border-radius:5px;">${esc(a.level || '—')}</span>
           </td>
@@ -202,8 +217,27 @@
               ${meta.label}
             </span>
           </td>
+          <td style="padding:.65rem .75rem;text-align:right;"><button type="button" data-view-id="${Number(a.id)}" style="padding:.4rem .7rem;border:0;border-radius:7px;background:#065f46;color:#fff;font-weight:700;cursor:pointer;">View Details</button></td>
         </tr>`;
     }).join('');
+    tbody.querySelectorAll('[data-view-id]').forEach(btn => btn.addEventListener('click', () => openDetails(btn.dataset.viewId)));
+  }
+
+  function openDetails(id) {
+    const a = ALL.find(row => Number(row.id) === Number(id));
+    if (!a) return;
+    const fields = [
+      ['Application Number', a.applicationNumber], ['Applicant Name', [a.firstName,a.middleName,a.lastName].filter(Boolean).join(' ')],
+      ['Email', a.email], ['Phone', a.phone], ['Gender', a.gender], ['Date of Birth', fmtDate(a.dateOfBirth)],
+      ['Application Type', a.type], ['Level', a.level], ['Department', a.departmentName], ['Programme', a.programmeName],
+      ['Matriculation Number', a.matricNumber], ['Admission Status', a.status], ['Admitted Date', fmtDate(a.admittedAt)],
+      ['JAMB Registration Number', a.jambRegNo], ['JAMB Score', a.jambScore], ['O’Level Results', a.oLevelResult ? JSON.stringify(a.oLevelResult) : '—'], ['Passport Photo URL', a.passportUrl], ['Country', a.country],
+      ['State of Origin', a.stateOfOrigin], ['LGA', a.lga], ['Address', a.address],
+      ['Documents Verified', a.documentsVerifiedAt ? fmtDate(a.documentsVerifiedAt) : 'Not yet verified'], ['Reviewed Date', fmtDate(a.reviewedAt)], ['Matriculated Date', fmtDate(a.matriculatedAt)],
+      ['Registry Notes', a.notes], ['Rejection Reason', a.rejectionReason]
+    ];
+    $('ado-detail-content').innerHTML = fields.map(([label,value]) => '<div style="padding:.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;min-width:0"><small style="display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem">'+esc(label)+'</small><strong style="display:block;color:#0f172a;font-size:.82rem;overflow-wrap:anywhere">'+esc(value || '—')+'</strong></div>').join('');
+    $('ado-detail-modal').style.display = 'flex';
   }
 
   // ---------- Wiring ----------
@@ -213,17 +247,20 @@
     searchTimer = setTimeout(applyFilters, 200);
   });
   $('ado-filter-level')?.addEventListener('change', applyFilters);
+  $('ado-filter-department')?.addEventListener('change', applyFilters);
   $('ado-refresh')?.addEventListener('click', load);
+  $('ado-detail-close')?.addEventListener('click', () => { $('ado-detail-modal').style.display = 'none'; });
+  $('ado-detail-modal')?.addEventListener('click', e => { if (e.target.id === 'ado-detail-modal') $('ado-detail-modal').style.display = 'none'; });
 
   $('ado-export')?.addEventListener('click', () => {
     if (!FILTERED.length) {
       core.showToast && core.showToast('No rows to export.', 'warning');
       return;
     }
-    const headers = ['App No','First Name','Last Name','Email','Programme','Level','Status','Admitted On'];
+    const headers = ['App No','First Name','Last Name','Email','Matric Number','Department','Programme','Application Type','Level','Status','Admitted On'];
     const rows = FILTERED.map(a => [
       a.applicationNumber || '', a.firstName || '', a.lastName || '', a.email || '',
-      a.programmeName || '', a.level || '', a.status || '', fmtDate(a.admittedAt || a.createdAt),
+      a.matricNumber || '', a.departmentName || '', a.programmeName || '', a.type || '', a.level || '', a.status || '', fmtDate(a.admittedAt || a.createdAt),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

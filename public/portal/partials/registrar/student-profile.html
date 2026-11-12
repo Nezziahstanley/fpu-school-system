@@ -31,6 +31,11 @@
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Department</div><div id="profile-dept" style="font-weight:700;color:#0f172a;">—</div></div>
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Email</div><div id="profile-email" style="font-weight:700;color:#0f172a;">—</div></div>
         <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Phone</div><div id="profile-phone" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Gender</div><div id="profile-gender" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Date of Birth</div><div id="profile-dob" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">State of Origin</div><div id="profile-origin" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Nationality</div><div id="profile-nationality" style="font-weight:700;color:#0f172a;">—</div></div>
+        <div><div style="color:#64748b;font-size:.7rem;font-weight:700;text-transform:uppercase;">Address</div><div id="profile-address" style="font-weight:700;color:#0f172a;">—</div></div>
       </div>
     </div>
 
@@ -129,9 +134,14 @@
       $('profile-dept').textContent = s.department?.name || s.departmentName || '—';
       $('profile-email').textContent = s.email || '—';
       $('profile-phone').textContent = s.phone || '—';
+      $('profile-gender').textContent = s.gender || '—';
+      $('profile-dob').textContent = s.dateOfBirth ? new Date(s.dateOfBirth).toLocaleDateString('en-GB') : '—';
+      $('profile-origin').textContent = s.stateOfOrigin || '—';
+      $('profile-nationality').textContent = s.nationality || '—';
+      $('profile-address').textContent = s.address || '—';
 
       // 4. Populate Summary Stats
-      $('profile-cgpa').textContent = summary.cgpa ? Number(summary.cgpa).toFixed(2) : '—';
+      $('profile-cgpa').textContent = Number.isFinite(Number(summary.cgpa)) ? Number(summary.cgpa).toFixed(2) : '—';
       $('profile-courses-count').textContent = rows.length;
       
       const isActive = s.isActive === true || s.isActive === 'true' || s.isActive === 1;

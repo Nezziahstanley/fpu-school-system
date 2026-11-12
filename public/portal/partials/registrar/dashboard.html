@@ -87,8 +87,8 @@
     <div class="panel-body flush">
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Matric</th><th>Name</th><th>Level</th><th>Programme</th></tr></thead>
-          <tbody id="reg-recent-students"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+          <thead><tr><th>Matric</th><th>Name</th><th>Level</th><th>Programme</th><th>Profile</th></tr></thead>
+          <tbody id="reg-recent-students"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -161,9 +161,10 @@
   function makeBar(id, labels, data, opts) {
     opts = opts || {};
     const el = $(id); if (!el) return;
+    if (!window.Chart) { emptyChart(id, 'Chart library unavailable'); return; }
     destroyChart(id);
     try {
-      window.FPU_REG_CHARTS[id] = new Chart(el, {
+      window.FPU_REG_CHARTS[id] = new window.Chart(el, {
         type: 'bar',
         data: { labels, datasets: [{ label: opts.label || 'Count', data, backgroundColor: opts.colors || COLORS.green, borderRadius: 6, barThickness: opts.thickness || 22 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
@@ -200,14 +201,18 @@
   // Main Loader
   // ============================================================
   async function loadAll() {
-    $('reg-error-banner').style.display = 'none';
+    if ($('reg-error-banner')) $('reg-error-banner').style.display = 'none';
     Object.keys(window.FPU_REG_CHARTS).forEach(destroyChart);
-
-    // 1. Load Stats & Demographics
-    try {
-      const res = await core.portalFetch('/api/registrar/dashboard');
-      const d = res.data || res || {};
-      
+    const endpoints = [
+      '/api/registrar/dashboard',
+      '/api/registrar/trends',
+      '/api/registrar/recent-students',
+      '/api/registrar/recent-applications'
+    ];
+    const results = await Promise.allSettled(endpoints.map(url => core.portalFetch(url)));
+    const [statsResult, trendsResult, studentsResult, appsResult] = results;
+    if (statsResult.status === 'fulfilled') {
+      const d = statsResult.value.data || statsResult.value || {};
       $('reg-stat-students').textContent = d.totalStudents ?? 0;
       $('reg-stat-nd').textContent = d.ndStudents ?? 0;
       $('reg-stat-hnd').textContent = d.hndStudents ?? 0;
@@ -216,69 +221,41 @@
       $('reg-stat-apps').textContent = d.pendingApplications ?? 0;
       $('reg-stat-progs').textContent = d.totalProgrammes ?? 0;
       $('reg-stat-clearances').textContent = d.pendingClearances ?? 0;
-
-      // Render Demographics
-      if (d.demographics) {
-        const dm = d.demographics;
-        if (dm.byLevel) makeBar('reg-chart-level', Object.keys(dm.byLevel), Object.values(dm.byLevel), { colors: COLORS.purple, thickness: 50 });
-        else emptyChart('reg-chart-level');
-
-        if (dm.byDept && Object.keys(dm.byDept).length) {
-          const entries = Object.entries(dm.byDept).sort((a,b)=>b[1]-a[1]).slice(0,10);
-          makeBar('reg-chart-dept', entries.map(e=>e[0]), entries.map(e=>e[1]), { colors: COLORS.blue });
-        } else emptyChart('reg-chart-dept');
-
-        if (dm.byGender) makeDoughnut('reg-chart-gender', Object.keys(dm.byGender), Object.values(dm.byGender), [COLORS.blue, COLORS.pink, COLORS.slate]);
-        else emptyChart('reg-chart-gender');
-      }
-    } catch (err) {
-      showError('Failed to load stats: ' + err.message);
-    }
-
-    // 2. Load Trends
-    try {
-      const tRes = await core.portalFetch('/api/registrar/trends');
-      const trends = tRes.data || tRes || {};
-      
-      if (trends.enrollment && trends.enrollment.labels.length) {
-        makeLine('reg-chart-enrollment', trends.enrollment.labels, trends.enrollment.values, { label: 'Total Students', color: COLORS.purple });
-      } else emptyChart('reg-chart-enrollment');
-
-      if (trends.registrations) {
-        makeDoughnut('reg-chart-registrations', ['Pending', 'Approved', 'Rejected'], [trends.registrations.pending, trends.registrations.approved, trends.registrations.rejected], [COLORS.gold, COLORS.green, COLORS.red]);
-      } else emptyChart('reg-chart-registrations');
-
-      if (trends.admission && trends.admission.labels.length) {
-        makeLine('reg-chart-admission', trends.admission.labels, trends.admission.values, { label: 'New Applications', color: COLORS.gold });
-      } else emptyChart('reg-chart-admission');
-    } catch (err) {
-      showError('Failed to load trends: ' + err.message);
-    }
-
-    // 3. Load Recent Tables
-    try {
-      const sRes = await core.portalFetch('/api/registrar/recent-students');
-      const sList = sRes.data || [];
-      $('reg-recent-students').innerHTML = sList.length
-        ? sList.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td></tr>`).join('')
-        : '<tr><td colspan="4" class="empty">No students.</td></tr>';
-    } catch (err) { $('reg-recent-students').innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
-
-    try {
-      const aRes = await core.portalFetch('/api/registrar/recent-applications');
-      const aList = aRes.data || [];
-      $('reg-recent-apps').innerHTML = aList.length
-        ? aList.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
+      const dm = d.demographics || {};
+      if (dm.byLevel) makeBar('reg-chart-level', Object.keys(dm.byLevel), Object.values(dm.byLevel), { colors: COLORS.purple, thickness: 50 });
+      else emptyChart('reg-chart-level');
+      if (dm.byDept && Object.keys(dm.byDept).length) {
+        const entries = Object.entries(dm.byDept).sort((x,y)=>y[1]-x[1]).slice(0,10);
+        makeBar('reg-chart-dept', entries.map(x=>x[0]), entries.map(x=>x[1]), { colors: COLORS.blue });
+      } else emptyChart('reg-chart-dept');
+      if (dm.byGender) makeDoughnut('reg-chart-gender', Object.keys(dm.byGender), Object.values(dm.byGender), [COLORS.blue, COLORS.pink, COLORS.slate]);
+      else emptyChart('reg-chart-gender');
+    } else showError('Failed to load dashboard statistics: ' + statsResult.reason.message);
+    if (trendsResult.status === 'fulfilled') {
+      const t = trendsResult.value.data || trendsResult.value || {};
+      if (t.enrollment && t.enrollment.labels?.length) makeLine('reg-chart-enrollment', t.enrollment.labels, t.enrollment.values, { label: 'Total Students', color: COLORS.purple });
+      else emptyChart('reg-chart-enrollment');
+      if (t.registrations) makeDoughnut('reg-chart-registrations', ['Pending','Approved','Rejected'], [t.registrations.pending||0,t.registrations.approved||0,t.registrations.rejected||0], [COLORS.gold,COLORS.green,COLORS.red]);
+      else emptyChart('reg-chart-registrations');
+      if (t.admission && t.admission.labels?.length) makeLine('reg-chart-admission', t.admission.labels, t.admission.values, { label: 'New Applications', color: COLORS.gold });
+      else emptyChart('reg-chart-admission');
+    } else showError('Failed to load dashboard trends: ' + trendsResult.reason.message);
+    if (studentsResult.status === 'fulfilled') {
+      const rows = studentsResult.value.data || [];
+      $('reg-recent-students').innerHTML = rows.length
+        ? rows.map(x => `<tr><td><code>${esc(x.matricNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.level||'')}</td><td>${esc(x.programmeName||'—')}</td><td><a class="btn btn-outline btn-xs" href="#registrar-student-profile?id=${Number(x.id)}">View</a></td></tr>`).join('')
+        : '<tr><td colspan="5" class="empty">No students.</td></tr>';
+    } else $('reg-recent-students').innerHTML = '<tr><td colspan="5" class="empty">Could not load recent students.</td></tr>';
+    if (appsResult.status === 'fulfilled') {
+      const rows = appsResult.value.data || [];
+      $('reg-recent-apps').innerHTML = rows.length
+        ? rows.map(x => `<tr><td><code>${esc(x.applicationNumber||'')}</code></td><td>${esc((x.firstName||'')+' '+(x.lastName||''))}</td><td>${esc(x.type||'ND')}</td><td>${esc((x.status||'').replace(/_/g,' '))}</td></tr>`).join('')
         : '<tr><td colspan="4" class="empty">No applications.</td></tr>';
-    } catch (err) { $('reg-recent-apps').innerHTML = '<tr><td colspan="4" class="empty">Could not load.</td></tr>'; }
+    } else $('reg-recent-apps').innerHTML = '<tr><td colspan="4" class="empty">Could not load recent applications.</td></tr>';
   }
 
   $('reg-refresh')?.addEventListener('click', loadAll);
   
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(loadAll, 100));
-  } else {
-    setTimeout(loadAll, 100);
-  }
+  loadAll();
 })();
 </script>

@@ -185,10 +185,15 @@ router.get('/courses', only, async (req, res, next) => {
         level: courses.level,
         unit: courses.unit,
         semesterName: courses.semesterName,
+        allocationSemester: courseAllocations.semester,
+        sessionId: courseAllocations.sessionId,
+        sessionName: academicSessions.name,
       })
       .from(courseAllocations)
       .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
-      .where(eq(courseAllocations.lecturerId, req.user.id));
+      .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
+      .where(eq(courseAllocations.lecturerId, req.user.id))
+      .orderBy(desc(academicSessions.isCurrent), desc(courseAllocations.sessionId), courses.code);
 
     const data = rows.filter(r => r.id !== null);
     return res.json({ success: true, data });
@@ -253,9 +258,22 @@ router.get('/attendance', only, async (req, res, next) => {
 router.post('/attendance/bulk', only, async (req, res, next) => {
   try {
     const { rows } = req.body || {};
-    if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ success: false, error: 'rows[] is required.' });
+    if (!Array.isArray(rows) || rows.length === 0 || rows.length > 1000) return res.status(400).json({ success: false, error: 'Provide between 1 and 1000 attendance rows.' });
 
     const courseId = Number(rows[0].courseId);
+    if (!Number.isInteger(courseId) || courseId < 1 || rows.some(r => Number(r.courseId) !== courseId)) {
+      return res.status(400).json({ success: false, error: 'All attendance rows must belong to one valid course.' });
+    }
+    const studentIds = rows.map(r => Number(r.studentId));
+    if (studentIds.some(id => !Number.isInteger(id) || id < 1) || new Set(studentIds).size !== studentIds.length) {
+      return res.status(400).json({ success: false, error: 'Student IDs must be valid and unique.' });
+    }
+    if (rows.some(r => !['present', 'absent', 'late'].includes(String(r.status || 'present').toLowerCase()))) {
+      return res.status(400).json({ success: false, error: 'Attendance status must be present, absent, or late.' });
+    }
+    if (rows.some(r => !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || '')) || Number.isNaN(Date.parse(r.date)))) {
+      return res.status(400).json({ success: false, error: 'A valid attendance date is required.' });
+    }
     const allocation = await db
       .select({ id: courseAllocations.id })
       .from(courseAllocations)
@@ -264,20 +282,35 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 
     if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course.' });
 
-    const [currentSession] = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
-    const defaultSessionId = currentSession?.id || null;
-    const insertData = rows.map(r => ({
-      courseId: Number(r.courseId),
-      studentId: Number(r.studentId),
-      lecturerId: req.user.id,
-      sessionId: Number(r.sessionId) || defaultSessionId,
-      semester: r.semester,
-      date: r.date,
-      status: r.status || 'present',
-      remarks: r.remarks || null,
-    }));
+    const registered = await db.select({
+      studentId: courseRegistrations.studentId,
+      sessionId: courseRegistrations.sessionId,
+      semester: courseRegistrations.semester,
+    }).from(courseRegistrations).where(and(
+      eq(courseRegistrations.courseId, courseId),
+      eq(courseRegistrations.status, 'approved'),
+      inArray(courseRegistrations.studentId, studentIds)
+    ));
+    const registrationByStudent = new Map(registered.map(r => [Number(r.studentId), r]));
+    if (studentIds.some(id => !registrationByStudent.has(id))) {
+      return res.status(400).json({ success: false, error: 'Attendance can only be recorded for students with approved registration in this course.' });
+    }
 
-    if (insertData.some(row => !row.sessionId)) return res.status(409).json({ success: false, error: 'Select an academic session before recording attendance.' });
+    const insertData = rows.map(r => {
+      const registration = registrationByStudent.get(Number(r.studentId));
+      return {
+        courseId,
+        studentId: Number(r.studentId),
+        lecturerId: req.user.id,
+        sessionId: Number(r.sessionId) || registration.sessionId,
+        semester: r.semester || registration.semester,
+        date: r.date,
+        status: String(r.status || 'present').toLowerCase(),
+        remarks: r.remarks || null,
+      };
+    });
+
+    if (insertData.some(row => !row.sessionId || !row.semester)) return res.status(409).json({ success: false, error: 'The student registration has no academic session or semester. Contact the Academic Office.' });
 
     let savedCount = 0;
     for (const r of insertData) {
@@ -881,7 +914,7 @@ router.get('/timetable', only, async (req, res, next) => {
       })
       .from(timetableSlots)
       .leftJoin(courses, eq(timetableSlots.courseId, courses.id))
-      .where(inArray(timetableSlots.courseId, courseIds))
+      .where(and(inArray(timetableSlots.courseId, courseIds), eq(timetableSlots.status, 'approved')))
       .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
 
     return res.json({ success: true, data: slots });
@@ -916,7 +949,7 @@ router.get('/exams', only, async (req, res, next) => {
       .innerJoin(courses, eq(examSchedules.courseId, courses.id))
       .innerJoin(courseAllocations, eq(examSchedules.courseId, courseAllocations.courseId))
       .leftJoin(departments, eq(courses.departmentId, departments.id))
-      .where(eq(courseAllocations.lecturerId, req.user.id))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(examSchedules.status, 'approved')))
       .orderBy(examSchedules.examDate);
 
     return res.json({ success: true, data: rows });
@@ -926,15 +959,31 @@ router.get('/exams', only, async (req, res, next) => {
 router.get('/exams/:id/students', only, async (req, res, next) => {
   try {
     const examId = Number(req.params.id);
-    const [exam] = await db.select({ courseId: examSchedules.courseId }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
-    if (!exam) return res.status(404).json({ success: false, error: 'Exam not found.' });
+    const [exam] = await db.select({ courseId: examSchedules.courseId, status: examSchedules.status }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
+    if (!exam || exam.status !== 'approved') return res.status(404).json({ success: false, error: 'Approved exam not found.' });
 
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId)))
       .limit(1);
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
-    // ... rest of exam students logic
+    const rows = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      matricNumber: users.matricNumber,
+      level: users.level,
+      programmeName: programmes.name,
+    }).from(courseRegistrations)
+      .innerJoin(users, eq(courseRegistrations.studentId, users.id))
+      .leftJoin(programmes, eq(users.programmeId, programmes.id))
+      .where(and(
+        eq(courseRegistrations.courseId, exam.courseId),
+        eq(courseRegistrations.status, 'approved')
+      ))
+      .orderBy(users.lastName, users.firstName);
+
+    return res.json({ success: true, data: rows });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 

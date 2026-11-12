@@ -42,79 +42,19 @@
   </div>
 
   <!-- STAT TILES -->
-  <div id="aco-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;"></div>
+  <div id="aco-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:.75rem;margin-bottom:1.25rem;"></div>
 
   <!-- QUICK ACTIONS -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.6rem;margin-bottom:1.25rem;">
-    <a href="#academic-officer-programmes" style="
-      display:flex;align-items:center;gap:.7rem;
-      padding:.9rem 1rem;
-      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-      text-decoration:none;color:#0f172a;transition:all .15s;
-    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:42px;height:42px;border-radius:10px;background:#dbeafe;color:#1e40af;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📚</div>
-      <div>
-        <div style="font-size:.86rem;font-weight:800;">Programmes</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Manage programmes</div>
-      </div>
-    </a>
-
-    <a href="#academic-officer-courses" style="
-      display:flex;align-items:center;gap:.7rem;
-      padding:.9rem 1rem;
-      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-      text-decoration:none;color:#0f172a;transition:all .15s;
-    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:42px;height:42px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📖</div>
-      <div>
-        <div style="font-size:.86rem;font-weight:800;">Courses</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Course catalogue</div>
-      </div>
-    </a>
-
-    <a href="#academic-officer-sessions" style="
-      display:flex;align-items:center;gap:.7rem;
-      padding:.9rem 1rem;
-      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-      text-decoration:none;color:#0f172a;transition:all .15s;
-    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📅</div>
-      <div>
-        <div style="font-size:.86rem;font-weight:800;">Sessions</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Academic sessions</div>
-      </div>
-    </a>
-
-    <a href="#academic-officer-results" style="
-      display:flex;align-items:center;gap:.7rem;
-      padding:.9rem 1rem;
-      background:#fff;border:1px solid #e5e7eb;border-radius:12px;
-      text-decoration:none;color:#0f172a;transition:all .15s;
-    " onmouseover="this.style.borderColor='#065f46';this.style.background='#f0fdf4';this.style.transform='translateY(-1px)';" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff';this.style.transform='none';">
-      <div style="width:42px;height:42px;border-radius:10px;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📝</div>
-      <div>
-        <div style="font-size:.86rem;font-weight:800;">Exams</div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Exam schedules</div>
-      </div>
-    </a>
-  </div>
-
-    <a href="#academic-officer-departments" style="display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#0f172a;">
-      <div style="width:42px;height:42px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🏛️</div>
-      <div><div style="font-size:.86rem;font-weight:800;">Departments</div><div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">School structure</div></div>
-    </a>
-    <a href="#academic-officer-transcripts" style="display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#0f172a;">
-      <div style="width:42px;height:42px;border-radius:10px;background:#fce7f3;color:#9d174d;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📄</div>
-      <div><div style="font-size:.86rem;font-weight:800;">Transcript Lookup</div><div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Student academic records</div></div>
-    </a>
-    <a href="#academic-officer-graduation" style="display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#0f172a;">
-      <div style="width:42px;height:42px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">🎓</div>
-      <div><div style="font-size:.86rem;font-weight:800;">Graduation</div><div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Graduation pipeline</div></div>
-    </a>
-    <a href="#academic-officer-reports" style="display:flex;align-items:center;gap:.7rem;padding:.9rem 1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#0f172a;">
-      <div style="width:42px;height:42px;border-radius:10px;background:#ede9fe;color:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📊</div>
-      <div><div style="font-size:.86rem;font-weight:800;">Academic Reports</div><div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">Workflow summaries</div></div>
-    </a>
+  <section aria-label="Academic Officer quick access" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:.7rem;margin-bottom:1.25rem;">
+    <a href="#academic-officer-sessions" class="aco-quick-link"><span class="aco-quick-icon" style="background:#fef3c7;color:#92400e;">📅</span><span><strong>Academic Sessions</strong><small>Review academic calendars</small></span></a>
+    <a href="#academic-officer-programmes" class="aco-quick-link"><span class="aco-quick-icon" style="background:#dbeafe;color:#1e40af;">📚</span><span><strong>Programmes</strong><small>Review programme structure</small></span></a>
+    <a href="#academic-officer-departments" class="aco-quick-link"><span class="aco-quick-icon" style="background:#e0e7ff;color:#3730a3;">🏛️</span><span><strong>Departments</strong><small>View schools and departments</small></span></a>
+    <a href="#academic-officer-courses" class="aco-quick-link"><span class="aco-quick-icon" style="background:#d1fae5;color:#065f46;">📖</span><span><strong>Course Catalogue</strong><small>Browse course records</small></span></a>
+    <a href="#academic-officer-results" class="aco-quick-link"><span class="aco-quick-icon" style="background:#ede9fe;color:#5b21b6;">📝</span><span><strong>Published Results</strong><small>Review released results</small></span></a>
+    <a href="#academic-officer-transcripts" class="aco-quick-link"><span class="aco-quick-icon" style="background:#fce7f3;color:#9d174d;">📄</span><span><strong>Transcript Lookup</strong><small>Retrieve student records</small></span></a>
+    <a href="#academic-officer-graduation" class="aco-quick-link"><span class="aco-quick-icon" style="background:#fef3c7;color:#92400e;">🎓</span><span><strong>Graduation Pipeline</strong><small>Monitor graduation status</small></span></a>
+    <a href="#academic-officer-reports" class="aco-quick-link"><span class="aco-quick-icon" style="background:#e0f2fe;color:#075985;">📊</span><span><strong>Academic Reports</strong><small>View workflow summaries</small></span></a>
+  </section>
 
   <!-- TWO COLUMN -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:flex-start;margin-bottom:1.25rem;">
@@ -169,6 +109,13 @@
 </div>
 
 <style>
+  .aco-quick-link{display:flex;align-items:center;gap:.75rem;min-width:0;padding:.9rem 1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;text-decoration:none;color:#0f172a;transition:transform .15s,border-color .15s,background .15s;box-shadow:0 1px 3px rgba(15,23,42,.03)}
+  .aco-quick-link:hover,.aco-quick-link:focus-visible{border-color:#047857;background:#f0fdf4;transform:translateY(-1px);outline:none}
+  .aco-quick-link>span:last-child{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+  .aco-quick-link strong{font-size:.84rem;font-weight:800}
+  .aco-quick-link small{font-size:.7rem;color:#64748b}
+  .aco-quick-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex:0 0 42px}
+  @media(max-width:640px){.aco-quick-link{padding:.75rem}.aco-quick-icon{width:38px;height:38px;flex-basis:38px}}
   @keyframes acoSpin { to { transform: rotate(360deg); } }
   .aco-row {
     display:flex;align-items:center;gap:.85rem;
@@ -202,10 +149,14 @@
 
       // Stat tiles
       const tiles = [
-        { label: 'Programmes',  value: d.programmes ?? 0,      bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
-        { label: 'Courses',     value: d.courses ?? 0,         bg: '#d1fae5', fg: '#065f46', icon: '📖' },
-        { label: 'Departments', value: d.departments ?? 0,     bg: '#fef3c7', fg: '#92400e', icon: '🏛️' },
-        { label: 'Results',     value: d.resultsPublished ?? 0,bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+        { label: 'Programmes', value: d.programmes ?? 0, bg: '#dbeafe', fg: '#1e40af', icon: '📚' },
+        { label: 'Courses', value: d.courses ?? 0, bg: '#d1fae5', fg: '#065f46', icon: '📖' },
+        { label: 'Departments', value: d.departments ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '🏛️' },
+        { label: 'Schools', value: d.schools ?? 0, bg: '#e0f2fe', fg: '#075985', icon: '🏫' },
+        { label: 'Students', value: d.students ?? 0, bg: '#fce7f3', fg: '#9d174d', icon: '👥' },
+        { label: 'Published Results', value: d.resultsPublished ?? 0, bg: '#ede9fe', fg: '#5b21b6', icon: '📝' },
+        { label: 'Pending Results', value: d.pendingResults ?? 0, bg: '#ffedd5', fg: '#9a3412', icon: '⏳' },
+        { label: 'Pending Graduations', value: d.queuedGraduations ?? 0, bg: '#fef3c7', fg: '#92400e', icon: '🎓' },
       ];
 
       $('aco-stats').innerHTML = tiles.map(t => `

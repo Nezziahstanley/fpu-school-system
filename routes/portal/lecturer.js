@@ -60,7 +60,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       .where(eq(courseAllocations.lecturerId, lecturerId))
       .groupBy(courses.id, courses.code, courses.title, courses.level, courses.unit, courses.semesterName, courseAllocations.status, academicSessions.name);
 
-    const courseIds = allocatedCourses.map(c => c.id).filter(Boolean);
+    const courseIds = [...new Set(allocatedCourses.map(c => Number(c.id)).filter(Boolean))];
     const coursesCount = courseIds.length;
 
     let uniqueStudentIds = new Set();

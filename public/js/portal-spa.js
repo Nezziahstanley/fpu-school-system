@@ -528,7 +528,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('doc-queue-print-v2');
+        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v1') || cfg.url.includes('shared-signature-v1');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {

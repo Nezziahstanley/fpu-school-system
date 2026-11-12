@@ -125,7 +125,8 @@ router.get('/dashboard', only, async (req, res, next) => {
         departmentName: dept?.name || 'Department',
         totalStudents, totalStaff, activeCourses,
         pendingResults, verifiedResults, publishedResults,
-        activeSessionName: currentSession?.name || '—',\n        registeredThisSession, noRegistration,
+        activeSessionName: currentSession?.name || '—',
+        registeredThisSession, noRegistration,
         studentsByLevel, studentsByProgramme, studentsByGender
       }
     });

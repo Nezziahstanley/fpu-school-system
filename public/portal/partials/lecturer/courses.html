@@ -15,6 +15,9 @@
   .lc-status-chip.accepted  { background: #d1fae5; color: #065f46; }
   .lc-status-chip.flagged   { background: #fee2e2; color: #991b1b; }
   .lc-status-chip.cancelled { background: #f1f5f9; color: #475569; }
+  #lc-tbody tr:hover { background:#f8fafc; }
+  #lc-tbody td { vertical-align:middle; }
+  @media(max-width:760px){ .filter-bar{gap:.5rem;flex-wrap:wrap}.filter-bar input{min-width:100%;flex:1 1 100%}.filter-bar select{flex:1 1 130px} }
   #lc-flag-modal { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 1rem; }
   #lc-flag-modal.open { display: flex; }
   #lc-flag-modal > div { background: #fff; border-radius: 14px; max-width: 480px; width: 100%; box-shadow: 0 25px 60px rgba(0,0,0,.3); }
@@ -192,7 +195,8 @@
         title: r.title,
         level: r.level,
         unit: r.unit,
-        semesterName: r.semesterName,
+        semesterName: r.semesterName || r.allocationSemester || '',
+        sessionName: r.sessionName || '',
         status: r.status || 'assigned',
       }));
 

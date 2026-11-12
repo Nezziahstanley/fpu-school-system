@@ -238,7 +238,7 @@
       { key: 'registrar-applications',    label: 'Applications',    icon: ICON.file }, 
       { key: 'registrar-clearances',      label: 'Clearances',      icon: ICON.check },
       { key: 'registrar-graduations',     label: 'Graduations',     icon: ICON.award },
-      { key: 'registrar-documents',       label: 'Documents & Certificates', icon: ICON.file },
+      { key: 'registrar-documents',       label: 'Documents', icon: ICON.file },
     ],
     librarian: [
       { key: 'librarian-dashboard',    label: 'Dashboard',    icon: ICON.dash },
@@ -471,6 +471,25 @@
 
   let lastRequestedPageKey = '';
   let activeLoadId = 0;
+  const partialHtmlCache = new Map();
+  let registrarPrefetchStarted = false;
+
+  function prefetchRegistrarPages() {
+    const user = core.getPortalUser && core.getPortalUser();
+    if (!user || user.role !== 'registrar' || registrarPrefetchStarted) return;
+    registrarPrefetchStarted = true;
+    const keys = ['registrar-dashboard','registrar-students','registrar-sessions','registrar-programmes','registrar-registrations','registrar-applications','registrar-clearances','registrar-graduations','registrar-documents','admin-admitted','admin-id-cards','portal-profile','portal-photo','portal-id-card','portal-messages','portal-notifications','portal-announcements'];
+    keys.forEach((key) => {
+      const cfg = resolvePageConfig(key);
+      if (!cfg || partialHtmlCache.has(cfg.url)) return;
+      fetch(cfg.url, { cache: 'force-cache' }).then(async (res) => {
+        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: 'force-cache' });
+        if (!res.ok) return;
+        const html = await res.text();
+        partialHtmlCache.set(cfg.url, html);
+      }).catch(() => {});
+    });
+  }
 
   async function loadPage(pageKey) {
     const requestId = ++activeLoadId;
@@ -493,15 +512,20 @@
     if (window.location.hash !== `#${pageKey}`) window.location.hash = `#${pageKey}`;
 
     try {
-      let res = await fetch(cfg.url, { cache: 'no-cache' });
-      if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
-        res = await fetch(cfg.fallbackUrl, { cache: 'no-cache' });
+      let html = partialHtmlCache.get(cfg.url);
+      if (!html) {
+        let res = await fetch(cfg.url, { cache: 'force-cache' });
+        if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
+          res = await fetch(cfg.fallbackUrl, { cache: 'force-cache' });
+        }
+        if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
+        html = await res.text();
+        partialHtmlCache.set(cfg.url, html);
       }
-      if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
-      const html = await res.text();
       if (requestId !== activeLoadId) return;
       view.innerHTML = html;
       executePartialScripts(view);
+      if (core.getPortalUser && core.getPortalUser()?.role === 'registrar') prefetchRegistrarPages();
     } catch (err) {
       if (requestId !== activeLoadId) return;
       console.error('[portal-spa] load error:', err);

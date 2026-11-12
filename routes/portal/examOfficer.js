@@ -10,7 +10,7 @@ const router = express.Router();
 
 // -------- Database & Schema --------
 const { db, schema } = require('../../db');
-const { eq, and, sql, desc, asc } = require('drizzle-orm');
+const { eq, and, sql, desc, asc, inArray } = require('drizzle-orm');
 
 // -------- Query Helpers --------
 const userQueries    = require('../../db/queries/users');
@@ -356,20 +356,36 @@ router.post('/publish', only, async (req, res, next) => {
   try {
     const { resultIds } = req.body || {};
     if (!Array.isArray(resultIds) || resultIds.length === 0) {
-      return res.status(400).json({ success: false, error: 'resultIds[] is required.' });
+      return res.status(400).json({ success: false, error: 'Select at least one result to publish.' });
+    }
+    const ids = resultIds.map(Number);
+    if (ids.some((id) => !Number.isInteger(id) || id <= 0) || new Set(ids).size !== ids.length) {
+      return res.status(400).json({ success: false, error: 'Result IDs must be unique valid numbers.' });
     }
 
-    await db.update(results)
+    // Only results verified by the HOD and still awaiting publication may
+    // transition to published. The update condition also protects against
+    // stale requests if another officer publishes a result at the same time.
+    const updated = await db.update(results)
       .set({ status: 'published', publishedAt: new Date() })
-      .where(sql`${results.id} IN ${resultIds}`);
+      .where(and(eq(results.status, 'hod_verified'), inArray(results.id, ids)))
+      .returning({ id: results.id });
+
+    if (updated.length !== ids.length) {
+      return res.status(409).json({
+        success: false,
+        error: 'Some selected results are no longer awaiting publication. Refresh the list and review the remaining pending results.',
+        publishedCount: updated.length,
+      });
+    }
 
     await logAudit({
       req,
       action: 'exam_officer.publish_results',
-      after: { count: resultIds.length, resultIds },
+      after: { count: updated.length, resultIds: updated.map((row) => row.id) },
     });
 
-    return res.json({ success: true, message: `${resultIds.length} results published successfully.` });
+    return res.json({ success: true, message: `${updated.length} results published successfully.`, publishedCount: updated.length });
   } catch (err) {
     console.error('[exam-officer/publish] Error:', err);
     return res.status(500).json({ success: false, error: err.message });

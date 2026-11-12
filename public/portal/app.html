@@ -404,8 +404,9 @@
     'use strict';
     var role = document.getElementById('topbar-role');
     function syncStudentTheme() {
-      var isStudent = role && String(role.textContent || '').trim().toLowerCase() === 'student';
-      document.body.classList.toggle('student-portal-theme', !!isStudent);
+      var currentRole = role ? String(role.textContent || '').trim().toLowerCase() : '';
+      document.body.classList.toggle('student-portal-theme', currentRole === 'student');
+      document.body.classList.toggle('registrar-portal-theme', currentRole === 'registrar');
     }
     syncStudentTheme();
     if (role && window.MutationObserver) {

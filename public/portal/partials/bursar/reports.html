@@ -190,6 +190,7 @@
     var f = $('bur-rep-from').value;
     var t = $('bur-rep-to').value;
     var s = $('bur-rep-session').value;
+    if (f && t && f > t) throw new Error('The start date cannot be later than the end date.');
     if (f) p.set('from', f);
     if (t) p.set('to', t);
     if (s) p.set('sessionId', s);
@@ -310,7 +311,8 @@
 
   // ---------- load ----------
   async function load() {
-    var q = qs();
+    var q;
+    try { q = qs(); } catch (e) { if (core.showToast) core.showToast(e.message, 'warning'); return; }
     var qPrefix = q ? '?' + q : '';
     $('bur-rep-status-tbody').innerHTML = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
     $('bur-rep-bank-tbody').innerHTML   = '<tr><td colspan="4" class="empty">Loading…</td></tr>';
@@ -375,8 +377,8 @@
     load();
   });
 
-  $('bur-rep-from').addEventListener('change', load);
-  $('bur-rep-to').addEventListener('change', load);
+  $('bur-rep-from').addEventListener('change', function(){ $('bur-rep-to').min = $('bur-rep-from').value || ''; load(); });
+  $('bur-rep-to').addEventListener('change', function(){ $('bur-rep-from').max = $('bur-rep-to').value || ''; load(); });
   $('bur-rep-session').addEventListener('change', load);
 
   // ---------- boot ----------

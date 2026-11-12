@@ -55,6 +55,71 @@
       #aco-workspace .aco-report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;padding:1rem}
       @media(max-width:640px){#aco-workspace .aco-toolbar input{width:100%;min-width:0}#aco-workspace .aco-toolbar select{flex:1;min-width:130px}#aco-workspace .aco-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media print{body *{visibility:hidden!important}#aco-workspace,#aco-workspace *{visibility:visible!important}#aco-workspace{position:absolute;left:0;top:0;width:100%}#aco-workspace .aco-page-head button,#aco-workspace .aco-toolbar,#aco-workspace .aco-modal{display:none!important}#aco-workspace .aco-panel{border:0}#aco-workspace .aco-table{min-width:0}#aco-workspace .aco-table th,#aco-workspace .aco-table td{font-size:8pt;padding:5px}}
+
+      /* Refined Academic Officer page system */
+      #aco-workspace{color:#172033;background:linear-gradient(180deg,#f8fbf9 0%,#f5f7fb 100%);border-radius:18px;padding:clamp(.25rem,.8vw,.75rem)}
+      #aco-workspace .aco-page-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;padding:1.35rem 1.45rem;margin:0 0 1rem;border:1px solid #dcebe3;border-radius:17px;background:radial-gradient(circle at 92% 10%,rgba(251,191,36,.18),transparent 28%),linear-gradient(120deg,#064e3b 0%,#047857 62%,#0f766e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13)}
+      #aco-workspace .aco-page-head .aco-eyebrow{display:inline-flex;align-items:center;gap:.4rem;color:#fde68a;font-size:.65rem;font-weight:900;letter-spacing:.16em}
+      #aco-workspace .aco-page-head h2{margin:.35rem 0;color:#fff;font-size:clamp(1.35rem,2vw,1.8rem);font-weight:850;letter-spacing:-.035em}
+      #aco-workspace .aco-page-head p{margin:.25rem 0 0;color:#d1fae5;font-size:.84rem;max-width:720px;line-height:1.55}
+      #aco-workspace .aco-refresh{border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:.68rem .95rem;background:rgba(255,255,255,.13);color:#fff;font-weight:800;cursor:pointer;transition:.18s}
+      #aco-workspace .aco-refresh:hover{background:#fff;color:#065f46;transform:translateY(-1px)}
+      #aco-workspace .aco-summary-grid{gap:.85rem;margin-bottom:1rem}
+      #aco-workspace .aco-summary-card{position:relative;overflow:hidden;border:1px solid #e4ebe7;border-radius:15px;padding:1.05rem;background:linear-gradient(145deg,#fff 0%,#fbfdfc 100%);box-shadow:0 5px 18px rgba(15,23,42,.045);transition:transform .18s,box-shadow .18s}
+      #aco-workspace .aco-summary-card:after{content:"";position:absolute;left:0;bottom:0;width:100%;height:3px;background:linear-gradient(90deg,#047857,#fbbf24)}
+      #aco-workspace .aco-summary-card:hover{transform:translateY(-3px);box-shadow:0 12px 24px rgba(15,23,42,.085)}
+      #aco-workspace .aco-summary-card span{color:#64748b;font-size:.66rem;letter-spacing:.085em}
+      #aco-workspace .aco-summary-card strong{color:#065f46;font-size:1.7rem;font-weight:850;letter-spacing:-.04em}
+      #aco-workspace .aco-panel{overflow:hidden;border:1px solid #e3eae6;border-radius:16px;background:#fff;box-shadow:0 7px 24px rgba(15,23,42,.045)}
+      #aco-workspace .aco-toolbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:1rem 1.1rem;background:linear-gradient(180deg,#fff,#fbfdfc);border-bottom:1px solid #edf1ee}
+      #aco-workspace .aco-toolbar input,#aco-workspace .aco-toolbar select,#aco-workspace .aco-lookup-form input{min-height:42px;border:1px solid #dbe5df;border-radius:10px;padding:.68rem .85rem;background:#fff;color:#243247;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+      #aco-workspace .aco-toolbar input:focus,#aco-workspace .aco-toolbar select:focus,#aco-workspace .aco-lookup-form input:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.12)}
+      #aco-workspace .aco-toolbar input{flex:1;min-width:220px}
+      #aco-workspace .aco-toolbar select{min-width:150px}
+      #aco-workspace .aco-count{margin-left:auto;color:#64748b;font-size:.76rem;font-weight:750}
+      #aco-workspace .aco-export,#aco-workspace .aco-row-action{border:1px solid #bbdccc;border-radius:10px;background:#effaf4;color:#065f46;padding:.68rem .9rem;font-weight:850;cursor:pointer;transition:.18s}
+      #aco-workspace .aco-export:hover,#aco-workspace .aco-row-action:hover{border-color:#059669;background:#dcfce7;transform:translateY(-1px)}
+      #aco-workspace .aco-table-wrap{width:100%;overflow:auto}
+      #aco-workspace .aco-table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0}
+      #aco-workspace .aco-table thead th{position:sticky;top:0;z-index:1;padding:.85rem .9rem;background:#f1f8f4;color:#315b49;border-bottom:1px solid #dcebe2;text-align:left;font-size:.67rem;font-weight:900;letter-spacing:.075em;text-transform:uppercase;white-space:nowrap}
+      #aco-workspace .aco-table tbody td{padding:.82rem .9rem;border-bottom:1px solid #edf1ee;color:#344256;font-size:.79rem;vertical-align:middle}
+      #aco-workspace .aco-table tbody tr:nth-child(even){background:#fbfdfc}
+      #aco-workspace .aco-table tbody tr:hover{background:#f0faf4}
+      #aco-workspace .aco-empty{padding:2rem!important;text-align:center;color:#82918a;font-size:.82rem}
+      #aco-workspace .aco-row-action{padding:.42rem .7rem;font-size:.72rem;white-space:nowrap}
+      #aco-workspace .aco-modal-card{border:1px solid #dcebe3;border-radius:19px}
+      #aco-workspace .aco-modal-head{background:linear-gradient(120deg,#f0faf4,#fff);padding:1.1rem 1.3rem}
+      #aco-workspace .aco-modal-head .aco-eyebrow{color:#059669;font-size:.65rem;font-weight:900;letter-spacing:.13em}
+      #aco-workspace .aco-modal-head h3{font-size:1.12rem;font-weight:850}
+      #aco-workspace .aco-detail-field{border-color:#e6eee9;border-radius:11px;background:linear-gradient(145deg,#fbfdfc,#f7faf8);padding:.85rem}
+      #aco-workspace .aco-detail-field small{color:#6b7e73;letter-spacing:.075em}
+      #aco-workspace .aco-detail-field strong{line-height:1.45}
+      #aco-workspace .aco-report-card{border:1px solid #e3ebe6;border-radius:15px;background:#fff;padding:1rem;box-shadow:0 5px 16px rgba(15,23,42,.04)}
+      #aco-workspace .aco-report-card h3{margin:0 0 .7rem;color:#065f46;font-size:.92rem;font-weight:850}
+      #aco-workspace .aco-report-row{display:flex;justify-content:space-between;gap:1rem;padding:.65rem 0;border-bottom:1px solid #edf2ee;color:#526256;font-size:.78rem}
+      #aco-workspace .aco-report-row:last-child{border-bottom:0}
+      #aco-workspace .aco-report-row strong{color:#064e3b}
+      #aco-workspace .aco-transcript-profile{background:linear-gradient(120deg,#effaf4,#fff);border-color:#d4eadc;border-radius:15px}
+      #aco-workspace .aco-transcript-avatar{box-shadow:0 0 0 4px #d8f3e2}
+      #aco-workspace .aco-lookup-form{display:flex;align-items:end;gap:.65rem;flex-wrap:wrap;width:100%}
+      #aco-workspace .aco-lookup-form label{display:block;width:100%;color:#496257;font-size:.72rem;font-weight:850}
+      #aco-workspace .aco-lookup-form input{flex:1;min-width:220px}
+      #aco-workspace .aco-lookup-form .aco-refresh{background:#047857;color:#fff;border-color:#047857}
+      #aco-workspace .aco-lookup-form .aco-refresh:hover{background:#065f46;color:#fff}
+      @media(max-width:640px){
+        #aco-workspace{padding:0;border-radius:0}
+        #aco-workspace .aco-page-head{padding:1.1rem;border-radius:14px}
+        #aco-workspace .aco-page-head .aco-head-actions{width:100%}
+        #aco-workspace .aco-page-head .aco-refresh{width:100%}
+        #aco-workspace .aco-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}
+        #aco-workspace .aco-summary-card{padding:.8rem}
+        #aco-workspace .aco-summary-card strong{font-size:1.4rem}
+        #aco-workspace .aco-toolbar input{width:100%;min-width:0}
+        #aco-workspace .aco-toolbar select{flex:1;min-width:0}
+        #aco-workspace .aco-count{width:100%;margin:0}
+        #aco-workspace .aco-lookup-form input{width:100%;min-width:0}
+        #aco-workspace .aco-lookup-form .aco-refresh{width:100%}
+      }
     </style><section class="aco-page-head"><div><span class="aco-eyebrow">ACADEMIC OFFICE</span><h2>${esc(title)}</h2><p>${esc(subtitle)}</p></div><div class="aco-head-actions"><button class="aco-refresh" type="button" id="aco-refresh">↻ Refresh</button></div></section><div id="aco-summary" class="aco-summary-grid"></div><section class="aco-panel"><div class="aco-toolbar" id="aco-toolbar"><input id="aco-search" type="search" placeholder="Search records…" aria-label="Search records"><span id="aco-count" class="aco-count">Loading records…</span></div><div class="aco-table-wrap"><table class="aco-table"><thead id="aco-head"></thead><tbody id="aco-body"><tr><td class="aco-empty">Loading records…</td></tr></tbody></table></div></section><div id="aco-detail-modal" class="aco-modal" hidden><div class="aco-modal-card" role="dialog" aria-modal="true" aria-labelledby="aco-modal-title"><div class="aco-modal-head"><div><span class="aco-eyebrow">RECORD DETAILS</span><h3 id="aco-modal-title">Details</h3></div><button type="button" class="aco-modal-close" id="aco-modal-close" aria-label="Close">×</button></div><div id="aco-modal-body" class="aco-modal-body"></div></div></div>`;
     document.getElementById('aco-refresh').addEventListener('click',()=>loadPage(true));
     document.getElementById('aco-modal-close').addEventListener('click',closeModal);

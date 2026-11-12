@@ -35,13 +35,14 @@
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Title</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Course</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Session / Semester</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Submissions</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Due Date</th>
             <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="assignments-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
+          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -201,6 +202,7 @@
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(a.title)}</td>
           <td style="padding:.65rem .75rem;"><strong>${esc(a.courseCode)}</strong></td>
+          <td style="padding:.65rem .75rem;color:#475569;font-size:.78rem;">${esc(a.sessionName || '—')}<div style="font-size:.68rem;color:#94a3b8;text-transform:capitalize;">${esc(a.semester || '—')}</div></td>
           
           <td style="padding:.65rem .75rem;text-align:center;">
             <span style="display:inline-block;padding:2px 8px;border-radius:5px;font-size:.72rem;font-weight:800;background:${countBg};color:${countColor};">
@@ -354,7 +356,7 @@
     $('form-desc').value = '';
     
     $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
-      ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+      ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}">${esc(c.code)} — ${esc(c.title)} · ${esc(c.sessionName || 'Session')} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
       
     $('form-modal').style.display = 'flex';
   });
@@ -373,15 +375,17 @@
     $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
       ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
       
-    const matchedCourse = ALL_COURSES.find(c => c.code === a.courseCode);
-    if (matchedCourse) $('form-course').value = matchedCourse.id;
+    const matchedCourse = ALL_COURSES.find(c => Number(c.id) === Number(a.courseId) && Number(c.sessionId) === Number(a.sessionId) && String(c.allocationSemester || c.semesterName).toLowerCase() === String(a.semester).toLowerCase()) || ALL_COURSES.find(c => Number(c.id) === Number(a.courseId));
+    if (matchedCourse) $('form-course').value = matchedCourse.allocationId;
 
     $('form-modal').style.display = 'flex';
   };
 
   $('form-modal-save')?.addEventListener('click', async () => {
     const id = $('form-id').value;
-    const courseId = $('form-course').value;
+    const allocationId = $('form-course').value;
+    const selectedCourse = ALL_COURSES.find(c => String(c.allocationId) === String(allocationId));
+    const courseId = selectedCourse ? selectedCourse.id : '';
     const title = $('form-title').value.trim();
     const dueDate = $('form-due').value;
     const maxScore = $('form-max').value;
@@ -392,7 +396,7 @@
       return;
     }
 
-    const payload = { courseId, title, dueDate, maxScore, description };
+    const payload = { courseId, sessionId: selectedCourse?.sessionId, semester: selectedCourse?.allocationSemester || selectedCourse?.semesterName, title, dueDate, maxScore, description };
     
     try {
       if (id) {

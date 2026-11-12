@@ -5,9 +5,12 @@
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">My Teaching Dashboard</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Welcome, <span id="lec-name">Lecturer</span></p>
+    <div style="display:flex;align-items:center;gap:.9rem;min-width:0;">
+      <div id="lec-profile-avatar" aria-label="Lecturer profile photo" style="width:54px;height:54px;flex:0 0 54px;border-radius:50%;overflow:hidden;background:#d1fae5;border:3px solid #a7f3d0;display:flex;align-items:center;justify-content:center;color:#065f46;font-size:1.15rem;font-weight:800;">L</div>
+      <div>
+        <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">My Teaching Dashboard</h2>
+        <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Welcome, <span id="lec-name">Lecturer</span></p>
+      </div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <button id="lec-refresh" style="
@@ -253,6 +256,12 @@
       const user = core.getPortalUser ? core.getPortalUser() : {};
       if ($('lec-name')) {
         $('lec-name').textContent = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Lecturer';
+      }
+
+      const avatar = $('lec-profile-avatar');
+      if (avatar) {
+        if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) window.FPU_PHOTO.renderMyAvatar(avatar, user);
+        else avatar.textContent = String(user.firstName || 'L').charAt(0).toUpperCase();
       }
 
       const res = await core.portalFetch('/api/lecturer/dashboard');

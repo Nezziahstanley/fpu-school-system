@@ -36,7 +36,7 @@
   <!-- TABS -->
   <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
     <button id="tab-my-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;">My Dept Students</button>
-    <button id="tab-other-dept" style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Other Depts Students</button>
+    <button id="tab-other-dept" hidden style="padding:.45rem 1rem;font-size:.8rem;font-weight:700;background:#fff;color:#475569;border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;">Other Depts Students</button>
   </div>
 
   <!-- VIEW 1: MY DEPT STUDENTS -->
@@ -119,13 +119,32 @@
 
   function updateStats() {
     const myDept = ALL_STUDENTS.filter(s => s.departmentId === LECTURER_DEPT_ID);
-    const otherDept = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    const otherDept = ALL_STUDENTS.filter(s => s.departmentId != null && Number(s.departmentId) !== Number(LECTURER_DEPT_ID));
     const active = ALL_STUDENTS.filter(s => s.isActive);
 
     $('stat-total').textContent = ALL_STUDENTS.length;
     $('stat-my-dept').textContent = myDept.length;
     $('stat-other').textContent = otherDept.length;
     $('stat-active').textContent = active.length;
+    const otherTab = $('tab-other-dept');
+    if (otherTab) {
+      otherTab.hidden = otherDept.length === 0;
+      if (!otherDept.length) {
+        $('other-dept-view').style.display = 'none'; $('my-dept-view').style.display = 'block';
+        otherTab.style.background = '#fff'; otherTab.style.color = '#475569';
+        $('tab-my-dept').style.background = '#065f46'; $('tab-my-dept').style.color = '#fff';
+      }
+    }
+    const otherTab = $('tab-other-dept');
+    if (otherTab) {
+      otherTab.hidden = otherDept.length === 0;
+      if (!otherDept.length) {
+        $('other-dept-view').style.display = 'none';
+        $('my-dept-view').style.display = 'block';
+        otherTab.style.background = '#fff'; otherTab.style.color = '#475569';
+        $('tab-my-dept').style.background = '#065f46'; $('tab-my-dept').style.color = '#fff';
+      }
+    }
   }
 
   function renderMyDept() {
@@ -164,7 +183,7 @@
   }
 
   function renderOtherDepts() {
-    const otherStudents = ALL_STUDENTS.filter(s => s.departmentId !== LECTURER_DEPT_ID);
+    const otherStudents = ALL_STUDENTS.filter(s => s.departmentId != null && Number(s.departmentId) !== Number(LECTURER_DEPT_ID));
     
     if (!otherStudents.length) {
       $('other-dept-cards').innerHTML = '<div style="grid-column:1/-1;padding:3rem;text-align:center;color:#94a3b8;">No students from other departments found.</div>';

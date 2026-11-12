@@ -14,7 +14,7 @@ const express = require('express');
 const router = express.Router();
 
 const { db, schema } = require('../../db');
-const { eq, and, desc, count, sql } = require('drizzle-orm');
+const { eq, and, desc, count, inArray, sql } = require('drizzle-orm');
 
 const notifQueries = require('../../db/queries/notifications');
 const userQueries = require('../../db/queries/users');
@@ -171,6 +171,18 @@ router.get('/messages', requireUser, async (req, res, next) => {
   try {
     const box = req.query.box === 'sent' ? 'sent' : 'inbox';
     const rows = await notifQueries.listMessages({ userId: req.user.id, box });
+    if (box === 'sent' && rows.length) {
+      const recipientIds = [...new Set(rows.map(row => Number(row.message?.recipientId)).filter(Boolean))];
+      const recipients = recipientIds.length ? await db.select({
+        id: schema.users.id, firstName: schema.users.firstName,
+        lastName: schema.users.lastName, email: schema.users.email, role: schema.users.role
+      }).from(schema.users).where(inArray(schema.users.id, recipientIds)) : [];
+      const recipientMap = new Map(recipients.map(user => [Number(user.id), user]));
+      return res.json({ success: true, data: rows.map(row => ({
+        ...row,
+        recipient: recipientMap.get(Number(row.message?.recipientId)) || null
+      })) });
+    }
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -179,7 +191,7 @@ router.get('/messages', requireUser, async (req, res, next) => {
 
 router.get('/messages/:id', requireUser, async (req, res, next) => {
   try {
-    const [row] = await db
+    let [row] = await db
       .select()
       .from(messages)
       .where(eq(messages.id, Number(req.params.id)))
@@ -187,6 +199,9 @@ router.get('/messages/:id', requireUser, async (req, res, next) => {
     if (!row) return res.status(404).json({ success: false, error: 'Message not found.' });
     if (row.recipientId !== req.user.id && row.senderId !== req.user.id) {
       return res.status(403).json({ success: false, error: 'Not allowed.' });
+    }
+    if (row.recipientId === req.user.id && !row.isRead) {
+      row = await notifQueries.markMessageRead(row.id, req.user.id) || row;
     }
     return res.json({ success: true, data: row });
   } catch (err) {

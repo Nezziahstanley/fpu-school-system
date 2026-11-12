@@ -393,6 +393,8 @@ router.post('/documents/:id/issue', only, async (req, res, next) => {
 // ---- POST /api/bursar/documents/:id/reject ----
 router.post('/documents/:id/reject', only, async (req, res, next) => {
   try {
+    const remarks = String(req.body?.remarks || '').trim();
+    if (!remarks || remarks.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
     const [row] = await db
       .update(documents)
       .set({ status: 'rejected', remarks })

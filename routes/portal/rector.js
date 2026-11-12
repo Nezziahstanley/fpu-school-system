@@ -288,13 +288,14 @@ router.get('/enrollment-by-department', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
+        departmentId: departments.id,
         code: departments.code,
         name: departments.name,
         students: sql`count(${users.id})::int`,
       })
       .from(departments)
       .leftJoin(users, and(eq(users.departmentId, departments.id), eq(users.role, 'student')))
-      .groupBy(departments.code, departments.name)
+      .groupBy(departments.id, departments.code, departments.name)
       .orderBy(desc(sql`count(${users.id})`));
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }

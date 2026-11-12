@@ -132,7 +132,7 @@
   function renderStats(rows) {
     var sum = key => rows.filter(r => (r.payment || {}).status === key);
     var amount = list => list.reduce((n,r)=>n+Number((r.payment||{}).amount||0),0);
-    $('bur-pay-stats').innerHTML = [['Loaded records',rows.length],['Verified amount',money(amount(sum('verified')))],['Pending amount',money(amount(sum('pending')))],['Rejected records',sum('rejected').length]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></article>').join('');
+    $('bur-pay-stats').innerHTML = [['Loaded records',rows.length],['Verified amount',money(amount(sum('verified')))],['Pending amount',money(amount(sum('pending')))],['Rejected records',sum('rejected').length],['Refunded amount',money(amount(sum('refunded')))]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></article>').join('');
   }
   function exportCsv() {
     var val = v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"';
@@ -157,7 +157,7 @@
     if (sessionId) qs.set('sessionId', sessionId);
     if (search) qs.set('search', search);
 
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading payments…</td></tr>';
     countEl.textContent = '';
 
     try {
@@ -171,7 +171,7 @@
         : '';
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No payments match your filters.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">No payments match your filters.</td></tr>';
         return;
       }
 
@@ -190,7 +190,7 @@
           +   (isPending
                 ? '<button class="btn btn-sm btn-primary" data-act="verify" data-id="' + esc(p.id) + '">Verify</button> '
                 + '<button class="btn btn-sm btn-ghost" data-act="reject" data-id="' + esc(p.id) + '" data-ref="' + esc(p.reference || '') + '">Reject</button>'
-                : '')
+                : '<span class="muted small">' + esc(p.status || 'Recorded') + '</span>')
           + '</td>'
           + '</tr>';
       }).join('');
@@ -205,7 +205,7 @@
         });
       });
     } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">' + esc(err.message) + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">' + esc(err.message) + '</td></tr>';
     }
   }
 
@@ -290,3 +290,4 @@
   loadSessions().then(load);
 })();
 </script>
+<style>#bur-pay-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.7rem;margin:.2rem 0 1rem}#bur-pay-stats article{border:1px solid #dce7e2;border-radius:12px;background:linear-gradient(145deg,#fff,#f8fffb);padding:.85rem;min-width:0;box-shadow:0 5px 18px #0f172a08}#bur-pay-stats article small{display:block;color:#64748b;font-size:.65rem;font-weight:850;letter-spacing:.04em;text-transform:uppercase}#bur-pay-stats article strong{display:block;margin-top:.35rem;color:#065f46;font-size:1.05rem;overflow-wrap:anywhere}#bur-pay-tbody tr:hover td{background:#f8fffb}#bur-pay-tbody td{vertical-align:middle}@media(max-width:950px){#bur-pay-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:620px){#bur-pay-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}</style>

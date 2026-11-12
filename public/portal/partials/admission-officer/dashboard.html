@@ -272,6 +272,9 @@
       if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
         try { window.FPU_PHOTO.renderMyAvatar(avatar, user); } catch (_) {}
       }
+      avatar.title = 'Open My Profile';
+      avatar.style.cursor = 'pointer';
+      avatar.addEventListener('click', () => { window.location.hash = '#portal-profile'; });
     }
 
     try {

@@ -1,0 +1,80 @@
+<section class="rector-transcripts" style="display:grid;gap:1rem;color:#0f172a">
+<style>
+.rector-transcripts .rt-head{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap}
+.rector-transcripts .rt-head h2{margin:0;font-size:1.45rem}.rector-transcripts .rt-muted{color:#64748b;font-size:.84rem}
+.rector-transcripts .rt-panel{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:14px;padding:1rem;min-width:0}
+.rector-transcripts .rt-tools{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center}
+.rector-transcripts input{min-width:220px;max-width:100%;padding:.7rem .8rem;border:1px solid #cbd5e1;border-radius:9px}
+.rector-transcripts button{border:0;border-radius:9px;padding:.65rem .9rem;background:#065f46;color:#fff;font-weight:700;cursor:pointer}
+.rector-transcripts button.secondary{background:#e2e8f0;color:#0f172a}
+.rector-transcripts table{width:100%;border-collapse:collapse;min-width:760px;font-size:.84rem}
+.rector-transcripts th,.rector-transcripts td{padding:.75rem;text-align:left;border-bottom:1px solid #e2e8f0}
+.rector-transcripts th{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;background:#f8fafc}
+.rector-transcripts .rt-table{overflow:auto}
+.rector-transcripts .rt-modal{display:none;position:fixed;inset:0;background:#0f172a99;z-index:10050;padding:1rem;align-items:center;justify-content:center}
+.rector-transcripts .rt-dialog{width:min(980px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 70px #0004}
+.rector-transcripts .rt-modal-head{position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:1rem;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+.rector-transcripts .rt-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;padding:1rem}
+.rector-transcripts .rt-meta div{padding:.75rem;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;min-width:0}
+.rector-transcripts .rt-meta small{display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase;margin-bottom:.25rem}
+.rector-transcripts .rt-meta strong{overflow-wrap:anywhere;font-size:.84rem}
+.rector-transcripts .rt-doc{padding:0 1rem 1.2rem}
+.rector-transcripts .rt-empty{padding:1.5rem;text-align:center;color:#64748b}
+@media(max-width:650px){.rector-transcripts .rt-meta{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{body *{visibility:hidden!important}.rector-transcripts .rt-modal,.rector-transcripts .rt-dialog,.rector-transcripts .rt-dialog *{visibility:visible!important}.rector-transcripts .rt-modal{display:block!important;position:absolute;inset:0;background:#fff;padding:0}.rector-transcripts .rt-dialog{max-height:none;overflow:visible;box-shadow:none;width:100%}.rector-transcripts .rt-modal-head button{display:none!important}}
+</style>
+<div class="rt-head"><div><div style="font-size:.68rem;font-weight:800;letter-spacing:.14em;color:#047857">OFFICE OF THE RECTOR</div><h2>Student Transcript Register</h2><p class="rt-muted">Search students, review published academic records and preview transcript details.</p></div><div class="rt-tools"><button type="button" id="rt-refresh">Refresh register</button></div></div>
+<div class="rt-panel">
+ <div class="rt-tools" style="justify-content:space-between;margin-bottom:.8rem"><input id="rt-search" type="search" placeholder="Search name, matric number, department…" aria-label="Search transcript register"><span class="rt-muted" id="rt-count">Loading students…</span></div>
+ <div class="rt-table"><table><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="rt-body"><tr><td colspan="7" class="rt-empty">Loading transcript register…</td></tr></tbody></table></div>
+</div>
+<div class="rt-modal" id="rt-modal" role="dialog" aria-modal="true" aria-labelledby="rt-modal-title">
+ <div class="rt-dialog">
+  <div class="rt-modal-head"><div><h3 id="rt-modal-title" style="margin:0">Academic Transcript Preview</h3><p class="rt-muted" style="margin:.2rem 0 0">Published academic records only</p></div><div class="rt-tools"><button type="button" id="rt-print">Print</button><button type="button" class="secondary" id="rt-close">Close</button></div></div>
+  <div id="rt-document" class="rt-doc"><div class="rt-empty">Select a student to preview the transcript.</div></div>
+ </div>
+</div>
+</section>
+<script>
+(function(){
+ 'use strict';
+ const core=window.FPU_PORTAL||{};
+ const $=id=>document.getElementById(id);
+ const esc=v=>core.escapeHtml?core.escapeHtml(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ let rows=[];
+ const studentName=s=>[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ')||'Student';
+ function render(){
+  const q=($('rt-search').value||'').trim().toLowerCase();
+  const filtered=rows.filter(s=>[studentName(s),s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
+  $('rt-count').textContent=filtered.length+' of '+rows.length+' students';
+  $('rt-body').innerHTML=filtered.length?filtered.map(s=>'<tr><td><strong>'+esc(studentName(s))+'</strong></td><td>'+esc(s.matricNumber||'—')+'</td><td>'+esc(s.departmentName||'—')+'</td><td>'+esc(s.programmeName||'—')+'</td><td>'+esc(s.level||'—')+'</td><td><strong>'+esc(Number.isFinite(Number(s.cgpa))?Number(s.cgpa).toFixed(2):'—')+'</strong></td><td><button type="button" data-preview="'+Number(s.id)+'">Preview</button></td></tr>').join(''):'<tr><td colspan="7" class="rt-empty">No students match this search.</td></tr>';
+  $('rt-body').querySelectorAll('[data-preview]').forEach(btn=>btn.addEventListener('click',()=>preview(btn.dataset.preview)));
+ }
+ async function load(){
+  $('rt-body').innerHTML='<tr><td colspan="7" class="rt-empty">Loading transcript register…</td></tr>';
+  try{
+   const response=await core.portalFetch('/api/rector/transcripts');
+   if(!response||response.success===false)throw new Error(response?.error||'Unable to load transcript register.');
+   rows=Array.isArray(response.data)?response.data:[];
+   render();
+  }catch(error){$('rt-body').innerHTML='<tr><td colspan="7" class="rt-empty">'+esc(error.message)+'</td></tr>';$('rt-count').textContent='Register unavailable';core.showToast&&core.showToast(error.message,'error');}
+ }
+ async function preview(id){
+  $('rt-document').innerHTML='<div class="rt-empty">Loading transcript…</div>';
+  $('rt-modal').style.display='flex';
+  try{
+   const response=await core.portalFetch('/api/rector/transcripts/'+encodeURIComponent(id));
+   if(!response||response.success===false)throw new Error(response?.error||'Unable to retrieve transcript.');
+   const d=response.data||{},s=d.student||{},summary=d.summary||{},items=Array.isArray(d.rows)?d.rows:[];
+   const meta=[['Student Name',studentName(s)],['Matric Number',s.matricNumber],['Email',s.email],['Phone',s.phone],['Department',s.department?.name||s.departmentName],['Programme',s.programme?.name||s.programmeName],['Level',s.level],['CGPA',Number.isFinite(Number(summary.cgpa))?Number(summary.cgpa).toFixed(2):'—'],['Classification',summary.classification],['Published Courses',items.length]];
+   $('rt-document').innerHTML='<div style="text-align:center;padding:1.2rem 1rem .5rem"><div style="font-size:.7rem;font-weight:900;letter-spacing:.14em;color:#047857">FEDERAL POLYTECHNIC UGEP</div><h2 style="margin:.3rem 0;font-size:1.25rem">ACADEMIC TRANSCRIPT</h2><p class="rt-muted">Official preview of published academic records</p></div><div class="rt-meta">'+meta.map(([k,v])=>'<div><small>'+esc(k)+'</small><strong>'+esc(v||'—')+'</strong></div>').join('')+'</div><div class="rt-table" style="padding:0 1rem"><table><thead><tr><th>Session</th><th>Semester</th><th>Course Code</th><th>Course Title</th><th>Units</th><th>Score</th><th>Grade</th><th>Points</th></tr></thead><tbody>'+(items.length?items.map(r=>'<tr><td>'+esc(r.result?.session?.name||r.result?.sessionName||'—')+'</td><td>'+esc(r.result?.semester||'—')+'</td><td>'+esc(r.course?.code||'—')+'</td><td>'+esc(r.course?.title||'—')+'</td><td>'+esc(r.course?.unit??'—')+'</td><td>'+esc(r.result?.score??'—')+'</td><td>'+esc(r.result?.grade||'—')+'</td><td>'+esc(r.result?.points??'—')+'</td></tr>').join(''):'<tr><td colspan="8" class="rt-empty">No published results are available for this student.</td></tr>')+'</tbody></table></div><p class="rt-muted" style="padding:1rem">This is a preview for executive review. Official certification remains subject to Registry verification and authorised issuance.</p>';
+  }catch(error){$('rt-document').innerHTML='<div class="rt-empty">'+esc(error.message)+'</div>';core.showToast&&core.showToast(error.message,'error');}
+ }
+ $('rt-search').addEventListener('input',render);
+ $('rt-refresh').addEventListener('click',load);
+ $('rt-close').addEventListener('click',()=>$('rt-modal').style.display='none');
+ $('rt-modal').addEventListener('click',e=>{if(e.target.id==='rt-modal')$('rt-modal').style.display='none';});
+ $('rt-print').addEventListener('click',()=>window.print());
+ load();
+})();
+</script>

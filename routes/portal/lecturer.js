@@ -1123,11 +1123,12 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
       semester: examSchedules.semester,
       status: examSchedules.status
     }).from(examSchedules).where(eq(examSchedules.id, examId)).limit(1);
-    if (!exam || exam.status !== 'approved') return res.status(404).json({ success: false, error: 'Approved exam not found.' });
+    if (!exam || String(exam.status || '').trim().toLowerCase() !== 'approved') return res.status(404).json({ success: false, error: 'Approved exam not found.' });
 
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId),
-        eq(courseAllocations.sessionId, exam.sessionId), eq(courseAllocations.semester, exam.semester))).limit(1);
+        eq(courseAllocations.sessionId, exam.sessionId), eq(courseAllocations.semester, exam.semester),
+        sql`${courseAllocations.status} <> 'cancelled'`)).limit(1);
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
     const rows = await db.select({

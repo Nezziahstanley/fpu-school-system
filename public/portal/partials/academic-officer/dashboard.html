@@ -23,16 +23,13 @@
     <div style="position:absolute;bottom:-40px;right:180px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
 
     <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">
-          📚 Academic Office
+      <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
+        <div id="aco-profile-avatar" style="width:68px;height:68px;border-radius:50%;border:3px solid #fbbf24;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 68px;font-size:1.35rem;font-weight:900;color:#fff;">AO</div>
+        <div style="min-width:0;">
+          <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.9;text-transform:uppercase;margin-bottom:.35rem;">📚 Academic Office</div>
+          <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">Welcome, <span id="aco-name">Academic Officer</span></h1>
+          <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">Curriculum oversight, programme management, and academic records</p>
         </div>
-        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
-          Welcome, <span id="aco-name">Academic Officer</span>
-        </h1>
-        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.9;">
-          Curriculum oversight, programme management, and academic records
-        </p>
       </div>
       <div style="text-align:right;flex-shrink:0;">
         <div style="font-size:.65rem;opacity:.8;letter-spacing:.14em;text-transform:uppercase;">Session</div>
@@ -141,6 +138,19 @@
       $('aco-name').textContent = user.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : 'Academic Officer';
+    }
+    const avatar = $('aco-profile-avatar');
+    if (avatar) {
+      const photo = user.photoUrl || user.idCardPhotoUrl || user.profilePhotoUrl;
+      const initials = [user.firstName, user.lastName].filter(Boolean).map(x => x[0]).join('').toUpperCase() || 'AO';
+      avatar.textContent = initials;
+      if (photo) {
+        const image = document.createElement('img');
+        image.src = photo; image.alt = 'Academic Officer profile photo';
+        image.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+        image.onerror = () => { image.remove(); avatar.textContent = initials; };
+        avatar.textContent = ''; avatar.appendChild(image);
+      }
     }
 
     try {

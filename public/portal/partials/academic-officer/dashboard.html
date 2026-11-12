@@ -54,7 +54,7 @@
   </section>
 
   <!-- TWO COLUMN -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:flex-start;margin-bottom:1.25rem;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:1rem;align-items:flex-start;margin-bottom:1.25rem;">
 
     <!-- PROGRAMMES BY LEVEL -->
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
@@ -141,8 +141,12 @@
     }
     const avatar = $('aco-profile-avatar');
     if (avatar) {
-      const photo = user.photoUrl || user.idCardPhotoUrl || user.profilePhotoUrl;
-      const initials = [user.firstName, user.lastName].filter(Boolean).map(x => x[0]).join('').toUpperCase() || 'AO';
+      let avatarUser = user;
+      let photo = user.photoUrl || user.idCardPhotoUrl || user.profilePhotoUrl;
+      if (!photo && core.portalFetch) {
+        try { const profile = await core.portalFetch('/api/academic-officer/profile'); avatarUser = profile.data || user; photo = avatarUser.photoUrl || avatarUser.idCardPhotoUrl; } catch (_) {}
+      }
+      const initials = [avatarUser.firstName || user.firstName, avatarUser.lastName || user.lastName].filter(Boolean).map(x => x[0]).join('').toUpperCase() || 'AO';
       avatar.textContent = initials;
       if (photo) {
         const image = document.createElement('img');

@@ -1,424 +1,77 @@
-<!-- Portal → Lecturer → Attendance -->
-<div style="padding:0;">
-
-  <!-- HEADER -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Attendance</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View and manage attendance records</p>
-    </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap; align-items:center;">
-      <input type="text" id="att-search" placeholder="Search name, matric, course..." style="padding:.55rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;width:240px;" />
-      <button id="att-take" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
-        display:inline-flex;align-items:center;gap:.35rem;
-      ">✅ Take Attendance</button>
-      <button id="att-refresh" style="
-        padding:.55rem .9rem;font-size:.82rem;font-weight:700;
-        background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;
-      ">↻ Refresh</button>
-    </div>
+<!-- Lecturer Attendance: course-first weekly roll call -->
+<div id="lecturer-attendance-page" style="padding:0">
+ <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.2rem">
+  <div><h2 style="margin:0;font-size:1.45rem;font-weight:850;color:#0f172a">Course Attendance</h2><p style="margin:.35rem 0 0;color:#64748b;font-size:.86rem">Select one of your allocated courses to view its weekly roll call, timetable and attendance register.</p></div>
+  <div style="display:flex;gap:.5rem"><button id="att-take" type="button" style="padding:.65rem .95rem;background:#0f766e;color:#fff;border:0;border-radius:9px;font-weight:800;cursor:pointer">＋ Take Attendance</button><button id="att-refresh" type="button" style="padding:.65rem .9rem;background:#fff;border:1px solid #cbd5e1;border-radius:9px;color:#334155;font-weight:750;cursor:pointer">↻ Refresh</button></div>
+ </div>
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.75rem;margin-bottom:1.2rem">
+  <div class="la-stat"><span>Attendance entries</span><strong id="att-total">0</strong></div><div class="la-stat"><span>Present</span><strong id="att-present">0</strong></div><div class="la-stat"><span>Absent</span><strong id="att-absent">0</strong></div><div class="la-stat"><span>Late</span><strong id="att-late">0</strong></div>
+ </div>
+ <div style="display:flex;justify-content:space-between;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.7rem"><h3 style="margin:0;color:#0f172a;font-size:.95rem;font-weight:850">Your allocated courses</h3><input id="att-search" type="search" placeholder="Search course…" style="padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:8px;min-width:210px"></div>
+ <div id="att-courses" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:.8rem"><div style="padding:2rem;text-align:center;color:#64748b">Loading your courses…</div></div>
+ <section id="att-course-panel" style="display:none;margin-top:1.2rem;background:#fff;border:1px solid #dbe3ed;border-radius:16px;overflow:hidden;box-shadow:0 8px 25px rgba(15,23,42,.055)">
+  <div style="padding:1.1rem 1.25rem;background:linear-gradient(120deg,#f0fdfa,#f8fafc);border-bottom:1px solid #dbe3ed;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+   <div><div id="att-detail-dept" style="font-size:.67rem;color:#0f766e;text-transform:uppercase;font-weight:850;letter-spacing:.08em"></div><h3 id="att-detail-title" style="margin:.2rem 0;color:#0f172a;font-size:1.15rem;font-weight:850"></h3><div id="att-detail-meta" style="font-size:.78rem;color:#64748b"></div></div>
+   <div style="display:flex;gap:.5rem;align-items:center"><button id="att-course-take" type="button" style="padding:.55rem .8rem;background:#0f766e;color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">Take roll call</button><button id="att-course-close" type="button" style="padding:.55rem .8rem;background:#fff;border:1px solid #cbd5e1;border-radius:8px;color:#475569;font-weight:750;cursor:pointer">Close</button></div>
   </div>
-
-  <!-- STAT TILES -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📋</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-total">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Records</div>
-      </div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#d1fae5;color:#065f46;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">✅</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-present">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Present</div>
-      </div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#fee2e2;color:#991b1b;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">❌</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-absent">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Absent</div>
-      </div>
-    </div>
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#fef3c7;color:#92400e;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">⏰</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="att-late">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Late</div>
-      </div>
-    </div>
+  <div style="padding:1rem 1.2rem;border-bottom:1px solid #f1f5f9"><div style="font-size:.7rem;font-weight:850;color:#64748b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.65rem">Approved weekly class timetable</div><div id="att-week-schedule" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.6rem"></div></div>
+  <div style="padding:1rem 1.2rem"><div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem"><div><h4 style="margin:0;color:#0f172a;font-size:.9rem;font-weight:850">Weekly attendance roll</h4><p style="margin:.2rem 0 0;color:#64748b;font-size:.75rem">Last seven days, followed by the full course register.</p></div><div id="att-week-range" style="font-size:.72rem;color:#64748b;font-weight:750"></div></div><div id="att-week-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:.6rem;margin-bottom:1rem"></div>
+   <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;margin:.6rem 0"><strong style="font-size:.82rem;color:#334155">Course attendance register</strong><span id="att-course-record-count" style="font-size:.72rem;color:#64748b"></span></div>
+   <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px"><table style="width:100%;border-collapse:collapse;font-size:.8rem"><thead><tr style="background:#f8fafc;color:#64748b;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em"><th style="padding:.7rem;text-align:left">Date</th><th style="padding:.7rem;text-align:left">Student</th><th style="padding:.7rem;text-align:left">Matric No.</th><th style="padding:.7rem;text-align:center">Status</th><th style="padding:.7rem;text-align:left">Remarks</th></tr></thead><tbody id="att-course-records"></tbody></table></div>
   </div>
-
-  <!-- TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
-      <div style="font-size:.82rem;font-weight:700;color:#334155;">
-        Attendance Records <span id="att-count" style="display:inline-block;background:#065f46;color:#fff;padding:2px 8px;border-radius:99px;font-size:.65rem;margin-left:.35rem;">0</span>
-      </div>
-    </div>
-
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
-        <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Date</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
-          </tr>
-        </thead>
-        <tbody id="att-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
-            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:attSpin .8s linear infinite;"></div>
-            <div style="margin-top:.65rem;font-size:.82rem;">Loading attendance…</div>
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+ </section>
 </div>
-
-<!-- ═══════ MODAL: TAKE ATTENDANCE ═══════ -->
-<div id="att-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    
-    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:10;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Take Attendance</h3>
-      <button id="att-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
-    </div>
-
-    <div style="padding:1.25rem;">
-      <!-- Form -->
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.75rem;margin-bottom:1rem;">
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Course</label>
-          <select id="att-course" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-            <option value="">Select Course</option>
-          </select>
-        </div>
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Date</label>
-          <input type="date" id="att-date" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
-        </div>
-        <div>
-          <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Semester</label>
-          <select id="att-semester" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
-            <option value="first">First</option>
-            <option value="second">Second</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:flex-start;margin-bottom:1rem;">
-        <button id="att-load-students" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Load Students</button>
-      </div>
-
-      <!-- Student List Header -->
-      <div id="att-header" style="display:none;background:#f8fafc;border:1px solid #e5e7eb;border-bottom:none;border-radius:8px 8px 0 0;padding:.65rem 1rem;font-size:.75rem;font-weight:800;color:#64748b;text-transform:uppercase;align-items:center;justify-content:space-between;">
-        <div>Student</div>
-        <div style="display:flex;gap:1rem;align-items:center;">
-          <span>Mark All:</span>
-          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#065f46;">
-            <input type="checkbox" id="att-bulk-present" /> Present
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#991b1b;">
-            <input type="checkbox" id="att-bulk-absent" /> Absent
-          </label>
-          <label style="display:inline-flex;align-items:center;gap:.3rem;cursor:pointer;font-weight:600;text-transform:none;color:#92400e;">
-            <input type="checkbox" id="att-bulk-late" /> Late
-          </label>
-        </div>
-      </div>
-
-      <!-- Student List -->
-      <div id="att-student-list" style="border:1px solid #e5e7eb;border-radius:8px;max-height:400px;overflow-y:auto;">
-        <div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
-        <button id="att-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
-        <button id="att-save" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;" disabled>Save Attendance</button>
-      </div>
-    </div>
+<div id="att-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:1rem">
+ <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3)">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:3"><div><h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:850">Take Course Attendance</h3><div id="att-modal-course-meta" style="font-size:.74rem;color:#64748b;margin-top:.2rem"></div></div><button id="att-modal-close" type="button" style="border:0;background:transparent;font-size:1.4rem;color:#64748b;cursor:pointer">✕</button></div>
+  <div style="padding:1.15rem">
+   <div style="display:grid;grid-template-columns:2fr 1fr;gap:.7rem;margin-bottom:.85rem"><div><label style="display:block;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.3rem">Allocated course</label><select id="att-course" style="width:100%;padding:.65rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff"></select></div><div><label style="display:block;font-size:.68rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.3rem">Class date</label><input type="date" id="att-date" style="width:100%;padding:.65rem;border:1px solid #cbd5e1;border-radius:8px"></div></div>
+   <div id="att-session-info" style="padding:.65rem .8rem;background:#f0fdfa;border:1px solid #ccfbf1;border-radius:8px;color:#115e59;font-size:.76rem;margin-bottom:.8rem"></div>
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.6rem"><strong style="font-size:.8rem;color:#334155">Registered students</strong><div style="display:flex;gap:.45rem;flex-wrap:wrap"><button class="att-mark-all" data-status="present" type="button">Mark all present</button><button class="att-mark-all" data-status="absent" type="button">Mark all absent</button><button class="att-mark-all" data-status="late" type="button">Mark all late</button></div></div>
+   <div id="att-student-list" style="border:1px solid #e2e8f0;border-radius:10px;max-height:420px;overflow-y:auto"><div style="padding:2.5rem;text-align:center;color:#94a3b8">Choose a course to load its approved registrations.</div></div>
+   <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem"><button id="att-cancel" type="button" style="padding:.65rem .9rem;background:#f1f5f9;color:#475569;border:0;border-radius:8px;font-weight:750;cursor:pointer">Cancel</button><button id="att-save" type="button" style="padding:.65rem 1rem;background:#0f766e;color:#fff;border:0;border-radius:8px;font-weight:850;cursor:pointer" disabled>Save attendance</button></div>
   </div>
+ </div>
 </div>
-
 <style>
-  @keyframes attSpin { to { transform: rotate(360deg); } }
-  #att-tbody tr { transition: background .1s; }
-  #att-tbody tr:hover { background: #f8fafc; }
-  .att-student-row { display:flex; align-items:center; justify-content:space-between; padding:.65rem 1rem; border-bottom:1px solid #f1f5f9; }
-  .att-student-row:last-child { border-bottom:none; }
-  .att-radio-group { display:flex; gap:.5rem; }
-  .att-radio-group label { display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; font-weight:600; cursor:pointer; }
+#lecturer-attendance-page .la-stat{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:.9rem 1rem}.la-stat span{display:block;color:#64748b;font-size:.66rem;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.la-stat strong{display:block;color:#0f172a;font-size:1.5rem;margin-top:.25rem}
+#lecturer-attendance-page .la-course{background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:1rem;cursor:pointer;text-align:left;transition:.18s;box-shadow:0 2px 8px rgba(15,23,42,.025)}#lecturer-attendance-page .la-course:hover{border-color:#0f766e;transform:translateY(-2px);box-shadow:0 8px 20px rgba(15,23,42,.07)}#lecturer-attendance-page .la-course.active{border-color:#0f766e;box-shadow:0 0 0 2px rgba(15,118,110,.12)}#lecturer-attendance-page td{border-bottom:1px solid #f1f5f9}
+.att-student-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem .85rem;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}.att-status-options{display:flex;gap:.65rem;flex-wrap:wrap}.att-status-options label{font-size:.76rem;font-weight:700;color:#475569;display:flex;gap:.25rem;align-items:center;cursor:pointer}.att-mark-all{border:1px solid #cbd5e1;background:#fff;padding:.35rem .55rem;border-radius:7px;font-size:.68rem;font-weight:750;color:#475569;cursor:pointer}
+@media(max-width:600px){#att-search{min-width:0!important;width:100%}}
 </style>
-
 <script>
-(function () {
-  'use strict';
-  const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-
-  let ALL_COURSES = [];
-  let CURRENT_COURSE = null;
-  let CURRENT_STUDENTS = [];
-  let ALL_RECORDS = []; // Global cache for the search bar
-
-  // --- Load Attendance Records ---
-  async function loadRecords() {
-    const tbody = $('att-tbody');
-    tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">
-      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:attSpin .8s linear infinite;"></div>
-      <div style="margin-top:.65rem;font-size:.82rem;">Loading attendance…</div>
-    </td></tr>`;
-
-    try {
-      const res = await core.portalFetch('/api/lecturer/attendance');
-      ALL_RECORDS = res.data || [];
-
-      let present = 0, absent = 0, late = 0;
-      ALL_RECORDS.forEach(r => {
-        if (r.status === 'present') present++;
-        else if (r.status === 'absent') absent++;
-        else if (r.status === 'late') late++;
-      });
-
-      $('att-total').textContent = ALL_RECORDS.length;
-      $('att-present').textContent = present;
-      $('att-absent').textContent = absent;
-      $('att-late').textContent = late;
-      $('att-count').textContent = ALL_RECORDS.length;
-
-      renderTable(ALL_RECORDS);
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${err.message}</td></tr>`;
-    }
-  }
-
-  // --- Render Table (Filtered or Full) ---
-  function renderTable(rows) {
-    const tbody = $('att-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No attendance records found matching your search.</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = rows.map(r => {
-      const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.trim();
-      let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
-      if (r.status === 'present') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
-      if (r.status === 'absent') { badgeColor = '#fee2e2'; badgeFg = '#991b1b'; }
-      if (r.status === 'late') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
-
-      return `
-        <tr style="border-bottom:1px solid #f1f5f9;">
-          <td style="padding:.65rem .75rem;font-size:.78rem;color:#475569;">${esc(r.date)}</td>
-          <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(fullName)}</td>
-          <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;color:#475569;">${esc(r.matricNumber || '—')}</code></td>
-          <td style="padding:.65rem .75rem;">
-            <div style="font-weight:700;color:#0f172a;font-size:.8rem;">${esc(r.courseCode)}</div>
-            <div style="font-size:.7rem;color:#64748b;">${esc(r.courseTitle)}</div>
-          </td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span style="display:inline-block;padding:2px 8px;font-size:.68rem;font-weight:800;background:${badgeColor};color:${badgeFg};border-radius:5px;text-transform:capitalize;">${esc(r.status)}</span>
-          </td>
-        </tr>`;
-    }).join('');
-  }
-
-  // --- Search Filter ---
-  function filterRecords() {
-    const q = ($('att-search').value || '').toLowerCase();
-    if (!q) {
-      renderTable(ALL_RECORDS);
-      return;
-    }
-
-    const filtered = ALL_RECORDS.filter(r => {
-      const fullName = `${r.studentFirstName || ''} ${r.studentLastName || ''}`.toLowerCase();
-      const matric = (r.matricNumber || '').toLowerCase();
-      const course = (r.courseCode || '').toLowerCase();
-      const status = (r.status || '').toLowerCase();
-      const date = (r.date || '').toLowerCase();
-
-      return fullName.includes(q) || matric.includes(q) || course.includes(q) || status.includes(q) || date.includes(q);
-    });
-
-    renderTable(filtered);
-  }
-
-  // --- Open Modal ---
-  async function openModal() {
-    $('att-modal').style.display = 'flex';
-    $('att-date').value = new Date().toISOString().split('T')[0];
-    $('att-student-list').innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Select a course to load students.</div>`;
-    $('att-save').disabled = true;
-    $('att-header').style.display = 'none';
-
-    const sel = $('att-course');
-    sel.innerHTML = '<option value="">Loading courses…</option>';
-
-    try {
-      const res = await core.portalFetch('/api/lecturer/courses');
-      const rows = Array.isArray(res) ? res : (res.data || []);
-      
-      ALL_COURSES = rows;
-
-      if (!ALL_COURSES.length) {
-        sel.innerHTML = '<option value="">No courses assigned</option>';
-        return;
-      }
-
-      sel.innerHTML = '<option value="">Select Course</option>' + 
-        ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}">${esc(c.code)} - ${esc(c.title)}${c.sessionName ? ' · ' + esc(c.sessionName) : ''} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
-        
-    } catch (err) {
-      sel.innerHTML = '<option value="">Error loading courses</option>';
-      core.showToast && core.showToast('Failed to load courses: ' + err.message, 'error');
-    }
-  }
-
-  function closeModal() {
-    $('att-modal').style.display = 'none';
-  }
-
-  // --- Load Students ---
-  async function loadStudents() {
-    const selectedAllocationId = $('att-course').value;
-    CURRENT_COURSE = ALL_COURSES.find(c => String(c.allocationId) === String(selectedAllocationId)) || null;
-    if (!CURRENT_COURSE) return core.showToast && core.showToast('Please select a valid course allocation.', 'warning');
-    const courseId = CURRENT_COURSE.id;
-
-    const list = $('att-student-list');
-    list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">Loading students…</div>`;
-    $('att-header').style.display = 'none';
-
-    try {
-      const res = await core.portalFetch(`/api/lecturer/students?courseId=${courseId}&sessionId=${CURRENT_COURSE.sessionId}&semester=${encodeURIComponent(CURRENT_COURSE.allocationSemester || CURRENT_COURSE.semesterName || 'first')}`);
-      const rows = res.data || [];
-      CURRENT_STUDENTS = rows.map(r => r.student).filter(Boolean);
-
-      if (!CURRENT_STUDENTS.length) {
-        list.innerHTML = `<div style="padding:3rem;text-align:center;color:#94a3b8;font-size:.85rem;">No approved students found for this course.</div>`;
-        $('att-save').disabled = true;
-        return;
-      }
-
-      list.innerHTML = CURRENT_STUDENTS.map(s => `
-        <div class="att-student-row">
-          <div>
-            <div style="font-weight:700;color:#0f172a;font-size:.85rem;">${esc(s.firstName)} ${esc(s.lastName)}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(s.matricNumber || '—')}</div>
-          </div>
-          <div class="att-radio-group" data-id="${s.id}">
-            <label><input type="radio" name="status_${s.id}" value="present" checked /> Present</label>
-            <label><input type="radio" name="status_${s.id}" value="absent" /> Absent</label>
-            <label><input type="radio" name="status_${s.id}" value="late" /> Late</label>
-          </div>
-        </div>
-      `).join('');
-
-      $('att-save').disabled = false;
-      $('att-header').style.display = 'flex';
-
-    } catch (err) {
-      list.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;font-size:.85rem;">⚠️ ${err.message}</div>`;
-      $('att-save').disabled = true;
-    }
-  }
-
-  // --- Bulk Select ---
-  function setAllStatus(status) {
-    CURRENT_STUDENTS.forEach(s => {
-      const radio = document.querySelector(`input[name="status_${s.id}"][value="${status}"]`);
-      if (radio) radio.checked = true;
-    });
-    
-    ['present', 'absent', 'late'].forEach(v => {
-      if (v !== status) {
-        const cb = $(`att-bulk-${v}`);
-        if (cb) cb.checked = false;
-      }
-    });
-
-    core.showToast && core.showToast(`All students marked ${status}.`, 'success');
-  }
-
-  // --- Save Attendance ---
-  async function saveAttendance() {
-    const selectedAllocationId = $('att-course').value;
-    const selectedCourse = ALL_COURSES.find(c => String(c.allocationId) === String(selectedAllocationId));
-    const date = $('att-date').value;
-    const semester = String(selectedCourse?.allocationSemester || selectedCourse?.semesterName || $('att-semester').value).toLowerCase();
-
-    if (!selectedCourse || !date) return core.showToast && core.showToast('Course and date are required.', 'warning');
-    if (!CURRENT_STUDENTS.length) return core.showToast && core.showToast('No students to save.', 'warning');
-
-    const rows = CURRENT_STUDENTS.map(s => {
-      const checked = document.querySelector(`input[name="status_${s.id}"]:checked`);
-      return {
-        courseId: Number(selectedCourse.id),
-        sessionId: Number(selectedCourse.sessionId),
-        studentId: s.id,
-        date: date,
-        semester: semester,
-        status: checked ? checked.value : 'present',
-      };
-    });
-
-    const btn = $('att-save');
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-
-    try {
-      await core.portalFetch('/api/lecturer/attendance/bulk', {
-        method: 'POST',
-        body: { rows },
-      });
-      core.showToast && core.showToast('Attendance saved successfully!', 'success');
-      closeModal();
-      loadRecords();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Save Attendance';
-    }
-  }
-
-  // --- Wiring ---
-  $('att-take')?.addEventListener('click', openModal);
-  $('att-refresh')?.addEventListener('click', loadRecords);
-  $('att-modal-close')?.addEventListener('click', closeModal);
-  $('att-cancel')?.addEventListener('click', closeModal);
-  $('att-load-students')?.addEventListener('click', loadStudents);
-  $('att-course')?.addEventListener('change', () => {
-    const selected = ALL_COURSES.find(c => String(c.allocationId) === String($('att-course').value));
-    if (selected && selected.allocationSemester) $('att-semester').value = String(selected.allocationSemester).toLowerCase();
-    $('att-semester').disabled = !!selected;
-    CURRENT_STUDENTS = [];
-    $('att-save').disabled = true;
-    loadStudents();
-  });
-  $('att-save')?.addEventListener('click', saveAttendance);
-  $('att-modal')?.addEventListener('click', (e) => { if (e.target.id === 'att-modal') closeModal(); });
-
-  // Search wiring
-  $('att-search')?.addEventListener('input', filterRecords);
-
-  // Bulk actions wiring
-  $('att-bulk-present')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('present'); });
-  $('att-bulk-absent')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('absent'); });
-  $('att-bulk-late')?.addEventListener('change', (e) => { if (e.target.checked) setAllStatus('late'); });
-
-  loadRecords();
+(function(){
+'use strict';
+const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id),esc=s=>core.escapeHtml?core.escapeHtml(s):String(s==null?'':s);
+let COURSES=[],RECORDS=[],ACTIVE=null,STUDENTS=[];
+const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+const niceDate=v=>v?new Date(String(v).slice(0,10)+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+function recordsFor(c){return RECORDS.filter(r=>Number(r.courseId)===Number(c.courseId)&&Number(r.sessionId)===Number(c.sessionId)&&String(r.semester)===String(c.semester))}
+function stats(){ $('att-total').textContent=RECORDS.length;$('att-present').textContent=RECORDS.filter(r=>r.status==='present').length;$('att-absent').textContent=RECORDS.filter(r=>r.status==='absent').length;$('att-late').textContent=RECORDS.filter(r=>r.status==='late').length}
+function cards(){const q=($('att-search').value||'').toLowerCase(),items=COURSES.filter(c=>[c.courseCode,c.courseTitle,c.departmentName,c.sessionName].some(v=>String(v||'').toLowerCase().includes(q)));
+ $('att-courses').innerHTML=items.length?items.map(c=>'<button type="button" class="la-course '+(ACTIVE&&Number(ACTIVE.allocationId)===Number(c.allocationId)?'active':'')+'" data-allocation="'+Number(c.allocationId)+'"><div style="display:flex;justify-content:space-between;gap:.5rem"><span style="font-size:.67rem;font-weight:850;color:#0f766e;background:#ccfbf1;padding:.2rem .45rem;border-radius:6px">'+esc(c.courseCode)+'</span><span style="font-size:.68rem;color:#64748b">'+Number(c.registeredCount||0)+' registered</span></div><strong style="display:block;margin-top:.65rem;color:#0f172a;font-size:.92rem">'+esc(c.courseTitle)+'</strong><div style="margin-top:.25rem;font-size:.72rem;color:#64748b">'+esc(c.departmentName||'Department')+'</div><div style="margin-top:.45rem;font-size:.7rem;color:#64748b">'+esc(c.sessionName||'Session')+' · '+esc(c.semester).toUpperCase()+' semester</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:.8rem"><span style="font-size:.7rem;color:#0f766e;font-weight:800">'+recordsFor(c).length+' attendance entries</span><span style="font-size:.75rem;color:#0f766e;font-weight:850">Open roll call →</span></div></button>').join(''):'<div style="grid-column:1/-1;padding:2.2rem;text-align:center;color:#94a3b8;background:#fff;border:1px dashed #cbd5e1;border-radius:12px">No allocated courses match this search.</div>';
+ $('att-courses').querySelectorAll('[data-allocation]').forEach(b=>b.addEventListener('click',()=>openCourse(Number(b.dataset.allocation))))}
+function detail(){if(!ACTIVE)return;const rows=recordsFor(ACTIVE),sched=ACTIVE.schedule||[];
+ $('att-detail-dept').textContent=ACTIVE.departmentName||'Department';$('att-detail-title').textContent=(ACTIVE.courseCode||'')+' — '+(ACTIVE.courseTitle||'Course');$('att-detail-meta').textContent=(ACTIVE.sessionName||'Session')+' · '+String(ACTIVE.semester||'').toUpperCase()+' semester · '+Number(ACTIVE.registeredCount||0)+' approved students';
+ $('att-week-schedule').innerHTML=sched.length?sched.map(s=>'<div style="padding:.65rem .75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px"><div style="font-size:.7rem;color:#0f766e;font-weight:850;text-transform:capitalize">'+esc(s.dayOfWeek)+'</div><div style="font-size:.82rem;color:#0f172a;font-weight:800;margin-top:.2rem">'+esc(String(s.startTime||'').slice(0,5))+' – '+esc(String(s.endTime||'').slice(0,5))+'</div><div style="font-size:.7rem;color:#64748b;margin-top:.15rem">'+esc(s.venue||'Venue not set')+'</div></div>').join(''):'<div style="grid-column:1/-1;padding:.85rem;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;color:#92400e;font-size:.75rem">No approved timetable slot is available for this course yet.</div>';
+ const now=new Date(),days=[];for(let i=6;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);days.push(d)}
+ const start=days[0];$('att-week-range').textContent=niceDate(start.toISOString().slice(0,10))+' – '+niceDate(today());
+ $('att-week-grid').innerHTML=days.map(d=>{const key=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10),day=rows.filter(r=>String(r.date).slice(0,10)===key),p=day.filter(r=>r.status==='present').length,a=day.filter(r=>r.status==='absent').length,l=day.filter(r=>r.status==='late').length;return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:.7rem;background:'+(day.length?'#f0fdfa':'#f8fafc')+'"><div style="font-size:.68rem;color:#64748b;font-weight:800">'+d.toLocaleDateString('en-GB',{weekday:'short'})+'</div><div style="font-size:.78rem;color:#0f172a;font-weight:850;margin:.2rem 0 .45rem">'+niceDate(key)+'</div><div style="font-size:.72rem;color:#475569">'+(day.length?day.length+' marked':'No roll call')+'</div><div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.4rem"><span style="color:#166534;font-size:.66rem;font-weight:800">P '+p+'</span><span style="color:#b91c1c;font-size:.66rem;font-weight:800">A '+a+'</span><span style="color:#92400e;font-size:.66rem;font-weight:800">L '+l+'</span></div></div>'}).join('');
+ $('att-course-record-count').textContent=rows.length+' records';$('att-course-records').innerHTML=rows.length?rows.map(r=>'<tr><td style="padding:.7rem">'+niceDate(r.date)+'</td><td style="padding:.7rem;font-weight:750;color:#0f172a">'+esc(r.studentFirstName)+' '+esc(r.studentLastName)+'</td><td style="padding:.7rem"><code>'+esc(r.matricNumber||'—')+'</code></td><td style="padding:.7rem;text-align:center"><span style="padding:.2rem .5rem;border-radius:6px;font-size:.68rem;font-weight:850;background:'+(r.status==='present'?'#dcfce7':r.status==='absent'?'#fee2e2':'#fef3c7')+';color:'+(r.status==='present'?'#166534':r.status==='absent'?'#991b1b':'#92400e')+'">'+esc(r.status)+'</span></td><td style="padding:.7rem;color:#64748b">'+esc(r.remarks||'—')+'</td></tr>').join(''):'<tr><td colspan="5" style="padding:2rem;text-align:center;color:#94a3b8">No attendance has been recorded for this course yet.</td></tr>'}
+function openCourse(id){ACTIVE=COURSES.find(c=>Number(c.allocationId)===id)||null;if(!ACTIVE)return;$('att-course-panel').style.display='block';cards();detail();$('att-course-panel').scrollIntoView({behavior:'smooth',block:'start'})}
+function openModal(c){$('att-modal').style.display='flex';$('att-date').value=today();$('att-course').innerHTML='<option value="">Select allocated course</option>'+COURSES.map(x=>'<option value="'+Number(x.allocationId)+'">'+esc(x.courseCode)+' — '+esc(x.courseTitle)+' · '+esc(x.sessionName||'Session')+' · '+esc(x.semester)+'</option>').join('');if(c)$('att-course').value=String(c.allocationId);loadStudents()}
+function closeModal(){$('att-modal').style.display='none'}
+async function loadStudents(){const c=COURSES.find(x=>String(x.allocationId)===String($('att-course').value));STUDENTS=[];$('att-save').disabled=true;if(!c){$('att-student-list').innerHTML='<div style="padding:2rem;text-align:center;color:#94a3b8">Choose an allocated course.</div>';$('att-session-info').textContent='';return}
+ $('att-session-info').textContent=(c.departmentName||'Department')+' · '+c.sessionName+' · '+String(c.semester).toUpperCase()+' semester · '+(c.schedule||[]).map(s=>s.dayOfWeek+' '+String(s.startTime||'').slice(0,5)+'–'+String(s.endTime||'').slice(0,5)).join(' | ');$('att-modal-course-meta').textContent=c.courseCode+' — '+c.courseTitle;$('att-student-list').innerHTML='<div style="padding:2rem;text-align:center;color:#64748b">Loading approved registrations…</div>';
+ try{const res=await core.portalFetch('/api/lecturer/students?courseId='+c.courseId+'&sessionId='+c.sessionId+'&semester='+encodeURIComponent(c.semester));STUDENTS=(res.data||[]).map(x=>x.student).filter(Boolean);
+ $('att-student-list').innerHTML=STUDENTS.length?STUDENTS.map(s=>'<div class="att-student-row"><div><div style="font-size:.82rem;font-weight:800;color:#0f172a">'+esc(s.lastName)+', '+esc(s.firstName)+'</div><div style="font-size:.7rem;color:#64748b">'+esc(s.matricNumber||'—')+' · '+esc(s.level||'')+'</div></div><div class="att-status-options"><label><input type="radio" name="status_'+Number(s.id)+'" value="present" checked> Present</label><label><input type="radio" name="status_'+Number(s.id)+'" value="absent"> Absent</label><label><input type="radio" name="status_'+Number(s.id)+'" value="late"> Late</label></div></div>').join(''):'<div style="padding:2rem;text-align:center;color:#94a3b8">No approved student registrations exist for this course, session and semester.</div>';$('att-save').disabled=!STUDENTS.length
+ }catch(err){$('att-student-list').innerHTML='<div style="padding:2rem;color:#b91c1c">'+esc(err.message)+'</div>'}}
+async function saveAttendance(){const c=COURSES.find(x=>String(x.allocationId)===String($('att-course').value)),date=$('att-date').value;if(!c||!date||!STUDENTS.length)return core.showToast&&core.showToast('Select a course, date and registered students first.','warning');
+ const rows=STUDENTS.map(s=>({courseId:Number(c.courseId),sessionId:Number(c.sessionId),semester:c.semester,studentId:Number(s.id),date,status:document.querySelector('input[name="status_'+s.id+'"]:checked')?.value||'present'}));const btn=$('att-save');btn.disabled=true;btn.textContent='Saving…';
+ try{await core.portalFetch('/api/lecturer/attendance/bulk',{method:'POST',body:{rows}});core.showToast&&core.showToast('Attendance saved for '+rows.length+' students.','success');closeModal();await loadData();if(ACTIVE)openCourse(Number(ACTIVE.allocationId))}catch(err){core.showToast&&core.showToast(err.message,'error')}finally{btn.disabled=false;btn.textContent='Save attendance'}}
+async function loadData(){$('att-courses').innerHTML='<div style="padding:2rem;text-align:center;color:#64748b">Loading course attendance…</div>';try{const res=await core.portalFetch('/api/lecturer/attendance');COURSES=res.courses||[];RECORDS=res.data||[];stats();cards();if(ACTIVE){ACTIVE=COURSES.find(c=>Number(c.allocationId)===Number(ACTIVE.allocationId))||null;if(ACTIVE)detail();else $('att-course-panel').style.display='none'}if(!COURSES.length)$('att-courses').innerHTML='<div style="grid-column:1/-1;padding:2rem;text-align:center;color:#64748b;background:#fff;border:1px dashed #cbd5e1;border-radius:12px">No courses are currently allocated to your lecturer account.</div>'}catch(err){$('att-courses').innerHTML='<div style="padding:2rem;color:#b91c1c;background:#fff;border:1px solid #fecaca;border-radius:12px">Unable to load attendance: '+esc(err.message)+'</div>'}}
+$('att-take')?.addEventListener('click',()=>openModal(ACTIVE));$('att-course-take')?.addEventListener('click',()=>openModal(ACTIVE));$('att-refresh')?.addEventListener('click',loadData);$('att-search')?.addEventListener('input',cards);$('att-course-close')?.addEventListener('click',()=>{$('att-course-panel').style.display='none';ACTIVE=null;cards()});$('att-course')?.addEventListener('change',loadStudents);$('att-modal-close')?.addEventListener('click',closeModal);$('att-cancel')?.addEventListener('click',closeModal);$('att-save')?.addEventListener('click',saveAttendance);$('att-modal')?.addEventListener('click',e=>{if(e.target.id==='att-modal')closeModal()});
+document.querySelectorAll('.att-mark-all').forEach(b=>b.addEventListener('click',()=>STUDENTS.forEach(s=>{const r=document.querySelector('input[name="status_'+s.id+'"][value="'+b.dataset.status+'"]');if(r)r.checked=true})));
+loadData();
 })();
 </script>

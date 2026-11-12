@@ -129,48 +129,40 @@ router.get('/dashboard', only, async (req, res, next) => {
 });
 
 // ============================================================
-// GET /api/lecturer/students-list
+// GET /api/lecturer/students-list — course allocations and approved registered students
 // ============================================================
 router.get('/students-list', only, async (req, res, next) => {
   try {
-    const [lecturer] = await db.select({ departmentId: users.departmentId })
-      .from(users).where(eq(users.id, req.user.id)).limit(1);
-
-    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    
-    if (!courseIds.length) {
-      return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
+    const [lecturer] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    const allocations = await db.select({
+      allocationId: courseAllocations.id, courseId: courses.id, courseCode: courses.code,
+      courseTitle: courses.title, courseLevel: courses.level, unit: courses.unit,
+      sessionId: courseAllocations.sessionId, sessionName: academicSessions.name,
+      semester: courseAllocations.semester, departmentId: courses.departmentId,
+      departmentName: departments.name, allocationStatus: courseAllocations.status
+    }).from(courseAllocations)
+      .innerJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
+      .leftJoin(departments, eq(courses.departmentId, departments.id))
+      .where(eq(courseAllocations.lecturerId, req.user.id)).orderBy(departments.name, courses.code);
+    const courseData=[], uniqueStudents=new Map();
+    for (const allocation of allocations) {
+      const registered=await db.select({
+        id:users.id,matricNumber:users.matricNumber,firstName:users.firstName,lastName:users.lastName,
+        level:users.level,email:users.email,isActive:users.isActive,departmentId:users.departmentId,
+        programmeName:programmes.name,departmentName:departments.name
+      }).from(courseRegistrations)
+        .innerJoin(users,eq(courseRegistrations.studentId,users.id))
+        .leftJoin(programmes,eq(users.programmeId,programmes.id))
+        .leftJoin(departments,eq(users.departmentId,departments.id))
+        .where(and(eq(courseRegistrations.courseId,allocation.courseId),eq(courseRegistrations.sessionId,allocation.sessionId),
+          eq(courseRegistrations.semester,allocation.semester),eq(courseRegistrations.status,'approved')))
+        .orderBy(users.lastName,users.firstName);
+      registered.forEach(st=>uniqueStudents.set(Number(st.id),st));
+      courseData.push({...allocation,students:registered,studentCount:registered.length});
     }
-
-    const regs = await db.select({ studentId: courseRegistrations.studentId }).from(courseRegistrations).where(and(inArray(courseRegistrations.courseId, courseIds), eq(courseRegistrations.status, 'approved')));
-    const studentIds = [...new Set(regs.map(r => r.studentId))];
-    
-    if (!studentIds.length) {
-      return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
-    }
-
-    const students = await db
-      .select({
-        id: users.id, 
-        matricNumber: users.matricNumber, 
-        firstName: users.firstName, 
-        lastName: users.lastName,
-        level: users.level, 
-        email: users.email, 
-        isActive: users.isActive,
-        departmentId: users.departmentId,
-        programmeName: programmes.name, 
-        departmentName: departments.name
-      })
-      .from(users)
-      .leftJoin(programmes, eq(users.programmeId, programmes.id))
-      .leftJoin(departments, eq(users.departmentId, departments.id))
-      .where(inArray(users.id, studentIds))
-      .orderBy(users.lastName);
-
-    return res.json({ success: true, data: students, lecturerDeptId: lecturer?.departmentId });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+    return res.json({success:true,courses:courseData,data:Array.from(uniqueStudents.values()),lecturerDeptId:lecturer?.departmentId??null});
+  } catch(err) { console.error('[lecturer/students-list] Error:',err); return res.status(500).json({success:false,error:err.message}); }
 });
 
 // ============================================================
@@ -242,29 +234,41 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
-// ATTENDANCE
+// ATTENDANCE — lecturer course cards, approved timetable and course-scoped records
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {
   try {
-    const allocations = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    if (!courseIds.length) return res.json({ success: true, data: [] });
-
-    const rows = await db
-      .select({
-        id: attendance.id, date: attendance.date, status: attendance.status,
-        studentFirstName: users.firstName, studentLastName: users.lastName,
-        matricNumber: users.matricNumber, courseCode: courses.code, courseTitle: courses.title,
-      })
-      .from(attendance)
-      .leftJoin(users, eq(attendance.studentId, users.id))
-      .leftJoin(courses, eq(attendance.courseId, courses.id))
-      .where(and(inArray(attendance.courseId, courseIds), eq(attendance.lecturerId, req.user.id)))
-      .orderBy(desc(attendance.date))
-      .limit(500);
-
-    return res.json({ success: true, data: rows });
-  } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
+    const allocations=await db.select({
+      allocationId:courseAllocations.id,courseId:courses.id,courseCode:courses.code,courseTitle:courses.title,
+      sessionId:courseAllocations.sessionId,sessionName:academicSessions.name,semester:courseAllocations.semester,
+      departmentId:courses.departmentId,departmentName:departments.name
+    }).from(courseAllocations)
+      .innerJoin(courses,eq(courseAllocations.courseId,courses.id))
+      .leftJoin(academicSessions,eq(courseAllocations.sessionId,academicSessions.id))
+      .leftJoin(departments,eq(courses.departmentId,departments.id))
+      .where(eq(courseAllocations.lecturerId,req.user.id)).orderBy(departments.name,courses.code);
+    if(!allocations.length)return res.json({success:true,courses:[],data:[]});
+    const coursesWithMeta=[];
+    for(const a of allocations){
+      const [registered]=await db.select({count:sql`count(*)::int`}).from(courseRegistrations).where(and(
+        eq(courseRegistrations.courseId,a.courseId),eq(courseRegistrations.sessionId,a.sessionId),
+        eq(courseRegistrations.semester,a.semester),eq(courseRegistrations.status,'approved')));
+      const schedule=await db.select({dayOfWeek:timetableSlots.dayOfWeek,startTime:timetableSlots.startTime,endTime:timetableSlots.endTime,venue:timetableSlots.venue})
+        .from(timetableSlots).where(and(eq(timetableSlots.courseId,a.courseId),eq(timetableSlots.sessionId,a.sessionId),
+          eq(timetableSlots.semester,a.semester),eq(timetableSlots.status,'approved')))
+        .orderBy(timetableSlots.dayOfWeek,timetableSlots.startTime);
+      coursesWithMeta.push({...a,registeredCount:registered?.count||0,schedule});
+    }
+    const scope=allocations.map(a=>and(eq(attendance.courseId,a.courseId),eq(attendance.sessionId,a.sessionId),eq(attendance.semester,a.semester)));
+    const rows=await db.select({
+      id:attendance.id,courseId:attendance.courseId,sessionId:attendance.sessionId,semester:attendance.semester,
+      date:attendance.date,status:attendance.status,remarks:attendance.remarks,createdAt:attendance.createdAt,
+      studentId:attendance.studentId,studentFirstName:users.firstName,studentLastName:users.lastName,
+      matricNumber:users.matricNumber,courseCode:courses.code,courseTitle:courses.title
+    }).from(attendance).leftJoin(users,eq(attendance.studentId,users.id)).leftJoin(courses,eq(attendance.courseId,courses.id))
+      .where(and(eq(attendance.lecturerId,req.user.id),or(...scope))).orderBy(desc(attendance.date),users.lastName).limit(3000);
+    return res.json({success:true,courses:coursesWithMeta,data:rows});
+  }catch(err){console.error('[lecturer/attendance] Error:',err);return res.status(500).json({success:false,error:err.message});}
 });
 
 router.post('/attendance/bulk', only, async (req, res, next) => {
@@ -356,50 +360,29 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 router.get('/results', only, async (req, res, next) => {
   try {
-    const [lecturer] = await db.select({ departmentId: users.departmentId })
-      .from(users).where(eq(users.id, req.user.id)).limit(1);
-
-    const allocations = await db.select({ courseId: courseAllocations.courseId })
-      .from(courseAllocations).where(eq(courseAllocations.lecturerId, req.user.id));
-      
-    const courseIds = allocations.map(a => a.courseId).filter(Boolean);
-    if (!courseIds.length) return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
-
+    const [lecturer] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, req.user.id)).limit(1);
     const rows = await db.execute(sql`
-      SELECT DISTINCT ON (cr.student_id, cr.course_id)
-        r.id, r.score, r.grade, r.points,
-        COALESCE(r.status, 'not_started') AS status,
-        r.assignment_score AS "assignmentScore",
-        cr.session_id AS "sessionId",
-        cr.semester AS semester,
-        u.first_name AS "studentFirstName",
-        u.last_name AS "studentLastName",
-        u.matric_number AS "matricNumber",
-        u.department_id AS "studentDeptId",
-        c.id AS "courseId",
-        c.code AS "courseCode",
-        c.title AS "courseTitle",
-        c.department_id AS "courseDeptId",
-        d.name AS "courseDepartment"
+      SELECT DISTINCT ON (cr.student_id, cr.course_id, cr.session_id, cr.semester)
+        r.id,r.score,r.grade,r.points,COALESCE(r.status,'not_started') AS status,
+        COALESCE((SELECT ROUND((SUM(COALESCE(asub.score,0))/NULLIF(SUM(a.max_score),0)*10)::numeric,2)
+          FROM assignments a INNER JOIN assignment_submissions asub ON asub.assignment_id=a.id AND asub.student_id=cr.student_id
+          WHERE a.course_id=cr.course_id AND a.session_id=cr.session_id AND a.semester=cr.semester),0) AS "assignmentScore",
+        cr.session_id AS "sessionId",cr.semester AS semester,u.first_name AS "studentFirstName",
+        u.last_name AS "studentLastName",u.matric_number AS "matricNumber",u.department_id AS "studentDeptId",
+        c.id AS "courseId",c.code AS "courseCode",c.title AS "courseTitle",c.department_id AS "courseDeptId",d.name AS "courseDepartment"
       FROM course_registrations cr
-      JOIN courses c ON cr.course_id = c.id
-      JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r
-        ON r.student_id = cr.student_id
-       AND r.course_id = cr.course_id
-       AND r.session_id = cr.session_id
-      LEFT JOIN departments d ON c.department_id = d.id
-      WHERE cr.course_id IN (${sql.join(courseIds, sql`, `)})
-        AND cr.status = 'approved'
-      ORDER BY cr.student_id, cr.course_id, r.updated_at DESC NULLS LAST
+      INNER JOIN course_allocations ca ON ca.course_id=cr.course_id AND ca.session_id=cr.session_id
+        AND ca.semester=cr.semester AND ca.lecturer_id=${req.user.id}
+      INNER JOIN courses c ON cr.course_id=c.id
+      INNER JOIN users u ON cr.student_id=u.id
+      LEFT JOIN results r ON r.student_id=cr.student_id AND r.course_id=cr.course_id
+        AND r.session_id=cr.session_id AND r.semester=cr.semester
+      LEFT JOIN departments d ON c.department_id=d.id
+      WHERE cr.status='approved'
+      ORDER BY cr.student_id,cr.course_id,cr.session_id,cr.semester,r.updated_at DESC NULLS LAST
       LIMIT 5000
     `);
-
-    return res.json({ 
-      success: true, 
-      data: rows.rows || [],
-      lecturerDeptId: lecturer?.departmentId 
-    });
+    return res.json({success:true,data:rows.rows||[],lecturerDeptId:lecturer?.departmentId});
   } catch (err) { 
     return res.status(500).json({ success: false, error: err.message }); 
   }
@@ -451,25 +434,16 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course/session.' });
 
     const rows = await db.execute(sql`
-      SELECT DISTINCT ON (u.id)
-             u.id AS "studentId", 
-             u.first_name AS "firstName", 
-             u.last_name AS "lastName", 
-             u.matric_number AS "matricNumber",
-             r.id AS "resultId", 
-             r.score, 
-             r.grade, 
-             r.points, 
-             COALESCE(r.assignment_score, 0) AS "assignmentScore", 
-             r.status AS "resultStatus"
-      FROM course_registrations cr
-      JOIN users u ON cr.student_id = u.id
-      LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = cr.session_id
-      WHERE cr.course_id = ${courseId}
-        AND cr.session_id = ${sessionId}
-        AND cr.semester = ${semester}
-        AND cr.status = 'approved'
-      ORDER BY u.id, r.updated_at DESC NULLS LAST
+      SELECT DISTINCT ON (u.id) u.id AS "studentId",u.first_name AS "firstName",u.last_name AS "lastName",
+        u.matric_number AS "matricNumber",r.id AS "resultId",r.score,r.grade,r.points,
+        COALESCE((SELECT ROUND((SUM(COALESCE(asub.score,0))/NULLIF(SUM(a.max_score),0)*10)::numeric,2)
+          FROM assignments a INNER JOIN assignment_submissions asub ON asub.assignment_id=a.id AND asub.student_id=cr.student_id
+          WHERE a.course_id=cr.course_id AND a.session_id=cr.session_id AND a.semester=cr.semester),0) AS "assignmentScore",
+        r.status AS "resultStatus"
+      FROM course_registrations cr INNER JOIN users u ON cr.student_id=u.id
+      LEFT JOIN results r ON r.student_id=u.id AND r.course_id=cr.course_id AND r.session_id=cr.session_id AND r.semester=cr.semester
+      WHERE cr.course_id=${courseId} AND cr.session_id=${sessionId} AND cr.semester=${semester} AND cr.status='approved'
+      ORDER BY u.id,r.updated_at DESC NULLS LAST
     `);
 
     return res.json({ success: true, data: rows.rows || [] });
@@ -543,17 +517,16 @@ router.post('/results/:courseId', only, async (req, res, next) => {
       const semesterValue = semester;
 
       const savedResult = await db.execute(sql`
-        INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status, assignment_score)
+        INSERT INTO results (student_id, course_id, session_id, semester, score, grade, points, status)
         VALUES (
-          ${r.studentId}, ${courseId}, ${studentSessionId}, ${semesterValue}, 
-          ${total}, ${grade}, ${points}, 'draft', ${assign}
+          ${r.studentId}, ${courseId}, ${studentSessionId}, ${semesterValue},
+          ${total}, ${grade}, ${points}, 'draft'
         )
-        ON CONFLICT (student_id, course_id, session_id) 
+        ON CONFLICT (student_id, course_id, session_id, semester) 
         DO UPDATE SET
           score = EXCLUDED.score,
           grade = EXCLUDED.grade,
           points = EXCLUDED.points,
-          assignment_score = EXCLUDED.assignment_score,
           status = 'draft',
           rejection_reason = NULL,
           updated_at = NOW()
@@ -913,21 +886,7 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
 
     const maxScore = Number(submission.maxScore) || 100;
     const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
-
-    const resultWrite = await db.execute(sql`
-      INSERT INTO results (student_id, course_id, session_id, semester, assignment_score, status)
-      VALUES (
-        ${submission.studentId}, ${submission.courseId}, ${submission.sessionId}, ${submission.semester},
-        ${calculated10Marks}, 'draft'
-      )
-      ON CONFLICT (student_id, course_id, session_id)
-      DO UPDATE SET
-        assignment_score = EXCLUDED.assignment_score,
-        updated_at = NOW()
-      WHERE results.status IN ('draft', 'hod_rejected')
-      RETURNING id
-    `);
-    if (!resultWrite.rows?.[0]?.id) return res.status(409).json({ success: false, error: 'The result has already moved beyond the editable stage. Contact your HOD before changing the assignment score.' });
+    // Assignment marks are derived from assignment_submissions; the results table stores the overall course score.
 
     return res.json({ success: true, data: { score, calculated10Marks } });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
@@ -1101,8 +1060,8 @@ router.get('/exams/:id/students', only, async (req, res, next) => {
     if (!exam || exam.status !== 'approved') return res.status(404).json({ success: false, error: 'Approved exam not found.' });
 
     const alloc = await db.select({ id: courseAllocations.id }).from(courseAllocations)
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId)))
-      .limit(1);
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, exam.courseId),
+        eq(courseAllocations.sessionId, exam.sessionId), eq(courseAllocations.semester, exam.semester))).limit(1);
     if (!alloc.length) return res.status(403).json({ success: false, error: 'Not your course.' });
 
     const rows = await db.select({

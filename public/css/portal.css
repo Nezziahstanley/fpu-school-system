@@ -1940,3 +1940,20 @@ body.registrar-portal-theme #page-view .data-table tbody td {padding:.75rem;colo
  body.registrar-portal-theme #page-view .reg-hero-actions {grid-template-columns:1fr;}
  body.registrar-portal-theme #page-view section[style*="grid-template-columns: 1fr 1fr"] {display:block!important;}
 }
+
+
+/* Lecturer portal navigation — coordinated with the lecturer workspace */
+body.portal-app.lecturer-portal .sidebar{background:linear-gradient(180deg,#10233f 0%,#122c49 58%,#123d4a 100%)}
+body.portal-app.lecturer-portal .sidebar .brand{padding:1.15rem 1rem;border-bottom:1px solid rgba(255,255,255,.12)}
+body.portal-app.lecturer-portal .sidebar .section-title{color:#a9c4d7!important;font-size:.68rem!important;font-weight:800!important;letter-spacing:.12em;text-transform:uppercase;padding:.9rem 1rem .45rem}
+body.portal-app.lecturer-portal .sidebar .nav-item{margin:.18rem .65rem;padding:.72rem .8rem;border-radius:11px;color:#e2edf7;gap:.8rem;min-height:44px;transition:background .18s ease,color .18s ease,transform .18s ease}
+body.portal-app.lecturer-portal .sidebar .nav-item .icon{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px}
+body.portal-app.lecturer-portal .sidebar .nav-item .icon svg{width:19px;height:19px}
+body.portal-app.lecturer-portal .sidebar .nav-item .label{font-size:.86rem;font-weight:650;letter-spacing:.005em}
+body.portal-app.lecturer-portal .sidebar .nav-item:hover{background:rgba(255,255,255,.1);color:#fff;transform:translateX(2px)}
+body.portal-app.lecturer-portal .sidebar .nav-item.active{background:linear-gradient(110deg,#0f9488,#0e7490)!important;color:#fff!important;box-shadow:0 7px 18px rgba(3,15,35,.2)}
+body.portal-app.lecturer-portal .sidebar .sidebar-footer{border-top:1px solid rgba(255,255,255,.12);color:#b9cddd}
+body.portal-app.lecturer-portal .topbar{border-bottom:1px solid #e1e8f0;box-shadow:0 3px 14px rgba(15,35,60,.04)}
+body.portal-app.lecturer-portal .topbar h1{color:#17243b;font-weight:800;letter-spacing:-.025em}
+body.portal-app.lecturer-portal main.main{background:#f4f7fb}
+@media(max-width:760px){body.portal-app.lecturer-portal .sidebar .nav-item{margin:.14rem .5rem;padding:.68rem .72rem}}

@@ -19,7 +19,7 @@
   <div style="
     background:#fff;border:1px solid #e5e7eb;border-radius:12px;
     padding:1rem;margin-bottom:1rem;
-    display:grid;grid-template-columns:1fr 1.5fr 1fr 1fr auto;gap:.6rem;align-items:end;
+    display:grid;grid-template-columns:1fr 1.5fr 1fr 1fr 1fr auto;gap:.6rem;align-items:end;
   ">
     <div>
       <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">1. Department</label>
@@ -47,6 +47,12 @@
       ">
         <option value="first">First</option>
         <option value="second">Second</option>
+      </select>
+    </div>
+    <div>
+      <label style="display:block;font-size:.68rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.3rem;">4. Academic Session</label>
+      <select id="eo-el-session" style="width:100%;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;box-sizing:border-box;">
+        <option value="">Current session</option>
       </select>
     </div>
     <div>
@@ -95,11 +101,12 @@
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
             <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Fees Paid</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Clearance</th>
+            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Eligibility Reason</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Eligibility</th>
           </tr>
         </thead>
         <tbody id="eo-el-tbody">
-          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
             Pick a department and course, then click Check.
           </td></tr>
         </tbody>
@@ -111,6 +118,8 @@
 
 <style>
   .eo-el-row:hover { background: #f8fafc; }
+  @media(max-width:760px){#eo-el-summary{grid-template-columns:1fr!important}#eo-el-search-row{flex-wrap:wrap}}
+  .eo-el-row:nth-child(even){background:#fbfdff}.eo-el-row:hover{background:#fff7ed}
   @keyframes eoSpin { to { transform: rotate(360deg); } }
 </style>
 
@@ -129,6 +138,7 @@
   let CURRENT_COURSE = null;
   let RESULTS = [];
   let FILTERED = [];
+  let ACADEMIC_SESSIONS = [];
 
   // ============================================================
   // BOOT — load lookups (departments + courses)
@@ -139,6 +149,13 @@
       const res = await core.portalFetch('/api/exam-officer/lookups');
       DEPARTMENTS = Array.isArray(res.departments) ? res.departments : [];
       ALL_COURSES = Array.isArray(res.courses) ? res.courses : [];
+      ACADEMIC_SESSIONS = Array.isArray(res.sessions) ? res.sessions : [];
+      const sessionSelect = $('eo-el-session');
+      if (sessionSelect) {
+        sessionSelect.innerHTML = '<option value="">Current session</option>' + ACADEMIC_SESSIONS.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+        const current = ACADEMIC_SESSIONS.find(x => x.isCurrent);
+        if (current) sessionSelect.value = String(current.id);
+      }
 
       if (!DEPARTMENTS.length) {
         deptSel.innerHTML = '<option value="">No departments found</option>';
@@ -211,6 +228,7 @@
 
     try {
       const qs = new URLSearchParams({ courseId, semester });
+      if ($('eo-el-session')?.value) qs.set('sessionId', $('eo-el-session').value);
       const res = await core.portalFetch(`/api/exam-officer/eligibility?${qs}`);
 
       RESULTS = Array.isArray(res.data) ? res.data : [];
@@ -224,7 +242,7 @@
       $('eo-el-search').value = '';
       applyFilter();
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -362,6 +380,9 @@
             ${r.clearanceOk
               ? '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#d1fae5;color:#065f46;">✓ Cleared</span>'
               : '<span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:99px;background:#fef3c7;color:#92400e;">⏳ Pending</span>'}
+          </td>
+          <td style="padding:.65rem .75rem;color:#64748b;font-size:.76rem;min-width:220px;">
+            ${(r.reasons || []).length ? r.reasons.map(esc).join('<br>') : 'All configured database checks passed.'}
           </td>
           <td style="padding:.65rem .75rem;text-align:center;">
             ${r.eligible

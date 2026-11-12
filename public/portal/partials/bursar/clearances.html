@@ -5,6 +5,7 @@
     <p class="muted small">Mark students as cleared, or reject with remarks</p>
   </div>
   <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-clr-export">⬇ Export CSV</button>
     <button class="btn btn-outline btn-sm" id="bur-clr-refresh">↻ Refresh</button>
   </div>
 </section>
@@ -18,6 +19,10 @@
       <option value="cleared">Cleared</option>
       <option value="rejected">Rejected</option>
     </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Clearance type</label>
+    <select class="form-select" id="bur-clr-type"><option value="">All types</option></select>
   </div>
   <div class="form-group">
     <label class="form-label">Session</label>
@@ -36,6 +41,7 @@
     />
   </div>
 </div>
+<div class="bur-clr-stats" id="bur-clr-stats"></div>
 
 <div class="panel">
   <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
@@ -73,7 +79,7 @@
       <button type="button" id="bur-clr-modal-close" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;width:30px;height:30px;border-radius:6px;line-height:1;">✕</button>
     </div>
     <div style="padding:1.25rem;">
-      <p class="muted small" style="margin:0 0 .75rem;" id="bur-clr-modal-subject"></p>
+      <p class="muted small" style="margin:0 0 .75rem;" id="bur-clr-modal-subject"></p><p class="bur-clr-signature-note">Clearance approval requires your saved electronic signature. Set it up in My Profile before confirming.</p>
       <label style="display:block;font-weight:600;font-size:.82rem;color:#334155;margin-bottom:.35rem;" id="bur-clr-remarks-label">Remarks (optional)</label>
       <textarea
         id="bur-clr-remarks"
@@ -96,7 +102,7 @@
   .bur-clr-detail-row { display: flex; justify-content: space-between; padding: .3rem 0; border-bottom: 1px dashed #e2e8f0; }
   .bur-clr-detail-row:last-child { border-bottom: none; }
   .bur-clr-detail-row strong { color: #0f172a; }
-  .bur-clr-type {
+  .bur-clr-signature-note{padding:.65rem .75rem;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;font-size:.74rem;line-height:1.45;margin:.2rem 0 .8rem}.bur-clr-type {
     display: inline-block; padding: 3px 9px; border-radius: 6px;
     font-size: .68rem; font-weight: 700; text-transform: capitalize;
     background: #eff6ff; color: #1e40af;
@@ -115,6 +121,7 @@
   var MODE = null;      // 'clear' | 'reject'
   var TARGET_ID = null;
   var SESSIONS = [];
+  var CLEARANCE_ROWS = [];
 
   // ---------- helpers ----------
   function studentLabel(r) {
@@ -162,11 +169,13 @@
     var status = $('bur-clr-status').value;
     var sessionId = $('bur-clr-session').value;
     var search = $('bur-clr-search').value.trim();
+    var type = $('bur-clr-type').value;
 
     var qs = new URLSearchParams();
     if (status) qs.set('status', status);
     if (sessionId) qs.set('sessionId', sessionId);
     if (search) qs.set('search', search);
+    if (type) qs.set('type', type);
 
     tbody.innerHTML = '<tr><td colspan="8" class="empty">Loading…</td></tr>';
     countEl.textContent = '';
@@ -174,6 +183,12 @@
     try {
       var res = await core.portalFetch('/api/bursar/clearances?' + qs.toString());
       var rows = Array.isArray(res.data) ? res.data : [];
+      CLEARANCE_ROWS = rows;
+      var statuses = ['pending','cleared','rejected'];
+      $('bur-clr-stats').innerHTML = [['Total records',rows.length],...statuses.map(st=>[st.charAt(0).toUpperCase()+st.slice(1),rows.filter(x=>(x.clearance||{}).status===st).length])].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+Number(x[1]).toLocaleString()+'</strong></article>').join('');
+      var types = [...new Set(rows.map(x=>(x.clearance||{}).type).filter(Boolean))].sort();
+      if (oldType && !types.includes(oldType)) types.unshift(oldType);
+      var typeSelect=$('bur-clr-type'),oldType=typeSelect.value;typeSelect.innerHTML='<option value="">All types</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('');typeSelect.value=oldType;
 
       countEl.textContent = rows.length
         ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
@@ -331,7 +346,9 @@
 
   // ---------- wire chrome ----------
   $('bur-clr-refresh').addEventListener('click', load);
+  $('bur-clr-type').addEventListener('change', load);
   $('bur-clr-status').addEventListener('change', load);
+  $('bur-clr-export').addEventListener('click', function(){var val=v=>'"'+String(v??'').replace(/"/g,'""')+'"';var lines=[['Student','Matric Number','Type','Session','Status','Requested','Remarks'].map(val).join(','),...CLEARANCE_ROWS.map(r=>{var c=r.clearance||{},u=r.student||{},ss=r.session||{};return [[u.firstName,u.lastName].filter(Boolean).join(' '),u.matricNumber,c.type,ss.name,c.status,c.createdAt,c.remarks].map(val).join(',')})];var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-clearances.csv';a.click();URL.revokeObjectURL(url)});
   $('bur-clr-session').addEventListener('change', load);
 
   var searchTimer = null;

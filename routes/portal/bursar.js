@@ -28,16 +28,10 @@ const VALID_LEVELS = ['ND', 'HND'];
 // ============================================================
 router.get('/dashboard', only, async (_req, res, next) => {
   try {
-    const byStatus = await paymentQueries.countByStatus({});
-    const [totalVerified] = await db
-      .select({ total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
+    const byStatus = await db
+      .select({ status: payments.status, count: sql`count(*)::int`, total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
       .from(payments)
-      .where(eq(payments.status, 'verified'));
-
-    const [totalPending] = await db
-      .select({ total: sql`coalesce(sum(${payments.amount}),0)::numeric` })
-      .from(payments)
-      .where(eq(payments.status, 'pending'));
+      .groupBy(payments.status);
 
     const pendingClearances = await clearQueries.countByStatus({});
 
@@ -72,7 +66,8 @@ router.get('/dashboard', only, async (_req, res, next) => {
       recentPayments = [];
     }
 
-    const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: r.c }), {});
+    const statusMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: Number(r.count || 0) }), {});
+    const amountMap = byStatus.reduce((a, r) => ({ ...a, [r.status]: Number(r.total || 0) }), {});
     const clearMap  = pendingClearances.reduce((a, r) => ({ ...a, [r.status]: r.count }), {});
 
     return res.json({
@@ -81,10 +76,13 @@ router.get('/dashboard', only, async (_req, res, next) => {
         todayPayments:  Number(todayRow?.count || 0),
         todayAmount:    Number(todayRow?.total || 0),
         pendingCount:   Number(statusMap.pending || 0),
-        totalVerified:  Number(totalVerified?.total || 0),
-        totalPending:   Number(totalPending?.total || 0),
+        totalVerified:  Number(amountMap.verified || 0),
+        totalPending:   Number(amountMap.pending || 0),
+        totalRejected:  Number(amountMap.rejected || 0),
+        totalRefunded:  Number(amountMap.refunded || 0),
         clearancesAwaiting: Number(clearMap.pending || 0),
         byStatus: statusMap,
+        amountByStatus: amountMap,
         pendingClearances: clearMap,
         recentPayments,
       },
@@ -124,7 +122,11 @@ router.get('/lookups', only, async (_req, res, next) => {
 router.get('/payments', only, async (req, res, next) => {
   try {
     const { sessionId, status, search } = req.query;
-    const rows = await paymentQueries.listWithStudent({ sessionId, status, search });
+    const conds = [];
+    if (sessionId) conds.push(eq(payments.sessionId, Number(sessionId)));
+    if (status) conds.push(eq(payments.status, status));
+    if (search) { const term = `%${String(search).trim()}%`; conds.push(or(ilike(payments.reference, term), ilike(payments.bankName, term), ilike(payments.depositorName, term), ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term))); }
+    const rows = await db.select({ payment: payments, student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } }).from(payments).leftJoin(users, eq(payments.studentId, users.id)).where(conds.length ? and(...conds) : undefined).orderBy(desc(payments.createdAt)).limit(200);
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -148,7 +150,9 @@ router.post('/payments/:id/reject', only, async (req, res, next) => {
     const existing = await paymentQueries.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, error: 'Payment not found.' });
     if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending payments can be rejected.' });
-    const row = await paymentQueries.reject(req.params.id, req.body?.reason, req.user.id);
+    const reason = String(req.body?.reason || '').trim();
+    if (!reason || reason.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
+    const row = await paymentQueries.reject(req.params.id, reason, req.user.id);
     if (!row) return res.status(409).json({ success: false, error: 'Payment status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.payment_reject', entity: 'payment', entityId: row.id });
     return res.json({ success: true, data: row });
@@ -164,7 +168,7 @@ router.get('/fees', only, async (req, res, next) => {
       programmeId: req.query.programmeId,
       level: req.query.level,
       sessionId: req.query.sessionId,
-      isActive: req.query.isActive,
+      isActive: req.query.isActive === undefined ? undefined : req.query.isActive === 'true',
     });
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
@@ -180,6 +184,9 @@ router.post('/fees', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'level must be ND or HND.' });
     }
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {
+      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });
+    }
     const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
 
     const row = await paymentQueries.createFeeStructure({
@@ -202,6 +209,9 @@ router.put('/fees/:id', only, async (req, res, next) => {
   try {
     const b = req.body || {};
     const components = ['tuition', 'acceptance', 'medical', 'library', 'ict', 'sports', 'other'];
+    if (components.some((k) => b[k] !== undefined && (!Number.isFinite(Number(b[k])) || Number(b[k]) < 0))) {
+      return res.status(400).json({ success: false, error: 'Fee components must be valid non-negative amounts.' });
+    }
     const total = components.reduce((sum, k) => sum + Number(b[k] || 0), 0);
     const row = await paymentQueries.updateFeeStructure(req.params.id, {
       tuition: b.tuition, acceptance: b.acceptance, medical: b.medical,
@@ -233,25 +243,39 @@ router.delete('/fees/:id', only, async (req, res, next) => {
 // ============================================================
 router.get('/clearances', only, async (req, res, next) => {
   try {
-    const rows = await clearQueries.listWithStudent({
-      sessionId: req.query.sessionId,
-      status: req.query.status,
-      type: req.query.type,
-      search: req.query.search,
-    });
+    const conds = [];
+    if (req.query.sessionId) conds.push(eq(schema.clearances.sessionId, Number(req.query.sessionId)));
+    if (req.query.status) conds.push(eq(schema.clearances.status, req.query.status));
+    if (req.query.type) conds.push(eq(schema.clearances.type, req.query.type));
+    if (req.query.search) {
+      const term = `%${String(req.query.search).trim()}%`;
+      conds.push(or(ilike(users.firstName, term), ilike(users.lastName, term), ilike(users.matricNumber, term), ilike(users.email, term)));
+    }
+    const rows = await db.select({
+      clearance: schema.clearances,
+      student: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId },
+      session: academicSessions,
+    }).from(schema.clearances)
+      .leftJoin(users, eq(schema.clearances.studentId, users.id))
+      .leftJoin(academicSessions, eq(schema.clearances.sessionId, academicSessions.id))
+      .where(conds.length ? and(...conds) : undefined)
+      .orderBy(desc(schema.clearances.createdAt));
     return res.json({ success: true, data: rows });
   } catch (err) { return next(err); }
 });
 
 router.post('/clearances/:id/clear', only, async (req, res, next) => {
   try {
+    const existing = await clearQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending clearances can be approved.' });
     const [signer] = await db.select({ signatureUrl: users.signatureUrl })
       .from(users).where(eq(users.id, req.user.id)).limit(1);
     if (!signer?.signatureUrl) {
       return res.status(409).json({ success: false, error: 'Upload your electronic signature in My Profile before approving a clearance.' });
     }
     const row = await clearQueries.markCleared(req.params.id, req.user.id, req.body?.remarks);
-    if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (!row) return res.status(409).json({ success: false, error: 'Clearance status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.clearance_clear', entity: 'clearance', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -259,8 +283,13 @@ router.post('/clearances/:id/clear', only, async (req, res, next) => {
 
 router.post('/clearances/:id/reject', only, async (req, res, next) => {
   try {
-    const row = await clearQueries.markRejected(req.params.id, req.user.id, req.body?.remarks);
-    if (!row) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    const existing = await clearQueries.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, error: 'Clearance not found.' });
+    if (existing.status !== 'pending') return res.status(409).json({ success: false, error: 'Only pending clearances can be rejected.' });
+    const remarks = String(req.body?.remarks || '').trim();
+    if (!remarks || remarks.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
+    const row = await clearQueries.markRejected(req.params.id, req.user.id, remarks);
+    if (!row) return res.status(409).json({ success: false, error: 'Clearance status changed. Refresh and try again.' });
     await logAudit({ req, action: 'bursar.clearance_reject', entity: 'clearance', entityId: row.id });
     return res.json({ success: true, data: row });
   } catch (err) { return next(err); }
@@ -311,7 +340,7 @@ router.get('/documents', only, async (req, res, next) => {
     const where = conds.length ? and(...conds) : undefined;
 
     const rows = await db
-      .select({ document: documents, user: users })
+      .select({ document: documents, user: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, matricNumber: users.matricNumber, level: users.level, programmeId: users.programmeId, departmentId: users.departmentId } })
       .from(documents)
       .leftJoin(users, eq(documents.userId, users.id))
       .where(where)
@@ -362,9 +391,11 @@ router.post('/documents/:id/issue', only, async (req, res, next) => {
 // ---- POST /api/bursar/documents/:id/reject ----
 router.post('/documents/:id/reject', only, async (req, res, next) => {
   try {
+    const remarks = String(req.body?.remarks || '').trim();
+    if (!remarks || remarks.length > 500) return res.status(400).json({ success: false, error: 'A rejection reason of 1–500 characters is required.' });
     const [row] = await db
       .update(documents)
-      .set({ status: 'rejected', remarks: req.body?.remarks || null })
+      .set({ status: 'rejected', remarks })
       .where(and(eq(documents.id, Number(req.params.id)), inArray(documents.status, ['pending', 'approved'])))
       .returning();
     if (!row) return res.status(409).json({ success: false, error: 'Only pending or approved document requests can be rejected.' });
@@ -420,6 +451,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     if (!student) return res.status(404).json({ success: false, error: 'Student not found.' });
 
     const results = await resultQueries.publishedForStudent(studentId, {});
+    const safeStudent = { id: student.id, firstName: student.firstName, lastName: student.lastName, matricNumber: student.matricNumber, level: student.level, programmeName: student.programmeName || student.programme?.name || null, departmentName: student.departmentName || student.department?.name || null };
     
     let totalPoints = 0, totalUnits = 0;
     results.forEach(r => {
@@ -433,7 +465,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
 
     return res.json({
       success: true,
-      student,
+      student: safeStudent,
       rows: results,
       summary: { cgpa, totalUnits },
     });

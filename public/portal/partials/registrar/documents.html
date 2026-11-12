@@ -9,6 +9,27 @@
   </div>
 </section>
 
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Requests</span><span class="value" id="dc-total">—</span></div>
+    <div class="ic">📄</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Pending</span><span class="value" id="dc-pending">—</span></div>
+    <div class="ic">⏳</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Approved</span><span class="value" id="dc-approved">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Issued</span><span class="value" id="dc-issued">—</span></div>
+    <div class="ic">📬</div>
+  </div>
+</div>
+
+
 <!-- Filter bar -->
 <div class="filter-bar">
   <input type="search" id="dc-search" placeholder="Search student, matric, or type…" />
@@ -28,26 +49,6 @@
   </select>
   <button class="btn btn-outline btn-sm" id="dc-refresh">Refresh</button>
   <button class="btn btn-outline btn-sm" id="dc-export">Export CSV</button>
-</div>
-
-<!-- Stats row -->
-<div class="stat-grid">
-  <div class="stat">
-    <div class="meta"><span class="label">Total Requests</span><span class="value" id="dc-total">—</span></div>
-    <div class="ic">📄</div>
-  </div>
-  <div class="stat red">
-    <div class="meta"><span class="label">Pending</span><span class="value" id="dc-pending">—</span></div>
-    <div class="ic">⏳</div>
-  </div>
-  <div class="stat accent">
-    <div class="meta"><span class="label">Approved</span><span class="value" id="dc-approved">—</span></div>
-    <div class="ic">✅</div>
-  </div>
-  <div class="stat blue">
-    <div class="meta"><span class="label">Issued</span><span class="value" id="dc-issued">—</span></div>
-    <div class="ic">📬</div>
-  </div>
 </div>
 
 <!-- Table -->
@@ -81,8 +82,9 @@
 <!-- ✅ NEW: Preview Modal -->
 <div id="dc-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
   <div style="background:#fff; border-radius:12px; max-width:800px; width:100%; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e5e7eb; background:#f8fafc;">
+    <div class="dc-modal-head" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e5e7eb; background:#f8fafc;">
       <h3 style="margin:0; font-size:1.05rem;">Document Preview</h3>
+      <button id="dc-print-preview" type="button" style="background:#065f46;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;">🖨 Print Document</button>
       <button onclick="document.getElementById('dc-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; line-height:1; color:#64748b;">×</button>
     </div>
     <div id="dc-modal-body" style="flex:1; overflow-y:auto; padding:1.5rem; background:#f8fafc;">
@@ -92,6 +94,30 @@
     </div>
   </div>
 </div>
+
+
+<style>
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin:0 0 18px;box-shadow:0 5px 18px rgba(15,23,42,.04)}
+.filter-bar input[type=search]{flex:1 1 260px;min-width:200px}.filter-bar select{min-width:150px}
+.stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.stat-grid .stat{border:1px solid #e2e8f0;border-radius:14px;padding:16px 18px;background:linear-gradient(145deg,#fff,#f8fafc);box-shadow:0 5px 18px rgba(15,23,42,.045);min-height:94px}
+.stat-grid .stat .label{font-size:12px;font-weight:700;color:#64748b}.stat-grid .stat .value{font-size:27px;font-weight:850;color:#0f172a;display:block;margin-top:5px}
+.panel{border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.05);background:#fff}.panel-head{padding:16px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+#dc-tbody td{padding:13px 12px;vertical-align:middle}#dc-tbody tr:hover{background:#f8fafc}#dc-tbody .row-actions{white-space:normal!important;min-width:190px}
+#dc-modal{overflow:auto}#dc-modal>div{max-width:960px!important}#dc-modal-body{background:#fff!important}
+.dc-idcard-preview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.dc-idcard-side{width:100%;max-width:430px;aspect-ratio:1.58;border-radius:15px;overflow:hidden;border:1px solid #d1d5db;background:#fff;box-shadow:0 8px 22px rgba(15,23,42,.14);font-family:Arial,sans-serif;position:relative}
+.dc-id-front-head{height:22%;background:linear-gradient(120deg,#065f46,#059669);display:flex;align-items:center;gap:10px;padding:9px 14px;color:white}
+.dc-id-front-head img,.dc-id-back-head img{width:42px;height:42px;object-fit:contain;border-radius:50%;background:white;border:2px solid #fbbf24}
+.dc-id-front-body{display:grid;grid-template-columns:76px 1fr 52px;gap:10px;padding:12px;height:62%;align-items:center}.dc-id-photo{width:76px;height:94px;object-fit:cover;border:2px solid #065f46;border-radius:5px;background:#f1f5f9}
+.dc-id-fields{display:grid;gap:5px;min-width:0}.dc-id-fields small{display:block;font-size:7px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.3px}.dc-id-fields b{display:block;font-size:10px;color:#0f172a;overflow-wrap:anywhere}
+.dc-id-foot{height:8%;background:#065f46;color:#fef08a;display:flex;justify-content:space-between;align-items:center;padding:0 14px;font-size:8px;font-weight:800}
+.dc-id-back-inner{position:absolute;inset:8px;border:2px solid #065f46;border-radius:10px;padding:10px;display:flex;flex-direction:column;text-align:center}.dc-id-back-head{display:flex;justify-content:space-between;align-items:center}
+.dc-id-back-inner p{font-family:Georgia,serif;font-size:10px;line-height:1.45;color:#334155;margin:9px 0}.dc-id-qr{width:54px;height:54px;object-fit:contain}.dc-id-sign{margin-top:auto;font-family:cursive;font-size:18px;color:#1e3a8a}.dc-id-label{font-size:11px;font-weight:800;color:#065f46;margin:0 0 7px}
+@media(max-width:760px){.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dc-idcard-preview{grid-template-columns:1fr}.dc-idcard-side{max-width:100%}}
+@media(max-width:520px){.filter-bar{align-items:stretch}.filter-bar select,.filter-bar button{width:100%}.stat-grid{gap:9px}.stat-grid .stat{padding:12px}.stat-grid .stat .value{font-size:22px}}
+@media print{@page{size:A4;margin:12mm}body *{visibility:hidden!important}#dc-modal,#dc-modal *{visibility:visible!important}#dc-modal{display:block!important;position:absolute!important;inset:0!important;background:#fff!important;padding:0!important;overflow:visible!important}#dc-modal>div{display:block!important;max-width:none!important;max-height:none!important;height:auto!important;border:0!important;border-radius:0!important;overflow:visible!important;box-shadow:none!important}.dc-modal-head,#dc-modal-body .no-print{display:none!important}#dc-modal-body{overflow:visible!important;padding:0!important}.dc-idcard-preview{grid-template-columns:repeat(2,85.6mm);gap:5mm;justify-content:center}.dc-idcard-side{width:85.6mm!important;height:54mm!important;max-width:none!important;aspect-ratio:auto!important;box-shadow:none!important;break-inside:avoid}}
+</style>
 
 <script>
 (function () {
@@ -252,18 +278,47 @@
 
     try {
       // Use the correct base (admin or bursar)
-      const base = apiBase();
-      const res = await core.portalFetch(`${base}/${id}/preview`);
-      if (res.success && res.html) {
-        body.innerHTML = res.html;
+      const request = ALL.find((item) => String(item.id) === String(id));
+      if (request && request.type === 'id-card') {
+        const res = await core.portalFetch(`/api/registrar/documents/${id}/preview`);
+        body.innerHTML = idCardPreviewMarkup(res.data || {});
       } else {
-        body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+        const base = apiBase();
+        const res = await core.portalFetch(`${base}/${id}/preview`);
+        if (res.success && res.html) {
+          body.innerHTML = res.html;
+        } else {
+          body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+        }
       }
     } catch (err) {
       body.innerHTML = `<div style="padding:2rem; color:#ef4444;">⚠️ Failed to load preview: ${esc(err.message)}</div>`;
     }
   }
 
+  function idCardPreviewMarkup(data) {
+    const s = data.student || {};
+    const name = [s.firstName, s.middleName, s.lastName].filter(Boolean).join(' ') || '—';
+    const matric = s.matricNumber || '—';
+    const photo = s.idCardPhotoUrl || s.photoUrl || '';
+    const verify = window.location.origin + '/portal/verify.html?matric=' + encodeURIComponent(matric);
+    const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(verify) + '&color=065f46&bgcolor=ffffff&margin=1';
+    const val = (v) => esc(v || '—');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px"><div><h2 style="margin:0;color:#065f46;font-size:19px">Student ID Card Preview</h2><p style="margin:4px 0 0;color:#64748b;font-size:12px">Both sides of the requested card are shown below.</p></div><span style="background:#ecfdf5;color:#065f46;padding:7px 11px;border-radius:20px;font-size:11px;font-weight:800">FRONT + BACK</span></div>' +
+      '<div class="dc-idcard-preview">' +
+      '<div><div class="dc-id-label">FRONT VIEW</div><div class="dc-idcard-side">' +
+      '<div class="dc-id-front-head"><img src="/images/logo.png" alt="FPU logo"><div><div style="font-size:13px;font-weight:900;letter-spacing:.3px">FEDERAL POLYTECHNIC UGEP</div><div style="font-size:8px;color:#fef08a;font-weight:800;letter-spacing:1px">CROSS RIVER STATE</div></div></div><div style="height:2px;background:#fbbf24"></div>' +
+      '<div class="dc-id-front-body"><img class="dc-id-photo" src="' + esc(photo) + '" alt="Student passport photo" onerror="this.style.display=\'none\'"><div class="dc-id-fields">' +
+      '<div><small>Student Name</small><b>' + val(name) + '</b></div><div><small>Matric Number</small><b style="color:#065f46;font-family:monospace">' + val(matric) + '</b></div>' +
+      '<div style="display:flex;gap:12px"><div><small>Level</small><b>' + val(s.level) + '</b></div><div><small>Session</small><b>' + val(s.sessionName || 'Current Session') + '</b></div></div>' +
+      '<div><small>Programme</small><b>' + val(s.programmeName) + '</b></div><div><small>Department</small><b>' + val(s.departmentName) + '</b></div></div><img class="dc-id-qr" src="' + qr + '" alt="Student verification QR"></div>' +
+      '<div class="dc-id-foot"><span>OFFICIAL STUDENT ID</span><span>FEDPOLYUGEB</span></div></div></div>' +
+      '<div><div class="dc-id-label">BACK VIEW</div><div class="dc-idcard-side"><div class="dc-id-back-inner">' +
+      '<div class="dc-id-back-head"><img src="/images/logo.png" alt="FPU logo"><img class="dc-id-qr" src="' + qr + '" alt="Student verification QR"><div style="text-align:right"><b style="font-size:10px;color:#065f46">FEDERAL POLYTECHNIC, UGEP</b><div style="font-size:8px;color:#64748b">Cross River State</div></div></div>' +
+      '<p>The person whose photograph appears overleaf is a student of the above-mentioned <strong>FEDERAL POLYTECHNIC, UGEP</strong>.</p><p>If found, please return to the nearest police station or contact the institution.</p>' +
+      '<p style="font-size:8px;margin:0">Phone: <strong>07069096879</strong><br>Email: <strong>contact@fedpolyugep.edu.ng</strong></p><div class="dc-id-sign">Fed Poly</div><div style="width:115px;border-top:1px solid #0f172a;margin:1px auto 0;padding-top:3px;font-size:7px;color:#475569;font-weight:800">AUTHORISED SIGNATURE</div>' +
+      '</div></div></div></div>';
+  }
   // ============================================================
   // ACTIONS
   // ============================================================
@@ -327,6 +382,7 @@
   $('dc-status').addEventListener('change', applyFilter);
   $('dc-refresh').addEventListener('click', load);
   $('dc-export').addEventListener('click', exportCsv);
+  $('dc-print-preview').addEventListener('click', () => window.print());
 
   load();
 })();

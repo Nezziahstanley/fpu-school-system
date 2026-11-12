@@ -560,7 +560,7 @@ router.get('/documents/:id/preview', only, async (req, res, next) => {
         email: users.email, phone: users.phone, gender: users.gender, dateOfBirth: users.dateOfBirth,
         stateOfOrigin: users.stateOfOrigin, nationality: users.nationality, address: users.address,
         matricNumber: users.matricNumber, level: users.level, photoUrl: users.photoUrl,
-        isActive: users.isActive, createdAt: users.createdAt,
+        idCardPhotoUrl: users.idCardPhotoUrl, isActive: users.isActive, createdAt: users.createdAt,
       },
       programmeName: programmes.name,
       departmentName: departments.name,
@@ -571,9 +571,10 @@ router.get('/documents/:id/preview', only, async (req, res, next) => {
       .where(eq(documents.id, docId)).limit(1);
     if (!row || !row.student) return res.status(404).json({ success: false, error: 'Document request or student record not found.' });
     const [issuer] = await db.select({ signatureUrl: users.signatureUrl }).from(users).where(eq(users.id, req.user.id)).limit(1);
+    const [currentSession] = await db.select({ name: academicSessions.name }).from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
     return res.json({ success: true, data: {
       document: row.document,
-      student: { ...row.student, programmeName: row.programmeName, departmentName: row.departmentName },
+      student: { ...row.student, programmeName: row.programmeName, departmentName: row.departmentName, sessionName: currentSession?.name || null },
       issuerSignatureUrl: issuer?.signatureUrl || null,
     }});
   } catch (err) { return next(err); }

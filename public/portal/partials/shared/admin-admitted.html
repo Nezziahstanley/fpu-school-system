@@ -15,6 +15,7 @@
         <option value="ND">ND</option>
         <option value="HND">HND</option>
       </select>
+      <select id="ado-filter-department" style="padding:.5rem .75rem;font-size:.82rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;"><option value="">All Departments</option></select>
       <button id="ado-refresh" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -111,7 +112,8 @@
       ALL = allApps.filter(app => 
         ['approved', 'registered', 'matriculated'].includes(app.status)
       );
-      
+      const deptSel = $('ado-filter-department');
+      if (deptSel) deptSel.innerHTML = '<option value="">All Departments</option>' + [...new Set(ALL.map(a => a.departmentName).filter(Boolean))].sort().map(d => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
       renderStats();
       applyFilters();
     } catch (err) {
@@ -147,11 +149,13 @@
   function applyFilters() {
     const q = ($('ado-search')?.value || '').trim().toLowerCase();
     const level = $('ado-filter-level')?.value || '';
+    const department = $('ado-filter-department')?.value || '';
 
     FILTERED = ALL.filter(a => {
       if (level && String(a.level).toUpperCase() !== level) return false;
+      if (department && (a.departmentName || '') !== department) return false;
       if (q) {
-        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''}`.toLowerCase();
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''} ${a.matricNumber || ''} ${a.departmentName || ''} ${a.programmeName || ''} ${a.type || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -217,6 +221,7 @@
     searchTimer = setTimeout(applyFilters, 200);
   });
   $('ado-filter-level')?.addEventListener('change', applyFilters);
+  $('ado-filter-department')?.addEventListener('change', applyFilters);
   $('ado-refresh')?.addEventListener('click', load);
 
   $('ado-export')?.addEventListener('click', () => {

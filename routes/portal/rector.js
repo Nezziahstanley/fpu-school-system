@@ -158,7 +158,7 @@ router.get('/applications-by-department', only, async (req, res, next) => {
       })
       .from(applications)
       .leftJoin(departments, eq(applications.departmentId, departments.id))
-      .groupBy(applications.departmentId, departments.code, departments.name)
+      .groupBy(applications.departmentId, departments.id, departments.code, departments.name)
       .orderBy(desc(sql`count(*)`));
 
     return res.json({ success: true, data: rows });

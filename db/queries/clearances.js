@@ -76,7 +76,7 @@ async function markCleared(id, userId, remarks) {
   const [row] = await db
     .update(clearances)
     .set({ status: 'cleared', clearedBy: Number(userId), clearedAt: new Date(), remarks: remarks || null })
-    .where(eq(clearances.id, Number(id)))
+    .where(and(eq(clearances.id, Number(id)), eq(clearances.status, 'pending')))
     .returning();
   return row || null;
 }
@@ -85,7 +85,7 @@ async function markRejected(id, userId, remarks) {
   const [row] = await db
     .update(clearances)
     .set({ status: 'rejected', clearedBy: null, clearedAt: null, remarks: remarks || null })
-    .where(eq(clearances.id, Number(id)))
+    .where(and(eq(clearances.id, Number(id)), eq(clearances.status, 'pending')))
     .returning();
   return row || null;
 }

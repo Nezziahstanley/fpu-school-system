@@ -39,12 +39,13 @@ const upload = multer({
 // ============================================================
 router.get('/profile', requireUser, async (req, res, next) => {
   try {
-    const user = await userQueries.findById(req.user.id);
+    const user = await userQueries.findByIdWithSignature(req.user.id);
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' });
 
     delete user.passwordHash;
     delete user.password_hash;
 
+    res.set('Cache-Control', 'no-store');
     return res.json({ success: true, data: user });
   } catch (err) {
     console.error('[portal/profile] GET error:', err);
@@ -169,10 +170,12 @@ router.post('/profile/signature', requireUser, upload.single('signature'), async
       return res.status(400).json({ success: false, error: `Signature image must be ${MAX_SIZE_MB} MB or smaller.` });
     }
     const signatureUrl = req.file.path;
+    if (!signatureUrl) return res.status(502).json({ success: false, error: 'The signature upload did not return a stored image URL.' });
     const updated = await userQueries.update(req.user.id, { signatureUrl });
     if (!updated) return res.status(404).json({ success: false, error: 'User not found.' });
     await logAudit({ req, userId: req.user.id, action: 'portal.profile.signature.update', entity: 'user', entityId: req.user.id });
-    return res.json({ success: true, data: { signatureUrl } });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, data: { signatureUrl: updated.signatureUrl || signatureUrl } });
   } catch (err) {
     console.error('[portal/profile] signature upload error:', err);
     return next(err);

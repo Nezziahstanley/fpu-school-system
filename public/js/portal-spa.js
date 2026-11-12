@@ -383,7 +383,7 @@
       // browsers cannot reuse the older combined transcript-register partial.
       const isRegistrarDocuments = role === 'registrar' && cleanKey === 'registrar-documents';
       const isAdmissionOfficerPage = role === 'admission_officer' && cleanKey.startsWith('admission-officer-');
-      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v2' : '');
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : '');
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
@@ -402,7 +402,7 @@
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       const sharedUrl = `/portal/partials/shared/${file}.html`;
       return {
-        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v1' : sharedUrl,
+        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : sharedUrl,
         title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }
@@ -494,8 +494,8 @@
     keys.forEach((key) => {
       const cfg = resolvePageConfig(key);
       if (!cfg || partialHtmlCache.has(cfg.url)) return;
-      fetch(cfg.url, { cache: (cfg.url.includes('doc-queue-only') || cfg.url.includes('admission-officer-v1') || cfg.url.includes('shared-signature-v1')) ? 'no-store' : 'force-cache' }).then(async (res) => {
-        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: (cfg.fallbackUrl.includes('doc-queue-only') || cfg.fallbackUrl.includes('admission-officer-v1') || cfg.fallbackUrl.includes('shared-signature-v1')) ? 'no-store' : 'force-cache' });
+      fetch(cfg.url, { cache: (cfg.url.includes('doc-queue-only') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v')) ? 'no-store' : 'force-cache' }).then(async (res) => {
+        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: (cfg.fallbackUrl.includes('doc-queue-only') || cfg.fallbackUrl.includes('admission-officer-v') || cfg.fallbackUrl.includes('shared-signature-v')) ? 'no-store' : 'force-cache' });
         if (!res.ok) return;
         const html = await res.text();
         partialHtmlCache.set(cfg.url, html);
@@ -528,7 +528,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v1') || cfg.url.includes('shared-signature-v1');
+        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {

@@ -95,6 +95,23 @@ async function findById(id) {
   return rows[0];
 }
 
+// Portal profile lookup includes the owner's private e-signature URL.
+// Keep this out of the general safe user list to avoid exposing signatures in
+// unrelated staff/student directory responses.
+async function findByIdWithSignature(id) {
+  if (!id) return null;
+  const rows = await db
+    .select({ ...SAFE_COLS_FULL, signatureUrl: users.signatureUrl })
+    .from(users)
+    .leftJoin(programmes, eq(users.programmeId, programmes.id))
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(schools, eq(users.schoolId, schools.id))
+    .where(eq(users.id, Number(id)))
+    .limit(1);
+
+  return rows[0] || null;
+}
+
 async function findByIdWithRelations(id) {
   if (!id) return null;
 
@@ -392,6 +409,7 @@ async function findHodForDepartment(departmentId) {
 // ============================================================
 module.exports = {
   findById,
+  findByIdWithSignature,
   findByIdWithRelations,
   findHodForDepartment,
   findByEmail,

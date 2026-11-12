@@ -336,8 +336,12 @@
   async function saveSignatureFile(file) {
     const form = new FormData(); form.append('signature', file, file.name || 'electronic-signature.png');
     const result = await core.portalFetch('/api/portal/profile/signature', { method: 'POST', body: form });
-    const url = (result.data && result.data.signatureUrl) || '';
-    USER = { ...(USER || {}), signatureUrl: url };
+    let url = (result.data && result.data.signatureUrl) || result.signatureUrl || '';
+    if (!url) throw new Error('The server did not confirm that the signature was saved. Please try again.');
+    // Re-read the persisted profile so the preview reflects the database value.
+    const savedProfile = await core.portalFetch('/api/portal/profile');
+    url = (savedProfile.data && savedProfile.data.signatureUrl) || url;
+    USER = { ...(USER || {}), ...(savedProfile.data || {}), signatureUrl: url };
     renderSignature(url);
     try {
       for (const key of ['portal_user','fpu_portal_user','fpu_admin_user']) {

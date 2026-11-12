@@ -131,6 +131,29 @@
 
 </div>
 
+
+<!-- Styled action confirmation dialog -->
+<div id="apps-action-dialog" hidden style="position:fixed;inset:0;z-index:10020;background:rgba(15,23,42,.62);backdrop-filter:blur(4px);display:grid;place-items:center;padding:1rem;">
+ <section role="dialog" aria-modal="true" aria-labelledby="apps-action-title" style="width:min(100%,460px);background:#fff;border-radius:16px;padding:1.25rem;box-shadow:0 24px 70px rgba(0,0,0,.28);">
+  <div style="display:flex;align-items:flex-start;gap:.8rem;">
+   <div id="apps-action-icon" style="width:42px;height:42px;flex:0 0 42px;border-radius:12px;background:#ecfdf5;color:#065f46;display:grid;place-items:center;font-size:1.2rem;">✓</div>
+   <div style="min-width:0;flex:1;"><h3 id="apps-action-title" style="margin:0;color:#0f172a;font-size:1rem;font-weight:800;">Confirm action</h3><p id="apps-action-message" style="margin:.4rem 0 0;color:#475569;font-size:.85rem;line-height:1.55;"></p></div>
+  </div>
+  <label id="apps-action-reason-label" for="apps-action-reason" hidden style="display:block;margin:.9rem 0 .35rem;color:#334155;font-size:.78rem;font-weight:750;">Reason</label>
+  <textarea id="apps-action-reason" rows="3" hidden style="box-sizing:border-box;width:100%;padding:.7rem;border:1px solid #cbd5e1;border-radius:9px;resize:vertical;font:inherit;font-size:.85rem;"></textarea>
+  <div style="display:flex;justify-content:flex-end;gap:.55rem;margin-top:1.1rem;">
+   <button id="apps-action-cancel" type="button" style="padding:.65rem .95rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;font-weight:700;cursor:pointer;">Cancel</button>
+   <button id="apps-action-confirm" type="button" style="padding:.65rem 1rem;border:0;border-radius:9px;background:#047857;color:#fff;font-weight:800;cursor:pointer;">Confirm</button>
+  </div>
+ </section>
+</div>
+<style>
+#apps-action-dialog[hidden]{display:none!important}
+#apps-action-dialog textarea:focus{outline:2px solid #6ee7b7;outline-offset:1px}
+#apps-action-dialog button:focus-visible{outline:3px solid #6ee7b7;outline-offset:2px}
+@media(max-width:520px){#apps-action-dialog section{padding:1rem}}
+</style>
+
 <!-- DETAIL / REGISTER MODAL -->
 <div id="apps-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#fff;border-radius:16px;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
@@ -180,6 +203,55 @@
     registered:   { label: 'Registered',   bg: '#e0e7ff', fg: '#3730a3', dot: '#6366f1' },
   };
   const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
+
+
+  function askActionDialog({ title, message, reasonLabel = '', confirmLabel = 'Confirm', danger = false }) {
+    const modal = $('apps-action-dialog');
+    const titleEl = $('apps-action-title');
+    const messageEl = $('apps-action-message');
+    const reasonLabelEl = $('apps-action-reason-label');
+    const reasonEl = $('apps-action-reason');
+    const confirmEl = $('apps-action-confirm');
+    const cancelEl = $('apps-action-cancel');
+    const iconEl = $('apps-action-icon');
+    if (!modal || !titleEl || !messageEl || !confirmEl || !cancelEl) return Promise.resolve({ confirmed: false, reason: '' });
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    reasonLabelEl.hidden = !reasonLabel;
+    reasonEl.hidden = !reasonLabel;
+    reasonLabelEl.textContent = reasonLabel || 'Reason';
+    reasonEl.value = '';
+    confirmEl.textContent = confirmLabel;
+    confirmEl.style.background = danger ? '#b91c1c' : '#047857';
+    iconEl.textContent = danger ? '!' : '✓';
+    iconEl.style.background = danger ? '#fee2e2' : '#ecfdf5';
+    iconEl.style.color = danger ? '#991b1b' : '#065f46';
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    if (reasonLabel) reasonEl.focus(); else cancelEl.focus();
+    return new Promise(resolve => {
+      let settled = false;
+      const finish = confirmed => {
+        if (settled) return;
+        settled = true;
+        modal.hidden = true;
+        document.body.style.overflow = '';
+        confirmEl.removeEventListener('click', onConfirm);
+        cancelEl.removeEventListener('click', onCancel);
+        modal.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKey);
+        resolve({ confirmed, reason: reasonEl.value.trim() });
+      };
+      const onConfirm = () => finish(true);
+      const onCancel = () => finish(false);
+      const onBackdrop = event => { if (event.target === modal) finish(false); };
+      const onKey = event => { if (event.key === 'Escape') finish(false); };
+      confirmEl.addEventListener('click', onConfirm);
+      cancelEl.addEventListener('click', onCancel);
+      modal.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKey);
+    });
+  }
 
   let ALL = [];
   let FILTERED = [];
@@ -376,7 +448,7 @@
   // ============================================================
   // ACTION HANDLERS
   // ============================================================
-  function handleAction(action, id) {
+  async function handleAction(action, id) {
     const app = ALL.find(a => String(a.id) === String(id));
     if (!app) return;
 
@@ -384,13 +456,14 @@
     if (action === 'register') return openRegisterModal(app);
 
     if (action === 'approve') {
-      if (!confirm(`Approve application from ${app.firstName} ${app.lastName}?`)) return;
+      const decision = await askActionDialog({ title: 'Approve application?', message: `Approve the application from ${app.firstName} ${app.lastName}?`, confirmLabel: 'Approve application' });
+      if (!decision.confirmed) return;
       return doAction(`/api/admission-officer/applications/${app.id}/approve`, {}, 'Approved');
     }
     if (action === 'reject') {
-      const reason = prompt('Reason for rejection (optional):');
-      if (reason === null) return;
-      return doAction(`/api/admission-officer/applications/${app.id}/reject`, { reason: reason || 'Did not meet requirements.' }, 'Rejected');
+      const decision = await askActionDialog({ title: 'Reject application?', message: `Reject the application from ${app.firstName} ${app.lastName}? You can include a reason for the applicant.`, reasonLabel: 'Reason for rejection', confirmLabel: 'Reject application', danger: true });
+      if (!decision.confirmed) return;
+      return doAction(`/api/admission-officer/applications/${app.id}/reject`, { reason: decision.reason || 'Did not meet requirements.' }, 'Rejected');
     }
   }
 
@@ -610,7 +683,8 @@
   $('apps-bulk-approve')?.addEventListener('click', async () => {
     const ids = [...document.querySelectorAll('#apps-tbody .apps-row-check:checked')].map(cb => Number(cb.dataset.id));
     if (!ids.length) return;
-    if (!confirm(`Approve ${ids.length} selected application${ids.length === 1 ? '' : 's'}?`)) return;
+    const decision = await askActionDialog({ title: 'Approve selected applications?', message: `You are about to approve ${ids.length} selected application${ids.length === 1 ? '' : 's'}.`, confirmLabel: `Approve ${ids.length}` });
+    if (!decision.confirmed) return;
 
     let ok = 0, fail = 0;
     for (const id of ids) {
@@ -628,8 +702,9 @@
   $('apps-bulk-reject')?.addEventListener('click', async () => {
     const ids = [...document.querySelectorAll('#apps-tbody .apps-row-check:checked')].map(cb => Number(cb.dataset.id));
     if (!ids.length) return;
-    const reason = prompt(`Reject ${ids.length} selected application(s)? Enter reason (optional):`);
-    if (reason === null) return;
+    const decision = await askActionDialog({ title: 'Reject selected applications?', message: `You are about to reject ${ids.length} selected application(s).`, reasonLabel: 'Reason for rejection (optional)', confirmLabel: `Reject ${ids.length}`, danger: true });
+    if (!decision.confirmed) return;
+    const reason = decision.reason;
 
     let ok = 0, fail = 0;
     for (const id of ids) {

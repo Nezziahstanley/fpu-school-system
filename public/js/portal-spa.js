@@ -385,8 +385,8 @@
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
-        url: isRegistrarDocuments ? primaryUrl + '?v=20261112-doc-queue-only' : primaryUrl,
-        fallbackUrl: isRegistrarDocuments ? fallbackUrl + '?v=20261112-doc-queue-only' : fallbackUrl,
+        url: isRegistrarDocuments ? primaryUrl + '?v=20261112-doc-queue-print-v2' : primaryUrl,
+        fallbackUrl: isRegistrarDocuments ? fallbackUrl + '?v=20261112-doc-queue-print-v2' : fallbackUrl,
         title: roleItem.label,
       };
     }
@@ -523,9 +523,13 @@
     try {
       let html = partialHtmlCache.get(cfg.url);
       if (!html) {
-        let res = await fetch(cfg.url, { cache: 'force-cache' });
+        // Always fetch the Registrar Documents queue fresh. Older sessions and
+        // browser caches may still hold the combined transcript-register page.
+        const forceFresh = cfg.url.includes('doc-queue-print-v2');
+        const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
+        let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
-          res = await fetch(cfg.fallbackUrl, { cache: 'force-cache' });
+          res = await fetch(cfg.fallbackUrl, fetchOptions);
         }
         if (!res.ok) throw new Error(`Partial not found: ${cfg.url}`);
         html = await res.text();

@@ -76,6 +76,7 @@
     </div>
   </div>
 </div>
+<div id="student-transcript-print" class="tr-printable" aria-hidden="true"></div>
 
 <style>
   .spinner {
@@ -84,7 +85,44 @@
     border-radius: 50%; animation: spin 0.8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  @media print { body *{visibility:hidden!important} #tr-print-heading,#tr-print-heading *,#tr-transcript-sheet,#tr-transcript-sheet *{visibility:visible!important} #tr-print-heading{display:block!important;position:static!important} #tr-transcript-sheet{position:static!important;border:0!important;overflow:visible!important} #tr-print{display:none!important} }
+  .tr-printable { display:none; position:relative; padding:2rem; color:#0f172a; font-family:'Inter',system-ui,sans-serif; }
+  .tr-printable .tr-watermark { display:none; }
+  .tr-printable .tr-content { position:relative; z-index:1; }
+  .tr-letterhead { text-align:center; padding-bottom:1rem; margin-bottom:1.25rem; border-bottom:2px solid #065f46; }
+  .tr-letterhead img { height:60px; margin-bottom:.5rem; }
+  .tr-letterhead h1 { font-size:1.2rem; margin:0; color:#065f46; letter-spacing:.5px; text-transform:uppercase; }
+  .tr-letterhead p { margin:.25rem 0 0; font-size:.78rem; color:#64748b; }
+  .tr-title { text-align:center; font-size:1rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; text-decoration:underline; margin:1rem 0; color:#0f172a; }
+  .tr-info-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-bottom:1.25rem; font-size:.82rem; }
+  .tr-info-grid > div > span { display:block; font-weight:700; text-transform:uppercase; font-size:.65rem; color:#64748b; letter-spacing:.05em; margin-bottom:.2rem; }
+  .tr-info-grid > div > strong { font-weight:700; font-size:.85rem; color:#0f172a; }
+  .tr-results-table { width:100%; border-collapse:collapse; font-size:.82rem; margin-bottom:1rem; }
+  .tr-results-table th { background:#f0fdf4; padding:.55rem .75rem; border-bottom:2px solid #065f46; text-align:left; text-transform:uppercase; font-size:.65rem; letter-spacing:.05em; color:#065f46; font-weight:800; }
+  .tr-results-table td { padding:.55rem .75rem; border-bottom:1px solid #e5e7eb; }
+  .tr-results-table td.center { text-align:center; }
+  .tr-summary { display:flex; justify-content:flex-end; gap:2rem; margin-top:1rem; padding-top:1rem; border-top:2px solid #065f46; font-size:.85rem; }
+  .tr-summary .tr-cgpa-big { font-size:1.5rem; font-weight:800; color:#065f46; }
+  .tr-footer { margin-top:1.5rem; padding-top:1rem; border-top:1px solid #e5e7eb; font-size:.72rem; text-align:center; color:#94a3b8; }
+  .tr-signature { margin-top:2rem; display:flex; justify-content:space-between; font-size:.78rem; }
+  .tr-signature .tr-sign-block { border-top:1px solid #0f172a; padding-top:.35rem; min-width:160px; text-align:center; }
+  @page { size:A4 portrait; margin:14mm; }
+  @media print {
+    body * { visibility:hidden !important; }
+    #student-transcript-print, #student-transcript-print * { visibility:visible !important; }
+    #student-transcript-print { display:block !important; position:absolute !important; inset:0 auto auto 0 !important; width:100% !important; padding:0 !important; font-family:'Times New Roman',serif !important; }
+    #student-transcript-print .tr-watermark { display:block; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-20deg); width:380px; height:380px; opacity:.08; z-index:0; pointer-events:none; }
+    .tr-letterhead { border-bottom:3px double #065f46; }
+    .tr-letterhead h1 { font-size:22px; } .tr-letterhead p { font-size:12px; }
+    .tr-title { font-size:16px; letter-spacing:3px; }
+    .tr-info-grid { gap:12px; margin-bottom:20px; }
+    .tr-info-grid > div > span { font-size:9px; } .tr-info-grid > div > strong { font-size:13px; }
+    .tr-results-table { font-size:11px; }
+    .tr-results-table th { border:1px solid #000; padding:8px; background:#f0fdf4 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .tr-results-table td { border:1px solid #333; padding:6px 8px; }
+    .tr-summary { font-size:12px; } .tr-summary .tr-cgpa-big { font-size:22px; }
+    .tr-signature { font-size:11px; } .tr-signature .tr-sign-block { border-top:1px solid #000; }
+    .tr-footer { border-top:1px solid #999; color:#666; font-size:10px; }
+  }
 </style>
 
 <script>
@@ -94,6 +132,8 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
+  let LAST_TRANSCRIPT = null;
+
   async function load() {
     const tbody = $('tr-tbody');
     tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;"><span class="spinner"></span> Loading…</td></tr>';
@@ -101,6 +141,7 @@
     try {
       const res = await core.portalFetch('/api/student/transcript');
       const d = res.data || {};
+      LAST_TRANSCRIPT = d;
       const rows = d.results || [];
 
       // Update tiles
@@ -138,7 +179,40 @@
     }
   }
 
-  $('tr-print')?.addEventListener('click', () => window.print());
+  function printTranscript() {
+    if (!LAST_TRANSCRIPT) return;
+    const d = LAST_TRANSCRIPT, s = d.student || {}, rows = d.results || [];
+    const cgpa = Number.isFinite(Number(d.cgpa)) ? Number(d.cgpa).toFixed(2) : '0.00';
+    const resultRows = rows.length ? rows.map(r => `
+      <tr><td style="font-weight:700;">${esc(r.courseCode || '—')}</td><td>${esc(r.courseTitle || '—')}</td>
+      <td class="center">${esc(r.unit ?? '0')}</td><td class="center">${esc(r.score ?? '—')}</td>
+      <td class="center" style="font-weight:800;color:#065f46;">${esc(r.grade || '—')}</td>
+      <td class="center">${esc(r.points ?? '—')}</td></tr>`).join('') :
+      '<tr><td colspan="6" style="text-align:center;padding:2rem;">No published results found.</td></tr>';
+    const issued = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+    const printNode = $('student-transcript-print');
+    printNode.innerHTML = `
+      <img src="/images/logo.png" class="tr-watermark" alt="">
+      <div class="tr-content">
+        <div class="tr-letterhead"><img src="/images/logo.png" alt="FPU Logo"><h1>Federal Polytechnic Ugep</h1><p>P.M.B. 1038, Ugep, Cross River State, Nigeria</p></div>
+        <div class="tr-title">Official Transcript</div>
+        <div class="tr-info-grid">
+          <div><span>Matric No.</span><strong>${esc(s.matricNumber || '—')}</strong></div>
+          <div><span>Student Name</span><strong>${esc([s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ') || '—')}</strong></div>
+          <div><span>Level</span><strong>${esc(s.level || '—')}</strong></div>
+          <div><span>Department</span><strong>${esc(s.departmentName || '—')}</strong></div>
+          <div><span>Programme</span><strong>${esc(s.programmeName || '—')}</strong></div>
+          <div><span>Date Issued</span><strong>${issued}</strong></div>
+        </div>
+        <table class="tr-results-table"><thead><tr><th style="width:10%">Code</th><th style="width:50%">Course Title</th><th style="width:8%;text-align:center">Units</th><th style="width:10%;text-align:center">Score</th><th style="width:10%;text-align:center">Grade</th><th style="width:12%;text-align:center">Points</th></tr></thead><tbody>${resultRows}</tbody></table>
+        <div class="tr-summary"><div><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b">Total Units</div><div style="font-size:1.1rem;font-weight:800">${esc(d.totalUnits || 0)}</div></div>
+        <div style="text-align:right"><div style="font-size:.65rem;font-weight:700;text-transform:uppercase;color:#64748b">Cumulative GPA</div><div class="tr-cgpa-big">${cgpa}</div><div style="font-size:.78rem;font-weight:600">${esc(d.classification || '—')}</div></div></div>
+        <div class="tr-signature"><div>Date: ${issued}</div><div class="tr-sign-block"><strong>REGISTRAR</strong><div style="font-size:.7rem;color:#64748b">Signature / Stamp</div></div></div>
+        <div class="tr-footer">This is a computer-generated transcript and is valid without a physical signature.</div>
+      </div>`;
+    window.print();
+  }
+  $('tr-print')?.addEventListener('click', printTranscript);
   load();
 })();
 </script>

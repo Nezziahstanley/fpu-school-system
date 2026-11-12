@@ -144,18 +144,11 @@
       if (student.sessionName) $('ex-session-name').textContent = `${student.sessionName} SESSION`;
 
       // 2. Fetch exams from the working admin endpoint
-      const res = await core.portalFetch('/api/admin/exams?limit=5000');
+      const res = await core.portalFetch('/api/student/exam-schedule');
       const data = res.data || res || [];
 
-      // 3. Filter exams so the student only sees their own department and level
-      let filtered = data;
-      
-      if (student.departmentId) {
-        filtered = filtered.filter(ex => {
-          const deptId = ex.course?.departmentId || ex.departmentId;
-          return !deptId || Number(deptId) === Number(student.departmentId);
-        });
-      }
+      // The student API returns only approved schedules for this student's department.
+      const filtered = data;
       
       const search = ($('ex-search').value || '').toLowerCase();
       const semester = $('ex-semester').value;

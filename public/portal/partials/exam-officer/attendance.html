@@ -153,7 +153,7 @@
           </tr>
         </thead>
         <tbody id="eo-att-tbody">
-          <tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
             Pick a department, course, and exam to begin.
           </td></tr>
         </tbody>
@@ -345,19 +345,32 @@
 
     const tbody = $('eo-att-tbody');
     tbody.innerHTML = `
-      <tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+      <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
         <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:eoSpin .8s linear infinite;"></div>
         <div style="margin-top:.65rem;">Loading…</div>
       </td></tr>`;
 
     try {
+      const exam = schedule.exam || schedule;
+      const registrationParams = new URLSearchParams({
+        courseId: String(exam.courseId),
+        status: 'approved',
+      });
+      if (exam.sessionId) registrationParams.set('sessionId', String(exam.sessionId));
+      if (exam.semester) registrationParams.set('semester', String(exam.semester));
+
+      // Do not silently fall back to previously marked attendance when the
+      // approved-registration request fails: that would hide eligible students.
       const [attRes, regsRes] = await Promise.all([
-        core.portalFetch(`/api/exam-officer/attendance?examScheduleId=${scheduleId}`),
-        core.portalFetch(`/api/exam-officer/registrations?courseId=${(schedule.exam || schedule).courseId}&status=approved&limit=500`).catch(() => ({ data: [] })),
+        core.portalFetch(`/api/exam-officer/attendance?examScheduleId=${encodeURIComponent(scheduleId)}`),
+        core.portalFetch(`/api/exam-officer/registrations?${registrationParams.toString()}`),
       ]);
 
       const attendanceRecords = Array.isArray(attRes.data) ? attRes.data : [];
-      const registrations = Array.isArray(regsRes.data) ? regsRes.data : [];
+      if (!Array.isArray(regsRes.data)) {
+        throw new Error('The approved student registration list could not be loaded. Refresh and try again.');
+      }
+      const registrations = regsRes.data;
 
       const attMap = new Map();
       attendanceRecords.forEach((r) => {
@@ -365,15 +378,10 @@
         if (sid) attMap.set(sid, r.record || null);
       });
 
-      const studentSource = registrations.length
-        ? registrations.map((reg) => ({
-            student: reg.student || {},
-            registration: reg.registration || reg,
-          }))
-        : attendanceRecords.map((r) => ({
-            student: r.student || {},
-            registration: null,
-          }));
+      const studentSource = registrations.map((reg) => ({
+        student: reg.student || {},
+        registration: reg.registration || reg,
+      }));
 
       const seen = new Set();
       ROWS = [];
@@ -419,7 +427,11 @@
       if ($('eo-bulk-selected-label')) $('eo-bulk-selected-label').textContent = '0 selected';
       if ($('eo-att-bulk-mark')) $('eo-att-bulk-mark').style.display = 'none';
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="4" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      ROWS = [];
+      renderSummaryFromRows();
+      updateBulkBar();
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message || 'Unable to load attendance. Please refresh and try again.')}</td></tr>`;
+      core.showToast && core.showToast('Attendance was not loaded: ' + err.message, 'error');
     }
   }
 
@@ -528,7 +540,7 @@
     }
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem 1rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem 1rem;text-align:center;color:#94a3b8;font-size:.82rem;">
         ${ROWS.length ? 'No students match this filter.' : 'No students registered for this course.'}
       </td></tr>`;
       return;
@@ -721,7 +733,7 @@
     $('eo-att-context').style.display = 'none';
     $('eo-att-summary').style.display = 'none';
     $('eo-att-filter-row').style.display = 'none';
-    $('eo-att-tbody').innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">Pick a course to continue.</td></tr>';
+    $('eo-att-tbody').innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">Pick a course to continue.</td></tr>';
   });
 
   $('eo-att-course')?.addEventListener('change', () => {
@@ -765,7 +777,7 @@
     $('eo-att-context').style.display = 'none';
     $('eo-att-summary').style.display = 'none';
     $('eo-att-filter-row').style.display = 'none';
-    $('eo-att-tbody').innerHTML = '<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">Pick a department to begin.</td></tr>';
+    $('eo-att-tbody').innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">Pick a department to begin.</td></tr>';
     boot();
   });
 

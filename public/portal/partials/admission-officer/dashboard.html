@@ -327,6 +327,7 @@
 
       $('ao-total').textContent    = total || 0;
       $('ao-pending').textContent  = byStatus.pending || 0;
+      if ($('ao-reviewing')) $('ao-reviewing').textContent = byStatus.under_review || 0;
       $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
       $('ao-rejected').textContent = byStatus.rejected || 0;
 

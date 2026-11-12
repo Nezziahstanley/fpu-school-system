@@ -346,24 +346,31 @@ router.get('/results', only, async (req, res, next) => {
     if (!courseIds.length) return res.json({ success: true, data: [], lecturerDeptId: lecturer?.departmentId });
 
     const rows = await db.execute(sql`
-      SELECT DISTINCT ON (r.student_id, r.course_id) 
-        r.id, r.score, r.grade, r.points, r.status, r.assignment_score AS "assignmentScore",
-        u.first_name AS "studentFirstName", 
-        u.last_name AS "studentLastName", 
+      SELECT DISTINCT ON (cr.student_id, cr.course_id)
+        r.id, r.score, r.grade, r.points,
+        COALESCE(r.status, 'not_started') AS status,
+        r.assignment_score AS "assignmentScore",
+        u.first_name AS "studentFirstName",
+        u.last_name AS "studentLastName",
         u.matric_number AS "matricNumber",
         u.department_id AS "studentDeptId",
         c.id AS "courseId",
-        c.code AS "courseCode", 
+        c.code AS "courseCode",
         c.title AS "courseTitle",
-        c.department_id AS "courseDeptId", 
+        c.department_id AS "courseDeptId",
         d.name AS "courseDepartment"
-      FROM results r
-      JOIN courses c ON r.course_id = c.id
-      JOIN users u ON r.student_id = u.id
+      FROM course_registrations cr
+      JOIN courses c ON cr.course_id = c.id
+      JOIN users u ON cr.student_id = u.id
+      LEFT JOIN results r
+        ON r.student_id = cr.student_id
+       AND r.course_id = cr.course_id
+       AND r.session_id = cr.session_id
       LEFT JOIN departments d ON c.department_id = d.id
-      WHERE r.course_id IN (${sql.join(courseIds, sql`, `)})
-      ORDER BY r.student_id, r.course_id, r.updated_at DESC, u.last_name, c.code
-      LIMIT 2000
+      WHERE cr.course_id IN (${sql.join(courseIds, sql`, `)})
+        AND cr.status = 'approved'
+      ORDER BY cr.student_id, cr.course_id, r.updated_at DESC NULLS LAST
+      LIMIT 5000
     `);
 
     return res.json({ 

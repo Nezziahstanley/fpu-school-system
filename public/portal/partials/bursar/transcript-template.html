@@ -1,22 +1,76 @@
-<main id="bur-transcript-paper" style="max-width:900px;margin:2rem auto;padding:2.5rem;background:#fff;color:#111827;font-family:Georgia,serif;box-shadow:0 8px 32px #0f172a18">
- <header style="text-align:center;border-bottom:3px double #065f46;padding-bottom:1.2rem;margin-bottom:1.5rem">
-  <img src="/images/logo.png" alt="Federal Polytechnic Ugep logo" style="width:76px;height:76px;object-fit:contain">
-  <h1 style="font-size:1.5rem;color:#065f46;margin:.5rem 0">FEDERAL POLYTECHNIC UGEP</h1>
-  <p style="margin:.2rem;color:#64748b;font-style:italic">Citadel of Technical Excellence</p>
-  <p style="margin:.2rem;color:#64748b;font-size:.85rem">Ugep, Cross River State, Nigeria</p>
-  <h2 style="margin:1.1rem 0 0;font-size:1.1rem;text-decoration:underline">ACADEMIC TRANSCRIPT — PREVIEW</h2>
- </header>
- <section style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;font-size:.9rem">
-  <div><p><strong>Student:</strong> <span id="bur-tr-name">Loading…</span></p><p><strong>Matric Number:</strong> <span id="bur-tr-matric">—</span></p></div>
-  <div><p><strong>Programme:</strong> <span id="bur-tr-programme">—</span></p><p><strong>Department:</strong> <span id="bur-tr-department">—</span></p></div>
- </section>
- <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr style="background:#ecfdf5"><th style="padding:.7rem;text-align:left">Course Code</th><th style="padding:.7rem;text-align:left">Course Title</th><th style="padding:.7rem">Units</th><th style="padding:.7rem">Score</th><th style="padding:.7rem">Grade</th><th style="padding:.7rem">Points</th></tr></thead><tbody id="bur-tr-results"><tr><td colspan="6" style="padding:1.5rem;text-align:center">Loading published results…</td></tr></tbody></table></div>
- <footer style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-top:1px solid #e5e7eb;margin-top:1.5rem;padding-top:1rem"><div><strong>Total Units:</strong> <span id="bur-tr-units">—</span></div><div><strong>CGPA:</strong> <span id="bur-tr-cgpa">—</span></div><div><strong>Generated:</strong> <span id="bur-tr-date">—</span></div></footer>
- <p style="margin-top:2rem;font-size:.75rem;color:#64748b;text-align:center">PREVIEW ONLY — This document is not an issued or certified academic transcript.</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Academic Transcript Preview | Federal Polytechnic Ugep</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#111827;font-family:Arial,Helvetica,sans-serif}.bur-tr-paper{max-width:1050px;margin:24px auto;padding:34px;background:#fff;box-shadow:0 8px 32px #0f172a18}.bur-tr-header{text-align:center;border-bottom:3px double #065f46;padding-bottom:18px;margin-bottom:22px}.bur-tr-header img{width:76px;height:76px;object-fit:contain}.bur-tr-header h1{font-size:22px;color:#065f46;margin:8px 0 4px}.bur-tr-header p{margin:3px;color:#64748b}.bur-tr-header h2{margin:18px 0 0;font-size:17px;text-decoration:underline;letter-spacing:.06em}.bur-tr-section-title{margin:20px 0 10px;padding:9px 12px;background:#ecfdf5;border-left:4px solid #059669;color:#065f46;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.bur-tr-particulars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 18px;border:1px solid #e2e8f0;border-radius:8px;padding:12px}.bur-tr-field{padding:8px 4px;border-bottom:1px solid #f1f5f9;min-width:0}.bur-tr-field small{display:block;color:#64748b;font-size:10px;text-transform:uppercase;font-weight:700;margin-bottom:4px}.bur-tr-field strong{display:block;font-size:12px;overflow-wrap:anywhere}.bur-tr-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}.bur-tr-summary article{border:1px solid #d1fae5;background:#f7fef9;border-radius:8px;padding:12px}.bur-tr-summary small{display:block;color:#64748b;font-size:10px;font-weight:800;text-transform:uppercase}.bur-tr-summary strong{display:block;margin-top:5px;color:#065f46;font-size:17px}.bur-tr-table-wrap{overflow-x:auto}.bur-tr-results{width:100%;border-collapse:collapse;font-size:11px;min-width:760px}.bur-tr-results th{background:#065f46;color:#fff;padding:9px 7px;text-align:left}.bur-tr-results td{padding:8px 7px;border-bottom:1px solid #e5e7eb}.bur-tr-results td.num,.bur-tr-results th.num{text-align:center}.bur-tr-results tr:nth-child(even) td{background:#f8fafc}.bur-tr-group{background:#ecfdf5!important;color:#065f46!important;font-weight:800}.bur-tr-group td{background:#ecfdf5!important;border-top:1px solid #a7f3d0}.bur-tr-note{font-size:10px;color:#64748b;text-align:center;margin:24px 0 0;padding-top:12px;border-top:1px solid #e5e7eb}.bur-tr-actions{max-width:1050px;margin:0 auto 24px;display:flex;justify-content:flex-end;gap:8px}.bur-tr-actions button{border:0;border-radius:8px;padding:11px 16px;font-weight:700;cursor:pointer}.bur-tr-print{background:#065f46;color:white}.bur-tr-close{background:#e2e8f0;color:#334155}.bur-tr-error{padding:12px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px}
+@media(max-width:700px){.bur-tr-paper{margin:8px;padding:16px}.bur-tr-particulars{grid-template-columns:repeat(2,minmax(0,1fr))}.bur-tr-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.bur-tr-actions{padding:0 8px}}
+@media print{body{background:#fff}.bur-tr-paper{margin:0 auto;padding:12px;max-width:none;box-shadow:none}.bur-tr-actions{display:none!important}.bur-tr-table-wrap{overflow:visible}.bur-tr-results{min-width:0;font-size:9px}.bur-tr-results th,.bur-tr-results td{padding:5px 4px}.bur-tr-header h1{font-size:18px}.bur-tr-note{margin-top:12px}}
+</style>
+</head>
+<body>
+<main class="bur-tr-paper" id="bur-transcript-paper">
+<header class="bur-tr-header"><img src="/images/logo.png" alt="Federal Polytechnic Ugep logo"><h1>FEDERAL POLYTECHNIC UGEP</h1><p><em>Citadel of Technical Excellence</em></p><p>Ugep, Cross River State, Nigeria</p><h2>ACADEMIC TRANSCRIPT — PREVIEW</h2></header>
+<div class="bur-tr-section-title">Student particulars</div>
+<section class="bur-tr-particulars">
+<div class="bur-tr-field"><small>Full name</small><strong id="bur-tr-name">Loading…</strong></div>
+<div class="bur-tr-field"><small>Matriculation number</small><strong id="bur-tr-matric">—</strong></div>
+<div class="bur-tr-field"><small>Level</small><strong id="bur-tr-level">—</strong></div>
+<div class="bur-tr-field"><small>Programme</small><strong id="bur-tr-programme">—</strong></div>
+<div class="bur-tr-field"><small>Department</small><strong id="bur-tr-department">—</strong></div>
+<div class="bur-tr-field"><small>Email address</small><strong id="bur-tr-email">—</strong></div>
+<div class="bur-tr-field"><small>Phone number</small><strong id="bur-tr-phone">—</strong></div>
+<div class="bur-tr-field"><small>Gender</small><strong id="bur-tr-gender">—</strong></div>
+<div class="bur-tr-field"><small>Date of birth</small><strong id="bur-tr-dob">—</strong></div>
+<div class="bur-tr-field"><small>Nationality</small><strong id="bur-tr-nationality">—</strong></div>
+<div class="bur-tr-field"><small>State of origin</small><strong id="bur-tr-state">—</strong></div>
+<div class="bur-tr-field"><small>Address</small><strong id="bur-tr-address">—</strong></div>
+</section>
+<div class="bur-tr-section-title">Academic summary</div>
+<section class="bur-tr-summary">
+<article><small>Total courses published</small><strong id="bur-tr-course-count">—</strong></article>
+<article><small>Total credit units</small><strong id="bur-tr-units">—</strong></article>
+<article><small>Cumulative GPA</small><strong id="bur-tr-cgpa">—</strong></article>
+<article><small>Academic sessions</small><strong id="bur-tr-session-count">—</strong></article>
+</section>
+<div class="bur-tr-section-title">Published course results</div>
+<div class="bur-tr-table-wrap"><table class="bur-tr-results"><thead><tr><th>Session</th><th>Semester</th><th>Course code</th><th>Course title</th><th class="num">Units</th><th class="num">Score</th><th class="num">Grade</th><th class="num">Grade points</th></tr></thead><tbody id="bur-tr-results"><tr><td colspan="8" style="padding:24px;text-align:center">Loading published results…</td></tr></tbody></table></div>
+<p class="bur-tr-note">PREVIEW ONLY — This document displays published academic results available in the portal. It is not an issued, signed or certified academic transcript. Generated: <span id="bur-tr-date">—</span></p>
 </main>
-<div class="bur-tr-actions" style="max-width:900px;margin:0 auto 2rem;display:flex;justify-content:flex-end;gap:.7rem"><button type="button" id="bur-tr-print" style="background:#065f46;color:white;border:0;border-radius:8px;padding:.7rem 1.1rem;font-weight:700;cursor:pointer">Print / Save PDF</button><button type="button" id="bur-tr-close" style="background:#e2e8f0;color:#334155;border:0;border-radius:8px;padding:.7rem 1.1rem;font-weight:700;cursor:pointer">Close</button></div>
-<style>@media print{body{background:#fff!important}#bur-transcript-paper{box-shadow:none!important;margin:0 auto!important;padding:1rem!important}.bur-tr-actions{display:none!important}}@media(max-width:600px){#bur-transcript-paper{padding:1rem!important;margin:.5rem!important}#bur-transcript-paper section{grid-template-columns:1fr!important}}</style>
+<div class="bur-tr-actions"><button class="bur-tr-print" type="button" id="bur-tr-print">Print / Save PDF</button><button class="bur-tr-close" type="button" id="bur-tr-close">Close</button></div>
 <script>
-(function(){'use strict';const $=id=>document.getElementById(id);const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const id=Number(new URLSearchParams(location.search).get('studentId'));$('bur-tr-date').textContent=new Date().toLocaleDateString('en-GB');$('bur-tr-print').addEventListener('click',()=>window.print());$('bur-tr-close').addEventListener('click',()=>window.close());if(!Number.isInteger(id)||id<1){$('bur-tr-name').textContent='Invalid student ID';$('bur-tr-results').innerHTML='<tr><td colspan="6">A valid student ID is required.</td></tr>';return}
-const token=localStorage.getItem('fpu_token');fetch('/api/bursar/transcript/'+encodeURIComponent(id),{headers:token?{Authorization:'Bearer '+token}:{}}).then(async res=>{const data=await res.json();if(!res.ok||!data.success)throw new Error(data.error||'Unable to load transcript');return data}).then(data=>{const s=data.student||{},summary=data.summary||{},rows=Array.isArray(data.rows)?data.rows:[];$('bur-tr-name').textContent=[s.firstName,s.lastName].filter(Boolean).join(' ')||'—';$('bur-tr-matric').textContent=s.matricNumber||'—';$('bur-tr-programme').textContent=s.programmeName||s.programme?.name||'—';$('bur-tr-department').textContent=s.departmentName||s.department?.name||'—';$('bur-tr-units').textContent=summary.totalUnits??0;$('bur-tr-cgpa').textContent=summary.cgpa??'0.00';$('bur-tr-results').innerHTML=rows.length?rows.map(r=>'<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:.65rem">'+esc(r.course?.code||'—')+'</td><td style="padding:.65rem">'+esc(r.course?.title||'—')+'</td><td style="padding:.65rem;text-align:center">'+esc(r.course?.unit??'—')+'</td><td style="padding:.65rem;text-align:center">'+esc(r.result?.score??'—')+'</td><td style="padding:.65rem;text-align:center">'+esc(r.result?.grade||'—')+'</td><td style="padding:.65rem;text-align:center">'+esc(r.result?.points??'—')+'</td></tr>').join(''):'<tr><td colspan="6" style="padding:1.5rem;text-align:center">No published results found for this student.</td></tr>'}).catch(e=>{$('bur-tr-name').textContent='Unable to load';$('bur-tr-results').innerHTML='<tr><td colspan="6" style="padding:1rem;color:#991b1b">Error: '+esc(e.message)+'</td></tr>'})})();
+(function(){'use strict';
+const $=id=>document.getElementById(id),esc=v=>String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const fmtDate=v=>{if(!v)return '—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('en-GB')};
+const id=Number(new URLSearchParams(location.search).get('studentId'));
+$('bur-tr-date').textContent=new Date().toLocaleString('en-GB');
+$('bur-tr-print').addEventListener('click',()=>window.print());
+$('bur-tr-close').addEventListener('click',()=>window.close());
+if(!Number.isInteger(id)||id<1){$('bur-tr-name').textContent='Invalid student ID';$('bur-tr-results').innerHTML='<tr><td colspan="8">A valid student ID is required.</td></tr>';return}
+const token=localStorage.getItem('fpu_token');
+fetch('/api/bursar/transcript/'+encodeURIComponent(id),{headers:token?{Authorization:'Bearer '+token}:{},cache:'no-store'}).then(async res=>{const data=await res.json();if(!res.ok||!data.success)throw new Error(data.error||'Unable to load transcript');return data}).then(data=>{
+ const s=data.student||{},summary=data.summary||{},rows=Array.isArray(data.rows)?data.rows:[];
+ const fullName=[s.firstName,s.middleName,s.lastName].filter(Boolean).join(' ')||'—';
+ const fields={ 'bur-tr-name':fullName,'bur-tr-matric':s.matricNumber,'bur-tr-level':s.level,'bur-tr-programme':s.programmeName,'bur-tr-department':s.departmentName,'bur-tr-email':s.email,'bur-tr-phone':s.phone,'bur-tr-gender':s.gender,'bur-tr-dob':fmtDate(s.dateOfBirth),'bur-tr-nationality':s.nationality,'bur-tr-state':s.stateOfOrigin,'bur-tr-address':s.address };
+ Object.entries(fields).forEach(([key,value])=>$(key).textContent=value||'—');
+ const groups=new Map();rows.forEach(r=>{const key=[r.session?.name||'Session not specified',r.result?.semester||'Semester not specified'].join(' · ');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r)});
+ const sessions=new Set(rows.map(r=>r.session?.name).filter(Boolean));
+ $('bur-tr-course-count').textContent=rows.length.toLocaleString();
+ $('bur-tr-units').textContent=summary.totalUnits??0;
+ $('bur-tr-cgpa').textContent=summary.cgpa??'—';
+ $('bur-tr-session-count').textContent=sessions.size.toLocaleString();
+ if(!rows.length){$('bur-tr-results').innerHTML='<tr><td colspan="8" style="padding:24px;text-align:center">No published results found for this student.</td></tr>';return}
+ let html='';
+ groups.forEach((items,label)=>{
+  const units=items.reduce((n,r)=>n+(Number(r.course?.unit)||0),0);
+  const weighted=items.reduce((n,r)=>n+(Number(r.course?.unit)||0)*(Number(r.result?.points)||0),0);
+  const gpa=units? (weighted/units).toFixed(2):'—';
+  html+='<tr class="bur-tr-group"><td colspan="8">'+esc(label)+' — '+items.length+' course(s), '+units+' units, GPA '+esc(gpa)+'</td></tr>';
+  html+=items.map(r=>'<tr><td>'+esc(r.session?.name||'—')+'</td><td>'+esc(r.result?.semester||'—')+'</td><td>'+esc(r.course?.code||'—')+'</td><td>'+esc(r.course?.title||'—')+'</td><td class="num">'+esc(r.course?.unit??'—')+'</td><td class="num">'+esc(r.result?.score??'—')+'</td><td class="num">'+esc(r.result?.grade||'—')+'</td><td class="num">'+esc(r.result?.points??'—')+'</td></tr>').join('');
+ });
+ $('bur-tr-results').innerHTML=html;
+}).catch(e=>{$('bur-tr-name').textContent='Unable to load';$('bur-tr-results').innerHTML='<tr><td colspan="8"><div class="bur-tr-error">Error: '+esc(e.message)+'</div></td></tr>'});
+})();
 </script>
+</body></html>

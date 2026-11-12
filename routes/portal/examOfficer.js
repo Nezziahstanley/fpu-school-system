@@ -201,9 +201,9 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'examScheduleId and records[] are required.' });
     }
     const allowedStatuses = new Set(['present', 'absent', 'late', 'excused']);
-    const studentIds = records.map((record) => Number(record.studentId));
+    const studentIds = records.map((record) => Number(record && record.studentId));
     if (studentIds.some((id) => !Number.isInteger(id) || id <= 0) ||
-        records.some((record) => !allowedStatuses.has(record.status)) ||
+        records.some((record) => !record || typeof record !== 'object' || !allowedStatuses.has(record.status)) ||
         new Set(studentIds).size !== studentIds.length) {
       return res.status(400).json({ success: false, error: 'Each attendance entry must contain a unique valid student and status.' });
     }

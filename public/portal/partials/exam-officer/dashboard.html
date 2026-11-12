@@ -15,12 +15,11 @@
       <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;margin-bottom:.4rem;">
         🎓 Examinations Office
       </div>
-      <h2 style="margin:0;font-size:1.5rem;font-weight:800;">Welcome, <span id="eo-name">Exam Officer</span></h2>
+      <h2 style="margin:0;font-size:1.5rem;font-weight:800;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;"><span id="eo-profile-circle" title="Exam Officer profile" style="width:48px;height:48px;border-radius:50%;border:3px solid rgba(255,255,255,.9);background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.9rem;font-weight:850;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.15);flex:0 0 48px;">EO</span><span>Welcome, <span id="eo-name">Exam Officer</span></span></h2>
       <p style="margin:.35rem 0 0;font-size:.88rem;color:#d1fae5;">Schedule oversight, attendance tracking, eligibility verification, and result publication</p>
       <button type="button" id="eo-dashboard-refresh" style="margin-top:.85rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.45);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:.78rem;font-weight:750;cursor:pointer;">↻ Refresh dashboard</button>
     </div>
-    <div style="position:absolute;top:1rem;right:1.25rem;display:flex;align-items:center;gap:.85rem;z-index:2;">
-      <div id="eo-profile-circle" title="Exam Officer profile" style="width:58px;height:58px;border-radius:50%;border:3px solid rgba(255,255,255,.8);background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;font-weight:850;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.15);">EO</div>
+    <div style="position:absolute;top:1rem;right:1.25rem;display:flex;align-items:center;z-index:2;">
       <div style="text-align:right;">
         <div style="font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">Current Session</div>
         <div style="font-size:1.05rem;font-weight:800;" id="eo-session">—</div>
@@ -331,7 +330,7 @@
         } else {
           $('published-tbody').innerHTML = published.slice(0, 5).map(r => `
             <tr style="border-bottom:1px solid #f1f5f9;">
-              <td style="padding:.65rem .75rem;color:#64748b;font-size:.75rem;">${fmtDate(r.publishedAt)}</td>
+              <td style="padding:.65rem .75rem;color:#64748b;font-size:.75rem;">${fmtDate(r.publishedAt || r.createdAt || r.updatedAt)}</td>
               <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(r.studentName)}</td>
               <td style="padding:.65rem .75rem;"><code style="font-size:.75rem;">${esc(r.matricNumber)}</code></td>
               <td style="padding:.65rem .75rem;"><strong>${esc(r.courseCode)}</strong> - ${esc(r.courseTitle)}</td>

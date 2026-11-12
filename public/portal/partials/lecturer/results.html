@@ -129,6 +129,7 @@
       <div style="font-weight:800;font-size:.95rem;color:#0f172a;" id="bulk-course-title">Course</div>
       <div style="display:flex;gap:.5rem;">
         <button id="bulk-save-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">💾 Save Draft</button>
+        <button id="bulk-preview-btn" type="button" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:8px;cursor:pointer;">👁 Preview Results</button>
         <button id="bulk-submit-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">📤 Submit to HOD</button>
       </div>
     </div>
@@ -148,6 +149,25 @@
         </thead>
         <tbody id="bulk-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<div id="lecturer-results-preview" role="dialog" aria-modal="true" aria-labelledby="lecturer-results-preview-title" style="display:none;position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.65);backdrop-filter:blur(3px);padding:1rem;align-items:center;justify-content:center;">
+  <div style="background:#fff;width:min(980px,100%);max-height:92vh;overflow:auto;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);">
+    <div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:1rem 1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;z-index:2;">
+      <div><h3 id="lecturer-results-preview-title" style="margin:0;color:#0f172a;font-size:1rem;">Review Results Before Submission</h3><p id="lecturer-results-preview-meta" style="margin:.25rem 0 0;color:#64748b;font-size:.78rem;"></p></div>
+      <button id="lecturer-results-preview-close" type="button" aria-label="Close preview" style="border:0;background:#f1f5f9;border-radius:8px;width:38px;height:38px;font-size:1.2rem;cursor:pointer;">×</button>
+    </div>
+    <div style="padding:1rem 1.25rem;">
+      <div id="lecturer-results-preview-summary" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin-bottom:1rem;"></div>
+      <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:.8rem;min-width:680px;">
+          <thead><tr style="background:#f8fafc;color:#475569;text-align:left;"><th style="padding:.7rem;">Student</th><th style="padding:.7rem;">Matric No.</th><th style="padding:.7rem;text-align:center;">Assignment /10</th><th style="padding:.7rem;text-align:center;">Classwork /20</th><th style="padding:.7rem;text-align:center;">Exam /70</th><th style="padding:.7rem;text-align:center;">Total /100</th><th style="padding:.7rem;text-align:center;">Grade</th></tr></thead>
+          <tbody id="lecturer-results-preview-body"></tbody>
+        </table>
+      </div>
+      <p style="margin:.85rem 0 0;color:#64748b;font-size:.75rem;">Review every score before submitting. Submitted results are locked for lecturer editing and sent to the HOD for verification.</p>
     </div>
   </div>
 </div>
@@ -596,6 +616,35 @@
     });
     return payload;
   }
+
+  function openResultsPreview() {
+    if (!CURRENT_COURSE_ID || !STUDENTS.length) {
+      core.showToast('Select a course and load its registered students first.', 'warning');
+      return;
+    }
+    const payload = gatherPayload();
+    const rows = payload.map(p => {
+      const student = STUDENTS.find(s => Number(s.studentId) === Number(p.studentId) || Number(s.id) === Number(p.studentId));
+      const total = Number(p.assignmentScore) + Number(p.classworkScore) + Number(p.examScore);
+      const grade = calcGrade(total).grade;
+      return { student, p, total, grade };
+    });
+    const totalScore = rows.reduce((sum, r) => sum + r.total, 0);
+    const average = rows.length ? (totalScore / rows.length).toFixed(1) : '0.0';
+    $('lecturer-results-preview-meta').textContent = $('bulk-course-title').textContent + ' · ' + rows.length + ' registered students';
+    $('lecturer-results-preview-summary').innerHTML = [
+      ['Students', rows.length], ['Average', average + '%'],
+      ['Highest', Math.max(0, ...rows.map(r => r.total)) + '%'],
+      ['Lowest', Math.min(0, ...rows.map(r => r.total)) < 0 ? '0%' : Math.min(...rows.map(r => r.total)) + '%']
+    ].map(([label, value]) => '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:.7rem;"><div style="font-size:.65rem;color:#64748b;text-transform:uppercase;font-weight:800;">'+label+'</div><div style="font-size:1.15rem;color:#0f172a;font-weight:800;margin-top:.2rem;">'+value+'</div></div>').join('');
+    $('lecturer-results-preview-body').innerHTML = rows.map(r => '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:.65rem;">'+esc(r.student ? (r.student.lastName+', '+r.student.firstName) : 'Student')+'</td><td style="padding:.65rem;">'+esc(r.student?.matricNumber || '—')+'</td><td style="padding:.65rem;text-align:center;">'+r.p.assignmentScore+'</td><td style="padding:.65rem;text-align:center;">'+r.p.classworkScore+'</td><td style="padding:.65rem;text-align:center;">'+r.p.examScore+'</td><td style="padding:.65rem;text-align:center;font-weight:800;">'+r.total+'</td><td style="padding:.65rem;text-align:center;font-weight:800;">'+r.grade+'</td></tr>').join('');
+    $('lecturer-results-preview').style.display = 'flex';
+  }
+  function closeResultsPreview() { $('lecturer-results-preview').style.display = 'none'; }
+  $('bulk-preview-btn')?.addEventListener('click', openResultsPreview);
+  $('lecturer-results-preview-close')?.addEventListener('click', closeResultsPreview);
+  $('lecturer-results-preview')?.addEventListener('click', e => { if (e.target.id === 'lecturer-results-preview') closeResultsPreview(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeResultsPreview(); });
 
   $('bulk-save-btn').addEventListener('click', async () => {
     if (!CURRENT_COURSE_ID) return;

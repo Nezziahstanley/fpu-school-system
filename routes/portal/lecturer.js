@@ -144,7 +144,7 @@ router.get('/students-list', only, async (req, res, next) => {
       .innerJoin(courses, eq(courseAllocations.courseId, courses.id))
       .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
       .leftJoin(departments, eq(courses.departmentId, departments.id))
-      .where(eq(courseAllocations.lecturerId, req.user.id)).orderBy(departments.name, courses.code);
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`${courseAllocations.status} <> 'cancelled'`)).orderBy(departments.name, courses.code);
     const courseData=[], uniqueStudents=new Map();
     for (const allocation of allocations) {
       const registered=await db.select({
@@ -246,7 +246,7 @@ router.get('/attendance', only, async (req, res, next) => {
       .innerJoin(courses,eq(courseAllocations.courseId,courses.id))
       .leftJoin(academicSessions,eq(courseAllocations.sessionId,academicSessions.id))
       .leftJoin(departments,eq(courses.departmentId,departments.id))
-      .where(eq(courseAllocations.lecturerId,req.user.id)).orderBy(departments.name,courses.code);
+      .where(and(eq(courseAllocations.lecturerId,req.user.id),sql`${courseAllocations.status} <> 'cancelled'`)).orderBy(departments.name,courses.code);
     if(!allocations.length)return res.json({success:true,courses:[],data:[]});
     const coursesWithMeta=[];
     for(const a of allocations){
@@ -1049,7 +1049,7 @@ router.get('/exams', only, async (req, res, next) => {
     const rows = await db
       .select({
         id: examSchedules.id, examDate: examSchedules.examDate, startTime: examSchedules.startTime,
-        endTime: examSchedules.endTime, venue: examSchedules.venue, invigilators: examSchedules.invigilators,
+        endTime: examSchedules.endTime, venue: examSchedules.venue, invigilators: examSchedules.invigilators, status: examSchedules.status,
         semester: examSchedules.semester, sessionName: academicSessions.name,
         courseCode: courses.code, courseTitle: courses.title, departmentName: departments.name,
       })
@@ -1062,7 +1062,7 @@ router.get('/exams', only, async (req, res, next) => {
       ))
       .leftJoin(departments, eq(courses.departmentId, departments.id))
       .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(examSchedules.status, 'approved')))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`LOWER(TRIM(${examSchedules.status})) = 'approved'`, sql`${courseAllocations.status} <> 'cancelled'`))
       .orderBy(examSchedules.examDate);
 
     return res.json({ success: true, data: rows });

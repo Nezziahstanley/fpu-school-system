@@ -893,8 +893,11 @@ router.get('/reports', only, async (req, res, next) => {
     const avgScore = totalResults > 0 ? (totalScore / totalResults).toFixed(1) : 0;
     const passRate = totalResults > 0 ? Math.round((passCount / totalResults) * 100) : 0;
 
-    const attRows = await db.select({ id: attendance.id }).from(attendance).where(inArray(attendance.courseId, courseIds));
-    const attendanceSessions = attRows.length;
+    const attRows = await db.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM (SELECT DISTINCT course_id, date FROM attendance WHERE course_id IN (${sql.join(courseIds, sql`, `)})) sessions
+    `);
+    const attendanceSessions = Number(attRows.rows[0]?.count || 0);
 
     return res.json({
       success: true,

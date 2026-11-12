@@ -959,7 +959,7 @@ router.get('/reports', only, async (req, res, next) => {
   try {
     const lecturerId = req.user.id;
     const allocatedCourses = await db.select({ courseId: courseAllocations.courseId }).from(courseAllocations).where(eq(courseAllocations.lecturerId, lecturerId));
-    const courseIds = allocatedCourses.map(c => c.courseId).filter(Boolean);
+    const courseIds = [...new Set(allocatedCourses.map(c => Number(c.courseId)).filter(Boolean))];
     const coursesCount = courseIds.length;
 
     if (!coursesCount) {
@@ -972,7 +972,10 @@ router.get('/reports', only, async (req, res, next) => {
       .leftJoin(users, eq(results.studentId, users.id))
       .where(inArray(results.courseId, courseIds));
 
-    const uniqueStudents = new Set(allResults.map(r => r.studentId)).size;
+    const registeredStudents = await db.select({ studentId: courseRegistrations.studentId })
+      .from(courseRegistrations)
+      .where(and(inArray(courseRegistrations.courseId, courseIds), eq(courseRegistrations.status, 'approved')));
+    const uniqueStudents = new Set(registeredStudents.map(r => Number(r.studentId))).size;
     const totalResults = allResults.length;
     let totalScore = 0, highest = -1, lowest = 101, passCount = 0;
 

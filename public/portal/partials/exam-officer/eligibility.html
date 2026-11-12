@@ -117,9 +117,10 @@
 </div>
 
 <style>
-  .eo-el-row:hover { background: #f8fafc; }
-  @media(max-width:760px){#eo-el-summary{grid-template-columns:1fr!important}#eo-el-search-row{flex-wrap:wrap}}
   .eo-el-row:nth-child(even){background:#fbfdff}.eo-el-row:hover{background:#fff7ed}
+  #eo-el-dept:focus,#eo-el-course:focus,#eo-el-sem:focus,#eo-el-session:focus,#eo-el-filter:focus,#eo-el-search:focus{outline:3px solid rgba(194,65,12,.14);border-color:#c2410c!important}
+  @media(max-width:760px){#eo-el-summary{grid-template-columns:1fr!important}#eo-el-search-row{flex-wrap:wrap}}
+  @media(max-width:900px){#eo-el-dept,#eo-el-course,#eo-el-sem,#eo-el-session,#eo-el-filter{min-width:0}}
   @keyframes eoSpin { to { transform: rotate(360deg); } }
 </style>
 
@@ -221,7 +222,7 @@
     $('eo-el-search-row').style.display = 'flex';
 
     tbody.innerHTML = `
-      <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+      <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;font-size:.82rem;">
         <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#c2410c;border-radius:50%;animation:eoSpin .8s linear infinite;"></div>
         <div style="margin-top:.65rem;">Checking eligibility…</div>
       </td></tr>`;
@@ -402,14 +403,16 @@
       return;
     }
 
-    const headers = ['Name', 'Matric', 'Level', 'Paid', 'Due', 'Clearance', 'Eligible'];
+    const headers = ['Name', 'Matric', 'Level', 'Fee Structure Found', 'Paid', 'Due', 'Clearance Status', 'Eligibility Reason', 'Eligible'];
     const rows = FILTERED.map(r => [
       `${r.student?.firstName || ''} ${r.student?.lastName || ''}`.trim(),
       r.student?.matricNumber || '',
       r.student?.level || '',
+      r.feeStructureFound ? 'Yes' : 'No - Manual Review',
       Number(r.totalPaid || 0),
       Number(r.totalDue || 0),
-      r.clearanceOk ? 'Cleared' : 'Pending',
+      r.clearanceStatus || 'Not recorded',
+      (r.reasons || []).join('; ') || 'All configured database checks passed',
       r.eligible ? 'Eligible' : 'Not Eligible',
     ]);
 

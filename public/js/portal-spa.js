@@ -329,6 +329,10 @@
     if (!user) return null;
     
     const role = user.role;
+    if (role === 'lecturer' && cleanKey === 'lecturer-messages') {
+      return { url: '/portal/partials/shared/messages.html?v=20261112-lecturer-messaging-v1', title: 'Messages' };
+    }
+
     if (cleanKey === 'registrar-student-profile') {
       if (!['registrar', 'admin', 'superadmin'].includes(role)) {
         return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
@@ -532,7 +536,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v');
+        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v') || cfg.url.includes('lecturer-messaging-v1');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {

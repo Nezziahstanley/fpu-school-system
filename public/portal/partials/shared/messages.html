@@ -14,6 +14,9 @@
   .ms-toolbar input[type="search"] { flex: 1 1 220px; min-width: 180px; padding: .55rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; }
   .ms-toolbar select { padding: .55rem .6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: .88rem; background: #fff; }
 
+  .ms-box-tabs{display:flex;gap:.4rem;margin:0 0 .8rem;}
+  .ms-box-tab{border:1px solid #cbd5e1;background:#fff;color:#475569;padding:.45rem .9rem;border-radius:8px;font-size:.78rem;font-weight:800;cursor:pointer;}
+  .ms-box-tab.active{background:#065f46;color:#fff;border-color:#065f46;}
   .ms-list { display: flex; flex-direction: column; }
   .ms-item { display: flex; gap: .75rem; align-items: flex-start; padding: .85rem 1rem; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background .12s; }
   .ms-item:hover { background: #f8fafc; }
@@ -67,6 +70,11 @@
   </select>
   <button class="btn btn-primary btn-sm" id="ms-new">+ New Message</button>
   <button class="btn btn-outline btn-sm" id="ms-refresh">↻ Refresh</button>
+</div>
+
+<div class="ms-box-tabs" role="tablist" aria-label="Message folders">
+  <button type="button" class="ms-box-tab active" data-box="inbox" role="tab" aria-selected="true">Inbox</button>
+  <button type="button" class="ms-box-tab" data-box="sent" role="tab" aria-selected="false">Sent</button>
 </div>
 
 <!-- Inbox -->
@@ -147,6 +155,7 @@
 
   var ALL = [];
   var FILTERED = [];
+  var CURRENT_BOX = 'inbox';
   var THREAD_ID = null;
   var PICKED = null; // { id, firstName, lastName, email, role, matricNumber }
   var searchTimer = null;
@@ -209,9 +218,10 @@
   }
 
   // ---------- load inbox ----------
-  async function load() {
+  async function load(box) {
+    if (box) CURRENT_BOX = box;
     try {
-      var res = await core.portalFetch('/api/portal/messages');
+      var res = await core.portalFetch('/api/portal/messages?box=' + encodeURIComponent(CURRENT_BOX));
       var payload = res.data || res || {};
       var raw = Array.isArray(payload) ? payload : (payload.rows || payload.messages || []);
       ALL = raw.map(function (m) {
@@ -220,9 +230,11 @@
         return {
           id: msg.id,
           senderId: msg.senderId,
-          senderName: fullName(sender) || 'User',
+          senderName: (CURRENT_BOX === 'sent' ? fullName(m.recipient || {}) : fullName(sender)) || 'User',
           subject: msg.subject,
           body: msg.body,
+          senderId: msg.senderId,
+          recipientId: msg.recipientId,
           isRead: msg.isRead,
           createdAt: msg.createdAt,
         };
@@ -327,7 +339,7 @@
       await core.portalFetch('/api/portal/messages', { method: 'POST', body: body });
       core.showToast && core.showToast('Message sent.', 'success');
       closeCompose();
-      load();
+      load('sent');
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
     } finally {
@@ -341,7 +353,7 @@
     THREAD_ID = id;
     var row = ALL.find(function (m) { return String(m.id) === String(id); });
     $('ms-thread-title').textContent = row && row.subject ? row.subject : 'Message';
-    $('ms-thread-sub').textContent = row && row.senderName ? ('From ' + row.senderName) : '';
+    $('ms-thread-sub').textContent = row && row.senderName ? ((CURRENT_BOX === 'sent' ? 'To ' : 'From ') + row.senderName) : '';
     $('ms-thread-list').innerHTML = '<div class="loading" style="padding:1.5rem;"><span class="spinner"></span> Loading…</div>';
     $('ms-thread').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -376,8 +388,8 @@
     var body = fd.get('body');
     if (!body || !body.trim()) return;
     var row = ALL.find(function (m) { return String(m.id) === String(THREAD_ID); });
-    var recipientId = row && row.senderId ? row.senderId : null;
-    if (!recipientId || recipientId === MY_ID) {
+    var recipientId = row ? (Number(row.senderId) === MY_ID ? row.recipientId : row.senderId) : null;
+    if (!recipientId || Number(recipientId) === MY_ID) {
       core.showToast && core.showToast('Cannot determine recipient.', 'warning');
       return;
     }
@@ -406,6 +418,15 @@
   $('ms-search').addEventListener('input', applyFilter);
   $('ms-status').addEventListener('change', applyFilter);
   $('ms-refresh').addEventListener('click', load);
+  document.querySelectorAll('.ms-box-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      CURRENT_BOX = tab.dataset.box === 'sent' ? 'sent' : 'inbox';
+      document.querySelectorAll('.ms-box-tab').forEach(function (item) {
+        var active = item === tab; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      applyFilter(); load(CURRENT_BOX);
+    });
+  });
 
   $('ms-new').addEventListener('click', openCompose);
   $('ms-compose-close').addEventListener('click', closeCompose);

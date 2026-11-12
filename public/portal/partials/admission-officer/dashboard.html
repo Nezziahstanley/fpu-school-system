@@ -13,12 +13,12 @@
     .ao-row .ao-action-btn{min-height:34px}
   }
   @media(max-width:760px){
-    div[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    div[style*="grid-template-columns:repeat(5,minmax(0,1fr))"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
     div[style*="grid-template-columns:1fr 2fr"]{grid-template-columns:1fr!important}
     .greeting h1{font-size:1.25rem!important}
   }
   @media(max-width:420px){
-    div[style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:1fr 1fr!important}
+    div[style*="grid-template-columns:repeat(5,minmax(0,1fr))"]{grid-template-columns:1fr 1fr!important}
     .ao-row{gap:.5rem}
     .ao-row>div:first-child{width:34px!important;height:34px!important}
     .ao-badge{margin-top:.2rem}
@@ -42,16 +42,13 @@
     <div style="position:absolute;bottom:-40px;right:120px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05);"></div>
 
     <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.85;text-transform:uppercase;margin-bottom:.35rem;">
-          Admissions Office
+      <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
+        <div id="ao-dash-avatar" aria-label="Admission Officer profile photo" style="width:66px;height:66px;flex:0 0 66px;border-radius:50%;border:3px solid rgba(255,255,255,.85);background:rgba(255,255,255,.18);display:grid;place-items:center;overflow:hidden;color:#fff;font-size:1.25rem;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.16);">AO</div>
+        <div style="min-width:0;">
+          <div style="font-size:.72rem;font-weight:700;letter-spacing:.16em;opacity:.85;text-transform:uppercase;margin-bottom:.35rem;">Admissions Office</div>
+          <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">Welcome, <span id="ao-dash-name">Admission Officer</span></h1>
+          <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.85;">Review applications, admit qualified candidates, and generate letters</p>
         </div>
-        <h1 style="margin:0;font-size:1.5rem;font-weight:800;line-height:1.15;">
-          Welcome, <span id="ao-dash-name">Admission Officer</span>
-        </h1>
-        <p style="margin:.4rem 0 0;font-size:.85rem;opacity:.85;">
-          Review applications, admit qualified candidates, and generate letters
-        </p>
       </div>
       <div style="text-align:right;flex-shrink:0;">
         <div style="font-size:.65rem;opacity:.75;letter-spacing:.14em;text-transform:uppercase;">Session</div>
@@ -63,7 +60,7 @@
   <!-- STAT TILES -->
   <div style="
     display:grid;
-    grid-template-columns:repeat(4,1fr);
+    grid-template-columns:repeat(5,minmax(0,1fr));
     gap:.75rem;
     margin-bottom:1.25rem;
   ">
@@ -80,6 +77,14 @@
       <div style="min-width:0;">
         <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-pending">—</div>
         <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Pending</div>
+      </div>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.03);">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:1.35rem;flex-shrink:0;">🔎</div>
+      <div style="min-width:0;">
+        <div style="font-size:1.5rem;font-weight:800;color:#0f172a;line-height:1;" id="ao-reviewing">—</div>
+        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.25rem;">Under Review</div>
       </div>
     </div>
 
@@ -259,6 +264,18 @@
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : 'Admission Officer';
     }
+    const avatar = $('ao-dash-avatar');
+    if (avatar) {
+      const initials = ((user.firstName || 'A')[0] + (user.lastName || 'O')[0]).toUpperCase();
+      if (user.photoUrl) avatar.innerHTML = `<img src="${esc(user.photoUrl)}" alt="Profile photo" style="width:100%;height:100%;object-fit:cover;" />`;
+      else avatar.textContent = initials;
+      if (window.FPU_PHOTO && window.FPU_PHOTO.renderMyAvatar) {
+        try { window.FPU_PHOTO.renderMyAvatar(avatar, user); } catch (_) {}
+      }
+      avatar.title = 'Open My Profile';
+      avatar.style.cursor = 'pointer';
+      avatar.addEventListener('click', () => { window.location.hash = '#portal-profile'; });
+    }
 
     try {
       const dash = await core.portalFetch('/api/admission-officer/dashboard');
@@ -268,6 +285,7 @@
 
       $('ao-total').textContent    = total || 0;
       $('ao-pending').textContent  = byStatus.pending || 0;
+      if ($('ao-reviewing')) $('ao-reviewing').textContent = byStatus.under_review || 0;
       $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
       $('ao-rejected').textContent = byStatus.rejected || 0;
 
@@ -309,6 +327,7 @@
 
       $('ao-total').textContent    = total || 0;
       $('ao-pending').textContent  = byStatus.pending || 0;
+      if ($('ao-reviewing')) $('ao-reviewing').textContent = byStatus.under_review || 0;
       $('ao-admitted').textContent = (byStatus.approved || 0) + (byStatus.registered || 0) + (byStatus.matriculated || 0);
       $('ao-rejected').textContent = byStatus.rejected || 0;
 

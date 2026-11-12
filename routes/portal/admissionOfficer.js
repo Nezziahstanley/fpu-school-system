@@ -437,12 +437,21 @@ router.post('/applications/:id/register', only, async (req, res, next) => {
 router.get('/admitted', only, async (req, res, next) => {
   try {
     const rows = await appQueries.listWithRelations({ status: ['approved', 'registered', 'matriculated'], limit: 500 });
-    const data = rows.map((r) => ({
-      ...r.application,
-      programmeName:  r.programme?.name  || r.programme?.title || null,
-      departmentName: r.department?.name || null,
-      schoolName:     r.school?.name     || null,
-    }));
+    const data = rows.map((r) => {
+      const application = r.application || {};
+      let olevel = application.oLevelResult;
+      if (typeof olevel === 'string') {
+        try { olevel = JSON.parse(olevel); } catch (_) { olevel = {}; }
+      }
+      const uploadedDocs = olevel && olevel.documents && typeof olevel.documents === 'object' ? olevel.documents : {};
+      return {
+        ...application,
+        passportUrl: uploadedDocs.passport || application.passportUrl || application.photoUrl || null,
+        programmeName:  r.programme?.name  || r.programme?.title || null,
+        departmentName: r.department?.name || null,
+        schoolName:     r.school?.name     || null,
+      };
+    });
     return res.json({ success: true, data });
   } catch (err) { return next(err); }
 });

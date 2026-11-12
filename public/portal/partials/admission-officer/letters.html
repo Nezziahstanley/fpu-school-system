@@ -13,8 +13,7 @@
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;
         border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
-      ">🖋️ Upload Signature</button>
-      <input type="file" id="ado-signature-file" accept="image/png, image/jpeg" style="display:none;" />
+      ">✍️ Manage E-Signature</button>
 
       <button id="ado-ltr-print" disabled style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
@@ -390,48 +389,10 @@
     if (page === 'bulk' && !BULK) loadBulk();
   }
 
-  // ============================================================
-  // SIGNATURE UPLOAD
-  // ============================================================
-  $('ado-upload-signature')?.addEventListener('click', () => $('ado-signature-file').click());
-
-  $('ado-signature-file')?.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('signature', file);
-
-    const btn = $('ado-upload-signature');
-    const prev = btn.textContent;
-    btn.textContent = 'Uploading…';
-    btn.disabled = true;
-
-    try {
-      const res = await fetch('/api/admission-officer/profile/signature', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('fpu_token')}` },
-        body: formData
-      });
-      
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Upload failed');
-
-      core.showToast && core.showToast('Signature uploaded successfully!', 'success');
-      
-      if (core.getPortalUser) {
-        const user = core.getPortalUser();
-        user.signatureUrl = json.signatureUrl;
-      }
-
-      if (SELECTED) renderLetter();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.textContent = prev;
-      btn.disabled = false;
-      e.target.value = '';
-    }
+  // Open the shared profile signature workspace. All portal roles use the same
+  // upload-or-draw signature workflow and the shared profile API.
+  $('ado-upload-signature')?.addEventListener('click', () => {
+    window.location.hash = '#portal-profile?tab=signature';
   });
 
   // ============================================================
@@ -667,7 +628,7 @@
         });
       });
 
-      if (forceExpand) expandDocs(true);
+      expandDocs(true);
     } catch (err) {
       grid.innerHTML = `<div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:#991b1b;font-size:.8rem;">⚠️ ${esc(err.message)}</div>`;
       subtitle.textContent = 'Failed to load';

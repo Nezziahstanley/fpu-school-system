@@ -105,7 +105,8 @@ router.get('/dashboard', only, async (req, res, next) => {
       success: true,
       data: {
         student: {
-          id: student.id, firstName: student.firstName, lastName: student.lastName,
+          id: student.id, firstName: student.firstName, middleName: student.middleName, lastName: student.lastName,
+          photoUrl: student.photoUrl, departmentId: student.departmentId,
           matricNumber: (student.matricNumber || '').replace(/SMT/gi, '').trim(),
           level: student.level, programmeId: student.programmeId,
         },
@@ -568,22 +569,26 @@ router.get('/timetable', only, async (req, res, next) => {
     const sessionId = await resolveCurrentAcademicSessionId(req);
     if (!sessionId) return res.json({ success: true, data: [] });
 
-    const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
-      .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
+    const [student] = await db.select({ departmentId: users.departmentId }).from(users)
+      .where(eq(users.id, studentId)).limit(1);
+    if (!student?.departmentId) return res.json({ success: true, data: [] });
 
-    const courseIds = regs.map(r => r.courseId);
-    if (!courseIds.length) return res.json({ success: true, data: [] });
-
+    // Students only see approved schedules for courses owned by their department.
     const rows = await db
       .select({
         id: timetableSlots.id, dayOfWeek: timetableSlots.dayOfWeek, startTime: timetableSlots.startTime,
         endTime: timetableSlots.endTime, venue: timetableSlots.venue, semester: timetableSlots.semester,
-        courseCode: courses.code, courseTitle: courses.title, level: courses.level, sessionName: academicSessions.name,
+        courseCode: courses.code, courseTitle: courses.title, level: courses.level,
+        sessionName: academicSessions.name, departmentId: courses.departmentId,
       })
       .from(timetableSlots)
       .innerJoin(courses, eq(timetableSlots.courseId, courses.id))
       .leftJoin(academicSessions, eq(timetableSlots.sessionId, academicSessions.id))
-      .where(inArray(timetableSlots.courseId, courseIds))
+      .where(and(
+        eq(timetableSlots.sessionId, sessionId),
+        eq(timetableSlots.status, 'approved'),
+        eq(courses.departmentId, Number(student.departmentId))
+      ))
       .orderBy(timetableSlots.dayOfWeek, timetableSlots.startTime);
 
     return res.json({ success: true, data: rows });
@@ -599,22 +604,26 @@ router.get('/exam-schedule', only, async (req, res, next) => {
     const sessionId = await resolveCurrentAcademicSessionId(req);
     if (!sessionId) return res.json({ success: true, data: [] });
 
-    const regs = await db.select({ courseId: courseRegistrations.courseId }).from(courseRegistrations)
-      .where(and(eq(courseRegistrations.studentId, studentId), eq(courseRegistrations.sessionId, sessionId)));
+    const [student] = await db.select({ departmentId: users.departmentId }).from(users)
+      .where(eq(users.id, studentId)).limit(1);
+    if (!student?.departmentId) return res.json({ success: true, data: [] });
 
-    const courseIds = regs.map(r => r.courseId);
-    if (!courseIds.length) return res.json({ success: true, data: [] });
-
+    // Only approved exams for this student's department and active session are visible.
     const rows = await db
       .select({
         id: examSchedules.id, examDate: examSchedules.examDate, startTime: examSchedules.startTime,
         endTime: examSchedules.endTime, venue: examSchedules.venue, semester: examSchedules.semester,
-        courseCode: courses.code, courseTitle: courses.title, level: courses.level, sessionName: academicSessions.name,
+        invigilators: examSchedules.invigilators, courseCode: courses.code, courseTitle: courses.title,
+        level: courses.level, sessionName: academicSessions.name, departmentId: courses.departmentId,
       })
       .from(examSchedules)
       .innerJoin(courses, eq(examSchedules.courseId, courses.id))
       .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
-      .where(inArray(examSchedules.courseId, courseIds))
+      .where(and(
+        eq(examSchedules.sessionId, sessionId),
+        eq(examSchedules.status, 'approved'),
+        eq(courses.departmentId, Number(student.departmentId))
+      ))
       .orderBy(examSchedules.examDate, examSchedules.startTime);
 
     return res.json({ success: true, data: rows });

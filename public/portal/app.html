@@ -398,5 +398,21 @@
     }
   })();
   </script>
+
+  <script id="student-portal-theme-js">
+  (function () {
+    'use strict';
+    var role = document.getElementById('topbar-role');
+    function syncStudentTheme() {
+      var isStudent = role && String(role.textContent || '').trim().toLowerCase() === 'student';
+      document.body.classList.toggle('student-portal-theme', !!isStudent);
+    }
+    syncStudentTheme();
+    if (role && window.MutationObserver) {
+      new MutationObserver(syncStudentTheme).observe(role, { childList:true, characterData:true, subtree:true });
+    }
+  })();
+  </script>
+
 </body>
 </html>

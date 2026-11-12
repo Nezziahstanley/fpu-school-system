@@ -330,7 +330,9 @@
     
     const role = user.role;
     if (role === 'lecturer' && cleanKey === 'lecturer-messages') {
-      return { url: '/portal/partials/lecturer/messages.html?v=20261112-lecturer-messages-v2', title: 'Messages' };
+      // Keep the lecturer Messages page on the original shared inbox,
+      // compose and conversation-thread layout.
+      return { url: '/portal/partials/shared/messages.html?v=20261112-shared-messages', title: 'Messages' };
     }
 
     if (cleanKey === 'registrar-student-profile') {

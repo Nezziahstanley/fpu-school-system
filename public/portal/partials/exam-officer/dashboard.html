@@ -17,6 +17,7 @@
       </div>
       <h2 style="margin:0;font-size:1.5rem;font-weight:800;">Welcome, <span id="eo-name">Exam Officer</span></h2>
       <p style="margin:.35rem 0 0;font-size:.88rem;color:#d1fae5;">Schedule oversight, attendance tracking, eligibility verification, and result publication</p>
+      <button type="button" id="eo-dashboard-refresh" style="margin-top:.85rem;padding:.5rem .8rem;border:1px solid rgba(255,255,255,.45);border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:.78rem;font-weight:750;cursor:pointer;">↻ Refresh dashboard</button>
     </div>
     <div style="position:absolute;top:1rem;right:1.5rem;text-align:right;z-index:2;">
       <div style="font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a7f3d0;">Session</div>
@@ -213,7 +214,12 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
+  let dashboardLoading = false;
   async function loadDashboard() {
+    if (dashboardLoading) return;
+    dashboardLoading = true;
+    const refreshButton = $('eo-dashboard-refresh');
+    if (refreshButton) { refreshButton.disabled = true; refreshButton.textContent = 'Loading…'; }
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
       if ($('eo-name')) $('eo-name').textContent = user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Exam Officer';
@@ -283,7 +289,8 @@
       try {
         const publishedRes = await core.portalFetch('/api/exam-officer/published-results');
         const published = publishedRes.data || [];
-        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
         const todayCount = published.filter(p => p.publishedAt && p.publishedAt.split('T')[0] === today).length;
 
         $('stat-published-total').textContent = published.length;
@@ -320,9 +327,14 @@
     } catch (err) {
       console.error('[exam-officer/dashboard]', err);
       core.showToast && core.showToast('Failed to load dashboard: ' + err.message, 'error');
+    } finally {
+      dashboardLoading = false;
+      if (refreshButton) { refreshButton.disabled = false; refreshButton.textContent = '↻ Refresh dashboard'; }
     }
   }
 
+  const refreshControl = $('eo-dashboard-refresh');
+  if (refreshControl) refreshControl.addEventListener('click', loadDashboard);
   loadDashboard();
 })();
 </script>

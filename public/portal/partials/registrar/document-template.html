@@ -54,7 +54,7 @@
         </tr>
       </thead>
       <tbody id="doc-results-tbody">
-        <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading results...</td></tr>
+        <tr><td colspan="8" style="text-align: center; padding: 2rem;">Loading results...</td></tr>
       </tbody>
     </table>
 
@@ -66,7 +66,7 @@
       </div>
       <div style="text-align: right;">
         <div style="font-size: 0.85rem; color: #475569;">Cumulative GPA (CGPA):</div>
-        <div style="font-weight: bold; font-size: 1.3rem; color: #065f46;" id="doc-cgpa">—</div>
+        <div style="font-weight: bold; font-size: 1.3rem; color: #065f46;" id="doc-cgpa">—</div><div style="font-size:.8rem;color:#475569;margin-top:.5rem;">Classification: <strong id="doc-classification">—</strong></div>
       </div>
     </div>
 
@@ -155,7 +155,7 @@
       }
 
       document.getElementById('doc-total-units').textContent = summary.totalUnits;
-      document.getElementById('doc-cgpa').textContent = Number.isFinite(Number(summary.cgpa)) ? Number(summary.cgpa).toFixed(2) : '—';
+      document.getElementById('doc-cgpa').textContent = Number.isFinite(Number(summary.cgpa)) ? Number(summary.cgpa).toFixed(2) : '—';\n      document.getElementById('doc-classification').textContent = summary.classification || '—';
 
     })
     .catch(err => {

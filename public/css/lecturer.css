@@ -125,3 +125,82 @@
 @media print{
   .lecturer-design-scope :where(.panel,.card,.session-item){box-shadow:none!important}
 }
+
+
+/* ==========================================================
+   Lecturer inner pages — match the original Messages page
+   FPU green, soft greeting header, clean white panels and
+   readable message-style controls. Sidebar is intentionally
+   outside this scope and remains unchanged.
+   ========================================================== */
+.lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"]{
+  padding:1.15rem 1.3rem!important;
+  margin:0 0 1.1rem!important;
+  border:1px solid #dcebe9!important;
+  border-radius:18px!important;
+  background:linear-gradient(115deg,#f0fdf4,#f8fbff 72%,#eef2ff)!important;
+  box-shadow:0 8px 24px rgba(6,95,70,.055)!important;
+  gap:1rem!important;
+}
+.lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"] h2{
+  color:#0f3d32!important;font-size:1.4rem!important;font-weight:850!important;
+  letter-spacing:-.025em!important;line-height:1.25!important;
+}
+.lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"] p{
+  color:#42566d!important;font-size:.86rem!important;line-height:1.55!important;
+}
+.lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"] button{
+  min-height:40px!important;padding:.58rem .9rem!important;border-radius:9px!important;
+}
+.lecturer-design-scope :where(.la-stat,.ls-stat){
+  border:1px solid #dcebe9!important;border-radius:14px!important;
+  background:linear-gradient(145deg,#fff,#f7fcfa)!important;
+  box-shadow:0 5px 18px rgba(6,95,70,.045)!important;
+}
+.lecturer-design-scope :where(.panel,[style*="background:#fff"][style*="border:1px solid"],[style*="background: #fff"][style*="border: 1px solid"]){
+  border-color:#dce6e3!important;border-radius:14px!important;
+}
+.lecturer-design-scope :where(.panel-head,[style*="background:#f8fafc"][style*="border-bottom"],[style*="background: #f8fafc"][style*="border-bottom"]){
+  background:#f7fbf9!important;border-bottom-color:#e3eee9!important;
+}
+.lecturer-design-scope :where(.panel-body){background:#fff}
+.lecturer-design-scope :where(.filter-bar,.toolbar,.table-toolbar){
+  display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;
+  padding:.8rem!important;margin-bottom:1rem!important;
+  border:1px solid #dce6e3!important;border-radius:12px!important;
+  background:#fff!important;box-shadow:0 4px 15px rgba(15,23,42,.035)!important;
+}
+.lecturer-design-scope :where(input[type="search"],input[type="text"],input[type="date"],select,textarea){
+  border-color:#cbd9d3!important;border-radius:9px!important;
+}
+.lecturer-design-scope :where(button,.btn){
+  border-radius:9px!important;
+}
+.lecturer-design-scope :where(button[style*="background:#065f46"],button[style*="background: #065f46"],button[style*="background:#0f766e"],button[style*="background: #0f766e"]){
+  background:#065f46!important;border-color:#065f46!important;color:#fff!important;
+}
+.lecturer-design-scope :where(button[style*="background:#fff"],button[style*="background: #fff"]){
+  color:#065f46!important;border-color:#cfe1d8!important;
+}
+.lecturer-design-scope :where(table){
+  border-radius:12px;overflow:hidden;
+}
+.lecturer-design-scope :where(thead th){
+  background:#f1f7f4!important;color:#315447!important;
+  border-bottom:1px solid #dcebe3!important;
+}
+.lecturer-design-scope :where(tbody tr:hover){background:#f3fbf7!important}
+.lecturer-design-scope :where(.empty-state,.loading,[id$="-empty"]){
+  color:#526b60!important;
+}
+.lecturer-design-scope :where(.status,.badge,.chip,[class*="status-chip"]){
+  border-radius:999px!important;
+}
+@media(max-width:640px){
+  .lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"]{
+    padding:1rem!important;align-items:stretch!important;
+  }
+  .lecturer-design-scope > div:first-of-type > div:first-child[style*="justify-content"] > div:last-child{
+    display:flex;flex-wrap:wrap;gap:.5rem;
+  }
+}

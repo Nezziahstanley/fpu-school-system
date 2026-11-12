@@ -66,7 +66,7 @@
       const rows = (res.data || []).filter(e => String(e.status || 'approved').trim().toLowerCase() === 'approved');
 
       if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">You have no exams scheduled for your courses.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">Exam timetable not ready yet. No exam schedule has been approved for your allocated courses.</td></tr>`;
         return;
       }
 

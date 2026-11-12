@@ -759,7 +759,7 @@ router.get('/assignments', only, async (req, res, next) => {
 
 router.post('/assignments', only, upload.single('file'), async (req, res, next) => {
   try {
-    const { courseId, title, description, dueDate, maxScore } = req.body || {};
+    const { courseId, sessionId, semester, title, description, dueDate, maxScore } = req.body || {};
     let attachmentUrl = null;
 
     if (!courseId || !title) return res.status(400).json({ success: false, error: 'courseId and title are required.' });
@@ -768,7 +768,7 @@ router.post('/assignments', only, upload.single('file'), async (req, res, next) 
       id: courseAllocations.id,
       sessionId: courseAllocations.sessionId,
       semester: courseAllocations.semester
-    }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)))).limit(1);
+    }).from(courseAllocations).where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, Number(courseId)), ...(sessionId ? [eq(courseAllocations.sessionId, Number(sessionId))] : []), ...(semester ? [eq(courseAllocations.semester, String(semester).toLowerCase())] : []))).limit(1);
     if (!allocation) return res.status(403).json({ success: false, error: 'You can only create assignments for courses allocated to you.' });
     const parsedDueDate = dueDate ? new Date(dueDate) : null;
     if (dueDate && Number.isNaN(parsedDueDate.getTime())) return res.status(400).json({ success: false, error: 'A valid assignment due date is required.' });

@@ -1,7 +1,18 @@
 <!-- Portal → Lecturer → Reports -->
+<style>
+@media print {
+  @page { size:A4 portrait; margin:12mm; }
+  body * { visibility:hidden !important; }
+  #lecturer-reports-root, #lecturer-reports-root * { visibility:visible !important; }
+  #lecturer-reports-root { position:absolute; left:0; top:0; width:100%; background:#fff; }
+  #lecturer-reports-root button { display:none !important; }
+  #lecturer-reports-root canvas { max-height:150px !important; }
+  #lecturer-reports-root > div { break-inside:avoid; }
+}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<div style="padding:0;">
+<div id="lecturer-reports-root" style="padding:0;">
 
   <!-- HEADER -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
@@ -14,6 +25,7 @@
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;
       ">↻ Refresh</button>
+      <button id="rep-export" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;">⬇ Export CSV</button>
       <button id="rep-print" style="
         padding:.55rem .9rem;font-size:.82rem;font-weight:700;
         background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;
@@ -131,6 +143,8 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
 
+  let REPORT_DATA = {};
+
   function drawChart(canvasId, config) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -145,6 +159,7 @@
       
       console.log('--- REPORTS DATA RECEIVED ---', res);
       const d = res.data || {};
+      REPORT_DATA = d;
 
       // Update tiles
       $('rep-courses').textContent = d.coursesCount || 0;
@@ -219,7 +234,42 @@
     }
   }
 
+  function exportCsv() {
+    const d = REPORT_DATA || {};
+    const rows = [
+      ['Metric', 'Value'],
+      ['Courses', d.coursesCount || 0],
+      ['Students', d.totalStudents || 0],
+      ['Results recorded', d.totalResults || 0],
+      ['Attendance sessions', d.attendanceSessions || 0],
+      ['Average score', d.stats?.averageScore ?? ''],
+      ['Highest score', d.stats?.highestScore ?? ''],
+      ['Lowest score', d.stats?.lowestScore ?? ''],
+      ['Pass rate (%)', d.stats?.passRate ?? ''],
+      [],
+      ['Grade distribution', 'Students'],
+      ...Object.entries(d.gradeDist || {}),
+      [],
+      ['Result status', 'Count'],
+      ...Object.entries(d.statusDist || {}),
+      [],
+      ['Student level', 'Count'],
+      ...Object.entries(d.levelDist || {})
+    ];
+    const csv = rows.map(row => row.map(value => '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"').join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'lecturer-teaching-report.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   $('rep-refresh')?.addEventListener('click', load);
+  $('rep-export')?.addEventListener('click', exportCsv);
   $('rep-print')?.addEventListener('click', () => window.print());
 
   load();

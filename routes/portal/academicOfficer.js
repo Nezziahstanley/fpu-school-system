@@ -314,25 +314,21 @@ router.get('/graduation', only, async (req, res, next) => {
 });
 router.get('/reports', only, async (req, res, next) => {
   try {
-    const regs = await db
-      .select({ status: schema.courseRegistrations.status, count: sql`count(*)::int` })
-      .from(schema.courseRegistrations)
-      .groupBy(schema.courseRegistrations.status);
-    const resu = await db
-      .select({ status: results.status, count: sql`count(*)::int` })
-      .from(results)
-      .groupBy(results.status);
-    const grads = await db
-      .select({ status: graduations.status, count: sql`count(*)::int` })
-      .from(graduations)
-      .groupBy(graduations.status);
-    return res.json({ success: true, data: { registrations: regs, results: resu, graduations: grads } });
-  } catch (err) { return next(err); }
+    const regs=await db.select({status:schema.courseRegistrations.status,count:sql`count(*)::int`}).from(schema.courseRegistrations).groupBy(schema.courseRegistrations.status);
+    const resu=await db.select({status:results.status,count:sql`count(*)::int`}).from(results).groupBy(results.status);
+    const grads=await db.select({status:graduations.status,count:sql`count(*)::int`}).from(graduations).groupBy(graduations.status);
+    const studentsByLevel=await db.select({level:users.level,count:sql`count(*)::int`}).from(users).where(eq(users.role,'student')).groupBy(users.level);
+    const resultsBySession=await db.select({sessionName:academicSessions.name,count:sql`count(*)::int`}).from(results).leftJoin(academicSessions,eq(results.sessionId,academicSessions.id)).where(eq(results.status,'published')).groupBy(academicSessions.name).orderBy(academicSessions.name);
+    const registrationsByDepartment=await db.select({departmentName:departments.name,count:sql`count(*)::int`}).from(schema.courseRegistrations)
+      .leftJoin(users,eq(schema.courseRegistrations.studentId,users.id)).leftJoin(departments,eq(users.departmentId,departments.id))
+      .groupBy(departments.name).orderBy(departments.name);
+    const graduationsBySession=await db.select({sessionName:academicSessions.name,status:graduations.status,count:sql`count(*)::int`})
+      .from(graduations).leftJoin(academicSessions,eq(graduations.sessionId,academicSessions.id))
+      .groupBy(academicSessions.name,graduations.status).orderBy(academicSessions.name);
+    return res.json({success:true,data:{registrations:regs,results:resu,graduations:grads,studentsByLevel,resultsBySession,registrationsByDepartment,graduationsBySession}});
+  }catch(err){return next(err)}
 });
 
-// ============================================================
-// GET /api/academic-officer/profile, /security
-// ============================================================
 router.get('/profile', only, async (req, res, next) => {
   try { return res.json({ success: true, data: await userQueries.findByIdWithRelations(req.user.id) }); }
   catch (err) { return next(err); }

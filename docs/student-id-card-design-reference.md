@@ -20,3 +20,10 @@ This file preserves the Federal Polytechnic Ugep student ID-card visual directio
 - Shared staff ID-card design is separate and must not replace the student card.
 - Ensure the View action opens the card centered and scaled to the available viewport, and make print output landscape without clipping.
 - Update this reference file whenever the approved final design changes.
+
+## Academic Officer / institutional directory reuse
+- The Academic Officer's institutional ID-card directory reuses the same landscape green-and-gold student card composition for student previews.
+- The directory groups student records into clickable department cards; selecting a department filters the directory to students in that department.
+- Student previews include the passport photo, full name, matriculation number, level, programme, department, academic session, school, email and phone where those records exist.
+- Keep the gold accent stripe, white logo badge, green header/footer, subtle logo watermark, and reverse-side institutional return instructions consistent in preview and print.
+- Staff members use the same institutional visual language but show staff number, designation/rank, department, school, qualification, specialization, employment date, email and phone.

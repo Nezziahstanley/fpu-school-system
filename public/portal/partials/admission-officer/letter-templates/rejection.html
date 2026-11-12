@@ -98,9 +98,10 @@
 
   async function loadSignatory() {
     try {
-      const response = await fetch('/api/admission-officer/signatories/' + SIGNATORY_ROLE, { credentials: 'include', cache: 'no-store' });
-      const json = await response.json();
-      return response.ok && json.success ? json.data : null;
+      const portal = window.FPU_PORTAL;
+      if (!portal || typeof portal.portalFetch !== 'function') throw new Error('Portal session helper is unavailable.');
+      const json = await portal.portalFetch('/api/admission-officer/signatories/' + SIGNATORY_ROLE, { method: 'GET', cache: 'no-store' });
+      return json.data || null;
     } catch (error) {
       console.warn('[admission-letter] Signatory could not be loaded:', error);
       return null;

@@ -1,52 +1,56 @@
 <!-- Portal → Registrar → Documents -->
 <div style="padding:0;">
 
-  <!-- HEADER -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-    <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Documents</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Manage, review and issue official student documents</p>
-    </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-      <button id="reg-doc-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
-    </div>
-  </div>
+  <!-- Same document workspace structure as the Admin dashboard -->
+  <section class="greeting">
+    <div class="who"><div class="avatar">📄</div><div><h1>Document Requests</h1><div class="sub">Review, preview and issue official student documents</div></div></div>
+  </section>
 
-  <!-- FILTERS -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
-    <input type="search" id="doc-search" placeholder="Search student, matric, or type..." style="flex:1;min-width:200px;padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;" />
-    <select id="doc-filter-status" style="padding:.55rem .75rem;font-size:.85rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;">
+  <div class="filter-bar">
+    <input type="search" id="doc-search" placeholder="Search student, matric, or type…" />
+    <select id="doc-filter-type">
+      <option value="">All Types</option>
+      <option value="transcript">Transcript</option>
+      <option value="attestation">Attestation</option>
+      <option value="reference">Reference Letter</option>
+      <option value="certificate">Certificate</option>
+      <option value="id-card">ID Card</option>
+      <option value="other">Other</option>
+    </select>
+    <select id="doc-filter-status">
       <option value="">All Status</option>
       <option value="pending">Pending</option>
       <option value="approved">Approved</option>
       <option value="issued">Issued</option>
       <option value="rejected">Rejected</option>
     </select>
+    <button class="btn btn-outline btn-sm" id="reg-doc-refresh" type="button">Refresh</button>
+    <button class="btn btn-outline btn-sm" id="reg-doc-export" type="button">Export CSV</button>
   </div>
 
   <!-- STATS -->
   <section class="panel" style="margin-bottom:1rem"><div class="panel-head"><div><h3>Transcript Register</h3><p class="muted small">Search students and preview their published academic records here.</p></div><span class="badge" id="reg-doc-transcript-count">Loading…</span></div><div class="panel-body"><input id="reg-doc-transcript-search" type="search" placeholder="Search name, matric number, department or programme" style="width:100%;max-width:520px;padding:.7rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.8rem"><div style="overflow:auto"><table class="data-table"><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="reg-doc-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table></div></div></section>
-<div id="reg-doc-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;"></div>
+<div id="reg-doc-stats" class="stat-grid"></div>
 
-  <!-- TABLE -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-    <div style="padding:.7rem 1rem;background:#f8fafc;border-bottom:1px solid #f1f5f9;">
-      <div style="font-size:.82rem;font-weight:700;color:#334155;">
-        Showing <span id="reg-doc-shown">0</span> of <span id="reg-doc-total">0</span> requests
-      </div>
+  <!-- Document queue follows the Admin dashboard table layout -->
+  <section class="panel">
+    <div class="panel-head">
+      <h3>Document Queue</h3>
+      <span class="badge" id="reg-doc-count">0</span>
     </div>
-
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+    <div class="panel-body flush">
+      <div class="table-wrap">
+      <div style="padding:.55rem 1rem;font-size:.78rem;color:#64748b;">Showing <strong id="reg-doc-shown">0</strong> of <strong id="reg-doc-total">0</strong> requests</div>
+      <table class="data-table">
         <thead>
           <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Student</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Matric</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Type</th>
-            <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Title / Notes</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Requested</th>
-            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
-            <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
+            <th>Student</th>
+            <th>Matric</th>
+            <th>Type</th>
+            <th>Title / Notes</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th style="width:180px;">Action</th>
           </tr>
         </thead>
         <tbody id="reg-doc-tbody">
@@ -56,8 +60,9 @@
           </td></tr>
         </tbody>
       </table>
+      </div>
     </div>
-  </div>
+  </section>
 </div>
 
 <!-- MODAL (for manual uploads like Certificates) -->
@@ -135,29 +140,27 @@
     });
 
     const tiles = [
-      { label: 'Total Requests', value: counts.total,    bg: '#e0e7ff', fg: '#3730a3', icon: '📄' },
-      { label: 'Pending',        value: counts.pending,  bg: '#fef3c7', fg: '#92400e', icon: '⏳' },
-      { label: 'Approved',       value: counts.approved, bg: '#dbeafe', fg: '#1e40af', icon: '✅' },
-      { label: 'Issued',         value: counts.issued,   bg: '#d1fae5', fg: '#065f46', icon: '🎓' },
+      { label: 'Total Requests', value: counts.total, cls: '' , icon: '📄' },
+      { label: 'Pending', value: counts.pending, cls: 'red', icon: '⏳' },
+      { label: 'Approved', value: counts.approved, cls: 'accent', icon: '✅' },
+      { label: 'Issued', value: counts.issued, cls: 'blue', icon: '📬' },
     ];
-
     $('reg-doc-stats').innerHTML = tiles.map(t => `
-      <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-        <div style="width:40px;height:40px;border-radius:10px;background:${t.bg};color:${t.fg};display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">${t.icon}</div>
-        <div style="min-width:0;">
-          <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;">${t.value}</div>
-          <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">${t.label}</div>
-        </div>
+      <div class="stat ${t.cls}">
+        <div class="meta"><span class="label">${t.label}</span><span class="value">${t.value}</span></div>
+        <div class="ic">${t.icon}</div>
       </div>`).join('');
   }
 
   function applyFilters() {
     const q = ($('doc-search').value || '').toLowerCase();
     const status = $('doc-filter-status').value;
+    const type = $('doc-filter-type')?.value || '';
 
     const filtered = ALL.filter(d => {
       const st = (d.status || '').toLowerCase();
       if (status && st !== status) return false;
+      if (type && String(d.type || '').toLowerCase() !== type) return false;
       
       if (q) {
         const hay = `${d.studentName || ''} ${d.matricNumber || ''} ${d.type || ''} ${d.title || ''}`.toLowerCase();
@@ -169,6 +172,7 @@
     renderTable(filtered);
     $('reg-doc-shown').textContent = filtered.length;
     $('reg-doc-total').textContent = ALL.length;
+    if ($('reg-doc-count')) $('reg-doc-count').textContent = filtered.length;
   }
 
   function renderTable(rows) {
@@ -290,6 +294,15 @@
   $('reg-doc-modal-close')?.addEventListener('click', closeModal);
   $('reg-doc-cancel')?.addEventListener('click', closeModal);
   $('reg-doc-refresh')?.addEventListener('click', load);
+  $('reg-doc-export')?.addEventListener('click', () => {
+    const headers = ['Student', 'Matric', 'Type', 'Title', 'Requested', 'Status'];
+    const rows = ALL.map(d => [d.studentName, d.matricNumber, d.type, d.title, d.requestedAt ? fmtDate(d.requestedAt) : '', d.status]);
+    const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = 'registrar-document-requests.csv'; link.click();
+    URL.revokeObjectURL(url);
+  });
   $('reg-doc-transcript-search')?.addEventListener('input', renderTranscriptRegister);
   $('doc-search').addEventListener('input', applyFilters);
   $('doc-filter-status').addEventListener('change', applyFilters);

@@ -353,7 +353,7 @@
     lines.push('');
     lines.push(['Report','Bank','Count','Amount'].map(val).join(','));
     LAST_BANK_ROWS.forEach(function (r) {
-      lines.push(['By Bank', '"' + (r.bank || '') + '"', r.count, Number(r.total || 0)].join(','));
+      lines.push(['By Bank', r.bank || '', r.count, Number(r.total || 0)].map(val).join(','));
     });
     var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     var url  = URL.createObjectURL(blob);

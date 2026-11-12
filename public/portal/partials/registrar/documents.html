@@ -1,52 +1,68 @@
-<!-- Portal → Registrar → Documents -->
-<div style="padding:0;">
-
-  <!-- Same document workspace structure as the Admin dashboard -->
-  <section class="greeting">
-    <div class="who"><div class="avatar">📄</div><div><h1>Document Requests</h1><div class="sub">Review, preview and issue official student documents</div></div></div>
-  </section>
-
-  <div class="filter-bar">
-    <input type="search" id="doc-search" placeholder="Search student, matric, or type…" />
-    <select id="doc-filter-type">
-      <option value="">All Types</option>
-      <option value="transcript">Transcript</option>
-      <option value="attestation">Attestation</option>
-      <option value="reference">Reference Letter</option>
-      <option value="certificate">Certificate</option>
-      <option value="id-card">ID Card</option>
-      <option value="other">Other</option>
-    </select>
-    <select id="doc-filter-status">
-      <option value="">All Status</option>
-      <option value="pending">Pending</option>
-      <option value="approved">Approved</option>
-      <option value="issued">Issued</option>
-      <option value="rejected">Rejected</option>
-    </select>
-    <button class="btn btn-outline btn-sm" id="reg-doc-refresh" type="button">Refresh</button>
-    <button class="btn btn-outline btn-sm" id="reg-doc-export" type="button">Export CSV</button>
+﻿<!-- Registrar → Documents & Certificates: same request queue and actions as Admin -->
+<section class="greeting">
+  <div class="who">
+    <div class="avatar">📄</div>
+    <div>
+      <h1>Document Requests</h1>
+      <div class="sub">Student requests for transcripts, letters, and certificates</div>
+    </div>
   </div>
+</section>
 
-<!-- Same four-card statistics pattern used by the Admin Documents workspace -->
-<div class="stat-grid">
-  <div class="stat"><div class="meta"><span class="label">Total Requests</span><span class="value" id="reg-doc-total-count">—</span></div><div class="ic">📄</div></div>
-  <div class="stat red"><div class="meta"><span class="label">Pending</span><span class="value" id="reg-doc-pending-count">—</span></div><div class="ic">⏳</div></div>
-  <div class="stat accent"><div class="meta"><span class="label">Approved</span><span class="value" id="reg-doc-approved-count">—</span></div><div class="ic">✅</div></div>
-  <div class="stat blue"><div class="meta"><span class="label">Issued</span><span class="value" id="reg-doc-issued-count">—</span></div><div class="ic">📬</div></div>
+<!-- Filter bar -->
+<div class="filter-bar">
+  <input type="search" id="dc-search" placeholder="Search student, matric, or type…" />
+  <select id="dc-type">
+    <option value="">All Types</option>
+    <option value="transcript">Transcript</option>
+    <option value="attestation">Attestation</option>
+    <option value="reference">Reference Letter</option>
+    <option value="certificate">Certificate</option>
+    <option value="id-card">ID Card</option>
+    <option value="other">Other</option>
+  </select>
+  <select id="dc-status">
+    <option value="">All Status</option>
+    <option value="pending">Pending</option>
+    <option value="approved">Approved</option>
+    <option value="issued">Issued</option>
+    <option value="rejected">Rejected</option>
+  </select>
+  <button class="btn btn-outline btn-sm" id="dc-refresh">Refresh</button>
+  <button class="btn btn-outline btn-sm" id="dc-export">Export CSV</button>
 </div>
 
-  <!-- Document queue follows the Admin dashboard table layout -->
-  <section class="panel">
-    <div class="panel-head">
-      <h3>Document Queue</h3>
-      <span class="badge" id="reg-doc-count">0</span>
-    </div>
-    <div class="panel-body flush">
-      <div class="table-wrap">
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat">
+    <div class="meta"><span class="label">Total Requests</span><span class="value" id="dc-total">—</span></div>
+    <div class="ic">📄</div>
+  </div>
+  <div class="stat red">
+    <div class="meta"><span class="label">Pending</span><span class="value" id="dc-pending">—</span></div>
+    <div class="ic">⏳</div>
+  </div>
+  <div class="stat accent">
+    <div class="meta"><span class="label">Approved</span><span class="value" id="dc-approved">—</span></div>
+    <div class="ic">✅</div>
+  </div>
+  <div class="stat blue">
+    <div class="meta"><span class="label">Issued</span><span class="value" id="dc-issued">—</span></div>
+    <div class="ic">📬</div>
+  </div>
+</div>
+
+<!-- Table -->
+<section class="panel">
+  <div class="panel-head">
+    <h3>Document Queue</h3>
+    <span class="badge" id="dc-count">0</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr style="background:#f8fafc;border-bottom:1px solid #e5e7eb;">
+          <tr>
             <th>Student</th>
             <th>Matric</th>
             <th>Type</th>
@@ -56,49 +72,28 @@
             <th style="width:180px;">Action</th>
           </tr>
         </thead>
-        <tbody id="reg-doc-tbody">
-          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
-            <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:rdSpin .8s linear infinite;"></div>
-            <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
-          </td></tr>
+        <tbody id="dc-tbody">
+          <tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>
         </tbody>
       </table>
-      </div>
     </div>
-  </section>
-</div>
+  </div>
+</section>
 
-  <!-- Additional transcript lookup panel; the primary document queue stays in Admin layout order -->
-<!-- STATS -->
-  <section class="panel" style="margin-bottom:1rem"><div class="panel-head"><div><h3>Transcript Register</h3><p class="muted small">Search students and preview their published academic records here.</p></div><span class="badge" id="reg-doc-transcript-count">Loading…</span></div><div class="panel-body"><input id="reg-doc-transcript-search" type="search" placeholder="Search name, matric number, department or programme" style="width:100%;max-width:520px;padding:.7rem;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:.8rem"><div style="overflow:auto"><table class="data-table"><thead><tr><th>Student</th><th>Matric Number</th><th>Department</th><th>Programme</th><th>Level</th><th>CGPA</th><th>Action</th></tr></thead><tbody id="reg-doc-transcript-body"><tr><td colspan="7">Loading transcript register…</td></tr></tbody></table></div></div></section>
-
-<!-- MODAL (for manual uploads like Certificates) -->
-<div id="reg-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9999;align-items:center;justify-content:center;padding:1rem;">
-  <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.3);">
-    <div style="padding:1.1rem 1.4rem;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
-      <h3 style="margin:0;color:#0f172a;font-size:1.05rem;font-weight:800;">Upload Document</h3>
-      <button id="reg-doc-modal-close" type="button" style="background:transparent;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;">✕</button>
+<!-- ✅ NEW: Preview Modal -->
+<div id="dc-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; align-items:center; justify-content:center; padding:1rem;">
+  <div style="background:#fff; border-radius:12px; max-width:800px; width:100%; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 1.25rem; border-bottom:1px solid #e5e7eb; background:#f8fafc;">
+      <h3 style="margin:0; font-size:1.05rem;">Document Preview</h3>
+      <button onclick="document.getElementById('dc-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer; line-height:1; color:#64748b;">×</button>
     </div>
-    <div style="padding:1.25rem;">
-      <p style="font-size:.85rem;color:#475569;margin-bottom:1rem;">Preview the pre-designed template first, print or save it as a PDF, then upload the approved file for <strong id="reg-doc-student-name"></strong>.</p>
-      
-      <input type="file" id="reg-doc-file" accept=".pdf,image/jpeg,image/png" style="display:block;width:100%;padding:.75rem;border:1px dashed #cbd5e1;border-radius:8px;margin-bottom:1rem;font-size:.85rem;" />
-      
-      <div style="display:flex;gap:.5rem;justify-content:flex-end;">
-        <button id="reg-doc-cancel" type="button" style="padding:.6rem 1rem;font-size:.85rem;font-weight:600;background:#f1f5f9;color:#475569;border:none;border-radius:8px;cursor:pointer;">Cancel</button>
-        <button id="reg-doc-upload" type="button" style="padding:.6rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Upload & Issue</button>
+    <div id="dc-modal-body" style="flex:1; overflow-y:auto; padding:1.5rem; background:#f8fafc;">
+      <div style="text-align:center; padding:3rem; color:#94a3b8;">
+        <span class="spinner" style="display:inline-block; margin-right:8px;"></span> Generating preview…
       </div>
     </div>
   </div>
 </div>
-
-<style>
-  @keyframes rdSpin { to { transform: rotate(360deg); } }
-  #reg-doc-tbody tr { transition: background .1s; }
-  #reg-doc-tbody tr:hover { background: #f8fafc; }
-  .rd-badge { display:inline-flex;align-items:center;gap:.3rem; padding:3px 9px;border-radius:99px; font-size:.65rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase; }
-  .rd-btn-sm { padding:.35rem .7rem;font-size:.72rem;font-weight:700; border-radius:6px;border:none;cursor:pointer;font-family:inherit; transition:all .15s; text-decoration:none; display:inline-block; }
-</style>
 
 <script>
 (function () {
@@ -106,205 +101,221 @@
   const core = window.FPU_PORTAL || {};
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-
-  const STATUS_META = {
-    pending:  { label: 'Pending',  bg: '#fef3c7', fg: '#92400e', dot: '#f59e0b' },
-    approved: { label: 'Approved', bg: '#dbeafe', fg: '#1e40af', dot: '#3b82f6' },
-    issued:   { label: 'Issued',   bg: '#d1fae5', fg: '#065f46', dot: '#10b981' },
-    rejected: { label: 'Rejected', bg: '#fee2e2', fg: '#991b1b', dot: '#ef4444' },
-  };
-  const statusMeta = (s) => STATUS_META[s] || STATUS_META.pending;
 
   let ALL = [];
-  let TRANSCRIPT_STUDENTS = [];
-  let SELECTED_DOC = null;
+  let FILTERED = [];
 
-  async function load() {
-    const tbody = $('reg-doc-tbody');
-    tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">
-      <div style="display:inline-block;width:28px;height:28px;border:3px solid #e2e8f0;border-top-color:#065f46;border-radius:50%;animation:rdSpin .8s linear infinite;"></div>
-      <div style="margin-top:.65rem;font-size:.82rem;">Loading…</div>
-    </td></tr>`;
-
-    try {
-      const [res, transcriptRes] = await Promise.all([core.portalFetch('/api/registrar/documents'), core.portalFetch('/api/registrar/transcripts')]);
-      ALL = Array.isArray(res.data) ? res.data : [];
-      TRANSCRIPT_STUDENTS = Array.isArray(transcriptRes.data) ? transcriptRes.data : [];
-      renderStats();
-      applyFilters();
-      renderTranscriptRegister();
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
-    }
+  // API base — role-aware
+  function apiBase() {
+    const me = (core.getPortalUser && core.getPortalUser()) || {};
+    const role = String(me.role || '').toLowerCase();
+    const ADMIN_STAFF = ['admin', 'superadmin', 'registrar', 'rector', 'academic_officer', 'lecturer', 'hod'];
+    if (ADMIN_STAFF.includes(role)) return '/api/admin/documents';
+    return '/api/bursar/documents';
   }
 
-  function renderStats() {
-    const counts = { total: ALL.length, pending: 0, approved: 0, issued: 0, rejected: 0 };
-    ALL.forEach(d => { 
-      const st = (d.status || '').toLowerCase();
-      if (counts[st] !== undefined) counts[st]++; 
-    });
-
-    $('reg-doc-total-count').textContent = counts.total;
-    $('reg-doc-pending-count').textContent = counts.pending;
-    $('reg-doc-approved-count').textContent = counts.approved;
-    $('reg-doc-issued-count').textContent = counts.issued;
+  function unwrap(r) {
+    const doc = r.document || r;
+    const stu = r.user || r.student || {};
+    return {
+      id: doc.id,
+      type: (doc.type || doc.documentType || 'other').toLowerCase(),
+      title: doc.title || doc.subject || '',
+      notes: doc.notes || doc.remarks || doc.description || '',
+      status: (doc.status || 'pending').toLowerCase(),
+      requestedAt: doc.requestedAt || doc.createdAt,
+      studentName: `${stu.firstName || ''} ${stu.lastName || ''}`.trim() || '—',
+      matric: stu.matricNumber || doc.matricNumber || '—',
+    };
   }
 
-  function applyFilters() {
-    const q = ($('doc-search').value || '').toLowerCase();
-    const status = $('doc-filter-status').value;
-    const type = $('doc-filter-type')?.value || '';
-
-    const filtered = ALL.filter(d => {
-      const st = (d.status || '').toLowerCase();
-      if (status && st !== status) return false;
-      if (type && String(d.type || '').toLowerCase() !== type) return false;
-      
-      if (q) {
-        const hay = `${d.studentName || ''} ${d.matricNumber || ''} ${d.type || ''} ${d.title || ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-
-    renderTable(filtered);
-    if ($('reg-doc-count')) $('reg-doc-count').textContent = filtered.length;
+  function statusBadge(s) {
+    const map = {
+      pending: 'badge-warning',
+      approved: 'badge-active',
+      issued: 'badge-success',
+      rejected: 'badge-inactive',
+    };
+    return `<span class="badge-status ${map[s.status] || 'badge-inactive'}">${esc(s.status)}</span>`;
   }
 
-  function renderTable(rows) {
-    const tbody = $('reg-doc-tbody');
-    if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="7" style="padding:3rem 1rem;text-align:center;color:#94a3b8;">No document requests found.</td></tr>`;
+  function render() {
+    $('dc-count').textContent = FILTERED.length;
+
+    if (!FILTERED.length) {
+      $('dc-tbody').innerHTML =
+        '<tr><td colspan="7" class="empty">No document requests match your filters.</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map(d => {
-      const st = (d.status || '').toLowerCase();
-      const meta = statusMeta(st);
-      
+    $('dc-tbody').innerHTML = FILTERED.map((d) => {
       let actions = '';
-      const docType = (d.type || '').toLowerCase();
+      
+      // Every row gets a Preview button
+      actions += `<button class="btn btn-outline btn-xs" data-act="preview" data-id="${d.id}" style="margin-right:4px;">👁 Preview</button>`;
 
-      actions = `<button class="rd-btn-sm" data-action="preview-document" data-id="${d.id}" style="background:#eff6ff;color:#1e40af;margin-right:.3rem;">👁 Preview</button>`;
-      if (st === 'pending' || st === 'approved') {
-        actions += `<button class="rd-btn-sm" data-action="issue" data-id="${d.id}" style="background:#065f46;color:#fff;">📤 Upload & Issue</button>`;
-      } else if (st === 'issued' && d.fileUrl) {
-        actions += `<a class="rd-btn-sm" href="${esc(d.fileUrl)}" target="_blank" rel="noopener" style="background:#1e40af;color:#fff;">⬇ Download</a>`;
-      } else if (st === 'issued') {
-        actions += `<span style="font-size:.72rem;color:#64748b;">Issued · PDF not attached</span>`;
+      if (d.status === 'pending') {
+        actions += `
+          <button class="btn btn-primary btn-xs" data-act="approve" data-id="${d.id}" style="margin-right:4px;">Approve</button>
+          <button class="btn btn-outline btn-xs" data-act="reject" data-id="${d.id}">Reject</button>`;
+      } else if (d.status === 'approved') {
+        actions += `<button class="btn btn-primary btn-xs" data-act="issue" data-id="${d.id}">Mark Issued</button>`;
       }
 
       return `
         <tr>
           <td>${esc(d.studentName)}</td>
-          <td><code>${esc(d.matricNumber)}</code></td>
-          <td><span class="chip chip-${esc(d.type)}">${esc(d.type)}</span></td>
-          <td>${esc(d.title || '—')}</td>
-          <td>${fmtDate(d.requestedAt)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;">
-            <span class="rd-badge" style="background:${meta.bg};color:${meta.fg};">
-              <span style="width:5px;height:5px;border-radius:50%;background:${meta.dot};"></span>
-              ${meta.label}
-            </span>
-          </td>
+          <td><code>${esc(d.matric)}</code></td>
+          <td><span class="chip chip-${d.type}">${esc(d.type)}</span></td>
+          <td>${esc(d.title || d.notes || '—')}</td>
+          <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
+          <td>${statusBadge(d)}</td>
           <td class="row-actions" style="white-space:nowrap;">${actions}</td>
         </tr>`;
     }).join('');
 
-    tbody.querySelectorAll('[data-action="preview-document"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const doc = ALL.find(item => Number(item.id) === Number(btn.dataset.id));
-        if (!doc) return;
-        const isTranscript = (String(doc.type || '') + ' ' + String(doc.title || '')).toLowerCase().includes('transcript');
-        const url = isTranscript
-          ? '/portal/partials/registrar/document-template.html?studentId=' + Number(doc.userId)
-          : '/portal/partials/registrar/document-preview.html?documentId=' + Number(doc.id);
-        window.open(url, '_blank', 'noopener');
-      });
-    });
-
-    tbody.querySelectorAll('[data-action="issue"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = Number(btn.dataset.id);
-        const doc = ALL.find(d => d.id === id);
-        if (doc) openIssueModal(doc);
+    $('dc-tbody').querySelectorAll('button[data-act]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const act = btn.dataset.act;
+        if (act === 'preview') previewDoc(id);
+        if (act === 'approve') approveDoc(id);
+        if (act === 'reject')  rejectDoc(id);
+        if (act === 'issue')   issueDoc(id);
       });
     });
   }
 
-  function renderTranscriptRegister() {
-    const q = ($('reg-doc-transcript-search')?.value || '').trim().toLowerCase();
-    const rows = TRANSCRIPT_STUDENTS.filter(s => [s.firstName,s.lastName,s.matricNumber,s.departmentName,s.programmeName,s.level].join(' ').toLowerCase().includes(q));
-    const count = $('reg-doc-transcript-count'); if (count) count.textContent = rows.length + ' students';
-    const body = $('reg-doc-transcript-body'); if (!body) return;
-    body.innerHTML = rows.length ? rows.map(s => `<tr><td><strong>${esc([s.firstName,s.lastName].filter(Boolean).join(' '))}</strong></td><td>${esc(s.matricNumber || '—')}</td><td>${esc(s.departmentName || '—')}</td><td>${esc(s.programmeName || '—')}</td><td>${esc(s.level || '—')}</td><td><strong>${Number(s.cgpa || 0).toFixed(2)}</strong></td><td><button class="rd-btn-sm" data-student-id="${Number(s.id)}" style="background:#065f46;color:#fff">Preview Transcript</button></td></tr>`).join('') : '<tr><td colspan="7">No transcript records match your search.</td></tr>';
-    body.querySelectorAll('[data-student-id]').forEach(btn => btn.addEventListener('click', () => {
-      const student = TRANSCRIPT_STUDENTS.find(s => Number(s.id) === Number(btn.dataset.studentId));
-      if (!student) return;
-      window.open('/portal/partials/registrar/document-template.html?studentId=' + Number(student.id), '_blank', 'noopener');
-    }));
+  function applyFilter() {
+    const q = ($('dc-search').value || '').trim().toLowerCase();
+    const type = $('dc-type').value;
+    const st = $('dc-status').value;
+
+    FILTERED = ALL.filter((d) => {
+      const hay = `${d.studentName} ${d.matric} ${d.title} ${d.notes}`.toLowerCase();
+      if (q && !hay.includes(q)) return false;
+      if (type && d.type !== type) return false;
+      if (st && d.status !== st) return false;
+      return true;
+    });
+
+    render();
   }
 
-  function openIssueModal(doc) {
-    SELECTED_DOC = doc;
-    $('reg-doc-student-name').textContent = doc.studentName;
-    $('reg-doc-file').value = '';
-    $('reg-doc-modal').style.display = 'flex';
+  function updateStats() {
+    const total = ALL.length;
+    const pending = ALL.filter((d) => d.status === 'pending').length;
+    const approved = ALL.filter((d) => d.status === 'approved').length;
+    const issued = ALL.filter((d) => d.status === 'issued').length;
+
+    $('dc-total').textContent = total;
+    $('dc-pending').textContent = pending;
+    $('dc-approved').textContent = approved;
+    $('dc-issued').textContent = issued;
   }
 
-  function closeModal() {
-    $('reg-doc-modal').style.display = 'none';
-    SELECTED_DOC = null;
+  async function load() {
+    $('dc-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
+    try {
+      const res = await core.portalFetch(apiBase());
+      const payload = res.data || res || {};
+      const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
+      ALL = raw.map(unwrap);
+      updateStats();
+      applyFilter();
+    } catch (err) {
+      console.error('[documents]', err);
+      $('dc-tbody').innerHTML = `<tr><td colspan="7" class="empty">Error: ${esc(err.message)}</td></tr>`;
+    }
   }
 
-  $('reg-doc-upload')?.addEventListener('click', async () => {
-    if (!SELECTED_DOC) return;
-    const file = $('reg-doc-file').files[0];
-    if (!file) return core.showToast && core.showToast('Please select a file to upload.', 'warning');
-
-    const btn = $('reg-doc-upload');
-    btn.disabled = true;
-    btn.textContent = 'Uploading…';
-
-    const formData = new FormData();
-    formData.append('file', file);
+  // ============================================================
+  // ✅ PREVIEW — generate and show the document HTML
+  // ============================================================
+  async function previewDoc(id) {
+    const modal = $('dc-modal');
+    const body = $('dc-modal-body');
+    body.innerHTML = `<div style="text-align:center; padding:3rem; color:#94a3b8;"><span class="spinner" style="display:inline-block; margin-right:8px;"></span> Generating preview…</div>`;
+    modal.style.display = 'flex';
 
     try {
-      await core.portalFetch(`/api/registrar/documents/${SELECTED_DOC.id}/issue`, {
-        method: 'POST',
-        body: formData,
-        isFormData: true 
-      });
-
-      core.showToast && core.showToast('Document issued successfully!', 'success');
-      closeModal();
-      load();
+      // Use the correct base (admin or bursar)
+      const base = apiBase();
+      const res = await core.portalFetch(`${base}/${id}/preview`);
+      if (res.success && res.html) {
+        body.innerHTML = res.html;
+      } else {
+        body.innerHTML = `<div style="padding:2rem; text-align:center; color:#94a3b8;">Preview not available for this document type.</div>`;
+      }
     } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Upload & Issue';
+      body.innerHTML = `<div style="padding:2rem; color:#ef4444;">⚠️ Failed to load preview: ${esc(err.message)}</div>`;
     }
-  });
+  }
 
-  $('reg-doc-modal-close')?.addEventListener('click', closeModal);
-  $('reg-doc-cancel')?.addEventListener('click', closeModal);
-  $('reg-doc-refresh')?.addEventListener('click', load);
-  $('reg-doc-export')?.addEventListener('click', () => {
+  // ============================================================
+  // ACTIONS
+  // ============================================================
+  async function approveDoc(id) {
+    const ok = core.confirm ? await core.confirm('Approve this document request?', 'Approve Document') : confirm('Approve this document request?');
+    if (!ok) return;
+    try {
+      await core.portalFetch(`${apiBase()}/${id}/approve`, { method: 'POST' });
+      core.showToast && core.showToast('Approved', 'success');
+      load();
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+
+  async function rejectDoc(id) {
+    const reason = prompt('Rejection reason (optional):') || '';
+    try {
+      await core.portalFetch(`${apiBase()}/${id}/reject`, {
+        method: 'POST',
+        body: { remarks: reason },
+      });
+      core.showToast && core.showToast('Rejected', 'success');
+      load();
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+
+  async function issueDoc(id) {
+    const ok = core.confirm ? await core.confirm('Mark this document as issued?', 'Issue Document') : confirm('Mark as issued?');
+    if (!ok) return;
+    try {
+      await core.portalFetch(`${apiBase()}/${id}/issue`, { method: 'POST' });
+      core.showToast && core.showToast('Issued! You can now download it.', 'success');
+      load();
+      // Automatically open the preview so admin can view/download
+      setTimeout(() => previewDoc(id), 400);
+    } catch (err) { core.showToast && core.showToast(err.message, 'error'); }
+  }
+
+  // ============================================================
+  // EXPORT CSV
+  // ============================================================
+  function exportCsv() {
     const headers = ['Student', 'Matric', 'Type', 'Title', 'Requested', 'Status'];
-    const rows = ALL.map(d => [d.studentName, d.matricNumber, d.type, d.title, d.requestedAt ? fmtDate(d.requestedAt) : '', d.status]);
-    const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(',')).join('\\n');
+    const rows = FILTERED.map((d) => [
+      d.studentName, d.matric, d.type, d.title,
+      d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '',
+      d.status,
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a'); link.href = url; link.download = 'registrar-document-requests.csv'; link.click();
-    URL.revokeObjectURL(url);
-  });
-  $('reg-doc-transcript-search')?.addEventListener('input', renderTranscriptRegister);
-  $('doc-search').addEventListener('input', applyFilters);
-  $('doc-filter-status').addEventListener('change', applyFilters);
-  $('reg-doc-modal')?.addEventListener('click', (e) => { if (e.target.id === 'reg-doc-modal') closeModal(); });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `document-requests-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  $('dc-search').addEventListener('input', applyFilter);
+  $('dc-type').addEventListener('change', applyFilter);
+  $('dc-status').addEventListener('change', applyFilter);
+  $('dc-refresh').addEventListener('click', load);
+  $('dc-export').addEventListener('click', exportCsv);
 
   load();
 })();

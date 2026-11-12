@@ -360,31 +360,47 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
 // ============================================================
 router.get('/results', only, async (req, res, next) => {
   try {
-    const [lecturer] = await db.select({ departmentId: users.departmentId }).from(users).where(eq(users.id, req.user.id)).limit(1);
-    const rows = await db.execute(sql`
-      SELECT DISTINCT ON (cr.student_id, cr.course_id, cr.session_id, cr.semester)
-        r.id,r.score,r.grade,r.points,COALESCE(r.status,'not_started') AS status,
-        COALESCE((SELECT ROUND((SUM(COALESCE(asub.score,0))/NULLIF(SUM(a.max_score),0)*10)::numeric,2)
-          FROM assignments a INNER JOIN assignment_submissions asub ON asub.assignment_id=a.id AND asub.student_id=cr.student_id
-          WHERE a.course_id=cr.course_id AND a.session_id=cr.session_id AND a.semester=cr.semester),0) AS "assignmentScore",
-        cr.session_id AS "sessionId",cr.semester AS semester,u.first_name AS "studentFirstName",
-        u.last_name AS "studentLastName",u.matric_number AS "matricNumber",u.department_id AS "studentDeptId",
-        c.id AS "courseId",c.code AS "courseCode",c.title AS "courseTitle",c.department_id AS "courseDeptId",d.name AS "courseDepartment"
+    const [lecturer] = await db.select({ departmentId: users.departmentId })
+      .from(users).where(eq(users.id, req.user.id)).limit(1);
+    // One row per approved course registration. Assignment marks come from assignment_submissions.
+    const rows = await db.execute(sql\`
+      SELECT cr.student_id AS "studentId",
+        r.id AS "id", r.score AS "score", r.grade AS "grade", r.points AS "points",
+        COALESCE(r.status, 'not_started') AS "status",
+        COALESCE(assignment_marks.score, 0) AS "assignmentScore",
+        cr.session_id AS "sessionId", cr.semester AS "semester",
+        u.first_name AS "studentFirstName", u.last_name AS "studentLastName",
+        u.matric_number AS "matricNumber", u.department_id AS "studentDeptId",
+        c.id AS "courseId", c.code AS "courseCode", c.title AS "courseTitle",
+        c.department_id AS "courseDeptId", d.name AS "courseDepartment"
       FROM course_registrations cr
-      INNER JOIN course_allocations ca ON ca.course_id=cr.course_id AND ca.session_id=cr.session_id
-        AND ca.semester=cr.semester AND ca.lecturer_id=${req.user.id}
-      INNER JOIN courses c ON cr.course_id=c.id
-      INNER JOIN users u ON cr.student_id=u.id
-      LEFT JOIN results r ON r.student_id=cr.student_id AND r.course_id=cr.course_id
-        AND r.session_id=cr.session_id AND r.semester=cr.semester
-      LEFT JOIN departments d ON c.department_id=d.id
-      WHERE cr.status='approved'
-      ORDER BY cr.student_id,cr.course_id,cr.session_id,cr.semester,r.updated_at DESC NULLS LAST
+      INNER JOIN course_allocations ca
+        ON ca.course_id = cr.course_id AND ca.session_id = cr.session_id
+        AND ca.semester = cr.semester AND ca.lecturer_id = \${req.user.id}
+        AND ca.status <> 'cancelled'
+      INNER JOIN courses c ON c.id = cr.course_id
+      INNER JOIN users u ON u.id = cr.student_id
+      LEFT JOIN results r
+        ON r.student_id = cr.student_id AND r.course_id = cr.course_id
+        AND r.session_id = cr.session_id AND r.semester = cr.semester
+      LEFT JOIN departments d ON d.id = c.department_id
+      LEFT JOIN LATERAL (
+        SELECT ROUND((COALESCE(SUM(COALESCE(asub.score, 0)), 0) /
+          NULLIF(SUM(a.max_score), 0) * 10)::numeric, 2) AS score
+        FROM assignments a
+        LEFT JOIN assignment_submissions asub
+          ON asub.assignment_id = a.id AND asub.student_id = cr.student_id
+        WHERE a.course_id = cr.course_id AND a.session_id = cr.session_id
+          AND a.semester = cr.semester
+      ) assignment_marks ON TRUE
+      WHERE cr.status = 'approved'
+      ORDER BY c.department_id, c.code, cr.student_id
       LIMIT 5000
-    `);
-    return res.json({success:true,data:rows.rows||[],lecturerDeptId:lecturer?.departmentId});
-  } catch (err) { 
-    return res.status(500).json({ success: false, error: err.message }); 
+    \`);
+    return res.json({ success: true, data: rows.rows || [], lecturerDeptId: lecturer?.departmentId ?? null });
+  } catch (err) {
+    console.error('[lecturer/results] Overview query failed:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load lecturer results. Please refresh and try again.', detail: err.message });
   }
 });
 
@@ -420,36 +436,41 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const courseId = Number(req.params.courseId);
     const sessionId = Number(req.query.sessionId);
     const semester = String(req.query.semester || '').toLowerCase();
-    if (!Number.isInteger(sessionId) || sessionId < 1 || !['first', 'second'].includes(semester)) {
-      return res.status(400).json({ success: false, error: 'A valid course session and semester are required.' });
+    if (!Number.isInteger(courseId) || courseId < 1 || !Number.isInteger(sessionId) || sessionId < 1 || !['first', 'second'].includes(semester)) {
+      return res.status(400).json({ success: false, error: 'A valid course, session and semester are required.' });
     }
-    const allocation = await db.select({ id: courseAllocations.id })
-      .from(courseAllocations)
-      .where(and(
-        eq(courseAllocations.lecturerId, req.user.id),
-        eq(courseAllocations.courseId, courseId),
-        eq(courseAllocations.sessionId, sessionId),
-        eq(courseAllocations.semester, semester)
-      )).limit(1);
-    if (!allocation.length) return res.status(403).json({ success: false, error: 'Not your course/session.' });
+    const allocation = await db.select({ id: courseAllocations.id }).from(courseAllocations)
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId),
+        eq(courseAllocations.sessionId, sessionId), eq(courseAllocations.semester, semester),
+        sql\`\${courseAllocations.status} <> 'cancelled'\`)).limit(1);
+    if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course/session.' });
 
-    const rows = await db.execute(sql`
-      SELECT DISTINCT ON (u.id) u.id AS "studentId",u.first_name AS "firstName",u.last_name AS "lastName",
-        u.matric_number AS "matricNumber",r.id AS "resultId",r.score,r.grade,r.points,
-        COALESCE((SELECT ROUND((SUM(COALESCE(asub.score,0))/NULLIF(SUM(a.max_score),0)*10)::numeric,2)
-          FROM assignments a INNER JOIN assignment_submissions asub ON asub.assignment_id=a.id AND asub.student_id=cr.student_id
-          WHERE a.course_id=cr.course_id AND a.session_id=cr.session_id AND a.semester=cr.semester),0) AS "assignmentScore",
-        r.status AS "resultStatus"
-      FROM course_registrations cr INNER JOIN users u ON cr.student_id=u.id
-      LEFT JOIN results r ON r.student_id=u.id AND r.course_id=cr.course_id AND r.session_id=cr.session_id AND r.semester=cr.semester
-      WHERE cr.course_id=${courseId} AND cr.session_id=${sessionId} AND cr.semester=${semester} AND cr.status='approved'
-      ORDER BY u.id,r.updated_at DESC NULLS LAST
-    `);
-
+    const rows = await db.execute(sql\`
+      SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName",
+        u.matric_number AS "matricNumber", r.id AS "resultId", r.score AS "score",
+        r.grade AS "grade", r.points AS "points", r.status AS "resultStatus",
+        COALESCE(assignment_marks.score, 0) AS "assignmentScore"
+      FROM course_registrations cr
+      INNER JOIN users u ON u.id = cr.student_id
+      LEFT JOIN results r ON r.student_id = cr.student_id AND r.course_id = cr.course_id
+        AND r.session_id = cr.session_id AND r.semester = cr.semester
+      LEFT JOIN LATERAL (
+        SELECT ROUND((COALESCE(SUM(COALESCE(asub.score, 0)), 0) /
+          NULLIF(SUM(a.max_score), 0) * 10)::numeric, 2) AS score
+        FROM assignments a
+        LEFT JOIN assignment_submissions asub
+          ON asub.assignment_id = a.id AND asub.student_id = cr.student_id
+        WHERE a.course_id = cr.course_id AND a.session_id = cr.session_id
+          AND a.semester = cr.semester
+      ) assignment_marks ON TRUE
+      WHERE cr.course_id = \${courseId} AND cr.session_id = \${sessionId}
+        AND cr.semester = \${semester} AND cr.status = 'approved'
+      ORDER BY u.last_name, u.first_name
+    \`);
     return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
-    console.error('[lecturer/results] Error:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error('[lecturer/results] Course roster query failed:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load students for this course. Please refresh and try again.', detail: err.message });
   }
 });
 

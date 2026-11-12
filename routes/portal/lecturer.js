@@ -364,7 +364,29 @@ router.get('/results', only, async (req, res, next) => {
   try {
     const [lecturer] = await db.select({ departmentId: users.departmentId })
       .from(users).where(eq(users.id, req.user.id)).limit(1);
-    // One row per approved course registration. Assignment marks come from assignment_submissions.
+
+    // Return every active allocation first, including courses owned by other departments.
+    // Starting from allocations ensures courses remain visible even before students register.
+    const allocatedCourses = await db.select({
+      allocationId: courseAllocations.id,
+      id: courses.id,
+      code: courses.code,
+      title: courses.title,
+      level: courses.level,
+      unit: courses.unit,
+      courseDeptId: courses.departmentId,
+      courseDepartment: departments.name,
+      sessionId: courseAllocations.sessionId,
+      sessionName: academicSessions.name,
+      allocationSemester: courseAllocations.semester,
+      allocationStatus: courseAllocations.status
+    }).from(courseAllocations)
+      .innerJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .leftJoin(departments, eq(courses.departmentId, departments.id))
+      .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
+      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`${courseAllocations.status} <> 'cancelled'`))
+      .orderBy(departments.name, courses.code, desc(courseAllocations.sessionId));
+
     const rows = await db.execute(sql`
       SELECT cr.student_id AS "studentId",
         r.id AS "id", r.score AS "score", r.grade AS "grade", r.points AS "points",
@@ -399,7 +421,12 @@ router.get('/results', only, async (req, res, next) => {
       ORDER BY c.department_id, c.code, cr.student_id
       LIMIT 5000
     `);
-    return res.json({ success: true, data: rows.rows || [], lecturerDeptId: lecturer?.departmentId ?? null });
+    return res.json({
+      success: true,
+      courses: allocatedCourses,
+      data: rows.rows || [],
+      lecturerDeptId: lecturer?.departmentId ?? null
+    });
   } catch (err) {
     console.error('[lecturer/results] Overview query failed:', err);
     return res.status(500).json({ success: false, error: 'Unable to load lecturer results. Please refresh and try again.', detail: err.message });
@@ -1048,29 +1075,43 @@ router.get('/security', only, async (req, res, next) => {
 // ============================================================
 router.get('/exams', only, async (req, res, next) => {
   try {
-    const rows = await db
-      .select({
-        id: examSchedules.id, examDate: examSchedules.examDate, startTime: examSchedules.startTime,
-        endTime: examSchedules.endTime, venue: examSchedules.venue, invigilators: examSchedules.invigilators, status: examSchedules.status,
-        semester: examSchedules.semester, sessionName: academicSessions.name,
-        courseCode: courses.code, courseTitle: courses.title, departmentName: departments.name,
-      })
-      .from(examSchedules)
-      .innerJoin(courses, eq(examSchedules.courseId, courses.id))
-      .innerJoin(courseAllocations, and(
-        eq(examSchedules.courseId, courseAllocations.courseId),
-        eq(examSchedules.sessionId, courseAllocations.sessionId),
-        eq(examSchedules.semester, courseAllocations.semester)
-      ))
-      .leftJoin(departments, eq(courses.departmentId, departments.id))
-      .leftJoin(academicSessions, eq(examSchedules.sessionId, academicSessions.id))
-      .where(and(eq(courseAllocations.lecturerId, req.user.id), sql`LOWER(TRIM(${examSchedules.status}::text)) = 'approved'`, sql`${courseAllocations.status} <> 'cancelled'`))
-      .orderBy(examSchedules.examDate);
-
-    // Multiple matching allocation rows must never duplicate the same scheduled exam.
-    const uniqueExams = Array.from(new Map(rows.map(row => [Number(row.id), row])).values());
-    return res.json({ success: true, data: uniqueExams });
-  } catch (err) { console.error('[lecturer/exams] Error:', err); return res.status(500).json({ success: false, error: err.message }); }
+    // EXISTS prevents one exam row being multiplied by allocation joins.
+    // A lecturer can see schedules for any active allocation, including external departments.
+    const result = await db.execute(sql`
+      SELECT es.id AS "id", es.course_id AS "courseId",
+        es.session_id AS "sessionId", es.exam_date AS "examDate",
+        es.start_time AS "startTime", es.end_time AS "endTime",
+        es.venue AS "venue", es.invigilators AS "invigilators",
+        es.status AS "status", es.semester AS "semester",
+        es.created_at AS "createdAt", a.name AS "sessionName",
+        c.code AS "courseCode", c.title AS "courseTitle",
+        d.name AS "departmentName"
+      FROM exam_schedules es
+      INNER JOIN courses c ON c.id = es.course_id
+      LEFT JOIN departments d ON d.id = c.department_id
+      LEFT JOIN academic_sessions a ON a.id = es.session_id
+      WHERE LOWER(TRIM(es.status)) = 'approved'
+        AND EXISTS (
+          SELECT 1 FROM course_allocations ca
+          WHERE ca.course_id = es.course_id
+            AND ca.session_id = es.session_id
+            AND ca.semester = es.semester
+            AND ca.lecturer_id = ${req.user.id}
+            AND ca.status <> 'cancelled'
+        )
+      ORDER BY es.created_at DESC, es.id DESC
+    `);
+    const unique = new Map();
+    for (const row of (result.rows || [])) {
+      const key = [row.courseId, row.sessionId, String(row.semester).toLowerCase()].join(':');
+      if (!unique.has(key)) unique.set(key, row);
+    }
+    const data = Array.from(unique.values()).sort((a, b) => String(a.examDate).localeCompare(String(b.examDate)));
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[lecturer/exams] Error:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.get('/exams/:id/students', only, async (req, res, next) => {

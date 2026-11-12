@@ -5,11 +5,17 @@
     <p class="muted small">Verify or reject student payments</p>
   </div>
   <div class="actions">
+    <button class="btn btn-outline btn-sm" id="bur-pay-export">⬇ Export loaded CSV</button>
     <button class="btn btn-outline btn-sm" id="bur-pay-refresh">↻ Refresh</button>
   </div>
 </section>
 
+<div class="bur-pay-stats" id="bur-pay-stats"></div>
 <div class="filters">
+  <div class="form-group">
+    <label class="form-label">Academic Session</label>
+    <select class="form-select" id="bur-pay-session"><option value="">All sessions</option></select>
+  </div>
   <div class="form-group">
     <label class="form-label">Status</label>
     <select class="form-select" id="bur-pay-status">
@@ -44,6 +50,7 @@
           <tr>
             <th>Reference</th>
             <th>Student</th>
+            <th>Bank / Depositor</th>
             <th>Amount</th>
             <th>Status</th>
             <th>Date</th>
@@ -51,7 +58,7 @@
           </tr>
         </thead>
         <tbody id="bur-pay-tbody">
-          <tr><td colspan="6" class="empty">Loading…</td></tr>
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -83,6 +90,10 @@
   </div>
 </div>
 
+<style>
+.bur-pay-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:0 0 1rem}.bur-pay-stats article{padding:.8rem 1rem;background:#fff;border:1px solid #e2e8f0;border-radius:11px}.bur-pay-stats small{display:block;color:#64748b;font-size:.66rem;font-weight:800;text-transform:uppercase}.bur-pay-stats strong{display:block;margin-top:.3rem;color:#065f46;font-size:1.1rem;font-variant-numeric:tabular-nums}.bur-pay-sub{font-size:.7rem;color:#64748b;margin-top:.15rem}@media(max-width:700px){.bur-pay-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+
 <script>
 (function () {
   'use strict';
@@ -94,6 +105,7 @@
 
   // -------- state --------
   var REJECT_ID = null;
+  var PAYMENT_ROWS = [];
 
   // -------- helpers --------
   function statusBadge(status) {
@@ -108,23 +120,42 @@
     return full || s.fullName || s.email || '—';
   }
 
+  function renderStats(rows) {
+    var sum = key => rows.filter(r => (r.payment || {}).status === key);
+    var amount = list => list.reduce((n,r)=>n+Number((r.payment||{}).amount||0),0);
+    $('bur-pay-stats').innerHTML = [['Loaded records',rows.length],['Verified amount',money(amount(sum('verified')))],['Pending amount',money(amount(sum('pending')))],['Rejected records',sum('rejected').length]].map(x=>'<article><small>'+esc(x[0])+'</small><strong>'+esc(x[1])+'</strong></article>').join('');
+  }
+  function exportCsv() {
+    var val = v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"';
+    var lines = [['Reference','Student','Matric Number','Bank','Depositor','Amount','Status','Deposit Date','Recorded Date','Receipt URL'].map(val).join(',')];
+    PAYMENT_ROWS.forEach(r=>{var p=r.payment||{},u=r.student||{};lines.push([p.reference,studentName(r),u.matricNumber,p.bankName,p.depositorName,p.amount,p.status,p.depositDate,p.createdAt,p.receiptUrl].map(val).join(','))});
+    var a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));a.href=url;a.download='fpu-bursar-payments.csv';a.click();URL.revokeObjectURL(url);
+  }
+  async function loadSessions() {
+    try { var r=await core.portalFetch('/api/bursar/lookups');var sessions=(r.data&&r.data.sessions)||[];$('bur-pay-session').innerHTML='<option value="">All sessions</option>'+sessions.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.isCurrent?' (Current)':'')+'</option>').join(''); } catch(e) { console.warn('[bursar/payments] sessions unavailable',e); }
+  }
+
   // -------- load --------
   async function load() {
     var tbody = $('bur-pay-tbody');
     var countEl = $('bur-pay-count');
     var status = $('bur-pay-status').value;
     var search = $('bur-pay-search').value.trim();
+    var sessionId = $('bur-pay-session').value;
 
     var qs = new URLSearchParams();
     if (status) qs.set('status', status);
+    if (sessionId) qs.set('sessionId', sessionId);
     if (search) qs.set('search', search);
 
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">Loading…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Loading…</td></tr>';
     countEl.textContent = '';
 
     try {
       var res = await core.portalFetch('/api/bursar/payments?' + qs.toString());
       var rows = Array.isArray(res.data) ? res.data : [];
+      PAYMENT_ROWS = rows;
+      renderStats(rows);
 
       countEl.textContent = rows.length
         ? rows.length + ' record' + (rows.length === 1 ? '' : 's')
@@ -141,6 +172,7 @@
         return '<tr data-pid="' + esc(p.id) + '">'
           + '<td style="font-family:ui-monospace,monospace;font-size:.75rem;">' + esc(p.reference || '—') + '</td>'
           + '<td>' + esc(studentName(r)) + '</td>'
+          + '<td><strong>' + esc(p.bankName || '—') + '</strong><div class="bur-pay-sub">' + esc(p.depositorName || '') + '</div></td>'
           + '<td class="num" style="font-variant-numeric:tabular-nums;font-weight:600;">' + esc(money(p.amount || 0)) + '</td>'
           + '<td>' + statusBadge(p.status) + '</td>'
           + '<td style="color:#94a3b8;font-size:.8rem;">' + esc(dateFmt(p.createdAt)) + '</td>'
@@ -225,6 +257,8 @@
 
   // -------- wire chrome --------
   $('bur-pay-refresh').addEventListener('click', load);
+  $('bur-pay-session').addEventListener('change', load);
+  $('bur-pay-export').addEventListener('click', exportCsv);
   $('bur-pay-status').addEventListener('change', load);
 
   var searchTimer = null;
@@ -243,6 +277,6 @@
     if (e.key === 'Escape' && $('bur-pay-reject-modal').style.display === 'flex') closeRejectModal();
   });
 
-  load();
+  loadSessions().then(load);
 })();
 </script>

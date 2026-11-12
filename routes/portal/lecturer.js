@@ -50,12 +50,15 @@ router.get('/dashboard', only, async (req, res, next) => {
         title: courses.title,
         level: courses.level,
         unit: courses.unit,
-        semesterName: courses.semesterName
+        semesterName: courses.semesterName,
+        allocationStatus: courseAllocations.status,
+        sessionName: academicSessions.name
       })
       .from(courseAllocations)
       .leftJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .leftJoin(academicSessions, eq(courseAllocations.sessionId, academicSessions.id))
       .where(eq(courseAllocations.lecturerId, lecturerId))
-      .groupBy(courses.id, courses.code, courses.title, courses.level, courses.unit, courses.semesterName);
+      .groupBy(courses.id, courses.code, courses.title, courses.level, courses.unit, courses.semesterName, courseAllocations.status, academicSessions.name);
 
     const courseIds = allocatedCourses.map(c => c.id).filter(Boolean);
     const coursesCount = courseIds.length;

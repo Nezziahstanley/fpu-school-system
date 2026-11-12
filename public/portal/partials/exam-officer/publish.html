@@ -363,7 +363,7 @@
           <div class="eo-result-signline"><span>Examinations Office</span><span>Official digital record</span></div>
         </article>
       </div>`;
-    $('eo-result-back').addEventListener('click', () => openModal($('modal-title').textContent, ALL_PUBLISHED.filter(x => x.departmentName === $('modal-title').textContent), 'published'));
+    $('eo-result-back').addEventListener('click', () => openModal(r.departmentName || 'Unassigned Department', ALL_PUBLISHED.filter(x => (x.departmentName || 'Unassigned Department') === (r.departmentName || 'Unassigned Department')), 'published'));
     $('eo-result-print').addEventListener('click', () => printPublishedResult(r));
   }
 

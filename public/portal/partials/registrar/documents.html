@@ -4,7 +4,7 @@
     <div class="avatar">📄</div>
     <div>
       <h1>Document Requests</h1>
-      <div class="sub">Student requests for transcripts, letters, and certificates</div>
+      <div class="sub">User requests for transcripts, certificates, ID cards, and attestation letters</div>
     </div>
   </div>
 </section>
@@ -15,11 +15,9 @@
   <select id="dc-type">
     <option value="">All Types</option>
     <option value="transcript">Transcript</option>
-    <option value="attestation">Attestation</option>
-    <option value="reference">Reference Letter</option>
     <option value="certificate">Certificate</option>
     <option value="id-card">ID Card</option>
-    <option value="other">Other</option>
+    <option value="attestation-letter">Attestation Letter</option>
   </select>
   <select id="dc-status">
     <option value="">All Status</option>
@@ -114,12 +112,25 @@
     return '/api/bursar/documents';
   }
 
+  const ALLOWED_TYPES = new Set(['transcript', 'certificate', 'id-card', 'attestation-letter']);
+
+  function normalizeType(value) {
+    const type = String(value || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
+    if (type === 'idcard' || type === 'student-id-card') return 'id-card';
+    if (type === 'attestation' || type === 'attestationletter') return 'attestation-letter';
+    return type;
+  }
+
+  function displayType(type) {
+    return ({ transcript: 'Transcript', certificate: 'Certificate', 'id-card': 'ID Card', 'attestation-letter': 'Attestation Letter' })[type] || type;
+  }
+
   function unwrap(r) {
     const doc = r.document || r;
     const stu = r.user || r.student || {};
     return {
       id: doc.id,
-      type: (doc.type || doc.documentType || 'other').toLowerCase(),
+      type: normalizeType(doc.type || doc.documentType),
       title: doc.title || doc.subject || '',
       notes: doc.notes || doc.remarks || doc.description || '',
       status: (doc.status || 'pending').toLowerCase(),
@@ -166,7 +177,7 @@
         <tr>
           <td>${esc(d.studentName)}</td>
           <td><code>${esc(d.matric)}</code></td>
-          <td><span class="chip chip-${d.type}">${esc(d.type)}</span></td>
+          <td><span class="chip chip-${d.type}">${esc(displayType(d.type))}</span></td>
           <td>${esc(d.title || d.notes || '—')}</td>
           <td>${d.requestedAt ? new Date(d.requestedAt).toLocaleDateString() : '—'}</td>
           <td>${statusBadge(d)}</td>
@@ -221,7 +232,7 @@
       const res = await core.portalFetch(apiBase());
       const payload = res.data || res || {};
       const raw = Array.isArray(payload) ? payload : (payload.rows || payload.documents || []);
-      ALL = raw.map(unwrap);
+      ALL = raw.map(unwrap).filter((d) => ALLOWED_TYPES.has(d.type));
       updateStats();
       applyFilter();
     } catch (err) {

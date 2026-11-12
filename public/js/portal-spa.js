@@ -386,7 +386,8 @@
       const isExamOfficerPage = role === 'exam_officer' && cleanKey.startsWith('exam-officer-');
       const isRectorPage = role === 'rector' && cleanKey.startsWith('rector-');
       const isBursarPage = role === 'bursar' && cleanKey.startsWith('bursar-');
-      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : ''))));
+      const isLecturerPage = role === 'lecturer' && cleanKey.startsWith('lecturer-');
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : (isLecturerPage ? '20261112-lecturer-v1' : '')))));
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
@@ -531,7 +532,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v');
+        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {

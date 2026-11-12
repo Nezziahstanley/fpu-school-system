@@ -247,7 +247,7 @@
     const knownFields = new Set(['id','applicationNumber','type','level','jambRegNo','jambScore','createdAt','programmeId','departmentId','programmeName','departmentName','firstName','middleName','lastName','email','phone','gender','dateOfBirth','stateOfOrigin','lga','status','rejectionReason','updatedAt','admittedAt','reviewedAt']);
     const extraFields = Object.entries(app).filter(([key,value]) => !knownFields.has(key) && value !== null && value !== undefined && value !== '').map(([key,value]) => {
       const display = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      const title = key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').trim().replace(/\\b\\w/g,ch=>ch.toUpperCase());
+      const title = key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').trim().replace(/\b\w/g,ch=>ch.toUpperCase());
       return row(title, display);
     }).join('');
     $('reg-apps-modal-title').textContent = 'Application Details';

@@ -150,7 +150,7 @@
 
       const extra = $('profile-extra-details');
       const excluded = new Set(['firstName','middleName','lastName','email','phone','gender','dateOfBirth','stateOfOrigin','nationality','address','level','matricNumber','photoUrl','idCardPhotoUrl','passwordHash','password_hash','signatureUrl','staffProfile','department','programme','school']);
-      const label = key => key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').replace(/\\s+/g,' ').trim().replace(/\\b\\w/g,ch=>ch.toUpperCase());
+      const label = key => key.replace(/([A-Z])/g,' $1').replace(/[_-]/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,ch=>ch.toUpperCase());
       const format = (key,value) => /At$|Date$/i.test(key) && value ? new Date(value).toLocaleString('en-GB') : String(value);
       const entries = Object.entries(s).filter(([key,value]) => !excluded.has(key) && value !== null && value !== undefined && value !== '' && (typeof value !== 'object'));
       extra.innerHTML = entries.length ? entries.map(([key,value]) => `<div style="padding:.75rem;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;min-width:0;"><small style="display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase;">${esc(label(key))}</small><strong style="display:block;color:#0f172a;font-size:.82rem;margin-top:.25rem;overflow-wrap:anywhere;">${esc(format(key,value))}</strong></div>`).join('') : '<span style="color:#94a3b8;">No additional account fields available.</span>';

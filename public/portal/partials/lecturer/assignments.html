@@ -373,7 +373,7 @@
     $('form-course').innerHTML = '<option value="">— Select Course —</option>' + 
       ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
       
-    const matchedCourse = ALL_COURSES.find(c => Number(c.id) === Number(a.courseId) && Number(c.sessionId) === Number(a.sessionId) && String(c.allocationSemester || c.semesterName).toLowerCase() === String(a.semester).toLowerCase());
+    const matchedCourse = ALL_COURSES.find(c => Number(c.id) === Number(a.courseId) && Number(c.sessionId) === Number(a.sessionId) && String(c.allocationSemester || c.semesterName).toLowerCase() === String(a.semester).toLowerCase()) || ALL_COURSES.find(c => Number(c.id) === Number(a.courseId));
     if (matchedCourse) $('form-course').value = matchedCourse.allocationId;
 
     $('form-modal').style.display = 'flex';

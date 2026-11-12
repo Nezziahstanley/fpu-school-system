@@ -41,8 +41,8 @@ router.get('/dashboard', only, async (req, res, next) => {
     const allStudents = await db.select({ id: users.id, level: users.level, gender: users.gender, departmentId: users.departmentId }).from(users).where(eq(users.role, 'student'));
     
     const totalStudents = allStudents.length;
-    const ndStudents = allStudents.filter(s => /^ND(?:\\b|[0-9])/i.test(String(s.level || '').trim())).length;
-    const hndStudents = allStudents.filter(s => /^HND(?:\\b|[0-9])/i.test(String(s.level || '').trim())).length;
+    const ndStudents = allStudents.filter(s => /^ND([0-9]|$)/i.test(String(s.level || '').trim())).length;
+    const hndStudents = allStudents.filter(s => /^HND([0-9]|$)/i.test(String(s.level || '').trim())).length;
 
     const [currentSession] = await db.select().from(academicSessions).where(eq(academicSessions.isCurrent, true)).limit(1);
 

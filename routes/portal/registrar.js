@@ -156,6 +156,7 @@ router.get('/students', only, async (req, res, next) => {
         firstName: users.firstName,
         lastName: users.lastName,
         level: users.level,
+        departmentId: departments.id,
         email: users.email,
         phone: users.phone,
         programmeName: programmes.name,

@@ -41,6 +41,7 @@
     border-radius:50%; animation:ltrSpin .8s linear infinite;
   }
   @keyframes ltrSpin { to { transform: rotate(360deg); } }
+  .ltr-passport-photo,.ltr-passport-placeholder{width:76px;height:88px;flex:0 0 76px;object-fit:cover;border:1.5px solid #cbd5e1;border-radius:4px;background:#f8fafc;box-sizing:border-box}.ltr-passport-placeholder{display:flex;align-items:center;justify-content:center;font:700 8px Arial,sans-serif;letter-spacing:.08em;color:#94a3b8}
   .ltr-head { display:flex;align-items:center;gap:1rem;padding-bottom:1rem;border-bottom:3px double #065f46;margin-bottom:1.75rem; }
   .ltr-logo { width:70px;height:70px;object-fit:contain;flex-shrink:0; }
   .ltr-inst { flex:1;text-align:center; }
@@ -131,6 +132,11 @@
 
     $('ltr-content').innerHTML = `
       <div class="ltr-head">
+        ${app.passportUrl ? `
+          <img src="${esc(app.passportUrl)}" alt="Applicant passport photograph" class="ltr-passport-photo" onerror="this.style.display='none';" />
+        ` : `
+          <div class="ltr-passport-placeholder">PASSPORT</div>
+        `}
         <img class="ltr-logo" src="/images/logo.png" alt="Logo" onerror="this.style.display='none';" />
         <div class="ltr-inst">
           <div class="ltr-inst-name">${esc(inst.name)}</div>

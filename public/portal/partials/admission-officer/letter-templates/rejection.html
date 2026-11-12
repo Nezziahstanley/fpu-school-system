@@ -63,6 +63,7 @@
   .ltr-list li { margin:.35rem 0;font-size:13px; }
   .ltr-sign { margin-top:3rem;font-family:Arial,sans-serif; }
   .ltr-sign .line { width:220px;border-top:1.5px solid #111827;margin-top:2.5rem;margin-bottom:.35rem; }
+  .ltr-signature-image { height:50px; max-width:200px; object-fit:contain; display:block; margin-top:1rem; margin-bottom:.25rem; }
   .ltr-sign .name { font-weight:800;font-size:13px;color:#991b1b; }
   .ltr-sign .role { font-size:11.5px;color:#475569; }
   .ltr-footer { margin-top:2.5rem;padding-top:.75rem;border-top:1px dashed #cbd5e1;font-size:10px;color:#94a3b8;text-align:center;font-family:Arial,sans-serif;letter-spacing:.05em; }
@@ -92,6 +93,20 @@
   }[c]));
   const fmtDate = (d) => { if (!d) return '—'; const dt = new Date(d); return isNaN(dt) ? '—' : dt.toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' }); };
 
+  const SIGNATORY_ROLE = 'admission_officer';
+  let activeSignatory = null;
+
+  async function loadSignatory() {
+    try {
+      const response = await fetch('/api/admission-officer/signatories/' + SIGNATORY_ROLE, { credentials: 'include', cache: 'no-store' });
+      const json = await response.json();
+      return response.ok && json.success ? json.data : null;
+    } catch (error) {
+      console.warn('[admission-letter] Signatory could not be loaded:', error);
+      return null;
+    }
+  }
+
   async function boot() {
     let app = window.FPU_CURRENT_APPLICANT;
     if (!app) {
@@ -105,10 +120,11 @@
       }
     }
     if (!app) { $('ltr-loading').innerHTML = '<div style="color:#991b1b;font-size:.85rem;">No applicant provided.</div>'; return; }
-    render(app);
+    activeSignatory = await loadSignatory();
+    render(app, activeSignatory);
   }
 
-  function render(app) {
+  function render(app, signatory = activeSignatory) {
     const inst = {
       name: 'Federal Polytechnic Ugep',
       motto: 'Citadel of Technical Excellence',
@@ -120,8 +136,7 @@
 
     const fullName = [app.firstName, app.middleName, app.lastName].filter(Boolean).join(' ').trim();
     const today = fmtDate(new Date());
-    const me = window.FPU_PORTAL?.getPortalUser?.() || {};
-    const officerName = me.firstName ? `${me.firstName} ${me.lastName || ''}`.trim() : 'Admissions Officer';
+    const officerName = signatory?.fullName || 'Admission Officer';
     const reason = app.rejectionReason || 'Your application did not meet the requirements for admission into the programme applied for.';
 
     $('ltr-content').innerHTML = `
@@ -188,7 +203,11 @@
 
       <div class="ltr-sign">
         <div>Yours faithfully,</div>
-        <div class="line"></div>
+        ${signatory?.signatureUrl ? `
+          <img src="${esc(signatory.signatureUrl)}" alt="Admissions Officer signature" class="ltr-signature-image" />
+        ` : `
+          <div class="line"></div>
+        `}
         <div class="name">${esc(officerName)}</div>
         <div class="role">Admissions Officer</div>
         <div class="role">${esc(inst.name)}</div>
@@ -204,7 +223,7 @@
 
   window.addEventListener('letter:setApplicant', (e) => {
     window.FPU_CURRENT_APPLICANT = e.detail.app;
-    render(e.detail.app);
+    render(e.detail.app, activeSignatory);
   });
 
   boot();

@@ -9,7 +9,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { eq } = require('drizzle-orm');
+const { eq, and } = require('drizzle-orm');
 
 const userQueries = require('../../db/queries/users');
 const appQueries = require('../../db/queries/applications');
@@ -34,6 +34,45 @@ const { db, schema } = require('../../db');
 const { users } = schema;
 
 const only = requireRole('admission_officer', 'admin', 'registrar');
+
+// GET /signatories/:role — return the saved signature for the designated letter signer.
+router.get('/signatories/:role', only, async (req, res, next) => {
+  try {
+    const allowedRoles = ['admission_officer', 'bursar', 'registrar'];
+    const role = String(req.params.role || '').toLowerCase();
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ success: false, error: 'Unsupported signatory role.' });
+    }
+
+    const matches = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      signatureUrl: users.signatureUrl,
+    }).from(users)
+      .where(and(eq(users.role, role), eq(users.isActive, true)))
+      .limit(2);
+
+    if (matches.length > 1) {
+      return res.status(409).json({ success: false, error: 'More than one active account has this signatory role. Please confirm the designated officer.' });
+    }
+    if (!matches.length) {
+      return res.status(404).json({ success: false, error: 'No active account is assigned to this signatory role.' });
+    }
+
+    const signer = matches[0];
+    return res.json({
+      success: true,
+      data: {
+        fullName: [signer.firstName, signer.lastName].filter(Boolean).join(' ').trim(),
+        signatureUrl: signer.signatureUrl || null,
+      },
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 
 // Setup multer for signature uploads
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'public', 'uploads');

@@ -383,7 +383,7 @@
       // browsers cannot reuse the older combined transcript-register partial.
       const isRegistrarDocuments = role === 'registrar' && cleanKey === 'registrar-documents';
       const isAdmissionOfficerPage = role === 'admission_officer' && cleanKey.startsWith('admission-officer-');
-      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v1' : '');
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v2' : '');
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {

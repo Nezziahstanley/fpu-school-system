@@ -149,7 +149,7 @@
       ];
     },
     lecturer: (role, roleItems, sharedItems) => {
-      const personalKeys = ['portal-profile', 'portal-photo', 'portal-notifications', 'portal-announcements'];
+      const personalKeys = ['portal-profile', 'portal-photo', 'portal-id-card', 'portal-notifications', 'portal-announcements'];
 
       return [
         { title: 'Main',       items: roleItems },

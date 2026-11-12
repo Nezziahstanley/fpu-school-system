@@ -912,17 +912,20 @@ router.post('/submissions/:id/grade', only, async (req, res, next) => {
     const maxScore = Number(submission.maxScore) || 100;
     const calculated10Marks = Math.round((Number(score) / maxScore) * 10);
 
-    await db.execute(sql`
+    const resultWrite = await db.execute(sql`
       INSERT INTO results (student_id, course_id, session_id, semester, assignment_score, status)
       VALUES (
-        ${submission.studentId}, ${submission.courseId}, ${submission.sessionId}, ${submission.semester}, 
+        ${submission.studentId}, ${submission.courseId}, ${submission.sessionId}, ${submission.semester},
         ${calculated10Marks}, 'draft'
       )
-      ON CONFLICT (student_id, course_id, session_id) 
+      ON CONFLICT (student_id, course_id, session_id)
       DO UPDATE SET
         assignment_score = EXCLUDED.assignment_score,
         updated_at = NOW()
+      WHERE results.status IN ('draft', 'hod_rejected')
+      RETURNING id
     `);
+    if (!resultWrite.rows?.[0]?.id) return res.status(409).json({ success: false, error: 'The result has already moved beyond the editable stage. Contact your HOD before changing the assignment score.' });
 
     return res.json({ success: true, data: { score, calculated10Marks } });
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }

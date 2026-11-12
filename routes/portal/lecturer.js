@@ -370,6 +370,8 @@ router.get('/results', only, async (req, res, next) => {
         r.id, r.score, r.grade, r.points,
         COALESCE(r.status, 'not_started') AS status,
         r.assignment_score AS "assignmentScore",
+        cr.session_id AS "sessionId",
+        cr.semester AS semester,
         u.first_name AS "studentFirstName",
         u.last_name AS "studentLastName",
         u.matric_number AS "matricNumber",

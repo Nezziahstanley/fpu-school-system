@@ -102,6 +102,7 @@
   let cachedRows=[];
   async function loadPage(force){
     const cfg=configs[page];if(!cfg)return;
+    shell(cfg.title,cfg.subtitle);
     const body=document.getElementById('aco-body');if(body)body.innerHTML='<tr><td class="aco-empty">Loading records…</td></tr>';
     try{
       const result=await request(cfg.endpoint+(page==='results'?'?limit=1000':''));

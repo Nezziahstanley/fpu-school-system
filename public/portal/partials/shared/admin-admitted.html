@@ -162,7 +162,7 @@
       if (level && String(a.level).toUpperCase() !== level) return false;
       if (department && (a.departmentName || '') !== department) return false;
       if (q) {
-        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.applicationNumber || ''} ${a.matricNumber || ''} ${a.departmentName || ''} ${a.programmeName || ''} ${a.type || ''}`.toLowerCase();
+        const hay = `${a.firstName || ''} ${a.lastName || ''} ${a.email || ''} ${a.phone || ''} ${a.applicationNumber || ''} ${a.matricNumber || ''} ${a.departmentName || ''} ${a.programmeName || ''} ${a.type || ''} ${a.jambRegNo || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;

@@ -115,7 +115,7 @@
   const ALLOWED_TYPES = new Set(['transcript', 'certificate', 'id-card', 'attestation-letter']);
 
   function normalizeType(value) {
-    const type = String(value || '').toLowerCase().trim().replace(/[\\s_]+/g, '-');
+    const type = String(value || '').toLowerCase().trim().replace(/[\s_]+/g, '-');
     if (type === 'idcard' || type === 'student-id-card') return 'id-card';
     if (type === 'attestation' || type === 'attestationletter') return 'attestation-letter';
     return type;

@@ -363,7 +363,7 @@ router.get('/results', only, async (req, res, next) => {
     const [lecturer] = await db.select({ departmentId: users.departmentId })
       .from(users).where(eq(users.id, req.user.id)).limit(1);
     // One row per approved course registration. Assignment marks come from assignment_submissions.
-    const rows = await db.execute(sql\`
+    const rows = await db.execute(sql`
       SELECT cr.student_id AS "studentId",
         r.id AS "id", r.score AS "score", r.grade AS "grade", r.points AS "points",
         COALESCE(r.status, 'not_started') AS "status",
@@ -376,7 +376,7 @@ router.get('/results', only, async (req, res, next) => {
       FROM course_registrations cr
       INNER JOIN course_allocations ca
         ON ca.course_id = cr.course_id AND ca.session_id = cr.session_id
-        AND ca.semester = cr.semester AND ca.lecturer_id = \${req.user.id}
+        AND ca.semester = cr.semester AND ca.lecturer_id = ${req.user.id}
         AND ca.status <> 'cancelled'
       INNER JOIN courses c ON c.id = cr.course_id
       INNER JOIN users u ON u.id = cr.student_id
@@ -396,7 +396,7 @@ router.get('/results', only, async (req, res, next) => {
       WHERE cr.status = 'approved'
       ORDER BY c.department_id, c.code, cr.student_id
       LIMIT 5000
-    \`);
+    `);
     return res.json({ success: true, data: rows.rows || [], lecturerDeptId: lecturer?.departmentId ?? null });
   } catch (err) {
     console.error('[lecturer/results] Overview query failed:', err);
@@ -442,10 +442,10 @@ router.get('/results/:courseId', only, async (req, res, next) => {
     const allocation = await db.select({ id: courseAllocations.id }).from(courseAllocations)
       .where(and(eq(courseAllocations.lecturerId, req.user.id), eq(courseAllocations.courseId, courseId),
         eq(courseAllocations.sessionId, sessionId), eq(courseAllocations.semester, semester),
-        sql\`\${courseAllocations.status} <> 'cancelled'\`)).limit(1);
+        sql`${courseAllocations.status} <> 'cancelled'\`)).limit(1);
     if (!allocation.length) return res.status(403).json({ success: false, error: 'You are not allocated to this course/session.' });
 
-    const rows = await db.execute(sql\`
+    const rows = await db.execute(sql`
       SELECT u.id AS "studentId", u.first_name AS "firstName", u.last_name AS "lastName",
         u.matric_number AS "matricNumber", r.id AS "resultId", r.score AS "score",
         r.grade AS "grade", r.points AS "points", r.status AS "resultStatus",
@@ -463,10 +463,10 @@ router.get('/results/:courseId', only, async (req, res, next) => {
         WHERE a.course_id = cr.course_id AND a.session_id = cr.session_id
           AND a.semester = cr.semester
       ) assignment_marks ON TRUE
-      WHERE cr.course_id = \${courseId} AND cr.session_id = \${sessionId}
-        AND cr.semester = \${semester} AND cr.status = 'approved'
+      WHERE cr.course_id = ${courseId} AND cr.session_id = ${sessionId}
+        AND cr.semester = ${semester} AND cr.status = 'approved'
       ORDER BY u.last_name, u.first_name
-    \`);
+    `);
     return res.json({ success: true, data: rows.rows || [] });
   } catch (err) {
     console.error('[lecturer/results] Course roster query failed:', err);

@@ -726,10 +726,12 @@ router.get('/assignments', only, async (req, res, next) => {
         c.id AS "courseId",
         c.code AS "courseCode",
         c.title AS "courseTitle",
+        acs.name AS "sessionName",
         (SELECT COUNT(*) FROM course_registrations cr WHERE cr.course_id = a.course_id AND cr.session_id = a.session_id AND cr.semester = a.semester AND cr.status = 'approved') AS "totalStudents",
         (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS "submissionCount"
       FROM assignments a
       LEFT JOIN courses c ON a.course_id = c.id
+      LEFT JOIN academic_sessions acs ON a.session_id = acs.id
       WHERE a.lecturer_id = ${req.user.id}
       ORDER BY a.created_at DESC
     `);
@@ -742,6 +744,7 @@ router.get('/assignments', only, async (req, res, next) => {
       maxScore: r.maxScore,
       sessionId: r.sessionId,
       semester: r.semester,
+      sessionName: r.sessionName,
       createdAt: r.createdAt,
       courseId: r.courseId,
       courseCode: r.courseCode || '—',

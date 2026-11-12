@@ -231,9 +231,9 @@
       ['Email', a.email], ['Phone', a.phone], ['Gender', a.gender], ['Date of Birth', fmtDate(a.dateOfBirth)],
       ['Application Type', a.type], ['Level', a.level], ['Department', a.departmentName], ['Programme', a.programmeName],
       ['Matriculation Number', a.matricNumber], ['Admission Status', a.status], ['Admitted Date', fmtDate(a.admittedAt)],
-      ['JAMB Registration Number', a.jambRegNo], ['JAMB Score', a.jambScore], ['Country', a.country],
+      ['JAMB Registration Number', a.jambRegNo], ['JAMB Score', a.jambScore], ['O’Level Results', a.oLevelResult ? JSON.stringify(a.oLevelResult) : '—'], ['Passport Photo URL', a.passportUrl], ['Country', a.country],
       ['State of Origin', a.stateOfOrigin], ['LGA', a.lga], ['Address', a.address],
-      ['Documents Verified', a.documentsVerifiedAt ? fmtDate(a.documentsVerifiedAt) : 'Not yet verified'],
+      ['Documents Verified', a.documentsVerifiedAt ? fmtDate(a.documentsVerifiedAt) : 'Not yet verified'], ['Reviewed Date', fmtDate(a.reviewedAt)], ['Matriculated Date', fmtDate(a.matriculatedAt)],
       ['Registry Notes', a.notes], ['Rejection Reason', a.rejectionReason]
     ];
     $('ado-detail-content').innerHTML = fields.map(([label,value]) => '<div style="padding:.75rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;min-width:0"><small style="display:block;color:#64748b;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem">'+esc(label)+'</small><strong style="display:block;color:#0f172a;font-size:.82rem;overflow-wrap:anywhere">'+esc(value || '—')+'</strong></div>').join('');

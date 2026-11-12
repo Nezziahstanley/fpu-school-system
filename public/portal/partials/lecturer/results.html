@@ -189,6 +189,8 @@
   let LECTURER_DEPT_ID = null;
   
   let CURRENT_COURSE_ID = null;
+  let CURRENT_SESSION_ID = null;
+  let CURRENT_SEMESTER = null;
   let STUDENTS = [];
   let CURRENT_STUDENT_TAB = 'my';
 
@@ -473,7 +475,7 @@
     core.portalFetch('/api/lecturer/courses').then(res => {
       ALL_COURSES = res.data || [];
       $('bulk-course-select').innerHTML = '<option value="">— Select a course —</option>' + 
-        ALL_COURSES.map(c => `<option value="${c.id}">${esc(c.code)} — ${esc(c.title)}</option>`).join('');
+        ALL_COURSES.map(c => `<option value="${Number(c.allocationId)}" data-course-id="${Number(c.id)}" data-session-id="${Number(c.sessionId)}" data-semester="${esc(c.allocationSemester || c.semesterName || 'first')}">${esc(c.code)} — ${esc(c.title)} · ${esc(c.sessionName || 'Session unavailable')} · ${esc(c.allocationSemester || c.semesterName || 'Semester')}</option>`).join('');
       
       const course = ALL_COURSES.find(c => c.code === courseCode);
       if (course) {
@@ -514,14 +516,17 @@
     $('main-view').style.display = 'block';
     $('bulk-table-panel').style.display = 'none';
     $('bulk-course-select').value = '';
+    CURRENT_COURSE_ID = null; CURRENT_SESSION_ID = null; CURRENT_SEMESTER = null; STUDENTS = [];
     loadResults();
   });
 
   $('bulk-course-select').addEventListener('change', async (e) => {
-    const courseId = e.target.value;
-    if (!courseId) { $('bulk-table-panel').style.display = 'none'; return; }
-
+    const selectedAllocation = ALL_COURSES.find(c => String(c.allocationId) === String(e.target.value));
+    if (!selectedAllocation) { $('bulk-table-panel').style.display = 'none'; return; }
+    const courseId = Number(selectedAllocation.id);
     CURRENT_COURSE_ID = courseId;
+    CURRENT_SESSION_ID = Number(selectedAllocation.sessionId);
+    CURRENT_SEMESTER = String(selectedAllocation.allocationSemester || selectedAllocation.semesterName || 'first').toLowerCase();
     $('bulk-table-panel').style.display = 'block';
     $('bulk-tbody').innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading students…</td></tr>';
 
@@ -529,7 +534,7 @@
     $('bulk-course-title').textContent = selectedText;
 
     try {
-      const res = await core.portalFetch(`/api/lecturer/results/${courseId}`);
+      const res = await core.portalFetch(`/api/lecturer/results/${courseId}?sessionId=${CURRENT_SESSION_ID}&semester=${encodeURIComponent(CURRENT_SEMESTER)}`);
       STUDENTS = res.data || [];
       
       if (!STUDENTS.length) {
@@ -652,7 +657,7 @@
     btn.disabled = true; btn.textContent = 'Saving...';
 
     try {
-      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}`, {
+      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}?sessionId=${CURRENT_SESSION_ID}&semester=${encodeURIComponent(CURRENT_SEMESTER)}`, {
         method: 'POST',
         body: { results: gatherPayload() }
       });
@@ -672,11 +677,11 @@
     btn.disabled = true; btn.textContent = 'Submitting...';
 
     try {
-      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}`, {
+      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}?sessionId=${CURRENT_SESSION_ID}&semester=${encodeURIComponent(CURRENT_SEMESTER)}`, {
         method: 'POST',
         body: { results: gatherPayload() }
       });
-      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}/submit-all`, { method: 'POST' });
+      await core.portalFetch(`/api/lecturer/results/${CURRENT_COURSE_ID}/submit-all?sessionId=${CURRENT_SESSION_ID}&semester=${encodeURIComponent(CURRENT_SEMESTER)}`, { method: 'POST' });
       
       core.showToast('Results submitted to HOD successfully.', 'success');
       $('bulk-back').click();

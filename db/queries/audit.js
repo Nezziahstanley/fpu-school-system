@@ -41,7 +41,7 @@ async function listAuditWithUser({ action, entity, from, to, userId, limit = 200
   const where = conds.length ? and(...conds) : undefined;
 
   return db
-    .select({ log: auditLogs, user: users })
+    .select({ log: auditLogs, user: { id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email, role: users.role } })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.userId, users.id))
     .where(where)

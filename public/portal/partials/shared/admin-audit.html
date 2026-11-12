@@ -1,117 +1,17 @@
-<!-- Portal → Shared → Audit (admins only) -->
-<section class="page-head">
-  <div>
-    <h2>Audit Log</h2>
-    <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">System activity and security events</p>
-  </div>
+<!-- Portal → Shared → Audit Log (admin, registrar, rector) -->
+<section class="audit-page">
+<header class="audit-head"><div><span class="audit-kicker">SECURITY & ACCOUNTABILITY</span><h2>Audit Log</h2><p>Review institutional activity, identify who performed an action and inspect recorded changes.</p></div><div class="audit-actions"><button id="audit-refresh">↻ Refresh</button><button id="audit-export">⇩ Export CSV</button></div></header>
+<div class="audit-stats" id="audit-stats"></div>
+<div class="audit-tools"><input id="audit-search" type="search" placeholder="Search action, user, entity, ID or IP address"><select id="audit-entity"><option value="">All entities</option></select><select id="audit-action"><option value="">All actions</option></select><input id="audit-from" type="date" aria-label="From date"><input id="audit-to" type="date" aria-label="To date"><button id="audit-clear" class="outline">Clear</button></div>
+<div class="audit-list-head"><div><h3>Recent system activity</h3><p id="audit-count">Loading audit entries…</p></div><span>Latest 200 entries</span></div>
+<div class="audit-table-wrap"><table class="audit-table"><thead><tr><th>Action</th><th>Performed by</th><th>Entity</th><th>Entity ID</th><th>IP Address</th><th>Change data</th><th>Date & Time</th><th>Details</th></tr></thead><tbody id="shared-audit-tbody"><tr><td colspan="8" class="audit-empty">Loading…</td></tr></tbody></table></div>
+<div id="audit-modal" class="audit-modal" role="dialog" aria-modal="true" aria-labelledby="audit-modal-title"><div class="audit-dialog"><header><div><span class="audit-kicker">AUDIT RECORD</span><h3 id="audit-modal-title">Activity details</h3><p id="audit-modal-subtitle">Full recorded event information</p></div><button id="audit-modal-close" aria-label="Close">×</button></header><div id="audit-modal-body"></div></div></div>
 </section>
-
-<div class="panel">
-  <div class="panel-head">
-    <h3>Recent Activity</h3>
-  </div>
-  <div class="panel-body flush">
-    <div class="table-wrap">
-      <table class="table-admin data-table">
-        <thead>
-          <tr>
-            <th>Action</th>
-            <th>User</th>
-            <th>Entity</th>
-            <th>IP Address</th>
-            <th>Severity</th>
-            <th>Time</th>
-            <th style="text-align: right;">Details</th>
-          </tr>
-        </thead>
-        <tbody id="shared-audit-tbody">
-          <tr><td colspan="7" class="empty" style="text-align: center; padding: 2rem;">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Modal for viewing before/after JSON -->
-<div id="audit-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.6); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:12px; padding:1.5rem; max-width:700px; width:90%; max-height:80vh; overflow-y:auto;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h3 style="margin:0;">Audit Details</h3>
-      <button onclick="document.getElementById('audit-modal').style.display='none'" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
-    </div>
-    <div id="audit-modal-body"></div>
-  </div>
-</div>
-
+<style>
+.audit-page{color:#0f172a;background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:1.1rem;box-shadow:0 8px 28px #0f172a0a}.audit-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;background:linear-gradient(120deg,#172554,#1e40af);color:#fff;padding:1.25rem 1.4rem;border-radius:14px}.audit-kicker{font-size:.64rem;font-weight:900;letter-spacing:.16em;color:#bfdbfe}.audit-head h2{color:#fff;margin:.2rem 0}.audit-head p{color:#dbeafe;margin:.3rem 0 0;font-size:.84rem}.audit-actions{display:flex;gap:.45rem}.audit-actions button,.audit-tools button{border:0;border-radius:9px;padding:.65rem .85rem;background:#fff;color:#1e40af;font-weight:800;cursor:pointer}.audit-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin:1rem 0}.audit-stats article{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:.9rem}.audit-stats span{display:block;color:#64748b;font-size:.7rem}.audit-stats strong{display:block;font-size:1.5rem;margin-top:.2rem;color:#1e40af}.audit-tools{display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1fr auto;gap:.5rem;background:#fff;border:1px solid #e2e8f0;border-radius:13px;padding:.8rem}.audit-tools input,.audit-tools select{min-width:0;padding:.7rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff}.audit-tools .outline{background:#fff;color:#1e40af;border:1px solid #bfdbfe}.audit-list-head{display:flex;justify-content:space-between;align-items:end;gap:1rem;margin:1rem 0 .6rem}.audit-list-head h3{margin:0}.audit-list-head p,.audit-list-head span{margin:.2rem 0 0;color:#64748b;font-size:.78rem}.audit-table-wrap{overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:13px}.audit-table{width:100%;min-width:1150px;border-collapse:collapse;font-size:.79rem}.audit-table th,.audit-table td{padding:.75rem;text-align:left;border-bottom:1px solid #f1f5f9;vertical-align:middle}.audit-table th{background:#eff6ff;color:#1e40af;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em}.audit-table tbody tr:hover td{background:#f8fbff}.audit-table code{font-size:.72rem}.audit-table button{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:7px;padding:.4rem .65rem;font-weight:800;cursor:pointer}.audit-sev{display:inline-block;padding:.25rem .5rem;border-radius:99px;font-size:.65rem;font-weight:900;text-transform:uppercase}.audit-sev.info{background:#dbeafe;color:#1d4ed8}.audit-sev.warning{background:#fef3c7;color:#92400e}.audit-sev.critical{background:#fee2e2;color:#991b1b}.audit-empty{text-align:center;padding:2rem;color:#64748b}.audit-modal{display:none;position:fixed;inset:0;z-index:11000;background:#0f172acc;padding:1rem;align-items:center;justify-content:center}.audit-dialog{width:min(900px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:17px;box-shadow:0 25px 90px #0006}.audit-dialog header{position:sticky;top:0;z-index:1;background:#fff;border-bottom:1px solid #e2e8f0;padding:1rem 1.2rem;display:flex;justify-content:space-between;align-items:center}.audit-dialog header h3{margin:.15rem 0}.audit-dialog header p{margin:.2rem 0;color:#64748b;font-size:.78rem}.audit-dialog header button{width:40px;height:40px;border:0;border-radius:10px;background:#f1f5f9;font-size:1.4rem;cursor:pointer}.audit-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;padding:1rem}.audit-meta article{border:1px solid #e2e8f0;border-radius:10px;padding:.75rem;min-width:0}.audit-meta small{display:block;color:#64748b;text-transform:uppercase;font-size:.62rem;font-weight:900}.audit-meta b{display:block;margin-top:.25rem;font-size:.8rem;overflow-wrap:anywhere}.audit-json{padding:0 1rem 1rem}.audit-json h4{margin:.6rem 0}.audit-json pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:330px;overflow:auto;background:#0f172a;color:#e2e8f0;border-radius:10px;padding:1rem;font-size:.75rem;line-height:1.5}.audit-no-change{padding:1rem;color:#64748b}
+@media(max-width:900px){.audit-tools{grid-template-columns:repeat(3,minmax(0,1fr))}.audit-tools input:first-child{grid-column:1/-1}}@media(max-width:600px){.audit-page{padding:.6rem}.audit-head{padding:1rem}.audit-actions{width:100%}.audit-actions button{flex:1}.audit-tools{grid-template-columns:1fr 1fr}.audit-tools input:first-child{grid-column:1/-1}.audit-stats{grid-template-columns:repeat(2,1fr)}.audit-meta{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:400px){.audit-tools,.audit-meta{grid-template-columns:1fr}}
+@media print{.audit-actions,.audit-tools,.audit-modal{display:none!important}.audit-page{background:#fff;border:0;padding:0}.audit-head{background:#fff;padding:0}.audit-head h2,.audit-head p{color:#000}.audit-table-wrap{overflow:visible}.audit-table{min-width:0;font-size:8px}.audit-table th,.audit-table td{padding:4px}}
+</style>
 <script>
-  (async function () {
-    const core = window.FPU_PORTAL;
-    const box = document.getElementById('shared-audit-tbody');
-
-    try {
-      // Fetch joined audit data with related user
-      const res = await core.portalFetch('/api/admin/audit?limit=100&withRelations=true');
-      const rows = res.data || [];
-
-      if (!rows.length) {
-        box.innerHTML = '<tr><td colspan="7" class="empty" style="text-align: center; padding: 2rem;">No audit entries.</td></tr>';
-        return;
-      }
-
-      box.innerHTML = rows.map((r) => {
-        // Safely extract user details
-        const userName = r.user 
-          ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.email 
-          : (r.log.userId ? `User #${r.log.userId}` : '—');
-        
-        // Severity badge
-        const sev = r.log.severity || 'info';
-        const sevColor = sev === 'critical' ? '#ef4444' : sev === 'warning' ? '#f59e0b' : '#10b981';
-        const sevBg = sev === 'critical' ? '#fee2e2' : sev === 'warning' ? '#fef3c7' : '#d1fae5';
-
-        return `
-          <tr>
-            <td><code style="font-size:.75rem; color:#0f172a;">${core.escapeHtml(r.log.action || '')}</code></td>
-            <td>${core.escapeHtml(userName)}</td>
-            <td>${core.escapeHtml(r.log.entity || '—')}</td>
-            <td><code style="font-size:.7rem; color:#64748b;">${core.escapeHtml(r.log.ipAddress || '—')}</code></td>
-            <td>
-              <span style="background:${sevBg}; color:${sevColor}; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; text-transform:uppercase;">
-                ${sev}
-              </span>
-            </td>
-            <td style="font-size:.78rem; color:#475569;">${core.formatDateTime(r.log.createdAt)}</td>
-            <td style="text-align: right;">
-              ${(r.log.before || r.log.after) 
-                ? `<button class="btn btn-sm btn-outline" style="padding:2px 8px; font-size:11px;" onclick='viewAuditDetails(${JSON.stringify(r.log).replace(/'/g, "&#39;")})'>👁 View</button>` 
-                : '<span style="color:#94a3b8; font-size:.75rem;">—</span>'}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    } catch (err) { 
-      box.innerHTML = `<tr><td colspan="7" class="empty" style="text-align: center; color:#ef4444;">${core.escapeHtml(err.message)}</td></tr>`; 
-    }
-  })();
-
-  // Global function for the View button
-  window.viewAuditDetails = function(log) {
-    const modal = document.getElementById('audit-modal');
-    const body = document.getElementById('audit-modal-body');
-    
-    let html = `<div style="margin-bottom:.75rem;"><strong>Action:</strong> <code>${log.action}</code></div>`;
-    
-    if (log.before) {
-      html += `<div style="margin-bottom:.75rem;"><strong style="color:#dc2626;">Before:</strong><pre style="background:#fef2f2; padding:1rem; border-radius:8px; overflow-x:auto; font-size:.75rem;">${JSON.stringify(log.before, null, 2)}</pre></div>`;
-    }
-    if (log.after) {
-      html += `<div><strong style="color:#16a34a;">After:</strong><pre style="background:#f0fdf4; padding:1rem; border-radius:8px; overflow-x:auto; font-size:.75rem;">${JSON.stringify(log.after, null, 2)}</pre></div>`;
-    }
-    if (!log.before && !log.after) {
-      html += `<p style="color:#64748b;">No detailed changes recorded for this action.</p>`;
-    }
-
-    body.innerHTML = html;
-    modal.style.display = 'flex';
-  };
+(function(){'use strict';const c=window.FPU_PORTAL||{},$=id=>document.getElementById(id),esc=v=>c.escapeHtml?c.escapeHtml(v):String(v??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));let rows=[];const fmt=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):d.toLocaleString()};const userName=r=>r.user?([r.user.firstName,r.user.lastName].filter(Boolean).join(' ')||r.user.email||'User'):r.log.userId?'User #'+r.log.userId:'System';function filtered(){const q=$('audit-search').value.trim().toLowerCase(),entity=$('audit-entity').value,act=$('audit-action').value,from=$('audit-from').value,to=$('audit-to').value;return rows.filter(r=>{const x=r.log||{},date=x.createdAt?new Date(x.createdAt):null;return(!entity||x.entity===entity)&&(!act||x.action===act)&&(!from||date&&date>=new Date(from+'T00:00:00'))&&(!to||date&&date<=new Date(to+'T23:59:59'))&&[x.action,x.entity,x.entityId,x.ipAddress,userName(r),x.userAgent].join(' ').toLowerCase().includes(q)})}function render(){const f=filtered(),actors=new Set(rows.map(r=>r.log?.userId).filter(Boolean)).size,entities=new Set(rows.map(r=>r.log?.entity).filter(Boolean)).size,changes=rows.filter(r=>r.log?.before!==null&&r.log?.before!==undefined||r.log?.after!==null&&r.log?.after!==undefined).length;$('audit-stats').innerHTML=[['Loaded events',rows.length],['Unique users',actors],['Entities represented',entities],['With change details',changes]].map(x=>'<article><span>'+x[0]+'</span><strong>'+x[1].toLocaleString()+'</strong></article>').join('');$('audit-count').textContent=f.length+' matching entries · '+rows.length+' loaded';$('shared-audit-tbody').innerHTML=f.length?f.map((r,i)=>{const x=r.log||{},hasChanges=(x.before!==null&&x.before!==undefined)||(x.after!==null&&x.after!==undefined);return'<tr><td><b>'+esc(x.action||'—')+'</b></td><td>'+esc(userName(r))+'</td><td>'+esc(x.entity||'—')+'</td><td>'+esc(x.entityId||'—')+'</td><td><code>'+esc(x.ipAddress||'—')+'</code></td><td>'+(hasChanges?'<span class="audit-sev info">Before / After</span>':'<span class="audit-sev info">Event only</span>')+'</td><td>'+esc(fmt(x.createdAt))+'</td><td><button type="button" data-view="'+i+'">View details</button></td></tr>'}).join(''):'<tr><td colspan="8" class="audit-empty">No audit entries match these filters.</td></tr>';$('shared-audit-tbody').querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(f[Number(b.dataset.view)]))}function show(r){const x=r.log||{},fields=[['Action',x.action],['User',userName(r)],['User ID',x.userId],['Entity',x.entity],['Entity ID',x.entityId],['IP address',x.ipAddress],['Date & time',fmt(x.createdAt)],['Change data',(x.before!==null&&x.before!==undefined)||(x.after!==null&&x.after!==undefined)?'Before / After recorded':'Event only'],['User agent',x.userAgent]];$('audit-modal-subtitle').textContent=(x.action||'Activity')+' · '+fmt(x.createdAt);const meta='<div class="audit-meta">'+fields.map(([k,v])=>'<article><small>'+esc(k)+'</small><b>'+esc(v||'Not recorded')+'</b></article>').join('')+'</div>';const json=v=>{if(v===null||v===undefined)return'<div class="audit-no-change">No value recorded.</div>';let str;try{str=JSON.stringify(v,null,2)}catch(_){str=String(v)}return'<pre>'+esc(str)+'</pre>'};$('audit-modal-body').innerHTML=meta+'<div class="audit-json"><h4>Before change</h4>'+json(x.before)+'<h4>After change</h4>'+json(x.after)+'</div>';$('audit-modal').style.display='flex'}async function load(){const b=$('audit-refresh');b.disabled=true;b.textContent='Loading…';$('shared-audit-tbody').innerHTML='<tr><td colspan="8" class="audit-empty">Loading audit history…</td></tr>';try{const [r,count]=await Promise.all([c.portalFetch('/api/admin/audit?limit=200&withRelations=true'),c.portalFetch('/api/admin/audit/count')]);rows=(r.data||[]).map(x=>x.log?x:{log:x,user:null});const actions=[...new Set(rows.map(x=>x.log?.action).filter(Boolean))].sort();$('audit-action').innerHTML='<option value="">All actions</option>'+actions.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('');render()}catch(x){$('shared-audit-tbody').innerHTML='<tr><td colspan="8" class="audit-empty" style="color:#b91c1c">Unable to load audit log: '+esc(x.message)+'</td></tr>';c.showToast&&c.showToast(x.message,'error')}finally{b.disabled=false;b.textContent='↻ Refresh'}}function csv(){const f=filtered(),v=x=>'"'+String(x??'').replace(/"/g,'""')+'"',lines=[['Action','User','Entity','Entity ID','IP Address','Change data','Date','User Agent'].map(v).join(','),...f.map(r=>{const x=r.log||{};return[x.action,userName(r),x.entity,x.entityId,x.ipAddress,(x.before!==null&&x.before!==undefined)||(x.after!==null&&x.after!==undefined)?'Before / After':'Event only',x.createdAt,x.userAgent].map(v).join(',')})],a=document.createElement('a'),url=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/csv'}));a.href=url;a.download='fpu-system-audit-log.csv';a.click();URL.revokeObjectURL(url)}$('audit-refresh').onclick=load;$('audit-search').oninput=render;['audit-entity','audit-action','audit-from','audit-to'].forEach(id=>$(id).onchange=render);$('audit-clear').onclick=()=>{['audit-search','audit-entity','audit-action','audit-from','audit-to'].forEach(id=>$(id).value='');render()};$('audit-export').onclick=csv;$('audit-modal-close').onclick=()=>$('audit-modal').style.display='none';$('audit-modal').onclick=e=>{if(e.target.id==='audit-modal')$('audit-modal').style.display='none'};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('audit-modal').style.display='none'});load()})();
 </script>

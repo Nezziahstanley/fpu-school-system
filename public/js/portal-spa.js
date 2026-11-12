@@ -385,7 +385,7 @@
       const isAdmissionOfficerPage = role === 'admission_officer' && cleanKey.startsWith('admission-officer-');
       const isExamOfficerPage = role === 'exam_officer' && cleanKey.startsWith('exam-officer-');
       const isRectorPage = role === 'rector' && cleanKey.startsWith('rector-');
-      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v1' : '')));
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : '')));
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
@@ -404,7 +404,7 @@
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       const sharedUrl = `/portal/partials/shared/${file}.html`;
       return {
-        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : sharedUrl,
+        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : (role === 'rector' && cleanKey === 'admin-audit' ? sharedUrl + '?v=20261112-rector-audit-v1' : sharedUrl),
         title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }

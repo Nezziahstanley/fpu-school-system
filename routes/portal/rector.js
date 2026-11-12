@@ -78,7 +78,7 @@ router.get('/dashboard', only, async (req, res, next) => {
       })
       .from(departments)
       .leftJoin(users, and(eq(users.departmentId, departments.id), eq(users.role, 'student')))
-      .groupBy(departments.code, departments.name)
+      .groupBy(departments.id, departments.code, departments.name)
       .orderBy(desc(sql`count(${users.id})`));
 
     const levelEnrollment = await db
@@ -146,7 +146,6 @@ router.get('/applications-by-department', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
-        departmentId: applications.departmentId,
         departmentId: departments.id,
         departmentCode: departments.code,
         departmentName: departments.name,
@@ -159,12 +158,60 @@ router.get('/applications-by-department', only, async (req, res, next) => {
       })
       .from(applications)
       .leftJoin(departments, eq(applications.departmentId, departments.id))
-      .groupBy(applications.departmentId, departments.code, departments.name)
+      .groupBy(applications.departmentId, departments.id, departments.code, departments.name)
       .orderBy(desc(sql`count(*)`));
 
     return res.json({ success: true, data: rows });
   } catch (err) {
     console.error('[rector/applications-by-department]', err);
+    return next(err);
+  }
+});
+
+
+// ============================================================
+// GET /api/rector/applications
+// Full, read-only admissions register for executive oversight.
+// ============================================================
+router.get('/applications', only, async (req, res, next) => {
+  try {
+    const requestedLimit = Number(req.query.limit) || 500;
+    const limit = Math.min(Math.max(requestedLimit, 1), 500);
+    const rows = await db
+      .select({
+        id: applications.id,
+        applicationNumber: applications.applicationNumber,
+        type: applications.type,
+        firstName: applications.firstName,
+        middleName: applications.middleName,
+        lastName: applications.lastName,
+        email: applications.email,
+        phone: applications.phone,
+        gender: applications.gender,
+        dateOfBirth: applications.dateOfBirth,
+        stateOfOrigin: applications.stateOfOrigin,
+        lga: applications.lga,
+        address: applications.address,
+        level: applications.level,
+        status: applications.status,
+        createdAt: applications.createdAt,
+        reviewedAt: applications.reviewedAt,
+        admittedAt: applications.admittedAt,
+        matricNumber: applications.matricNumber,
+        rejectionReason: applications.rejectionReason,
+        programmeName: programmes.name,
+        departmentId: departments.id,
+        departmentName: departments.name,
+        departmentCode: departments.code,
+      })
+      .from(applications)
+      .leftJoin(programmes, eq(applications.programmeId, programmes.id))
+      .leftJoin(departments, eq(applications.departmentId, departments.id))
+      .orderBy(desc(applications.createdAt))
+      .limit(limit);
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('[rector/applications]', err);
     return next(err);
   }
 });
@@ -191,6 +238,52 @@ router.get('/graduation-pipeline', only, async (req, res, next) => {
     });
   } catch (err) { return next(err); }
 });
+
+
+ // ============================================================
+ // GET /api/rector/graduation-records
+ // Full, read-only graduation register for executive oversight.
+ // ============================================================
+ router.get('/graduation-records', only, async (req, res, next) => {
+   try {
+     const requestedLimit = Number(req.query.limit) || 500;
+     const limit = Math.min(Math.max(requestedLimit, 1), 500);
+     const rows = await db
+       .select({
+         id: graduations.id,
+         studentId: graduations.studentId,
+         sessionId: graduations.sessionId,
+         programmeId: graduations.programmeId,
+         level: graduations.level,
+         cgpa: graduations.cgpa,
+         classification: graduations.classification,
+         status: graduations.status,
+         approvedBy: graduations.approvedBy,
+         approvedAt: graduations.approvedAt,
+         remarks: graduations.remarks,
+         createdAt: graduations.createdAt,
+         matricNumber: users.matricNumber,
+         firstName: users.firstName,
+         middleName: users.middleName,
+         lastName: users.lastName,
+         email: users.email,
+         phone: users.phone,
+         programmeName: programmes.name,
+         departmentId: departments.id,
+         departmentName: departments.name,
+       })
+       .from(graduations)
+       .leftJoin(users, eq(graduations.studentId, users.id))
+       .leftJoin(programmes, eq(graduations.programmeId, programmes.id))
+       .leftJoin(departments, eq(users.departmentId, departments.id))
+       .orderBy(desc(graduations.createdAt))
+       .limit(limit);
+     return res.json({ success: true, data: rows });
+   } catch (err) {
+     console.error('[rector/graduation-records]', err);
+     return next(err);
+   }
+ });
 
 // ============================================================
 // GET /api/rector/staff-composition

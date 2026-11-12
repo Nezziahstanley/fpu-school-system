@@ -70,13 +70,14 @@ async function getApprovedExamRoster(examScheduleId) {
 // ============================================================
 router.get('/lookups', only, async (req, res, next) => {
   try {
-    const [depts, crs, progs, schs] = await Promise.all([
+    const [depts, crs, progs, schs, sessions] = await Promise.all([
       db.select().from(departments).orderBy(asc(departments.name)),
       db.select().from(courses).orderBy(asc(courses.code)),
       db.select().from(programmes).orderBy(asc(programmes.code)),
       db.select().from(schools).orderBy(asc(schools.name)),
+      db.select().from(academicSessions).orderBy(desc(academicSessions.startDate)),
     ]);
-    return res.json({ success: true, departments: depts, courses: crs, programmes: progs, schools: schs });
+    return res.json({ success: true, departments: depts, courses: crs, programmes: progs, schools: schs, sessions });
   } catch (err) { return next(err); }
 });
 
@@ -259,14 +260,22 @@ router.get('/eligibility', only, async (req, res, next) => {
             programmeId: r.student.programmeId, level: r.student.level || 'ND', sessionId: effectiveSession,
           })
         : null;
+      const feeStructureFound = Boolean(feeStructure);
       const totalDue = Number(feeStructure?.total || 0);
-      const cleared = totalDue === 0 || Number(totalPaid) >= totalDue;
+      const cleared = feeStructureFound && Number(totalPaid) >= totalDue;
       const clear = effectiveSession ? await clearQueries.findOne({ studentId, sessionId: effectiveSession }) : null;
       const clearanceOk = !clear || clear.status === 'cleared';
+      const reasons = [];
+      if (!feeStructureFound) reasons.push('Fee structure is not configured for this programme, level and session. Manual review required.');
+      else if (!cleared) reasons.push('Verified fee payments are below the configured fee total.');
+      if (clear && clear.status !== 'cleared') reasons.push(clear.status === 'rejected' ? 'Clearance was rejected.' : 'Clearance is pending.');
+      const eligible = feeStructureFound && cleared && clearanceOk;
 
       resultsList.push({
         student: r.student, registration: r.registration,
-        totalPaid: Number(totalPaid), totalDue, cleared, clearanceOk, eligible: cleared && clearanceOk,
+        totalPaid: Number(totalPaid), totalDue, feeStructureFound,
+        clearanceStatus: clear?.status || 'not_required_or_not_recorded',
+        cleared, clearanceOk, eligible, reasons,
       });
     }
 

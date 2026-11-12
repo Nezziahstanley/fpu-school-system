@@ -188,6 +188,9 @@ router.get('/messages/:id', requireUser, async (req, res, next) => {
     if (row.recipientId !== req.user.id && row.senderId !== req.user.id) {
       return res.status(403).json({ success: false, error: 'Not allowed.' });
     }
+    if (row.recipientId === req.user.id && !row.isRead) {
+      row = await notifQueries.markMessageRead(row.id, req.user.id) || row;
+    }
     return res.json({ success: true, data: row });
   } catch (err) {
     return next(err);

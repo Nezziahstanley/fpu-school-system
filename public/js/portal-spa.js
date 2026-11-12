@@ -382,11 +382,13 @@
       // Registrar Documents is a request-queue-only page. Version its URL so
       // browsers cannot reuse the older combined transcript-register partial.
       const isRegistrarDocuments = role === 'registrar' && cleanKey === 'registrar-documents';
+      const isAdmissionOfficerPage = role === 'admission_officer' && cleanKey.startsWith('admission-officer-');
+      const pageVersion = isRegistrarDocuments ? '20261112-doc-queue-print-v2' : (isAdmissionOfficerPage ? '20261112-admission-officer-v1' : '');
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
-        url: isRegistrarDocuments ? primaryUrl + '?v=20261112-doc-queue-print-v2' : primaryUrl,
-        fallbackUrl: isRegistrarDocuments ? fallbackUrl + '?v=20261112-doc-queue-print-v2' : fallbackUrl,
+        url: pageVersion ? primaryUrl + '?v=' + pageVersion : primaryUrl,
+        fallbackUrl: pageVersion ? fallbackUrl + '?v=' + pageVersion : fallbackUrl,
         title: roleItem.label,
       };
     }
@@ -398,8 +400,9 @@
         return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
       }
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
+      const sharedUrl = `/portal/partials/shared/${file}.html`;
       return {
-        url: `/portal/partials/shared/${file}.html`,
+        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v1' : sharedUrl,
         title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }
@@ -491,8 +494,8 @@
     keys.forEach((key) => {
       const cfg = resolvePageConfig(key);
       if (!cfg || partialHtmlCache.has(cfg.url)) return;
-      fetch(cfg.url, { cache: cfg.url.includes('doc-queue-only') ? 'no-store' : 'force-cache' }).then(async (res) => {
-        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: cfg.fallbackUrl.includes('doc-queue-only') ? 'no-store' : 'force-cache' });
+      fetch(cfg.url, { cache: (cfg.url.includes('doc-queue-only') || cfg.url.includes('admission-officer-v1') || cfg.url.includes('shared-signature-v1')) ? 'no-store' : 'force-cache' }).then(async (res) => {
+        if (!res.ok && cfg.fallbackUrl) res = await fetch(cfg.fallbackUrl, { cache: (cfg.fallbackUrl.includes('doc-queue-only') || cfg.fallbackUrl.includes('admission-officer-v1') || cfg.fallbackUrl.includes('shared-signature-v1')) ? 'no-store' : 'force-cache' });
         if (!res.ok) return;
         const html = await res.text();
         partialHtmlCache.set(cfg.url, html);

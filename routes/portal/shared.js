@@ -309,10 +309,18 @@ router.get('/announcements', requireUser, async (req, res, next) => {
       audience: req.user.role,
       isPublished: true,
     });
+    const departmentNotices = req.user.departmentId
+      ? await notifQueries.listAnnouncementsWithAuthor({ audience: 'department', departmentId: req.user.departmentId, isPublished: true })
+      : [];
+    const drafts = await notifQueries.listAnnouncementsWithAuthor({ isPublished: false });
+    const ownDrafts = drafts.filter((r) => {
+      const announcement = r.announcement || r;
+      return req.user.role === 'admin' || Number(announcement.authorId) === Number(req.user.id);
+    });
     // Merge + dedupe by id, sort by publishedAt desc
     const seen = new Set();
     const merged = [];
-    [...all, ...mine].forEach((r) => {
+    [...all, ...mine, ...departmentNotices, ...ownDrafts].forEach((r) => {
       const a = r.announcement || r;
       if (!seen.has(a.id)) { seen.add(a.id); merged.push(r); }
     });
@@ -348,7 +356,7 @@ const ANNOUNCE_TARGETS = {
   admission_officer:  ['student', 'staff'],
   bursar:             ['all', 'student', 'staff'],
   librarian:          ['all', 'student', 'staff'],
-  hod:                ['student', 'staff', 'lecturer'],
+  hod:                ['student', 'staff', 'lecturer', 'department'],
   lecturer:           ['student'],
 };
 
@@ -371,10 +379,14 @@ router.post('/announcements', requireUser, async (req, res, next) => {
         error: `Your role cannot target "${aud}". Allowed: ${allowed.join(', ')}.`,
       });
     }
+    if (aud === 'department' && (role !== 'hod' || !req.user.departmentId)) {
+      return res.status(403).json({ success: false, error: 'Only an HOD with an assigned department can publish department announcements.' });
+    }
     const row = await notifQueries.createAnnouncement({
       title,
       body,
       audience: aud,
+      departmentId: aud === 'department' ? req.user.departmentId : null,
       priority: priority || 'normal',
       isPublished: isPublished !== false,
       showOnMarquee: aud === 'all' ? true : req.body?.showOnMarquee === true,
@@ -382,10 +394,12 @@ router.post('/announcements', requireUser, async (req, res, next) => {
       authorId: req.user.id,
     });
 
-    // General announcements are also delivered to each active account so
-    // every recipient has an independent read state and bell count.
-    if (aud === 'all' && row.isPublished) {
-      const recipients = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+    // General and department notices create individual bell items so every
+    // recipient has an independent read state.
+    if ((aud === 'all' || aud === 'department') && row.isPublished) {
+      const recipientConditions = [eq(users.isActive, true)];
+      if (aud === 'department') recipientConditions.push(eq(users.departmentId, req.user.departmentId));
+      const recipients = await db.select({ id: users.id }).from(users).where(and(...recipientConditions));
       const notificationRows = recipients.map((recipient) => ({
         userId: recipient.id,
         title: row.title,
@@ -416,6 +430,9 @@ router.put('/announcements/:id', requireUser, async (req, res, next) => {
     if (existing.authorId !== req.user.id && role !== 'admin') {
       return res.status(403).json({ success: false, error: 'You can only edit your own announcements.' });
     }
+    if (role !== 'admin' && existing.audience === 'department' && Number(existing.departmentId) !== Number(req.user.departmentId)) {
+      return res.status(403).json({ success: false, error: 'This announcement belongs to another department.' });
+    }
 
     const b = req.body || {};
     const patch = {};
@@ -426,22 +443,41 @@ router.put('/announcements/:id', requireUser, async (req, res, next) => {
     if (b.expiresAt !== undefined) patch.expiresAt = b.expiresAt || null;
     if (b.audience !== undefined) {
       const allowed = ANNOUNCE_TARGETS[role] || ['all'];
-      if (!allowed.includes(b.audience)) {
+      const adminModeratingDepartmentNotice = role === 'admin'
+        && b.audience === 'department'
+        && existing.audience === 'department';
+      if (!allowed.includes(b.audience) && !adminModeratingDepartmentNotice) {
         return res.status(403).json({ success: false, error: `Your role cannot target "${b.audience}".` });
       }
+      if (b.audience === 'department' && role !== 'hod' && !adminModeratingDepartmentNotice) {
+        return res.status(403).json({ success: false, error: 'Only an HOD with an assigned department can target a department.' });
+      }
+      if (b.audience === 'department' && role === 'hod' && !req.user.departmentId) {
+        return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
+      }
       patch.audience = b.audience;
+      patch.departmentId = b.audience === 'department'
+        ? (role === 'hod' ? req.user.departmentId : existing.departmentId)
+        : null;
     }
 
     const row = await notifQueries.updateAnnouncement(existing.id, patch);
     const linkedAlert = `/announcements.html?id=${existing.id}`;
-    if (row?.audience === 'all' && row.isPublished) {
+    if (row && row.isPublished && (row.audience === 'all' || row.audience === 'department')) {
+      const targetChanged = existing.audience !== row.audience
+        || Number(existing.departmentId || 0) !== Number(row.departmentId || 0);
       const existingAlerts = await db.select({ id: notifications.id })
         .from(notifications).where(eq(notifications.link, linkedAlert)).limit(1);
-      if (existingAlerts.length) {
-        await db.update(notifications).set({ title: row.title, body: row.body })
+      if (targetChanged) {
+        await db.delete(notifications).where(eq(notifications.link, linkedAlert));
+      } else if (existingAlerts.length) {
+        await db.update(notifications).set({ title: row.title, body: row.body, type: row.priority === 'high' ? 'warning' : 'info' })
           .where(eq(notifications.link, linkedAlert));
-      } else {
-        const recipients = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+      }
+      if (targetChanged || !existingAlerts.length) {
+        const recipientConditions = [eq(users.isActive, true)];
+        if (row.audience === 'department') recipientConditions.push(eq(users.departmentId, row.departmentId));
+        const recipients = await db.select({ id: users.id }).from(users).where(and(...recipientConditions));
         const notificationRows = recipients.map((recipient) => ({
           userId: recipient.id, title: row.title, body: row.body,
           type: row.priority === 'high' ? 'warning' : 'info',
@@ -470,6 +506,9 @@ router.delete('/announcements/:id', requireUser, async (req, res, next) => {
 
     if (existing.authorId !== req.user.id && role !== 'admin') {
       return res.status(403).json({ success: false, error: 'You can only delete your own announcements.' });
+    }
+    if (role !== 'admin' && existing.audience === 'department' && Number(existing.departmentId) !== Number(req.user.departmentId)) {
+      return res.status(403).json({ success: false, error: 'This announcement belongs to another department.' });
     }
 
     await notifQueries.removeAnnouncement(existing.id);

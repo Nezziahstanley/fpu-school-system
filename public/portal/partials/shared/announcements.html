@@ -47,6 +47,7 @@
     <option value="staff">Staff</option>
     <option value="lecturer">Lecturers</option>
     <option value="hod">HODs</option>
+    <option value="department" id="an-filter-department">My Department</option>
   </select>
   <select id="an-priority">
     <option value="">All priorities</option>
@@ -97,6 +98,7 @@
             <option value="staff">Staff</option>
             <option value="lecturer">Lecturers</option>
             <option value="hod">HODs</option>
+            <option value="department">My Department</option>
           </select>
         </div>
         <div>
@@ -139,6 +141,10 @@
   var STAFF_ROLES = ['admin','registrar','rector','bursar','librarian','hod','exam_officer','academic_officer','admission_officer','lecturer'];
   var IS_STAFF = STAFF_ROLES.indexOf(ROLE) >= 0;
   var IS_ADMIN = ROLE === 'admin';
+  if (ROLE === 'hod') {
+    var subtitle = document.querySelector('.greeting .sub');
+    if (subtitle) subtitle.textContent = 'Publish and manage announcements for your department and the wider institution.';
+  }
 
   // Who can target what (mirrors backend ANNOUNCE_TARGETS)
   var TARGETS = {
@@ -150,7 +156,7 @@
     admission_officer: ['student','staff'],
     bursar:            ['all','student','staff'],
     librarian:         ['all','student','staff'],
-    hod:               ['student','staff','lecturer'],
+    hod:               ['department','student','staff','lecturer'],
     lecturer:          ['student'],
   };
 
@@ -161,7 +167,7 @@
   if (IS_STAFF) $('an-new').style.display = '';
 
   function audienceLabel(a) {
-    return ({ all:'General / Everyone', student:'Students', staff:'Staff', lecturer:'Lecturers', hod:'HODs' })[a] || a || 'Everyone';
+    return ({ all:'General / Everyone', student:'Students', staff:'Staff', lecturer:'Lecturers', hod:'HODs', department:'My Department' })[a] || a || 'Everyone';
   }
 
   function unwrap(r) {
@@ -177,6 +183,7 @@
       publishedAt: a.publishedAt || a.createdAt,
       expiresAt: a.expiresAt,
       authorId: a.authorId,
+      departmentId: a.departmentId,
       authorName: [author.firstName, author.lastName].filter(Boolean).join(' ') || 'Administration',
     };
   }

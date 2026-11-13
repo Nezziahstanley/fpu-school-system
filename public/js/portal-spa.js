@@ -416,7 +416,7 @@
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       const sharedUrl = `/portal/partials/shared/${file}.html`;
       return {
-        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : (role === 'rector' && cleanKey === 'admin-audit' ? sharedUrl + '?v=20261112-rector-audit-v1' : sharedUrl),
+        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : (cleanKey === 'portal-announcements' ? sharedUrl + '?v=20261113-department-announcements-v1' : (role === 'rector' && cleanKey === 'admin-audit' ? sharedUrl + '?v=20261112-rector-audit-v1' : sharedUrl)),
         title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }
@@ -442,7 +442,11 @@
     if (!container) return;
 
     const roleItems = PORTAL_SIDEBAR[role] || [];
-    const sharedItems = getSharedItemsForRole(role);
+    const sharedItems = getSharedItemsForRole(role).map((item) =>
+      role === 'hod' && item.key === 'portal-announcements'
+        ? { ...item, label: 'Department Announcements' }
+        : item
+    );
 
     const groupFn = MENU_GROUPS_BY_ROLE[role] || MENU_GROUPS_BY_ROLE.default;
     const groups = groupFn(role, roleItems, sharedItems);

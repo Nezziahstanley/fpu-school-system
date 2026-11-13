@@ -231,6 +231,17 @@
 
       renderStats();
       applyFilters();
+
+      // If this workspace was opened from a row's View button, open that
+      // exact application in the detail modal after the list has loaded.
+      const hash = String(window.location.hash || '');
+      const hashQuery = hash.includes('?') ? hash.slice(hash.indexOf('?') + 1) : '';
+      const requestedId = new URLSearchParams(hashQuery).get('applicationId');
+      if (requestedId) {
+        const selected = ALL.find((item) => String(item.id) === String(requestedId));
+        if (selected) openDetailModal(selected);
+        else core.showToast && core.showToast('The selected application could not be found in the review list.', 'warning');
+      }
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
     }

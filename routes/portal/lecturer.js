@@ -1115,7 +1115,8 @@ router.get('/performance', only, async (req, res, next) => {
       const flags = [];
       if (score !== null && score < 40) flags.push('Low result score');
       if (attendancePercentage !== null && attendancePercentage < 75) flags.push('Low attendance');
-      return { ...row, score, attendancePercentage, riskLevel: flags.length > 1 ? 'high' : flags.length ? 'watch' : 'good', flags };
+      const riskLevel = flags.length > 1 ? 'high' : flags.length ? 'watch' : score === null && attendancePercentage === null ? 'unmonitored' : 'good';
+      return { ...row, score, attendancePercentage, riskLevel, flags };
     });
     return res.json({ success: true, data });
   } catch (err) {

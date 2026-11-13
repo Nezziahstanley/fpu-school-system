@@ -212,10 +212,6 @@
           }
         });
       });
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
-    }
   }
 
   async function openModal(existingItem = null) {

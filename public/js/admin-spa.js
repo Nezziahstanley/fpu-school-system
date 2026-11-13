@@ -269,7 +269,6 @@
     'timetable-list':     { url: '/admin/partials/timetable/list.html',          title: 'Timetable List',  init: call('loadTimetable') },
     'timetable-form':     { url: '/admin/partials/timetable/form.html',          title: 'New Slot',        init: () => {} },
     'timetable-by-dept':  { url: '/admin/partials/timetable/semester.html',      title: 'Department Timetable', init: call('loadTimetableSheet') },
-    'timetable-review':   { url: '/admin/partials/timetable/semester.html',      title: 'Timetable Review', init: call('loadTimetableSheet') },
 
     'exams':         { url: '/admin/partials/exams/index.html',                  title: 'Exams',           init: call('loadExamsIndex') },
     'exams-list':    { url: '/admin/partials/exams/list.html',                   title: 'Exam Schedules',  init: call('loadExams') },

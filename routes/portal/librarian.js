@@ -276,6 +276,26 @@ router.post('/books/:id/adjust', only, async (req, res, next) => {
 });
 
 // ============================================================
+// GET /api/librarian/students — Safe student lookup for issuing books
+// ============================================================
+router.get('/students', only, async (req, res, next) => {
+  try {
+    const search = String(req.query.search || '').trim();
+    if (search.length < 2) {
+      return res.json({ success: true, data: [] });
+    }
+    const rows = await userQueries.list({
+      role: 'student',
+      search,
+      isActive: true,
+      limit: 30,
+      offset: 0,
+    });
+    return res.json({ success: true, data: rows });
+  } catch (err) { return next(err); }
+});
+
+// ============================================================
 // GET /api/librarian/borrows
 // ============================================================
 router.get('/borrows', only, async (req, res, next) => {

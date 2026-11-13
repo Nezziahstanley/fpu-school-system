@@ -3422,14 +3422,17 @@ async function loadAttendanceDepartments() {
     const statDepts = document.getElementById('att-stat-depts');
     const statCourses = document.getElementById('att-stat-courses');
     const statTotal = document.getElementById('att-stat-total');
+    const statStudents = document.getElementById('att-stat-students');
     const statRate = document.getElementById('att-stat-rate');
 
     const totalCourses = departments.reduce((sum, d) => sum + (Number(d.courses) || 0), 0);
+    const totalStudents = schools.reduce((sum, school) => sum + (Number(school.students) || 0), 0);
     const totalRecords = departments.reduce((sum, d) => sum + (Number(d.records) || 0), 0);
     const totalPresent = departments.reduce((sum, d) => sum + (Number(d.present) || 0) + (Number(d.late) || 0), 0);
     if (statDepts) statDepts.textContent = departments.length;
     if (statCourses) statCourses.textContent = totalCourses;
     if (statTotal) statTotal.textContent = totalRecords;
+    if (statStudents) statStudents.textContent = totalStudents;
     if (statRate) statRate.textContent = totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—';
 
     if (!departments.length) {

@@ -398,8 +398,9 @@
       const isLecturerPage = role === 'lecturer' && cleanKey.startsWith('lecturer-');
       const isLibrarianPage = role === 'librarian' && cleanKey.startsWith('librarian-');
       const isHodPage = role === 'hod' && cleanKey.startsWith('hod-');
+      const isAdminDashboard = ['admin', 'superadmin'].includes(role) && cleanKey === 'superadmin-dashboard';
       // Version every librarian partial so the browser fetches the refreshed dashboard workspaces.
-      const pageVersion = isHodPage ? '20261113-hod-unified-green-v4' : (isLibrarianPage ? '20261113-librarian-no-avatar-v3' : (isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : (isLecturerPage ? '20261112-lecturer-v8-messages-theme' : '')))))));
+      const pageVersion = isAdminDashboard ? '20261113-admin-dashboard-green-v1' : (isHodPage ? '20261113-hod-unified-green-v4' : (isLibrarianPage ? '20261113-librarian-no-avatar-v3' : (isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : (isLecturerPage ? '20261112-lecturer-v8-messages-theme' : ''))))))));
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {
@@ -548,7 +549,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v') || cfg.url.includes('lecturer-messaging-v1') || cfg.url.includes('hod-monitoring-design-v');
+        const forceFresh = cfg.url.includes('admin-dashboard-green-v') || cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v') || cfg.url.includes('lecturer-messaging-v1') || cfg.url.includes('hod-monitoring-design-v');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {

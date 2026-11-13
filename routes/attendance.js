@@ -235,6 +235,41 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
       .groupBy(schema.courses.id, schema.courses.code, schema.courses.title, schema.courses.level)
       .orderBy(schema.courses.code);
 
+    const registrationConditions = [
+      eq(schema.courseRegistrations.status, 'approved'),
+      eq(schema.courses.departmentId, departmentId)
+    ];
+    if (selectedSessionId) registrationConditions.push(eq(schema.courseRegistrations.sessionId, selectedSessionId));
+    if (semester) registrationConditions.push(eq(schema.courseRegistrations.semester, String(semester)));
+
+    const registeredCourseRows = await db
+      .select({
+        courseId: schema.courseRegistrations.courseId,
+        students: sql`COUNT(DISTINCT ${schema.courseRegistrations.studentId})`
+      })
+      .from(schema.courseRegistrations)
+      .innerJoin(schema.courses, eq(schema.courseRegistrations.courseId, schema.courses.id))
+      .where(and(...registrationConditions, ...(level ? [eq(schema.courses.level, String(level))] : []), ...(search ? [or(
+        ilike(schema.courses.code, `%${String(search).trim()}%`),
+        ilike(schema.courses.title, `%${String(search).trim()}%`)
+      )] : [])))
+      .groupBy(schema.courseRegistrations.courseId);
+
+    const registeredStudentsByCourse = new Map(
+      registeredCourseRows.map(row => [Number(row.courseId), Number(row.students) || 0])
+    );
+
+    const [registeredDepartmentSummary] = await db
+      .select({
+        students: sql`COUNT(DISTINCT ${schema.courseRegistrations.studentId})`
+      })
+      .from(schema.courseRegistrations)
+      .innerJoin(schema.courses, eq(schema.courseRegistrations.courseId, schema.courses.id))
+      .where(and(...registrationConditions, ...(level ? [eq(schema.courses.level, String(level))] : []), ...(search ? [or(
+        ilike(schema.courses.code, `%${String(search).trim()}%`),
+        ilike(schema.courses.title, `%${String(search).trim()}%`)
+      )] : [])));
+
     const data = rows.map((row) => {
       const records = Number(row.records) || 0;
       const students = Number(row.students) || 0;
@@ -244,7 +279,7 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
         ...row,
         id: Number(row.id),
         records,
-        students,
+        students: registeredStudentsByCourse.get(Number(row.id)) || 0,
         present,
         late,
         rate: records ? Math.round(((present + late) / records) * 100) : 0
@@ -266,7 +301,7 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
     const summaryPresent = Number(summaryRow?.present) || 0;
     const summaryLate = Number(summaryRow?.late) || 0;
     const summary = {
-      students: Number(summaryRow?.students) || 0,
+      students: Number(registeredDepartmentSummary?.students) || 0,
       records: summaryRecords,
       rate: summaryRecords ? Math.round(((summaryPresent + summaryLate) / summaryRecords) * 100) : 0
     };

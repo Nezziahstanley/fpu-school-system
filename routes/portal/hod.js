@@ -179,6 +179,150 @@ router.get('/attendance', only, async (req, res) => {
 });
 
 // ============================================================
+// GET /api/hod/teaching-plan — department teaching-plan oversight
+// ============================================================
+router.get('/teaching-plan', only, async (req, res) => {
+  try {
+    const departmentId = deptId(req);
+    const sessions = await db.select({
+      id: academicSessions.id,
+      name: academicSessions.name,
+      isCurrent: academicSessions.isCurrent
+    }).from(academicSessions).orderBy(desc(academicSessions.id));
+
+    let sessionId;
+    if (req.query.sessionId) {
+      sessionId = Number(req.query.sessionId);
+      if (!Number.isInteger(sessionId) || sessionId < 1 || !sessions.some(s => Number(s.id) === sessionId)) {
+        return res.status(400).json({ success: false, error: 'Select a valid academic session.' });
+      }
+    } else {
+      sessionId = Number(sessions.find(s => s.isCurrent)?.id || sessions[0]?.id || 0);
+    }
+
+    if (!sessionId) {
+      return res.json({
+        success: true, sessions, selectedSessionId: null, data: [],
+        summary: { allocations: 0, lecturers: 0, topics: 0, completed: 0, planned: 0, deferred: 0, coverage: 0, withoutPlans: 0 }
+      });
+    }
+
+    const result = await db.execute(sql\`
+      SELECT
+        ca.id AS "allocationId",
+        c.id AS "courseId",
+        c.code AS "courseCode",
+        c.title AS "courseTitle",
+        c.level AS "courseLevel",
+        ca.semester AS "semester",
+        ca.status AS "allocationStatus",
+        u.id AS "lecturerId",
+        u.first_name AS "lecturerFirstName",
+        u.last_name AS "lecturerLastName",
+        u.email AS "lecturerEmail",
+        s.name AS "sessionName",
+        t.id AS "topicId",
+        t.week_number AS "weekNumber",
+        t.topic AS "topic",
+        t.learning_outcomes AS "learningOutcomes",
+        t.teaching_method AS "teachingMethod",
+        t.planned_date AS "plannedDate",
+        t.status AS "topicStatus",
+        t.covered_at AS "coveredAt",
+        t.notes AS "notes",
+        t.updated_at AS "updatedAt"
+      FROM course_allocations ca
+      INNER JOIN courses c ON c.id = ca.course_id
+      INNER JOIN users u ON u.id = ca.lecturer_id
+      LEFT JOIN academic_sessions s ON s.id = ca.session_id
+      LEFT JOIN course_teaching_topics t
+        ON t.lecturer_id = ca.lecturer_id
+        AND t.course_id = ca.course_id
+        AND t.session_id = ca.session_id
+        AND t.semester = ca.semester
+      WHERE c.department_id = \${departmentId}
+        AND ca.session_id = \${sessionId}
+        AND ca.status <> 'cancelled'
+      ORDER BY c.code, ca.semester, u.last_name, u.first_name, t.week_number
+      LIMIT 5000
+    \`);
+    const rows = result.rows || [];
+    const coursesMap = new Map();
+    const lecturers = new Set();
+    let topics = 0, completed = 0, planned = 0, deferred = 0;
+    for (const row of rows) {
+      const key = [row.courseId, row.lecturerId, row.semester].join('|');
+      if (!coursesMap.has(key)) {
+        coursesMap.set(key, {
+          allocationId: row.allocationId,
+          courseId: row.courseId,
+          courseCode: row.courseCode,
+          courseTitle: row.courseTitle,
+          courseLevel: row.courseLevel,
+          semester: row.semester,
+          allocationStatus: row.allocationStatus,
+          lecturerId: row.lecturerId,
+          lecturerName: [row.lecturerFirstName, row.lecturerLastName].filter(Boolean).join(' '),
+          lecturerEmail: row.lecturerEmail,
+          sessionName: row.sessionName,
+          topics: []
+        });
+      }
+      lecturers.add(Number(row.lecturerId));
+      if (row.topicId) {
+        topics += 1;
+        const status = String(row.topicStatus || 'planned').toLowerCase();
+        if (status === 'completed') completed += 1;
+        else if (status === 'deferred') deferred += 1;
+        else planned += 1;
+        coursesMap.get(key).topics.push({
+          id: row.topicId,
+          weekNumber: row.weekNumber,
+          topic: row.topic,
+          learningOutcomes: row.learningOutcomes,
+          teachingMethod: row.teachingMethod,
+          plannedDate: row.plannedDate,
+          status,
+          coveredAt: row.coveredAt,
+          notes: row.notes,
+          updatedAt: row.updatedAt
+        });
+      }
+    }
+    const data = [...coursesMap.values()].map(course => {
+      const count = course.topics.length;
+      const done = course.topics.filter(t => t.status === 'completed').length;
+      return { ...course, topicCount: count, completed: done,
+        planned: course.topics.filter(t => t.status === 'planned').length,
+        deferred: course.topics.filter(t => t.status === 'deferred').length,
+        coverage: count ? Math.round(done / count * 100) : 0 };
+    });
+    const allocationCount = data.length;
+    const coveredAllocations = data.filter(c => c.topicCount > 0).length;
+    return res.json({
+      success: true,
+      sessions,
+      selectedSessionId: sessionId,
+      data,
+      summary: {
+        allocations: allocationCount,
+        lecturers: lecturers.size,
+        topics,
+        completed,
+        planned,
+        deferred,
+        coverage: topics ? Math.round(completed / topics * 100) : 0,
+        withoutPlans: allocationCount - coveredAllocations
+      },
+      truncated: rows.length === 5000
+    });
+  } catch (err) {
+    console.error('[hod/teaching-plan] Error:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load department teaching plans.' });
+  }
+});
+
+// ============================================================
 // GET /api/hod/dashboard
 // ============================================================
 router.get('/dashboard', only, async (req, res, next) => {

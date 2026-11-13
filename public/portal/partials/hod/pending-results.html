@@ -323,10 +323,9 @@
             <button onclick="window.__deleteOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;cursor:pointer;">Delete</button>
           `;
         } else if (isDraft) {
-          actions = `
-            <button onclick="window.__openRejectModal(${s.id}, '${esc(s.studentName).replace(/'/g, "\\'")}')" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fef3c7;color:#92400e;border:none;border-radius:5px;cursor:pointer;margin-right:.25rem;">Reject</button>
-            <button onclick="window.__deleteOne(${s.id})" style="padding:.3rem .6rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:5px;cursor:pointer;">Delete</button>
-          `;
+          // Drafts have not been submitted by the lecturer, so HOD approval/rejection
+          // actions are intentionally unavailable until submission.
+          actions = '<span style="font-size:.7rem;color:#92400e;font-weight:700;">Awaiting lecturer submission</span>';
         }
 
         // Rejection reason
@@ -464,7 +463,38 @@
   $('pr-level').addEventListener('change', load);
   $('pr-refresh').addEventListener('click', load);
   $('pr-export').addEventListener('click', function() {
-    FPU_PORTAL.showToast('Export functionality not implemented yet.', 'info');
+    if (!FILTERED.length) {
+      FPU_PORTAL.showToast('There are no pending results to export.', 'info');
+      return;
+    }
+    const columns = [
+      ['Course Code', getCourseCode],
+      ['Course Title', getCourseTitle],
+      ['Level', getLevel],
+      ['Semester', getSemester],
+      ['Session', getSessionName],
+      ['Lecturer', getLecturerName],
+      ['Students', getStudentCount],
+      ['Submitted At', r => r.submittedAt || '']
+    ];
+    const csvCell = value => {
+      let text = String(value == null ? '' : value);
+      if (/^[=+@\\-\\t\\r]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const csv = [
+      columns.map(c => csvCell(c[0])).join(','),
+      ...FILTERED.map(row => columns.map(c => csvCell(c[1](row))).join(','))
+    ].join('\\r\\n');
+    const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'hod-pending-results.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   });
 
   load();

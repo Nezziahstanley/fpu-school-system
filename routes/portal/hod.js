@@ -1270,7 +1270,7 @@ router.post('/results/:courseId/publish', only, async (req, res, next) => {
     const published = await db.execute(sql`
       UPDATE results 
       SET status = 'published', published_at = NOW()
-      WHERE course_id = ${courseId} AND status = 'approved'
+      WHERE course_id = ${courseId} AND status IN ('hod_verified', 'approved')
         AND deleted_at IS NULL
       RETURNING id
     `);

@@ -312,10 +312,15 @@ router.get('/announcements', requireUser, async (req, res, next) => {
     const departmentNotices = req.user.departmentId
       ? await notifQueries.listAnnouncementsWithAuthor({ audience: 'department', departmentId: req.user.departmentId, isPublished: true })
       : [];
+    const drafts = await notifQueries.listAnnouncementsWithAuthor({ isPublished: false });
+    const ownDrafts = drafts.filter((r) => {
+      const announcement = r.announcement || r;
+      return req.user.role === 'admin' || Number(announcement.authorId) === Number(req.user.id);
+    });
     // Merge + dedupe by id, sort by publishedAt desc
     const seen = new Set();
     const merged = [];
-    [...all, ...mine, ...departmentNotices].forEach((r) => {
+    [...all, ...mine, ...departmentNotices, ...ownDrafts].forEach((r) => {
       const a = r.announcement || r;
       if (!seen.has(a.id)) { seen.add(a.id); merged.push(r); }
     });

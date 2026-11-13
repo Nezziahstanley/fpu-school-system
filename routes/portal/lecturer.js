@@ -909,6 +909,7 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
         score: assignmentSubmissions.score,
         feedback: assignmentSubmissions.feedback,
         submittedAt: assignmentSubmissions.submittedAt,
+        gradedAt: assignmentSubmissions.gradedAt,
         // Join student details
         firstName: users.firstName,
         lastName: users.lastName,
@@ -928,6 +929,7 @@ router.get('/assignments/:id/submissions', only, async (req, res, next) => {
       score: s.score,
       feedback: s.feedback,
       submittedAt: s.submittedAt,
+      gradedAt: s.gradedAt,
     }));
 
     // 3. Get total registered students

@@ -74,13 +74,15 @@
             <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Student</th>
             <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Matric</th>
             <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Response / Upload</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Status</th>
-            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:100px;">Score</th>
+            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Submission</th>
+            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Grading Status</th>
+            <th style="padding:.75rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;width:90px;">Score</th>
+            <th style="padding:.75rem;text-align:left;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;min-width:180px;">Lecturer Feedback</th>
             <th style="padding:.75rem;text-align:right;font-size:.68rem;font-weight:800;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="grading-tbody">
-          <tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>
+          <tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">Loading submissions…</td></tr>
         </tbody>
       </table>
     </div>
@@ -243,47 +245,44 @@
       CACHED_SUBMISSIONS = submissions;
       const assignment = res.assignment || {};
       
-      $('grading-course-name').textContent = `${assignment.courseCode || ''} — ${submissions.length} Submitted / ${assignment.totalStudents || 0} Total Students`;
+      $('grading-course-name').textContent = `${assignment.courseCode || ''} — ${submissions.length} Submitted / ${assignment.totalStudents || 0} Total Students · Maximum ${Number(assignment.maxScore || 10)} marks`;
       $('grading-submission-count').textContent = submissions.length;
 
       if (submissions.length === 0) {
-        $('grading-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No students have submitted this assignment yet.</td></tr>';
+        $('grading-tbody').innerHTML = '<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">No students have submitted this assignment yet.</td></tr>';
         return;
       }
 
       $('grading-tbody').innerHTML = submissions.map(s => {
         const isGraded = s.score != null && s.score !== '';
-        
-        const scoreInput = isGraded 
-          ? `<input type="number" id="score-${s.id}" value="${s.score}" disabled style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;background:#e2e8f0;color:#475569;font-weight:800;" />`
-          : `<input type="number" id="score-${s.id}" value="" placeholder="Score" style="width:70px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" />`;
-
-        const actionBtn = isGraded
-          ? `<span style="font-size:.7rem;font-weight:800;color:#065f46;">✓ Graded</span>`
-          : `<button onclick="window.__saveGrade(${s.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">Save</button>`;
-
+        const due = assignment.dueDate ? new Date(assignment.dueDate) : null;
+        const submitted = s.submittedAt ? new Date(s.submittedAt) : null;
+        const isLate = !!(due && submitted && submitted > new Date(due.getFullYear(), due.getMonth(), due.getDate(), 23, 59, 59, 999));
+        const scoreInput = `<input type="number" min="0" max="${Number(assignment.maxScore || 10)}" step="0.01" id="score-${s.id}" value="${isGraded ? esc(s.score) : ''}" placeholder="0–${Number(assignment.maxScore || 10)}" style="width:76px;padding:.38rem;text-align:center;border:1px solid #cbd5e1;border-radius:6px;color:#0f172a;background:#fff;font-weight:750;" />`;
+        const feedbackInput = `<textarea id="feedback-${s.id}" rows="2" maxlength="2000" placeholder="Feedback for this student…" style="width:100%;min-width:160px;padding:.4rem;border:1px solid #cbd5e1;border-radius:6px;color:#0f172a;background:#fff;font-size:.74rem;resize:vertical;">${esc(s.feedback || '')}</textarea>`;
         const statusBadge = isGraded
           ? `<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;">Graded</span>`
           : `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:800;">Pending</span>`;
-
+        const submissionDate = submitted ? submitted.toLocaleDateString() : 'Date unavailable';
+        const lateBadge = isLate ? '<div style="margin-top:4px;color:#b45309;font-size:.65rem;font-weight:850;">Late submission</div>' : '<div style="margin-top:4px;color:#64748b;font-size:.65rem;">On time / no deadline</div>';
         return `
           <tr style="border-bottom:1px solid #f1f5f9;">
             <td style="padding:.65rem .75rem;font-weight:700;color:#0f172a;">${esc(s.studentName)}</td>
             <td style="padding:.65rem .75rem;"><code>${esc(s.matricNumber)}</code></td>
-            
             <td style="padding:.65rem .75rem;text-align:center;">
               <button onclick="window.__viewSubmission(${s.id})" style="padding:.35rem .75rem;font-size:.72rem;font-weight:700;background:#e0e7ff;color:#3730a3;border:none;border-radius:6px;cursor:pointer;">View Response</button>
             </td>
-
+            <td style="padding:.65rem .75rem;text-align:center;color:#475569;font-size:.72rem;">${esc(submissionDate)}${lateBadge}</td>
             <td style="padding:.65rem .75rem;text-align:center;">${statusBadge}</td>
             <td style="padding:.65rem .75rem;text-align:center;">${scoreInput}</td>
-            <td style="padding:.65rem .75rem;text-align:right;">${actionBtn}</td>
+            <td style="padding:.65rem .75rem;">${feedbackInput}</td>
+            <td style="padding:.65rem .75rem;text-align:right;"><button onclick="window.__saveGrade(${s.id})" style="padding:.4rem .7rem;font-size:.72rem;font-weight:800;background:#065f46;color:#fff;border:none;border-radius:6px;cursor:pointer;">${isGraded ? 'Update Grade' : 'Save Grade'}</button></td>
           </tr>
         `;
       }).join('');
     } catch (err) {
       // Fallback safe display if fetch fails completely
-      $('grading-tbody').innerHTML = `<tr><td colspan="6" style="padding:3rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
+      $('grading-tbody').innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#991b1b;">⚠️ Error: ${esc(err.message)}</td></tr>`;
     }
   };
 
@@ -331,18 +330,20 @@
   window.__saveGrade = async function(submissionId) {
     const scoreInput = $(`score-${submissionId}`);
     const score = Number(scoreInput.value);
-
-    if (isNaN(score) || score < 0) {
-      core.showToast('Please enter a valid score.', 'error');
+    const feedback = $(`feedback-${submissionId}`)?.value || '';
+    const assignment = ALL_ASSIGNMENTS.find(a => Number(a.id) === Number(CURRENT_ASSIGNMENT_ID));
+    const maxScore = Number(assignment?.maxScore || 10);
+    if (scoreInput.value.trim() === '' || !Number.isFinite(score) || score < 0 || score > maxScore) {
+      core.showToast('Enter a score between 0 and ' + maxScore + '.', 'error');
       return;
     }
 
     try {
       await core.portalFetch(`/api/lecturer/submissions/${submissionId}/grade`, {
         method: 'POST',
-        body: { score }
+        body: { score, feedback }
       });
-      core.showToast('Grade saved successfully.', 'success');
+      core.showToast('Grade and feedback saved successfully.', 'success');
       window.__openGradingView(CURRENT_ASSIGNMENT_ID, CURRENT_ASSIGNMENT_TITLE);
     } catch (err) {
       core.showToast(err.message, 'error');

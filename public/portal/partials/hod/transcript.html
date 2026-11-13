@@ -522,9 +522,9 @@ console.log('[Broad Sheet] Script loaded.');
             <h2 style="margin:0;font-size:1.15rem;font-weight:800;color:#065f46;">Federal Polytechnic Ugep</h2>
             <p style="margin:.15rem 0 0;color:#64748b;font-size:.78rem;">Official Academic Transcript</p>
             <div style="margin-top:.75rem;padding:.75rem;background:#f8fafc;border-radius:8px;display:inline-block;text-align:left;">
-              <div style="font-size:.82rem;"><strong>Name:</strong> ${student.firstName || ''} ${student.lastName || ''}</div>
-              <div style="font-size:.82rem;"><strong>Matric:</strong> ${student.matricNumber || ''}</div>
-              <div style="font-size:.82rem;"><strong>Level:</strong> ${student.level || ''}</div>
+              <div style="font-size:.82rem;"><strong>Name:</strong> ${esc(student.firstName || '')} ${esc(student.lastName || '')}</div>
+              <div style="font-size:.82rem;"><strong>Matric:</strong> ${esc(student.matricNumber || '')}</div>
+              <div style="font-size:.82rem;"><strong>Level:</strong> ${esc(student.level || '')}</div>
             </div>
           </div>
         `;
@@ -538,11 +538,11 @@ console.log('[Broad Sheet] Script loaded.');
             totalPoints += (unit * points);
             return `
               <tr>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${r.courseCode}</td>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${r.courseTitle}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseCode)}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseTitle)}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${unit}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${r.score != null ? Number(r.score).toFixed(1) : '—'}</td>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:800;color:#065f46;">${r.grade || '—'}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade || '—')}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${points}</td>
               </tr>
             `;
@@ -587,7 +587,7 @@ console.log('[Broad Sheet] Script loaded.');
         `;
         body.innerHTML = html;
       } catch (err) {
-        body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${err.message}</div>`;
+        body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
       }
     };
 

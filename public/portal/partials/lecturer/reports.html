@@ -193,7 +193,10 @@
   async function load() {
     try {
       // Append a timestamp to the URL to bypass any aggressive caching on Render/Neon
-      const [res, performanceRes] = await Promise.all([\n        core.portalFetch(`/api/lecturer/reports?t=${Date.now()}`),\n        core.portalFetch(`/api/lecturer/performance?t=${Date.now()}`)\n      ]);
+      const [res, performanceRes] = await Promise.all([
+        core.portalFetch(`/api/lecturer/reports?t=${Date.now()}`),
+        core.portalFetch(`/api/lecturer/performance?t=${Date.now()}`)
+      ]);
       PERFORMANCE_ROWS = performanceRes.data || [];
       renderPerformanceMonitoring();
       

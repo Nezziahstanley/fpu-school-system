@@ -1074,6 +1074,58 @@ router.get('/reports', only, async (req, res, next) => {
 });
 
 // ============================================================
+// STUDENT PERFORMANCE MONITORING
+// ============================================================
+router.get('/performance', only, async (req, res, next) => {
+  try {
+    const result = await db.execute(sql`
+      SELECT cr.student_id AS "studentId", u.first_name AS "firstName",
+        u.last_name AS "lastName", u.matric_number AS "matricNumber",
+        c.id AS "courseId", c.code AS "courseCode", c.title AS "courseTitle",
+        a.session_id AS "sessionId", a.semester AS "semester",
+        r.score AS "score", r.grade AS "grade",
+        COALESCE(att_stats.total_sessions, 0)::int AS "totalSessions",
+        COALESCE(att_stats.attended_sessions, 0)::int AS "attendedSessions",
+        CASE WHEN COALESCE(att_stats.total_sessions, 0) > 0
+          THEN ROUND((att_stats.attended_sessions::numeric / att_stats.total_sessions) * 100)::int
+          ELSE NULL END AS "attendancePercentage"
+      FROM course_allocations a
+      INNER JOIN courses c ON c.id = a.course_id
+      INNER JOIN course_registrations cr ON cr.course_id = a.course_id
+        AND cr.session_id = a.session_id AND cr.semester = a.semester
+        AND cr.status = 'approved'
+      INNER JOIN users u ON u.id = cr.student_id
+      LEFT JOIN results r ON r.student_id = cr.student_id AND r.course_id = cr.course_id
+        AND r.session_id = cr.session_id AND r.semester = cr.semester
+      LEFT JOIN LATERAL (
+        SELECT COUNT(DISTINCT att.date)::int AS total_sessions,
+          COUNT(DISTINCT att.date) FILTER (WHERE LOWER(att.status) IN ('present', 'late'))::int AS attended_sessions
+        FROM attendance att
+        WHERE att.lecturer_id = a.lecturer_id AND att.course_id = a.course_id
+          AND att.session_id = a.session_id AND att.semester = a.semester
+          AND att.student_id = cr.student_id
+      ) att_stats ON TRUE
+      WHERE a.lecturer_id = ${req.user.id} AND a.status <> 'cancelled'
+      ORDER BY c.code, u.last_name, u.first_name
+      LIMIT 5000
+    `);
+    const data = (result.rows || []).map(row => {
+      const score = row.score == null ? null : Number(row.score);
+      const attendancePercentage = row.attendancePercentage == null ? null : Number(row.attendancePercentage);
+      const flags = [];
+      if (score !== null && score < 40) flags.push('Low result score');
+      if (attendancePercentage !== null && attendancePercentage < 75) flags.push('Low attendance');
+      const riskLevel = flags.length > 1 ? 'high' : flags.length ? 'watch' : score === null && attendancePercentage === null ? 'unmonitored' : 'good';
+      return { ...row, score, attendancePercentage, riskLevel, flags };
+    });
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[lecturer/performance] Error:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load student performance monitoring.', detail: err.message });
+  }
+});
+
+// ============================================================
 // TIMETABLE / PROFILE / SECURITY
 // ============================================================
 router.get('/timetable', only, async (req, res, next) => {

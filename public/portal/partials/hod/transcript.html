@@ -281,9 +281,11 @@ console.log('[Broad Sheet] Script loaded.');
         const levelLabel = res.levelLabel || fullLevel;
 
         if (!d.length) {
+          LAST_BS = null;
           container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No students found.</div>';
           return;
         }
+        LAST_BS = { data:d, coursesFirst, coursesSecond, department, levelLabel, semester };
 
         let bodyHtml = '';
         let titleLine = '';
@@ -312,8 +314,8 @@ console.log('[Broad Sheet] Script loaded.');
               </div>
 
               <div class="bs-meta">
-                <div><strong>Department:</strong> ${department}</div>
-                <div><strong>Level:</strong> ${levelLabel}</div>
+                <div><strong>Department:</strong> ${esc(department)}</div>
+                <div><strong>Level:</strong> ${esc(levelLabel)}</div>
                 <div><strong>Semester:</strong> ${semester === 'both' ? 'FIRST + SECOND' : (semester === 'first' ? 'FIRST' : 'SECOND')}</div>
               </div>
 
@@ -327,34 +329,37 @@ console.log('[Broad Sheet] Script loaded.');
             </div>
           </div>
         `;
+        container.querySelectorAll('.bs-row-hover').forEach(row => {
+          row.addEventListener('click', () => window.__bsViewStudent(Number(row.dataset.studentId), row.dataset.studentName || '', row.dataset.studentMatric || ''));
+        });
 
       } catch (err) {
         console.error('[Broad Sheet] Error:', err);
-        container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${err.message}</div>`;
+        container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
       }
     });
 
     // --- Single semester renderer ---
     function renderSingleSemester(data, courses, semester) {
-      const courseHeaders = courses.map(c => `<th style="min-width:28px;">${c.code}</th>`).join('');
+      const courseHeaders = courses.map(c => `<th style="min-width:28px;">${esc(c.code)}</th>`).join('');
 
       const rows = data.map((s, i) => {
         const semData = semester === 'first' ? s.first : s.second;
         const courseCells = courses.map(c => {
           const grade = semData.grades[c.code]?.grade || '-';
           const cls = grade === 'F' ? 'f' : '';
-          return `<td class="${cls}">${grade}</td>`;
+          return `<td class="${cls}">${esc(grade)}</td>`;
         }).join('');
         return `
-          <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+          <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
             <td>${i + 1}</td>
-            <td class="left name">${s.matricNumber}</td>
-            <td class="left name">${s.name}</td>
+            <td class="left name">${esc(s.matricNumber)}</td>
+            <td class="left name">${esc(s.name)}</td>
             ${courseCells}
             <td><strong>${semData.tci}</strong></td>
             <td><strong>${semData.tgp}</strong></td>
             <td><strong>${semData.gpa}</strong></td>
-            <td class="remark">${s.remark}</td>
+            <td class="remark">${esc(s.remark)}</td>
           </tr>
         `;
       }).join('');
@@ -415,7 +420,7 @@ console.log('[Broad Sheet] Script loaded.');
             </thead>
             <tbody>
               ${data.map((s, i) => `
-                <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+                <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
                   <td>${i + 1}</td>
                   <td class="left name">${s.matricNumber}</td>
                   <td class="left name">${s.name}</td>
@@ -451,7 +456,7 @@ console.log('[Broad Sheet] Script loaded.');
           return `<td class="${cls}">${grade}</td>`;
         }).join('');
         return `
-          <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+          <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
             <td>${i + 1}</td>
             <td class="left name" style="font-size:8px;">${s.matricNumber}</td>
             <td class="left name" style="font-size:8px;">${s.name}</td>
@@ -547,7 +552,7 @@ console.log('[Broad Sheet] Script loaded.');
           totalAllPoints += totalPoints;
           html += `
             <div style="margin-bottom:1.5rem;">
-              <h3 style="margin:0 0 .5rem;font-size:.95rem;font-weight:800;color:#065f46;border-bottom:2px solid #065f46;padding-bottom:.35rem;">${title}</h3>
+              <h3 style="margin:0 0 .5rem;font-size:.95rem;font-weight:800;color:#065f46;border-bottom:2px solid #065f46;padding-bottom:.35rem;">${esc(title)}</h3>
               <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
                 <thead>
                   <tr style="background:#f8fafc;">

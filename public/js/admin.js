@@ -3073,7 +3073,7 @@ async function loadTimetableIndex() {
 
     const byDept = new Map();
     for (const d of depts) {
-      byDept.set(d.id, { dept: d, slots: [], draft: 0, pending: 0, approved: 0 });
+      byDept.set(Number(d.id), { dept: d, slots: [], draft: 0, pending: 0, approved: 0 });
     }
 
     for (const s of slots) {

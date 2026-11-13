@@ -1,5 +1,6 @@
 <style id="hod-unified-design">#main-view,.hod-page,#main-view *{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}#main-view h1,#main-view h2,#main-view h3,#main-view h4{letter-spacing:-.025em;font-weight:750}#main-view .page-head,#main-view .greeting{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}#main-view .page-head h1,#main-view .page-head h2,#main-view .greeting h1,#main-view .greeting h2{color:#fff!important;margin:0;font-size:clamp(1.2rem,2.4vw,1.65rem);line-height:1.2}#main-view .page-head p,#main-view .greeting .sub{color:#d9f5e8!important;margin:.35rem 0 0}#main-view .page-head .actions{display:flex;gap:.55rem;flex-wrap:wrap}#main-view .stat-grid{gap:1rem}#main-view .stat,#main-view .panel,#main-view .filter-bar{border-radius:14px}#main-view .panel{overflow:hidden}#main-view .panel-head{padding:1rem 1.15rem}#main-view .data-table th{font-size:.7rem;letter-spacing:.065em;text-transform:uppercase}#main-view input,#main-view select,#main-view textarea,#main-view button{font:inherit}@media(max-width:640px){#main-view .page-head,#main-view .greeting{padding:1.05rem;border-radius:14px}#main-view .page-head .actions{width:100%}}</style>
 <!-- Portal → HOD → Department Reports -->
+<style id="hod-section-hero-style">.hod-section-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}.hod-section-hero h2{margin:0!important;color:#fff!important;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800;line-height:1.2}.hod-section-hero p{margin:.35rem 0 0!important;color:#d9f5e8!important}.hod-section-hero .actions{display:flex;gap:.55rem;flex-wrap:wrap}@media(max-width:640px){.hod-section-hero{padding:1.05rem;border-radius:14px}}</style>
 <section class="hod-reports" style="display:grid;gap:1rem;">
 <style>
 .hod-reports .hr-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
@@ -15,8 +16,8 @@
 @media(max-width:480px){.hod-reports .hr-grid{grid-template-columns:1fr}}
 @media print{.hod-reports .hr-actions{display:none}}
 </style>
-<div class="hr-head"><div><h2 style="margin:0 0 .25rem">Department Reports</h2><div style="color:var(--text-muted,#64748b)">Students, staffing, course allocation and result workflow.</div></div>
-<div class="hr-actions" style="display:flex;gap:.5rem"><button class="hr-btn" id="hr-refresh" type="button">Refresh</button><button class="hr-btn" id="hr-print" type="button" style="background:#334155">Print</button></div></div>
+<div class="hr-head hod-section-hero"><div><h2>Department Reports</h2><p>Students, staffing, course allocation and result workflow.</p></div>
+<div class="hr-actions actions" style="display:flex;gap:.5rem"><button class="hr-btn" id="hr-refresh" type="button">Refresh</button><button class="hr-btn" id="hr-print" type="button" style="background:#334155">Print</button></div></div>
 <div class="hr-grid">
 <div class="hr-card"><div class="hr-label">Students</div><div class="hr-value" id="hr-students">—</div></div>
 <div class="hr-card"><div class="hr-label">Staff</div><div class="hr-value" id="hr-staff">—</div></div>

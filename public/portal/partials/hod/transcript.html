@@ -30,7 +30,7 @@
       </select>
     </div>
     <button id="bs-generate" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Generate Broad Sheet</button>
-    <button id="bs-print" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;margin-left:auto;">🖨 Print</button>
+    <button id="bs-export" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;margin-left:auto;">↓ Export CSV</button><button id="bs-print" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">🖨 Print</button>
   </div>
 
   <div id="bs-container" style="background:#fff;padding:2rem;border-radius:12px;border:1px solid #e5e7eb;overflow-x:auto;">
@@ -238,6 +238,11 @@ console.log('[Broad Sheet] Script loaded.');
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
+  const esc = value => {
+    const text = String(value == null ? '' : value);
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+  let LAST_BS = null;
 
   function whenReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
@@ -262,6 +267,7 @@ console.log('[Broad Sheet] Script loaded.');
       const baseLevel = parts[0] || 'ND';
       const yearNum = parts[1] || '1';
 
+      LAST_BS = null;
       container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Generating broad sheet…</div>';
 
       try {
@@ -276,9 +282,11 @@ console.log('[Broad Sheet] Script loaded.');
         const levelLabel = res.levelLabel || fullLevel;
 
         if (!d.length) {
+          LAST_BS = null;
           container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No students found.</div>';
           return;
         }
+        LAST_BS = { data:d, coursesFirst, coursesSecond, department, levelLabel, semester };
 
         let bodyHtml = '';
         let titleLine = '';
@@ -307,8 +315,8 @@ console.log('[Broad Sheet] Script loaded.');
               </div>
 
               <div class="bs-meta">
-                <div><strong>Department:</strong> ${department}</div>
-                <div><strong>Level:</strong> ${levelLabel}</div>
+                <div><strong>Department:</strong> ${esc(department)}</div>
+                <div><strong>Level:</strong> ${esc(levelLabel)}</div>
                 <div><strong>Semester:</strong> ${semester === 'both' ? 'FIRST + SECOND' : (semester === 'first' ? 'FIRST' : 'SECOND')}</div>
               </div>
 
@@ -322,34 +330,38 @@ console.log('[Broad Sheet] Script loaded.');
             </div>
           </div>
         `;
+        container.querySelectorAll('.bs-row-hover').forEach(row => {
+          row.addEventListener('click', () => window.__bsViewStudent(Number(row.dataset.studentId), row.dataset.studentName || '', row.dataset.studentMatric || ''));
+        });
 
       } catch (err) {
+        LAST_BS = null;
         console.error('[Broad Sheet] Error:', err);
-        container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${err.message}</div>`;
+        container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
       }
     });
 
     // --- Single semester renderer ---
     function renderSingleSemester(data, courses, semester) {
-      const courseHeaders = courses.map(c => `<th style="min-width:28px;">${c.code}</th>`).join('');
+      const courseHeaders = courses.map(c => `<th style="min-width:28px;">${esc(c.code)}</th>`).join('');
 
       const rows = data.map((s, i) => {
         const semData = semester === 'first' ? s.first : s.second;
         const courseCells = courses.map(c => {
           const grade = semData.grades[c.code]?.grade || '-';
           const cls = grade === 'F' ? 'f' : '';
-          return `<td class="${cls}">${grade}</td>`;
+          return `<td class="${cls}">${esc(grade)}</td>`;
         }).join('');
         return `
-          <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+          <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
             <td>${i + 1}</td>
-            <td class="left name">${s.matricNumber}</td>
-            <td class="left name">${s.name}</td>
+            <td class="left name">${esc(s.matricNumber)}</td>
+            <td class="left name">${esc(s.name)}</td>
             ${courseCells}
-            <td><strong>${semData.tci}</strong></td>
-            <td><strong>${semData.tgp}</strong></td>
-            <td><strong>${semData.gpa}</strong></td>
-            <td class="remark">${s.remark}</td>
+            <td><strong>${esc(semData.tci)}</strong></td>
+            <td><strong>${esc(semData.tgp)}</strong></td>
+            <td><strong>${esc(semData.gpa)}</strong></td>
+            <td class="remark">${esc(s.remark)}</td>
           </tr>
         `;
       }).join('');
@@ -410,20 +422,20 @@ console.log('[Broad Sheet] Script loaded.');
             </thead>
             <tbody>
               ${data.map((s, i) => `
-                <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+                <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
                   <td>${i + 1}</td>
-                  <td class="left name">${s.matricNumber}</td>
-                  <td class="left name">${s.name}</td>
-                  <td>${s.first.tci}</td>
-                  <td>${s.first.tgp}</td>
-                  <td><strong>${s.first.gpa}</strong></td>
-                  <td>${s.second.tci}</td>
-                  <td>${s.second.tgp}</td>
-                  <td><strong>${s.second.gpa}</strong></td>
-                  <td>${s.tciTotal}</td>
-                  <td>${s.tgpTotal}</td>
-                  <td><strong>${s.cgpa}</strong></td>
-                  <td class="remark">${s.remark}</td>
+                  <td class="left name">${esc(s.matricNumber)}</td>
+                  <td class="left name">${esc(s.name)}</td>
+                  <td>${esc(s.first.tci)}</td>
+                  <td>${esc(s.first.tgp)}</td>
+                  <td><strong>${esc(s.first.gpa)}</strong></td>
+                  <td>${esc(s.second.tci)}</td>
+                  <td>${esc(s.second.tgp)}</td>
+                  <td><strong>${esc(s.second.gpa)}</strong></td>
+                  <td>${esc(s.tciTotal)}</td>
+                  <td>${esc(s.tgpTotal)}</td>
+                  <td><strong>${esc(s.cgpa)}</strong></td>
+                  <td class="remark">${esc(s.remark)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -436,24 +448,24 @@ console.log('[Broad Sheet] Script loaded.');
     function renderMiniTable(data, courses, semester) {
       if (!courses.length) return '<div style="padding:1rem;text-align:center;color:#94a3b8;">No courses.</div>';
 
-      const headers = courses.map(c => `<th style="min-width:24px;">${c.code}</th>`).join('');
+      const headers = courses.map(c => `<th style="min-width:24px;">${esc(c.code)}</th>`).join('');
 
       const rows = data.map((s, i) => {
         const sem = semester === 'first' ? s.first : s.second;
         const cells = courses.map(c => {
           const grade = sem.grades[c.code]?.grade || '-';
           const cls = grade === 'F' ? 'f' : '';
-          return `<td class="${cls}">${grade}</td>`;
+          return `<td class="${cls}">${esc(grade)}</td>`;
         }).join('');
         return `
-          <tr class="bs-row-hover" onclick="window.__bsViewStudent(${s.id}, '${String(s.name).replace(/'/g, "\\'")}', '${s.matricNumber}')">
+          <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
             <td>${i + 1}</td>
-            <td class="left name" style="font-size:8px;">${s.matricNumber}</td>
-            <td class="left name" style="font-size:8px;">${s.name}</td>
+            <td class="left name" style="font-size:8px;">${esc(s.matricNumber)}</td>
+            <td class="left name" style="font-size:8px;">${esc(s.name)}</td>
             ${cells}
-            <td><strong>${sem.tci}</strong></td>
-            <td><strong>${sem.tgp}</strong></td>
-            <td><strong>${sem.gpa}</strong></td>
+            <td><strong>${esc(sem.tci)}</strong></td>
+            <td><strong>${esc(sem.tgp)}</strong></td>
+            <td><strong>${esc(sem.gpa)}</strong></td>
           </tr>
         `;
       }).join('');
@@ -476,6 +488,69 @@ console.log('[Broad Sheet] Script loaded.');
         </table>
       `;
     }
+
+
+    function csvCell(value) {
+      let text = String(value == null ? '' : value);
+      if (/^\s*[=+@-]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function exportBroadSheet() {
+      if (!LAST_BS || !LAST_BS.data.length) {
+        core.showToast && core.showToast('Generate a broad sheet before exporting.', 'warning');
+        return;
+      }
+      const data = LAST_BS.data;
+      const coursesFirst = LAST_BS.coursesFirst;
+      const coursesSecond = LAST_BS.coursesSecond;
+      const semester = LAST_BS.semester;
+      let rows;
+      let filename;
+
+      if (semester === 'both') {
+        const headers = ['S/N','Matric Number','Student Name']
+          .concat(coursesFirst.map(course => 'First ' + course.code))
+          .concat(['First TCI','First TGP','First GPA'])
+          .concat(coursesSecond.map(course => 'Second ' + course.code))
+          .concat(['Second TCI','Second TGP','Second GPA','Overall TCI','Overall TGP','CGPA','Remark']);
+        rows = [headers].concat(data.map((student,index) => [
+          index + 1, student.matricNumber, student.name,
+          ...coursesFirst.map(course => student.first.grades[course.code]?.grade || '-'),
+          student.first.tci, student.first.tgp, student.first.gpa,
+          ...coursesSecond.map(course => student.second.grades[course.code]?.grade || '-'),
+          student.second.tci, student.second.tgp, student.second.gpa,
+          student.tciTotal, student.tgpTotal, student.cgpa, student.remark
+        ]));
+        filename = 'hod-full-session-broad-sheet.csv';
+      } else {
+        const courses = semester === 'first' ? coursesFirst : coursesSecond;
+        const key = semester === 'first' ? 'first' : 'second';
+        const headers = ['S/N','Matric Number','Student Name']
+          .concat(courses.map(course => course.code))
+          .concat(['TCI','TGP','GPA','Remark']);
+        rows = [headers].concat(data.map((student,index) => {
+          const sem = student[key];
+          return [index + 1, student.matricNumber, student.name]
+            .concat(courses.map(course => sem.grades[course.code]?.grade || '-'))
+            .concat([sem.tci,sem.tgp,sem.gpa,student.remark]);
+        }));
+        filename = 'hod-' + semester + '-semester-broad-sheet.csv';
+      }
+
+      const csv = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('bs-export')?.addEventListener('click', exportBroadSheet);
 
     printBtn.addEventListener('click', () => window.print());
 
@@ -512,9 +587,9 @@ console.log('[Broad Sheet] Script loaded.');
             <h2 style="margin:0;font-size:1.15rem;font-weight:800;color:#065f46;">Federal Polytechnic Ugep</h2>
             <p style="margin:.15rem 0 0;color:#64748b;font-size:.78rem;">Official Academic Transcript</p>
             <div style="margin-top:.75rem;padding:.75rem;background:#f8fafc;border-radius:8px;display:inline-block;text-align:left;">
-              <div style="font-size:.82rem;"><strong>Name:</strong> ${student.firstName || ''} ${student.lastName || ''}</div>
-              <div style="font-size:.82rem;"><strong>Matric:</strong> ${student.matricNumber || ''}</div>
-              <div style="font-size:.82rem;"><strong>Level:</strong> ${student.level || ''}</div>
+              <div style="font-size:.82rem;"><strong>Name:</strong> ${esc(student.firstName || '')} ${esc(student.lastName || '')}</div>
+              <div style="font-size:.82rem;"><strong>Matric:</strong> ${esc(student.matricNumber || '')}</div>
+              <div style="font-size:.82rem;"><strong>Level:</strong> ${esc(student.level || '')}</div>
             </div>
           </div>
         `;
@@ -528,11 +603,11 @@ console.log('[Broad Sheet] Script loaded.');
             totalPoints += (unit * points);
             return `
               <tr>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${r.courseCode}</td>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${r.courseTitle}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseCode)}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;">${esc(r.courseTitle)}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${unit}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${r.score != null ? Number(r.score).toFixed(1) : '—'}</td>
-                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:800;color:#065f46;">${r.grade || '—'}</td>
+                <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;font-weight:800;color:#065f46;">${esc(r.grade || '—')}</td>
                 <td style="padding:.5rem .75rem;border-bottom:1px solid #e5e7eb;text-align:center;">${points}</td>
               </tr>
             `;
@@ -542,7 +617,7 @@ console.log('[Broad Sheet] Script loaded.');
           totalAllPoints += totalPoints;
           html += `
             <div style="margin-bottom:1.5rem;">
-              <h3 style="margin:0 0 .5rem;font-size:.95rem;font-weight:800;color:#065f46;border-bottom:2px solid #065f46;padding-bottom:.35rem;">${title}</h3>
+              <h3 style="margin:0 0 .5rem;font-size:.95rem;font-weight:800;color:#065f46;border-bottom:2px solid #065f46;padding-bottom:.35rem;">${esc(title)}</h3>
               <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
                 <thead>
                   <tr style="background:#f8fafc;">
@@ -577,7 +652,7 @@ console.log('[Broad Sheet] Script loaded.');
         `;
         body.innerHTML = html;
       } catch (err) {
-        body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${err.message}</div>`;
+        body.innerHTML = `<div style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
       }
     };
 

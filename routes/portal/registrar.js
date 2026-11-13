@@ -146,7 +146,8 @@ router.get('/trends', only, async (req, res, next) => {
 // ============================================================
 router.get('/students', only, async (req, res, next) => {
   try {
-    const { computeStudentCGPA } = require('../../utils/gpa');
+    const { computeStudentCGPA, resolveResultPoints } = require('../../utils/gpa');
+    const { getActiveGradeScale } = require('../../utils/gradeScale');
 
     const rows = await db
       .select({
@@ -188,6 +189,7 @@ router.get('/students', only, async (req, res, next) => {
       .from(results)
       .leftJoin(courses, eq(results.courseId, courses.id))
       .where(and(inArray(results.studentId, rows.map((student) => student.id)), eq(results.status, 'published'))) : [];
+    const gradeScale = await getActiveGradeScale();
     const resultsByStudent = new Map();
     publishedRows.forEach((row) => {
       if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);
@@ -197,11 +199,11 @@ router.get('/students', only, async (req, res, next) => {
       const studentResults = resultsByStudent.get(student.id) || [];
       const summary = computeStudentCGPA(studentResults.map((row) => ({
         unit: Number(row.course?.unit) || 0,
-        points: Number(row.result?.points) || 0,
+        points: resolveResultPoints(row.result, gradeScale),
         sessionId: row.result?.sessionId,
         semester: row.result?.semester,
       })));
-      return { ...student, cgpa: summary.cgpa || 0 };
+      return { ...student, cgpa: studentResults.length ? summary.cgpa : null };
     });
 
     return res.json({ success: true, data });

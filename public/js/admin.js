@@ -3126,11 +3126,8 @@ async function loadTimetableIndex() {
     }
 
     grid.innerHTML = visible.map((b) => {
-      const units = b.slots.reduce((acc, s) => {
-        const slot = s.slot || s;
-        const c = courseById.get(Number(slot.courseId));
-        return acc + (Number(c?.unit) || 0);
-      }, 0);
+      const uniqueCourseIds = new Set(b.slots.map(s => Number((s.slot || s).courseId)));
+      const units = [...uniqueCourseIds].reduce((acc, courseId) => acc + (Number(courseById.get(courseId)?.unit) || 0), 0);
       const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
       const isEmpty = b.slots.length === 0;
       const school = schoolMap.get(Number(b.dept.schoolId));
@@ -15303,7 +15300,7 @@ async function loadTimetableSheet() {
     const exportBtn = document.getElementById('tsheet-export');
     if (exportBtn) {
       exportBtn.onclick = () => {
-        const table = root.querySelector('.tt-grid-table');
+        const table = root.querySelector('.tt-slot-details-table') || root.querySelector('.tt-grid-table');
         if (table) exportTableAsCSV(table, `${deptName}-${selectedLevel}-${semester}-timetable.csv`);
         else showToast('⚠️ No table to export.', 'warning');
       };
@@ -15515,7 +15512,7 @@ async function loadTimetableSheet() {
           <span style="padding:5px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:800;">${validSlots.length} timetable slots</span>
         </div>
         <div style="overflow:auto;">
-          <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
+          <table class="tt-slot-details-table" style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
             <thead style="background:#f1f5f9;"><tr>${['Day','Time','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
             <tbody>${validSlots.map(row => {
               const slot = row.slot || row;

@@ -245,6 +245,81 @@ router.get('/students', only, async (req, res, next) => {
 });
 
 // ============================================================
+// COURSE TEACHING PLAN — lecturer-scoped weekly topic coverage
+// ============================================================
+async function lecturerPlanAllocation(req, res) {
+  const courseId = Number(req.params.courseId);
+  const sessionId = Number(req.query.sessionId || req.body?.sessionId);
+  const semester = String(req.query.semester || req.body?.semester || '').toLowerCase();
+  if (!Number.isInteger(courseId) || courseId < 1 || !Number.isInteger(sessionId) || sessionId < 1 || !['first','second'].includes(semester)) {
+    res.status(400).json({ success:false, error:'A valid course, session and semester are required.' });
+    return null;
+  }
+  const [allocation] = await db.select({ id:courseAllocations.id }).from(courseAllocations)
+    .where(and(eq(courseAllocations.lecturerId,req.user.id),eq(courseAllocations.courseId,courseId),
+      eq(courseAllocations.sessionId,sessionId),eq(courseAllocations.semester,semester),
+      sql`${courseAllocations.status} <> 'cancelled'`)).limit(1);
+  if (!allocation) { res.status(403).json({ success:false,error:'You are not allocated to this course/session.' }); return null; }
+  return { courseId, sessionId, semester };
+}
+
+router.get('/teaching-plan/:courseId', only, async (req,res) => {
+  try {
+    const scope=await lecturerPlanAllocation(req,res); if(!scope)return;
+    const result=await db.execute(sql`
+      SELECT id, week_number AS "weekNumber", topic, learning_outcomes AS "learningOutcomes",
+        teaching_method AS "teachingMethod", planned_date AS "plannedDate", status,
+        covered_at AS "coveredAt", notes
+      FROM course_teaching_topics
+      WHERE lecturer_id=${req.user.id} AND course_id=${scope.courseId}
+        AND session_id=${scope.sessionId} AND semester=${scope.semester}
+      ORDER BY week_number, id
+    `);
+    return res.json({success:true,data:result.rows||[]});
+  } catch(err) { console.error('[lecturer/teaching-plan] GET',err); return res.status(500).json({success:false,error:'Unable to load teaching plan.'}); }
+});
+
+router.post('/teaching-plan/:courseId', only, async (req,res) => {
+  try {
+    const scope=await lecturerPlanAllocation(req,res); if(!scope)return;
+    const body=req.body||{};
+    const week=Number(body.weekNumber), topic=String(body.topic||'').trim();
+    if(!Number.isInteger(week)||week<1||week>52||!topic||topic.length>200) return res.status(400).json({success:false,error:'Enter a week from 1–52 and a topic (maximum 200 characters).'});
+    const [saved]= (await db.execute(sql`
+      INSERT INTO course_teaching_topics
+        (lecturer_id,course_id,session_id,semester,week_number,topic,learning_outcomes,teaching_method,planned_date,notes)
+      VALUES (${req.user.id},${scope.courseId},${scope.sessionId},${scope.semester},${week},${topic},
+        ${String(body.learningOutcomes||'').slice(0,2000)},${String(body.teachingMethod||'').slice(0,120)},
+        ${body.plannedDate||null},${String(body.notes||'').slice(0,2000)})
+      ON CONFLICT (lecturer_id,course_id,session_id,semester,week_number)
+      DO UPDATE SET topic=EXCLUDED.topic,learning_outcomes=EXCLUDED.learning_outcomes,
+        teaching_method=EXCLUDED.teaching_method,planned_date=EXCLUDED.planned_date,notes=EXCLUDED.notes,updated_at=NOW()
+      RETURNING id,week_number AS "weekNumber",topic,learning_outcomes AS "learningOutcomes",
+        teaching_method AS "teachingMethod",planned_date AS "plannedDate",status,
+        covered_at AS "coveredAt",notes
+    `)).rows;
+    return res.json({success:true,data:saved});
+  } catch(err) { console.error('[lecturer/teaching-plan] POST',err); return res.status(500).json({success:false,error:'Unable to save teaching topic.'}); }
+});
+
+router.put('/teaching-plan/:courseId/:topicId', only, async (req,res) => {
+  try {
+    const scope=await lecturerPlanAllocation(req,res); if(!scope)return;
+    const status=String(req.body?.status||'');
+    if(!['planned','completed','deferred'].includes(status)) return res.status(400).json({success:false,error:'Invalid topic status.'});
+    const result=await db.execute(sql`
+      UPDATE course_teaching_topics SET status=${status},
+        covered_at=CASE WHEN ${status}='completed' THEN NOW() ELSE NULL END,updated_at=NOW()
+      WHERE id=${Number(req.params.topicId)} AND lecturer_id=${req.user.id}
+        AND course_id=${scope.courseId} AND session_id=${scope.sessionId} AND semester=${scope.semester}
+      RETURNING id,status,covered_at AS "coveredAt"
+    `);
+    if(!result.rows?.length)return res.status(404).json({success:false,error:'Teaching topic not found.'});
+    return res.json({success:true,data:result.rows[0]});
+  } catch(err) { console.error('[lecturer/teaching-plan] PUT',err); return res.status(500).json({success:false,error:'Unable to update topic status.'}); }
+});
+
+// ============================================================
 // ATTENDANCE — lecturer course cards, approved timetable and course-scoped records
 // ============================================================
 router.get('/attendance', only, async (req, res, next) => {

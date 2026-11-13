@@ -563,15 +563,96 @@
 
   function printTranscriptOnly() {
     const article = $('tr-modal-body')?.querySelector('.tr-printable');
-    if (!article) return;
-    const frame = document.createElement('iframe'); frame.setAttribute('aria-hidden','true');
-    frame.style.cssText='position:fixed;width:0;height:0;right:0;bottom:0;border:0;visibility:hidden'; document.body.appendChild(frame);
-    const doc=frame.contentDocument;
-    const css='@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111827;font-family:Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}.tr-printable{position:relative;width:186mm;max-width:186mm;margin:0 auto;padding:0;background:#fff;color:#111827;font-size:10pt}.tr-watermark{position:absolute;top:65mm;left:0;right:0;margin:auto;width:75mm;height:75mm;object-fit:contain;opacity:.07}.tr-content{position:relative;z-index:1}.tr-letterhead{text-align:center;border-bottom:3px double #065f46;padding-bottom:5mm}.tr-letterhead img{width:18mm;height:18mm;object-fit:contain}.tr-letterhead h1{margin:2mm 0 1mm;color:#065f46;font-size:16pt;text-transform:uppercase}.tr-letterhead p{margin:1mm;color:#64748b;font-size:8pt}.tr-title{text-align:center;margin:5mm 0;font-size:12pt;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-decoration:underline}.tr-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3mm 5mm;margin:4mm 0 5mm}.tr-info-grid>div{border-bottom:1px solid #ddd;padding:2mm 1mm}.tr-info-grid span{display:block;color:#64748b;font-size:7pt;font-weight:800;text-transform:uppercase}.tr-info-grid strong{font-size:8pt}.tr-results-table{width:100%;border-collapse:collapse;font-size:7.5pt}.tr-results-table thead{display:table-header-group}.tr-results-table tr{break-inside:avoid;page-break-inside:avoid}.tr-results-table th{background:#065f46!important;color:#fff!important;padding:2mm 1.5mm;text-align:left}.tr-results-table td{padding:1.7mm 1.5mm;border:1px solid #ddd}.tr-results-table .center{text-align:center}.tr-summary{display:flex;justify-content:space-between;margin-top:4mm;padding-top:3mm;border-top:2px solid #065f46}.tr-cgpa-big{font-size:16pt;font-weight:900;color:#065f46}.tr-signature{display:flex;justify-content:space-between;align-items:flex-end;gap:10mm;margin-top:10mm;font-size:8pt}.tr-sign-block{min-width:48mm;text-align:center}.tr-sign-block img{display:block;max-width:42mm;max-height:15mm;object-fit:contain;margin:0 auto 1mm}.tr-sign-block>div:first-of-type{border-top:1px solid #111;padding-top:1.5mm}.tr-footer{margin-top:5mm;padding-top:2mm;border-top:1px solid #ddd;text-align:center;font-size:7pt;color:#64748b}';
-    doc.open();doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Student Transcript</title><style>'+css+'</style></head><body>'+article.outerHTML+'</body></html>');doc.close();
-    const win=frame.contentWindow,cleanup=()=>{if(frame.isConnected)frame.remove()};win.addEventListener('afterprint',cleanup,{once:true});
-    Promise.all(Array.from(doc.images).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=resolve;img.onerror=resolve}))).then(()=>{win.focus();win.print();setTimeout(cleanup,60000)});
+    if (!article) {
+      if (typeof window.showToast === 'function') window.showToast('Transcript content is not ready to print.', 'warning');
+      return;
+    }
+
+    // Keep the print frame in the document flow for printing. The previous
+    // visibility:hidden + 0x0 frame caused browsers to produce a blank page.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('title', 'Transcript print preview');
+    frame.setAttribute('aria-label', 'Transcript print preview');
+    frame.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:100vh;border:0;z-index:2147483000;background:#fff;';
+    document.body.appendChild(frame);
+
+    const cleanup = () => {
+      if (frame.isConnected) frame.remove();
+    };
+
+    try {
+      const doc = frame.contentDocument;
+      const win = frame.contentWindow;
+      if (!doc || !win) throw new Error('Your browser could not prepare the transcript print view.');
+
+      const css = `
+        @page { size: A4 portrait; margin: 12mm; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #fff; color: #111827; font-family: Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { padding: 0; }
+        .tr-printable { position: relative; width: 186mm; max-width: 100%; margin: 0 auto; padding: 0; background: #fff; color: #111827; font-size: 10pt; }
+        .tr-watermark { position: absolute; top: 65mm; left: 0; right: 0; margin: auto; width: 75mm; height: 75mm; object-fit: contain; opacity: .07; }
+        .tr-content { position: relative; z-index: 1; }
+        .tr-letterhead { text-align: center; border-bottom: 3px double #065f46; padding-bottom: 5mm; }
+        .tr-letterhead img { width: 18mm; height: 18mm; object-fit: contain; }
+        .tr-letterhead h1 { margin: 2mm 0 1mm; color: #065f46; font-size: 16pt; text-transform: uppercase; }
+        .tr-letterhead p { margin: 1mm; color: #64748b; font-size: 8pt; }
+        .tr-title { text-align: center; margin: 5mm 0; font-size: 12pt; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; text-decoration: underline; }
+        .tr-info-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3mm 5mm; margin: 4mm 0 5mm; }
+        .tr-info-grid>div { border-bottom: 1px solid #ddd; padding: 2mm 1mm; min-width: 0; }
+        .tr-info-grid span { display: block; color: #64748b; font-size: 7pt; font-weight: 800; text-transform: uppercase; }
+        .tr-info-grid strong { font-size: 8pt; overflow-wrap: anywhere; }
+        .tr-results-table { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
+        .tr-results-table thead { display: table-header-group; }
+        .tr-results-table tr { break-inside: avoid; page-break-inside: avoid; }
+        .tr-results-table th { background: #065f46 !important; color: #fff !important; padding: 2mm 1.5mm; text-align: left; }
+        .tr-results-table td { padding: 1.7mm 1.5mm; border: 1px solid #ddd; }
+        .tr-results-table .center { text-align: center; }
+        .tr-summary { display: flex; justify-content: space-between; gap: 8mm; margin-top: 4mm; padding-top: 3mm; border-top: 2px solid #065f46; }
+        .tr-cgpa-big { font-size: 16pt; font-weight: 900; color: #065f46; }
+        .tr-signature { display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; margin-top: 10mm; font-size: 8pt; }
+        .tr-sign-block { min-width: 48mm; text-align: center; }
+        .tr-sign-block img { display: block; max-width: 42mm; max-height: 15mm; object-fit: contain; margin: 0 auto 1mm; }
+        .tr-sign-block>div:first-of-type { border-top: 1px solid #111; padding-top: 1.5mm; }
+        .tr-footer { margin-top: 5mm; padding-top: 2mm; border-top: 1px solid #ddd; text-align: center; font-size: 7pt; color: #64748b; }
+        @media print { html, body { width: 100%; height: auto; overflow: visible; } .tr-printable { width: 186mm; max-width: 100%; } }
+      `;
+
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Student Transcript</title><style>' + css + '</style></head><body>' + article.outerHTML + '</body></html>');
+      doc.close();
+
+      const waitForImages = Promise.all(Array.from(doc.images).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+          setTimeout(resolve, 5000);
+        });
+      }));
+      const waitForFonts = doc.fonts && doc.fonts.ready ? doc.fonts.ready.catch(() => {}) : Promise.resolve();
+
+      Promise.all([waitForImages, waitForFonts]).then(() => {
+        win.focus();
+        // Allow the iframe layout and image paints to finish before opening print.
+        setTimeout(() => {
+          try {
+            win.print();
+            win.addEventListener('afterprint', cleanup, { once: true });
+            // Some browsers do not fire afterprint for iframe documents.
+            setTimeout(cleanup, 60000);
+          } catch (printError) {
+            cleanup();
+            if (typeof window.showToast === 'function') window.showToast('Unable to open the print dialog. Please try again.', 'error');
+          }
+        }, 250);
+      });
+    } catch (error) {
+      cleanup();
+      if (typeof window.showToast === 'function') window.showToast(error.message || 'Unable to prepare transcript for printing.', 'error');
+    }
   }
+
   // Wiring
   let searchTimer;
   $('tr-search')?.addEventListener('input', () => {

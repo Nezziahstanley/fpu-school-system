@@ -1,5 +1,18 @@
 <style id="hod-unified-design">#main-view,.hod-page,#main-view *{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}#main-view h1,#main-view h2,#main-view h3,#main-view h4{letter-spacing:-.025em;font-weight:750}#main-view .page-head,#main-view .greeting{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}#main-view .page-head h1,#main-view .page-head h2,#main-view .greeting h1,#main-view .greeting h2{color:#fff!important;margin:0;font-size:clamp(1.2rem,2.4vw,1.65rem);line-height:1.2}#main-view .page-head p,#main-view .greeting .sub{color:#d9f5e8!important;margin:.35rem 0 0}#main-view .page-head .actions{display:flex;gap:.55rem;flex-wrap:wrap}#main-view .stat-grid{gap:1rem}#main-view .stat,#main-view .panel,#main-view .filter-bar{border-radius:14px}#main-view .panel{overflow:hidden}#main-view .panel-head{padding:1rem 1.15rem}#main-view .data-table th{font-size:.7rem;letter-spacing:.065em;text-transform:uppercase}#main-view input,#main-view select,#main-view textarea,#main-view button{font:inherit}@media(max-width:640px){#main-view .page-head,#main-view .greeting{padding:1.05rem;border-radius:14px}#main-view .page-head .actions{width:100%}}</style>
 ﻿<!-- Portal → HOD → Results -->
+<style id="hod-results-workflow-styles">
+.hod-result-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:0 0 .9rem}
+.hod-result-summary article{padding:.85rem 1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
+.hod-result-summary small{display:block;color:#64748b;font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.hod-result-summary strong{display:block;margin-top:.3rem;color:#0f172a;font-size:1.3rem;font-weight:850}
+.hod-result-tools{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;padding:.8rem 1rem;border-bottom:1px solid #e2e8f0;background:#fbfdff}
+.hod-result-tools input,.hod-result-tools select{min-width:150px;padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:.8rem}
+.hod-result-tools input{flex:1 1 220px}
+.hod-result-tools button{padding:.55rem .8rem;border:0;border-radius:8px;background:#065f46;color:#fff;font-size:.78rem;font-weight:800;cursor:pointer}
+.hod-result-count{margin-left:auto;color:#64748b;font-size:.75rem;font-weight:750}
+@media(max-width:650px){.hod-result-summary{grid-template-columns:1fr}.hod-result-count{width:100%;margin-left:0}}
+</style>
+
 <style id="hod-section-hero-style">.hod-section-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}.hod-section-hero h2{margin:0!important;color:#fff!important;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800;line-height:1.2}.hod-section-hero p{margin:.35rem 0 0!important;color:#d9f5e8!important}.hod-section-hero .actions{display:flex;gap:.55rem;flex-wrap:wrap}@media(max-width:640px){.hod-section-hero{padding:1.05rem;border-radius:14px}.hod-section-hero .actions{width:100%}}</style>
 <div style="padding:0;" id="main-view">
   <section class="hod-section-hero"><div><h2>Results Entry</h2><p>Enter, review and approve departmental results</p></div></section>
@@ -27,7 +40,17 @@
           <button id="approve-results-btn" style="padding:.5rem 1rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">✅ Save & Approve</button>
         </div>
       </div>
-      
+      <div class="hod-result-summary">
+        <article><small>Registered Students</small><strong id="hod-entry-total">—</strong></article>
+        <article><small>Results Entered</small><strong id="hod-entry-entered">—</strong></article>
+        <article><small>Awaiting Entry</small><strong id="hod-entry-outstanding">—</strong></article>
+      </div>
+      <div class="hod-result-tools">
+        <input id="hod-entry-search" type="search" placeholder="Search student name or matric number…" aria-label="Search result entry students">
+        <select id="hod-entry-status" aria-label="Filter result entry status"><option value="">All Result Statuses</option><option value="missing">Awaiting Entry</option><option value="draft">Draft</option><option value="verified">Verified</option><option value="published">Published</option></select>
+        <button id="hod-entry-export" type="button">↓ Export CSV</button>
+        <span class="hod-result-count" id="hod-entry-count">0 students</span>
+      </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
           <thead>
@@ -57,6 +80,17 @@
       </div>
     </div>
 
+    <div class="hod-result-summary">
+      <article><small>Verified Courses</small><strong id="hod-verified-courses">—</strong></article>
+      <article><small>Students Ready to Publish</small><strong id="hod-verified-students">—</strong></article>
+      <article><small>Filtered Courses</small><strong id="hod-verified-filtered">—</strong></article>
+    </div>
+    <div class="hod-result-tools">
+      <input id="hod-verified-search" type="search" placeholder="Search course code or title…" aria-label="Search verified results">
+      <select id="hod-verified-level" aria-label="Filter verified results by level"><option value="">All Levels</option><option value="ND">ND</option><option value="HND">HND</option></select>
+      <button id="hod-verified-export" type="button">↓ Export CSV</button>
+      <span class="hod-result-count" id="hod-verified-count">0 courses</span>
+    </div>
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -86,6 +120,8 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let CURRENT_COURSE_ID = null;
+  let CURRENT_STUDENTS = [];
+  let VERIFIED_RESULTS = [];
 
   function calcGrade(total) {
     if (total >= 70) return { grade: 'A', color: '#065f46' };
@@ -124,6 +160,13 @@
     }
   }
 
+  $('hod-entry-search')?.addEventListener('input',applyEntryFilters);
+  $('hod-entry-status')?.addEventListener('change',applyEntryFilters);
+  $('hod-entry-export')?.addEventListener('click',exportEntryCsv);
+  $('hod-verified-search')?.addEventListener('input',renderVerifiedResults);
+  $('hod-verified-level')?.addEventListener('change',renderVerifiedResults);
+  $('hod-verified-export')?.addEventListener('click',exportVerifiedCsv);
+
   $('course-select')?.addEventListener('change', async (e) => {
     const courseId = e.target.value;
     if (!courseId) { $('table-panel').style.display = 'none'; return; }
@@ -137,7 +180,11 @@
 
     try {
       const res = await core.portalFetch(`/api/hod/results/${courseId}`);
-      const students = res.data || [];
+      const students = Array.isArray(res.data) ? res.data : [];
+      CURRENT_STUDENTS = students;
+      $('hod-entry-total').textContent = students.length;
+      $('hod-entry-entered').textContent = students.filter(student => student.score != null).length;
+      $('hod-entry-outstanding').textContent = students.filter(student => student.score == null).length;
       
       if (!students.length) {
         $('students-tbody').innerHTML = '<tr><td colspan="6" style="padding:3rem;text-align:center;color:#94a3b8;">No students registered for this course.</td></tr>';
@@ -155,7 +202,7 @@
         const { grade, color } = calcGrade(total);
 
         return `
-          <tr style="border-bottom:1px solid #f1f5f9;">
+          <tr style="border-bottom:1px solid #f1f5f9;" data-search-text="${esc((s.lastName+' '+s.firstName+' '+(s.matricNumber||'')).toLowerCase())}" data-result-status="${esc(s.resultStatus || 'missing')}">
             <td style="padding:.85rem .75rem;font-weight:700;color:#0f172a;">${esc(s.lastName)}, ${esc(s.firstName)}</td>
             <td style="padding:.85rem .75rem;"><code>${esc(s.matricNumber || '—')}</code></td>
             <td style="padding:.85rem .75rem;text-align:center;"><input type="number" class="score-input" data-student="${s.studentId}" data-field="ca" value="${ca}" min="0" max="30" style="width:60px;padding:.3rem;text-align:center;border:1px solid #cbd5e1;border-radius:4px;" /></td>
@@ -165,6 +212,7 @@
           </tr>
         `;
       }).join('');
+      applyEntryFilters();
 
       document.querySelectorAll('.score-input').forEach(input => {
         input.addEventListener('input', (e) => {
@@ -185,13 +233,51 @@
     }
   });
 
+  function applyEntryFilters() {
+    const query=String($('hod-entry-search')?.value||'').trim().toLowerCase();
+    const status=$('hod-entry-status')?.value||'';
+    const rows=[...$('students-tbody').querySelectorAll('tr[data-search-text]')];
+    let visible=0;
+    rows.forEach(row=>{
+      const rowStatus=(row.dataset.resultStatus==='approved'||row.dataset.resultStatus==='hod_verified')?'verified':row.dataset.resultStatus;
+      const show=(!query||row.dataset.searchText.includes(query))&&(!status||rowStatus===status);
+      row.style.display=show?'':'none';
+      if(show)visible++;
+    });
+    $('hod-entry-count').textContent=visible+' of '+CURRENT_STUDENTS.length+' students';
+  }
+
+  function csvCell(value) {
+    let text=String(value==null?'':value);
+    if(/^\s*[=+@-]/.test(text))text="'"+text;
+    return '"'+text.replace(/"/g,'""')+'"';
+  }
+
+  function exportEntryCsv() {
+    const rows=[...$('students-tbody').querySelectorAll('tr[data-search-text]')].filter(row=>row.style.display!=='none');
+    if(!rows.length){core.showToast&&core.showToast('No visible result rows to export.','warning');return;}
+    const data=[['Student Name','Matric Number','CA Score','Exam Score','Total','Grade','Result Status'],...rows.map(row=>{
+      const cells=row.querySelectorAll('td');
+      const ca=row.querySelector('input[data-field="ca"]')?.value??'';
+      const exam=row.querySelector('input[data-field="exam"]')?.value??'';
+      return [[cells[0]?.textContent||''].join(' ').trim(),cells[1]?.textContent||'',ca,exam,cells[4]?.textContent||'',cells[5]?.textContent||'',row.dataset.resultStatus||'missing'];
+    })];
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-course-results-'+String(CURRENT_COURSE_ID||'').replace(/[^0-9]/g,'')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
+
   function gatherPayload() {
     const payload = [];
     const studentMap = {};
     document.querySelectorAll('.score-input').forEach(input => {
       const studentId = Number(input.dataset.student);
       if (!studentMap[studentId]) studentMap[studentId] = { studentId, ca: 0, exam: 0 };
-      const val = Number(input.value) || 0;
+      const raw=input.value;
+      const val=raw===''?0:Number(raw);
+      if (!Number.isFinite(val)) throw new Error('Enter valid numeric scores.');
+      if (input.dataset.field === 'ca' && (val < 0 || val > 30)) throw new Error('CA scores must be between 0 and 30.');
+      if (input.dataset.field === 'exam' && (val < 0 || val > 70)) throw new Error('Exam scores must be between 0 and 70.');
       if (input.dataset.field === 'ca') studentMap[studentId].ca = val;
       if (input.dataset.field === 'exam') studentMap[studentId].exam = val;
     });
@@ -248,14 +334,25 @@
         throw new Error(res.error || 'Failed to load verified results');
       }
 
-      const data = res.data || [];
+      const data = Array.isArray(res.data) ? res.data : [];
+      VERIFIED_RESULTS = data;
+      renderVerifiedResults();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+    }
+  }
 
-      if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No verified results ready to publish.</td></tr>';
-        return;
-      }
-
-      tbody.innerHTML = data.map(r => `
+  function renderVerifiedResults() {
+    const tbody=$('verified-tbody');
+    const query=String($('hod-verified-search')?.value||'').trim().toLowerCase();
+    const level=$('hod-verified-level')?.value||'';
+    const data=VERIFIED_RESULTS.filter(row=>(!query||[row.courseCode,row.courseTitle,row.level].join(' ').toLowerCase().includes(query))&&(!level||String(row.level||'').toUpperCase()===level));
+    $('hod-verified-courses').textContent=VERIFIED_RESULTS.length;
+    $('hod-verified-students').textContent=VERIFIED_RESULTS.reduce((sum,row)=>sum+Number(row.studentCount||0),0);
+    $('hod-verified-filtered').textContent=data.length;
+    $('hod-verified-count').textContent=data.length+' of '+VERIFIED_RESULTS.length+' courses';
+    if(!data.length){tbody.innerHTML='<tr><td colspan="5" style="padding:3rem;text-align:center;color:#64748b;">'+(VERIFIED_RESULTS.length?'No verified results match your filters.':'No verified results ready to publish.')+'</td></tr>';return;}
+    tbody.innerHTML = data.map(r => `
         <tr style="border-bottom:1px solid #f1f5f9;">
           <td style="padding:.65rem .75rem;">
             <div style="font-weight:800;color:#0f172a;">${esc(r.courseCode)}</div>
@@ -269,9 +366,16 @@
           </td>
         </tr>
       `).join('');
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
-    }
+  }
+
+  function exportVerifiedCsv() {
+    const query=String($('hod-verified-search')?.value||'').trim().toLowerCase(),level=$('hod-verified-level')?.value||'';
+    const rows=VERIFIED_RESULTS.filter(row=>(!query||[row.courseCode,row.courseTitle,row.level].join(' ').toLowerCase().includes(query))&&(!level||String(row.level||'').toUpperCase()===level));
+    if(!rows.length){core.showToast&&core.showToast('No verified courses match the current filters.','warning');return;}
+    const data=[['Course Code','Course Title','Level','Student Count','Verified At'],...rows.map(row=>[row.courseCode,row.courseTitle,row.level,row.studentCount,row.verifiedAt])];
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-verified-results.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
 
   window.__publishCourse = async function(courseId) {

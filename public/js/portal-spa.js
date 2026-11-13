@@ -205,6 +205,7 @@
       { key: 'hod-history',          label: 'History',         icon: ICON.calendar },
       { key: 'hod-students',         label: 'Students',        icon: ICON.users },
       { key: 'hod-staff',            label: 'Staff',           icon: ICON.users },
+      { key: 'hod-attendance',       label: 'Attendance Monitoring', icon: ICON.check },
       { key: 'hod-exams',            label: 'Exams',           icon: ICON.clipboard },
       { key: 'lecture-timetable',    label: 'Lecture Timetable', icon: ICON.calendar }, // <-- ADDED THIS LINE
       { key: 'hod-results',          label: 'Results Entry',   icon: ICON.chart },
@@ -396,7 +397,7 @@
       const isLibrarianPage = role === 'librarian' && cleanKey.startsWith('librarian-');
       const isHodPage = role === 'hod' && cleanKey.startsWith('hod-');
       // Version every librarian partial so the browser fetches the refreshed dashboard workspaces.
-      const pageVersion = isHodPage ? '20261113-hod-inline-headers-v8' : (isLibrarianPage ? '20261113-librarian-no-avatar-v3' : (isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : (isLecturerPage ? '20261112-lecturer-v8-messages-theme' : '')))))));
+      const pageVersion = isHodPage ? '20261113-hod-attendance-v1' : (isLibrarianPage ? '20261113-librarian-no-avatar-v3' : (isRegistrarDocuments ? '20261112-doc-queue-print-v3-signatures' : (isAdmissionOfficerPage ? '20261112-admission-officer-v3' : (isExamOfficerPage ? '20261112-exam-officer-v1' : (isRectorPage ? '20261112-rector-v2' : (isBursarPage ? '20261112-bursar-v4-signature-a4' : (isLecturerPage ? '20261112-lecturer-v8-messages-theme' : '')))))));
       const primaryUrl = `/portal/partials/${folder}/${candidates[0]}`;
       const fallbackUrl = `/portal/partials/${folder}/${candidates[1]}`;
       return {

@@ -358,9 +358,9 @@ console.log('[Broad Sheet] Script loaded.');
             <td class="left name">${esc(s.matricNumber)}</td>
             <td class="left name">${esc(s.name)}</td>
             ${courseCells}
-            <td><strong>${semData.tci}</strong></td>
-            <td><strong>${semData.tgp}</strong></td>
-            <td><strong>${semData.gpa}</strong></td>
+            <td><strong>${esc(semData.tci)}</strong></td>
+            <td><strong>${esc(semData.tgp)}</strong></td>
+            <td><strong>${esc(semData.gpa)}</strong></td>
             <td class="remark">${esc(s.remark)}</td>
           </tr>
         `;
@@ -424,18 +424,18 @@ console.log('[Broad Sheet] Script loaded.');
               ${data.map((s, i) => `
                 <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
                   <td>${i + 1}</td>
-                  <td class="left name">${s.matricNumber}</td>
-                  <td class="left name">${s.name}</td>
-                  <td>${s.first.tci}</td>
-                  <td>${s.first.tgp}</td>
-                  <td><strong>${s.first.gpa}</strong></td>
-                  <td>${s.second.tci}</td>
-                  <td>${s.second.tgp}</td>
-                  <td><strong>${s.second.gpa}</strong></td>
-                  <td>${s.tciTotal}</td>
-                  <td>${s.tgpTotal}</td>
-                  <td><strong>${s.cgpa}</strong></td>
-                  <td class="remark">${s.remark}</td>
+                  <td class="left name">${esc(s.matricNumber)}</td>
+                  <td class="left name">${esc(s.name)}</td>
+                  <td>${esc(s.first.tci)}</td>
+                  <td>${esc(s.first.tgp)}</td>
+                  <td><strong>${esc(s.first.gpa)}</strong></td>
+                  <td>${esc(s.second.tci)}</td>
+                  <td>${esc(s.second.tgp)}</td>
+                  <td><strong>${esc(s.second.gpa)}</strong></td>
+                  <td>${esc(s.tciTotal)}</td>
+                  <td>${esc(s.tgpTotal)}</td>
+                  <td><strong>${esc(s.cgpa)}</strong></td>
+                  <td class="remark">${esc(s.remark)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -448,14 +448,14 @@ console.log('[Broad Sheet] Script loaded.');
     function renderMiniTable(data, courses, semester) {
       if (!courses.length) return '<div style="padding:1rem;text-align:center;color:#94a3b8;">No courses.</div>';
 
-      const headers = courses.map(c => `<th style="min-width:24px;">${c.code}</th>`).join('');
+      const headers = courses.map(c => `<th style="min-width:24px;">${esc(c.code)}</th>`).join('');
 
       const rows = data.map((s, i) => {
         const sem = semester === 'first' ? s.first : s.second;
         const cells = courses.map(c => {
           const grade = sem.grades[c.code]?.grade || '-';
           const cls = grade === 'F' ? 'f' : '';
-          return `<td class="${cls}">${grade}</td>`;
+          return `<td class="${cls}">${esc(grade)}</td>`;
         }).join('');
         return `
           <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">

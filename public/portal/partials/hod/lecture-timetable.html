@@ -353,9 +353,9 @@
     const rows=filteredSlots();
     if(!rows.length){core.showToast&&core.showToast('No timetable slots match the current filters.','warning');return;}
     const columns=['Course Code','Course Title','Lecturer','Day','Start Time','End Time','Venue','Status'];
-    const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
+    const cell=value=>{let v=String(value==null?'':value);if(/^\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
     const data=[columns,...rows.map(record=>{const item=slotInfo(record),slot=item.slot;return[item.code,item.title,item.lecturerName,slot.dayOfWeek,slot.startTime,slot.endTime,slot.venue,slot.status];})];
-    const csv='\\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const csv='\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-weekly-timetable.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

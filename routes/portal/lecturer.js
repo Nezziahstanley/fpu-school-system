@@ -753,7 +753,8 @@ router.get('/assignments', only, async (req, res, next) => {
         c.title AS "courseTitle",
         acs.name AS "sessionName",
         (SELECT COUNT(*) FROM course_registrations cr WHERE cr.course_id = a.course_id AND cr.session_id = a.session_id AND cr.semester = a.semester AND cr.status = 'approved') AS "totalStudents",
-        (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS "submissionCount"
+        (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id) AS "submissionCount",
+        (SELECT COUNT(*) FROM assignment_submissions sub WHERE sub.assignment_id = a.id AND sub.graded_at IS NULL) AS "pendingGradingCount"
       FROM assignments a
       LEFT JOIN courses c ON a.course_id = c.id
       LEFT JOIN academic_sessions acs ON a.session_id = acs.id
@@ -775,7 +776,8 @@ router.get('/assignments', only, async (req, res, next) => {
       courseCode: r.courseCode || '—',
       courseTitle: r.courseTitle,
       totalStudents: Number(r.totalStudents || 0),
-      submissionCount: Number(r.submissionCount || 0)
+      submissionCount: Number(r.submissionCount || 0),
+      pendingGradingCount: Number(r.pendingGradingCount || 0)
     }));
 
     return res.json({ success: true, data: data || [] });

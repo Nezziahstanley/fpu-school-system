@@ -72,6 +72,41 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       .groupBy(schema.departments.id, schema.departments.name, schema.departments.code, schema.schools.name)
       .orderBy(schema.departments.name);
 
+    // School totals are calculated independently so students are distinct across
+    // the entire school (rather than summing department-level student counts).
+    const schoolStats = await db
+      .select({
+        id: schema.schools.id,
+        name: schema.schools.name,
+        departments: sql`COUNT(DISTINCT ${schema.departments.id})`,
+        courses: sql`COUNT(DISTINCT ${schema.courses.id})`,
+        students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
+        records: sql`COUNT(${schema.attendance.id})`,
+        present: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'present' THEN 1 END)`,
+        late: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'late' THEN 1 END)`
+      })
+      .from(schema.schools)
+      .leftJoin(schema.departments, eq(schema.departments.schoolId, schema.schools.id))
+      .leftJoin(schema.courses, eq(schema.courses.departmentId, schema.departments.id))
+      .leftJoin(schema.attendance, and(eq(schema.attendance.courseId, schema.courses.id), attendanceWhere))
+      .where(departmentWhere)
+      .groupBy(schema.schools.id, schema.schools.name)
+      .orderBy(schema.schools.name);
+
+    const formattedSchools = schoolStats.map(row => {
+      const records = Number(row.records) || 0;
+      const present = Number(row.present) || 0;
+      const late = Number(row.late) || 0;
+      return {
+        ...row,
+        departments: Number(row.departments) || 0,
+        courses: Number(row.courses) || 0,
+        students: Number(row.students) || 0,
+        records,
+        rate: records ? Math.round(((present + late) / records) * 100) : 0
+      };
+    });
+
     const formatted = stats.map(row => {
       const recs = Number(row.records) || 0;
       const p = Number(row.present) || 0;
@@ -85,7 +120,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       };
     });
 
-    return res.json({ success: true, sessionId: selectedSessionId, data: formatted });
+    return res.json({ success: true, sessionId: selectedSessionId, schools: formattedSchools, data: formatted });
   } catch (err) {
     console.error('Attendance Departments Error:', err);
     return next(err);

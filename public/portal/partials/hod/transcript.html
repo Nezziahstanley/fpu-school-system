@@ -267,6 +267,7 @@ console.log('[Broad Sheet] Script loaded.');
       const baseLevel = parts[0] || 'ND';
       const yearNum = parts[1] || '1';
 
+      LAST_BS = null;
       container.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">Generating broad sheet…</div>';
 
       try {
@@ -334,6 +335,7 @@ console.log('[Broad Sheet] Script loaded.');
         });
 
       } catch (err) {
+        LAST_BS = null;
         console.error('[Broad Sheet] Error:', err);
         container.innerHTML = `<div style="text-align:center;padding:3rem;color:#991b1b;">⚠️ ${esc(err.message)}</div>`;
       }

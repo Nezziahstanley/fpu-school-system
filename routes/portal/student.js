@@ -145,10 +145,13 @@ router.get('/results', only, async (req, res, next) => {
       if (!seen.has(key)) { seen.add(key); uniqueResults.push(r); }
     });
 
+    const { resolveResultPoints } = require('../../utils/gpa');
+    const { getActiveGradeScale } = require('../../utils/gradeScale');
+    const gradeScale = await getActiveGradeScale();
     let totalPoints = 0, totalUnits = 0;
     uniqueResults.forEach(r => {
       const unit = Number(r.unit) || 0;
-      const points = Number(r.points) || 0;
+      const points = resolveResultPoints(r, gradeScale);
       totalPoints += (points * unit);
       totalUnits += unit;
     });

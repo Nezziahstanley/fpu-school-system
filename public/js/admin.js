@@ -3499,7 +3499,7 @@ async function loadAttendanceDepartments() {
                 <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${Number(d.courses) || 0}</td>
                 <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${Number(d.students) || 0}</td>
                 <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${records}</td>
-                <td style="padding:16px 20px;"><div style="display:flex;align-items:center;gap:12px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${records ? rate + '%' : '—'}</span></div></td>
+                <td style="padding:16px 20px;"><div style="display:flex;align-items:center;gap:12px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${rate}%</span></div></td>
                 <td style="padding:16px 20px;text-align:right;"><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${Number(d.id)}, '${escapeQuotes(d.name || '')}', '${escapeQuotes(d.code || '')}')" style="font-weight:600;">Manage</button></td>
               </tr>`;
             }).join('')}
@@ -3717,7 +3717,7 @@ async function loadDepartmentAttendance() {
         else rateClass = 'critical';
       }
 
-      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const rateText = `${Number(c.rate) || 0}%`;
       const lvlClass = c.level ? c.level.toLowerCase() : 'other';
       const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
 

@@ -16,8 +16,8 @@
 @media(max-width:480px){.hod-reports .hr-grid{grid-template-columns:1fr}}
 @media print{.hod-reports .hr-actions{display:none}}
 </style>
-<div class="hr-head hod-section-hero"><div><h2>Department Reports</h2><p>Students, staffing, course allocation and result workflow.</p></div>
-<div class="hr-actions actions" style="display:flex;gap:.5rem"><button class="hr-btn" id="hr-refresh" type="button">Refresh</button><button class="hr-btn" id="hr-print" type="button" style="background:#334155">Print</button></div></div>
+<div class="hr-head hod-section-hero"><div><h2>Department Reports</h2><p id="hr-dept-sub">Students, staffing, course allocation and result workflow.</p></div>
+<div class="hr-actions actions" style="display:flex;gap:.5rem"><button class="hr-btn" id="hr-refresh" type="button">Refresh</button><button class="hr-btn" id="hr-export" type="button" style="background:#065f46">↓ Export CSV</button><button class="hr-btn" id="hr-print" type="button" style="background:#334155">Print</button></div></div>
 <div class="hr-grid">
 <div class="hr-card"><div class="hr-label">Students</div><div class="hr-value" id="hr-students">—</div></div>
 <div class="hr-card"><div class="hr-label">Staff</div><div class="hr-value" id="hr-staff">—</div></div>
@@ -27,9 +27,12 @@
 <div class="hr-card"><div class="hr-label">Verified results</div><div class="hr-value" id="hr-verified">—</div></div>
 <div class="hr-card"><div class="hr-label">Published results</div><div class="hr-value" id="hr-published">—</div></div>
 <div class="hr-card"><div class="hr-label">Allocated courses</div><div class="hr-value" id="hr-allocated">—</div></div>
+<div class="hr-card"><div class="hr-label">Unallocated courses</div><div class="hr-value" id="hr-unallocated">—</div></div>
 </div>
 <div class="hr-panel"><h3 style="margin:0 0 .75rem">Student distribution by level</h3><div style="overflow:auto"><table><thead><tr><th>Level</th><th>Students</th></tr></thead><tbody id="hr-levels"><tr><td colspan="2">Loading…</td></tr></tbody></table></div></div>
-<div class="hr-panel"><h3 style="margin:0 0 .75rem">Course allocation overview</h3><div style="overflow:auto"><table><thead><tr><th>Course</th><th>Level</th><th>Lecturer</th><th>Allocation status</th></tr></thead><tbody id="hr-allocations"><tr><td colspan="4">Loading…</td></tr></tbody></table></div></div>
+<div class="hr-panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem"><h3 style="margin:0">Course allocation overview</h3><span id="hr-allocation-count" style="font-size:.75rem;color:#64748b;font-weight:750">0 courses</span></div>
+<div style="display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:.75rem"><input id="hr-allocation-search" type="search" placeholder="Search course or lecturer…" style="flex:1 1 220px;min-width:160px;padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a"><select id="hr-allocation-status" style="padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a"><option value="">All Allocation Statuses</option><option value="assigned">Assigned</option><option value="unassigned">Unassigned</option><option value="flagged">Flagged</option></select></div>
+<div style="overflow:auto"><table><thead><tr><th>Course</th><th>Level</th><th>Lecturer</th><th>Allocation status</th></tr></thead><tbody id="hr-allocations"><tr><td colspan="4">Loading…</td></tr></tbody></table></div></div>
 <div id="hr-updated" style="font-size:.75rem;color:var(--text-muted,#64748b)" aria-live="polite"></div>
 </section>
 <script>
@@ -38,22 +41,97 @@
 const core=window.FPU_PORTAL||{},$=id=>document.getElementById(id);
 const esc=v=>core.escapeHtml?core.escapeHtml(v):String(v==null?'':v);
 const set=(id,v)=>{const e=$(id);if(e)e.textContent=String(v??0)};
-async function get(path){const r=await core.portalFetch(path);if(!r||r.success===false)throw new Error(r?.error||'A report request failed');return r.data??[]}
-async function load(){
-$('hr-levels').innerHTML='<tr><td colspan="2">Loading…</td></tr>';
-$('hr-allocations').innerHTML='<tr><td colspan="4">Loading…</td></tr>';
-try{
-const [dash,alloc]=await Promise.all([get('/api/hod/dashboard'),get('/api/hod/courses-with-allocations')]);
-set('hr-students',dash.totalStudents);set('hr-staff',dash.totalStaff);set('hr-courses',dash.activeCourses);
-set('hr-registered',dash.registeredThisSession);set('hr-pending',dash.pendingResults);set('hr-verified',dash.verifiedResults);set('hr-published',dash.publishedResults);
-const rows=Array.isArray(alloc)?alloc:[];
-set('hr-allocated',rows.filter(x=>x.lecturerId).length);
-const levels=dash.studentsByLevel||{},keys=Object.keys(levels);
-$('hr-levels').innerHTML=keys.length?keys.map(k=>'<tr><td>'+esc(k)+'</td><td>'+Number(levels[k]||0).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="2">No student records found.</td></tr>';
-$('hr-allocations').innerHTML=rows.length?rows.map(x=>'<tr><td>'+esc((x.courseCode||x.code||'')+' — '+(x.courseTitle||x.title||''))+'</td><td>'+esc(x.level||'—')+'</td><td>'+esc(x.lecturerName||'Unassigned')+'</td><td>'+esc(x.status||'Unassigned')+'</td></tr>').join(''):'<tr><td colspan="4">No courses found.</td></tr>';
-$('hr-updated').textContent='Last refreshed: '+new Date().toLocaleString();
-}catch(e){$('hr-levels').innerHTML='<tr><td colspan="2">'+esc(e.message)+'</td></tr>';$('hr-allocations').innerHTML='<tr><td colspan="4">Could not load allocation details.</td></tr>';core.showToast&&core.showToast(e.message,'error')}
+let DASH={},ALLOCATIONS=[];
+
+async function get(path){
+ const response=await core.portalFetch(path);
+ if(!response||response.success===false)throw new Error(response?.error||'A report request failed');
+ return response.data??[];
 }
-$('hr-refresh')?.addEventListener('click',load);$('hr-print')?.addEventListener('click',()=>window.print());load();
+function allocationState(row){
+ if(!row.lecturerId&&!row.lecturerName)return 'unassigned';
+ return row.status==='flagged'?'flagged':'assigned';
+}
+function allocationCounts(){
+ const byCourse=new Map();
+ ALLOCATIONS.forEach(row=>{
+  const state=allocationState(row),key=String(row.id);
+  const old=byCourse.get(key);
+  if(!old||(old==='unassigned'&&state!=='unassigned')||(old==='assigned'&&state==='flagged'))byCourse.set(key,state);
+ });
+ return {assigned:[...byCourse.values()].filter(x=>x!=='unassigned').length,unassigned:[...byCourse.values()].filter(x=>x==='unassigned').length};
+}
+function filteredAllocations(){
+ const query=String($('hr-allocation-search')?.value||'').trim().toLowerCase();
+ const status=$('hr-allocation-status')?.value||'';
+ return ALLOCATIONS.filter(row=>{
+  const state=allocationState(row);
+  const hay=[row.code,row.courseCode,row.title,row.courseTitle,row.level,row.lecturerName,row.status,row.flagReason].join(' ').toLowerCase();
+  return (!query||hay.includes(query))&&(!status||state===status);
+ });
+}
+function renderAllocations(){
+ const rows=filteredAllocations();
+ $('hr-allocation-count').textContent=rows.length+' of '+ALLOCATIONS.length+' allocation rows';
+ $('hr-allocations').innerHTML=rows.length?rows.map(row=>{
+  const state=allocationState(row),status=state==='flagged'?'Flagged':state==='assigned'?(row.status||'Assigned'):'Unassigned';
+  return '<tr><td>'+esc((row.courseCode||row.code||'')+' — '+(row.courseTitle||row.title||''))+'</td><td>'+esc(row.level||'—')+'</td><td>'+esc(row.lecturerName||'Unassigned')+'</td><td>'+esc(status)+'</td></tr>';
+ }).join(''):'<tr><td colspan="4">'+(ALLOCATIONS.length?'No course allocations match your filters.':'No courses found.')+'</td></tr>';
+}
+function exportCsv(){
+ const rows=filteredAllocations();
+ const levels=DASH.studentsByLevel||{};
+ const data=[['Section','Item','Value','Details']];
+ const summary=[
+  ['Department',DASH.departmentName||''],
+  ['Academic Session',DASH.activeSessionName||''],
+  ['Students',DASH.totalStudents||0],
+  ['Staff',DASH.totalStaff||0],
+  ['Courses',DASH.activeCourses||0],
+  ['Registered This Session',DASH.registeredThisSession||0],
+  ['Students Without Registration',DASH.noRegistration??'—'],
+  ['Pending Results',DASH.pendingResults||0],
+  ['Verified Results',DASH.verifiedResults||0],
+  ['Published Results',DASH.publishedResults||0],
+  ['Allocated Courses',allocationCounts().assigned],
+  ['Unallocated Courses',allocationCounts().unassigned]
+ ];
+ summary.forEach(item=>data.push(['Summary',item[0],item[1],'']));
+ Object.entries(levels).forEach(([level,count])=>data.push(['Students by Level',level,count,'']));
+ rows.forEach(row=>data.push(['Course Allocation',row.courseCode||row.code,row.level,[row.courseTitle||row.title,row.lecturerName||'Unassigned',allocationState(row),row.flagReason||''].filter(Boolean).join(' | ')]));
+ if(data.length===4){core.showToast&&core.showToast('There is no report data to export.','warning');return;}
+ const cell=value=>{let text=String(value==null?'':value);if(/^\s*[=+@-]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+ const csv='\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='hod-department-report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+async function load(){
+ $('hr-levels').innerHTML='<tr><td colspan="2">Loading…</td></tr>';
+ $('hr-allocations').innerHTML='<tr><td colspan="4">Loading…</td></tr>';
+ try{
+  const [dash,alloc]=await Promise.all([get('/api/hod/dashboard'),get('/api/hod/courses-with-allocations')]);
+  DASH=dash||{};ALLOCATIONS=Array.isArray(alloc)?alloc:[];
+  set('hr-students',DASH.totalStudents);set('hr-staff',DASH.totalStaff);set('hr-courses',DASH.activeCourses);
+  set('hr-registered',DASH.registeredThisSession);set('hr-pending',DASH.pendingResults);set('hr-verified',DASH.verifiedResults);set('hr-published',DASH.publishedResults);
+  const allocationTotals=allocationCounts();
+  set('hr-allocated',allocationTotals.assigned);
+  set('hr-unallocated',allocationTotals.unassigned);
+  if(DASH.departmentName)$('hr-dept-sub').textContent='Department overview for '+DASH.departmentName+' · Academic session: '+(DASH.activeSessionName||'—');
+  const levels=DASH.studentsByLevel||{},keys=Object.keys(levels);
+  $('hr-levels').innerHTML=keys.length?keys.map(key=>'<tr><td>'+esc(key)+'</td><td>'+Number(levels[key]||0).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="2">No student records found.</td></tr>';
+  renderAllocations();
+  $('hr-updated').textContent='Last refreshed: '+new Date().toLocaleString();
+ }catch(error){
+  $('hr-levels').innerHTML='<tr><td colspan="2">'+esc(error.message)+'</td></tr>';
+  $('hr-allocations').innerHTML='<tr><td colspan="4">Could not load allocation details.</td></tr>';
+  core.showToast&&core.showToast(error.message,'error');
+ }
+}
+$('hr-refresh')?.addEventListener('click',load);
+$('hr-print')?.addEventListener('click',()=>window.print());
+$('hr-export')?.addEventListener('click',exportCsv);
+$('hr-allocation-search')?.addEventListener('input',renderAllocations);
+$('hr-allocation-status')?.addEventListener('change',renderAllocations);
+load();
 })();
 </script>

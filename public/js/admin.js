@@ -3397,6 +3397,7 @@ async function loadAttendanceDepartments() {
       throw new Error(json.error || json.message || `Request failed (${res.status})`);
     }
     const departments = Array.isArray(json.data) ? json.data : [];
+    const schools = Array.isArray(json.schools) ? json.schools : [];
 
     const statDepts = document.getElementById('att-stat-depts');
     const statCourses = document.getElementById('att-stat-courses');
@@ -3416,7 +3417,45 @@ async function loadAttendanceDepartments() {
       return;
     }
 
+    const schoolSummaryHtml = schools.length ? `
+      <section style="margin-bottom:22px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;">
+          <div><h3 style="margin:0;color:#0f172a;font-size:16px;font-weight:800;">School Attendance Summary</h3>
+          <p style="margin:4px 0 0;color:#64748b;font-size:12px;">Combined attendance figures for each school in the selected session and filters.</p></div>
+        </div>
+        <div style="background:#fff;border:1px solid #dbe5e0;border-radius:12px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+          <table style="width:100%;min-width:680px;border-collapse:collapse;text-align:left;">
+            <thead><tr style="background:#f0fdf4;border-bottom:2px solid #bbf7d0;">
+              <th style="padding:14px 18px;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">School</th>
+              <th style="padding:14px 18px;text-align:center;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">Departments</th>
+              <th style="padding:14px 18px;text-align:center;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">Courses</th>
+              <th style="padding:14px 18px;text-align:center;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">Students</th>
+              <th style="padding:14px 18px;text-align:center;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">Records</th>
+              <th style="padding:14px 18px;font-size:11px;font-weight:800;color:#166534;text-transform:uppercase;">Attendance Rate</th>
+            </tr></thead>
+            <tbody>${schools.map(s => {
+              const rate = Math.max(0, Math.min(100, Number(s.rate) || 0));
+              const records = Number(s.records) || 0;
+              const barColor = !records ? '#cbd5e1' : rate >= 75 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+              const textColor = !records ? '#64748b' : rate >= 75 ? '#065f46' : rate >= 50 ? '#b45309' : '#991b1b';
+              return `<tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:15px 18px;font-weight:800;color:#0f172a;">${escapeHtml(s.name || 'Unnamed school')}</td>
+                <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${Number(s.departments) || 0}</td>
+                <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${Number(s.courses) || 0}</td>
+                <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${Number(s.students) || 0}</td>
+                <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${records}</td>
+                <td style="padding:15px 18px;"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${records ? rate + '%' : '—'}</span></div></td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </section>` : '';
+
     grid.innerHTML = `
+      ${schoolSummaryHtml}
+      <section>
+        <div style="margin:0 0 12px;"><h3 style="margin:0;color:#0f172a;font-size:16px;font-weight:800;">Department Attendance Details</h3>
+        <p style="margin:4px 0 0;color:#64748b;font-size:12px;">Attendance figures for each department.</p></div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.05);">
         <table style="width:100%;min-width:820px;border-collapse:collapse;text-align:left;">
           <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
@@ -3446,7 +3485,8 @@ async function loadAttendanceDepartments() {
             }).join('')}
           </tbody>
         </table>
-      </div>`;
+      </div>
+      </section>`;
 
     // Bind filters once per rendered page. Every change reloads the same report.
     const page = grid.closest('.page-content') || grid.parentElement;

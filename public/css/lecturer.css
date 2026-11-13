@@ -281,3 +281,39 @@
 @media(max-width:640px){
   .lecturer-design-scope{padding:8px!important;border-radius:12px}
 }
+
+
+/* Lecturer page headers — institutional green title band.
+   Match the My Courses heading typography across all pages. */
+.lecturer-design-scope .greeting{
+  background:#065f46!important;
+  background-image:none!important;
+  border:1px solid #064e3b!important;
+  border-radius:16px!important;
+  box-shadow:0 8px 22px rgba(6,95,70,.16)!important;
+  color:#fff!important;
+}
+.lecturer-design-scope .greeting :where(h1,h2,.sub,.meta,p){
+  color:#fff!important;
+}
+.lecturer-design-scope .greeting h1{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:1.45rem!important;
+  font-weight:850!important;
+  letter-spacing:-.025em!important;
+}
+.lecturer-design-scope :where(#lecturer-students-page,#lecturer-attendance-page,#lecturer-reports-root)>div:first-child h2,
+.lecturer-design-scope>div>div:first-child[style*="justify-content"] h2{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:1.45rem!important;
+  font-weight:850!important;
+  letter-spacing:-.025em!important;
+  line-height:1.28!important;
+}
+.lecturer-design-scope :where(#lecturer-students-page,#lecturer-attendance-page,#lecturer-reports-root)>div:first-child p,
+.lecturer-design-scope>div>div:first-child[style*="justify-content"] p{
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-size:.86rem!important;
+  font-weight:500!important;
+  line-height:1.55!important;
+}

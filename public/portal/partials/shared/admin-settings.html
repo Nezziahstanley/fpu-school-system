@@ -119,6 +119,24 @@
 @media(max-width:600px){.fpu-settings-page{padding-top:.5rem}.fpu-settings-hero{padding:1.15rem;align-items:flex-start;border-radius:14px}.fpu-settings-hero-actions{gap:.55rem}.fpu-settings-shield{width:45px;height:45px;border-radius:13px;font-size:1.25rem}.fpu-settings-refresh{font-size:.68rem!important;padding:.45rem .55rem!important}.fpu-settings-toolbar{align-items:flex-start;flex-direction:column}.fpu-settings-secure{align-self:flex-start}.set-group-body{padding:.85rem!important}.fpu-settings-savebar{bottom:.65rem;gap:.55rem;padding:.6rem .65rem}.fpu-settings-savebar #set-save-msg{font-size:.73rem}}
 @media print{.fpu-settings-hero-actions,.fpu-settings-savebar,#set-refresh{display:none!important}.fpu-settings-hero{background:#fff!important;color:#123b2d!important;box-shadow:none;border:1px solid #cbd5e1}.fpu-settings-hero h2,.fpu-settings-hero p,.fpu-settings-eyebrow{color:#123b2d!important}}
 
+
+/* Structured security settings */
+.set-structured-card{padding:1rem;border:1px solid #dcebe2;border-radius:12px;background:linear-gradient(145deg,#fff,#f9fcfa)}
+.set-structured-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:1rem}
+.set-structured-heading>div{display:flex;flex-direction:column;gap:.2rem}.set-structured-heading strong{font-size:.86rem;color:#123b2d;font-weight:850}.set-structured-heading small{font-size:.72rem;color:#718277}
+.set-key-chip{display:inline-flex;align-items:center;padding:.28rem .5rem;border:1px solid #d7e9de;border-radius:7px;background:#eff8f2;color:#47705a;font-size:.64rem;font-weight:700;overflow-wrap:anywhere}
+.set-security-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.set-security-item{padding:.8rem;border:1px solid #e4eee8;border-radius:10px;background:#fff;min-width:0}
+.set-security-label{display:block;margin-bottom:.55rem;color:#52685c;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.set-chip-list{display:flex;flex-wrap:wrap;gap:.4rem}.set-chip{display:inline-flex;align-items:center;padding:.35rem .6rem;border:1px solid #dce5e0;border-radius:99px;background:#f5f8f6;color:#344b3e;font-size:.72rem;font-weight:750;text-transform:capitalize}.set-chip-green{border-color:#bce5cb;background:#eaf8ef;color:#166534}
+.set-readonly-note{display:flex;align-items:flex-start;gap:.45rem;margin-top:.85rem;color:#718277;font-size:.68rem;line-height:1.5}.set-readonly-note span{color:#0d8b5b;font-weight:900}
+.set-permission-stats{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem}.set-permission-stats span{padding:.4rem .6rem;border:1px solid #e1ece5;border-radius:8px;background:#f5faf6;color:#617568;font-size:.68rem}.set-permission-stats strong{color:#145c3d;font-size:.78rem}
+.set-matrix-wrap{max-width:100%;overflow:auto;border:1px solid #dfe9e3;border-radius:9px;background:#fff}.set-matrix{width:100%;min-width:680px;border-collapse:separate;border-spacing:0;font-size:.67rem}.set-matrix th,.set-matrix td{padding:.55rem .48rem;border-bottom:1px solid #edf2ee;border-right:1px solid #edf2ee;text-align:center;white-space:nowrap}.set-matrix thead th{position:sticky;top:0;background:#eff7f1;color:#315b45;font-size:.62rem;font-weight:850;text-transform:capitalize}.set-matrix thead th:first-child,.set-matrix tbody th{position:sticky;left:0;z-index:1;background:#f7faf8;text-align:left;color:#29483b;font-weight:800;text-transform:capitalize}.set-matrix thead th:first-child{z-index:2}.set-matrix tbody tr:last-child th,.set-matrix tbody tr:last-child td{border-bottom:0}.set-matrix tr th:last-child,.set-matrix tr td:last-child{border-right:0}
+.set-access{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;font-size:.75rem;font-weight:900}.set-access.is-allowed,.set-matrix-legend i.is-allowed{background:#dcfce7;color:#15803d}.set-access.is-denied,.set-matrix-legend i.is-denied{background:#f1f5f3;color:#9aa9a0}
+.set-matrix-legend{display:flex;flex-wrap:wrap;gap:.85rem;margin-top:.7rem;color:#687b70;font-size:.66rem}.set-matrix-legend span{display:inline-flex;align-items:center;gap:.35rem}.set-matrix-legend i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;font-style:normal;font-weight:900}
+.set-json-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}.set-json-field{display:flex;flex-direction:column;gap:.25rem;padding:.6rem .7rem;border:1px solid #e8efea;border-radius:8px;background:#fff;min-width:0}.set-json-field span{color:#718277;font-size:.65rem;text-transform:capitalize}.set-json-field strong{color:#29483b;font-size:.74rem;overflow-wrap:anywhere}
+@media(max-width:600px){.set-security-summary,.set-json-fields{grid-template-columns:1fr}.set-structured-card{padding:.8rem}.set-structured-heading{flex-direction:column}.set-key-chip{max-width:100%}}
+
 </style>
 
 <script>
@@ -224,19 +242,72 @@
     wireInputs();
   }
 
+  function renderStructuredSetting(s, parsed, label) {
+    const key = String(s.key || '');
+    const hint = esc(key);
+
+    if (key === 'security_2fa') {
+      const roles = Array.isArray(parsed.requiredRoles) ? parsed.requiredRoles : [];
+      const methods = Array.isArray(parsed.methods) ? parsed.methods : [];
+      return `
+        <section class="set-row set-structured-card">
+          <div class="set-structured-heading"><div><strong>Two-Factor Authentication</strong><small>Additional sign-in verification requirements</small></div><span class="set-key-chip">${hint}</span></div>
+          <div class="set-security-summary">
+            <div class="set-security-item"><span class="set-security-label">Required roles</span><div class="set-chip-list">${roles.length ? roles.map(role => `<span class="set-chip set-chip-green">${esc(String(role).replace(/_/g,' '))}</span>`).join('') : '<span class="set-muted">No roles configured</span>'}</div></div>
+            <div class="set-security-item"><span class="set-security-label">Verification methods</span><div class="set-chip-list">${methods.length ? methods.map(method => `<span class="set-chip">${esc(String(method).replace(/_/g,' '))}</span>`).join('') : '<span class="set-muted">No methods configured</span>'}</div></div>
+          </div>
+          <div class="set-readonly-note"><span aria-hidden="true">ⓘ</span> Configuration overview. Edit this policy through the dedicated security controls.</div>
+        </section>`;
+    }
+
+    if (key === 'security_permissions' && parsed.matrix && typeof parsed.matrix === 'object') {
+      const matrix = parsed.matrix;
+      const modules = Object.keys(matrix);
+      const roleSet = new Set();
+      modules.forEach(module => Object.keys(matrix[module] || {}).forEach(role => roleSet.add(role)));
+      const roles = Array.from(roleSet);
+      const enabledCount = modules.reduce((sum, module) => sum + roles.filter(role => Boolean(matrix[module] && matrix[module][role])).length, 0);
+      const total = modules.length * roles.length;
+      return `
+        <section class="set-row set-structured-card set-permissions-card">
+          <div class="set-structured-heading"><div><strong>Role Permissions Matrix</strong><small>Overview of module access by account role</small></div><span class="set-key-chip">${hint}</span></div>
+          <div class="set-permission-stats"><span><strong>${modules.length}</strong> modules</span><span><strong>${roles.length}</strong> roles</span><span><strong>${enabledCount}</strong> enabled permissions</span></div>
+          <div class="set-matrix-wrap" role="region" aria-label="Role permissions matrix" tabindex="0">
+            <table class="set-matrix"><thead><tr><th scope="col">Module</th>${roles.map(role => `<th scope="col">${esc(role.replace(/_/g,' '))}</th>`).join('')}</tr></thead>
+            <tbody>${modules.map(module => `<tr><th scope="row">${esc(module.replace(/_/g,' '))}</th>${roles.map(role => {
+              const allowed = Boolean(matrix[module] && matrix[module][role]);
+              return `<td><span class="set-access ${allowed ? 'is-allowed' : 'is-denied'}" title="${esc(role)}: ${allowed ? 'Allowed' : 'Not allowed'}" aria-label="${allowed ? 'Allowed' : 'Not allowed'}">${allowed ? '✓' : '—'}</span></td>`;
+            }).join('')}</tr>`).join('')}</tbody></table>
+          </div>
+          <div class="set-matrix-legend"><span><i class="is-allowed">✓</i> Access enabled</span><span><i class="is-denied">—</i> Access not enabled</span></div>
+          <div class="set-readonly-note"><span aria-hidden="true">ⓘ</span> This is a read-only view of the configured permission matrix.</div>
+        </section>`;
+    }
+
+    const entries = Array.isArray(parsed) ? parsed.map((value, i) => [String(i + 1), value]) : Object.entries(parsed);
+    return `
+      <section class="set-row set-structured-card">
+        <div class="set-structured-heading"><div><strong>${esc(label)}</strong><small>Structured configuration</small></div><span class="set-key-chip">${hint}</span></div>
+        <div class="set-json-fields">${entries.map(([name,value]) => `<div class="set-json-field"><span>${esc(String(name).replace(/_/g,' '))}</span><strong>${value === null ? 'Not set' : typeof value === 'object' ? esc(JSON.stringify(value)) : esc(String(value))}</strong></div>`).join('')}</div>
+      </section>`;
+  }
+
   function renderSettingRow(s) {
     const label = KEY_LABELS[s.key] || s.key.replace(/_/g, ' ');
     const value = s.value != null ? String(s.value) : '';
 
-    // Detect JSON values (bank accounts)
-    if (value.trim().startsWith('{') && value.trim().endsWith('}')) {
+    // Render structured security configuration as readable cards and a matrix.
+    if (value.trim().startsWith('{') || value.trim().startsWith('[')) {
       try {
         const parsed = JSON.parse(value);
-        if (parsed.bank !== undefined && parsed.accountNumber !== undefined) {
+        if (parsed && typeof parsed === 'object' && parsed.bank !== undefined && parsed.accountNumber !== undefined) {
           return renderBankAccount(s, parsed, label);
         }
+        if (parsed && typeof parsed === 'object') {
+          return renderStructuredSetting(s, parsed, label);
+        }
       } catch (e) {
-        // fall through to normal input
+        // Invalid JSON remains available as a normal editable setting.
       }
     }
 

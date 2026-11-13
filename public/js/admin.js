@@ -3140,6 +3140,7 @@ async function loadTimetableIndex() {
         <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
+            <span class="ttd-school">${escapeHtml(school?.name || 'School not assigned')}</span>
             <span class="badge ${badgeClass}" style="font-size:10px;">${badgeText}</span>
           </div>
           <h3>${escapeHtml(b.dept.name)}</h3>
@@ -15004,7 +15005,7 @@ async function loadTimetableSheet() {
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} — Timetable`;
-  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW' : ''}`;
+  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW — submitted slots only' : ''}`;
 
   if (!departmentId) {
     root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';

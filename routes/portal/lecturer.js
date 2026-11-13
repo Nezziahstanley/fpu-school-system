@@ -466,7 +466,10 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
       await db.delete(attendance).where(and(
         eq(attendance.courseId, r.courseId),
         eq(attendance.studentId, r.studentId),
-        eq(attendance.date, r.date)
+        eq(attendance.date, r.date),
+        eq(attendance.lecturerId, req.user.id),
+        eq(attendance.sessionId, r.sessionId),
+        eq(attendance.semester, r.semester)
       ));
       await db.insert(attendance).values(r);
       savedCount++;

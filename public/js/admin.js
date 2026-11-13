@@ -12489,9 +12489,14 @@ async function loadCourseAttendance() {
     if (mark && !mark.__wired) {
       mark.__wired = true;
       mark.addEventListener('click', () => {
-        if (typeof openCourseAttendanceModal === 'function') openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
+        if (typeof openAttendanceMarkModal === 'function') openAttendanceMarkModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
         else showToast('Attendance marking is not available on this page.', 'warning');
       });
+    }
+    const rosterBtn = document.getElementById('abc-roster');
+    if (rosterBtn && !rosterBtn.__wired) {
+      rosterBtn.__wired = true;
+      rosterBtn.addEventListener('click', () => openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId));
     }
     const exportBtn = document.getElementById('abc-export');
     if (exportBtn && !exportBtn.__wired) {
@@ -14364,6 +14369,130 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
 // ============================================
 // ATTENDANCE: Course -> Student Roster Modal
 // ============================================
+async function openAttendanceMarkModal(courseId, courseCode, courseTitle, deptId) {
+  const sessionId = document.getElementById('abc-filter-session')?.value || '';
+  const semester = document.getElementById('abc-filter-semester')?.value || '';
+  if (!sessionId || !semester) {
+    showToast('Select an academic session and semester before marking attendance.', 'warning');
+    return;
+  }
+
+  const oldModal = document.getElementById('attendance-course-modal');
+  if (oldModal) oldModal.remove();
+  const now = new Date();
+  const localDate = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'attendance-course-modal';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.78);z-index:999999;display:flex;align-items:center;justify-content:center;padding:18px;';
+  backdrop.innerHTML = `
+    <div style="width:100%;max-width:1120px;max-height:92vh;background:#f8fafc;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.28);">
+      <div style="padding:18px 22px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+        <div><h3 style="margin:0;color:#0f172a;font-size:18px;">Mark Attendance — ${escapeHtml(courseCode)}</h3>
+          <p style="margin:5px 0 0;color:#64748b;font-size:13px;">${escapeHtml(courseTitle)} · Select a status for each approved course registrant.</p></div>
+        <button type="button" class="btn btn-outline btn-sm" id="att-mark-close">Close</button>
+      </div>
+      <div style="padding:14px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:end;gap:14px;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;min-width:190px;"><label class="form-label" for="att-mark-date">Attendance Date</label><input class="form-control" type="date" id="att-mark-date" value="${localDate}" /></div>
+        <div style="font-size:12px;color:#64748b;padding-bottom:10px;">Session ID: ${escapeHtml(sessionId)} · ${escapeHtml(semester)} semester</div>
+        <div style="margin-left:auto;font-size:12px;color:#64748b;padding-bottom:10px;" id="att-mark-count">Loading registered students…</div>
+      </div>
+      <div id="att-mark-body" style="padding:18px 22px;overflow:auto;flex:1;min-height:180px;"><div class="loading" style="padding:30px;text-align:center;">Loading student register…</div></div>
+      <div style="padding:14px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <span style="font-size:12px;color:#64748b;">Existing entries for the selected date will be updated, not duplicated.</span>
+        <button type="button" class="btn btn-primary" id="att-mark-save">Save Attendance</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  const body = backdrop.querySelector('#att-mark-body');
+  const dateInput = backdrop.querySelector('#att-mark-date');
+  const saveButton = backdrop.querySelector('#att-mark-save');
+  const loadRoster = async () => {
+    body.innerHTML = '<div class="loading" style="padding:30px;text-align:center;">Loading student register…</div>';
+    saveButton.disabled = true;
+    try {
+      const qs = new URLSearchParams({ sessionId, semester, date: dateInput.value });
+      const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load the approved course register.');
+      const students = Array.isArray(json.data) ? json.data : [];
+      backdrop.querySelector('#att-mark-count').textContent = `${students.length} approved student(s)`;
+      if (!students.length) {
+        body.innerHTML = '<div style="padding:35px;text-align:center;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">No approved course registrations were found for this session and semester.</div>';
+        return;
+      }
+      body.innerHTML = `
+        <div style="overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">
+          <table style="width:100%;min-width:820px;border-collapse:collapse;">
+            <thead style="background:#f0fdf4;"><tr>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Matric Number</th>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Student</th>
+              <th style="padding:12px;text-align:center;color:#166534;font-size:11px;text-transform:uppercase;">Previous Records</th>
+              <th style="padding:12px;text-align:center;color:#166534;font-size:11px;text-transform:uppercase;">Attendance Status</th>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Remarks</th>
+            </tr></thead>
+            <tbody>${students.map(student => `
+              <tr style="border-top:1px solid #e2e8f0;">
+                <td style="padding:11px 12px;font-weight:700;color:#334155;">${escapeHtml(student.matricNumber || '—')}</td>
+                <td style="padding:11px 12px;color:#0f172a;font-weight:650;">${escapeHtml([student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student')}</td>
+                <td style="padding:11px 12px;text-align:center;color:#64748b;">${Number(student.totalClasses) || 0}</td>
+                <td style="padding:11px 12px;min-width:190px;">
+                  <select class="form-select" data-att-status data-student-id="${Number(student.id)}">
+                    <option value="">Choose status…</option>
+                    ${['present','absent','late','excused'].map(status => `<option value="${status}" ${student.todayStatus === status ? 'selected' : ''}>${status.charAt(0).toUpperCase()+status.slice(1)}</option>`).join('')}
+                  </select>
+                </td>
+                <td style="padding:11px 12px;min-width:210px;"><input class="form-control" data-att-remarks="${Number(student.id)}" value="${escapeHtml(student.todayRemarks || '')}" placeholder="Optional remarks" /></td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      saveButton.disabled = false;
+    } catch (err) {
+      body.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load attendance register.')}</div>`;
+    }
+  };
+
+  backdrop.querySelector('#att-mark-close').addEventListener('click', () => backdrop.remove());
+  dateInput.addEventListener('change', loadRoster);
+  saveButton.addEventListener('click', async () => {
+    const controls = [...body.querySelectorAll('[data-att-status]')];
+    if (!controls.length) return;
+    const records = controls.map(control => {
+      const studentId = Number(control.dataset.studentId);
+      const remarksInput = body.querySelector(`[data-att-remarks="${studentId}"]`);
+      return { studentId, status: control.value, remarks: remarksInput?.value || '' };
+    });
+    const missing = records.filter(record => !record.status);
+    if (missing.length) {
+      showToast(`Choose an attendance status for all students. ${missing.length} still need a status.`, 'warning');
+      return;
+    }
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving…';
+    try {
+      const res = await adminFetch(`/api/admin/attendance/course/${courseId}/mark`, {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: Number(sessionId), semester, date: dateInput.value, records })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Attendance could not be saved.');
+      showToast(json.message || 'Attendance saved.', 'success');
+      await loadCourseAttendance();
+      await loadRoster();
+    } catch (err) {
+      showToast(err.message || 'Attendance could not be saved.', 'error');
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = 'Save Attendance';
+    }
+  });
+  await loadRoster();
+}
+
+// ============================================
+// ATTENDANCE: Course -> Student Roster Modal
+// ============================================
 async function openCourseAttendanceModal(courseId, courseCode, courseTitle, deptId) {
   // Remove the previous department modal if it's open
   const oldModal = document.getElementById('attendance-dept-modal');
@@ -14397,7 +14526,12 @@ async function openCourseAttendanceModal(courseId, courseCode, courseTitle, dept
 
   try {
     // Try to fetch the student attendance roster for this course
-    const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students`);
+    const rosterScope = new URLSearchParams();
+    const rosterSession = document.getElementById('abc-filter-session')?.value || '';
+    const rosterSemester = document.getElementById('abc-filter-semester')?.value || '';
+    if (rosterSession) rosterScope.set('sessionId', rosterSession);
+    if (rosterSemester) rosterScope.set('semester', rosterSemester);
+    const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students?${rosterScope.toString()}`);
     
     if (!res.ok) {
       throw new Error(`API route not found (${res.status}). Please ensure backend route exists.`);
@@ -14489,7 +14623,12 @@ async function openStudentAttendanceModal(studentId, studentName, courseId, cour
 
   try {
     // Fetch the day-by-day records for this student in this course
-    const res = await adminFetch(`/api/admin/attendance/student/${studentId}/course/${courseId}`);
+    const studentScope = new URLSearchParams();
+    const studentSession = document.getElementById('abc-filter-session')?.value || '';
+    const studentSemester = document.getElementById('abc-filter-semester')?.value || '';
+    if (studentSession) studentScope.set('sessionId', studentSession);
+    if (studentSemester) studentScope.set('semester', studentSemester);
+    const res = await adminFetch(`/api/admin/attendance/student/${studentId}/course/${courseId}?${studentScope.toString()}`);
     const json = await res.json();
     const records = json.data || [];
 
@@ -15942,7 +16081,7 @@ window.FPU_ADMIN = {
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
-  openDepartmentAttendanceModal, openCourseAttendanceModal, openStudentAttendanceModal,
+  openDepartmentAttendanceModal, openCourseAttendanceModal, openAttendanceMarkModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, loadStaffWorkload, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,

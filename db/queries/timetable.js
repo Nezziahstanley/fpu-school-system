@@ -37,13 +37,14 @@ async function list({ courseId, lecturerId, sessionId, semester, dayOfWeek, stat
   return db.select().from(timetableSlots).where(where).orderBy(asc(timetableSlots.dayOfWeek), asc(timetableSlots.startTime));
 }
 
-async function listWithRelations({ sessionId, semester, lecturerId, courseId, departmentId } = {}) {
+async function listWithRelations({ sessionId, semester, lecturerId, courseId, departmentId, status } = {}) {
   const conds = [];
   if (sessionId) conds.push(eq(timetableSlots.sessionId, Number(sessionId)));
   if (semester) conds.push(eq(timetableSlots.semester, semester));
   if (lecturerId) conds.push(eq(timetableSlots.lecturerId, Number(lecturerId)));
   if (courseId) conds.push(eq(timetableSlots.courseId, Number(courseId)));
   if (departmentId) conds.push(eq(courses.departmentId, Number(departmentId)));
+  if (status) conds.push(eq(timetableSlots.status, status));
   const where = conds.length ? and(...conds) : undefined;
 
   return db

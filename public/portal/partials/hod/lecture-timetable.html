@@ -11,6 +11,34 @@
 @media(max-width:640px){#main-view .greeting{padding:1rem!important}#main-view .greeting .avatar{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;flex-basis:48px!important}#main-view .greeting .actions{width:100%!important}#main-view .greeting .actions .btn,#main-view .greeting .actions button{flex:1 1 auto}}
 </style>
 <!-- Portal → HOD → Lecture Timetable -->
+<style id="hod-weekly-calendar-styles">
+.tt-view-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin:0 0 1rem;padding:.85rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+.tt-view-switch{display:flex;gap:.4rem;flex-wrap:wrap}
+.tt-view-switch button,.tt-view-toolbar button{padding:.55rem .8rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#334155;font-size:.78rem;font-weight:800;cursor:pointer}
+.tt-view-switch button.active,.tt-view-toolbar button.primary{background:#065f46;color:#fff;border-color:#065f46}
+.tt-view-toolbar input,.tt-view-toolbar select{min-width:150px;padding:.55rem .7rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:.8rem}
+.tt-view-toolbar input{flex:1 1 230px}
+.tt-week-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.85rem}
+.tt-day-column{min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+.tt-day-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;padding:.75rem .85rem;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+.tt-day-head strong{color:#0f172a;font-size:.85rem}
+.tt-day-head span{color:#64748b;font-size:.68rem;font-weight:750}
+.tt-day-slots{display:grid;gap:.55rem;padding:.65rem}
+.tt-slot-card{padding:.7rem;border:1px solid #dbeafe;border-left:4px solid #0f766e;border-radius:9px;background:#f8fffc}
+.tt-slot-card .course{font-size:.78rem;font-weight:850;color:#0f172a}
+.tt-slot-card .course-title{margin-top:2px;color:#64748b;font-size:.7rem;line-height:1.35}
+.tt-slot-card .time{margin-top:.5rem;color:#065f46;font-size:.75rem;font-weight:850}
+.tt-slot-card .meta{margin-top:.35rem;color:#475569;font-size:.7rem;line-height:1.45}
+.tt-slot-card .state{display:inline-block;margin-top:.45rem;padding:3px 7px;border-radius:5px;font-size:.63rem;font-weight:850;background:#fef3c7;color:#92400e}
+.tt-slot-card .state.approved{background:#d1fae5;color:#065f46}
+.tt-slot-card .state.pending{background:#dbeafe;color:#1d4ed8}
+.tt-day-empty{padding:1.2rem .5rem;text-align:center;color:#94a3b8;font-size:.72rem}
+.tt-weekly-wrap{margin-bottom:1rem;overflow-x:auto}
+@media(max-width:900px){.tt-week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.tt-week-grid{grid-template-columns:1fr}.tt-view-toolbar>*{max-width:100%}.tt-view-toolbar input{flex-basis:100%}}
+@media print{.tt-view-toolbar{display:none!important}.tt-week-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.tt-day-column{break-inside:avoid}.tt-weekly-wrap{overflow:visible}}
+</style>
+
 
 <div class="hod-timetable-workspace" style="display:block!important;padding:0!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;">
 
@@ -66,8 +94,23 @@
     </div>
   </div>
 
-  <!-- Table -->
-  <section class="panel" style="display:block!important;width:100%!important;max-width:100%!important;background:#fff!important;border:1px solid #e2e8f0!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important;">
+  <div class="tt-view-toolbar">
+    <div class="tt-view-switch" role="group" aria-label="Timetable display">
+      <button type="button" id="tt-view-week" class="active" aria-pressed="true">Weekly View</button>
+      <button type="button" id="tt-view-list" aria-pressed="false">List View</button>
+    </div>
+    <input id="tt-search" type="search" placeholder="Search course, lecturer or venue…" aria-label="Search timetable">
+    <select id="tt-day-filter" aria-label="Filter timetable by day"><option value="">All Days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select>
+    <button type="button" id="tt-export" class="primary">↓ Export CSV</button>
+  </div>
+  <div id="tt-result-count" style="margin:-.35rem 0 1rem;color:#64748b;font-size:.78rem;font-weight:700" aria-live="polite">Showing all timetable slots</div>
+
+  <section id="tt-weekly-view" class="tt-weekly-wrap">
+    <div id="tt-week-grid" class="tt-week-grid"><div class="tt-day-empty">Loading weekly timetable…</div></div>
+  </section>
+
+  <!-- List view -->
+  <section id="tt-table-view" class="panel" style="display:none!important;width:100%!important;max-width:100%!important;background:#fff!important;border:1px solid #e2e8f0!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important;">
     <div class="panel-head" style="display:flex!important;align-items:center!important;justify-content:space-between!important;gap:1rem!important;padding:1rem 1.15rem!important;background:#f8fafc!important;border-bottom:1px solid #e2e8f0!important;">
       <h3>Your Timetable Slots</h3>
       <span class="badge" id="tt-count">0</span>
@@ -232,6 +275,91 @@
     }
   }
 
+  const WEEK_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  function slotInfo(record) {
+    const slot = record.slot || record;
+    const course = record.course || {};
+    const courseId = slot.courseId || course.id;
+    let lecturerName = '—';
+    if (record.lecturer && record.lecturer.firstName) lecturerName = record.lecturer.firstName + ' ' + (record.lecturer.lastName || '');
+    else if (record.lecturerName && record.lecturerName !== 'unassigned') lecturerName = record.lecturerName;
+    else if (courseId) {
+      const allocation = ALL_COURSES.find(item => String(item.courseId || item.id) === String(courseId));
+      if (allocation && allocation.lecturerName && allocation.lecturerName !== 'unassigned') lecturerName = allocation.lecturerName;
+    }
+    return {slot,course,courseId,lecturerName,code:course.code || record.courseCode || '—',title:course.title || record.courseTitle || ''};
+  }
+
+  function filteredSlots() {
+    const query = String($('tt-search')?.value || '').trim().toLowerCase();
+    const day = String($('tt-day-filter')?.value || '');
+    return CURRENT_SLOTS.filter(record => {
+      const item = slotInfo(record);
+      const hay = [item.code,item.title,item.lecturerName,item.slot.dayOfWeek,item.slot.venue,item.slot.startTime,item.slot.endTime,item.slot.status].join(' ').toLowerCase();
+      return (!query || hay.includes(query)) && (!day || item.slot.dayOfWeek === day);
+    }).sort((a,b) => {
+      const left=slotInfo(a),right=slotInfo(b);
+      const dayDiff=WEEK_DAYS.indexOf(left.slot.dayOfWeek)-WEEK_DAYS.indexOf(right.slot.dayOfWeek);
+      return dayDiff || String(left.slot.startTime||'').localeCompare(String(right.slot.startTime||''));
+    });
+  }
+
+  function renderScheduleViews() {
+    const rows = filteredSlots();
+    $('tt-count').textContent = rows.length;
+    $('tt-result-count') && ($('tt-result-count').textContent = 'Showing ' + rows.length + ' of ' + CURRENT_SLOTS.length + ' timetable slots');
+    const days = $('tt-day-filter').value ? [$('tt-day-filter').value] : WEEK_DAYS;
+    $('tt-week-grid').innerHTML = days.map(day => {
+      const dayRows = rows.filter(record => slotInfo(record).slot.dayOfWeek === day);
+      const cards = dayRows.length ? dayRows.map(record => {
+        const item=slotInfo(record),slot=item.slot,status=slot.status||'draft';
+        const stateClass=status==='approved'?'approved':status==='pending'?'pending':'';
+        const venue=slot.venue||'Venue not set';
+        return '<article class="tt-slot-card"><div class="course">'+esc(item.code)+'</div><div class="course-title">'+esc(item.title)+'</div><div class="time">'+esc(slot.startTime||'—')+' – '+esc(slot.endTime||'—')+'</div><div class="meta">📍 '+esc(venue)+'<br>👤 '+esc(item.lecturerName)+'</div><span class="state '+stateClass+'">'+esc(status.charAt(0).toUpperCase()+status.slice(1))+'</span></article>';
+      }).join('') : '<div class="tt-day-empty">No classes scheduled</div>';
+      return '<section class="tt-day-column"><header class="tt-day-head"><strong>'+day+'</strong><span>'+dayRows.length+' '+(dayRows.length===1?'class':'classes')+'</span></header><div class="tt-day-slots">'+cards+'</div></section>';
+    }).join('');
+    const tbody=$('tt-tbody');
+    if (!rows.length) {
+      tbody.innerHTML='<tr><td colspan="7" class="empty">No timetable slots match your current filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=rows.map(record=>{
+      const item=slotInfo(record),slot=item.slot;
+      let statusBadge='<span class="badge badge-warning">Draft</span>';
+      if(slot.status==='pending')statusBadge='<span class="badge badge-info">Pending</span>';
+      else if(slot.status==='approved')statusBadge='<span class="badge badge-success">Approved</span>';
+      return '<tr><td><div style="font-weight:700;color:#0f172a;">'+esc(item.code)+'</div><div style="font-size:.72rem;color:#64748b;">'+esc(item.title)+'</div></td><td style="font-weight:600;color:#065f46;">'+esc(item.lecturerName)+'</td><td>'+esc(slot.dayOfWeek||'—')+'</td><td>'+esc(slot.startTime||'')+' - '+esc(slot.endTime||'')+'</td><td>'+esc(slot.venue||'—')+'</td><td>'+statusBadge+'</td><td>'+(slot.status==='draft'?'<button class="btn-delete" data-id="'+esc(slot.id)+'" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>':'')+'</td></tr>';
+    }).join('');
+    tbody.querySelectorAll('.btn-delete').forEach(button=>button.addEventListener('click',async()=>{
+      if(!confirm('Delete this draft slot?'))return;
+      try{await core.portalFetch('/api/hod/timetable/'+button.dataset.id,{method:'DELETE'});core.showToast('Slot deleted.','success');await load();}
+      catch(error){core.showToast(error.message,'error');}
+    }));
+  }
+
+  function setTimetableView(view) {
+    const weekly=view==='week';
+    $('tt-weekly-view').style.display=weekly?'block':'none';
+    $('tt-table-view').style.setProperty('display',weekly?'none':'block','important');
+    $('tt-view-week').classList.toggle('active',weekly);
+    $('tt-view-list').classList.toggle('active',!weekly);
+    $('tt-view-week').setAttribute('aria-pressed',String(weekly));
+    $('tt-view-list').setAttribute('aria-pressed',String(!weekly));
+  }
+
+  function exportTimetable() {
+    const rows=filteredSlots();
+    if(!rows.length){core.showToast&&core.showToast('No timetable slots match the current filters.','warning');return;}
+    const columns=['Course Code','Course Title','Lecturer','Day','Start Time','End Time','Venue','Status'];
+    const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
+    const data=[columns,...rows.map(record=>{const item=slotInfo(record),slot=item.slot;return[item.code,item.title,item.lecturerName,slot.dayOfWeek,slot.startTime,slot.endTime,slot.venue,slot.status];})];
+    const csv='\\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-weekly-timetable.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
+
   async function load() {
     const tbody = $('tt-tbody');
     const sessionId = $('tt-session')?.value;
@@ -260,63 +388,7 @@
     $('tt-stat-approved').textContent = counts.approved;
     $('tt-count').textContent = counts.total;
 
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">No slots found for this session/semester.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = rows.map(r => {
-      const s = r.slot || r;
-      const c = r.course || {};
-      const courseId = s.courseId || c.id;
-
-      let lectName = '—';
-      
-      if (r.lecturer && r.lecturer.firstName) {
-        lectName = `${r.lecturer.firstName} ${r.lecturer.lastName}`;
-      } else if (r.lecturerName && r.lecturerName !== 'unassigned') {
-        lectName = r.lecturerName;
-      } else if (courseId) {
-        const allocated = ALL_COURSES.find(ac => 
-          String(ac.courseId || ac.id) === String(courseId)
-        );
-        if (allocated && allocated.lecturerName && allocated.lecturerName !== 'unassigned') {
-          lectName = allocated.lecturerName;
-        }
-      }
-
-      let statusBadge = '<span class="badge badge-warning">Draft</span>';
-      if (s.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
-      else if (s.status === 'approved') statusBadge = '<span class="badge badge-success">Approved</span>';
-
-      return `
-        <tr>
-          <td>
-            <div style="font-weight:700;color:#0f172a;">${esc(c.code || r.courseCode || '—')}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(c.title || r.courseTitle || '')}</div>
-          </td>
-          <td style="font-weight:600;color:#065f46;">${esc(lectName)}</td>
-          <td>${esc(s.dayOfWeek || '—')}</td>
-          <td>${esc(s.startTime || '')} - ${esc(s.endTime || '')}</td>
-          <td>${esc(s.venue || '—')}</td>
-          <td>${statusBadge}</td>
-          <td>
-            ${s.status === 'draft' ? `<button class="btn-delete" data-id="${s.id}" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>` : ''}
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    tbody.querySelectorAll('.btn-delete').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this draft slot?')) return;
-        try {
-          await core.portalFetch(`/api/hod/timetable/${btn.dataset.id}`, { method: 'DELETE' });
-          core.showToast('Slot deleted.', 'success');
-          load();
-        } catch (err) { core.showToast(err.message, 'error'); }
-      });
-    });
+    renderScheduleViews();
   }
 
   function loadBatchTable() {
@@ -649,6 +721,12 @@
   $('tt-refresh')?.addEventListener('click', load);
   $('tt-session')?.addEventListener('change', load);
   $('tt-semester')?.addEventListener('change', load);
+  $('tt-search')?.addEventListener('input',renderScheduleViews);
+  $('tt-day-filter')?.addEventListener('change',renderScheduleViews);
+  $('tt-view-week')?.addEventListener('click',()=>setTimetableView('week'));
+  $('tt-view-list')?.addEventListener('click',()=>setTimetableView('list'));
+  $('tt-export')?.addEventListener('click',exportTimetable);
+  setTimetableView('week');
 
   loadSessions().then(load);
 })();

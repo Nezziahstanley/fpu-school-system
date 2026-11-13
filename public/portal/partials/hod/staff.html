@@ -5,7 +5,7 @@
     <div class="avatar">W</div>
     <div>
       <h1>Department Staff</h1>
-      <div class="sub">Lecturers and staff in Computer Science</div>
+      <div class="sub" id="stf-dept-sub">Lecturers and staff in your department</div>
     </div>
   </div>
 </section>
@@ -45,7 +45,9 @@
     <div class="meta"><span class="label">Active</span><span class="value" id="stf-active">—</span></div>
     <div class="ic">✅</div>
   </div>
+  <div class="stat red"><div class="meta"><span class="label">Inactive</span><span class="value" id="stf-inactive">—</span></div><div class="ic">!</div></div>
 </div>
+<div id="stf-result-count" style="margin:-.35rem 0 1rem;color:#64748b;font-size:.78rem;font-weight:700" aria-live="polite">Showing all staff</div>
 
 <!-- Table -->
 <section class="panel">
@@ -119,7 +121,8 @@
     $('stf-total').textContent = ALL.length;
     $('stf-lecturers').textContent = ALL.filter(s => s.role === 'lecturer').length;
     $('stf-hods').textContent = ALL.filter(s => s.role === 'hod').length;
-    $('stf-active').textContent = ALL.filter(s => s.isActive).length;
+    $('stf-active').textContent = ALL.filter(s => Boolean(s.isActive)).length;
+    $('stf-inactive').textContent = ALL.filter(s => !s.isActive).length;
   }
 
   function applyFilter() {
@@ -128,7 +131,7 @@
     const status = $('stf-status').value;
 
     FILTERED = ALL.filter(s => {
-      const hay = `${s.firstName} ${s.lastName} ${s.email} ${s.phone || ''}`.toLowerCase();
+      const hay = `${s.firstName} ${s.lastName} ${s.email} ${s.phone || ''} ${s.role} ${s.courseCount || 0}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (role && s.role !== role) return false;
       if (status === 'active' && !s.isActive) return false;
@@ -136,6 +139,17 @@
       return true;
     });
     render();
+    $('stf-result-count').textContent = 'Showing ' + FILTERED.length + ' of ' + ALL.length + ' staff members';
+  }
+
+  function exportCsv() {
+    if (!FILTERED.length) { core.showToast && core.showToast('No staff members match the current filters.','warning'); return; }
+    const columns = ['Full Name','Role','Email','Phone','Department Course Count','Status'];
+    const cell = value => { let v=String(value==null?'':value); if (/^\\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
+    const rows = [columns,...FILTERED.map(s=>[[s.firstName,s.lastName].filter(Boolean).join(' '),s.role,s.email,s.phone,s.courseCount,s.isActive?'Active':'Inactive'])];
+    const csv='\\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-department-staff.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
 
   async function load() {
@@ -144,10 +158,10 @@
     
     try {
       const res = await core.portalFetch('/api/hod/staff');
-      ALL = res.data || [];
-      
+      ALL = Array.isArray(res.data) ? res.data : [];
       updateStats();
       applyFilter();
+      try { const dash=await core.portalFetch('/api/hod/dashboard'); if(dash?.data?.departmentName) $('stf-dept-sub').textContent='Staff in '+dash.data.departmentName; } catch (_) {}
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
@@ -157,6 +171,7 @@
   $('stf-role')?.addEventListener('change', applyFilter);
   $('stf-status')?.addEventListener('change', applyFilter);
   $('stf-refresh')?.addEventListener('click', load);
+  $('stf-export')?.addEventListener('click', exportCsv);
 
   load();
 })();

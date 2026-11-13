@@ -93,7 +93,7 @@ router.get('/dashboard', only, async (req, res, next) => {
     let totalPoints = 0, totalUnits = 0;
     uniqueResults.forEach(r => {
       const unit = Number(r.unit) || 0;
-      const points = Number(r.points) || 0;
+      const points = resolveResultPoints(r, gradeScale);
       totalPoints += (points * unit);
       totalUnits += unit;
     });

@@ -256,6 +256,8 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
     if (from) attendanceConds.push(sql`${schema.attendance.date} >= ${from}`);
     if (to) attendanceConds.push(sql`${schema.attendance.date} <= ${to}`);
     const studentConds = [eq(schema.courseRegistrations.courseId, courseId)];
+    if (selectedSessionId) studentConds.push(eq(schema.courseRegistrations.sessionId, selectedSessionId));
+    if (semester) studentConds.push(eq(schema.courseRegistrations.semester, String(semester)));
     if (search) studentConds.push(or(
       ilike(schema.users.matricNumber, `%${search}%`),
       ilike(schema.users.firstName, `%${search}%`),

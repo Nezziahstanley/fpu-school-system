@@ -373,7 +373,7 @@
     const rows=VERIFIED_RESULTS.filter(row=>(!query||[row.courseCode,row.courseTitle,row.level].join(' ').toLowerCase().includes(query))&&(!level||String(row.level||'').toUpperCase()===level));
     if(!rows.length){core.showToast&&core.showToast('No verified courses match the current filters.','warning');return;}
     const data=[['Course Code','Course Title','Level','Student Count','Verified At'],...rows.map(row=>[row.courseCode,row.courseTitle,row.level,row.studentCount,row.verifiedAt])];
-    const csv='\\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\\r\\n');
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-verified-results.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

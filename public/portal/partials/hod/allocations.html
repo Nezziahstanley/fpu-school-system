@@ -14,19 +14,48 @@
 #main-view input,#main-view select,#main-view textarea,#main-view button{font:inherit}
 @media(max-width:640px){#main-view .page-head,#main-view .greeting{padding:1.05rem;border-radius:14px}#main-view .page-head .actions{width:100%}}
 </style>
+<style id="hod-allocation-enhancements">
+.hod-section-hero h2{color:#fff!important;margin:0;font-size:1.4rem;font-weight:800}
+.hod-section-hero p{color:#d9f5e8!important;margin:.35rem 0 0;font-size:.85rem}
+.alloc-filter-bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem;padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
+.alloc-filter-bar input{flex:1 1 230px;min-width:180px}
+.alloc-filter-bar input,.alloc-filter-bar select{padding:.6rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:.82rem}
+.alloc-filter-bar button{padding:.6rem .9rem;border:0;border-radius:8px;background:#065f46;color:#fff;font-weight:750;font-size:.8rem;cursor:pointer}
+.alloc-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:.75rem}
+.alloc-stats article{padding:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px}
+.alloc-stats small{display:block;color:#64748b;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.alloc-stats strong{display:block;margin-top:.35rem;color:#0f172a;font-size:1.45rem;font-weight:850}
+.alloc-result-count{margin:0 0 .75rem;color:#64748b;font-size:.78rem;font-weight:700}
+@media(max-width:720px){.alloc-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.alloc-filter-bar input{flex-basis:100%}}
+@media(max-width:420px){.alloc-filter-bar>*{width:100%}}
+</style>
 <!-- Portal → HOD → Course Allocations -->
 <style id="hod-section-hero-style">.hod-section-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}.hod-section-hero h2{margin:0!important;color:#fff!important;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800;line-height:1.2}.hod-section-hero p{margin:.35rem 0 0!important;color:#d9f5e8!important}.hod-section-hero .actions{display:flex;gap:.55rem;flex-wrap:wrap}@media(max-width:640px){.hod-section-hero{padding:1.05rem;border-radius:14px}.hod-section-hero .actions{width:100%}}</style>
 <div style="padding:0;">
   <div class="hod-section-hero">
     <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Course Allocations</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Assign lecturers to courses in your department</p>
+      <h2>Course Allocations</h2>
+      <p id="alloc-dept-sub">Assign and monitor lecturer allocations in your department</p>
     </div>
     <div class="actions">
       <button id="alloc-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
   </div>
 
+  <div class="alloc-filter-bar">
+    <input id="alloc-search" type="search" placeholder="Search course, code or lecturer…" aria-label="Search course allocations">
+    <select id="alloc-level" aria-label="Filter by level"><option value="">All Levels</option><option value="ND">ND</option><option value="HND">HND</option></select>
+    <select id="alloc-semester-filter" aria-label="Filter by semester"><option value="">All Semesters</option><option value="first">First Semester</option><option value="second">Second Semester</option></select>
+    <select id="alloc-status-filter" aria-label="Filter by allocation status"><option value="">All Statuses</option><option value="unassigned">Unassigned</option><option value="assigned">Assigned</option><option value="flagged">Flagged</option></select>
+    <button id="alloc-export" type="button">↓ Export CSV</button>
+  </div>
+  <div class="alloc-stats">
+    <article><small>Total Courses</small><strong id="alloc-total">—</strong></article>
+    <article><small>Assigned</small><strong id="alloc-assigned">—</strong></article>
+    <article><small>Unassigned</small><strong id="alloc-unassigned">—</strong></article>
+    <article><small>Flagged</small><strong id="alloc-flagged">—</strong></article>
+  </div>
+  <div id="alloc-result-count" class="alloc-result-count" aria-live="polite">Loading allocations…</div>
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
@@ -35,12 +64,14 @@
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Course</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Level</th>
             <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Units</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Semester</th>
             <th style="padding:.6rem .75rem;text-align:left;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Assigned Lecturer</th>
+            <th style="padding:.6rem .75rem;text-align:center;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Status</th>
             <th style="padding:.6rem .75rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b;">Action</th>
           </tr>
         </thead>
         <tbody id="alloc-tbody">
-          <tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">Loading courses…</td></tr>
+          <tr><td colspan="7" style="padding:3rem;text-align:center;color:#94a3b8;">Loading courses…</td></tr>
         </tbody>
       </table>
     </div>
@@ -88,113 +119,148 @@
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
-  const $ = (id) => document.getElementById(id);
-  const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
-
+  const $ = id => document.getElementById(id);
+  const esc = value => core.escapeHtml ? core.escapeHtml(value) : String(value == null ? '' : value);
   let ALL_COURSES = [];
+  let FILTERED = [];
+  let loading = false;
+
+  function allocationState(course) {
+    if (!course.lecturerId && !course.lecturerName) return 'unassigned';
+    return course.status === 'flagged' ? 'flagged' : 'assigned';
+  }
+
+  function updateStats() {
+    const courses = new Map();
+    ALL_COURSES.forEach(course => {
+      const key = String(course.id);
+      const state = allocationState(course);
+      const current = courses.get(key);
+      if (!current || (current === 'unassigned' && state !== 'unassigned') || (current === 'assigned' && state === 'flagged')) courses.set(key, state);
+    });
+    $('alloc-total').textContent = courses.size;
+    $('alloc-assigned').textContent = [...courses.values()].filter(x => x === 'assigned').length;
+    $('alloc-unassigned').textContent = [...courses.values()].filter(x => x === 'unassigned').length;
+    $('alloc-flagged').textContent = [...courses.values()].filter(x => x === 'flagged').length;
+  }
+
+  function applyFilter() {
+    const query = String($('alloc-search').value || '').trim().toLowerCase();
+    const level = $('alloc-level').value;
+    const semester = $('alloc-semester-filter').value;
+    const status = $('alloc-status-filter').value;
+    FILTERED = ALL_COURSES.filter(course => {
+      const hay = [course.code,course.title,course.courseCode,course.courseTitle,course.lecturerName,course.flagReason,course.status].join(' ').toLowerCase();
+      if (query && !hay.includes(query)) return false;
+      if (level && String(course.level || '').toUpperCase() !== level) return false;
+      if (semester && String(course.semesterName || '').toLowerCase() !== semester) return false;
+      if (status && allocationState(course) !== status) return false;
+      return true;
+    });
+    render();
+  }
+
+  function render() {
+    const tbody = $('alloc-tbody');
+    $('alloc-result-count').textContent = 'Showing ' + FILTERED.length + ' of ' + ALL_COURSES.length + ' allocation records';
+    if (!FILTERED.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#64748b;">' + (ALL_COURSES.length ? 'No allocations match your filters.' : 'No courses in your department.') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = FILTERED.map(course => {
+      const assigned = Boolean(course.lecturerId || course.lecturerName);
+      const state = allocationState(course);
+      const statusText = state === 'flagged' ? 'Flagged' : state === 'assigned' ? (course.status || 'Assigned') : 'Unassigned';
+      const statusStyle = state === 'flagged' ? 'background:#fee2e2;color:#991b1b' : state === 'assigned' ? 'background:#d1fae5;color:#065f46' : 'background:#fef3c7;color:#92400e';
+      return '<tr style="border-bottom:1px solid #f1f5f9;">' +
+        '<td style="padding:.65rem .75rem;"><div style="font-weight:800;color:#0f172a;">'+esc(course.code || course.courseCode || '—')+'</div><div style="font-size:.72rem;color:#64748b;">'+esc(course.title || course.courseTitle || '')+'</div></td>' +
+        '<td style="padding:.65rem .75rem;text-align:center;">'+esc(course.level || '—')+'</td>' +
+        '<td style="padding:.65rem .75rem;text-align:center;">'+esc(course.unit || 0)+'</td>' +
+        '<td style="padding:.65rem .75rem;text-align:center;">'+esc(course.semesterName || '—')+'</td>' +
+        '<td style="padding:.65rem .75rem;color:#475569;">'+(assigned?'<strong style="color:#065f46;">'+esc(course.lecturerName || 'Assigned lecturer')+'</strong>':'<span style="color:#92400e;font-style:italic;">Unassigned</span>')+'</td>' +
+        '<td style="padding:.65rem .75rem;text-align:center;"><span style="display:inline-block;padding:.25rem .5rem;border-radius:6px;font-size:.68rem;font-weight:800;'+statusStyle+'">'+esc(statusText)+'</span></td>' +
+        '<td style="padding:.65rem .75rem;text-align:right;"><button class="btn-assign" data-id="'+esc(course.id)+'" data-code="'+esc(course.code || course.courseCode || '')+'" data-title="'+esc(course.title || course.courseTitle || '')+'" data-lecturer-id="'+esc(course.lecturerId || '')+'" style="padding:.35rem .7rem;font-size:.72rem;font-weight:750;border-radius:6px;border:none;cursor:pointer;background:'+(assigned?'#f1f5f9':'#065f46')+';color:'+(assigned?'#475569':'#fff')+';">'+(assigned?'Reassign':'Assign')+'</button></td></tr>';
+    }).join('');
+    tbody.querySelectorAll('.btn-assign').forEach(button => button.addEventListener('click', () => openModal(button.dataset.id,button.dataset.code,button.dataset.title,button.dataset.lecturerId)));
+  }
+
+  function exportCsv() {
+    if (!FILTERED.length) { core.showToast && core.showToast('No allocation records match the current filters.','warning'); return; }
+    const columns = ['Course Code','Course Title','Level','Units','Semester','Lecturer','Status','Flag Reason'];
+    const cell = value => { let v=String(value==null?'':value); if (/^\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
+    const rows = [columns,...FILTERED.map(course=>[course.code||course.courseCode,course.title||course.courseTitle,course.level,course.unit,course.semesterName,course.lecturerName||'Unassigned',allocationState(course),course.flagReason])];
+    const csv = '\uFEFF' + rows.map(row=>row.map(cell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-course-allocations.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
 
   async function load() {
-    const tbody = $('alloc-tbody');
+    if (loading) return;
+    loading = true;
+    $('alloc-refresh').disabled = true;
+    $('alloc-refresh').textContent = 'Loading…';
+    $('alloc-tbody').innerHTML = '<tr><td colspan="7" style="padding:3rem;text-align:center;color:#64748b;">Loading course allocations…</td></tr>';
     try {
-      // Fetch courses with their current allocations
-      const res = await core.portalFetch('/api/hod/courses-with-allocations');
-      ALL_COURSES = res.data || [];
-
-      if (!ALL_COURSES.length) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding:3rem;text-align:center;color:#94a3b8;">No courses in your department.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = ALL_COURSES.map(c => {
-        const isAssigned = c.lecturerName || c.assignedLecturer;
-        return `
-          <tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:.65rem .75rem;">
-              <div style="font-weight:700;color:#0f172a;">${esc(c.code)}</div>
-              <div style="font-size:.72rem;color:#64748b;">${esc(c.title)}</div>
-            </td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(c.level || '—')}</td>
-            <td style="padding:.65rem .75rem;text-align:center;">${esc(c.unit || 0)}</td>
-            <td style="padding:.65rem .75rem;color:#475569;">
-              ${isAssigned ? `<strong style="color:#065f46;">${esc(isAssigned)}</strong>` : '<span style="color:#94a3b8;font-style:italic;">Unassigned</span>'}
-            </td>
-            <td style="padding:.65rem .75rem;text-align:right;">
-              <button class="btn-assign" data-id="${c.id}" data-code="${esc(c.code)}" data-title="${esc(c.title)}" style="padding:.35rem .7rem;font-size:.72rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${isAssigned ? '#f1f5f9' : '#065f46'};color:${isAssigned ? '#475569' : '#fff'};">
-                ${isAssigned ? 'Reassign' : 'Assign'}
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      tbody.querySelectorAll('.btn-assign').forEach(btn => {
-        btn.addEventListener('click', () => openModal(btn.dataset.id, btn.dataset.code, btn.dataset.title));
-      });
-
-    } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="5" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
+      const response = await core.portalFetch('/api/hod/courses-with-allocations');
+      ALL_COURSES = Array.isArray(response.data) ? response.data : [];
+      updateStats();
+      applyFilter();
+      try {
+        const dash = await core.portalFetch('/api/hod/dashboard');
+        if (dash?.data?.departmentName) $('alloc-dept-sub').textContent = 'Manage lecturer allocations for ' + dash.data.departmentName;
+      } catch (_) {}
+    } catch (error) {
+      ALL_COURSES = [];
+      FILTERED = [];
+      $('alloc-tbody').innerHTML = '<tr><td colspan="7" style="padding:2rem;text-align:center;color:#991b1b;">'+esc(error.message || 'Unable to load allocations.')+'</td></tr>';
+      $('alloc-result-count').textContent = 'Allocation records could not be loaded.';
+    } finally {
+      loading = false;
+      $('alloc-refresh').disabled = false;
+      $('alloc-refresh').textContent = '↻ Refresh';
     }
   }
 
-  async function openModal(courseId, code, title) {
+  async function openModal(courseId, code, title, currentLecturerId) {
     $('alloc-modal').style.display = 'flex';
     $('alloc-course-id').value = courseId;
     $('alloc-course-name').textContent = code + ' — ' + title;
     $('alloc-lecturer').innerHTML = '<option value="">Loading…</option>';
-
     try {
-      const res = await core.portalFetch('/api/hod/lecturers');
-      const lecturers = res.data || [];
-      
-      if (!lecturers.length) {
-        $('alloc-lecturer').innerHTML = '<option value="">No lecturers in department</option>';
-        return;
-      }
-
-      $('alloc-lecturer').innerHTML = '<option value="">Select Lecturer…</option>' + 
-        lecturers.map(l => `<option value="${l.id}">${esc(l.firstName)} ${esc(l.lastName)}</option>`).join('');
-    } catch (err) {
+      const response = await core.portalFetch('/api/hod/lecturers');
+      const lecturers = Array.isArray(response.data) ? response.data : [];
+      if (!lecturers.length) { $('alloc-lecturer').innerHTML = '<option value="">No lecturers in department</option>'; return; }
+      $('alloc-lecturer').innerHTML = '<option value="">Select Lecturer…</option>' + lecturers.map(lecturer => '<option value="'+esc(lecturer.id)+'" '+(String(lecturer.id)===String(currentLecturerId)?'selected':'')+'>'+esc(lecturer.firstName)+' '+esc(lecturer.lastName)+'</option>').join('');
+    } catch (error) {
       $('alloc-lecturer').innerHTML = '<option value="">Error loading lecturers</option>';
+      core.showToast && core.showToast(error.message,'error');
     }
   }
 
-  function closeModal() {
-    $('alloc-modal').style.display = 'none';
-  }
+  function closeModal() { $('alloc-modal').style.display = 'none'; }
 
   async function save() {
-    const courseId = $('alloc-course-id').value;
-    const lecturerId = $('alloc-lecturer').value;
-    const semester = $('alloc-semester').value;
-
-    if (!lecturerId) return core.showToast && core.showToast('Please select a lecturer.', 'warning');
-
-    const btn = $('alloc-save');
-    btn.disabled = true;
-    btn.textContent = 'Assigning…';
-
+    const courseId=$('alloc-course-id').value,lecturerId=$('alloc-lecturer').value,semester=$('alloc-semester').value;
+    if (!lecturerId) return core.showToast && core.showToast('Please select a lecturer.','warning');
+    const button=$('alloc-save');button.disabled=true;button.textContent='Assigning…';
     try {
-      await core.portalFetch('/api/hod/allocate', {
-        method: 'POST',
-        body: { courseId: Number(courseId), lecturerId: Number(lecturerId), semester }
-      });
-      core.showToast && core.showToast('Course assigned successfully!', 'success');
-      closeModal();
-      load();
-    } catch (err) {
-      core.showToast && core.showToast(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Assign Course';
-    }
+      await core.portalFetch('/api/hod/allocate',{method:'POST',body:{courseId:Number(courseId),lecturerId:Number(lecturerId),semester}});
+      core.showToast && core.showToast('Course assigned successfully!','success');
+      closeModal();await load();
+    } catch(error) { core.showToast && core.showToast(error.message,'error'); }
+    finally { button.disabled=false;button.textContent='Assign Course'; }
   }
 
-  $('alloc-refresh')?.addEventListener('click', load);
-  $('alloc-modal-close')?.addEventListener('click', closeModal);
-  $('alloc-cancel')?.addEventListener('click', closeModal);
-  $('alloc-save')?.addEventListener('click', save);
-  $('alloc-modal')?.addEventListener('click', (e) => { if (e.target.id === 'alloc-modal') closeModal(); });
-
+  $('alloc-search')?.addEventListener('input',applyFilter);
+  $('alloc-level')?.addEventListener('change',applyFilter);
+  $('alloc-semester-filter')?.addEventListener('change',applyFilter);
+  $('alloc-status-filter')?.addEventListener('change',applyFilter);
+  $('alloc-export')?.addEventListener('click',exportCsv);
+  $('alloc-refresh')?.addEventListener('click',load);
+  $('alloc-modal-close')?.addEventListener('click',closeModal);
+  $('alloc-cancel')?.addEventListener('click',closeModal);
+  $('alloc-save')?.addEventListener('click',save);
+  $('alloc-modal')?.addEventListener('click',event=>{if(event.target.id==='alloc-modal')closeModal();});
   load();
 })();
 </script>

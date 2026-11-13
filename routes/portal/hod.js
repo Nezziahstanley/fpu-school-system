@@ -27,7 +27,7 @@ const { scoreToGrade, getActiveGradeScale } = require('../../utils/gradeScale');
 const { 
   users, courses, courseRegistrations, results, staffProfiles, 
   programmes, departments, courseAllocations, academicSessions,
-  examSchedules
+  examSchedules, attendance
 } = schema;
 
 const only = requireRole('hod', 'admin');
@@ -41,6 +41,139 @@ function deptId(req) {
   }
   return id;
 }
+
+// ============================================================
+// GET /api/hod/attendance — department-wide attendance monitoring
+// ============================================================
+router.get('/attendance', only, async (req, res) => {
+  try {
+    const departmentId = deptId(req);
+    const sessions = await db.select({
+      id: academicSessions.id,
+      name: academicSessions.name,
+      isCurrent: academicSessions.isCurrent
+    }).from(academicSessions).orderBy(desc(academicSessions.id));
+
+    let sessionId;
+    if (req.query.sessionId) {
+      sessionId = Number(req.query.sessionId);
+      if (!Number.isInteger(sessionId) || sessionId < 1 || !sessions.some(s => Number(s.id) === sessionId)) {
+        return res.status(400).json({ success: false, error: 'Select a valid academic session.' });
+      }
+    } else {
+      sessionId = Number(sessions.find(s => s.isCurrent)?.id || sessions[0]?.id || 0);
+    }
+
+    if (!sessionId) {
+      return res.json({
+        success: true,
+        data: [],
+        courses: [],
+        sessions,
+        selectedSessionId: null,
+        summary: { totalRecords: 0, present: 0, absent: 0, late: 0, attendanceRate: 0, courses: 0, lectureDays: 0, students: 0 }
+      });
+    }
+
+    const rows = await db.select({
+      id: attendance.id,
+      courseId: courses.id,
+      courseCode: courses.code,
+      courseTitle: courses.title,
+      courseLevel: courses.level,
+      studentId: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      matricNumber: users.matricNumber,
+      studentLevel: users.level,
+      semester: attendance.semester,
+      date: attendance.date,
+      status: attendance.status,
+      remarks: attendance.remarks,
+      lecturerId: attendance.lecturerId
+    }).from(attendance)
+      .innerJoin(courses, eq(attendance.courseId, courses.id))
+      .innerJoin(users, eq(attendance.studentId, users.id))
+      .where(and(
+        eq(courses.departmentId, departmentId),
+        eq(users.departmentId, departmentId),
+        eq(attendance.sessionId, sessionId)
+      ))
+      .orderBy(desc(attendance.date), courses.code, users.lastName, users.firstName)
+      .limit(5000);
+
+    const courseMap = new Map();
+    const lectureDays = new Set();
+    const students = new Set();
+    const summary = { totalRecords: rows.length, present: 0, absent: 0, late: 0 };
+    for (const row of rows) {
+      const status = String(row.status || '').toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(summary, status)) summary[status] += 1;
+      students.add(Number(row.studentId));
+      lectureDays.add(String(row.courseId) + '|' + String(row.semester) + '|' + String(row.date));
+      const key = String(row.courseId) + '|' + String(row.semester);
+      if (!courseMap.has(key)) {
+        courseMap.set(key, {
+          courseId: row.courseId,
+          courseCode: row.courseCode,
+          courseTitle: row.courseTitle,
+          level: row.courseLevel || row.studentLevel || '',
+          semester: row.semester,
+          records: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          students: new Set(),
+          dates: new Set()
+        });
+      }
+      const course = courseMap.get(key);
+      course.records += 1;
+      if (Object.prototype.hasOwnProperty.call(course, status)) course[status] += 1;
+      course.students.add(Number(row.studentId));
+      course.dates.add(String(row.date));
+    }
+
+    const coursesData = [...courseMap.values()].map(course => ({
+      courseId: course.courseId,
+      courseCode: course.courseCode,
+      courseTitle: course.courseTitle,
+      level: course.level,
+      semester: course.semester,
+      records: course.records,
+      present: course.present,
+      absent: course.absent,
+      late: course.late,
+      students: course.students.size,
+      lectureDays: course.dates.size,
+      attendanceRate: course.records ? Math.round(((course.present + course.late) / course.records) * 100) : 0
+    })).sort((a, b) => String(a.courseCode || '').localeCompare(String(b.courseCode || '')));
+
+    const totalCounted = summary.present + summary.absent + summary.late;
+    return res.json({
+      success: true,
+      data: rows.map(row => ({
+        ...row,
+        studentName: [row.firstName, row.lastName].filter(Boolean).join(' '),
+        matricNumber: String(row.matricNumber || '').replace(/SMT/gi, '').replace(/\/+/g, '/').trim()
+      })),
+      courses: coursesData,
+      sessions,
+      selectedSessionId: sessionId,
+      summary: {
+        ...summary,
+        attendanceRate: totalCounted ? Math.round(((summary.present + summary.late) / totalCounted) * 100) : 0,
+        courses: coursesData.length,
+        lectureDays: lectureDays.size,
+        students: students.size
+      },
+      truncated: rows.length === 5000
+    });
+  } catch (err) {
+    console.error('[hod/attendance] Error:', err);
+    return res.status(500).json({ success: false, error: 'Unable to load department attendance.' });
+  }
+});
 
 // ============================================================
 // GET /api/hod/dashboard

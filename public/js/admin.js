@@ -3430,7 +3430,7 @@ async function loadAttendanceDepartments() {
     if (statCourses) statCourses.textContent = totalCourses;
     if (statTotal) statTotal.textContent = totalRecords;
     if (statStudents) statStudents.textContent = totalStudents;
-    if (statRate) statRate.textContent = totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—';
+    if (statRate) statRate.textContent = (totalRecords ? Math.round((totalPresent / totalRecords) * 100) : 0) + '%';
 
     if (!departments.length) {
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No attendance departments match the selected filters.</div>';
@@ -3464,7 +3464,7 @@ async function loadAttendanceDepartments() {
                 <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${Number(s.courses) || 0}</td>
                 <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${Number(s.students) || 0}</td>
                 <td style="padding:15px 18px;text-align:center;font-weight:700;color:#0f172a;">${records}</td>
-                <td style="padding:15px 18px;"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${records ? rate + '%' : '—'}</span></div></td>
+                <td style="padding:15px 18px;"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${rate}%</span></div></td>
               </tr>`;
             }).join('')}</tbody>
           </table>
@@ -3573,7 +3573,7 @@ async function openDeptModal(deptId, deptName, deptCode) {
         else rateClass = 'critical';
       }
 
-      const rateText = c.records > 0 ? `${c.rate}%` : '—';
+      const rateText = `${Number(c.rate) || 0}%`;
       const lvlClass = c.level ? c.level.toLowerCase() : 'other';
 
       return `
@@ -3701,7 +3701,7 @@ async function loadDepartmentAttendance() {
     if (totalRecords > 0) {
       overallRate = Number.isFinite(Number(summary.rate)) ? Number(summary.rate) : Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
-    document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+    document.getElementById('abdc-stat-rate').textContent = `${overallRate}%`;
 
     if (!courses.length) {
       grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No courses found in this department.</div>';

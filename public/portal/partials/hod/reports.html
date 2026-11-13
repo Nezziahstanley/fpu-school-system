@@ -52,6 +52,15 @@ function allocationState(row){
  if(!row.lecturerId&&!row.lecturerName)return 'unassigned';
  return row.status==='flagged'?'flagged':'assigned';
 }
+function allocationCounts(){
+ const byCourse=new Map();
+ ALLOCATIONS.forEach(row=>{
+  const state=allocationState(row),key=String(row.id);
+  const old=byCourse.get(key);
+  if(!old||(old==='unassigned'&&state!=='unassigned')||(old==='assigned'&&state==='flagged'))byCourse.set(key,state);
+ });
+ return {assigned:[...byCourse.values()].filter(x=>x!=='unassigned').length,unassigned:[...byCourse.values()].filter(x=>x==='unassigned').length};
+}
 function filteredAllocations(){
  const query=String($('hr-allocation-search')?.value||'').trim().toLowerCase();
  const status=$('hr-allocation-status')?.value||'';
@@ -84,8 +93,8 @@ function exportCsv(){
   ['Pending Results',DASH.pendingResults||0],
   ['Verified Results',DASH.verifiedResults||0],
   ['Published Results',DASH.publishedResults||0],
-  ['Allocated Courses',ALLOCATIONS.filter(x=>allocationState(x)!=='unassigned').length],
-  ['Unallocated Courses',ALLOCATIONS.filter(x=>allocationState(x)==='unassigned').length]
+  ['Allocated Courses',allocationCounts().assigned],
+  ['Unallocated Courses',allocationCounts().unassigned]
  ];
  summary.forEach(item=>data.push(['Summary',item[0],item[1],'']));
  Object.entries(levels).forEach(([level,count])=>data.push(['Students by Level',level,count,'']));
@@ -104,10 +113,9 @@ async function load(){
   DASH=dash||{};ALLOCATIONS=Array.isArray(alloc)?alloc:[];
   set('hr-students',DASH.totalStudents);set('hr-staff',DASH.totalStaff);set('hr-courses',DASH.activeCourses);
   set('hr-registered',DASH.registeredThisSession);set('hr-pending',DASH.pendingResults);set('hr-verified',DASH.verifiedResults);set('hr-published',DASH.publishedResults);
-  const byCourse=new Map();
-  ALLOCATIONS.forEach(row=>{const state=allocationState(row),key=String(row.id);const old=byCourse.get(key);if(!old||(old==='unassigned'&&state!=='unassigned')||(old==='assigned'&&state==='flagged'))byCourse.set(key,state)});
-  set('hr-allocated',[...byCourse.values()].filter(x=>x!=='unassigned').length);
-  set('hr-unallocated',[...byCourse.values()].filter(x=>x==='unassigned').length);
+  const allocationTotals=allocationCounts();
+  set('hr-allocated',allocationTotals.assigned);
+  set('hr-unallocated',allocationTotals.unassigned);
   if(DASH.departmentName)$('hr-dept-sub').textContent='Department overview for '+DASH.departmentName+' · Academic session: '+(DASH.activeSessionName||'—');
   const levels=DASH.studentsByLevel||{},keys=Object.keys(levels);
   $('hr-levels').innerHTML=keys.length?keys.map(key=>'<tr><td>'+esc(key)+'</td><td>'+Number(levels[key]||0).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="2">No student records found.</td></tr>';

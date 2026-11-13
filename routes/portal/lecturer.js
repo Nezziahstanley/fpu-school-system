@@ -477,6 +477,30 @@ router.post('/attendance/bulk', only, async (req, res, next) => {
   } catch (err) { return res.status(500).json({ success: false, error: err.message }); }
 });
 
+// Correct an attendance entry with a mandatory reason and an audit trail.
+router.put('/attendance/:attendanceId/correction', only, async (req,res) => {
+  try {
+    const attendanceId=Number(req.params.attendanceId);
+    const status=String(req.body?.status||'').toLowerCase();
+    const reason=String(req.body?.reason||'').trim();
+    if(!Number.isInteger(attendanceId)||attendanceId<1) return res.status(400).json({success:false,error:'Invalid attendance record.'});
+    if(!['present','absent','late'].includes(status)) return res.status(400).json({success:false,error:'Choose present, absent or late.'});
+    if(!reason||reason.length>500) return res.status(400).json({success:false,error:'A correction reason of up to 500 characters is required.'});
+    const [before]=await db.select().from(attendance).where(and(eq(attendance.id,attendanceId),eq(attendance.lecturerId,req.user.id))).limit(1);
+    if(!before) return res.status(404).json({success:false,error:'Attendance record not found in your lecturer account.'});
+    const [allocation]=await db.select({id:courseAllocations.id}).from(courseAllocations).where(and(
+      eq(courseAllocations.lecturerId,req.user.id),eq(courseAllocations.courseId,before.courseId),
+      eq(courseAllocations.sessionId,before.sessionId),eq(courseAllocations.semester,before.semester),
+      sql`${courseAllocations.status} <> 'cancelled'`
+    )).limit(1);
+    if(!allocation) return res.status(403).json({success:false,error:'You are no longer allocated to this course.'});
+    const [after]=await db.update(attendance).set({status,remarks:reason})
+      .where(and(eq(attendance.id,attendanceId),eq(attendance.lecturerId,req.user.id))).returning();
+    await logAudit({req,action:'lecturer.attendance_correction',before,after:{...after,correctionReason:reason}});
+    return res.json({success:true,data:after});
+  } catch(err) { console.error('[lecturer/attendance-correction]',err); return res.status(500).json({success:false,error:'Unable to save attendance correction.'}); }
+});
+
 // ============================================================
 // RESULTS
 // ============================================================

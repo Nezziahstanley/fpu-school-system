@@ -239,7 +239,7 @@
     const rows=[...$('students-tbody').querySelectorAll('tr[data-search-text]')];
     let visible=0;
     rows.forEach(row=>{
-      const rowStatus=row.dataset.resultStatus==='approved'?'verified':row.dataset.resultStatus;
+      const rowStatus=(row.dataset.resultStatus==='approved'||row.dataset.resultStatus==='hod_verified')?'verified':row.dataset.resultStatus;
       const show=(!query||row.dataset.searchText.includes(query))&&(!status||rowStatus===status);
       row.style.display=show?'':'none';
       if(show)visible++;
@@ -249,7 +249,7 @@
 
   function csvCell(value) {
     let text=String(value==null?'':value);
-    if(/^\\s*[=+@-]/.test(text))text="'"+text;
+    if(/^\s*[=+@-]/.test(text))text="'"+text;
     return '"'+text.replace(/"/g,'""')+'"';
   }
 
@@ -262,7 +262,7 @@
       const exam=row.querySelector('input[data-field="exam"]')?.value??'';
       return [[cells[0]?.textContent||''].join(' ').trim(),cells[1]?.textContent||'',ca,exam,cells[4]?.textContent||'',cells[5]?.textContent||'',row.dataset.resultStatus||'missing'];
     })];
-    const csv='\\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\\r\\n');
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-course-results-'+String(CURRENT_COURSE_ID||'').replace(/[^0-9]/g,'')+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

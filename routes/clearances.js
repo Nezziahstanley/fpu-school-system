@@ -140,13 +140,8 @@ router.put('/student/:studentId', requireRole(['admin', 'bursar', 'registrar']),
     }
 
     const requestedSessionId = req.body?.sessionId || null;
-    const sessionRes = requestedSessionId
-      ? await db.query('SELECT id FROM academic_sessions WHERE id = $1 LIMIT 1', [requestedSessionId])
-      : await db.query('SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1');
-    if (!sessionRes.rows.length) {
-      return res.status(400).json({ success: false, error: 'Selected academic session was not found.' });
-    }
-    const sessionId = sessionRes.rows[0].id;
+    const sessionId = await resolveClearanceSessionId(requestedSessionId);
+    if (!sessionId) return res.status(400).json({ success: false, error: 'No academic session is available. Create an academic session before managing clearances.' });
     const normalizedStatus = String(status).toLowerCase();
     if (!['pending', 'cleared', 'rejected'].includes(normalizedStatus)) {
       return res.status(400).json({ success: false, error: 'Invalid clearance status.' });
@@ -246,10 +241,10 @@ router.post('/:id/clear', requireRole(['admin', 'bursar', 'registrar']), async (
 router.post('/:id/reject', requireRole(['admin', 'bursar', 'registrar']), async (req, res, next) => {
   try {
     const result = await db.query(
-      `UPDATE clearances 
+      `UPDATE clearances
        SET status = 'rejected', cleared_by = NULL, cleared_at = NULL, remarks = COALESCE($1, remarks)
        WHERE id = $2 RETURNING *`,
-      [req.user?.id || null, req.body?.remarks || null, req.params.id]
+      [req.body?.remarks || null, req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found.' });
     await logAudit({ req, action: 'clearance.reject', entity: 'clearance', entityId: result.rows[0].id, after: result.rows[0] });

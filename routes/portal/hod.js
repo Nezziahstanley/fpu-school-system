@@ -48,6 +48,7 @@ function deptId(req) {
 router.get('/attendance', only, async (req, res) => {
   try {
     const departmentId = deptId(req);
+    const [department] = await db.select({ name: departments.name }).from(departments).where(eq(departments.id, departmentId)).limit(1);
     const sessions = await db.select({
       id: academicSessions.id,
       name: academicSessions.name,
@@ -70,6 +71,7 @@ router.get('/attendance', only, async (req, res) => {
         data: [],
         courses: [],
         sessions,
+        departmentName: department?.name || '',
         selectedSessionId: null,
         summary: { totalRecords: 0, present: 0, absent: 0, late: 0, attendanceRate: 0, courses: 0, lectureDays: 0, students: 0 }
       });
@@ -159,6 +161,7 @@ router.get('/attendance', only, async (req, res) => {
       })),
       courses: coursesData,
       sessions,
+      departmentName: department?.name || '',
       selectedSessionId: sessionId,
       summary: {
         ...summary,

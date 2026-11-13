@@ -83,7 +83,8 @@
     if(!confirm(prompts[action]||'Update this reservation?'))return;
     btn.disabled=true;btn.textContent='Updating…';
     try{
-      await core.portalFetch('/api/librarian/reservations/'+encodeURIComponent(id)+'/'+action,{method:'POST'});
+      const endpoint=action==='ready'?'ready':action==='fulfill'?'fulfill':'cancel';
+      await core.portalFetch('/api/librarian/reservations/'+encodeURIComponent(id)+'/'+endpoint,{method:'POST'});
       core.showToast&&core.showToast(action==='ready'?'Reservation marked ready.':action==='fulfill'?'Reservation marked fulfilled.':'Reservation cancelled.','success');
       await load();
     }catch(err){core.showToast&&core.showToast(err.message||'Unable to update reservation.','error');btn.disabled=false;}

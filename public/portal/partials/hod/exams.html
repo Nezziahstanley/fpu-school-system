@@ -205,7 +205,7 @@
   async function loadExams() {
     const sessionId = $('ex-session')?.value;
     const semester = $('ex-semester')?.value || 'first';
-    if (!sessionId) return [];
+    if (!sessionId) { CURRENT_EXAMS = []; return []; }
 
     try {
       const res = await core.portalFetch(`/api/hod/exams?sessionId=${sessionId}&semester=${semester}&limit=500`);
@@ -213,6 +213,7 @@
       return CURRENT_EXAMS;
     } catch (err) { 
       console.error('Could not load exams:', err); 
+      CURRENT_EXAMS = [];
       return [];
     }
   }
@@ -286,9 +287,9 @@
   function exportExams() {
     const rows=filteredExams();
     if(!rows.length){core.showToast&&core.showToast('No exams match the current filters.','warning');return;}
-    const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
+    const cell=value=>{let v=String(value==null?'':value);if(/^\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
     const data=[['Course Code','Course Title','Level','Exam Date','Start Time','End Time','Venue','Status'],...rows.map(record=>{const item=examInfo(record),exam=item.exam;return[item.courseCode,item.courseTitle,item.level,exam.examDate,exam.startTime,exam.endTime,exam.venue,exam.status];})];
-    const csv='\\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const csv='\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-department-exams.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

@@ -13,10 +13,11 @@ const { announcements, notifications, complaints, messages, users } = schema;
 // ANNOUNCEMENTS
 // ============================================================
 
-async function listAnnouncementsWithAuthor({ audience, isPublished } = {}) {
+async function listAnnouncementsWithAuthor({ audience, isPublished, departmentId } = {}) {
   const conds = [];
   if (audience) conds.push(eq(announcements.audience, audience));
   if (isPublished !== undefined) conds.push(eq(announcements.isPublished, !!isPublished));
+  if (departmentId !== undefined && departmentId !== null) conds.push(eq(announcements.departmentId, Number(departmentId)));
   const where = conds.length ? and(...conds) : undefined;
 
   return db
@@ -48,6 +49,7 @@ async function createAnnouncement(payload) {
       audience: payload.audience || 'all',
       priority: payload.priority || 'normal',
       authorId: Number(payload.authorId),
+      departmentId: payload.departmentId ? Number(payload.departmentId) : null,
       isPublished: payload.isPublished !== false,
       showOnMarquee: payload.showOnMarquee === true,
       publishedAt: new Date(),
@@ -58,7 +60,7 @@ async function createAnnouncement(payload) {
 }
 
 async function updateAnnouncement(id, patch) {
-  const allowed = ['title', 'body', 'audience', 'priority', 'isPublished', 'showOnMarquee', 'expiresAt'];
+  const allowed = ['title', 'body', 'audience', 'priority', 'isPublished', 'showOnMarquee', 'expiresAt', 'departmentId'];
   const clean = {};
   for (const k of allowed) {
     if (patch[k] !== undefined) {

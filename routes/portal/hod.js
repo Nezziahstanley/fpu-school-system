@@ -1121,10 +1121,14 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
+    // Prefer the active academic session; if none is marked current,
+    // fall back to the latest session in which this course has registrations.
     const sessResult = await db.execute(sql`
-      SELECT DISTINCT session_id 
-      FROM course_registrations 
-      WHERE course_id = ${courseId} 
+      SELECT cr.session_id
+      FROM course_registrations cr
+      LEFT JOIN academic_sessions s ON s.id = cr.session_id
+      WHERE cr.course_id = ${courseId}
+      ORDER BY COALESCE(s.is_current, false) DESC, cr.session_id DESC
       LIMIT 1
     `);
     const sessionId = sessResult.rows[0]?.session_id;
@@ -1154,18 +1158,52 @@ router.get('/results/:courseId', only, async (req, res, next) => {
 router.post('/results/:courseId', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    const departmentId = Number(deptId(req));
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid course ID.' });
+    }
 
-    const { results } = req.body; 
+    const [currentSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.isCurrent, true))
+      .limit(1);
+    if (!currentSession) {
+      return res.status(409).json({ success: false, error: 'No active academic session is configured.' });
+    }
+    const sessionId = currentSession.id;
 
-    if (!Array.isArray(results)) {
-      return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    const { results } = req.body;
+    if (!Array.isArray(results) || results.length === 0) {
+      return res.status(400).json({ success: false, error: 'Select a course with registered students before saving results.' });
     }
 
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (!course || Number(course.departmentId) !== departmentId) {
+      return res.status(403).json({ success: false, error: 'Course not found in your department.' });
+    }
+
+    for (const row of results) {
+      const ca = Number(row.caScore);
+      const exam = Number(row.examScore);
+      const studentId = Number(row.studentId);
+      if (!Number.isInteger(studentId) || !Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || ca > 30 || exam < 0 || exam > 70) {
+        return res.status(400).json({ success: false, error: 'Each student must have a valid ID, CA score from 0–30 and exam score from 0–70.' });
+      }
+      const [registration] = await db.select({ id: courseRegistrations.id })
+        .from(courseRegistrations)
+        .innerJoin(users, eq(courseRegistrations.studentId, users.id))
+        .where(and(
+          eq(courseRegistrations.studentId, studentId),
+          eq(courseRegistrations.courseId, courseId),
+          eq(courseRegistrations.sessionId, sessionId),
+          eq(courseRegistrations.status, 'approved'),
+          eq(users.departmentId, departmentId),
+          eq(users.role, 'student')
+        )).limit(1);
+      if (!registration) {
+        return res.status(400).json({ success: false, error: 'A selected student is not approved for this course in the active session. Refresh the student list.' });
+      }
+    }
 
     const { calculateGrade } = require('../../utils/gpa');
 
@@ -1206,18 +1244,52 @@ router.post('/results/:courseId', only, async (req, res, next) => {
 router.post('/results/:courseId/approve', only, async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
-    
-    const sessionResult = await db.execute(sql`SELECT id FROM academic_sessions WHERE is_current = true LIMIT 1`);
-    const sessionId = sessionResult.rows[0]?.id || 1;
+    const departmentId = Number(deptId(req));
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid course ID.' });
+    }
 
-    const { results } = req.body; 
+    const [currentSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.isCurrent, true))
+      .limit(1);
+    if (!currentSession) {
+      return res.status(409).json({ success: false, error: 'No active academic session is configured.' });
+    }
+    const sessionId = currentSession.id;
 
-    if (!Array.isArray(results)) {
-      return res.status(400).json({ success: false, error: 'Invalid results data.' });
+    const { results } = req.body;
+    if (!Array.isArray(results) || results.length === 0) {
+      return res.status(400).json({ success: false, error: 'Select a course with registered students before saving results.' });
     }
 
     const [course] = await db.select().from(courses).where(eq(courses.id, courseId)).limit(1);
-    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+    if (!course || Number(course.departmentId) !== departmentId) {
+      return res.status(403).json({ success: false, error: 'Course not found in your department.' });
+    }
+
+    for (const row of results) {
+      const ca = Number(row.caScore);
+      const exam = Number(row.examScore);
+      const studentId = Number(row.studentId);
+      if (!Number.isInteger(studentId) || !Number.isFinite(ca) || !Number.isFinite(exam) || ca < 0 || ca > 30 || exam < 0 || exam > 70) {
+        return res.status(400).json({ success: false, error: 'Each student must have a valid ID, CA score from 0–30 and exam score from 0–70.' });
+      }
+      const [registration] = await db.select({ id: courseRegistrations.id })
+        .from(courseRegistrations)
+        .innerJoin(users, eq(courseRegistrations.studentId, users.id))
+        .where(and(
+          eq(courseRegistrations.studentId, studentId),
+          eq(courseRegistrations.courseId, courseId),
+          eq(courseRegistrations.sessionId, sessionId),
+          eq(courseRegistrations.status, 'approved'),
+          eq(users.departmentId, departmentId),
+          eq(users.role, 'student')
+        )).limit(1);
+      if (!registration) {
+        return res.status(400).json({ success: false, error: 'A selected student is not approved for this course in the active session. Refresh the student list.' });
+      }
+    }
 
     const { calculateGrade } = require('../../utils/gpa');
 

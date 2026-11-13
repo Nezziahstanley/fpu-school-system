@@ -190,7 +190,6 @@ router.get('/students', only, async (req, res, next) => {
       .leftJoin(courses, eq(results.courseId, courses.id))
       .where(and(inArray(results.studentId, rows.map((student) => student.id)), eq(results.status, 'published'))) : [];
     const gradeScale = await getActiveGradeScale();
-    const gradeScale = await getActiveGradeScale();
     const resultsByStudent = new Map();
     publishedRows.forEach((row) => {
       if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);
@@ -245,6 +244,7 @@ router.get('/transcripts', only, async (req, res, next) => {
       .from(results)
       .leftJoin(courses, eq(results.courseId, courses.id))
       .where(and(inArray(results.studentId, rows.map((student) => student.id)), eq(results.status, 'published'))) : [];
+    const gradeScale = await getActiveGradeScale();
     const resultsByStudent = new Map();
     publishedRows.forEach((row) => {
       if (!resultsByStudent.has(row.studentId)) resultsByStudent.set(row.studentId, []);

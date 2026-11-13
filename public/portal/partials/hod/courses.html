@@ -20,7 +20,7 @@
     <div class="avatar">📚</div>
     <div>
       <h1>Department Courses</h1>
-      <div class="sub">Assign lecturers to each course</div>
+      <div class="sub" id="crs-dept-sub">Manage courses and lecturer allocations in your department</div>
     </div>
   </div>
 </section>
@@ -33,21 +33,20 @@
     <option value="ND">ND</option>
     <option value="HND">HND</option>
   </select>
-  <select id="crs-semester">
-    <option value="">All Semesters</option>
-    <option value="first">First</option>
-    <option value="second">Second</option>
-  </select>
+  <select id="crs-semester"><option value="">All Semesters</option><option value="first">First</option><option value="second">Second</option></select>
+  <select id="crs-allocation"><option value="">All Allocation Statuses</option><option value="assigned">Assigned</option><option value="unassigned">Unassigned</option><option value="flagged">Flagged</option></select>
   <button class="btn btn-outline btn-sm" id="crs-refresh">↻ Refresh</button>
+  <button class="btn btn-primary btn-sm" id="crs-export" type="button">↓ Export CSV</button>
 </div>
 
 <!-- Stats -->
 <div class="stat-grid">
-  <div class="stat">
-    <div class="meta"><span class="label">Total Courses</span><span class="value" id="crs-total">—</span></div>
-    <div class="ic">📚</div>
-  </div>
+  <div class="stat"><div class="meta"><span class="label">Total Courses</span><span class="value" id="crs-total">—</span></div><div class="ic">📚</div></div>
+  <div class="stat green"><div class="meta"><span class="label">Assigned</span><span class="value" id="crs-assigned">—</span></div><div class="ic">✓</div></div>
+  <div class="stat red"><div class="meta"><span class="label">Unassigned</span><span class="value" id="crs-unassigned">—</span></div><div class="ic">!</div></div>
+  <div class="stat accent"><div class="meta"><span class="label">Flagged</span><span class="value" id="crs-flagged">—</span></div><div class="ic">⚑</div></div>
 </div>
+<div id="crs-result-count" style="margin:-.35rem 0 1rem;color:#64748b;font-size:.78rem;font-weight:700" aria-live="polite">Showing all courses</div>
 
 <!-- Table -->
 <section class="panel">
@@ -164,7 +163,7 @@
               data-title="${esc(title)}" 
               data-lecturer-id="${c.lecturerId || ''}"
               style="background:#065f46;color:#fff;border:none;border-radius:6px;padding:.35rem .7rem;font-size:.72rem;font-weight:700;cursor:pointer;">
-              Assign
+              ${c.lecturerId ? 'Reassign' : 'Assign'}
             </button>
           </td>
         </tr>`;
@@ -184,6 +183,7 @@
     const q = ($('crs-search').value || '').trim().toLowerCase();
     const lvl = $('crs-level').value;
     const sem = $('crs-semester').value;
+    const allocation = $('crs-allocation').value;
 
     FILTERED = ALL_COURSES.filter(c => {
       const code = c.code || c.courseCode || '';
@@ -191,23 +191,51 @@
       const level = c.level || '';
       const semester = c.semesterName || '';
       
-      const hay = `${code} ${title}`.toLowerCase();
+      const hay = `${code} ${title} ${c.lecturerName || ''} ${c.flagReason || ''} ${c.status || ''}`.toLowerCase();
       if (q && !hay.includes(q)) return false;
       if (lvl && level.toUpperCase() !== lvl) return false;
       if (sem && semester.toLowerCase() !== sem) return false;
+      if (allocation === 'assigned' && (!c.lecturerId || c.status === 'flagged')) return false;
+      if (allocation === 'unassigned' && c.lecturerId) return false;
+      if (allocation === 'flagged' && c.status !== 'flagged') return false;
       return true;
     });
     render();
+    $('crs-result-count').textContent = 'Showing ' + FILTERED.length + ' of ' + ALL_COURSES.length + ' course allocation rows';
+  }
+
+  function updateStats() {
+    const byCourse = new Map();
+    ALL_COURSES.forEach(row => {
+      const key=String(row.id);
+      const state=!row.lecturerId?'unassigned':row.status==='flagged'?'flagged':'assigned';
+      const old=byCourse.get(key);
+      if (!old || (old==='unassigned' && state!=='unassigned') || (old==='assigned' && state==='flagged')) byCourse.set(key,state);
+    });
+    $('crs-total').textContent=byCourse.size;
+    $('crs-assigned').textContent=[...byCourse.values()].filter(x=>x==='assigned').length;
+    $('crs-unassigned').textContent=[...byCourse.values()].filter(x=>x==='unassigned').length;
+    $('crs-flagged').textContent=[...byCourse.values()].filter(x=>x==='flagged').length;
+  }
+
+  function exportCsv() {
+    if (!FILTERED.length) { core.showToast && core.showToast('No courses match the current filters.','warning'); return; }
+    const columns=['Course Code','Course Title','Level','Units','Semester','Lecturer','Allocation Status','Flag Reason'];
+    const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
+    const rows=[columns,...FILTERED.map(row=>[row.code||row.courseCode,row.title||row.courseTitle,row.level,row.unit,row.semesterName,row.lecturerName||'Unassigned',row.status||'Unassigned',row.flagReason])];
+    const csv='\\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-department-courses.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
 
   async function load() {
     $('crs-tbody').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Loading…</td></tr>';
     try {
       const res = await core.portalFetch('/api/hod/courses-with-allocations');
-      ALL_COURSES = res.data || [];
-      
-      $('crs-total').textContent = ALL_COURSES.length;
+      ALL_COURSES = Array.isArray(res.data) ? res.data : [];
+      updateStats();
       applyFilter();
+      try { const dash=await core.portalFetch('/api/hod/dashboard'); if(dash?.data?.departmentName) $('crs-dept-sub').textContent='Courses and lecturer allocations for '+dash.data.departmentName; } catch (_) {}
     } catch (err) {
       $('crs-tbody').innerHTML = `<tr><td colspan="7" class="empty">⚠️ ${esc(err.message)}</td></tr>`;
     }
@@ -269,7 +297,9 @@
   $('crs-search')?.addEventListener('input', applyFilter);
   $('crs-level')?.addEventListener('change', applyFilter);
   $('crs-semester')?.addEventListener('change', applyFilter);
+  $('crs-allocation')?.addEventListener('change', applyFilter);
   $('crs-refresh')?.addEventListener('click', load);
+  $('crs-export')?.addEventListener('click', exportCsv);
   $('assign-close')?.addEventListener('click', closeAssignModal);
   $('assign-cancel')?.addEventListener('click', closeAssignModal);
   $('assign-save')?.addEventListener('click', saveAssignment);

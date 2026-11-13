@@ -1,12 +1,23 @@
 <style id="hod-unified-design">#main-view,.hod-page,#main-view *{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}#main-view h1,#main-view h2,#main-view h3,#main-view h4{letter-spacing:-.025em;font-weight:750}#main-view .page-head,#main-view .greeting{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}#main-view .page-head h1,#main-view .page-head h2,#main-view .greeting h1,#main-view .greeting h2{color:#fff!important;margin:0;font-size:clamp(1.2rem,2.4vw,1.65rem);line-height:1.2}#main-view .page-head p,#main-view .greeting .sub{color:#d9f5e8!important;margin:.35rem 0 0}#main-view .page-head .actions{display:flex;gap:.55rem;flex-wrap:wrap}#main-view .stat-grid{gap:1rem}#main-view .stat,#main-view .panel,#main-view .filter-bar{border-radius:14px}#main-view .panel{overflow:hidden}#main-view .panel-head{padding:1rem 1.15rem}#main-view .data-table th{font-size:.7rem;letter-spacing:.065em;text-transform:uppercase}#main-view input,#main-view select,#main-view textarea,#main-view button{font:inherit}@media(max-width:640px){#main-view .page-head,#main-view .greeting{padding:1.05rem;border-radius:14px}#main-view .page-head .actions{width:100%}}</style>
 ﻿<!-- Portal → HOD → Exams -->
+<style id="hod-exam-management-styles">
+.hod-section-hero h2{color:#fff!important;margin:0;font-size:1.4rem;font-weight:800}
+.hod-section-hero p{color:#d9f5e8!important;margin:.35rem 0 0;font-size:.85rem}
+.hod-exam-searchbar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem;padding:.85rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+.hod-exam-searchbar input{flex:1 1 240px;min-width:180px}
+.hod-exam-searchbar input,.hod-exam-searchbar select{padding:.6rem .75rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:.82rem}
+.hod-exam-searchbar button{padding:.6rem .9rem;border:0;border-radius:8px;background:#065f46;color:#fff;font-size:.8rem;font-weight:800;cursor:pointer}
+.hod-exam-searchbar span{color:#64748b;font-size:.75rem;font-weight:750}
+@media(max-width:600px){.hod-exam-searchbar>*{width:100%}}
+</style>
+
 <style id="hod-section-hero-style">.hod-section-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}.hod-section-hero h2{margin:0!important;color:#fff!important;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800;line-height:1.2}.hod-section-hero p{margin:.35rem 0 0!important;color:#d9f5e8!important}.hod-section-hero .actions{display:flex;gap:.55rem;flex-wrap:wrap}@media(max-width:640px){.hod-section-hero{padding:1.05rem;border-radius:14px}.hod-section-hero .actions{width:100%}}</style>
 <div style="padding:0;">
 
   <div class="hod-section-hero">
     <div>
-      <h2 style="margin:0;font-size:1.4rem;font-weight:800;color:#0f172a;">Department Exams</h2>
-      <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">Manage exam schedule for your department</p>
+      <h2>Department Exams</h2>
+      <p id="ex-dept-sub">Manage your department's exam schedule</p>
     </div>
     <div class="actions">
       <button id="ex-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #bbf7d0;border-radius:8px;cursor:pointer;">↻ Refresh</button>
@@ -16,7 +27,7 @@
   </div>
 
   <!-- Filters -->
-  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;">
+  <div class="hod-exam-filters" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;">
     <div>
       <label style="display:block;font-size:.7rem;font-weight:800;color:#64748b;text-transform:uppercase;margin-bottom:.35rem;">Session</label>
       <select id="ex-session" style="padding:.55rem .75rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem;min-width:180px;">
@@ -30,6 +41,13 @@
         <option value="second">Second Semester</option>
       </select>
     </div>
+  </div>
+
+  <div class="hod-exam-searchbar">
+    <input id="ex-search" type="search" placeholder="Search course, level, venue or time…" aria-label="Search department exams">
+    <select id="ex-status-filter" aria-label="Filter exams by status"><option value="">All Statuses</option><option value="draft">Draft</option><option value="pending">Pending Approval</option><option value="approved">Approved</option></select>
+    <button id="ex-export" type="button">↓ Export CSV</button>
+    <span id="ex-result-count" aria-live="polite">Showing all exams</span>
   </div>
 
   <!-- Stats -->
@@ -162,7 +180,8 @@
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
 
   let ALL_COURSES = [];     
-  let CURRENT_EXAMS = [];   
+  let CURRENT_EXAMS = [];
+  let FILTERED_EXAMS = [];   
 
   async function loadSessions() {
     try {
@@ -222,49 +241,56 @@
     $('ex-stat-approved').textContent = counts.approved;
     $('ex-count').textContent = counts.total;
 
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty">No exams found for this session/semester.</td></tr>';
-      return;
-    }
+    renderExams();
+    try { const dash=await core.portalFetch('/api/hod/dashboard'); if(dash?.data?.departmentName) $('ex-dept-sub').textContent='Exam schedule for '+dash.data.departmentName; } catch (_) {}
+  }
 
-    tbody.innerHTML = rows.map(r => {
-      const e = r.exam || r;
-      const courseCode = r.courseCode || r.course_code || r.course?.code || '—';
-      const courseTitle = r.courseTitle || r.course_title || r.course?.title || '';
-      const level = r.level || r.course?.level || '—';
-      
-      let statusBadge = '<span class="badge badge-warning">Draft</span>';
-      if (e.status === 'pending') statusBadge = '<span class="badge badge-info">Pending</span>';
-      else if (e.status === 'approved') statusBadge = '<span class="badge badge-success">Approved</span>';
+  function examInfo(record) {
+    const exam=record.exam||record;
+    return {exam,courseCode:record.courseCode||record.course_code||record.course?.code||'—',courseTitle:record.courseTitle||record.course_title||record.course?.title||'',level:record.level||record.course?.level||'—'};
+  }
 
-      return `
-        <tr>
-          <td>
-            <div style="font-weight:700;color:#0f172a;">${esc(courseCode)}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(courseTitle)}</div>
-          </td>
-          <td>${esc(level)}</td>
-          <td>${e.examDate ? new Date(e.examDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-          <td>${esc(e.startTime || '')} - ${esc(e.endTime || '')}</td>
-          <td>${esc(e.venue || '—')}</td>
-          <td>${statusBadge}</td>
-          <td>
-            ${e.status === 'draft' ? `<button class="btn-delete" data-id="${e.id}" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>` : ''}
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    tbody.querySelectorAll('.btn-delete').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Delete this draft exam?')) return;
-        try {
-          await core.portalFetch(`/api/hod/exams/${btn.dataset.id}`, { method: 'DELETE' });
-          core.showToast('Exam deleted.', 'success');
-          load();
-        } catch (err) { core.showToast(err.message, 'error'); }
-      });
+  function filteredExams() {
+    const query=String($('ex-search')?.value||'').trim().toLowerCase(),status=$('ex-status-filter')?.value||'';
+    return CURRENT_EXAMS.filter(record=>{
+      const item=examInfo(record),exam=item.exam;
+      const hay=[item.courseCode,item.courseTitle,item.level,exam.venue,exam.startTime,exam.endTime,exam.examDate,exam.status].join(' ').toLowerCase();
+      return (!query||hay.includes(query))&&(!status||exam.status===status);
+    }).sort((a,b)=>{
+      const left=examInfo(a).exam,right=examInfo(b).exam;
+      return String(left.examDate||'').localeCompare(String(right.examDate||''))||String(left.startTime||'').localeCompare(String(right.startTime||''));
     });
+  }
+
+  function renderExams() {
+    const tbody=$('ex-tbody'),rows=filteredExams();
+    FILTERED_EXAMS=rows;
+    $('ex-count').textContent=rows.length;
+    $('ex-result-count').textContent='Showing '+rows.length+' of '+CURRENT_EXAMS.length+' exams';
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" class="empty">'+(CURRENT_EXAMS.length?'No exams match your search or status filter.':'No exams found for this session/semester.')+'</td></tr>';return;}
+    tbody.innerHTML=rows.map(record=>{
+      const item=examInfo(record),exam=item.exam;
+      let statusBadge='<span class="badge badge-warning">Draft</span>';
+      if(exam.status==='pending')statusBadge='<span class="badge badge-info">Pending</span>';
+      else if(exam.status==='approved')statusBadge='<span class="badge badge-success">Approved</span>';
+      const date=exam.examDate?new Date(exam.examDate).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+      return '<tr><td><div style="font-weight:700;color:#0f172a;">'+esc(item.courseCode)+'</div><div style="font-size:.72rem;color:#64748b;">'+esc(item.courseTitle)+'</div></td><td>'+esc(item.level)+'</td><td>'+date+'</td><td>'+esc(exam.startTime||'')+' - '+esc(exam.endTime||'')+'</td><td>'+esc(exam.venue||'—')+'</td><td>'+statusBadge+'</td><td>'+(exam.status==='draft'?'<button class="btn-delete" data-id="'+esc(exam.id)+'" style="background:#fee2e2;color:#991b1b;border:none;padding:.3rem .6rem;border-radius:4px;cursor:pointer;font-size:.75rem;font-weight:700;">Delete</button>':'')+'</td></tr>';
+    }).join('');
+    tbody.querySelectorAll('.btn-delete').forEach(button=>button.addEventListener('click',async()=>{
+      if(!confirm('Delete this draft exam?'))return;
+      try{await core.portalFetch('/api/hod/exams/'+button.dataset.id,{method:'DELETE'});core.showToast('Exam deleted.','success');await load();}
+      catch(error){core.showToast(error.message,'error');}
+    }));
+  }
+
+  function exportExams() {
+    const rows=filteredExams();
+    if(!rows.length){core.showToast&&core.showToast('No exams match the current filters.','warning');return;}
+    const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
+    const data=[['Course Code','Course Title','Level','Exam Date','Start Time','End Time','Venue','Status'],...rows.map(record=>{const item=examInfo(record),exam=item.exam;return[item.courseCode,item.courseTitle,item.level,exam.examDate,exam.startTime,exam.endTime,exam.venue,exam.status];})];
+    const csv='\\uFEFF'+data.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='hod-department-exams.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
 
   function loadBatchTable() {
@@ -523,6 +549,9 @@
   $('ex-refresh')?.addEventListener('click', load);
   $('ex-session')?.addEventListener('change', load);
   $('ex-semester')?.addEventListener('change', load);
+  $('ex-search')?.addEventListener('input',renderExams);
+  $('ex-status-filter')?.addEventListener('change',renderExams);
+  $('ex-export')?.addEventListener('click',exportExams);
 
   // Init
   loadSessions().then(load);

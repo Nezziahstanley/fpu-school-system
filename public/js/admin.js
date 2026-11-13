@@ -5607,22 +5607,26 @@ async function loadClearanceDepartments() {
   try {
     const sessionId = document.getElementById('clr-session')?.value || '';
     const clearanceUrl = '/api/admin/clearances' + (sessionId ? '?sessionId=' + encodeURIComponent(sessionId) : '');
-    const [deptsRes, studentsRes, schoolsRes, clrRes] = await Promise.all([
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
-      adminFetch(clearanceUrl),
-    ]);
-
-    const responses = [deptsRes, studentsRes, schoolsRes, clrRes];
-    if (responses.some(response => !response || !response.ok)) {
-      throw new Error('Some clearance data could not be loaded. Please refresh and try again.');
+    const endpoints = [
+      { label: 'departments', url: '/api/admin/departments' },
+      { label: 'students', url: '/api/admin/students?limit=5000' },
+      { label: 'schools', url: '/api/admin/schools' },
+      { label: 'clearance records', url: clearanceUrl },
+    ];
+    const responses = await Promise.all(endpoints.map(item => adminFetch(item.url)));
+    const payloads = await Promise.all(responses.map(response => response.json().catch(() => ({}))));
+    const failedIndex = responses.findIndex((response, index) => !response?.ok || payloads[index]?.success === false);
+    if (failedIndex >= 0) {
+      const failed = responses[failedIndex];
+      const payload = payloads[failedIndex] || {};
+      const detail = payload.error || payload.message || failed.statusText || 'Request failed';
+      throw new Error(`Could not load ${endpoints[failedIndex].label} (HTTP ${failed.status}): ${detail}`);
     }
-    const [deptsJson, studentsJson, schoolsJson, clearancesJson] = await Promise.all(responses.map(response => response.json()));
-    const depts = deptsJson.data || [];
-    const students = studentsJson.data || [];
-    const schools = schoolsJson.data || [];
-    const clearances = clearancesJson.data || [];
+    const [deptsJson, studentsJson, schoolsJson, clearancesJson] = payloads;
+    const depts = Array.isArray(deptsJson.data) ? deptsJson.data : [];
+    const students = Array.isArray(studentsJson.data) ? studentsJson.data : [];
+    const schools = Array.isArray(schoolsJson.data) ? schoolsJson.data : [];
+    const clearances = Array.isArray(clearancesJson.data) ? clearancesJson.data : [];
 
     console.log('[clearances] Depts:', depts.length, 'Students:', students.length, 'Clearances:', clearances.length);
 

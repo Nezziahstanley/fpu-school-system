@@ -494,7 +494,7 @@ router.delete('/announcements/:id', requireUser, async (req, res, next) => {
     if (existing.authorId !== req.user.id && role !== 'admin') {
       return res.status(403).json({ success: false, error: 'You can only delete your own announcements.' });
     }
-    if (existing.audience === 'department' && Number(existing.departmentId) !== Number(req.user.departmentId)) {
+    if (role !== 'admin' && existing.audience === 'department' && Number(existing.departmentId) !== Number(req.user.departmentId)) {
       return res.status(403).json({ success: false, error: 'This announcement belongs to another department.' });
     }
 

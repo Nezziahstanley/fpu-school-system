@@ -106,7 +106,7 @@ router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer', 'exam_
       if (!['admin', 'registrar', 'exam_officer'].includes(req.user?.role)) {
         return res.status(403).json({ success: false, error: 'Only an HOD can submit a draft timetable; an administrator or examiner approves it.' });
       } else {
-        if (requestedStatus !== 'approved' || existing.status !== 'pending') {
+        if (requestedStatus !== 'approved' || !['pending', 'submitted'].includes(String(existing.status || '').toLowerCase())) {
           return res.status(409).json({ success: false, error: 'Only pending timetable slots can be approved.' });
         }
         patch.status = 'approved';

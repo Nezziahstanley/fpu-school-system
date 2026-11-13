@@ -610,11 +610,17 @@
 
     try {
       const doc = printWindow.document;
-      doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="' + window.location.origin + '/"><title>Student Transcript</title><style>' + printStyles + '</style></head><body>' + article.outerHTML + '</body></html>');
-      doc.close();
-
+      let printStarted = false;
       const startPrint = async () => {
+        if (printStarted || printWindow.closed) return;
+        // A popup can finish its load before a listener registered after
+        // document.close() gets a chance to run. Also guard against printing
+        // an empty document, which produces a completely blank print preview.
+        if (!doc.body || !doc.body.querySelector('.tr-printable') || !doc.body.innerText.trim()) {
+          if (typeof window.showToast === 'function') window.showToast('The transcript did not load into the print page. Please close it and try Print again.', 'error');
+          return;
+        }
+        printStarted = true;
         try {
           if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
           const images = Array.from(doc.images);
@@ -623,8 +629,12 @@
             return new Promise(resolve => {
               img.onload = resolve;
               img.onerror = resolve;
+              setTimeout(resolve, 2500);
             });
           }));
+          // Allow the browser one paint after the transcript and images settle.
+          await new Promise(resolve => setTimeout(resolve, 300));
+          if (printWindow.closed) return;
           printWindow.focus();
           printWindow.print();
         } catch (error) {
@@ -632,10 +642,18 @@
           if (typeof window.showToast === 'function') window.showToast(error.message || 'Unable to prepare the transcript for printing.', 'error');
         }
       };
-      printWindow.addEventListener('load', startPrint, { once: true });
-      // document.write can complete before the load event is observed.
-      if (doc.readyState === 'complete') setTimeout(startPrint, 0);
+
+      // Register before writing: the load event may fire immediately after
+      // document.close(), before a listener added afterward can observe it.
+      printWindow.addEventListener('load', () => setTimeout(startPrint, 100), { once: true });
       printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="' + window.location.origin + '/"><title>Student Transcript</title><style>' + printStyles + '</style></head><body>' + article.outerHTML + '</body></html>');
+      doc.close();
+
+      // Fallback for browsers that complete document.write without delivering
+      // a load event to the newly opened window.
+      setTimeout(startPrint, 700);
     } catch (error) {
       printWindow.close();
       if (typeof window.showToast === 'function') {

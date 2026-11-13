@@ -66,6 +66,43 @@
   </div>
 </section>
 
+<!-- Teaching plan modal -->
+<div id="lc-plan-modal" role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:10000;display:none;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#fff;border-radius:16px;max-width:900px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 25px 60px rgba(0,0,0,.3);">
+    <div style="padding:1rem 1.25rem;background:#064e3b;color:#fff;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+      <div><h3 style="margin:0;color:#fff;">Course Teaching Plan</h3><p id="lc-plan-course" style="margin:.25rem 0 0;color:#d1fae5;font-size:.82rem;"></p></div>
+      <button type="button" id="lc-plan-close" aria-label="Close" style="background:transparent;border:0;color:#fff;font-size:1.5rem;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:1.1rem 1.25rem;">
+      <div id="lc-plan-stats" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;margin-bottom:1rem;">
+        <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:.75rem;"><b id="lc-plan-total" style="display:block;font-size:1.35rem;color:#065f46;">0</b><small style="color:#166534;">Planned topics</small></div>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.75rem;"><b id="lc-plan-done" style="display:block;font-size:1.35rem;color:#1d4ed8;">0</b><small style="color:#1e40af;">Completed</small></div>
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:.75rem;"><b id="lc-plan-coverage" style="display:block;font-size:1.35rem;color:#c2410c;">0%</b><small style="color:#9a3412;">Coverage</small></div>
+      </div>
+      <form id="lc-plan-form" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:1rem;">
+        <h4 style="margin:0 0 .8rem;color:#0f172a;">Add / Update Weekly Topic</h4>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;">
+          <label style="font-size:.78rem;font-weight:700;color:#334155;">Week (1–52)<input id="lc-plan-week" type="number" min="1" max="52" required style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></label>
+          <label style="font-size:.78rem;font-weight:700;color:#334155;">Planned date<input id="lc-plan-date" type="date" style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></label>
+          <label style="grid-column:1/-1;font-size:.78rem;font-weight:700;color:#334155;">Topic / Lecture title<input id="lc-plan-topic" maxlength="200" required placeholder="e.g. Introduction to Database Systems" style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></label>
+          <label style="font-size:.78rem;font-weight:700;color:#334155;">Teaching method<input id="lc-plan-method" maxlength="120" placeholder="Lecture, practical, seminar..." style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></label>
+          <label style="font-size:.78rem;font-weight:700;color:#334155;">Learning outcomes<textarea id="lc-plan-outcomes" rows="2" placeholder="What should students learn?" style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></textarea></label>
+          <label style="grid-column:1/-1;font-size:.78rem;font-weight:700;color:#334155;">Notes / materials<textarea id="lc-plan-notes" rows="2" placeholder="References, materials or lecturer notes" style="display:block;width:100%;box-sizing:border-box;margin-top:.3rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:7px;"></textarea></label>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:.8rem;"><button type="submit" class="btn btn-primary btn-sm" id="lc-plan-save">Save Topic</button></div>
+      </form>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.5rem;"><h4 style="margin:0;color:#0f172a;">Weekly Coverage</h4><button type="button" id="lc-plan-refresh" class="btn btn-outline btn-sm">Refresh</button></div>
+      <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;min-width:650px;">
+          <thead><tr style="background:#f1f5f9;color:#334155;"><th style="padding:.65rem;text-align:left;">Week / Topic</th><th style="padding:.65rem;text-align:left;">Date</th><th style="padding:.65rem;text-align:left;">Teaching method</th><th style="padding:.65rem;text-align:left;">Status</th><th style="padding:.65rem;text-align:left;">Action</th></tr></thead>
+          <tbody id="lc-plan-tbody"><tr><td colspan="5" style="padding:1.5rem;text-align:center;color:#64748b;">Select a course to load its plan.</td></tr></tbody>
+        </table>
+      </div>
+      <p style="font-size:.72rem;color:#64748b;margin:.7rem 0 0;">Coverage is calculated from completed topics against all topics entered in the plan. A topic is marked completed only when you confirm it.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Flag modal -->
 <div id="lc-flag-modal" role="dialog" aria-modal="true">
   <div>
@@ -104,6 +141,68 @@
 
   let ALL = [], FILTERED = [];
   let CURRENT_ALLOC = null;
+
+  let PLAN_COURSE = null;
+  let PLAN_ROWS = [];
+
+  function planSemester(course) {
+    return ['first','second'].includes(course.allocationSemester) ? course.allocationSemester :
+      (String(course.semesterName||'').toLowerCase().includes('second') ? 'second' : 'first');
+  }
+  function renderTeachingPlan() {
+    const body=$('lc-plan-tbody'); if(!body)return;
+    const done=PLAN_ROWS.filter(x=>x.status==='completed').length;
+    setText('lc-plan-total',PLAN_ROWS.length); setText('lc-plan-done',done);
+    setText('lc-plan-coverage',PLAN_ROWS.length?Math.round(done/PLAN_ROWS.length*100)+'%':'0%');
+    if(!PLAN_ROWS.length){body.innerHTML='<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:#64748b;">No weekly topics yet. Add the first topic above.</td></tr>';return;}
+    body.innerHTML=PLAN_ROWS.map(x=>{
+      const status=x.status||'planned';
+      const label=status==='completed'?'Completed':status==='deferred'?'Deferred':'Planned';
+      const tone=status==='completed'?'#dcfce7;color:#166534':status==='deferred'?'#fee2e2;color:#991b1b':'#dbeafe;color:#1d4ed8';
+      return '<tr style="border-top:1px solid #e2e8f0;"><td style="padding:.7rem;"><b>Week '+esc(x.weekNumber)+'</b><br>'+esc(x.topic)+'<div style="font-size:.72rem;color:#64748b;">'+esc(x.learningOutcomes||'')+'</div></td><td style="padding:.7rem;">'+esc(x.plannedDate||'—')+'</td><td style="padding:.7rem;">'+esc(x.teachingMethod||'—')+'</td><td style="padding:.7rem;"><span style="display:inline-block;padding:.25rem .55rem;border-radius:99px;background:'+tone+';font-size:.7rem;font-weight:800;">'+label+'</span></td><td style="padding:.7rem;">'+(status==='completed'?'<button class="btn btn-outline btn-sm" data-plan-status="planned" data-plan-id="'+esc(x.id)+'">Reopen</button>':'<button class="btn btn-primary btn-sm" data-plan-status="completed" data-plan-id="'+esc(x.id)+'">Mark Complete</button>')+' <button class="btn btn-outline btn-sm" data-plan-status="deferred" data-plan-id="'+esc(x.id)+'">Defer</button></td></tr>';
+    }).join('');
+    body.querySelectorAll('button[data-plan-status]').forEach(btn=>btn.addEventListener('click',()=>updatePlanStatus(btn.dataset.planId,btn.dataset.planStatus)));
+  }
+  async function loadTeachingPlan() {
+    if(!PLAN_COURSE)return;
+    const body=$('lc-plan-tbody'); body.innerHTML='<tr><td colspan="5" style="padding:1.5rem;text-align:center;">Loading weekly topics…</td></tr>';
+    try {
+      const qs='?sessionId='+encodeURIComponent(PLAN_COURSE.sessionId)+'&semester='+encodeURIComponent(planSemester(PLAN_COURSE));
+      const res=await core.portalFetch('/api/lecturer/teaching-plan/'+PLAN_COURSE.id+qs);
+      PLAN_ROWS=res.data||[]; renderTeachingPlan();
+    } catch(err) { body.innerHTML='<tr><td colspan="5" style="padding:1.5rem;text-align:center;color:#b91c1c;">'+esc(err.message)+'</td></tr>'; }
+  }
+  function openTeachingPlan(course) {
+    if(!course.sessionId||!course.id){core.showToast&&core.showToast('This course has no valid academic session allocation.','warning');return;}
+    PLAN_COURSE=course;
+    $('lc-plan-course').textContent=course.code+' — '+course.title+' • '+(course.sessionName||'Session')+' • '+planSemester(course)+' semester';
+    $('lc-plan-modal').style.display='flex'; document.body.style.overflow='hidden';
+    $('lc-plan-form').reset(); loadTeachingPlan();
+  }
+  function closeTeachingPlan(){ $('lc-plan-modal').style.display='none'; document.body.style.overflow=''; PLAN_COURSE=null; }
+  async function updatePlanStatus(id,status) {
+    if(!PLAN_COURSE)return;
+    try {
+      await core.portalFetch('/api/lecturer/teaching-plan/'+PLAN_COURSE.id+'/'+id+'?sessionId='+encodeURIComponent(PLAN_COURSE.sessionId)+'&semester='+encodeURIComponent(planSemester(PLAN_COURSE)),{method:'PUT',body:{status}});
+      core.showToast&&core.showToast('Teaching topic updated.','success'); loadTeachingPlan();
+    } catch(err){core.showToast&&core.showToast(err.message,'error');}
+  }
+  $('lc-plan-form')?.addEventListener('submit',async function(e){
+    e.preventDefault(); if(!PLAN_COURSE)return;
+    const btn=$('lc-plan-save'); btn.disabled=true; btn.textContent='Saving…';
+    try {
+      await core.portalFetch('/api/lecturer/teaching-plan/'+PLAN_COURSE.id,{method:'POST',body:{
+        sessionId:PLAN_COURSE.sessionId,semester:planSemester(PLAN_COURSE),weekNumber:$('lc-plan-week').value,
+        plannedDate:$('lc-plan-date').value||null,topic:$('lc-plan-topic').value.trim(),
+        teachingMethod:$('lc-plan-method').value.trim(),learningOutcomes:$('lc-plan-outcomes').value.trim(),notes:$('lc-plan-notes').value.trim()
+      }});
+      core.showToast&&core.showToast('Weekly topic saved.','success'); $('lc-plan-form').reset(); loadTeachingPlan();
+    }catch(err){core.showToast&&core.showToast(err.message,'error');}
+    finally{btn.disabled=false;btn.textContent='Save Topic';}
+  });
+  $('lc-plan-close')?.addEventListener('click',closeTeachingPlan);
+  $('lc-plan-refresh')?.addEventListener('click',loadTeachingPlan);
+  $('lc-plan-modal')?.addEventListener('click',e=>{if(e.target.id==='lc-plan-modal')closeTeachingPlan();});
 
   function getLevel(c) { return String(c.level || '').toUpperCase() || '—'; }
 
@@ -144,7 +243,7 @@
           <td>${esc(c.semesterName || '—')}</td>
           <td>${esc(c.sessionName || '—')}</td>
           <td>${statusChip(c.status)}</td>
-          <td>${actionButtons(c)}</td>
+          <td>${actionButtons(c)} <button class="btn btn-outline btn-sm" data-act="plan" data-id="${esc(c.allocationId)}">Teaching Plan</button></td>
         </tr>`;
     }).join('');
 
@@ -156,6 +255,7 @@
         if (!c) return;
         if (b.dataset.act === 'accept') accept(c);
         if (b.dataset.act === 'flag') openFlag(c);
+        if (b.dataset.act === 'plan') openTeachingPlan(c);
       });
     });
   }
@@ -199,6 +299,8 @@
         unit: r.unit,
         semesterName: r.semesterName || r.allocationSemester || '',
         sessionName: r.sessionName || '',
+        sessionId: r.sessionId,
+        allocationSemester: String(r.allocationSemester || r.semesterName || 'first').toLowerCase(),
         status: r.status || 'assigned',
       }));
 

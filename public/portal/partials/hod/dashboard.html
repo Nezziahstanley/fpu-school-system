@@ -18,11 +18,16 @@
 ﻿<!-- Portal → HOD → Dashboard -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<section class="page-head">
-  <div>
-    <h2>Dashboard Overview</h2>
-    <p class="muted small" id="hod-dept-line">Live analytics for your department</p>
-    <p class="muted small" id="hod-session-line">Academic session: loading…</p>
+<section class="page-head hod-dashboard-welcome">
+  <div class="hod-dashboard-welcome-copy">
+    <div class="hod-dashboard-title-row">
+      <div class="hod-dashboard-profile-circle" id="hod-dashboard-profile-avatar" aria-label="HOD profile photo or initials">H</div>
+      <div class="hod-dashboard-title-copy">
+        <h2>Dashboard Overview</h2>
+        <p class="muted small" id="hod-dept-line">Live analytics for your department</p>
+        <p class="muted small" id="hod-session-line">Academic session: loading…</p>
+      </div>
+    </div>
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" id="hod-dash-refresh">Refresh</button>
@@ -30,6 +35,16 @@
     <a class="btn btn-outline btn-sm" href="#hod-reports">Department Reports</a>
   </div>
 </section>
+<style id="hod-dashboard-profile-style">
+#main-view .hod-dashboard-welcome{align-items:center}
+#main-view .hod-dashboard-title-row{display:flex;align-items:center;gap:1rem;min-width:0}
+#main-view .hod-dashboard-profile-circle{width:58px;height:58px;min-width:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.85);box-shadow:0 4px 14px rgba(0,0,0,.16);color:#fff;font-size:1.15rem;font-weight:800;letter-spacing:.02em}
+#main-view .hod-dashboard-profile-circle img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+#main-view .hod-dashboard-title-copy{min-width:0}
+#main-view .hod-dashboard-title-copy h2{margin:0!important}
+#main-view .hod-dashboard-title-copy p{margin:.3rem 0 0!important}
+@media(max-width:640px){#main-view .hod-dashboard-title-row{gap:.75rem}#main-view .hod-dashboard-profile-circle{width:48px;height:48px;min-width:48px;font-size:1rem}}
+</style>
 
 <!-- STAT TILES -->
 <div class="stat-grid">
@@ -117,6 +132,23 @@
     if (canvas.__chart) canvas.__chart.destroy();
     canvas.__chart = new Chart(canvas, config);
   }
+
+  function initialiseHodProfileCircle() {
+    const avatar = $('hod-dashboard-profile-avatar');
+    if (!avatar) return;
+    const user = core.getPortalUser ? core.getPortalUser() : {};
+    const first = String(user?.firstName || '').trim();
+    const last = String(user?.lastName || '').trim();
+    const initials = (first ? first.charAt(0) : (user?.email || 'H').charAt(0)) + (last ? last.charAt(0) : '');
+    avatar.textContent = initials.toUpperCase();
+    avatar.setAttribute('title', [first, last].filter(Boolean).join(' ') || user?.email || 'HOD Profile');
+    if (window.FPU_PHOTO?.renderMyAvatar) {
+      window.FPU_PHOTO.renderMyAvatar(avatar, user);
+      if (!avatar.textContent.trim() && !avatar.querySelector('img')) avatar.textContent = initials.toUpperCase();
+    }
+  }
+
+  initialiseHodProfileCircle();
 
   async function load() {
     try {

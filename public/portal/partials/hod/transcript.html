@@ -30,7 +30,7 @@
       </select>
     </div>
     <button id="bs-generate" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">Generate Broad Sheet</button>
-    <button id="bs-print" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;margin-left:auto;">🖨 Print</button>
+    <button id="bs-export" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#065f46;color:#fff;border:1px solid #065f46;border-radius:8px;cursor:pointer;margin-left:auto;">↓ Export CSV</button><button id="bs-print" type="button" style="padding:.55rem 1.25rem;font-size:.85rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">🖨 Print</button>
   </div>
 
   <div id="bs-container" style="background:#fff;padding:2rem;border-radius:12px;border:1px solid #e5e7eb;overflow-x:auto;">
@@ -238,6 +238,11 @@ console.log('[Broad Sheet] Script loaded.');
 (function () {
   'use strict';
   const core = window.FPU_PORTAL || {};
+  const esc = value => {
+    const text = String(value == null ? '' : value);
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+  let LAST_BS = null;
 
   function whenReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);

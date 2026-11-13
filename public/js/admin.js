@@ -3128,7 +3128,7 @@ async function loadTimetableIndex() {
     grid.innerHTML = visible.map((b) => {
       const units = b.slots.reduce((acc, s) => {
         const slot = s.slot || s;
-        const c = courseById.get(slot.courseId);
+        const c = courseById.get(Number(slot.courseId));
         return acc + (Number(c?.unit) || 0);
       }, 0);
       const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
@@ -3839,7 +3839,7 @@ async function loadDepartmentAttendance() {
 
       // Routes to: #attendance-course?id=Y&departmentId=X
       return `
-        <div class="abd-course-card ${rateClass}" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="abd-course-card ${rateClass}" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="abcc-head">
             <span class="abcc-code">${escapeHtml(c.code)}</span>
             <span class="abcc-level ${lvlClass}">${escapeHtml(c.level || 'N/A')}</span>

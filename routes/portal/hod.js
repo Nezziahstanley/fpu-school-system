@@ -1121,19 +1121,14 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Course not in your department.' });
     }
 
-    // Prefer the active academic session; if none is marked current,
-    // fall back to the latest session in which this course has registrations.
-    const sessResult = await db.execute(sql`
-      SELECT cr.session_id
-      FROM course_registrations cr
-      LEFT JOIN academic_sessions s ON s.id = cr.session_id
-      WHERE cr.course_id = ${courseId}
-      ORDER BY COALESCE(s.is_current, false) DESC, cr.session_id DESC
-      LIMIT 1
-    `);
-    const sessionId = sessResult.rows[0]?.session_id;
-
-    if (!sessionId) return res.json({ success: true, data: [] });
+    const [currentSession] = await db.select({ id: academicSessions.id })
+      .from(academicSessions)
+      .where(eq(academicSessions.isCurrent, true))
+      .limit(1);
+    if (!currentSession) {
+      return res.status(409).json({ success: false, error: 'No active academic session is configured.' });
+    }
+    const sessionId = currentSession.id;
 
     const rows = await db.execute(sql`
       SELECT 
@@ -1142,7 +1137,11 @@ router.get('/results/:courseId', only, async (req, res, next) => {
       FROM course_registrations cr
       JOIN users u ON cr.student_id = u.id
       LEFT JOIN results r ON r.student_id = u.id AND r.course_id = cr.course_id AND r.session_id = cr.session_id
-      WHERE cr.course_id = ${courseId} AND cr.session_id = ${sessionId} AND u.department_id = ${departmentId}
+      WHERE cr.course_id = ${courseId}
+        AND cr.session_id = ${sessionId}
+        AND cr.status = 'approved'
+        AND u.department_id = ${departmentId}
+        AND u.role = 'student'
       ORDER BY u.last_name, u.first_name
     `);
 

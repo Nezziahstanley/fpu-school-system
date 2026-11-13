@@ -3163,7 +3163,7 @@ async function loadTimetableIndex() {
           departmentId: Number(card.dataset.deptId),
           sessionId: sessionId || '',
           semester,
-          review: '1',
+          status: 'approved',
           name: card.dataset.deptName,
         });
       };
@@ -3620,20 +3620,39 @@ async function loadDepartmentAttendance() {
 
   grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading courses…</div>';
 
+  // Populate academic sessions once and retain the current/latest session.
+  const sessionSelect = document.getElementById('abd-filter-session');
+  if (sessionSelect && !sessionSelect.dataset.loaded) {
+    try {
+      const sessionsRes = await adminFetch('/api/admin/sessions');
+      const sessionsJson = await sessionsRes.json();
+      const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+      const current = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0];
+      const hashSession = params.get('sessionId') || '';
+      sessionSelect.innerHTML = '<option value="">Current / Latest Session</option>' + sessions.map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name || s.sessionName || `Session ${s.id}`)}</option>`).join('');
+      sessionSelect.value = hashSession || (current ? String(current.id) : '');
+      sessionSelect.dataset.loaded = '1';
+      sessionSelect.addEventListener('change', loadDepartmentAttendance);
+    } catch (sessionError) { console.warn('Could not load attendance sessions', sessionError); }
+  }
+
   // Gather filters
+  const sessionId = sessionSelect?.value || params.get('sessionId') || '';
   const level = document.getElementById('abd-filter-level')?.value || '';
   const semester = document.getElementById('abd-filter-semester')?.value || '';
   const search = document.getElementById('abd-filter-search')?.value || '';
 
   try {
     let url = `/api/admin/attendance/department/${deptId}?`;
-    if (level) url += `level=${level}&`;
+    if (sessionId) url += `sessionId=${encodeURIComponent(sessionId)}&`;
+    if (level) url += `level=${encodeURIComponent(level)}&`;
     if (semester) url += `semester=${semester}&`;
     if (search) url += `search=${encodeURIComponent(search)}&`;
 
     const res = await adminFetch(url);
     const json = await res.json();
     const courses = json.data || [];
+    const summary = json.summary || {};
 
     // Update Stats
     let totalRecords = 0, totalPresent = 0, totalLate = 0, totalStudents = 0, coursesWithRecords = 0;
@@ -3647,12 +3666,12 @@ async function loadDepartmentAttendance() {
     });
 
     document.getElementById('abdc-stat-courses').textContent = coursesWithRecords;
-    document.getElementById('abdc-stat-records').textContent = totalRecords;
-    document.getElementById('abdc-stat-students').textContent = totalStudents;
+    document.getElementById('abdc-stat-records').textContent = Number(summary.records ?? totalRecords);
+    document.getElementById('abdc-stat-students').textContent = Number(summary.students ?? totalStudents);
     
     let overallRate = 0;
     if (totalRecords > 0) {
-      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
+      overallRate = Number.isFinite(Number(summary.rate)) ? Number(summary.rate) : Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
     document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
@@ -3675,7 +3694,7 @@ async function loadDepartmentAttendance() {
       const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
 
       return `
-        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="course-card-header">
             <span class="course-code-badge">${escapeHtml(c.code)}</span>
             <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
@@ -12387,6 +12406,22 @@ async function loadCourseAttendance() {
   const queryIndex = hash.indexOf('?');
   const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
   const courseId = params.get('courseId') || params.get('id');
+  const sessionSelect = document.getElementById('abc-filter-session');
+  const semesterSelect = document.getElementById('abc-filter-semester');
+  if (sessionSelect && !sessionSelect.dataset.loaded) {
+    try {
+      const sessionsRes = await adminFetch('/api/admin/sessions');
+      const sessionsJson = await sessionsRes.json();
+      const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+      const current = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0];
+      sessionSelect.innerHTML = '<option value="">Current / Latest Session</option>' + sessions.map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name || s.sessionName || `Session ${s.id}`)}</option>`).join('');
+      sessionSelect.value = params.get('sessionId') || (current ? String(current.id) : '');
+      semesterSelect.value = params.get('semester') || '';
+      sessionSelect.dataset.loaded = '1';
+      sessionSelect.addEventListener('change', loadCourseAttendance);
+      semesterSelect.addEventListener('change', loadCourseAttendance);
+    } catch (sessionError) { console.warn('Could not load attendance sessions', sessionError); }
+  }
   if (!courseId) {
     tbody.innerHTML = '<tr><td colspan="10" class="empty">No course selected. Return to Attendance and open a course.</td></tr>';
     return;
@@ -12397,6 +12432,8 @@ async function loadCourseAttendance() {
     const value = document.getElementById(id)?.value || '';
     if (value) qs.set(key, value);
   });
+  if (sessionSelect?.value) qs.set('sessionId', sessionSelect.value);
+  if (semesterSelect?.value) qs.set('semester', semesterSelect.value);
   tbody.innerHTML = '<tr><td colspan="10" class="empty">Loading attendance…</td></tr>';
   try {
     const [courseRes, attendanceRes] = await Promise.all([
@@ -12411,7 +12448,7 @@ async function loadCourseAttendance() {
     const rows = Array.isArray(attendanceJson.data) ? attendanceJson.data : [];
     const records = rows.reduce((sum, r) => sum + Number(r.totalClasses || 0), 0);
     const attended = rows.reduce((sum, r) => sum + Number(r.present || 0) + Number(r.late || 0), 0);
-    const days = rows.reduce((max, r) => Math.max(max, Number(r.totalClasses || 0)), 0);
+    const days = Number(attendanceJson.classDays) || 0;
     const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     set('abc-title', `${course.code || 'Course'} Attendance`);
     set('abc-subtitle', course.title || 'Attendance register');
@@ -12450,7 +12487,7 @@ async function loadCourseAttendance() {
         <td>${Number(r.late) || 0}</td>
         <td>${Number(r.excused) || 0}</td>
         <td><span class="att-rate"><span class="att-rate-bar"><span class="att-rate-fill ${tone}" style="display:block;width:${Math.min(100, Math.max(0, rate))}%"></span></span><span class="pct ${tone}">${rate}%</span></span></td>
-        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)}})">View</button></td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)},sessionId:${encodeURIComponent(sessionSelect?.value || '')},semester:${encodeURIComponent(semesterSelect?.value || '')}})">View</button></td>
       </tr>`;
     }).join('');
   } catch (err) {
@@ -12467,6 +12504,9 @@ async function loadStudentCourseAttendance() {
   const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
   const studentId = params.get('studentId');
   const courseId = params.get('courseId');
+  const attendanceScope = new URLSearchParams();
+  if (params.get('sessionId')) attendanceScope.set('sessionId', params.get('sessionId'));
+  if (params.get('semester')) attendanceScope.set('semester', params.get('semester'));
   if (!studentId || !courseId) {
     tbody.innerHTML = '<tr><td colspan="6" class="empty">Student or course was not selected.</td></tr>';
     return;
@@ -12476,7 +12516,7 @@ async function loadStudentCourseAttendance() {
     const [studentRes, courseRes, recordsRes] = await Promise.all([
       adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`),
       adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
-      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}`)
+      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}?${attendanceScope.toString()}`)
     ]);
     const studentJson = await studentRes.json();
     const courseJson = await courseRes.json();
@@ -15019,11 +15059,12 @@ async function loadTimetableSheet() {
   const sessionId = params.get('sessionId') || '';
   const selectedLevel = params.get('level') || 'ND 1';
   const reviewMode = params.get('review') === '1';
+  const statusFilter = reviewMode ? 'pending' : (params.get('status') || 'approved');
 
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} — Timetable`;
-  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW — submitted slots only' : ''}`;
+  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel} · ${reviewMode ? 'Pending HOD submissions' : statusFilter === 'approved' ? 'Approved / Published timetable' : statusFilter === 'all' ? 'All timetable entries' : statusFilter === 'draft' ? 'Draft timetable entries' : 'Pending approval'}`;
 
   if (!departmentId) {
     root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
@@ -15073,6 +15114,12 @@ async function loadTimetableSheet() {
     };
 
     // Wire buttons
+    const statusSelect = document.getElementById('tsheet-status');
+    if (statusSelect) {
+      statusSelect.value = statusFilter;
+      statusSelect.onchange = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId, name: deptName, semester, sessionId: effectiveSessionId, level: selectedLevel, status: statusSelect.value });
+    }
+
     const printBtn = document.getElementById('tsheet-print');
     if (printBtn) printBtn.onclick = () => window.print();
 
@@ -15093,7 +15140,7 @@ async function loadTimetableSheet() {
       switchBtn.onclick = () => {
         const nextSemester = semester === 'first' ? 'second' : 'first';
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
-          departmentId, name: deptName, semester: nextSemester, sessionId: effectiveSessionId, level: selectedLevel, review: reviewMode ? '1' : ''
+          departmentId, name: deptName, semester: nextSemester, sessionId: effectiveSessionId, level: selectedLevel, status: statusFilter, review: reviewMode ? '1' : ''
         });
       };
     }
@@ -15120,6 +15167,10 @@ async function loadTimetableSheet() {
       const s = row.slot || row;
       const status = String(s.status || 'draft').toLowerCase();
       if (reviewMode && status !== 'pending' && status !== 'submitted') return false;
+      if (!reviewMode && statusFilter !== 'all') {
+        if (statusFilter === 'pending' && status !== 'pending' && status !== 'submitted') return false;
+        if (statusFilter !== 'pending' && status !== statusFilter) return false;
+      }
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       
@@ -15208,7 +15259,7 @@ async function loadTimetableSheet() {
           <div class="tt-review-stats"><span>${validSlots.length} submitted slots</span><span>${new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).size} active days</span><span>Awaiting Admin Approval</span></div>
         </div>
         <div class="tt-review-week">${reviewCards}</div>`;
-      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode);
+      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
       return;
     }
 
@@ -15226,10 +15277,9 @@ async function loadTimetableSheet() {
 
     // 2. Render logic: If no slots, show the empty message. Otherwise, render the grid.
     if (validSlots.length === 0) {
-      root.innerHTML = reviewMode
-        ? `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px 0;padding:24px;">No HOD-submitted timetable slots are awaiting approval for ${escapeHtml(deptName)} in this session, semester and level.</div>`
-        : `<div class="tt-level-tabs">${tabsHtml}</div>${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}`;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
+      const emptyMessage = statusFilter === 'approved' ? 'No approved timetable slots have been published for this level yet.' : statusFilter === 'pending' ? 'No timetable slots are awaiting approval for this level.' : statusFilter === 'draft' ? 'No draft timetable slots exist for this level.' : 'No timetable slots have been created for this level yet.';
+      root.innerHTML = `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px auto;padding:24px;max-width:1000px;">${escapeHtml(emptyMessage)}</div>`;
+      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
       return;
     }
 
@@ -15285,11 +15335,11 @@ async function loadTimetableSheet() {
       bodyHtml += `</tr>`;
     });
 
-    const submittedRowsHtml = reviewMode ? `
+    const submittedRowsHtml = validSlots.length ? `
       <section style="max-width:297mm;margin:0 auto 18px;padding:16px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-          <div><h3 style="margin:0;color:#065f46;">HOD Submitted Timetable — Exact Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">The entries below preserve the days, start/end times, venues and lecturers submitted by the department.</p></div>
-          <span style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:800;">${validSlots.length} submitted slots</span>
+          <div><h3 style="margin:0;color:#065f46;">Timetable Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">Complete saved schedule, including every class time, venue, lecturer and approval status.</p></div>
+          <span style="padding:5px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:800;">${validSlots.length} timetable slots</span>
         </div>
         <div style="overflow:auto;">
           <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
@@ -15306,7 +15356,7 @@ async function loadTimetableSheet() {
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(course.title || '—')}</td>
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.venue || '—')}</td>
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lecturerName)}</td>
-                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:#1d4ed8;font-weight:800;">${escapeHtml(slot.status || 'pending')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:${String(slot.status).toLowerCase()==='approved'?'#047857':String(slot.status).toLowerCase()==='draft'?'#b45309':'#1d4ed8'};font-weight:800;">${escapeHtml(slot.status || 'draft')}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
@@ -15378,7 +15428,7 @@ async function loadTimetableSheet() {
   }
 }
 
-function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false) {
+function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false, statusFilter = 'approved') {
   root.querySelectorAll('.tt-level-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
@@ -15388,6 +15438,7 @@ function wireLevelTabs(root, departmentId, deptName, semester, sessionId, review
         sessionId,
         level: tab.dataset.level,
         review: reviewMode ? '1' : '',
+        status: statusFilter,
       });
     });
   });

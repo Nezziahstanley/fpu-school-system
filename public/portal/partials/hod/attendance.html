@@ -1,0 +1,183 @@
+<!-- Portal → HOD → Department Attendance Monitoring -->
+<style id="hod-attendance-style">
+#main-view .ha-page{display:grid;gap:1rem;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+#main-view .ha-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.2rem 1.5rem;border-radius:16px;background:linear-gradient(120deg,#064e3b,#087653 58%,#10a16e);box-shadow:0 8px 24px rgba(6,78,59,.14);color:#fff}
+#main-view .ha-hero h2{margin:0;color:#fff;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800}
+#main-view .ha-hero p{margin:.35rem 0 0;color:#d9f5e8;font-size:.9rem}
+#main-view .ha-actions{display:flex;gap:.55rem;flex-wrap:wrap}
+#main-view .ha-btn{border:0;border-radius:8px;padding:.62rem .9rem;background:#fff;color:#064e3b;font-weight:750;cursor:pointer}
+#main-view .ha-btn.secondary{background:#064e3b;color:#fff;border:1px solid #a7f3d0}
+#main-view .ha-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem}
+#main-view .ha-card,#main-view .ha-panel{min-width:0;background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:13px;padding:1rem}
+#main-view .ha-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--text-muted,#64748b)}
+#main-view .ha-value{margin-top:.35rem;font-size:1.65rem;font-weight:850;color:var(--text-color,#0f172a)}
+#main-view .ha-filter{display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(140px,1fr));gap:.65rem}
+#main-view .ha-filter input,#main-view .ha-filter select{width:100%;min-width:0;padding:.65rem .75rem;border:1px solid var(--border-color,#cbd5e1);border-radius:8px;background:var(--input-bg,#fff);color:var(--text-color,#0f172a);font:inherit}
+#main-view .ha-panel h3{margin:0 0 .8rem;font-size:1rem;color:var(--text-color,#0f172a)}
+#main-view .ha-scroll{overflow:auto}
+#main-view .ha-table{width:100%;border-collapse:collapse;min-width:760px;font-size:.82rem}
+#main-view .ha-table th,#main-view .ha-table td{padding:.7rem .65rem;text-align:left;border-bottom:1px solid var(--border-color,#e5e7eb);vertical-align:middle}
+#main-view .ha-table th{font-size:.67rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#64748b);white-space:nowrap}
+#main-view .ha-pill{display:inline-flex;padding:.25rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;text-transform:capitalize}
+#main-view .ha-pill.present{background:#dcfce7;color:#166534}#main-view .ha-pill.late{background:#fef3c7;color:#92400e}#main-view .ha-pill.absent{background:#fee2e2;color:#991b1b}
+#main-view .ha-muted{color:var(--text-muted,#64748b)}
+#main-view .ha-count{font-size:.76rem;font-weight:750;color:var(--text-muted,#64748b)}
+#main-view .ha-rate{font-weight:850}
+@media(max-width:850px){#main-view .ha-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#main-view .ha-filter{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#main-view .ha-grid,#main-view .ha-filter{grid-template-columns:1fr}#main-view .ha-hero{padding:1rem}#main-view .ha-actions{width:100%}#main-view .ha-actions button{flex:1}}
+@media print{#main-view .ha-actions,#main-view .ha-filter{display:none!important}#main-view .ha-panel,#main-view .ha-card{break-inside:avoid}#main-view .ha-table{min-width:0;font-size:9px}#main-view .ha-table th,#main-view .ha-table td{padding:4px}}
+</style>
+<section class="ha-page" id="hod-attendance-page">
+  <header class="ha-hero">
+    <div><h2>Department Attendance Monitoring</h2><p id="ha-subtitle">Monitor attendance records across all courses in your department</p></div>
+    <div class="ha-actions">
+      <button class="ha-btn secondary" id="ha-refresh" type="button">↻ Refresh</button>
+      <button class="ha-btn" id="ha-export" type="button">↓ Export CSV</button>
+      <button class="ha-btn" id="ha-print" type="button">Print</button>
+    </div>
+  </header>
+
+  <section class="ha-grid" aria-label="Department attendance summary">
+    <article class="ha-card"><div class="ha-label">Attendance Records</div><div class="ha-value" id="ha-total">—</div></article>
+    <article class="ha-card"><div class="ha-label">Present</div><div class="ha-value" id="ha-present">—</div></article>
+    <article class="ha-card"><div class="ha-label">Absent</div><div class="ha-value" id="ha-absent">—</div></article>
+    <article class="ha-card"><div class="ha-label">Late</div><div class="ha-value" id="ha-late">—</div></article>
+    <article class="ha-card"><div class="ha-label">Attendance Rate</div><div class="ha-value" id="ha-rate">—</div></article>
+    <article class="ha-card"><div class="ha-label">Courses Recorded</div><div class="ha-value" id="ha-courses">—</div></article>
+    <article class="ha-card"><div class="ha-label">Lecture Days</div><div class="ha-value" id="ha-days">—</div></article>
+    <article class="ha-card"><div class="ha-label">Students Recorded</div><div class="ha-value" id="ha-students">—</div></article>
+  </section>
+
+  <section class="ha-panel">
+    <div class="ha-filter">
+      <input id="ha-search" type="search" placeholder="Search student, matric no., course or remarks…" aria-label="Search attendance records">
+      <select id="ha-session" aria-label="Academic session"><option value="">Loading sessions…</option></select>
+      <select id="ha-semester" aria-label="Filter semester"><option value="">All Semesters</option><option value="first">First Semester</option><option value="second">Second Semester</option></select>
+      <select id="ha-status" aria-label="Filter attendance status"><option value="">All Statuses</option><option value="present">Present</option><option value="absent">Absent</option><option value="late">Late</option></select>
+    </div>
+    <div id="ha-result-count" class="ha-count" style="margin-top:.8rem" aria-live="polite">Loading department attendance…</div>
+  </section>
+
+  <section class="ha-panel">
+    <h3>Course Attendance Overview</h3>
+    <div class="ha-scroll"><table class="ha-table" style="min-width:680px">
+      <thead><tr><th>Course</th><th>Level</th><th>Semester</th><th>Students</th><th>Lecture Days</th><th>Present</th><th>Absent</th><th>Late</th><th>Rate</th></tr></thead>
+      <tbody id="ha-courses-body"><tr><td colspan="9" class="ha-muted">Loading course summaries…</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section class="ha-panel">
+    <h3>Detailed Attendance Register</h3>
+    <div class="ha-scroll"><table class="ha-table">
+      <thead><tr><th>Date</th><th>Course</th><th>Student</th><th>Matric Number</th><th>Level</th><th>Semester</th><th>Status</th><th>Remarks</th></tr></thead>
+      <tbody id="ha-records-body"><tr><td colspan="8" class="ha-muted">Loading attendance records…</td></tr></tbody>
+    </table></div>
+    <p id="ha-limit-note" class="ha-muted" style="display:none;margin:.75rem 0 0;font-size:.75rem">Showing the latest 5,000 records for this session. Narrow your filters or contact the system administrator for a larger export.</p>
+  </section>
+</section>
+
+<script>
+(function(){
+  'use strict';
+  const core=window.FPU_PORTAL||{};
+  const $=id=>document.getElementById(id);
+  const esc=value=>String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  let RECORDS=[],COURSES=[],SESSIONS=[],SUMMARY={},SELECTED_SESSION='';
+
+  function fmtDate(value){
+    if(!value)return '—';
+    const date=new Date(String(value).slice(0,10)+'T00:00:00');
+    return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
+  }
+  function semesterLabel(value){return String(value||'').toLowerCase()==='first'?'First Semester':String(value||'').toLowerCase()==='second'?'Second Semester':(value||'—');}
+  function filteredRecords(){
+    const query=String($('ha-search').value||'').trim().toLowerCase();
+    const semester=$('ha-semester').value;
+    const status=$('ha-status').value;
+    return RECORDS.filter(row=>{
+      const hay=[row.studentName,row.matricNumber,row.courseCode,row.courseTitle,row.studentLevel,row.semester,row.date,row.status,row.remarks].join(' ').toLowerCase();
+      return (!query||hay.includes(query))&&(!semester||String(row.semester).toLowerCase()===semester)&&(!status||String(row.status).toLowerCase()===status);
+    });
+  }
+  function renderCourses(){
+    const semester=$('ha-semester').value;
+    const rows=COURSES.filter(row=>!semester||String(row.semester).toLowerCase()===semester);
+    $('ha-courses-body').innerHTML=rows.length?rows.map(row=>'<tr><td><strong>'+esc(row.courseCode)+'</strong><div class="ha-muted">'+esc(row.courseTitle)+'</div></td><td>'+esc(row.level||'—')+'</td><td>'+esc(semesterLabel(row.semester))+'</td><td>'+Number(row.students||0)+'</td><td>'+Number(row.lectureDays||0)+'</td><td>'+Number(row.present||0)+'</td><td>'+Number(row.absent||0)+'</td><td>'+Number(row.late||0)+'</td><td class="ha-rate">'+Number(row.attendanceRate||0)+'%</td></tr>').join(''):'<tr><td colspan="9" class="ha-muted">No attendance has been recorded for this semester.</td></tr>';
+  }
+  function renderRecords(){
+    const rows=filteredRecords();
+    $('ha-result-count').textContent='Showing '+rows.length.toLocaleString()+' of '+RECORDS.length.toLocaleString()+' attendance records';
+    $('ha-records-body').innerHTML=rows.length?rows.map(row=>{
+      const status=String(row.status||'').toLowerCase();
+      return '<tr><td>'+esc(fmtDate(row.date))+'</td><td><strong>'+esc(row.courseCode)+'</strong><div class="ha-muted">'+esc(row.courseTitle)+'</div></td><td>'+esc(row.studentName)+'</td><td>'+esc(row.matricNumber)+'</td><td>'+esc(row.studentLevel||'—')+'</td><td>'+esc(semesterLabel(row.semester))+'</td><td><span class="ha-pill '+(status==='present'?'present':status==='late'?'late':'absent')+'">'+esc(status||'unknown')+'</span></td><td>'+esc(row.remarks||'—')+'</td></tr>';
+    }).join(''):'<tr><td colspan="8" class="ha-muted">No attendance records match your filters.</td></tr>';
+    $('ha-limit-note').style.display=window.HOD_ATTENDANCE_TRUNCATED?'block':'none';
+  }
+  function updateStats(){
+    $('ha-total').textContent=Number(SUMMARY.totalRecords||0).toLocaleString();
+    $('ha-present').textContent=Number(SUMMARY.present||0).toLocaleString();
+    $('ha-absent').textContent=Number(SUMMARY.absent||0).toLocaleString();
+    $('ha-late').textContent=Number(SUMMARY.late||0).toLocaleString();
+    $('ha-rate').textContent=Number(SUMMARY.attendanceRate||0)+'%';
+    $('ha-courses').textContent=Number(SUMMARY.courses||0).toLocaleString();
+    $('ha-days').textContent=Number(SUMMARY.lectureDays||0).toLocaleString();
+    $('ha-students').textContent=Number(SUMMARY.students||0).toLocaleString();
+  }
+  async function load(){
+    $('ha-records-body').innerHTML='<tr><td colspan="8" class="ha-muted">Loading attendance records…</td></tr>';
+    $('ha-courses-body').innerHTML='<tr><td colspan="9" class="ha-muted">Loading course summaries…</td></tr>';
+    try{
+      const query=SELECTED_SESSION?'?sessionId='+encodeURIComponent(SELECTED_SESSION):'';
+      const response=await core.portalFetch('/api/hod/attendance'+query);
+      if(!response||response.success===false)throw new Error(response?.error||'Unable to load attendance.');
+      RECORDS=Array.isArray(response.data)?response.data:[];
+      COURSES=Array.isArray(response.courses)?response.courses:[];
+      SESSIONS=Array.isArray(response.sessions)?response.sessions:[];
+      SUMMARY=response.summary||{};
+      SELECTED_SESSION=String(response.selectedSessionId||'');
+      const sessionSelect=$('ha-session');
+      const previous=sessionSelect.value;
+      sessionSelect.innerHTML=SESSIONS.length?SESSIONS.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.isCurrent?' (Current)':'')+'</option>').join(''):'<option value="">No academic sessions</option>';
+      if(SELECTED_SESSION)sessionSelect.value=SELECTED_SESSION;
+      else if(previous&&SESSIONS.some(s=>String(s.id)===previous))sessionSelect.value=previous;
+      updateStats();
+      renderCourses();
+      renderRecords();
+      $('ha-subtitle').textContent=(response.departmentName?'Attendance monitoring for '+response.departmentName+' · ':'')+(SESSIONS.find(s=>String(s.id)===SELECTED_SESSION)?.name||'Select an academic session');
+      if(response.truncated)window.HOD_ATTENDANCE_TRUNCATED=true;else window.HOD_ATTENDANCE_TRUNCATED=false;
+      $('ha-limit-note').style.display=window.HOD_ATTENDANCE_TRUNCATED?'block':'none';
+    }catch(error){
+      RECORDS=[];COURSES=[];SUMMARY={};
+      updateStats();
+      $('ha-records-body').innerHTML='<tr><td colspan="8" class="ha-muted">'+esc(error.message)+'</td></tr>';
+      $('ha-courses-body').innerHTML='<tr><td colspan="9" class="ha-muted">Unable to load course attendance.</td></tr>';
+      $('ha-result-count').textContent='Attendance could not be loaded.';
+      core.showToast&&core.showToast(error.message,'error');
+    }
+  }
+  function csvCell(value){
+    let text=String(value==null?'':value);
+    if(/^\s*[=+@-]/.test(text))text="'"+text;
+    return '"'+text.replace(/"/g,'""')+'"';
+  }
+  function exportCsv(){
+    const rows=filteredRecords();
+    if(!rows.length){core.showToast&&core.showToast('There are no attendance records to export.','warning');return;}
+    const data=[['Date','Course Code','Course Title','Student Name','Matric Number','Level','Semester','Status','Remarks'],
+      ...rows.map(r=>[r.date,r.courseCode,r.courseTitle,r.studentName,r.matricNumber,r.studentLevel,r.semester,r.status,r.remarks])];
+    const csv='\uFEFF'+data.map(row=>row.map(csvCell).join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='hod-department-attendance-'+(SELECTED_SESSION||'session')+'.csv';
+    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+  $('ha-search').addEventListener('input',renderRecords);
+  $('ha-semester').addEventListener('change',()=>{renderCourses();renderRecords();});
+  $('ha-status').addEventListener('change',renderRecords);
+  $('ha-session').addEventListener('change',()=>{SELECTED_SESSION=$('ha-session').value;load();});
+  $('ha-refresh').addEventListener('click',load);
+  $('ha-export').addEventListener('click',exportCsv);
+  $('ha-print').addEventListener('click',()=>window.print());
+  load();
+})();
+</script>

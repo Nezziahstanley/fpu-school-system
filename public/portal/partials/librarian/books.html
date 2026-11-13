@@ -1,4 +1,9 @@
 <style>
+.lib-page-hero.lib-page-hero h2{color:#fff!important}.lib-page-hero.lib-page-hero p{color:#d9f5e8!important}
+.lib-page-hero{min-height:126px}
+@media print{.lib-page-hero{box-shadow:none!important}}
+</style>
+<style>
 .lib-page-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:1rem;min-height:126px;padding:1.4rem 1.5rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);color:#fff;box-shadow:0 12px 28px rgba(6,78,59,.13);font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
 .lib-page-hero:after{content:"";position:absolute;z-index:-1;width:230px;height:230px;border:1px solid rgba(255,255,255,.13);border-radius:50%;right:7%;top:-145px;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)}
 .lib-page-welcome{display:flex;align-items:center;gap:.9rem;min-width:0;position:relative;z-index:1}
@@ -370,3 +375,5 @@
   load();
 })();
 </script>
+
+<script>(function(){const core=window.FPU_PORTAL||{};const user=core.getPortalUser?core.getPortalUser():{};const initials=[user.firstName,user.lastName].filter(Boolean).map(v=>String(v).trim().charAt(0)).join('').toUpperCase();const a=document.getElementById('lib-page-avatar'),n=document.getElementById('lib-page-name');if(a)a.textContent=initials||'LB';if(n)n.textContent=user.firstName||'Librarian';})();</script>

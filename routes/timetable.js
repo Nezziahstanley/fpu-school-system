@@ -33,13 +33,13 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 // ============================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const { courseId, lecturerId, sessionId, semester, dayOfWeek } = req.query;
+    const { courseId, lecturerId, sessionId, semester, dayOfWeek, status } = req.query;
     let departmentId = req.query.departmentId;
     if (req.user?.role === 'hod') {
       if (!req.user.departmentId) return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
       departmentId = req.user.departmentId;
     }
-    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId });
+    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId, status });
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);
@@ -106,7 +106,7 @@ router.put('/:id', requireRole(['admin', 'registrar', 'academic_officer', 'exam_
       if (!['admin', 'registrar', 'exam_officer'].includes(req.user?.role)) {
         return res.status(403).json({ success: false, error: 'Only an HOD can submit a draft timetable; an administrator or examiner approves it.' });
       } else {
-        if (requestedStatus !== 'approved' || existing.status !== 'pending') {
+        if (requestedStatus !== 'approved' || !['pending', 'submitted'].includes(String(existing.status || '').toLowerCase())) {
           return res.status(409).json({ success: false, error: 'Only pending timetable slots can be approved.' });
         }
         patch.status = 'approved';

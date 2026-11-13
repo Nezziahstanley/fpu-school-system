@@ -25,6 +25,9 @@
     <button class="btn btn-primary btn-sm" id="abc-mark">
       + Mark Attendance
     </button>
+    <button class="btn btn-outline btn-sm" id="abc-roster">
+      View Roster
+    </button>
   </div>
 </section>
 
@@ -50,6 +53,18 @@
 
 <!-- Filters -->
 <div class="filters">
+  <div class="form-group">
+    <label class="form-label">Academic Session</label>
+    <select class="form-select" id="abc-filter-session"><option value="">Current / Latest Session</option></select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Semester</label>
+    <select class="form-select" id="abc-filter-semester">
+      <option value="">All Semesters</option>
+      <option value="first">First Semester</option>
+      <option value="second">Second Semester</option>
+    </select>
+  </div>
   <div class="form-group">
     <label class="form-label">Status</label>
     <select class="form-select" id="abc-filter-status"

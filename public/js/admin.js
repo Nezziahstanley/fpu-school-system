@@ -3035,43 +3035,52 @@ async function loadTimetableIndex() {
 
   grid.innerHTML = '<div class="loading" style="grid-column:1/-1;"><span class="spinner"></span> Loading departments…</div>';
 
-  const sessionId = (document.getElementById('tt-session') || {}).value || '';
+  const sessionSelect = document.getElementById('tt-session');
+  const sessionId = sessionSelect?.value || '';
   const semester = (document.getElementById('tt-semester') || {}).value || 'first';
   const search = (document.getElementById('tt-search') || {}).value || '';
   const schoolFilter = (document.getElementById('tt-school') || {}).value || '';
 
   try {
-    const qs = new URLSearchParams({ limit: 5000 });
-    if (sessionId) qs.set('sessionId', sessionId);
-    if (semester) qs.set('semester', semester);
-
-    const [deptsRes, slotsRes, schoolsRes, coursesRes] = await Promise.all([
+    const [deptsRes, schoolsRes, coursesRes, sessionsRes] = await Promise.all([
       adminFetch('/api/admin/departments'),
-      adminFetch(`/api/admin/timetable?${qs}`),
       adminFetch('/api/admin/schools'),
       adminFetch('/api/admin/courses?limit=5000'),
+      adminFetch('/api/admin/sessions'),
     ]);
 
-    const depts = (await deptsRes.json()).data || [];
-    const slots = (await slotsRes.json()).data || [];
-    const schools = (await schoolsRes.json()).data || [];
-    const courses = (await coursesRes.json()).data || [];
+    const [deptsJson, schoolsJson, coursesJson, sessionsJson] = await Promise.all([deptsRes.json(), schoolsRes.json(), coursesRes.json(), sessionsRes.json()]);
+    if (!deptsRes.ok || !schoolsRes.ok || !coursesRes.ok || !sessionsRes.ok) throw new Error('Unable to load timetable departments, schools, courses or sessions.');
+    const depts = Array.isArray(deptsJson.data) ? deptsJson.data : [];
+    const schools = Array.isArray(schoolsJson.data) ? schoolsJson.data : [];
+    const courses = Array.isArray(coursesJson.data) ? coursesJson.data : [];
+    const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+    const resolvedSession = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0] || null;
+    const effectiveSessionId = sessionId || (resolvedSession ? String(resolvedSession.id) : '');
+    if (sessionSelect && !sessionId && effectiveSessionId) sessionSelect.value = effectiveSessionId;
+    if (!effectiveSessionId) throw new Error('No academic session is available. Create an academic session before viewing timetables.');
+    const qs = new URLSearchParams({ limit: 5000, sessionId: effectiveSessionId });
+    if (semester) qs.set('semester', semester);
+    const slotsRes = await adminFetch(`/api/admin/timetable?${qs.toString()}`);
+    const slotsJson = await slotsRes.json();
+    if (!slotsRes.ok || slotsJson.success === false) throw new Error(slotsJson.error || 'Unable to load timetable slots.');
+    const slots = Array.isArray(slotsJson.data) ? slotsJson.data : [];
 
     window.__ttCache = slots.map((s) => s.slot || s);
 
-    const courseById = new Map(courses.map((c) => [c.id, c]));
-    const schoolMap = new Map(schools.map((s) => [s.id, s]));
+    const courseById = new Map(courses.map((c) => [Number(c.id), c]));
+    const schoolMap = new Map(schools.map((s) => [Number(s.id), s]));
 
     const byDept = new Map();
     for (const d of depts) {
-      byDept.set(d.id, { dept: d, slots: [], draft: 0, pending: 0, approved: 0 });
+      byDept.set(Number(d.id), { dept: d, slots: [], draft: 0, pending: 0, approved: 0 });
     }
 
     for (const s of slots) {
       const slot = s.slot || s;
-      const c = courseById.get(slot.courseId);
+      const c = courseById.get(Number(slot.courseId));
       if (!c) continue;
-      const bucket = byDept.get(c.departmentId);
+      const bucket = byDept.get(Number(c.departmentId));
       if (!bucket) continue;
       
       bucket.slots.push(s);
@@ -3084,17 +3093,23 @@ async function loadTimetableIndex() {
       else if (status === 'approved') bucket.approved++;
     }
 
-    let totalSlots = 0, scheduledDepts = 0, pendingDepts = 0;
+    let totalSlots = 0, scheduledDepts = 0, pendingDepts = 0, totalApproved = 0, totalDraft = 0, totalPending = 0;
     for (const b of byDept.values()) {
       totalSlots += b.slots.length;
       if (b.slots.length > 0) scheduledDepts++;
       if (b.pending > 0) pendingDepts++;
+      totalApproved += b.approved;
+      totalDraft += b.draft;
+      totalPending += b.pending;
     }
 
     setText('tt-stat-depts', depts.length);
     setText('tt-stat-slots', totalSlots);
     setText('tt-stat-scheduled', scheduledDepts);
     setText('tt-stat-conflicts', pendingDepts);
+    setText('tt-stat-approved', totalApproved);
+    setText('tt-stat-pending', totalPending);
+    setText('tt-stat-draft', totalDraft);
 
     const visible = [...byDept.values()].filter((b) => {
       if (schoolFilter && String(b.dept.schoolId) !== String(schoolFilter)) return false;
@@ -3111,14 +3126,11 @@ async function loadTimetableIndex() {
     }
 
     grid.innerHTML = visible.map((b) => {
-      const units = b.slots.reduce((acc, s) => {
-        const slot = s.slot || s;
-        const c = courseById.get(slot.courseId);
-        return acc + (Number(c?.unit) || 0);
-      }, 0);
+      const uniqueCourseIds = new Set(b.slots.map(s => Number((s.slot || s).courseId)));
+      const units = [...uniqueCourseIds].reduce((acc, courseId) => acc + (Number(courseById.get(courseId)?.unit) || 0), 0);
       const days = new Set(b.slots.map((s) => (s.slot || s).dayOfWeek));
       const isEmpty = b.slots.length === 0;
-      const school = schoolMap.get(b.dept.schoolId);
+      const school = schoolMap.get(Number(b.dept.schoolId));
 
       // FIX: Determine Badge based on Draft vs Pending vs Approved
       let badgeClass = 'badge-muted', badgeText = 'Empty';
@@ -3133,11 +3145,11 @@ async function loadTimetableIndex() {
       }
       else if (b.approved > 0) { 
         badgeClass = 'badge-success'; 
-        badgeText = 'Fully Approved'; 
+        badgeText = 'Approved'; 
       }
 
       return `
-        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
+        <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" data-approved-count="${b.approved}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
             <span class="ttd-school">${escapeHtml(school?.name || 'School not assigned')}</span>
@@ -3149,8 +3161,13 @@ async function loadTimetableIndex() {
             <div class="ttd-stat"><span class="num">${units}</span><span class="label">Units</span></div>
             <div class="ttd-stat"><span class="num">${days.size}</span><span class="label">Days</span></div>
           </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:10px;font-weight:750;">
+            <span style="padding:4px 7px;border-radius:5px;background:#ecfdf5;color:#047857;">Approved: ${b.approved}</span>
+            <span style="padding:4px 7px;border-radius:5px;background:#eff6ff;color:#1d4ed8;">Pending: ${b.pending}</span>
+            <span style="padding:4px 7px;border-radius:5px;background:#fffbeb;color:#92400e;">Draft: ${b.draft}</span>
+          </div>
           <div class="ttd-footer">
-            <span>${isEmpty ? 'Empty' : 'View timetable'}</span>
+            <span>${b.approved > 0 ? 'View approved timetable' : isEmpty ? 'No timetable slots' : 'Open timetable details'}</span>
             <span class="arrow">→</span>
           </div>
         </div>
@@ -3161,9 +3178,9 @@ async function loadTimetableIndex() {
       const openDepartmentTimetable = () => {
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
           departmentId: Number(card.dataset.deptId),
-          sessionId: sessionId || '',
+          sessionId: effectiveSessionId,
           semester,
-          review: '1',
+          status: Number(card.dataset.approvedCount) > 0 ? 'approved' : 'all',
           name: card.dataset.deptName,
         });
       };
@@ -3402,14 +3419,17 @@ async function loadAttendanceDepartments() {
     const statDepts = document.getElementById('att-stat-depts');
     const statCourses = document.getElementById('att-stat-courses');
     const statTotal = document.getElementById('att-stat-total');
+    const statStudents = document.getElementById('att-stat-students');
     const statRate = document.getElementById('att-stat-rate');
 
     const totalCourses = departments.reduce((sum, d) => sum + (Number(d.courses) || 0), 0);
+    const totalStudents = schools.reduce((sum, school) => sum + (Number(school.students) || 0), 0);
     const totalRecords = departments.reduce((sum, d) => sum + (Number(d.records) || 0), 0);
     const totalPresent = departments.reduce((sum, d) => sum + (Number(d.present) || 0) + (Number(d.late) || 0), 0);
     if (statDepts) statDepts.textContent = departments.length;
     if (statCourses) statCourses.textContent = totalCourses;
     if (statTotal) statTotal.textContent = totalRecords;
+    if (statStudents) statStudents.textContent = totalStudents;
     if (statRate) statRate.textContent = totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—';
 
     if (!departments.length) {
@@ -3528,7 +3548,12 @@ async function openDeptModal(deptId, deptName, deptCode) {
   grid.innerHTML = '';
 
   try {
-    const res = await adminFetch(`/api/admin/attendance/department/${deptId}`);
+    const sessionId = document.getElementById('att-filter-session')?.value || '';
+    const semester = document.getElementById('att-filter-semester')?.value || '';
+    const qs = new URLSearchParams();
+    if (sessionId) qs.set('sessionId', sessionId);
+    if (semester) qs.set('semester', semester);
+    const res = await adminFetch(`/api/admin/attendance/department/${deptId}?${qs.toString()}`);
     const json = await res.json();
     const courses = json.data || [];
 
@@ -3552,7 +3577,7 @@ async function openDeptModal(deptId, deptName, deptCode) {
       const lvlClass = c.level ? c.level.toLowerCase() : 'other';
 
       return `
-        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="course-card-header">
             <span class="course-code-badge">${escapeHtml(c.code)}</span>
             <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
@@ -3620,20 +3645,42 @@ async function loadDepartmentAttendance() {
 
   grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading courses…</div>';
 
+  // Populate academic sessions once and retain the current/latest session.
+  const sessionSelect = document.getElementById('abd-filter-session');
+  const semesterSelect = document.getElementById('abd-filter-semester');
+  if (sessionSelect && !sessionSelect.dataset.loaded) {
+    try {
+      const sessionsRes = await adminFetch('/api/admin/sessions');
+      const sessionsJson = await sessionsRes.json();
+      const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+      const current = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0];
+      const hashSession = params.get('sessionId') || '';
+      sessionSelect.innerHTML = '<option value="">Current / Latest Session</option>' + sessions.map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name || s.sessionName || `Session ${s.id}`)}</option>`).join('');
+      sessionSelect.value = hashSession || (current ? String(current.id) : '');
+      if (semesterSelect) semesterSelect.value = params.get('semester') || '';
+      sessionSelect.dataset.loaded = '1';
+      sessionSelect.addEventListener('change', loadDepartmentAttendance);
+      semesterSelect?.addEventListener('change', loadDepartmentAttendance);
+    } catch (sessionError) { console.warn('Could not load attendance sessions', sessionError); }
+  }
+
   // Gather filters
+  const sessionId = sessionSelect?.value || params.get('sessionId') || '';
   const level = document.getElementById('abd-filter-level')?.value || '';
   const semester = document.getElementById('abd-filter-semester')?.value || '';
   const search = document.getElementById('abd-filter-search')?.value || '';
 
   try {
     let url = `/api/admin/attendance/department/${deptId}?`;
-    if (level) url += `level=${level}&`;
+    if (sessionId) url += `sessionId=${encodeURIComponent(sessionId)}&`;
+    if (level) url += `level=${encodeURIComponent(level)}&`;
     if (semester) url += `semester=${semester}&`;
     if (search) url += `search=${encodeURIComponent(search)}&`;
 
     const res = await adminFetch(url);
     const json = await res.json();
     const courses = json.data || [];
+    const summary = json.summary || {};
 
     // Update Stats
     let totalRecords = 0, totalPresent = 0, totalLate = 0, totalStudents = 0, coursesWithRecords = 0;
@@ -3647,12 +3694,12 @@ async function loadDepartmentAttendance() {
     });
 
     document.getElementById('abdc-stat-courses').textContent = coursesWithRecords;
-    document.getElementById('abdc-stat-records').textContent = totalRecords;
-    document.getElementById('abdc-stat-students').textContent = totalStudents;
+    document.getElementById('abdc-stat-records').textContent = Number(summary.records ?? totalRecords);
+    document.getElementById('abdc-stat-students').textContent = Number(summary.students ?? totalStudents);
     
     let overallRate = 0;
     if (totalRecords > 0) {
-      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
+      overallRate = Number.isFinite(Number(summary.rate)) ? Number(summary.rate) : Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
     }
     document.getElementById('abdc-stat-rate').textContent = totalRecords > 0 ? `${overallRate}%` : '—';
 
@@ -3675,7 +3722,7 @@ async function loadDepartmentAttendance() {
       const lastDate = c.lastDate ? new Date(c.lastDate).toLocaleDateString() : 'Never';
 
       return `
-        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="course-card" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="course-card-header">
             <span class="course-code-badge">${escapeHtml(c.code)}</span>
             <span class="course-level-badge">${escapeHtml(c.level || 'N/A')}</span>
@@ -3792,7 +3839,7 @@ async function loadDepartmentAttendance() {
 
       // Routes to: #attendance-course?id=Y&departmentId=X
       return `
-        <div class="abd-course-card ${rateClass}" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}'">
+        <div class="abd-course-card ${rateClass}" onclick="window.location.hash='#attendance-course?id=${c.id}&departmentId=${deptId}&sessionId=${encodeURIComponent(sessionId)}&semester=${encodeURIComponent(semester)}'">
           <div class="abcc-head">
             <span class="abcc-code">${escapeHtml(c.code)}</span>
             <span class="abcc-level ${lvlClass}">${escapeHtml(c.level || 'N/A')}</span>
@@ -12387,6 +12434,22 @@ async function loadCourseAttendance() {
   const queryIndex = hash.indexOf('?');
   const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
   const courseId = params.get('courseId') || params.get('id');
+  const sessionSelect = document.getElementById('abc-filter-session');
+  const semesterSelect = document.getElementById('abc-filter-semester');
+  if (sessionSelect && !sessionSelect.dataset.loaded) {
+    try {
+      const sessionsRes = await adminFetch('/api/admin/sessions');
+      const sessionsJson = await sessionsRes.json();
+      const sessions = Array.isArray(sessionsJson.data) ? sessionsJson.data : [];
+      const current = sessions.find(s => s.isCurrent) || [...sessions].sort((a,b) => Number(b.id)-Number(a.id))[0];
+      sessionSelect.innerHTML = '<option value="">Current / Latest Session</option>' + sessions.map(s => `<option value="${Number(s.id)}">${escapeHtml(s.name || s.sessionName || `Session ${s.id}`)}</option>`).join('');
+      sessionSelect.value = params.get('sessionId') || (current ? String(current.id) : '');
+      semesterSelect.value = params.get('semester') || '';
+      sessionSelect.dataset.loaded = '1';
+      sessionSelect.addEventListener('change', loadCourseAttendance);
+      semesterSelect.addEventListener('change', loadCourseAttendance);
+    } catch (sessionError) { console.warn('Could not load attendance sessions', sessionError); }
+  }
   if (!courseId) {
     tbody.innerHTML = '<tr><td colspan="10" class="empty">No course selected. Return to Attendance and open a course.</td></tr>';
     return;
@@ -12397,6 +12460,8 @@ async function loadCourseAttendance() {
     const value = document.getElementById(id)?.value || '';
     if (value) qs.set(key, value);
   });
+  if (sessionSelect?.value) qs.set('sessionId', sessionSelect.value);
+  if (semesterSelect?.value) qs.set('semester', semesterSelect.value);
   tbody.innerHTML = '<tr><td colspan="10" class="empty">Loading attendance…</td></tr>';
   try {
     const [courseRes, attendanceRes] = await Promise.all([
@@ -12411,7 +12476,7 @@ async function loadCourseAttendance() {
     const rows = Array.isArray(attendanceJson.data) ? attendanceJson.data : [];
     const records = rows.reduce((sum, r) => sum + Number(r.totalClasses || 0), 0);
     const attended = rows.reduce((sum, r) => sum + Number(r.present || 0) + Number(r.late || 0), 0);
-    const days = rows.reduce((max, r) => Math.max(max, Number(r.totalClasses || 0)), 0);
+    const days = Number(attendanceJson.classDays) || 0;
     const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     set('abc-title', `${course.code || 'Course'} Attendance`);
     set('abc-subtitle', course.title || 'Attendance register');
@@ -12424,9 +12489,14 @@ async function loadCourseAttendance() {
     if (mark && !mark.__wired) {
       mark.__wired = true;
       mark.addEventListener('click', () => {
-        if (typeof openCourseAttendanceModal === 'function') openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
+        if (typeof openAttendanceMarkModal === 'function') openAttendanceMarkModal(Number(courseId), course.code || '', course.title || '', course.departmentId);
         else showToast('Attendance marking is not available on this page.', 'warning');
       });
+    }
+    const rosterBtn = document.getElementById('abc-roster');
+    if (rosterBtn && !rosterBtn.__wired) {
+      rosterBtn.__wired = true;
+      rosterBtn.addEventListener('click', () => openCourseAttendanceModal(Number(courseId), course.code || '', course.title || '', course.departmentId));
     }
     const exportBtn = document.getElementById('abc-export');
     if (exportBtn && !exportBtn.__wired) {
@@ -12450,7 +12520,7 @@ async function loadCourseAttendance() {
         <td>${Number(r.late) || 0}</td>
         <td>${Number(r.excused) || 0}</td>
         <td><span class="att-rate"><span class="att-rate-bar"><span class="att-rate-fill ${tone}" style="display:block;width:${Math.min(100, Math.max(0, rate))}%"></span></span><span class="pct ${tone}">${rate}%</span></span></td>
-        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)}})">View</button></td>
+        <td><button type="button" class="btn btn-sm btn-outline" onclick="FPU_ADMIN_SPA.navigateToWithQuery('attendance-by-student',{studentId:${Number(r.studentId)},courseId:${Number(courseId)},sessionId:${encodeURIComponent(sessionSelect?.value || '')},semester:${encodeURIComponent(semesterSelect?.value || '')}})">View</button></td>
       </tr>`;
     }).join('');
   } catch (err) {
@@ -12467,6 +12537,9 @@ async function loadStudentCourseAttendance() {
   const params = new URLSearchParams(queryIndex >= 0 ? hash.slice(queryIndex + 1) : '');
   const studentId = params.get('studentId');
   const courseId = params.get('courseId');
+  const attendanceScope = new URLSearchParams();
+  if (params.get('sessionId')) attendanceScope.set('sessionId', params.get('sessionId'));
+  if (params.get('semester')) attendanceScope.set('semester', params.get('semester'));
   if (!studentId || !courseId) {
     tbody.innerHTML = '<tr><td colspan="6" class="empty">Student or course was not selected.</td></tr>';
     return;
@@ -12476,7 +12549,7 @@ async function loadStudentCourseAttendance() {
     const [studentRes, courseRes, recordsRes] = await Promise.all([
       adminFetch(`/api/admin/students/${encodeURIComponent(studentId)}`),
       adminFetch(`/api/admin/courses/${encodeURIComponent(courseId)}`),
-      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}`)
+      adminFetch(`/api/admin/attendance/student/${encodeURIComponent(studentId)}/course/${encodeURIComponent(courseId)}?${attendanceScope.toString()}`)
     ]);
     const studentJson = await studentRes.json();
     const courseJson = await courseRes.json();
@@ -14296,6 +14369,131 @@ async function openDepartmentAttendanceModal(deptId, deptName, deptCode) {
 // ============================================
 // ATTENDANCE: Course -> Student Roster Modal
 // ============================================
+async function openAttendanceMarkModal(courseId, courseCode, courseTitle, deptId) {
+  const sessionId = document.getElementById('abc-filter-session')?.value || '';
+  const semester = document.getElementById('abc-filter-semester')?.value || '';
+  const sessionLabel = document.getElementById('abc-filter-session')?.selectedOptions?.[0]?.textContent || sessionId;
+  if (!sessionId || !semester) {
+    showToast('Select an academic session and semester before marking attendance.', 'warning');
+    return;
+  }
+
+  const oldModal = document.getElementById('attendance-course-modal');
+  if (oldModal) oldModal.remove();
+  const now = new Date();
+  const localDate = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  const backdrop = document.createElement('div');
+  backdrop.className = 'fpu-modal-backdrop';
+  backdrop.id = 'attendance-course-modal';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.78);z-index:999999;display:flex;align-items:center;justify-content:center;padding:18px;';
+  backdrop.innerHTML = `
+    <div style="width:100%;max-width:1120px;max-height:92vh;background:#f8fafc;border-radius:14px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.28);">
+      <div style="padding:18px 22px;background:#fff;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+        <div><h3 style="margin:0;color:#0f172a;font-size:18px;">Mark Attendance — ${escapeHtml(courseCode)}</h3>
+          <p style="margin:5px 0 0;color:#64748b;font-size:13px;">${escapeHtml(courseTitle)} · Select a status for each approved course registrant.</p></div>
+        <button type="button" class="btn btn-outline btn-sm" id="att-mark-close">Close</button>
+      </div>
+      <div style="padding:14px 22px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:end;gap:14px;flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;min-width:190px;"><label class="form-label" for="att-mark-date">Attendance Date</label><input class="form-control" type="date" id="att-mark-date" value="${localDate}" /></div>
+        <div style="font-size:12px;color:#64748b;padding-bottom:10px;">${escapeHtml(sessionLabel)} · ${escapeHtml(semester)} semester</div>
+        <div style="margin-left:auto;font-size:12px;color:#64748b;padding-bottom:10px;" id="att-mark-count">Loading registered students…</div>
+      </div>
+      <div id="att-mark-body" style="padding:18px 22px;overflow:auto;flex:1;min-height:180px;"><div class="loading" style="padding:30px;text-align:center;">Loading student register…</div></div>
+      <div style="padding:14px 22px;background:#fff;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <span style="font-size:12px;color:#64748b;">Existing entries for the selected date will be updated, not duplicated.</span>
+        <button type="button" class="btn btn-primary" id="att-mark-save">Save Attendance</button>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  const body = backdrop.querySelector('#att-mark-body');
+  const dateInput = backdrop.querySelector('#att-mark-date');
+  const saveButton = backdrop.querySelector('#att-mark-save');
+  const loadRoster = async () => {
+    body.innerHTML = '<div class="loading" style="padding:30px;text-align:center;">Loading student register…</div>';
+    saveButton.disabled = true;
+    try {
+      const qs = new URLSearchParams({ sessionId, semester, date: dateInput.value });
+      const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students?${qs.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Could not load the approved course register.');
+      const students = Array.isArray(json.data) ? json.data : [];
+      backdrop.querySelector('#att-mark-count').textContent = `${students.length} approved student(s)`;
+      if (!students.length) {
+        body.innerHTML = '<div style="padding:35px;text-align:center;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">No approved course registrations were found for this session and semester.</div>';
+        return;
+      }
+      body.innerHTML = `
+        <div style="overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">
+          <table style="width:100%;min-width:820px;border-collapse:collapse;">
+            <thead style="background:#f0fdf4;"><tr>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Matric Number</th>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Student</th>
+              <th style="padding:12px;text-align:center;color:#166534;font-size:11px;text-transform:uppercase;">Previous Records</th>
+              <th style="padding:12px;text-align:center;color:#166534;font-size:11px;text-transform:uppercase;">Attendance Status</th>
+              <th style="padding:12px;text-align:left;color:#166534;font-size:11px;text-transform:uppercase;">Remarks</th>
+            </tr></thead>
+            <tbody>${students.map(student => `
+              <tr style="border-top:1px solid #e2e8f0;">
+                <td style="padding:11px 12px;font-weight:700;color:#334155;">${escapeHtml(student.matricNumber || '—')}</td>
+                <td style="padding:11px 12px;color:#0f172a;font-weight:650;">${escapeHtml([student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student')}</td>
+                <td style="padding:11px 12px;text-align:center;color:#64748b;">${Number(student.totalClasses) || 0}</td>
+                <td style="padding:11px 12px;min-width:190px;">
+                  <select class="form-select" data-att-status data-student-id="${Number(student.id)}">
+                    <option value="">Choose status…</option>
+                    ${['present','absent','late','excused'].map(status => `<option value="${status}" ${student.todayStatus === status ? 'selected' : ''}>${status.charAt(0).toUpperCase()+status.slice(1)}</option>`).join('')}
+                  </select>
+                </td>
+                <td style="padding:11px 12px;min-width:210px;"><input class="form-control" data-att-remarks="${Number(student.id)}" value="${escapeHtml(student.todayRemarks || '')}" placeholder="Optional remarks" /></td>
+              </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      saveButton.disabled = false;
+    } catch (err) {
+      body.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message || 'Could not load attendance register.')}</div>`;
+    }
+  };
+
+  backdrop.querySelector('#att-mark-close').addEventListener('click', () => backdrop.remove());
+  dateInput.addEventListener('change', loadRoster);
+  saveButton.addEventListener('click', async () => {
+    const controls = [...body.querySelectorAll('[data-att-status]')];
+    if (!controls.length) return;
+    const records = controls.map(control => {
+      const studentId = Number(control.dataset.studentId);
+      const remarksInput = body.querySelector(`[data-att-remarks="${studentId}"]`);
+      return { studentId, status: control.value, remarks: remarksInput?.value || '' };
+    });
+    const missing = records.filter(record => !record.status);
+    if (missing.length) {
+      showToast(`Choose an attendance status for all students. ${missing.length} still need a status.`, 'warning');
+      return;
+    }
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving…';
+    try {
+      const res = await adminFetch(`/api/admin/attendance/course/${courseId}/mark`, {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: Number(sessionId), semester, date: dateInput.value, records })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || 'Attendance could not be saved.');
+      showToast(json.message || 'Attendance saved.', 'success');
+      await loadCourseAttendance();
+      await loadRoster();
+    } catch (err) {
+      showToast(err.message || 'Attendance could not be saved.', 'error');
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = 'Save Attendance';
+    }
+  });
+  await loadRoster();
+}
+
+// ============================================
+// ATTENDANCE: Course -> Student Roster Modal
+// ============================================
 async function openCourseAttendanceModal(courseId, courseCode, courseTitle, deptId) {
   // Remove the previous department modal if it's open
   const oldModal = document.getElementById('attendance-dept-modal');
@@ -14329,7 +14527,12 @@ async function openCourseAttendanceModal(courseId, courseCode, courseTitle, dept
 
   try {
     // Try to fetch the student attendance roster for this course
-    const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students`);
+    const rosterScope = new URLSearchParams();
+    const rosterSession = document.getElementById('abc-filter-session')?.value || '';
+    const rosterSemester = document.getElementById('abc-filter-semester')?.value || '';
+    if (rosterSession) rosterScope.set('sessionId', rosterSession);
+    if (rosterSemester) rosterScope.set('semester', rosterSemester);
+    const res = await adminFetch(`/api/admin/attendance/course/${courseId}/students?${rosterScope.toString()}`);
     
     if (!res.ok) {
       throw new Error(`API route not found (${res.status}). Please ensure backend route exists.`);
@@ -14421,7 +14624,12 @@ async function openStudentAttendanceModal(studentId, studentName, courseId, cour
 
   try {
     // Fetch the day-by-day records for this student in this course
-    const res = await adminFetch(`/api/admin/attendance/student/${studentId}/course/${courseId}`);
+    const studentScope = new URLSearchParams();
+    const studentSession = document.getElementById('abc-filter-session')?.value || '';
+    const studentSemester = document.getElementById('abc-filter-semester')?.value || '';
+    if (studentSession) studentScope.set('sessionId', studentSession);
+    if (studentSemester) studentScope.set('semester', studentSemester);
+    const res = await adminFetch(`/api/admin/attendance/student/${studentId}/course/${courseId}?${studentScope.toString()}`);
     const json = await res.json();
     const records = json.data || [];
 
@@ -15019,11 +15227,12 @@ async function loadTimetableSheet() {
   const sessionId = params.get('sessionId') || '';
   const selectedLevel = params.get('level') || 'ND 1';
   const reviewMode = params.get('review') === '1';
+  const statusFilter = reviewMode ? 'pending' : (params.get('status') || 'approved');
 
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} — Timetable`;
-  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW — submitted slots only' : ''}`;
+  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel} · ${reviewMode ? 'Pending HOD submissions' : statusFilter === 'approved' ? 'Approved / Published timetable' : statusFilter === 'all' ? 'All timetable entries' : statusFilter === 'draft' ? 'Draft timetable entries' : 'Pending approval'}`;
 
   if (!departmentId) {
     root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
@@ -15064,6 +15273,12 @@ async function loadTimetableSheet() {
 
     const courseById = new Map(allCourses.map(c => [Number(c.id), c]));
 
+    const getCourseLevelLabel = course => {
+      const rawLevel = String(course.level || 'ND').toUpperCase().trim().replace(/\s+/g, ' ');
+      const embedded = rawLevel.match(/^(ND|HND)\s*([12])$/);
+      return embedded ? `${embedded[1]} ${embedded[2]}` : `${rawLevel} ${Number(course.yearOfStudy) || 1}`;
+    };
+
     // Strict Semester Check (Using your exact DB format)
     const isCourseInSemester = (c) => {
       const cSem = String(c.semester_name || '').toLowerCase().trim();
@@ -15073,27 +15288,33 @@ async function loadTimetableSheet() {
     };
 
     // Wire buttons
+    const statusSelect = document.getElementById('tsheet-status');
+    if (statusSelect) {
+      statusSelect.value = statusFilter;
+      statusSelect.onchange = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId, name: deptName, semester, sessionId: effectiveSessionId, level: selectedLevel, status: statusSelect.value });
+    }
+
     const printBtn = document.getElementById('tsheet-print');
     if (printBtn) printBtn.onclick = () => window.print();
 
     const exportBtn = document.getElementById('tsheet-export');
     if (exportBtn) {
       exportBtn.onclick = () => {
-        const table = root.querySelector('.tt-grid-table');
+        const table = root.querySelector('.tt-slot-details-table') || root.querySelector('.tt-grid-table');
         if (table) exportTableAsCSV(table, `${deptName}-${selectedLevel}-${semester}-timetable.csv`);
         else showToast('⚠️ No table to export.', 'warning');
       };
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId: effectiveSessionId, level: selectedLevel }); }
+    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, name: deptName, semester, sessionId: effectiveSessionId, level: selectedLevel, status: 'all' }); }
 
     const switchBtn = document.getElementById('tsheet-switch-sem');
     if (switchBtn) {
       switchBtn.onclick = () => {
         const nextSemester = semester === 'first' ? 'second' : 'first';
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
-          departmentId, name: deptName, semester: nextSemester, sessionId: effectiveSessionId, level: selectedLevel, review: reviewMode ? '1' : ''
+          departmentId, name: deptName, semester: nextSemester, sessionId: effectiveSessionId, level: selectedLevel, status: statusFilter, review: reviewMode ? '1' : ''
         });
       };
     }
@@ -15120,12 +15341,14 @@ async function loadTimetableSheet() {
       const s = row.slot || row;
       const status = String(s.status || 'draft').toLowerCase();
       if (reviewMode && status !== 'pending' && status !== 'submitted') return false;
+      if (!reviewMode && statusFilter !== 'all') {
+        if (statusFilter === 'pending' && status !== 'pending' && status !== 'submitted') return false;
+        if (statusFilter !== 'pending' && status !== statusFilter) return false;
+      }
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       
-      const lvl = String(c.level || 'ND').toUpperCase();
-      const yr = Number(c.yearOfStudy) || 1;
-      const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
+      const isLevelMatch = getCourseLevelLabel(c) === selectedLevel;
       
       // The timetable API is already filtered by the selected semester. Do not
       // re-filter using course metadata, which may be blank or legacy-formatted.
@@ -15137,9 +15360,7 @@ async function loadTimetableSheet() {
       const s = row.slot || row;
       const c = courseById.get(Number(s.courseId));
       if (!c) return;
-      const lvl = String(c.level || 'ND').toUpperCase();
-      const yr = Number(c.yearOfStudy) || 1;
-      levelsPresent.add(`${lvl} ${yr}`);
+      levelsPresent.add(getCourseLevelLabel(c));
     });
 
     const availableLevels = ['ND 1', 'ND 2', 'HND 1', 'HND 2'];
@@ -15208,7 +15429,7 @@ async function loadTimetableSheet() {
           <div class="tt-review-stats"><span>${validSlots.length} submitted slots</span><span>${new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).size} active days</span><span>Awaiting Admin Approval</span></div>
         </div>
         <div class="tt-review-week">${reviewCards}</div>`;
-      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode);
+      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
       return;
     }
 
@@ -15226,10 +15447,9 @@ async function loadTimetableSheet() {
 
     // 2. Render logic: If no slots, show the empty message. Otherwise, render the grid.
     if (validSlots.length === 0) {
-      root.innerHTML = reviewMode
-        ? `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px 0;padding:24px;">No HOD-submitted timetable slots are awaiting approval for ${escapeHtml(deptName)} in this session, semester and level.</div>`
-        : `<div class="tt-level-tabs">${tabsHtml}</div>${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}`;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
+      const emptyMessage = statusFilter === 'approved' ? 'No approved timetable slots have been published for this level yet.' : statusFilter === 'pending' ? 'No timetable slots are awaiting approval for this level.' : statusFilter === 'draft' ? 'No draft timetable slots exist for this level.' : 'No timetable slots have been created for this level yet.';
+      root.innerHTML = `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px auto;padding:24px;max-width:1000px;">${escapeHtml(emptyMessage)}</div>`;
+      wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
       return;
     }
 
@@ -15285,15 +15505,15 @@ async function loadTimetableSheet() {
       bodyHtml += `</tr>`;
     });
 
-    const submittedRowsHtml = reviewMode ? `
+    const submittedRowsHtml = validSlots.length ? `
       <section style="max-width:297mm;margin:0 auto 18px;padding:16px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-          <div><h3 style="margin:0;color:#065f46;">HOD Submitted Timetable — Exact Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">The entries below preserve the days, start/end times, venues and lecturers submitted by the department.</p></div>
-          <span style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:800;">${validSlots.length} submitted slots</span>
+          <div><h3 style="margin:0;color:#065f46;">Timetable Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">Complete saved schedule, including every class time, venue, lecturer and approval status.</p></div>
+          <span style="padding:5px 10px;border-radius:999px;background:#ecfdf5;color:#065f46;font-size:11px;font-weight:800;">${validSlots.length} timetable slots</span>
         </div>
         <div style="overflow:auto;">
-          <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
-            <thead style="background:#f1f5f9;"><tr>${['Day','Time submitted','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
+          <table class="tt-slot-details-table" style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
+            <thead style="background:#f1f5f9;"><tr>${['Day','Time','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
             <tbody>${validSlots.map(row => {
               const slot = row.slot || row;
               const course = row.course || courseById.get(Number(slot.courseId)) || {};
@@ -15306,7 +15526,7 @@ async function loadTimetableSheet() {
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(course.title || '—')}</td>
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.venue || '—')}</td>
                 <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lecturerName)}</td>
-                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:#1d4ed8;font-weight:800;">${escapeHtml(slot.status || 'pending')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:${String(slot.status).toLowerCase()==='approved'?'#047857':String(slot.status).toLowerCase()==='draft'?'#b45309':'#1d4ed8'};font-weight:800;">${escapeHtml(slot.status || 'draft')}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
@@ -15370,7 +15590,7 @@ async function loadTimetableSheet() {
       </div>
     `;
 
-    wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId);
+    wireLevelTabs(root, departmentId, deptName, semester, effectiveSessionId, reviewMode, statusFilter);
 
   } catch (err) {
     console.error('Failed to load timetable sheet:', err);
@@ -15378,7 +15598,7 @@ async function loadTimetableSheet() {
   }
 }
 
-function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false) {
+function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false, statusFilter = 'approved') {
   root.querySelectorAll('.tt-level-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
@@ -15388,6 +15608,7 @@ function wireLevelTabs(root, departmentId, deptName, semester, sessionId, review
         sessionId,
         level: tab.dataset.level,
         review: reviewMode ? '1' : '',
+        status: statusFilter,
       });
     });
   });
@@ -15863,7 +16084,7 @@ window.FPU_ADMIN = {
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
-  openDepartmentAttendanceModal, openCourseAttendanceModal, openStudentAttendanceModal,
+  openDepartmentAttendanceModal, openCourseAttendanceModal, openAttendanceMarkModal, openStudentAttendanceModal,
 
   // Staff, HODs, Lecturers
   loadStaffDirectory, loadHodBoard, loadLecturerGrid, loadStaffWorkload, assignHodDept, openLecturerCourses, sendLecturerEmail, sendLecturerNotification,

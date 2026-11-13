@@ -3038,6 +3038,7 @@ async function loadTimetableIndex() {
   const sessionId = (document.getElementById('tt-session') || {}).value || '';
   const semester = (document.getElementById('tt-semester') || {}).value || 'first';
   const search = (document.getElementById('tt-search') || {}).value || '';
+  const schoolFilter = (document.getElementById('tt-school') || {}).value || '';
 
   try {
     const qs = new URLSearchParams({ limit: 5000 });
@@ -3096,6 +3097,7 @@ async function loadTimetableIndex() {
     setText('tt-stat-conflicts', pendingDepts);
 
     const visible = [...byDept.values()].filter((b) => {
+      if (schoolFilter && String(b.dept.schoolId) !== String(schoolFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
         return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
@@ -3138,6 +3140,7 @@ async function loadTimetableIndex() {
         <div class="tt-dept-card ${isEmpty ? 'empty' : ''}" role="button" tabindex="0" data-dept-id="${b.dept.id}" data-dept-name="${escapeHtml(b.dept.name)}" aria-label="Open timetable for ${escapeHtml(b.dept.name)}">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(b.dept.code)}</span>
+            <span class="ttd-school">${escapeHtml(school?.name || 'School not assigned')}</span>
             <span class="badge ${badgeClass}" style="font-size:10px;">${badgeText}</span>
           </div>
           <h3>${escapeHtml(b.dept.name)}</h3>
@@ -3160,6 +3163,7 @@ async function loadTimetableIndex() {
           departmentId: Number(card.dataset.deptId),
           sessionId: sessionId || '',
           semester,
+          review: '1',
           name: card.dataset.deptName,
         });
       };
@@ -3224,7 +3228,7 @@ async function loadExamsIndex() {
       const isHealthy = examCount > 0;
       
       return `
-        <div class="ex-school-card ${isHealthy ? '' : 'empty'}" onclick="window.location.hash='#exam-sheet?schoolId=${s.id}&sessionId=${sessionId}&semester=${semester}&name=${encodeURIComponent(s.name)}'">
+        <div class="ex-school-card ${isHealthy ? '' : 'empty'}" role="button" tabindex="0" onclick="FPU_ADMIN.openExamSchoolDepartments(${Number(s.id)}, '${escapeQuotes(s.name)}', '${escapeQuotes(sessionId)}', '${escapeQuotes(semester)}')">
           <div class="esc-head">
             <span class="esc-code">${escapeHtml(s.code || 'SCH')}</span>
             <span class="esc-badge">Exam Sheet</span>
@@ -5607,22 +5611,26 @@ async function loadClearanceDepartments() {
   try {
     const sessionId = document.getElementById('clr-session')?.value || '';
     const clearanceUrl = '/api/admin/clearances' + (sessionId ? '?sessionId=' + encodeURIComponent(sessionId) : '');
-    const [deptsRes, studentsRes, schoolsRes, clrRes] = await Promise.all([
-      adminFetch('/api/admin/departments'),
-      adminFetch('/api/admin/students?limit=5000'),
-      adminFetch('/api/admin/schools'),
-      adminFetch(clearanceUrl),
-    ]);
-
-    const responses = [deptsRes, studentsRes, schoolsRes, clrRes];
-    if (responses.some(response => !response || !response.ok)) {
-      throw new Error('Some clearance data could not be loaded. Please refresh and try again.');
+    const endpoints = [
+      { label: 'departments', url: '/api/admin/departments' },
+      { label: 'students', url: '/api/admin/students?limit=5000' },
+      { label: 'schools', url: '/api/admin/schools' },
+      { label: 'clearance records', url: clearanceUrl },
+    ];
+    const responses = await Promise.all(endpoints.map(item => adminFetch(item.url)));
+    const payloads = await Promise.all(responses.map(response => response.json().catch(() => ({}))));
+    const failedIndex = responses.findIndex((response, index) => !response?.ok || payloads[index]?.success === false);
+    if (failedIndex >= 0) {
+      const failed = responses[failedIndex];
+      const payload = payloads[failedIndex] || {};
+      const detail = payload.error || payload.message || failed.statusText || 'Request failed';
+      throw new Error(`Could not load ${endpoints[failedIndex].label} (HTTP ${failed.status}): ${detail}`);
     }
-    const [deptsJson, studentsJson, schoolsJson, clearancesJson] = await Promise.all(responses.map(response => response.json()));
-    const depts = deptsJson.data || [];
-    const students = studentsJson.data || [];
-    const schools = schoolsJson.data || [];
-    const clearances = clearancesJson.data || [];
+    const [deptsJson, studentsJson, schoolsJson, clearancesJson] = payloads;
+    const depts = Array.isArray(deptsJson.data) ? deptsJson.data : [];
+    const students = Array.isArray(studentsJson.data) ? studentsJson.data : [];
+    const schools = Array.isArray(schoolsJson.data) ? schoolsJson.data : [];
+    const clearances = Array.isArray(clearancesJson.data) ? clearancesJson.data : [];
 
     console.log('[clearances] Depts:', depts.length, 'Students:', students.length, 'Clearances:', clearances.length);
 
@@ -5653,13 +5661,20 @@ async function loadClearanceDepartments() {
     });
 
     // Global stats
-    let totalCleared = 0, totalPending = 0, totalStudents = 0;
-    byDept.forEach(b => { totalCleared += b.cleared; totalPending += b.pending; totalStudents += b.total; });
+    let totalCleared = 0, totalPending = 0, totalRejected = 0, totalMissing = 0, totalStudents = 0;
+    byDept.forEach(b => {
+      totalCleared += b.cleared;
+      totalPending += b.pending;
+      totalRejected += b.rejected;
+      totalMissing += b.missing;
+      totalStudents += b.total;
+    });
 
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('clr-stat-depts', byDept.size);
     setT('clr-stat-cleared', totalCleared);
     setT('clr-stat-pending', totalPending);
+    setT('clr-stat-rejected', totalRejected);
     setT('clr-stat-rate', totalStudents ? Math.round((totalCleared / totalStudents) * 100) + '%' : '—');
 
     // Filter
@@ -5866,6 +5881,35 @@ async function loadDepartmentClearances() {
     console.error('[clearances] Error:', err);
     root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
+}
+
+function exportClearanceDepartmentsCSV() {
+  const cards = Array.from(document.querySelectorAll('#clr-dept-grid .clr-dept-card[data-dept-id]'));
+  if (!cards.length) {
+    showToast('No department clearance data to export.', 'warning');
+    return;
+  }
+  const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+  const rows = [['School', 'Department Code', 'Department', 'Clearance Rate', 'Cleared', 'Pending', 'Rejected', 'Missing Records']];
+  cards.forEach(card => {
+    const text = selector => card.querySelector(selector)?.textContent.trim() || '';
+    const stats = Array.from(card.querySelectorAll('.cdc-stats .item .n')).map(el => el.textContent.trim());
+    rows.push([
+      text('.cdc-school'), text('.cdc-code'), text('h3'), text('.cdc-rate-num'),
+      stats[0] || '0', stats[1] || '0', stats[2] || '0',
+      text('.cdc-footer span:first-child').replace(/\s+without records$/i, '')
+    ]);
+  });
+  const csv = rows.map(row => row.map(quote).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `department-clearances-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast('Department clearance report exported.', 'success');
 }
 
 function getClearanceSessionId() {
@@ -14630,6 +14674,113 @@ async function updateNotificationBadge() {
 // ============================================
 // EXAMS: Approval Dashboard
 // ============================================
+async function openExamSchoolDepartments(schoolId, schoolName, sessionId, semester) {
+  const existing = document.getElementById('admin-exam-review-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'admin-exam-review-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.66);display:flex;align-items:center;justify-content:center;padding:18px;';
+  modal.innerHTML = `
+    <section style="width:min(1120px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.28);">
+      <header style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;background:#065f46;color:#fff;">
+        <div><div style="font-size:11px;font-weight:800;letter-spacing:.12em;color:#a7f3d0;">EXAMINATION APPROVALS</div><h2 id="exam-review-title" style="margin:3px 0 0;color:#fff;font-size:20px;">${escapeHtml(schoolName)}</h2></div>
+        <button type="button" id="exam-review-close" aria-label="Close" style="border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;border-radius:9px;padding:8px 12px;font-size:20px;cursor:pointer;">×</button>
+      </header>
+      <div style="padding:20px 22px;">
+        <div id="exam-review-content"><div style="padding:35px;text-align:center;color:#64748b;">Loading departments and HOD submissions…</div></div>
+      </div>
+    </section>`;
+  document.body.appendChild(modal);
+  const close = () => modal.remove();
+  modal.querySelector('#exam-review-close').addEventListener('click', close);
+  modal.addEventListener('click', event => { if (event.target === modal) close(); });
+  const content = modal.querySelector('#exam-review-content');
+
+  try {
+    const query = new URLSearchParams({ sessionId: String(sessionId || ''), semester: String(semester || 'first'), limit: '5000' });
+    const [deptRes, examRes] = await Promise.all([
+      adminFetch('/api/admin/departments?schoolId=' + encodeURIComponent(schoolId)),
+      adminFetch('/api/admin/exams?' + query.toString())
+    ]);
+    const [deptJson, examJson] = await Promise.all([deptRes.json(), examRes.json()]);
+    if (!deptRes.ok || deptJson.success === false) throw new Error(deptJson.error || 'Could not load departments.');
+    if (!examRes.ok || examJson.success === false) throw new Error(examJson.error || 'Could not load exam submissions.');
+    const departments = (Array.isArray(deptJson.data) ? deptJson.data : []).filter(d => Number(d.schoolId) === Number(schoolId));
+    const submitted = (Array.isArray(examJson.data) ? examJson.data : []).filter(row => {
+      const ex = row.exam || row;
+      return String(ex.status || '').toLowerCase() === 'submitted' &&
+        departments.some(d => Number(d.id) === Number(row.course?.departmentId));
+    });
+    const counts = new Map(departments.map(d => [Number(d.id), { total: 0, courses: [] }]));
+    submitted.forEach(row => {
+      const deptId = Number(row.course?.departmentId);
+      const bucket = counts.get(deptId);
+      if (bucket) { bucket.total++; bucket.courses.push(row); }
+    });
+    const active = departments.filter(d => (counts.get(Number(d.id))?.total || 0) > 0);
+    const empty = departments.filter(d => !active.includes(d));
+    content.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;"><strong>${active.length}</strong><div style="font-size:11px;color:#166534;">Departments with submissions</div></div>
+        <div style="padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;"><strong>${submitted.length}</strong><div style="font-size:11px;color:#1d4ed8;">Exams awaiting approval</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;" id="exam-review-departments">
+        ${departments.map(d => {
+          const count = counts.get(Number(d.id))?.total || 0;
+          return `<button type="button" data-dept-id="${Number(d.id)}" style="text-align:left;border:1px solid ${count ? '#86efac' : '#e2e8f0'};background:${count ? '#f0fdf4' : '#f8fafc'};border-radius:12px;padding:15px;cursor:pointer;color:#0f172a;">
+            <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${escapeHtml(d.code || 'DEPT')}</strong><span style="font-size:11px;font-weight:800;color:${count ? '#047857' : '#64748b'};">${count} submitted</span></div>
+            <div style="margin-top:8px;font-weight:700;">${escapeHtml(d.name || 'Department')}</div>
+            <div style="margin-top:5px;font-size:11px;color:#64748b;">${count ? 'Open submitted exams for review →' : 'No HOD submissions for this selection'}</div>
+          </button>`;
+        }).join('')}
+      </div>
+      <div id="exam-review-detail" style="margin-top:18px;"></div>`;
+    const deptGrid = content.querySelector('#exam-review-departments');
+    const detail = content.querySelector('#exam-review-detail');
+    deptGrid.querySelectorAll('[data-dept-id]').forEach(button => button.addEventListener('click', () => {
+      const dept = departments.find(d => Number(d.id) === Number(button.dataset.deptId));
+      const rows = counts.get(Number(button.dataset.deptId))?.courses || [];
+      if (!rows.length) {
+        detail.innerHTML = `<div style="padding:18px;border:1px dashed #cbd5e1;border-radius:10px;color:#64748b;">No exams have been submitted by the HOD of ${escapeHtml(dept?.name || 'this department')} for this session and semester. Drafts are not eligible for approval.</div>`;
+        return;
+      }
+      detail.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;">
+          <div><h3 style="margin:0;color:#064e3b;">${escapeHtml(dept.name)} — HOD Submissions</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">Only submitted exams are shown. Drafts and already-approved exams are excluded.</p></div>
+          <button type="button" id="exam-approve-dept" style="border:0;background:#047857;color:#fff;padding:10px 14px;border-radius:8px;font-weight:800;cursor:pointer;">Approve all ${rows.length}</button>
+        </div>
+        <div style="overflow:auto;border:1px solid #e2e8f0;border-radius:10px;">
+          <table style="width:100%;min-width:850px;border-collapse:collapse;font-size:13px;">
+            <thead style="background:#f1f5f9;"><tr>${['Course','Exam Date','Time','Venue','Invigilators','Status','Action'].map(h=>`<th style="padding:11px;text-align:left;border-bottom:1px solid #cbd5e1;">${h}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(row => {const ex=row.exam||row, course=row.course||{};return `<tr data-exam-id="${Number(ex.id)}"><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><strong>${escapeHtml(course.code||'—')}</strong><br>${escapeHtml(course.title||'')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(fmtDate(ex.examDate))}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.startTime||'—')} – ${escapeHtml(ex.endTime||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.venue||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;">${escapeHtml(ex.invigilators||'—')}</td><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><span style="color:#1d4ed8;font-weight:800;">Submitted</span></td><td style="padding:11px;border-bottom:1px solid #e2e8f0;"><button type="button" data-approve-exam="${Number(ex.id)}" style="border:0;background:#047857;color:white;border-radius:7px;padding:7px 10px;font-weight:700;cursor:pointer;">Approve</button></td></tr>`;}).join('')}</tbody>
+          </table>
+        </div>`;
+      const approveOne = async id => {
+        const res = await adminFetch('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ status: 'approved' }) });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) throw new Error(json.error || 'Approval failed.');
+      };
+      detail.querySelectorAll('[data-approve-exam]').forEach(btn => btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Approving…';
+        try { await approveOne(btn.dataset.approveExam); showToast('Exam approved.', 'success'); await openExamSchoolDepartments(schoolId, schoolName, sessionId, semester); }
+        catch (error) { btn.disabled = false; btn.textContent = 'Approve'; showToast(error.message, 'error'); }
+      }));
+      detail.querySelector('#exam-approve-dept')?.addEventListener('click', async () => {
+        const ok = await window.fpuConfirm(`Approve all ${rows.length} submitted exams for ${dept.name}?`, { title: 'Approve HOD submissions', type: 'success', okText: 'Approve all' });
+        if (!ok) return;
+        const button = detail.querySelector('#exam-approve-dept'); button.disabled = true; button.textContent = 'Approving…';
+        try {
+          for (const row of rows) await approveOne((row.exam || row).id);
+          showToast(`Approved ${rows.length} submitted exams for ${dept.name}.`, 'success');
+          await openExamSchoolDepartments(schoolId, schoolName, sessionId, semester);
+        } catch (error) { button.disabled = false; button.textContent = 'Retry approval'; showToast(error.message, 'error'); }
+      });
+    }));
+  } catch (error) {
+    content.innerHTML = `<div style="padding:18px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 async function loadExamApprovals() {
   const grid = document.getElementById('ex-approval-grid');
   if (!grid) return;
@@ -14849,11 +15000,12 @@ async function loadTimetableSheet() {
   const semester = (params.get('semester') || 'first').toLowerCase();
   const sessionId = params.get('sessionId') || '';
   const selectedLevel = params.get('level') || 'ND 1';
+  const reviewMode = params.get('review') === '1';
 
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} — Timetable`;
-  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}`;
+  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW — submitted slots only' : ''}`;
 
   if (!departmentId) {
     root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
@@ -14907,14 +15059,14 @@ async function loadTimetableSheet() {
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel });
+    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel }); }
 
     const switchBtn = document.getElementById('tsheet-switch-sem');
     if (switchBtn) {
       switchBtn.onclick = () => {
         const nextSemester = semester === 'first' ? 'second' : 'first';
         FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
-          departmentId, name: deptName, semester: nextSemester, sessionId, level: selectedLevel
+          departmentId, name: deptName, semester: nextSemester, sessionId, level: selectedLevel, review: reviewMode ? '1' : ''
         });
       };
     }
@@ -14922,7 +15074,7 @@ async function loadTimetableSheet() {
     let pendingCount = 0;
     allSlots.forEach(row => {
       const s = row.slot || row;
-      if ((s.status || 'draft') === 'pending') pendingCount++;
+      if (['pending', 'submitted'].includes(String(s.status || 'draft').toLowerCase())) pendingCount++;
     });
 
     const approveBtn = document.getElementById('tsheet-approve');
@@ -14939,6 +15091,8 @@ async function loadTimetableSheet() {
     // 1. Get ONLY the actual slots saved by the HOD for this level/semester
     const validSlots = allSlots.filter(row => {
       const s = row.slot || row;
+      const status = String(s.status || 'draft').toLowerCase();
+      if (reviewMode && status !== 'pending' && status !== 'submitted') return false;
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       
@@ -14946,8 +15100,9 @@ async function loadTimetableSheet() {
       const yr = Number(c.yearOfStudy) || 1;
       const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
       
-      const isSemMatch = isCourseInSemester(c);
-      return isLevelMatch && isSemMatch;
+      // The timetable API is already filtered by the selected semester. Do not
+      // re-filter using course metadata, which may be blank or legacy-formatted.
+      return isLevelMatch;
     });
 
     const levelsPresent = new Set();
@@ -14967,6 +15122,69 @@ async function loadTimetableSheet() {
       return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
     }).join('');
 
+    if (reviewMode) {
+      const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayName = value => {
+        const found = WEEK_DAYS.find(day => day.toLowerCase() === String(value || '').toLowerCase());
+        return found || String(value || 'Other');
+      };
+      const dayOrder = [...WEEK_DAYS, ...Array.from(new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).values()).filter(day => !WEEK_DAYS.includes(day))];
+      const daySlots = day => validSlots.filter(row => dayName((row.slot || row).dayOfWeek) === day)
+        .sort((a, b) => String((a.slot || a).startTime || '').localeCompare(String((b.slot || b).startTime || '')));
+      const reviewCards = dayOrder.map(day => {
+        const rows = daySlots(day);
+        const cards = rows.length ? rows.map(row => {
+          const slot = row.slot || row;
+          const course = row.course || courseById.get(Number(slot.courseId)) || {};
+          const lecturer = row.lecturer || {};
+          const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+          return `<article class="tt-slot-card">
+            <div class="course">${escapeHtml(course.code || '—')}</div>
+            <div class="course-title">${escapeHtml(course.title || 'Course title unavailable')}</div>
+            <div class="time">${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</div>
+            <div class="meta">📍 ${escapeHtml(slot.venue || 'Venue not set')}<br>👤 ${escapeHtml(lecturerName)}</div>
+            <span class="state pending">Pending Approval</span>
+          </article>`;
+        }).join('') : '<div class="tt-day-empty">No classes submitted</div>';
+        return `<section class="tt-day-column"><header class="tt-day-head"><strong>${escapeHtml(day)}</strong><span>${rows.length} ${rows.length === 1 ? 'class' : 'classes'}</span></header><div class="tt-day-slots">${cards}</div></section>`;
+      }).join('');
+      root.innerHTML = `
+        <style>
+          .tt-review-header{max-width:297mm;margin:0 auto 16px;padding:18px;background:#fff;border:1px solid #d1d5db;border-radius:12px;text-align:center}
+          .tt-review-header .institution{font-size:17px;font-weight:900;color:#064e3b}
+          .tt-review-header .school,.tt-review-header .department{font-size:13px;font-weight:800;color:#0f172a;margin-top:4px}
+          .tt-review-header .session{font-size:12px;color:#64748b;margin-top:6px}
+          .tt-review-stats{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+          .tt-review-stats span{padding:6px 10px;border-radius:8px;background:#f0fdf4;color:#065f46;font-size:11px;font-weight:800}
+          .tt-review-week{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:1200px;margin:0 auto}
+          .tt-review-week .tt-day-column{min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+          .tt-review-week .tt-day-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+          .tt-review-week .tt-day-head strong{color:#0f172a;font-size:13px}
+          .tt-review-week .tt-day-head span{color:#64748b;font-size:11px;font-weight:750}
+          .tt-review-week .tt-day-slots{display:grid;gap:9px;padding:10px}
+          .tt-review-week .tt-slot-card{padding:11px;border:1px solid #dbeafe;border-left:4px solid #0f766e;border-radius:9px;background:#f8fffc}
+          .tt-review-week .tt-slot-card .course{font-size:13px;font-weight:850;color:#0f172a}
+          .tt-review-week .tt-slot-card .course-title{margin-top:3px;color:#64748b;font-size:11px;line-height:1.4}
+          .tt-review-week .tt-slot-card .time{margin-top:8px;color:#065f46;font-size:12px;font-weight:850}
+          .tt-review-week .tt-slot-card .meta{margin-top:5px;color:#475569;font-size:11px;line-height:1.5}
+          .tt-review-week .tt-slot-card .state{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:5px;font-size:10px;font-weight:850;background:#dbeafe;color:#1d4ed8}
+          .tt-review-week .tt-day-empty{padding:20px 8px;text-align:center;color:#94a3b8;font-size:11px}
+          @media(max-width:900px){.tt-review-week{grid-template-columns:repeat(2,minmax(0,1fr))}}
+          @media(max-width:560px){.tt-review-week{grid-template-columns:1fr}}
+          @media print{.tt-review-week{grid-template-columns:repeat(2,minmax(0,1fr))}.tt-review-week .tt-day-column{break-inside:avoid}}
+        </style>
+        <div class="tt-review-header">
+          <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
+          <div class="school">${escapeHtml(school.name || '')}</div>
+          <div class="department">DEPARTMENT OF ${escapeHtml(String(dept.name || deptName).toUpperCase())}</div>
+          <div class="session">${escapeHtml(currentSession.name || '')} · ${escapeHtml(semester.toUpperCase())} SEMESTER · ${escapeHtml(selectedLevel)}</div>
+          <div class="tt-review-stats"><span>${validSlots.length} submitted slots</span><span>${new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).size} active days</span><span>Awaiting Admin Approval</span></div>
+        </div>
+        <div class="tt-review-week">${reviewCards}</div>`;
+      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
+      return;
+    }
+
     const TIME_SLOTS = [
       { label: '8AM–9AM', hour: 8 }, { label: '9AM–10AM', hour: 9 },
       { label: '10AM–11AM', hour: 10 }, { label: '11AM–12PM', hour: 11 },
@@ -14981,11 +15199,10 @@ async function loadTimetableSheet() {
 
     // 2. Render logic: If no slots, show the empty message. Otherwise, render the grid.
     if (validSlots.length === 0) {
-      root.innerHTML = `
-        <div class="tt-level-tabs">${tabsHtml}</div>
-        ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
-      `;
-      wireLevelTabs(root, departmentId, deptName, semester, sessionId);
+      root.innerHTML = reviewMode
+        ? `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px 0;padding:24px;">No HOD-submitted timetable slots are awaiting approval for ${escapeHtml(deptName)} in this session, semester and level.</div>`
+        : `<div class="tt-level-tabs">${tabsHtml}</div>${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}`;
+      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
       return;
     }
 
@@ -15041,6 +15258,33 @@ async function loadTimetableSheet() {
       bodyHtml += `</tr>`;
     });
 
+    const submittedRowsHtml = reviewMode ? `
+      <section style="max-width:297mm;margin:0 auto 18px;padding:16px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <div><h3 style="margin:0;color:#065f46;">HOD Submitted Timetable — Exact Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">The entries below preserve the days, start/end times, venues and lecturers submitted by the department.</p></div>
+          <span style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:800;">${validSlots.length} submitted slots</span>
+        </div>
+        <div style="overflow:auto;">
+          <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
+            <thead style="background:#f1f5f9;"><tr>${['Day','Time submitted','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
+            <tbody>${validSlots.map(row => {
+              const slot = row.slot || row;
+              const course = row.course || courseById.get(Number(slot.courseId)) || {};
+              const lecturer = row.lecturer || {};
+              const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+              return `<tr>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.dayOfWeek || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;font-weight:800;">${escapeHtml(course.code || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(course.title || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.venue || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lecturerName)}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:#1d4ed8;font-weight:800;">${escapeHtml(slot.status || 'pending')}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </section>` : '';
     const courseDetailRows = uniqueCourses.map(({ course: c, slot: s, lecturer: l }) => {
       const lecturerName = `${l.firstName || ''} ${l.lastName || ''}`.trim() || '—';
       return `
@@ -15055,6 +15299,7 @@ async function loadTimetableSheet() {
 
     root.innerHTML = `
       <div class="tt-level-tabs">${tabsHtml}</div>
+      ${submittedRowsHtml}
       <div class="tt-grid-sheet">
         <div class="tt-grid-head">
           <div class="tt-grid-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>
@@ -15106,7 +15351,7 @@ async function loadTimetableSheet() {
   }
 }
 
-function wireLevelTabs(root, departmentId, deptName, semester, sessionId) {
+function wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode = false) {
   root.querySelectorAll('.tt-level-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', {
@@ -15115,6 +15360,7 @@ function wireLevelTabs(root, departmentId, deptName, semester, sessionId) {
         semester,
         sessionId,
         level: tab.dataset.level,
+        review: reviewMode ? '1' : '',
       });
     });
   });
@@ -15572,7 +15818,7 @@ window.FPU_ADMIN = {
   approveDepartmentTimetable,
 
   // Exams
-  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams,
+  loadExamsIndex, loadExams, loadExamSheet, loadExamApprovals, approveDepartmentExams, openExamSchoolDepartments,
 
     // Attendance
   loadAttendanceDepartments, loadDepartmentAttendance, loadCourseAttendance, loadStudentCourseAttendance,
@@ -15585,7 +15831,7 @@ window.FPU_ADMIN = {
   submitResetPassword,
 
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
+  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV, exportClearanceDepartmentsCSV,
   loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail, loadStudentPayments,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 

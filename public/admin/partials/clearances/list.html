@@ -8,7 +8,8 @@
   </div>
   <div class="actions">
     <button class="btn btn-outline btn-sm" onclick="FPU_ADMIN.loadClearanceDepartments()">Refresh</button>
-    <button class="btn btn-outline btn-sm" id="clr-export">⬇ Export CSV</button>
+    <button class="btn btn-outline btn-sm" id="clr-export" onclick="FPU_ADMIN.exportClearanceDepartmentsCSV()">⬇ Export CSV</button>
+    <button class="btn btn-outline btn-sm" type="button" onclick="window.print()">🖨 Print</button>
     <button class="btn btn-primary btn-sm" onclick="window.location.hash='#clearances-bulk'">+ Bulk Clear</button>
   </div>
 </section>
@@ -17,7 +18,7 @@
 <div class="filters">
   <div class="form-group">
     <label class="form-label">Session</label>
-    <select class="form-select" id="clr-session" onchange="FPU_ADMIN.loadClearanceDepartments()">
+    <select class="form-select" id="clr-session" data-lookup="sessions" data-placeholder="Latest available session" onchange="FPU_ADMIN.loadClearanceDepartments()">
       <option value="">Current session</option>
     </select>
   </div>
@@ -47,8 +48,12 @@
     <div class="label">Pending</div>
     <div class="value" id="clr-stat-pending">—</div>
   </div>
+  <div class="stat-inline">
+    <div class="label">Rejected</div>
+    <div class="value" id="clr-stat-rejected">—</div>
+  </div>
   <div class="stat-inline stat-inline-primary">
-    <div class="label">Overall Rate</div>
+    <div class="label">Overall Clearance Rate</div>
     <div class="value" id="clr-stat-rate">—</div>
   </div>
 </div>

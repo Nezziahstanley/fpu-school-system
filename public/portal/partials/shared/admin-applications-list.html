@@ -149,12 +149,12 @@
   };
 
   window.viewApp = function(id) {
-    // Navigate to the detailed view in your SPA
-    // (Assuming you have a partial named 'admin-application-view' as seen in your folder structure)
-    if (window.FPU_SPA && window.FPU_SPA.navigatePortal) {
-      window.FPU_SPA.navigatePortal('admin-application-view', { id: id });
+    // Open the shared application review workspace and carry the selected ID.
+    const page = 'admin-application-view?applicationId=' + encodeURIComponent(id);
+    if (window.FPU_SPA && typeof window.FPU_SPA.navigatePortal === 'function') {
+      window.FPU_SPA.navigatePortal(page);
     } else {
-      window.location.hash = 'admin-application-view-' + id;
+      window.location.hash = page;
     }
   };
 </script>

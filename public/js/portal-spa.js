@@ -338,6 +338,15 @@
       return { url: '/portal/partials/shared/messages.html?v=20261112-shared-messages', title: 'Messages' };
     }
 
+    // Application detail workspace is shared by Admin and Super Admin.
+    // The selected application ID is carried in the hash query string.
+    if (cleanKey === 'admin-application-view') {
+      if (!['admin', 'superadmin'].includes(role)) {
+        return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };
+      }
+      return { url: '/portal/partials/shared/admin-application-view.html?v=20261113-application-view-fix-v1', title: 'Application Details' };
+    }
+
     if (cleanKey === 'registrar-student-profile') {
       if (!['registrar', 'admin', 'superadmin'].includes(role)) {
         return { url: '/portal/partials/shared/forbidden.html', title: 'Access Denied' };

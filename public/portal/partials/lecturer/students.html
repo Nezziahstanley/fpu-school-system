@@ -28,9 +28,9 @@ $('search-input')?.addEventListener('input',e=>{const q=e.target.value.toLowerCa
 $('students-export-csv')?.addEventListener('click',()=>{
  if(!ACTIVE)return;
  const columns=[['Student',s=>(s.lastName+', '+s.firstName)],['Matric Number',s=>s.matricNumber],['Email',s=>s.email],['Level',s=>s.level],['Programme',s=>s.programmeName],['Department',s=>s.departmentName],['Status',s=>s.isActive?'Active':'Inactive']];
- const safe=v=>{let value=String(v??'');if(value && ['=','+','-','@','\\t','\\r'].includes(value[0]))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';};
- const csv=[columns.map(c=>safe(c[0])).join(','),...getVisibleStudents().map(s=>columns.map(c=>safe(c[1](s))).join(','))].join('\\r\\n');
- const blob=new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+ const safe=v=>{let value=String(v??'');if(value && ['=','+','-','@','\t','\r'].includes(value[0]))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';};
+ const csv=[columns.map(c=>safe(c[0])).join(','),...getVisibleStudents().map(s=>columns.map(c=>safe(c[1](s))).join(','))].join('\r\n');
+ const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download=(ACTIVE.courseCode||'course')+'-registered-students.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 });

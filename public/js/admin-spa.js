@@ -101,8 +101,10 @@
     { key: 'registrations',    label: 'Registrations',    icon: 'clipboard' },
     { key: 'results',          label: 'Results',          icon: 'chart' },
     { key: 'grade-scales',     label: 'Grade Scales',     icon: 'chart' },
+    { key: 'results-approved', label: 'Approved Results', icon: 'check' },
     { key: 'transcript',       label: 'Transcript',       icon: 'file' },
     { key: 'timetable',        label: 'Timetable',        icon: 'calendar' },
+    { key: 'timetable-review', label: 'Timetable Review', icon: 'calendar' },
     { key: 'exams',            label: 'Exams',            icon: 'clipboard' },
     { key: 'attendance',       label: 'Attendance',       icon: 'check' },
     { group: 'Staff' },
@@ -119,6 +121,8 @@
     { key: 'complaints',       label: 'Complaints',       icon: 'chat' },
     { group: 'Library' },
     { key: 'library',          label: 'Books',            icon: 'book' },
+    { key: 'library-fines',    label: 'Library Fines',   icon: 'money' },
+    { key: 'library-reservations', label: 'Reservations', icon: 'clipboard' },
     { key: 'borrows',          label: 'Borrows',          icon: 'book' },
     { group: 'Records' },
     { key: 'documents',        label: 'Documents',        icon: 'file' },
@@ -131,6 +135,7 @@
     { key: 'users',            label: 'Users Hub',        icon: 'users' },
     { key: 'users-all',        label: 'All Users',        icon: 'users' },
     { key: 'users-admins',     label: 'Admin Accounts',   icon: 'shield' },
+    { key: 'users-with-photos', label: 'Photo Directory', icon: 'users' },
     { key: 'users-login-history', label: 'Login History', icon: 'clipboard' },
   ];
 

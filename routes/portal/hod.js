@@ -210,6 +210,8 @@ router.get('/staff', only, async (req, res, next) => {
         count: sql`count(*)::int`
       })
       .from(courseAllocations)
+      .innerJoin(courses, eq(courseAllocations.courseId, courses.id))
+      .where(eq(courses.departmentId, departmentId))
       .groupBy(courseAllocations.lecturerId);
 
     const countMap = {};

@@ -3378,113 +3378,91 @@ async function loadAttendanceDepartments() {
   const grid = document.getElementById('att-dept-grid');
   if (!grid) return;
 
-  grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;"><span class="spinner"></span> Loading departments…</div>';
+  const session = document.getElementById('att-filter-session')?.value || '';
+  const semester = document.getElementById('att-filter-semester')?.value || '';
+  const schoolId = document.getElementById('att-filter-school')?.value || '';
+  const search = document.getElementById('att-search')?.value?.trim() || '';
+  const query = new URLSearchParams();
+  if (session) query.set('sessionId', session);
+  if (semester) query.set('semester', semester);
+  if (schoolId) query.set('schoolId', schoolId);
+  if (search) query.set('search', search);
+
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;"><span class="spinner"></span> Loading attendance…</div>';
 
   try {
-    const res = await adminFetch('/api/admin/attendance/departments');
-    const json = await res.json();
-    const departments = json.data || [];
-
-    // Update Top Stats Bar (with safe number conversion)
-    const statDepts = document.getElementById('att-stat-depts');
-    if (statDepts) statDepts.textContent = departments.length;
-    
-    let totalCourses = 0, totalRecords = 0, totalPresent = 0, totalLate = 0;
-    departments.forEach(d => {
-      totalCourses += Number(d.courses) || 0;
-      totalRecords += Number(d.records) || 0;
-      totalPresent += Number(d.present) || 0;
-      totalLate += Number(d.late) || 0;
-    });
-    
-    const statCourses = document.getElementById('att-stat-courses');
-    if (statCourses) statCourses.textContent = totalCourses;
-    
-    const statTotal = document.getElementById('att-stat-total');
-    if (statTotal) statTotal.textContent = totalRecords;
-    
-    let overallRate = 0;
-    if (totalRecords > 0) {
-      overallRate = Math.round(((Number(totalPresent) + Number(totalLate)) / Number(totalRecords)) * 100);
+    const res = await adminFetch('/api/admin/attendance/departments' + (query.size ? '?' + query.toString() : ''));
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.success === false) {
+      throw new Error(json.error || json.message || `Request failed (${res.status})`);
     }
-    
+    const departments = Array.isArray(json.data) ? json.data : [];
+
+    const statDepts = document.getElementById('att-stat-depts');
+    const statCourses = document.getElementById('att-stat-courses');
+    const statTotal = document.getElementById('att-stat-total');
     const statRate = document.getElementById('att-stat-rate');
-    if (statRate) statRate.textContent = totalRecords > 0 ? `${overallRate}%` : '—';
+
+    const totalCourses = departments.reduce((sum, d) => sum + (Number(d.courses) || 0), 0);
+    const totalRecords = departments.reduce((sum, d) => sum + (Number(d.records) || 0), 0);
+    const totalPresent = departments.reduce((sum, d) => sum + (Number(d.present) || 0) + (Number(d.late) || 0), 0);
+    if (statDepts) statDepts.textContent = departments.length;
+    if (statCourses) statCourses.textContent = totalCourses;
+    if (statTotal) statTotal.textContent = totalRecords;
+    if (statRate) statRate.textContent = totalRecords ? Math.round((totalPresent / totalRecords) * 100) + '%' : '—';
 
     if (!departments.length) {
-      grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">No departments found.</div>';
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#64748b;">No attendance departments match the selected filters.</div>';
       return;
     }
 
-    // RENDER AS A CLEAN DATA TABLE
     grid.innerHTML = `
-      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-        <table style="width:100%; border-collapse:collapse; text-align:left;">
-          <thead>
-            <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Department</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">School</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Courses</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Students</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:center;">Records</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Attendance Rate</th>
-              <th style="padding:16px 20px; font-size:11px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; text-align:right;">Action</th>
-            </tr>
-          </thead>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <table style="width:100%;min-width:820px;border-collapse:collapse;text-align:left;">
+          <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+            <th style="padding:16px 20px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Department</th>
+            <th style="padding:16px 20px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">School</th>
+            <th style="padding:16px 20px;text-align:center;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Courses</th>
+            <th style="padding:16px 20px;text-align:center;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Students</th>
+            <th style="padding:16px 20px;text-align:center;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Records</th>
+            <th style="padding:16px 20px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Attendance Rate</th>
+            <th style="padding:16px 20px;text-align:right;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;">Action</th>
+          </tr></thead>
           <tbody>
             ${departments.map(d => {
-              const rate = Number(d.rate) || 0;
-              const hasRecords = Number(d.records) > 0;
-              
-              let barColor = '#cbd5e1';
-              let textColor = '#64748b';
-              
-              if (hasRecords) {
-                if (rate >= 75) { barColor = '#10b981'; textColor = '#065f46'; }
-                else if (rate >= 50) { barColor = '#f59e0b'; textColor = '#b45309'; }
-                else { barColor = '#ef4444'; textColor = '#991b1b'; }
-              }
-
-              return `
-                <tr style="border-bottom:1px solid #e2e8f0; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                  <td style="padding:16px 20px;">
-                    <span style="background:#ecfdf5; color:#065f46; padding:4px 8px; border-radius:6px; font-weight:800; font-size:11px; font-family:monospace; margin-right:8px;">${escapeHtml(d.code || '')}</span>
-                    <span style="font-weight:700; color:#0f172a; font-size:14px;">${escapeHtml(d.name || '')}</span>
-                  </td>
-                  <td style="padding:16px 20px; color:#64748b; font-size:13px;">
-                    ${escapeHtml(d.schoolName || 'N/A')}
-                  </td>
-                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
-                    ${Number(d.courses) || 0}
-                  </td>
-                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
-                    ${Number(d.students) || 0}
-                  </td>
-                  <td style="padding:16px 20px; text-align:center; font-weight:700; color:#0f172a;">
-                    ${Number(d.records) || 0}
-                  </td>
-                  <td style="padding:16px 20px;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                      <div style="flex:1; height:6px; background:#e2e8f0; border-radius:999px; overflow:hidden; min-width:80px;">
-                        <div style="width:${rate}%; height:100%; background:${barColor}; border-radius:999px; transition:width 0.5s ease;"></div>
-                      </div>
-                      <span style="font-size:13px; font-weight:800; color:${textColor}; width:40px; text-align:right;">${hasRecords ? rate + '%' : '—'}</span>
-                    </div>
-                  </td>
-                  <td style="padding:16px 20px; text-align:right;">
-                    <button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${d.id}, '${escapeQuotes(d.name)}', '${escapeQuotes(d.code)}')" style="font-weight: 600;">Manage</button>
-                  </td>
-                </tr>
-              `;
+              const rate = Math.max(0, Math.min(100, Number(d.rate) || 0));
+              const records = Number(d.records) || 0;
+              const barColor = !records ? '#cbd5e1' : rate >= 75 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+              const textColor = !records ? '#64748b' : rate >= 75 ? '#065f46' : rate >= 50 ? '#b45309' : '#991b1b';
+              return `<tr style="border-bottom:1px solid #e2e8f0;">
+                <td style="padding:16px 20px;"><span style="background:#ecfdf5;color:#065f46;padding:4px 8px;border-radius:6px;font-weight:800;font-size:11px;font-family:monospace;margin-right:8px;">${escapeHtml(d.code || '')}</span><span style="font-weight:700;color:#0f172a;font-size:14px;">${escapeHtml(d.name || 'Unnamed department')}</span></td>
+                <td style="padding:16px 20px;color:#64748b;font-size:13px;">${escapeHtml(d.schoolName || 'N/A')}</td>
+                <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${Number(d.courses) || 0}</td>
+                <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${Number(d.students) || 0}</td>
+                <td style="padding:16px 20px;text-align:center;font-weight:700;color:#0f172a;">${records}</td>
+                <td style="padding:16px 20px;"><div style="display:flex;align-items:center;gap:12px;"><div style="flex:1;height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:80px;"><div style="width:${records ? rate : 0}%;height:100%;background:${barColor};border-radius:999px;"></div></div><span style="font-size:13px;font-weight:800;color:${textColor};width:42px;text-align:right;">${records ? rate + '%' : '—'}</span></div></td>
+                <td style="padding:16px 20px;text-align:right;"><button class="btn btn-sm btn-outline" onclick="FPU_ADMIN.openDepartmentAttendanceModal(${Number(d.id)}, '${escapeQuotes(d.name || '')}', '${escapeQuotes(d.code || '')}')" style="font-weight:600;">Manage</button></td>
+              </tr>`;
             }).join('')}
           </tbody>
         </table>
-      </div>
-    `;
+      </div>`;
 
+    // Bind filters once per rendered page. Every change reloads the same report.
+    const page = grid.closest('.page-content') || grid.parentElement;
+    if (page && !page.dataset.attendanceFiltersBound) {
+      ['att-filter-session', 'att-filter-semester', 'att-filter-school'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', loadAttendanceDepartments);
+      });
+      document.getElementById('att-search')?.addEventListener('input', () => {
+        clearTimeout(window.__fpuAttendanceSearchTimer);
+        window.__fpuAttendanceSearchTimer = setTimeout(loadAttendanceDepartments, 300);
+      });
+      page.dataset.attendanceFiltersBound = '1';
+    }
   } catch (err) {
-    console.error('Failed to load attendance', err);
-    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #dc2626;">Failed to load attendance data: ${escapeHtml(err.message)}</div>`;
+    console.error('Failed to load attendance departments:', err);
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#dc2626;">Could not load attendance data: ${escapeHtml(err.message || 'Unknown error')}</div>`;
   }
 }
 

@@ -460,12 +460,12 @@ console.log('[Broad Sheet] Script loaded.');
         return `
           <tr class="bs-row-hover" data-student-id="${esc(s.id)}" data-student-name="${esc(s.name)}" data-student-matric="${esc(s.matricNumber)}">
             <td>${i + 1}</td>
-            <td class="left name" style="font-size:8px;">${s.matricNumber}</td>
-            <td class="left name" style="font-size:8px;">${s.name}</td>
+            <td class="left name" style="font-size:8px;">${esc(s.matricNumber)}</td>
+            <td class="left name" style="font-size:8px;">${esc(s.name)}</td>
             ${cells}
-            <td><strong>${sem.tci}</strong></td>
-            <td><strong>${sem.tgp}</strong></td>
-            <td><strong>${sem.gpa}</strong></td>
+            <td><strong>${esc(sem.tci)}</strong></td>
+            <td><strong>${esc(sem.tgp)}</strong></td>
+            <td><strong>${esc(sem.gpa)}</strong></td>
           </tr>
         `;
       }).join('');

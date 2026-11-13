@@ -15074,7 +15074,7 @@ async function loadTimetableSheet() {
     let pendingCount = 0;
     allSlots.forEach(row => {
       const s = row.slot || row;
-      if ((s.status || 'draft') === 'pending') pendingCount++;
+      if (['pending', 'submitted'].includes(String(s.status || 'draft').toLowerCase())) pendingCount++;
     });
 
     const approveBtn = document.getElementById('tsheet-approve');
@@ -15100,8 +15100,9 @@ async function loadTimetableSheet() {
       const yr = Number(c.yearOfStudy) || 1;
       const isLevelMatch = `${lvl} ${yr}` === selectedLevel;
       
-      const isSemMatch = isCourseInSemester(c);
-      return isLevelMatch && isSemMatch;
+      // The timetable API is already filtered by the selected semester. Do not
+      // re-filter using course metadata, which may be blank or legacy-formatted.
+      return isLevelMatch;
     });
 
     const levelsPresent = new Set();
@@ -15194,6 +15195,33 @@ async function loadTimetableSheet() {
       bodyHtml += `</tr>`;
     });
 
+    const submittedRowsHtml = reviewMode ? `
+      <section style="max-width:297mm;margin:0 auto 18px;padding:16px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+          <div><h3 style="margin:0;color:#065f46;">HOD Submitted Timetable — Exact Slot Details</h3><p style="margin:4px 0 0;color:#64748b;font-size:12px;">The entries below preserve the days, start/end times, venues and lecturers submitted by the department.</p></div>
+          <span style="padding:5px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:800;">${validSlots.length} submitted slots</span>
+        </div>
+        <div style="overflow:auto;">
+          <table style="width:100%;min-width:760px;border-collapse:collapse;font-size:12px;">
+            <thead style="background:#f1f5f9;"><tr>${['Day','Time submitted','Course','Course title','Venue','Lecturer','Status'].map(label => `<th style="padding:9px;text-align:left;border-bottom:1px solid #cbd5e1;">${label}</th>`).join('')}</tr></thead>
+            <tbody>${validSlots.map(row => {
+              const slot = row.slot || row;
+              const course = row.course || courseById.get(Number(slot.courseId)) || {};
+              const lecturer = row.lecturer || {};
+              const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+              return `<tr>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.dayOfWeek || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;font-weight:800;">${escapeHtml(course.code || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(course.title || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(slot.venue || '—')}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;">${escapeHtml(lecturerName)}</td>
+                <td style="padding:9px;border-bottom:1px solid #e2e8f0;color:#1d4ed8;font-weight:800;">${escapeHtml(slot.status || 'pending')}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </section>` : '';
     const courseDetailRows = uniqueCourses.map(({ course: c, slot: s, lecturer: l }) => {
       const lecturerName = `${l.firstName || ''} ${l.lastName || ''}`.trim() || '—';
       return `
@@ -15208,6 +15236,7 @@ async function loadTimetableSheet() {
 
     root.innerHTML = `
       <div class="tt-level-tabs">${tabsHtml}</div>
+      ${submittedRowsHtml}
       <div class="tt-grid-sheet">
         <div class="tt-grid-head">
           <div class="tt-grid-logo"><img src="/images/logo.png" onerror="this.style.display='none'"></div>

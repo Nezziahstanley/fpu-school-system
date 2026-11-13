@@ -562,36 +562,86 @@
   }
 
   function printTranscriptOnly() {
-    const modal = $('tr-modal');
     const article = $('tr-modal-body')?.querySelector('.tr-printable');
-    if (!article || !modal) {
+    if (!article) {
       if (typeof window.showToast === 'function') window.showToast('Transcript content is not ready to print.', 'warning');
       return;
     }
 
-    // Print the live transcript DOM directly. This avoids iframe documents,
-    // which can lose inherited assets/styles or open as a blank print surface.
-    const previousDisplay = modal.style.display;
-    modal.style.display = 'flex';
-
-    const restoreAfterPrint = () => {
-      modal.style.display = previousDisplay || 'flex';
-      window.removeEventListener('afterprint', restoreAfterPrint);
-    };
-    window.addEventListener('afterprint', restoreAfterPrint, { once: true });
-
-    // Let the modal's print CSS apply before invoking the browser print UI.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      try {
-        window.focus();
-        window.print();
-      } catch (error) {
-        restoreAfterPrint();
-        if (typeof window.showToast === 'function') {
-          window.showToast(error.message || 'Unable to open the print dialog. Please try again.', 'error');
-        }
+    // Use a clean, standalone print document. The portal's global print rules
+    // and SPA layout must not be able to hide or clip the transcript.
+    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+    if (!printWindow) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Your browser blocked the print window. Allow pop-ups for this portal, then try again.', 'warning');
       }
-    }));
+      return;
+    }
+
+    const printStyles = `
+      @page { size: A4 portrait; margin: 14mm; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #fff; color: #0f172a; }
+      body { font-family: "Times New Roman", serif; font-size: 11pt; }
+      .tr-printable { position: relative; padding: 0; color: #0f172a; }
+      .tr-printable .tr-content { position: relative; z-index: 1; }
+      .tr-watermark { display: block !important; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-20deg); width: 100mm; height: 100mm; opacity: .07; z-index: 0; pointer-events: none; }
+      .tr-letterhead { text-align: center; padding-bottom: 10px; margin-bottom: 18px; border-bottom: 3px double #065f46; }
+      .tr-letterhead img { height: 60px; margin-bottom: 7px; object-fit: contain; }
+      .tr-letterhead h1 { font-size: 22px; margin: 0; color: #065f46; letter-spacing: .5px; text-transform: uppercase; }
+      .tr-letterhead p { margin: 4px 0 0; font-size: 12px; color: #475569; }
+      .tr-title { text-align: center; font-size: 16px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; text-decoration: underline; margin: 16px 0; color: #0f172a; }
+      .tr-info-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; font-size: 12px; }
+      .tr-info-grid > div > span { display: block; font-weight: 700; text-transform: uppercase; font-size: 9px; color: #64748b; letter-spacing: .05em; margin-bottom: 3px; }
+      .tr-info-grid > div > strong { font-weight: 700; font-size: 13px; color: #0f172a; }
+      .tr-results-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+      .tr-results-table th { background: #f0fdf4 !important; padding: 8px; border: 1px solid #000; text-align: left; text-transform: uppercase; font-size: 9px; letter-spacing: .05em; color: #065f46; font-weight: 800; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .tr-results-table td { padding: 6px 8px; border: 1px solid #333; }
+      .tr-results-table td.center { text-align: center; }
+      .tr-summary { display: flex; justify-content: flex-end; gap: 32px; margin-top: 16px; padding-top: 14px; border-top: 2px solid #065f46; font-size: 12px; }
+      .tr-summary .tr-cgpa-big { font-size: 22px; font-weight: 800; color: #065f46; }
+      .tr-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #999; font-size: 10px; text-align: center; color: #555; }
+      .tr-signature { margin-top: 32px; display: flex; justify-content: space-between; gap: 24px; font-size: 11px; }
+      .tr-signature .tr-sign-block { border-top: 1px solid #000; padding-top: 5px; min-width: 160px; text-align: center; }
+      img { max-width: 100%; }
+      @media screen { body { padding: 18px; } .tr-printable { max-width: 900px; margin: 0 auto; } }
+      @media print { .tr-print-hide { display: none !important; } thead { display: table-header-group; } tr { break-inside: avoid; } }
+    `;
+
+    try {
+      const doc = printWindow.document;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="' + window.location.origin + '/"><title>Student Transcript</title><style>' + printStyles + '</style></head><body>' + article.outerHTML + '</body></html>');
+      doc.close();
+
+      const startPrint = async () => {
+        try {
+          if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+          const images = Array.from(doc.images);
+          await Promise.all(images.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }));
+          printWindow.focus();
+          printWindow.print();
+        } catch (error) {
+          printWindow.close();
+          if (typeof window.showToast === 'function') window.showToast(error.message || 'Unable to prepare the transcript for printing.', 'error');
+        }
+      };
+      printWindow.addEventListener('load', startPrint, { once: true });
+      // document.write can complete before the load event is observed.
+      if (doc.readyState === 'complete') setTimeout(startPrint, 0);
+      printWindow.addEventListener('afterprint', () => printWindow.close(), { once: true });
+    } catch (error) {
+      printWindow.close();
+      if (typeof window.showToast === 'function') {
+        window.showToast(error.message || 'Unable to prepare the transcript for printing.', 'error');
+      }
+    }
   }
 
   // Wiring

@@ -15699,10 +15699,10 @@ async function loadTimetableApprovals() {
       const badgeText = isPending ? `${bucket.pending} Pending` : 'Fully Approved';
 
       html += `
-        <div class="tt-dept-card" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-review', { departmentId: ${dept.id}, sessionId: '${escapeQuotes(sessionId)}', semester: '${escapeQuotes(semester)}', name: '${escapeQuotes(dept.name)}' })" style="cursor:pointer;">
+        <div class="tt-dept-card" onclick="FPU_ADMIN_SPA.navigateToWithQuery('timetable-by-dept', { departmentId: ${dept.id}, sessionId: '${escapeQuotes(sessionId)}', semester: '${escapeQuotes(semester)}', name: '${escapeQuotes(dept.name)}' })" style="cursor:pointer;">
           <div class="ttd-head">
             <span class="ttd-code">${escapeHtml(dept.code)}</span>
-            <span class="ttd-school">Review</span>
+            <span class="ttd-school">Timetable</span>
           </div>
           <h3>${escapeHtml(dept.name)}</h3>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding:10px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
@@ -15710,7 +15710,7 @@ async function loadTimetableApprovals() {
              <span style="font-size:11px; color:#64748b; font-weight:600;">${bucket.total} Slots</span>
           </div>
           <div class="ttd-footer" style="margin-top:12px;">
-            <span>Review Timetable</span>
+            <span>Open Department Timetable</span>
             <span class="arrow">→</span>
           </div>
         </div>

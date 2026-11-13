@@ -8,6 +8,22 @@ const { requireRole } = require('../middleware/auth');
 
 const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
 
+async function resolveAttendanceSession(requestedSessionId) {
+  if (requestedSessionId) {
+    const id = Number(requestedSessionId);
+    if (!Number.isInteger(id) || id <= 0) throw Object.assign(new Error('Invalid academic session.'), { status: 400 });
+    return id;
+  }
+  const [current] = await db.select({ id: schema.academicSessions.id })
+    .from(schema.academicSessions)
+    .where(eq(schema.academicSessions.isCurrent, true)).limit(1);
+  if (current) return Number(current.id);
+  const [latest] = await db.select({ id: schema.academicSessions.id })
+    .from(schema.academicSessions).orderBy(desc(schema.academicSessions.id)).limit(1);
+  return latest ? Number(latest.id) : null;
+}
+
+
 // ============================================================
 // GET /api/admin/attendance/departments
 // Returns a flat array of departments with their stats
@@ -151,18 +167,7 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
       ));
     }
 
-    let selectedSessionId = sessionId ? Number(sessionId) : null;
-    if (sessionId && (!Number.isInteger(selectedSessionId) || selectedSessionId <= 0)) {
-      return res.status(400).json({ success: false, error: 'Invalid academic session.' });
-    }
-    if (!selectedSessionId) {
-      const [currentSession] = await db
-        .select({ id: schema.academicSessions.id })
-        .from(schema.academicSessions)
-        .where(eq(schema.academicSessions.isCurrent, true))
-        .limit(1);
-      selectedSessionId = currentSession ? Number(currentSession.id) : null;
-    }
+    const selectedSessionId = await resolveAttendanceSession(sessionId);
 
     const attendanceConditions = [];
     if (selectedSessionId) attendanceConditions.push(eq(schema.attendance.sessionId, selectedSessionId));
@@ -207,7 +212,27 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
       };
     });
 
-    return res.json({ success: true, data });
+    const summaryConditions = [...conditions, ...attendanceConditions];
+    const [summaryRow] = await db
+      .select({
+        students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
+        records: sql`COUNT(${schema.attendance.id})`,
+        present: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'present' THEN 1 END)`,
+        late: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'late' THEN 1 END)`
+      })
+      .from(schema.attendance)
+      .innerJoin(schema.courses, eq(schema.attendance.courseId, schema.courses.id))
+      .where(and(...summaryConditions));
+    const summaryRecords = Number(summaryRow?.records) || 0;
+    const summaryPresent = Number(summaryRow?.present) || 0;
+    const summaryLate = Number(summaryRow?.late) || 0;
+    const summary = {
+      students: Number(summaryRow?.students) || 0,
+      records: summaryRecords,
+      rate: summaryRecords ? Math.round(((summaryPresent + summaryLate) / summaryRecords) * 100) : 0
+    };
+
+    return res.json({ success: true, sessionId: selectedSessionId, summary, data });
   } catch (err) {
     console.error('Attendance Department Courses Error:', err);
     return next(err);
@@ -219,20 +244,23 @@ router.get('/department/:departmentId', requireRole(STAFF), async (req, res, nex
 // ============================================================
 router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
   try {
+ 
     const courseId = Number(req.params.id);
-    const { status, from, to, search } = req.query;
-
-    const conds = [eq(schema.attendance.courseId, courseId)];
-    if (status) conds.push(eq(schema.attendance.status, status));
-    if (from) conds.push(sql`${schema.attendance.date} >= ${from}`);
-    if (to) conds.push(sql`${schema.attendance.date} <= ${to}`);
-    if (search) {
-      conds.push(or(
-        ilike(schema.users.matricNumber, `%${search}%`),
-        ilike(schema.users.firstName, `%${search}%`),
-        ilike(schema.users.lastName, `%${search}%`)
-      ));
-    }
+    if (!Number.isInteger(courseId) || courseId <= 0) return res.status(400).json({ success: false, error: 'A valid course is required.' });
+    const { status, from, to, search, sessionId, semester } = req.query;
+    const selectedSessionId = await resolveAttendanceSession(sessionId);
+    const attendanceConds = [eq(schema.attendance.courseId, courseId)];
+    if (selectedSessionId) attendanceConds.push(eq(schema.attendance.sessionId, selectedSessionId));
+    if (semester) attendanceConds.push(eq(schema.attendance.semester, String(semester)));
+    if (status) attendanceConds.push(eq(schema.attendance.status, String(status)));
+    if (from) attendanceConds.push(sql`${schema.attendance.date} >= ${from}`);
+    if (to) attendanceConds.push(sql`${schema.attendance.date} <= ${to}`);
+    const studentConds = [eq(schema.courseRegistrations.courseId, courseId)];
+    if (search) studentConds.push(or(
+      ilike(schema.users.matricNumber, `%${search}%`),
+      ilike(schema.users.firstName, `%${search}%`),
+      ilike(schema.users.lastName, `%${search}%`)
+    ));
 
     const roster = await db
       .select({
@@ -247,27 +275,35 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
         late: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'late' THEN 1 END)`,
         excused: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'excused' THEN 1 END)`
       })
-      .from(schema.attendance)
-      .innerJoin(schema.users, eq(schema.attendance.studentId, schema.users.id))
-      .where(and(...conds))
-      .groupBy(schema.users.id, schema.users.matricNumber, schema.users.firstName, schema.users.lastName, schema.users.level);
+      .from(schema.courseRegistrations)
+      .innerJoin(schema.users, eq(schema.courseRegistrations.studentId, schema.users.id))
+      .leftJoin(schema.attendance, and(
+        ...attendanceConds,
+        eq(schema.attendance.studentId, schema.users.id)
+      ))
+      .where(and(...studentConds))
+      .groupBy(schema.users.id, schema.users.matricNumber, schema.users.firstName, schema.users.lastName, schema.users.level)
+      .orderBy(schema.users.matricNumber);
 
     const formatted = roster.map(row => {
-      const total = Number(row.totalClasses);
-      const p = Number(row.present);
-      const l = Number(row.late);
+      const total = Number(row.totalClasses) || 0;
+      const p = Number(row.present) || 0;
+      const l = Number(row.late) || 0;
       return {
         ...row,
         totalClasses: total,
         present: p,
-        absent: Number(row.absent),
+        absent: Number(row.absent) || 0,
         late: l,
-        excused: Number(row.excused),
-        rate: total > 0 ? Math.round(((p + l) / total) * 100) : 0
+        excused: Number(row.excused) || 0,
+        rate: total ? Math.round(((p + l) / total) * 100) : 0
       };
     });
-
-    return res.json({ success: true, data: formatted });
+    const [dayRow] = await db
+      .select({ classDays: sql`COUNT(DISTINCT ${schema.attendance.date})` })
+      .from(schema.attendance)
+      .where(and(...attendanceConds));
+    return res.json({ success: true, sessionId: selectedSessionId, classDays: Number(dayRow?.classDays) || 0, data: formatted });
   } catch (err) {
     return next(err);
   }
@@ -338,6 +374,10 @@ router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (re
   try {
     const studentId = Number(req.params.studentId);
     const courseId = Number(req.params.courseId);
+    const selectedSessionId = await resolveAttendanceSession(req.query.sessionId);
+    const conditions = [eq(schema.attendance.studentId, studentId), eq(schema.attendance.courseId, courseId)];
+    if (selectedSessionId) conditions.push(eq(schema.attendance.sessionId, selectedSessionId));
+    if (req.query.semester) conditions.push(eq(schema.attendance.semester, String(req.query.semester)));
 
     const records = await db
       .select({
@@ -347,13 +387,10 @@ router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (re
         remarks: schema.attendance.remarks,
       })
       .from(schema.attendance)
-      .where(and(
-        eq(schema.attendance.studentId, studentId),
-        eq(schema.attendance.courseId, courseId)
-      ))
+      .where(and(...conditions))
       .orderBy(desc(schema.attendance.date));
 
-    return res.json({ success: true, data: records });
+    return res.json({ success: true, sessionId: selectedSessionId, data: records });
   } catch (err) {
     console.error('Error fetching student attendance:', err);
     return next(err);

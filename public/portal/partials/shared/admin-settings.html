@@ -1,28 +1,31 @@
 <!-- Portal → Shared → Settings (admins only) -->
-<div style="padding: 1rem 0 0 0;">
-
-  <!-- HEADER -->
-  <div class="page-head">
-    <div>
+<div class="fpu-settings-page">
+  <section class="fpu-settings-hero">
+    <div class="fpu-settings-hero-copy">
+      <span class="fpu-settings-eyebrow">ADMINISTRATION / CONFIGURATION</span>
       <h2>System Settings</h2>
-      <p class="muted small">Manage institution, academic, and system-wide configuration</p>
+      <p>Manage institution details, academic preferences, finance and portal configuration from one place.</p>
+      <div class="fpu-settings-hero-note"><span aria-hidden="true">✓</span> Changes are saved only when you select Save Changes.</div>
     </div>
-    <div class="actions">
-      <button id="set-refresh" class="btn btn-outline btn-sm">↻ Refresh</button>
+    <div class="fpu-settings-hero-actions">
+      <div class="fpu-settings-shield" aria-hidden="true">⚙</div>
+      <button id="set-refresh" class="btn btn-outline btn-sm fpu-settings-refresh" type="button">↻ Refresh settings</button>
     </div>
-  </div>
+  </section>
 
-  <!-- SETTINGS CONTAINER -->
+  <section class="fpu-settings-toolbar" aria-label="Settings overview">
+    <div><span class="fpu-settings-toolbar-label">CONFIGURATION</span><strong>Available settings</strong><small>Choose a section below to review or update its values.</small></div>
+    <span class="fpu-settings-secure"><span aria-hidden="true">●</span> Administrator controls</span>
+  </section>
+
   <div id="shared-settings-box">
-    <div class="loading" style="padding:3rem;text-align:center;">
-      <span class="spinner"></span> Loading settings…
-    </div>
+    <div class="loading fpu-settings-loading"><span class="spinner"></span> Loading settings…</div>
   </div>
 
-  <!-- STICKY SAVE BAR -->
-  <div id="set-save-bar" style="display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:900;background:#fff;border:1px solid #e5e7eb;border-radius:99px;padding:.6rem .8rem .6rem 1rem;box-shadow:0 8px 24px rgba(0,0,0,.15);display:flex;align-items:center;gap:.75rem;min-width:280px;">
-    <span style="font-size:.85rem;color:#475569;" id="set-save-msg">Unsaved changes</span>
-    <button id="set-save-btn" class="btn btn-primary btn-sm" style="border-radius:99px;">Save Changes</button>
+  <div id="set-save-bar" class="fpu-settings-savebar" role="status" aria-live="polite">
+    <span class="fpu-settings-save-indicator" aria-hidden="true"></span>
+    <span id="set-save-msg">Unsaved changes</span>
+    <button id="set-save-btn" class="btn btn-primary btn-sm" type="button">Save Changes</button>
   </div>
 </div>
 
@@ -67,6 +70,55 @@
   }
   .set-bank-group .set-row { margin-bottom:.5rem; }
   .set-bank-group .set-row:last-child { margin-bottom:0; }
+
+
+/* FPU Settings — responsive administration workspace */
+.fpu-settings-page{padding:1rem 0 5.5rem;color:#172b25}
+.fpu-settings-hero{display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:1.6rem 1.75rem;margin-bottom:1.1rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#047857 58%,#0f766e 100%);box-shadow:0 12px 28px rgba(6,78,59,.16);color:#fff;overflow:hidden;position:relative}
+.fpu-settings-hero:after{content:"";position:absolute;width:240px;height:240px;border:1px solid rgba(255,255,255,.12);border-radius:50%;right:9%;top:-155px;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025);pointer-events:none}
+.fpu-settings-hero-copy,.fpu-settings-hero-actions{position:relative;z-index:1}
+.fpu-settings-eyebrow{display:inline-block;font-size:.65rem;font-weight:800;letter-spacing:.16em;color:#a7f3d0;margin-bottom:.55rem}
+.fpu-settings-hero h2{margin:0;color:#fff;font-size:clamp(1.35rem,2.5vw,1.9rem);font-weight:850;letter-spacing:-.035em}
+.fpu-settings-hero p{max-width:650px;margin:.45rem 0 .85rem;color:#d1fae5;font-size:.88rem;line-height:1.6}
+.fpu-settings-hero-note{display:flex;align-items:center;gap:.45rem;color:#ecfdf5;font-size:.74rem;font-weight:650}
+.fpu-settings-hero-note span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(167,243,208,.18);color:#a7f3d0}
+.fpu-settings-hero-actions{display:flex;flex-direction:column;align-items:center;gap:.8rem;flex-shrink:0}
+.fpu-settings-shield{display:grid;place-items:center;width:66px;height:66px;border-radius:20px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);color:#fff;font-size:1.8rem}
+.fpu-settings-refresh{background:#fff!important;color:#065f46!important;border:1px solid rgba(255,255,255,.6)!important;font-weight:750!important}
+.fpu-settings-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.15rem;margin:0 0 1rem;border:1px solid #dcebe4;border-radius:13px;background:#f5fbf7}
+.fpu-settings-toolbar>div{display:flex;flex-direction:column;gap:.16rem}
+.fpu-settings-toolbar-label{font-size:.62rem;font-weight:850;letter-spacing:.13em;color:#047857}
+.fpu-settings-toolbar strong{font-size:.92rem;color:#123b2d}
+.fpu-settings-toolbar small{font-size:.75rem;color:#64748b}
+.fpu-settings-secure{display:inline-flex;align-items:center;gap:.45rem;padding:.45rem .7rem;border:1px solid #cce8d8;border-radius:99px;background:#fff;color:#166534;font-size:.7rem;font-weight:750;white-space:nowrap}
+.fpu-settings-secure span{font-size:.55rem;color:#16a34a}
+#shared-settings-box{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}
+#shared-settings-box>.loading,#shared-settings-box>.alert,#shared-settings-box>div:only-child{grid-column:1/-1}
+.fpu-settings-loading{padding:3rem!important;text-align:center;color:#64748b}
+.set-group{margin:0!important;background:#fff;border:1px solid #dfe9e4;border-radius:15px;overflow:hidden;box-shadow:0 3px 12px rgba(15,45,32,.045);transition:box-shadow .18s,border-color .18s}
+.set-group:hover{border-color:#b8d9c7;box-shadow:0 8px 22px rgba(15,45,32,.075)}
+.set-group-header{min-height:65px;padding:.85rem 1.05rem!important;background:linear-gradient(100deg,#f0faf4,#f8fcf9)!important;border-bottom:1px solid #e2eee7!important}
+.set-group-header .set-icon{width:38px!important;height:38px!important;border-radius:11px!important;background:#dff5e8!important;color:#047857!important;font-size:1.05rem!important}
+.set-group-header h3{color:#123b2d!important;font-size:.9rem!important;font-weight:850!important}
+.set-group-header .set-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 .35rem;border-radius:99px;background:#e1f3e8;color:#166534!important;font-size:.66rem!important}
+.set-group-body{padding:1.05rem!important}
+.set-row{margin-bottom:1.05rem!important;min-width:0}
+.set-label{display:block;margin-bottom:.42rem!important;color:#29483b!important;font-size:.76rem!important;font-weight:800!important;letter-spacing:.005em}
+.set-label .set-hint{display:inline-block;margin-left:.35rem!important;color:#94a3b8!important;font-size:.66rem!important;font-weight:550!important}
+.set-input{min-height:42px;padding:.65rem .78rem!important;border:1px solid #cbd9d1!important;border-radius:9px!important;background:#fff!important;color:#172b25!important;font-size:.84rem!important;box-shadow:0 1px 2px rgba(15,23,42,.025);transition:border-color .15s,box-shadow .15s}
+.set-input:hover{border-color:#8dbba1!important}
+.set-input:focus{outline:none!important;border-color:#059669!important;box-shadow:0 0 0 3px rgba(5,150,105,.13)!important}
+.set-bank-group{padding:.9rem!important;border:1px solid #dcebe2!important;border-radius:11px!important;background:#f7fbf8!important}
+.set-bank-group .set-row{margin-bottom:.75rem!important}
+.fpu-settings-savebar{display:none;position:fixed;left:50%;bottom:1.15rem;transform:translateX(-50%);z-index:950;align-items:center;gap:.75rem;min-width:min(420px,calc(100vw - 2rem));padding:.7rem .8rem .7rem 1rem;border:1px solid #cce4d6;border-radius:14px;background:#fff;box-shadow:0 14px 40px rgba(15,45,32,.2)}
+.fpu-settings-save-indicator{width:9px;height:9px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 4px #fef3c7;flex-shrink:0}
+# set-save-msg{font-size:.8rem;color:#475569;font-weight:700}
+.fpu-settings-savebar #set-save-msg{flex:1;font-size:.8rem;color:#475569;font-weight:750}
+.fpu-settings-savebar .btn{border-radius:9px!important;white-space:nowrap}
+@media(max-width:900px){#shared-settings-box{grid-template-columns:1fr}}
+@media(max-width:600px){.fpu-settings-page{padding-top:.5rem}.fpu-settings-hero{padding:1.15rem;align-items:flex-start;border-radius:14px}.fpu-settings-hero-actions{gap:.55rem}.fpu-settings-shield{width:45px;height:45px;border-radius:13px;font-size:1.25rem}.fpu-settings-refresh{font-size:.68rem!important;padding:.45rem .55rem!important}.fpu-settings-toolbar{align-items:flex-start;flex-direction:column}.fpu-settings-secure{align-self:flex-start}.set-group-body{padding:.85rem!important}.fpu-settings-savebar{bottom:.65rem;gap:.55rem;padding:.6rem .65rem}.fpu-settings-savebar #set-save-msg{font-size:.73rem}}
+@media print{.fpu-settings-hero-actions,.fpu-settings-savebar,#set-refresh{display:none!important}.fpu-settings-hero{background:#fff!important;color:#123b2d!important;box-shadow:none;border:1px solid #cbd5e1}.fpu-settings-hero h2,.fpu-settings-hero p,.fpu-settings-eyebrow{color:#123b2d!important}}
+
 </style>
 
 <script>

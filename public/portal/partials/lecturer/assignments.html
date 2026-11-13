@@ -178,9 +178,10 @@
 
       $('stat-total').textContent = ALL_ASSIGNMENTS.length;
       
-      const totalSubs = ALL_ASSIGNMENTS.reduce((sum, a) => sum + (a.submissionCount || 0), 0);
+      const totalSubs = ALL_ASSIGNMENTS.reduce((sum, a) => sum + Number(a.submissionCount || 0), 0);
+      const pendingGrading = ALL_ASSIGNMENTS.reduce((sum, a) => sum + Number(a.pendingGradingCount || 0), 0);
       $('stat-submissions').textContent = totalSubs;
-      $('stat-pending').textContent = totalSubs;
+      $('stat-pending').textContent = pendingGrading;
       
       renderTable();
     } catch (err) {

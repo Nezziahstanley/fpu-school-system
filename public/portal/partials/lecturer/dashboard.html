@@ -283,7 +283,7 @@
 
   const WEEK_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   function timeMinutes(value) {
-    const match = String(value || '').match(/(\\d{1,2}):(\\d{2})/);
+    const match = String(value || '').match(/(\d{1,2}):(\d{2})/);
     return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
   }
   function timeLabel(value) {

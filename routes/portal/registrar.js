@@ -271,7 +271,8 @@ router.get('/transcripts', only, async (req, res, next) => {
 router.get('/transcript/:studentId', only, async (req, res, next) => {
   try {
     const userQueries = require('../../db/queries/users');
-    const { computeStudentCGPA, classifyDegree } = require('../../utils/gpa');
+    const { computeStudentCGPA, classifyDegree, resolveResultPoints } = require('../../utils/gpa');
+    const { getActiveGradeScale } = require('../../utils/gradeScale');
 
     const studentId = Number(req.params.studentId);
     const student = await userQueries.findByIdWithRelations(studentId);
@@ -298,7 +299,8 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     `);
 
     const rows = results.rows || [];
-    
+    const gradeScale = await getActiveGradeScale();
+
     // Format rows to match the expected structure
     const formattedRows = rows.map(r => ({
       course: { code: r.courseCode, title: r.courseTitle, unit: r.unit },
@@ -308,7 +310,7 @@ router.get('/transcript/:studentId', only, async (req, res, next) => {
     const summary = computeStudentCGPA(
       formattedRows.map((r) => ({
         unit: Number(r.course?.unit) || 0,
-        points: Number(r.result?.points) || 0,
+        points: resolveResultPoints(r.result, gradeScale),
         sessionId: r.result?.sessionId,
         semester: r.result?.semester,
       }))

@@ -357,7 +357,7 @@ router.get('/registrations', only, async (req, res) => {
       courseCode: courses.code,
       courseTitle: courses.title,
       courseLevel: courses.level,
-      courseUnits: courses.units,
+      courseUnits: courses.unit,
       studentId: users.id,
       firstName: users.firstName,
       lastName: users.lastName,

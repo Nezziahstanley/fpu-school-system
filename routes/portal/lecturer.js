@@ -270,6 +270,41 @@ router.get('/attendance', only, async (req, res, next) => {
         .orderBy(timetableSlots.dayOfWeek,timetableSlots.startTime);
       coursesWithMeta.push({...a,registeredCount:registered?.count||0,schedule});
     }
+    for (const course of coursesWithMeta) {
+      const registeredStudents = await db.select({
+        id: users.id, firstName: users.firstName, lastName: users.lastName,
+        matricNumber: users.matricNumber, level: users.level
+      }).from(courseRegistrations)
+        .innerJoin(users, eq(courseRegistrations.studentId, users.id))
+        .where(and(
+          eq(courseRegistrations.courseId, course.courseId),
+          eq(courseRegistrations.sessionId, course.sessionId),
+          eq(courseRegistrations.semester, course.semester),
+          eq(courseRegistrations.status, 'approved')
+        )).orderBy(users.lastName, users.firstName);
+      const sessionDates = await db.selectDistinct({ date: attendance.date }).from(attendance).where(and(
+        eq(attendance.lecturerId, req.user.id), eq(attendance.courseId, course.courseId),
+        eq(attendance.sessionId, course.sessionId), eq(attendance.semester, course.semester)
+      ));
+      const counts = await db.select({
+        studentId: attendance.studentId,
+        attended: sql`count(*) filter (where ${attendance.status} in ('present','late'))::int`,
+        recorded: sql`count(*)::int`
+      }).from(attendance).where(and(
+        eq(attendance.lecturerId, req.user.id), eq(attendance.courseId, course.courseId),
+        eq(attendance.sessionId, course.sessionId), eq(attendance.semester, course.semester)
+      )).groupBy(attendance.studentId);
+      const countByStudent = new Map(counts.map(row => [Number(row.studentId), row]));
+      const totalSessions = sessionDates.length;
+      course.attendanceSessionCount = totalSessions;
+      course.studentStats = registeredStudents.map(student => {
+        const count = countByStudent.get(Number(student.id));
+        const attended = Number(count?.attended || 0);
+        const recorded = Number(count?.recorded || 0);
+        return { ...student, attendedSessions: attended, recordedSessions: recorded, totalSessions,
+          percentage: totalSessions ? Math.round((attended / totalSessions) * 100) : null };
+      });
+    }
     const scope=allocations.map(a=>and(eq(attendance.courseId,a.courseId),eq(attendance.sessionId,a.sessionId),eq(attendance.semester,a.semester)));
     const rows=await db.select({
       id:attendance.id,courseId:attendance.courseId,sessionId:attendance.sessionId,semester:attendance.semester,

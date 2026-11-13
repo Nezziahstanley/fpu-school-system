@@ -8,9 +8,22 @@
       <p style="margin:.35rem 0 0;font-size:.85rem;color:#64748b;">View upcoming and past exams for your courses</p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <button id="exm-print" type="button" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#fff;color:#065f46;border:1px solid #065f46;border-radius:8px;cursor:pointer;">Print Schedule</button>
       <button id="exm-refresh" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">↻ Refresh</button>
     </div>
   </div>
+
+  <div id="exm-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.75rem;margin-bottom:1rem;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="exm-total" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">All Exams</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="exm-upcoming" style="font-size:1.45rem;font-weight:800;color:#047857;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Upcoming</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="exm-past" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Past Exams</div></div>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;"><div id="exm-courses" style="font-size:1.45rem;font-weight:800;color:#0f172a;">0</div><div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Courses</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.5fr);gap:.65rem;margin-bottom:.8rem;">
+    <input id="exm-search" type="search" placeholder="Search course, venue, department or invigilator…" aria-label="Search exam schedule" style="min-width:0;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;">
+    <select id="exm-period" aria-label="Filter exams by date" style="min-width:0;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;"><option value="all">All exam dates</option><option value="upcoming">Upcoming</option><option value="past">Past</option></select>
+  </div>
+  <div id="exm-result-count" style="font-size:.75rem;color:#64748b;margin-bottom:.65rem;">Loading exam schedule…</div>
 
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
     <div style="overflow-x:auto;">
@@ -51,6 +64,7 @@
 <style>
   #exm-tbody tr { transition: background .1s; cursor: pointer; }
   #exm-tbody tr:hover { background: #f8fafc; }
+  @media(max-width:600px){#exm-stats{grid-template-columns:repeat(2,minmax(0,1fr)) !important} #exm-search,#exm-period{grid-column:1/-1}}
 </style>
 
 <script>
@@ -60,38 +74,65 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => core.escapeHtml ? core.escapeHtml(s) : String(s == null ? '' : s);
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  let ALL_EXAMS = [];
+
+  function examDate(row) {
+    if (!row.examDate) return null;
+    const d = new Date(row.examDate);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function renderExams() {
+    const tbody = $('exm-tbody');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const term = $('exm-search').value.trim().toLowerCase();
+    const period = $('exm-period').value;
+    const upcoming = ALL_EXAMS.filter(e => { const d = examDate(e); return d && d >= today; });
+    const past = ALL_EXAMS.filter(e => { const d = examDate(e); return d && d < today; });
+    $('exm-total').textContent = ALL_EXAMS.length;
+    $('exm-upcoming').textContent = upcoming.length;
+    $('exm-past').textContent = past.length;
+    $('exm-courses').textContent = new Set(ALL_EXAMS.map(e => String(e.courseId || e.courseCode))).size;
+    const rows = ALL_EXAMS.filter(e => {
+      const d = examDate(e);
+      const matchesPeriod = period === 'all' || (period === 'upcoming' ? d && d >= today : d && d < today);
+      const haystack = [e.courseCode,e.courseTitle,e.departmentName,e.sessionName,e.semester,e.venue,e.invigilators].join(' ').toLowerCase();
+      return matchesPeriod && (!term || haystack.includes(term));
+    });
+    $('exm-result-count').textContent = 'Showing ' + rows.length + ' of ' + ALL_EXAMS.length + ' approved exam schedules';
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="padding:3rem;text-align:center;color:#64748b;">No exam schedules match your search or date filter.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(e => {
+      const d = examDate(e);
+      const isUpcoming = d && d >= today;
+      return `
+        <tr style="border-bottom:1px solid #f1f5f9;" data-id="${esc(e.id)}">
+          <td style="padding:.65rem .75rem;"><div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div><div style="font-size:.72rem;color:#64748b;">${esc(e.courseTitle || '')}</div></td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.departmentName || '—')}</td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.sessionName || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;text-transform:capitalize;">${esc(e.semester || '—')}</td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}<div style="font-size:.67rem;font-weight:700;color:${isUpcoming ? '#047857' : '#64748b'};">${d ? (isUpcoming ? 'Upcoming' : 'Completed date') : 'Date pending'}</div></td>
+          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime || '')} - ${esc(e.endTime || '')}</td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
+          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.invigilators || '—')}</td>
+        </tr>`;
+    }).join('');
+    tbody.querySelectorAll('tr[data-id]').forEach(row => row.addEventListener('click', () => openExamModal(Number(row.dataset.id))));
+  }
 
   async function load() {
     const tbody = $('exm-tbody');
     try {
       const res = await core.portalFetch('/api/lecturer/exams');
-      const approvedRows = (res.data || []).filter(e => String(e.status || '').trim().toLowerCase() === 'approved');
-      const rows = Array.from(new Map(approvedRows.map(e => [String(e.courseId), e])).values());
-
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">Exam timetable not ready yet. No exam schedule has been approved for your allocated courses.</td></tr>`;
+      ALL_EXAMS = (res.data || []).filter(e => String(e.status || '').trim().toLowerCase() === 'approved');
+      if (!ALL_EXAMS.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="padding:3rem;text-align:center;color:#94a3b8;">Exam timetable not ready yet. No exam schedule has been approved for your allocated courses.</td></tr>';
+        $('exm-result-count').textContent = 'No approved exam schedules';
+        $('exm-total').textContent = $('exm-upcoming').textContent = $('exm-past').textContent = $('exm-courses').textContent = '0';
         return;
       }
-
-      tbody.innerHTML = rows.map(e => `
-        <tr style="border-bottom:1px solid #f1f5f9;" data-id="${e.id}">
-          <td style="padding:.65rem .75rem;">
-            <div style="font-weight:700;color:#0f172a;">${esc(e.courseCode || '—')}</div>
-            <div style="font-size:.72rem;color:#64748b;">${esc(e.courseTitle || '')}</div>
-          </td>
-          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.departmentName || '—')}</td>
-          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.sessionName || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;text-transform:capitalize;">${esc(e.semester || '—')}</td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${fmtDate(e.examDate)}</td>
-          <td style="padding:.65rem .75rem;text-align:center;color:#475569;">${esc(e.startTime || '')} - ${esc(e.endTime || '')}</td>
-          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.venue || '—')}</td>
-          <td style="padding:.65rem .75rem;color:#475569;">${esc(e.invigilators || '—')}</td>
-        </tr>
-      `).join('');
-
-      tbody.querySelectorAll('tr[data-id]').forEach(row => {
-        row.addEventListener('click', () => openExamModal(Number(row.dataset.id)));
-      });
+      renderExams();
 
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:#991b1b;">⚠️ ${esc(err.message)}</td></tr>`;
@@ -132,6 +173,9 @@
     $('exam-modal').style.display = 'none';
   }
 
+  $('exm-search')?.addEventListener('input', renderExams);
+  $('exm-period')?.addEventListener('change', renderExams);
+  $('exm-print')?.addEventListener('click', () => window.print());
   $('exm-refresh')?.addEventListener('click', load);
   $('exam-modal-close')?.addEventListener('click', closeExamModal);
   $('exam-modal')?.addEventListener('click', (e) => { if (e.target.id === 'exam-modal') closeExamModal(); });

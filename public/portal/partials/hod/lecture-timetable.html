@@ -47,7 +47,7 @@
   </div>
 
   <!-- Stats -->
-  <div class="stat-grid" style="margin-bottom:1.25rem;">
+  <div class="stat-grid" style="display:grid!important;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))!important;gap:1rem!important;margin-bottom:1.25rem!important;width:100%!important;">
     <div class="stat">
       <div class="meta"><span class="label">Total Slots</span><span class="value" id="tt-stat-total">—</span></div>
       <div class="ic">📅</div>
@@ -67,13 +67,13 @@
   </div>
 
   <!-- Table -->
-  <section class="panel">
-    <div class="panel-head">
+  <section class="panel" style="display:block!important;width:100%!important;max-width:100%!important;background:#fff!important;border:1px solid #e2e8f0!important;border-radius:14px!important;overflow:hidden!important;box-sizing:border-box!important;">
+    <div class="panel-head" style="display:flex!important;align-items:center!important;justify-content:space-between!important;gap:1rem!important;padding:1rem 1.15rem!important;background:#f8fafc!important;border-bottom:1px solid #e2e8f0!important;">
       <h3>Your Timetable Slots</h3>
       <span class="badge" id="tt-count">0</span>
     </div>
-    <div class="panel-body flush">
-      <div class="table-wrap">
+    <div class="panel-body flush" style="display:block!important;width:100%!important;padding:0!important;">
+      <div class="table-wrap" style="display:block!important;width:100%!important;overflow-x:auto!important;">
         <table class="data-table">
           <thead>
             <tr>

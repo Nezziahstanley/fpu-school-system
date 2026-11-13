@@ -5657,13 +5657,20 @@ async function loadClearanceDepartments() {
     });
 
     // Global stats
-    let totalCleared = 0, totalPending = 0, totalStudents = 0;
-    byDept.forEach(b => { totalCleared += b.cleared; totalPending += b.pending; totalStudents += b.total; });
+    let totalCleared = 0, totalPending = 0, totalRejected = 0, totalMissing = 0, totalStudents = 0;
+    byDept.forEach(b => {
+      totalCleared += b.cleared;
+      totalPending += b.pending;
+      totalRejected += b.rejected;
+      totalMissing += b.missing;
+      totalStudents += b.total;
+    });
 
     const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setT('clr-stat-depts', byDept.size);
     setT('clr-stat-cleared', totalCleared);
     setT('clr-stat-pending', totalPending);
+    setT('clr-stat-rejected', totalRejected);
     setT('clr-stat-rate', totalStudents ? Math.round((totalCleared / totalStudents) * 100) + '%' : '—');
 
     // Filter
@@ -5870,6 +5877,35 @@ async function loadDepartmentClearances() {
     console.error('[clearances] Error:', err);
     root.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#dc2626;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
+}
+
+function exportClearanceDepartmentsCSV() {
+  const cards = Array.from(document.querySelectorAll('#clr-dept-grid .clr-dept-card[data-dept-id]'));
+  if (!cards.length) {
+    showToast('No department clearance data to export.', 'warning');
+    return;
+  }
+  const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+  const rows = [['School', 'Department Code', 'Department', 'Clearance Rate', 'Cleared', 'Pending', 'Rejected', 'Missing Records']];
+  cards.forEach(card => {
+    const text = selector => card.querySelector(selector)?.textContent.trim() || '';
+    const stats = Array.from(card.querySelectorAll('.cdc-stats .item .n')).map(el => el.textContent.trim());
+    rows.push([
+      text('.cdc-school'), text('.cdc-code'), text('h3'), text('.cdc-rate-num'),
+      stats[0] || '0', stats[1] || '0', stats[2] || '0',
+      text('.cdc-footer span:first-child').replace(/\s+without records$/i, '')
+    ]);
+  });
+  const csv = rows.map(row => row.map(quote).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `department-clearances-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast('Department clearance report exported.', 'success');
 }
 
 function getClearanceSessionId() {
@@ -15589,7 +15625,7 @@ window.FPU_ADMIN = {
   submitResetPassword,
 
   // Fees, Payments, Clearances
-  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV,
+  loadFeeDepartments, loadPaymentDepartments, loadClearanceDepartments, loadDepartmentClearances, clearStudent, bulkClearClearances, exportClearanceCSV, exportClearanceDepartmentsCSV,
   loadDepartmentPayments, sendPaymentReminder, sendBulkPaymentReminder, openPaymentHistory, loadPaymentRevenueTrend, loadPaymentDetail, loadStudentPayments,
   loadFeeLevels, openAddFeeModal, openEditFeeModal, deleteFeeLevel,
 

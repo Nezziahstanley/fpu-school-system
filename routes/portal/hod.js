@@ -578,7 +578,7 @@ router.get('/verified-results', only, async (req, res, next) => {
       .where(and(
         eq(courses.departmentId, departmentId),
         eq(results.status, 'approved'),
-        sql`${results.deletedAt} IS NULL`
+        sql`results.deleted_at IS NULL`
       ))
       .orderBy(users.lastName);
 
@@ -1092,7 +1092,7 @@ router.get('/results/ready-to-publish', only, async (req, res, next) => {
       .where(and(
         eq(courses.departmentId, departmentId),
         eq(results.status, 'hod_verified'),
-        sql`${results.deletedAt} IS NULL`
+        sql`results.deleted_at IS NULL`
       ))
       .groupBy(results.courseId, courses.code, courses.title, courses.level)
       .orderBy(desc(sql`max(${results.hodVerifiedAt})`));

@@ -116,7 +116,7 @@ function exportRegister(){
  const columns=['Date','Student Name','Matric Number','Course Code','Course Title','Status','Remarks','Academic Session','Semester'];
  const cell=value=>{let v=String(value==null?'':value);if(/^\\s*[=+@-]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';};
  const lines=[columns,...rows.map(r=>[String(r.date||'').slice(0,10),[r.studentFirstName,r.studentLastName].filter(Boolean).join(' '),r.matricNumber,ACTIVE.courseCode,ACTIVE.courseTitle,r.status,r.remarks,ACTIVE.sessionName,ACTIVE.semester])].map(row=>row.map(cell).join(','));
- const csv='\\uFEFF'+lines.join('\\r\\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ const csv='\uFEFF'+lines.join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='attendance-'+String(ACTIVE.courseCode||'course').replace(/[^a-z0-9_-]/gi,'-')+'-'+today()+'.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 function openCorrection(id){

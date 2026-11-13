@@ -5,6 +5,7 @@ const router = express.Router();
 const { db, schema, sql } = require('../db');
 const { eq, and, or, ilike, desc, inArray } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
+const { logAudit } = require('../utils/audit');
 
 const STAFF = ['admin', 'registrar', 'hod', 'lecturer', 'academic_officer'];
 
@@ -315,63 +316,188 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
 // GET /api/admin/attendance/course/:courseId/students
 // Returns the roster of students registered for a specific course
 // ============================================================
-router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, next) => {
+// ============================================================
+// POST /api/admin/attendance/course/:courseId/mark
+// Create or update one attendance register for a course/date.
+// ============================================================
+router.post('/course/:courseId/mark', requireRole(['admin', 'registrar', 'academic_officer', 'hod', 'lecturer']), async (req, res, next) => {
   try {
     const courseId = Number(req.params.courseId);
+    const sessionId = Number(req.body?.sessionId);
+    const semester = String(req.body?.semester || '').toLowerCase();
+    const date = String(req.body?.date || '');
+    const records = Array.isArray(req.body?.records) ? req.body.records : [];
+    const validStatuses = ['present', 'absent', 'late', 'excused'];
 
-    // 1. Fetch all students registered for this course
-    const registrations = await db
-      .select({ studentId: schema.courseRegistrations.studentId })
+    if (!Number.isInteger(courseId) || courseId <= 0) return res.status(400).json({ success: false, error: 'A valid course is required.' });
+    if (!Number.isInteger(sessionId) || sessionId <= 0) return res.status(400).json({ success: false, error: 'Select an academic session.' });
+    if (!['first', 'second'].includes(semester)) return res.status(400).json({ success: false, error: 'Select a valid semester.' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) return res.status(400).json({ success: false, error: 'Enter a valid attendance date.' });
+    if (!records.length || records.length > 500) return res.status(400).json({ success: false, error: 'Select attendance status for at least one student (maximum 500 per register).' });
+
+    const [course] = await db.select({ id: schema.courses.id, departmentId: schema.courses.departmentId })
+      .from(schema.courses).where(eq(schema.courses.id, courseId)).limit(1);
+    if (!course) return res.status(404).json({ success: false, error: 'Course not found.' });
+
+    const [session] = await db.select({ id: schema.academicSessions.id })
+      .from(schema.academicSessions).where(eq(schema.academicSessions.id, sessionId)).limit(1);
+    if (!session) return res.status(404).json({ success: false, error: 'Academic session not found.' });
+
+    if (req.user?.role === 'hod' && Number(req.user.departmentId) !== Number(course.departmentId)) {
+      return res.status(403).json({ success: false, error: 'You can only mark attendance for courses in your assigned department.' });
+    }
+    if (req.user?.role === 'lecturer') {
+      const [allocation] = await db.select({ id: schema.courseAllocations.id })
+        .from(schema.courseAllocations)
+        .where(and(
+          eq(schema.courseAllocations.courseId, courseId),
+          eq(schema.courseAllocations.lecturerId, Number(req.user.id)),
+          eq(schema.courseAllocations.sessionId, sessionId),
+          eq(schema.courseAllocations.semester, semester),
+          inArray(schema.courseAllocations.status, ['assigned', 'accepted'])
+        )).limit(1);
+      if (!allocation) return res.status(403).json({ success: false, error: 'You are not assigned to this course for the selected session and semester.' });
+    }
+
+    const normalized = [];
+    const seen = new Set();
+    for (const item of records) {
+      const studentId = Number(item?.studentId);
+      const status = String(item?.status || '').toLowerCase();
+      if (!Number.isInteger(studentId) || studentId <= 0) return res.status(400).json({ success: false, error: 'An attendance row contains an invalid student.' });
+      if (seen.has(studentId)) return res.status(400).json({ success: false, error: 'A student appears more than once in this attendance register.' });
+      if (!validStatuses.includes(status)) return res.status(400).json({ success: false, error: 'Choose Present, Absent, Late or Excused for every student.' });
+      seen.add(studentId);
+      normalized.push({ studentId, status, remarks: String(item?.remarks || '').trim().slice(0, 1000) || null });
+    }
+
+    const registrations = await db.select({ studentId: schema.courseRegistrations.studentId })
       .from(schema.courseRegistrations)
-      .where(eq(schema.courseRegistrations.courseId, courseId));
+      .where(and(
+        eq(schema.courseRegistrations.courseId, courseId),
+        eq(schema.courseRegistrations.sessionId, sessionId),
+        eq(schema.courseRegistrations.semester, semester),
+        eq(schema.courseRegistrations.status, 'approved'),
+        inArray(schema.courseRegistrations.studentId, normalized.map(item => item.studentId))
+      ));
+    const registeredIds = new Set(registrations.map(row => Number(row.studentId)));
+    const unregistered = normalized.filter(item => !registeredIds.has(item.studentId));
+    if (unregistered.length) {
+      return res.status(400).json({ success: false, error: 'Some selected students are not approved course registrants for this session and semester.', invalidStudentIds: unregistered.map(item => item.studentId) });
+    }
 
-    if (!registrations.length) return res.json({ success: true, data: [] });
-
-    const studentIds = registrations.map(r => r.studentId);
-
-    // 2. Fetch student details
-    const students = await db
-      .select({
-        id: schema.users.id,
-        firstName: schema.users.firstName,
-        lastName: schema.users.lastName,
-        matricNumber: schema.users.matricNumber,
-      })
-      .from(schema.users)
-      .where(inArray(schema.users.id, studentIds));
-
-    // 3. Fetch all attendance records for this course
-    const records = await db
-      .select({
-        studentId: schema.attendance.studentId,
-        status: schema.attendance.status
-      })
-      .from(schema.attendance)
-      .where(eq(schema.attendance.courseId, courseId));
-
-    // 4. Map stats per student
-    const data = students.map(s => {
-      const studentRecords = records.filter(r => Number(r.studentId) === Number(s.id));
-      const totalClasses = studentRecords.length;
-      const present = studentRecords.filter(r => r.status === 'present' || r.status === 'late').length;
-      const absent = studentRecords.filter(r => r.status === 'absent').length;
-      const rate = totalClasses > 0 ? Math.round((present / totalClasses) * 100) : 0;
-
-      return { ...s, totalClasses, present, absent, rate };
+    const saved = await db.transaction(async tx => {
+      const rows = [];
+      for (const item of normalized) {
+        const [row] = await tx.insert(schema.attendance).values({
+          courseId,
+          studentId: item.studentId,
+          lecturerId: Number(req.user.id),
+          sessionId,
+          semester,
+          date,
+          status: item.status,
+          remarks: item.remarks
+        }).onConflictDoUpdate({
+          target: [schema.attendance.courseId, schema.attendance.studentId, schema.attendance.date],
+          set: {
+            lecturerId: Number(req.user.id),
+            sessionId,
+            semester,
+            status: item.status,
+            remarks: item.remarks
+          }
+        }).returning();
+        rows.push(row);
+      }
+      return rows;
     });
 
-    return res.json({ success: true, data });
-
+    await logAudit({
+      req,
+      action: 'attendance.mark',
+      entity: 'attendance_register',
+      entityId: courseId,
+      after: { courseId, sessionId, semester, date, recordCount: saved.length }
+    });
+    return res.json({ success: true, message: `Attendance saved for ${saved.length} student(s).`, count: saved.length });
   } catch (err) {
-    console.error('Error fetching course roster:', err);
     return next(err);
   }
 });
 
 // ============================================================
-// GET /api/admin/attendance/student/:studentId/course/:courseId
-// Returns day-by-day attendance for a specific student in a course
+// GET /api/admin/attendance/course/:courseId/students
+// Registered student roster, scoped to session/semester and date.
 // ============================================================
+router.get('/course/:courseId/students', requireRole(STAFF), async (req, res, next) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isInteger(courseId) || courseId <= 0) return res.status(400).json({ success: false, error: 'A valid course is required.' });
+    const sessionId = await resolveAttendanceSession(req.query.sessionId);
+    const semester = req.query.semester ? String(req.query.semester) : '';
+    const date = req.query.date ? String(req.query.date) : '';
+
+    const registrationConditions = [
+      eq(schema.courseRegistrations.courseId, courseId),
+      eq(schema.courseRegistrations.status, 'approved')
+    ];
+    if (sessionId) registrationConditions.push(eq(schema.courseRegistrations.sessionId, sessionId));
+    if (semester) registrationConditions.push(eq(schema.courseRegistrations.semester, semester));
+
+    const registrations = await db.select({ studentId: schema.courseRegistrations.studentId })
+      .from(schema.courseRegistrations).where(and(...registrationConditions));
+    const studentIds = [...new Set(registrations.map(r => Number(r.studentId)))];
+    if (!studentIds.length) return res.json({ success: true, sessionId, data: [] });
+
+    const students = await db.select({
+      id: schema.users.id,
+      firstName: schema.users.firstName,
+      lastName: schema.users.lastName,
+      matricNumber: schema.users.matricNumber,
+      level: schema.users.level
+    }).from(schema.users).where(inArray(schema.users.id, studentIds));
+
+    const recordConditions = [
+      eq(schema.attendance.courseId, courseId),
+      inArray(schema.attendance.studentId, studentIds)
+    ];
+    if (sessionId) recordConditions.push(eq(schema.attendance.sessionId, sessionId));
+    if (semester) recordConditions.push(eq(schema.attendance.semester, semester));
+    const attendanceRows = await db.select({
+      studentId: schema.attendance.studentId,
+      date: schema.attendance.date,
+      status: schema.attendance.status,
+      remarks: schema.attendance.remarks
+    }).from(schema.attendance).where(and(...recordConditions));
+
+    const data = students.map(student => {
+      const rows = attendanceRows.filter(row => Number(row.studentId) === Number(student.id));
+      const totalClasses = rows.length;
+      const present = rows.filter(row => row.status === 'present').length;
+      const late = rows.filter(row => row.status === 'late').length;
+      const absent = rows.filter(row => row.status === 'absent').length;
+      const excused = rows.filter(row => row.status === 'excused').length;
+      const today = date ? rows.find(row => String(row.date).slice(0, 10) === date) : null;
+      return {
+        ...student,
+        totalClasses,
+        present,
+        late,
+        absent,
+        excused,
+        rate: totalClasses ? Math.round(((present + late) / totalClasses) * 100) : 0,
+        todayStatus: today?.status || '',
+        todayRemarks: today?.remarks || ''
+      };
+    }).sort((a, b) => String(a.matricNumber || '').localeCompare(String(b.matricNumber || '')));
+
+    return res.json({ success: true, sessionId, data });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 router.get('/student/:studentId/course/:courseId', requireRole(STAFF), async (req, res, next) => {
   try {
     const studentId = Number(req.params.studentId);

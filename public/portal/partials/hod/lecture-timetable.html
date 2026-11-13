@@ -1,14 +1,14 @@
 <style id="hod-unified-design">#main-view,.hod-page,#main-view *{font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}#main-view h1,#main-view h2,#main-view h3,#main-view h4{letter-spacing:-.025em;font-weight:750}#main-view .page-head,#main-view .greeting{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.25rem 1.5rem;margin:0 0 1.25rem;border-radius:18px;background:linear-gradient(120deg,#064e3b 0%,#087653 58%,#10a16e 100%);box-shadow:0 12px 28px rgba(6,78,59,.13);color:#fff}#main-view .page-head h1,#main-view .page-head h2,#main-view .greeting h1,#main-view .greeting h2{color:#fff!important;margin:0;font-size:clamp(1.2rem,2.4vw,1.65rem);line-height:1.2}#main-view .page-head p,#main-view .greeting .sub{color:#d9f5e8!important;margin:.35rem 0 0}#main-view .page-head .actions{display:flex;gap:.55rem;flex-wrap:wrap}#main-view .stat-grid{gap:1rem}#main-view .stat,#main-view .panel,#main-view .filter-bar{border-radius:14px}#main-view .panel{overflow:hidden}#main-view .panel-head{padding:1rem 1.15rem}#main-view .data-table th{font-size:.7rem;letter-spacing:.065em;text-transform:uppercase}#main-view input,#main-view select,#main-view textarea,#main-view button{font:inherit}@media(max-width:640px){#main-view .page-head,#main-view .greeting{padding:1.05rem;border-radius:14px}#main-view .page-head .actions{width:100%}}</style>
 <!-- Portal → HOD → Lecture Timetable -->
-<style id="hod-section-hero-style">.hod-section-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.1rem 1.5rem;margin:0 0 1.25rem;border-radius:13px;background:#075d49;box-shadow:0 5px 14px rgba(6,78,59,.16);color:#fff}.hod-section-hero .hod-section-heading{display:flex;align-items:center;gap:1rem;min-width:0}.hod-section-hero .hod-section-icon{width:58px;height:58px;min-width:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#ff9f0a;border:3px solid #fbbf24;color:#fff;font-size:1.15rem;font-weight:800;box-shadow:0 2px 5px rgba(0,0,0,.12)}.hod-section-hero h2{margin:0!important;color:#fff!important;font-size:clamp(1.2rem,2.4vw,1.65rem)!important;font-weight:800;line-height:1.2}.hod-section-hero p{margin:.35rem 0 0!important;color:#d9f5e8!important;font-size:.9rem!important}.hod-section-hero .actions{display:flex;gap:.55rem;flex-wrap:wrap}@media(max-width:640px){.hod-section-hero{padding:1.05rem;border-radius:14px}.hod-section-hero .hod-section-icon{width:48px;height:48px;min-width:48px}.hod-section-hero .hod-section-heading{gap:.75rem}.hod-section-hero .actions{width:100%}}</style>
+
 <div style="padding:0;">
 
-  <div class="hod-section-hero">
-    <div class="hod-section-heading">
-      <div class="hod-section-icon" aria-hidden="true">L</div>
+  <section class="greeting">
+    <div class="who">
+      <div class="avatar" aria-hidden="true">L</div>
       <div>
-        <h2>Lecture Timetable</h2>
-        <p>Manage your department's weekly lecture schedule</p>
+        <h1>Lecture Timetable</h1>
+        <div class="sub">Manage your department's weekly lecture schedule</div>
       </div>
     </div>
     <div class="actions">
@@ -16,7 +16,7 @@
       <button id="tt-add-slot" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#065f46;color:#fff;border:none;border-radius:8px;cursor:pointer;">+ Build Weekly Timetable</button>
       <button id="tt-submit" style="padding:.55rem .9rem;font-size:.82rem;font-weight:700;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;">📤 Submit for Approval</button>
     </div>
-  </div>
+  </section>
 
   <!-- Filters -->
   <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem;margin-bottom:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;">

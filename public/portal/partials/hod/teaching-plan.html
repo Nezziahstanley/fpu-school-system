@@ -82,6 +82,50 @@
 @media(prefers-reduced-motion:reduce){#page-view .htp-card,#page-view .htp-btn{transition:none}}
 @media print{#page-view .htp-hero{background:#fff!important;color:#111!important;border:1px solid #bbb;box-shadow:none}#page-view .htp-hero h2,#page-view .htp-hero p{color:#111!important}#page-view .htp-card,#page-view .htp-panel{box-shadow:none;border:1px solid #bbb}#page-view .htp-scroll{overflow:visible;border:0}#page-view .htp-table{min-width:0}}
 
+
+/* Unified FPU green theme — matches HOD Attendance Monitoring */
+#page-view .htp-page{gap:1.2rem;color:var(--text-color,#172033)}
+#page-view .htp-hero{position:relative;isolation:isolate;overflow:hidden;min-height:142px;padding:1.55rem 1.7rem;border:1px solid rgba(167,243,208,.2);border-radius:20px;background:radial-gradient(circle at 88% 12%,rgba(45,212,191,.25),transparent 28%),linear-gradient(118deg,#052e2b 0%,#065f46 52%,#0d9470 100%);box-shadow:0 16px 34px rgba(6,78,59,.2);color:#fff}
+#page-view .htp-hero:after{content:"";position:absolute;z-index:-1;width:230px;height:230px;right:8%;top:-145px;border:1px solid rgba(255,255,255,.15);border-radius:50%;box-shadow:0 0 0 28px rgba(255,255,255,.035),0 0 0 58px rgba(255,255,255,.025)}
+#page-view .htp-hero h2{color:#fff;font-size:clamp(1.3rem,2.5vw,1.8rem);letter-spacing:-.035em;line-height:1.2}
+#page-view .htp-hero p{max-width:650px;color:#d1fae5;line-height:1.6}
+#page-view .htp-actions{position:relative;z-index:1;gap:.6rem}
+#page-view .htp-btn{min-height:40px;padding:.68rem 1rem;border:1px solid transparent;border-radius:10px;background:#fff;color:#064e3b;font-size:.78rem;font-weight:800;box-shadow:0 3px 10px rgba(0,0,0,.08);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+#page-view .htp-btn:hover{transform:translateY(-2px);box-shadow:0 7px 16px rgba(0,0,0,.16);background:#ecfdf5}
+#page-view .htp-btn.secondary{background:rgba(3,54,43,.72);color:#fff;border-color:rgba(209,250,229,.55);box-shadow:none}
+#page-view .htp-btn.secondary:hover{background:#064e3b}
+#page-view .htp-btn:focus-visible,#page-view .htp-filter input:focus-visible,#page-view .htp-filter select:focus-visible{outline:3px solid rgba(16,185,129,.3);outline-offset:2px}
+#page-view .htp-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:.9rem}
+#page-view .htp-card{position:relative;overflow:hidden;min-width:0;min-height:112px;padding:1.05rem 1.1rem 1rem;border:1px solid var(--border-color,#e2e8f0);border-radius:16px;background:linear-gradient(145deg,var(--card-bg,#fff),var(--surface-bg,#f8fafc));box-shadow:0 5px 16px rgba(15,23,42,.045);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+#page-view .htp-card:hover{transform:translateY(-3px);border-color:rgba(16,185,129,.38);box-shadow:0 12px 24px rgba(15,23,42,.08)}
+#page-view .htp-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#0d9488}
+#page-view .htp-label{font-size:.68rem;letter-spacing:.085em;line-height:1.4;color:var(--text-muted,#64748b)}
+#page-view .htp-value{margin-top:.55rem;font-size:clamp(1.55rem,2.4vw,2rem);letter-spacing:-.045em;line-height:1.05;color:var(--text-color,#0f172a);font-variant-numeric:tabular-nums}
+#page-view .htp-panel{min-width:0;padding:1.1rem 1.15rem;border:1px solid var(--border-color,#e2e8f0);border-radius:16px;background:var(--card-bg,#fff);box-shadow:0 5px 18px rgba(15,23,42,.045)}
+#page-view .htp-panel h3{display:flex;align-items:center;gap:.65rem;margin:0 0 1rem;color:var(--text-color,#0f172a);font-size:.98rem;font-weight:800;letter-spacing:-.015em}
+#page-view .htp-panel h3:before{content:"";width:4px;height:19px;border-radius:8px;background:linear-gradient(#10b981,#047857)}
+#page-view .htp-filter{grid-template-columns:minmax(220px,2fr) repeat(3,minmax(145px,1fr));gap:.7rem}
+#page-view .htp-filter input,#page-view .htp-filter select{width:100%;min-width:0;min-height:44px;padding:.72rem .85rem;border:1px solid var(--border-color,#cbd5e1);border-radius:10px;background:var(--input-bg,#fff);color:var(--text-color,#0f172a);font-size:.82rem;box-shadow:inset 0 1px 2px rgba(15,23,42,.025)}
+#page-view .htp-filter input::placeholder{color:var(--text-muted,#64748b);opacity:.85}
+#page-view .htp-count{display:flex;align-items:center;gap:.4rem;padding-top:.1rem;color:var(--text-muted,#64748b);font-size:.76rem;font-weight:750}
+#page-view .htp-scroll{overflow:auto;border:1px solid var(--border-color,#e2e8f0);border-radius:12px;scrollbar-width:thin;scrollbar-color:#94a3b8 transparent}
+#page-view .htp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.8rem}
+#page-view .htp-table th{position:sticky;top:0;z-index:1;padding:.82rem .75rem;background:var(--surface-bg,#f1f5f9);color:var(--text-muted,#475569);font-size:.66rem;font-weight:850;letter-spacing:.075em;border-bottom:1px solid var(--border-color,#cbd5e1);white-space:nowrap}
+#page-view .htp-table td{padding:.78rem .75rem;color:var(--text-color,#1e293b);line-height:1.45;border-bottom:1px solid var(--border-color,#edf2f7);vertical-align:middle}
+#page-view .htp-table tbody tr:nth-child(even){background:color-mix(in srgb,var(--surface-bg,#f8fafc) 62%,transparent)}
+#page-view .htp-table tbody tr:hover{background:rgba(16,185,129,.07)}
+#page-view .htp-table tbody tr:last-child td{border-bottom:0}
+#page-view .htp-muted{color:var(--text-muted,#64748b);font-size:.8rem}
+#page-view .htp-progress{height:9px;min-width:90px;background:var(--surface-bg,#e2e8f0);border:1px solid var(--border-color,#e2e8f0);border-radius:99px;overflow:hidden}
+#page-view .htp-progress span{background:linear-gradient(90deg,#10b981,#047857)}
+#page-view .htp-detail summary{display:inline-flex;align-items:center;gap:.35rem;padding:.38rem .62rem;border:1px solid #a7f3d0;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:.72rem;cursor:pointer;transition:background .18s ease}
+#page-view .htp-detail summary:hover{background:#d1fae5}
+@media(max-width:1050px){#page-view .htp-grid{grid-template-columns:repeat(4,minmax(0,1fr))}#page-view .htp-filter{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){#page-view .htp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#page-view .htp-hero{align-items:flex-start}}
+@media(max-width:520px){#page-view .htp-grid,#page-view .htp-filter{grid-template-columns:1fr}#page-view .htp-card{min-height:94px}#page-view .htp-hero{padding:1.1rem;border-radius:15px}#page-view .htp-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}#page-view .htp-actions button:last-child{grid-column:1/-1}#page-view .htp-panel{padding:.85rem}}
+@media(prefers-reduced-motion:reduce){#page-view .htp-card,#page-view .htp-btn{transition:none}}
+@media print{#page-view .htp-hero{background:#fff!important;color:#111!important;border:1px solid #bbb;box-shadow:none}#page-view .htp-hero h2,#page-view .htp-hero p{color:#111!important}#page-view .htp-card,#page-view .htp-panel{box-shadow:none;border:1px solid #bbb}#page-view .htp-scroll{overflow:visible;border:0}#page-view .htp-table{min-width:0;font-size:9px}#page-view .htp-table th,#page-view .htp-table td{padding:4px}}
+
 </style>
 <section class="htp-page" id="hod-teaching-plan-page">
   <header class="htp-hero">

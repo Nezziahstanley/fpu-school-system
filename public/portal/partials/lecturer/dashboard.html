@@ -116,6 +116,26 @@
     <a href="#lecturer-messages" class="lec-dash-link">Messages</a>
     <a href="#lecturer-reports" class="lec-dash-link">Reports</a>
   </div>
+  <!-- TODAY'S AND UPCOMING CLASSES -->
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-bottom:1.25rem;" id="lec-schedule-panels">
+    <section style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">📍 Today's Lectures</div>
+        <span id="lec-today-date" style="font-size:.7rem;color:#64748b;"></span>
+      </div>
+      <div id="lec-today-classes" style="padding:.85rem 1rem;color:#64748b;font-size:.82rem;">Loading today's schedule…</div>
+    </section>
+    <section style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:.5rem;">
+        <div style="font-weight:800;font-size:.9rem;color:#0f172a;">⏭ Upcoming Classes</div>
+        <a href="#lecturer-timetable" style="font-size:.72rem;color:#065f46;text-decoration:none;font-weight:700;">Full timetable →</a>
+      </div>
+      <div id="lec-upcoming-classes" style="padding:.85rem 1rem;color:#64748b;font-size:.82rem;">Loading upcoming classes…</div>
+    </section>
+  </div>
+  <style>
+    @media(max-width:650px){#lec-schedule-panels{grid-template-columns:1fr!important}}
+  </style>
   <div id="lec-chart-notice" hidden style="padding:.7rem .9rem;margin-bottom:1rem;border:1px solid #fde68a;background:#fffbeb;border-radius:9px;color:#92400e;font-size:.8rem;">Charts are temporarily unavailable, but your teaching figures and lists are still accessible.</div>
   <style>
     .lec-dash-link{display:inline-flex;align-items:center;padding:.55rem .8rem;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#065f46;text-decoration:none;font-size:.78rem;font-weight:750}
@@ -261,6 +281,58 @@
     sessionStorage.setItem('autoOpenCourse', courseId);
   };
 
+  const WEEK_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  function timeMinutes(value) {
+    const match = String(value || '').match(/(\\d{1,2}):(\\d{2})/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+  }
+  function timeLabel(value) {
+    const mins = timeMinutes(value);
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return new Date(2000,0,1,h,m).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+  }
+  function classCard(slot, dayLabel) {
+    return `<div style="padding:.7rem 0;border-bottom:1px solid #f1f5f9;display:flex;gap:.7rem;align-items:flex-start;">
+      <div style="min-width:76px;padding:.4rem .5rem;background:#ecfdf5;border-radius:8px;color:#065f46;font-size:.7rem;font-weight:800;text-align:center;">${esc(timeLabel(slot.startTime))}<br><span style="font-weight:600;color:#64748b;">to ${esc(timeLabel(slot.endTime))}</span></div>
+      <div style="min-width:0;flex:1;">
+        <div style="font-size:.82rem;font-weight:800;color:#0f172a;">${esc(slot.courseCode || 'Course')}</div>
+        <div style="font-size:.75rem;color:#475569;margin-top:2px;">${esc(slot.courseTitle || '')}</div>
+        <div style="font-size:.7rem;color:#64748b;margin-top:4px;">${esc(dayLabel)} · ${esc(slot.venue || 'Venue not assigned')}</div>
+      </div>
+    </div>`;
+  }
+  async function loadTeachingSchedule() {
+    const todayBox = $('lec-today-classes'), upcomingBox = $('lec-upcoming-classes');
+    if (!todayBox || !upcomingBox) return;
+    try {
+      const response = await core.portalFetch('/api/lecturer/timetable');
+      const slots = (response.data || []).slice();
+      const now = new Date();
+      const todayName = WEEK_DAYS[now.getDay()];
+      $('lec-today-date').textContent = now.toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'});
+      const todaySlots = slots.filter(s => String(s.dayOfWeek || '').toLowerCase() === todayName.toLowerCase())
+        .sort((a,b) => timeMinutes(a.startTime)-timeMinutes(b.startTime));
+      todayBox.innerHTML = todaySlots.length
+        ? todaySlots.map(s => classCard(s, 'Today')).join('')
+        : '<div style="padding:1rem 0;text-align:center;color:#64748b;">No approved lectures scheduled for today.</div>';
+
+      const currentMinutes = now.getHours()*60 + now.getMinutes();
+      const upcoming = slots.map(s => {
+        const dayIndex = WEEK_DAYS.findIndex(day => day.toLowerCase() === String(s.dayOfWeek || '').toLowerCase());
+        if (dayIndex < 0) return null;
+        let daysAway = (dayIndex - now.getDay() + 7) % 7;
+        if (daysAway === 0 && timeMinutes(s.startTime) <= currentMinutes) daysAway = 7;
+        return {...s, daysAway};
+      }).filter(Boolean).sort((a,b) => a.daysAway-b.daysAway || timeMinutes(a.startTime)-timeMinutes(b.startTime)).slice(0,5);
+      upcomingBox.innerHTML = upcoming.length
+        ? upcoming.map(s => classCard(s, s.daysAway === 0 ? 'Today' : s.daysAway === 1 ? 'Tomorrow' : WEEK_DAYS[(now.getDay()+s.daysAway)%7])).join('')
+        : '<div style="padding:1rem 0;text-align:center;color:#64748b;">No upcoming approved classes found.</div>';
+    } catch (error) {
+      todayBox.textContent = 'Unable to load today’s lectures.';
+      upcomingBox.textContent = 'Unable to load upcoming classes.';
+    }
+  }
+
   async function load() {
     try {
       const user = core.getPortalUser ? core.getPortalUser() : {};
@@ -276,6 +348,7 @@
 
       const res = await core.portalFetch('/api/lecturer/dashboard');
       const d = res.data || res || {};
+      await loadTeachingSchedule();
 
       // Set basic tiles
       $('lec-courses').textContent = d.coursesCount ?? 0;

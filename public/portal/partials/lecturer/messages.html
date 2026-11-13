@@ -2,83 +2,185 @@
 <div class="lecturer-design-scope">
 <!-- Portal → Lecturer → Messages -->
 <section class="page-head">
-  <div><h2>Messages</h2></div>
-  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-msg-compose">+ Compose</button></div>
+  <div><h2>Messages</h2><p class="muted" style="margin:.25rem 0 0;">Your conversations and communication with the school community.</p></div>
+  <div class="actions"><button class="btn btn-primary btn-sm" id="lec-msg-compose">+ Compose Message</button></div>
 </section>
 
-<div class="panel" id="lec-msg-panel" style="display:none;">
-  <div class="panel-head"><h3>New Message</h3></div>
+<style>
+#lec-msg-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+#lec-msg-tools{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:.65rem;align-items:center}
+#lec-msg-search{width:100%;min-width:0}
+#lec-msg-list{display:grid;gap:.65rem}
+.lec-message-card{border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--card-bg,#fff);overflow:hidden}
+.lec-message-card button.lec-message-open{width:100%;display:flex;gap:.8rem;align-items:flex-start;text-align:left;padding:.9rem 1rem;background:transparent;border:0;color:inherit;cursor:pointer}
+.lec-message-card button.lec-message-open:hover{background:rgba(100,116,139,.06)}
+.lec-message-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 40px;background:#e0f2fe;color:#075985;font-weight:800}
+.lec-message-main{min-width:0;flex:1}
+.lec-message-subject{font-weight:800;overflow-wrap:anywhere}
+.lec-message-preview{font-size:.84rem;color:var(--muted,#64748b);margin-top:.2rem;overflow-wrap:anywhere}
+.lec-message-meta{font-size:.72rem;color:var(--muted,#64748b);margin-top:.35rem}
+.lec-message-detail{padding:.85rem 1rem 1rem 4.5rem;border-top:1px solid var(--border,#e2e8f0);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.lec-message-badge{display:inline-block;border-radius:99px;padding:3px 8px;font-size:.68rem;font-weight:800;background:#dcfce7;color:#166534}
+.lec-message-badge.unread{background:#ffedd5;color:#9a3412}
+#lec-msg-compose-panel{display:none}
+@media(max-width:600px){#lec-msg-tools{grid-template-columns:1fr}.lec-message-detail{padding-left:1rem}.lecturer-design-scope .page-head{align-items:flex-start;gap:.75rem;flex-wrap:wrap}}
+</style>
+
+<div class="panel" id="lec-msg-compose-panel" style="display:none;">
+  <div class="panel-head"><h3>New Message</h3><span class="small muted">Send a message to another portal user.</span></div>
   <div class="panel-body">
     <form id="lec-msg-form">
       <div class="form-grid">
-        <div class="form-group"><label class="form-label">Recipient User ID</label><input class="form-control" name="recipientId" type="number" required /></div>
-        <div class="form-group"><label class="form-label">Subject</label><input class="form-control" name="subject" /></div>
+        <div class="form-group"><label class="form-label" for="lec-msg-recipient">Recipient User ID</label><input class="form-control" id="lec-msg-recipient" name="recipientId" type="number" min="1" required /></div>
+        <div class="form-group"><label class="form-label" for="lec-msg-subject">Subject</label><input class="form-control" id="lec-msg-subject" name="subject" maxlength="180" placeholder="Message subject" /></div>
       </div>
-      <div class="form-group"><label class="form-label">Message</label><textarea class="form-control" name="body" rows="4" required></textarea></div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Send</button>
-        <button type="button" class="btn btn-ghost" id="lec-msg-cancel">Cancel</button>
-      </div>
+      <div class="form-group"><label class="form-label" for="lec-msg-body">Message</label><textarea class="form-control" id="lec-msg-body" name="body" rows="5" required maxlength="10000" placeholder="Write your message…"></textarea></div>
+      <div class="form-actions"><button type="submit" class="btn btn-primary" id="lec-msg-send">Send Message</button><button type="button" class="btn btn-ghost" id="lec-msg-cancel">Cancel</button></div>
     </form>
   </div>
 </div>
 
-<div class="tabs">
-  <button class="tab active" data-box="inbox">Inbox</button>
-  <button class="tab" data-box="sent">Sent</button>
-</div>
-
-<div id="lec-msg-list" class="grid" style="gap:.5rem;">
-  <div class="loading"><span class="spinner"></span> Loading…</div>
+<div id="lec-msg-workspace">
+  <div class="panel">
+    <div class="panel-body" style="padding:.85rem;">
+      <div id="lec-msg-tools">
+        <input id="lec-msg-search" class="form-control" type="search" placeholder="Search messages by subject, person or content…" aria-label="Search messages">
+        <div class="tabs" style="margin:0;">
+          <button class="tab active" type="button" data-box="inbox">Inbox <span id="lec-msg-inbox-count"></span></button>
+          <button class="tab" type="button" data-box="sent">Sent <span id="lec-msg-sent-count"></span></button>
+        </div>
+      </div>
+      <div id="lec-msg-summary" class="small muted" style="margin:.7rem 0 .2rem;">Loading your messages…</div>
+    </div>
+  </div>
+  <div id="lec-msg-list"><div class="loading"><span class="spinner"></span> Loading messages…</div></div>
 </div>
 
 <script>
-  (function () {
-    const core = window.FPU_PORTAL;
+(function () {
+  const core = window.FPU_PORTAL;
+  const $ = (id) => document.getElementById(id);
+  let activeBox = 'inbox';
+  let allMessages = [];
+  let expandedId = null;
 
-    async function load(box) {
-      const boxEl = document.getElementById('lec-msg-list');
-      boxEl.innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
-      try {
-        const res = await core.portalFetch(`/api/portal/messages?box=${box}`);
-        const rows = res.data || [];
-        boxEl.innerHTML = rows.length ? rows.map((r) => {
-          const m = r.message || r;
-          const from = r.sender ? `${r.sender.firstName} ${r.sender.lastName}` : `User #${m.senderId}`;
-          return `<div class="session-item">
-            <div class="meta"><strong>${core.escapeHtml(m.subject || '(no subject)')}</strong>${core.escapeHtml((m.body || '').slice(0, 120))}</div>
-            <div class="small muted">${box === 'inbox' ? 'From: ' + core.escapeHtml(from) : 'To: User #' + m.recipientId} · ${core.timeAgo(m.createdAt)}</div>
-          </div>`;
-        }).join('') : '<p class="muted">No messages.</p>';
-      } catch (err) { boxEl.innerHTML = `<div class="alert alert-danger">${core.escapeHtml(err.message)}</div>`; }
+  function personName(person, fallback) {
+    if (!person) return fallback;
+    return [person.firstName, person.lastName].filter(Boolean).join(' ') || fallback;
+  }
+  function dateLabel(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+  }
+  function initials(name) {
+    return String(name || '?').trim().split(/\s+/).slice(0,2).map(x => x[0] || '').join('').toUpperCase();
+  }
+  function isUnread(row, message) {
+    if (typeof row.isRead === 'boolean') return !row.isRead;
+    if (typeof message.isRead === 'boolean') return !message.isRead;
+    if (row.readAt !== undefined) return !row.readAt;
+    if (message.readAt !== undefined) return !message.readAt;
+    return false;
+  }
+  function render() {
+    const list = $('lec-msg-list');
+    const term = $('lec-msg-search').value.trim().toLowerCase();
+    const rows = allMessages.filter(row => {
+      const m = row.message || row;
+      const name = activeBox === 'inbox'
+        ? personName(row.sender, 'User #' + (m.senderId || ''))
+        : personName(row.recipient, 'User #' + (m.recipientId || ''));
+      return [m.subject, m.body, name].join(' ').toLowerCase().includes(term);
+    });
+    const unreadCount = activeBox === 'inbox' ? allMessages.filter(r => isUnread(r, r.message || r)).length : 0;
+    $('lec-msg-summary').textContent = rows.length + ' message' + (rows.length === 1 ? '' : 's') + ' shown' + (unreadCount ? ' · ' + unreadCount + ' unread' : '');
+    $('lec-msg-inbox-count').textContent = activeBox === 'inbox' && unreadCount ? '(' + unreadCount + ')' : '';
+    $('lec-msg-sent-count').textContent = activeBox === 'sent' ? '(' + allMessages.length + ')' : '';
+    if (!rows.length) {
+      list.innerHTML = '<div class="panel"><div class="panel-body" style="text-align:center;padding:2.5rem 1rem;"><div style="font-size:2rem;margin-bottom:.5rem;">✉️</div><strong>' + (term ? 'No matching messages' : 'No messages here yet') + '</strong><p class="muted small">' + (term ? 'Try a different search phrase.' : 'Messages in this folder will appear here.') + '</p></div></div>';
+      return;
     }
-
-    document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
-      t.classList.add('active');
-      load(t.dataset.box);
+    list.innerHTML = rows.map((row, index) => {
+      const m = row.message || row;
+      const name = activeBox === 'inbox'
+        ? personName(row.sender, 'User #' + (m.senderId || ''))
+        : personName(row.recipient, 'User #' + (m.recipientId || ''));
+      const id = String(m.id || row.id || index);
+      const unread = activeBox === 'inbox' && isUnread(row, m);
+      const expanded = expandedId === id;
+      const subject = core.escapeHtml(m.subject || '(No subject)');
+      const body = core.escapeHtml(m.body || '');
+      const preview = core.escapeHtml(String(m.body || '').replace(/\s+/g, ' ').slice(0, 145));
+      return '<article class="lec-message-card">' +
+        '<button type="button" class="lec-message-open" data-message-id="' + core.escapeHtml(id) + '" aria-expanded="' + expanded + '">' +
+          '<span class="lec-message-avatar">' + core.escapeHtml(initials(name)) + '</span>' +
+          '<span class="lec-message-main"><span style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;"><span class="lec-message-subject">' + subject + '</span>' + (unread ? '<span class="lec-message-badge unread">Unread</span>' : '') + '</span>' +
+          '<span class="lec-message-preview">' + preview + '</span>' +
+          '<span class="lec-message-meta">' + (activeBox === 'inbox' ? 'From: ' : 'To: ') + core.escapeHtml(name) + (m.createdAt ? ' · ' + core.escapeHtml(core.timeAgo(m.createdAt)) : '') + '</span></span>' +
+          '<span aria-hidden="true" style="color:var(--muted,#64748b);">' + (expanded ? '⌃' : '⌄') + '</span>' +
+        '</button>' +
+        (expanded ? '<div class="lec-message-detail"><div class="small muted" style="margin-bottom:.5rem;">' + core.escapeHtml(dateLabel(m.createdAt)) + '</div>' + body + '</div>' : '') +
+      '</article>';
+    }).join('');
+    list.querySelectorAll('[data-message-id]').forEach(button => button.addEventListener('click', () => {
+      const id = button.getAttribute('data-message-id');
+      expandedId = expandedId === id ? null : id;
+      render();
     }));
+  }
 
-    document.getElementById('lec-msg-compose').addEventListener('click', () => {
-      const p = document.getElementById('lec-msg-panel');
-      p.style.display = p.style.display === 'none' ? 'block' : 'none';
-    });
-    document.getElementById('lec-msg-cancel').addEventListener('click', () => {
-      document.getElementById('lec-msg-panel').style.display = 'none';
-    });
-    document.getElementById('lec-msg-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      try {
-        await core.portalFetch('/api/portal/messages', { method: 'POST', body: Object.fromEntries(fd) });
-        core.showToast('Sent.', 'success');
-        e.target.reset();
-        document.getElementById('lec-msg-panel').style.display = 'none';
-        load('sent');
-      } catch (err) { core.showToast(err.message, 'error'); }
-    });
+  async function load(box) {
+    activeBox = box;
+    expandedId = null;
+    $('lec-msg-list').innerHTML = '<div class="loading"><span class="spinner"></span> Loading…</div>';
+    try {
+      const res = await core.portalFetch('/api/portal/messages?box=' + encodeURIComponent(box));
+      allMessages = res.data || [];
+      render();
+    } catch (err) {
+      $('lec-msg-list').innerHTML = '<div class="alert alert-danger">' + core.escapeHtml(err.message) + '</div>';
+      $('lec-msg-summary').textContent = 'Unable to load messages.';
+    }
+  }
 
-    load('inbox');
-  })();
+  document.querySelectorAll('.lecturer-design-scope [data-box]').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.lecturer-design-scope [data-box]').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    load(tab.dataset.box);
+  }));
+  $('lec-msg-search').addEventListener('input', render);
+  $('lec-msg-compose').addEventListener('click', () => {
+    const panel = $('lec-msg-compose-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') $('lec-msg-recipient').focus();
+  });
+  $('lec-msg-cancel').addEventListener('click', () => {
+    $('lec-msg-compose-panel').style.display = 'none';
+    $('lec-msg-form').reset();
+  });
+  $('lec-msg-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const send = $('lec-msg-send');
+    send.disabled = true;
+    send.textContent = 'Sending…';
+    try {
+      const data = Object.fromEntries(new FormData(e.target));
+      data.recipientId = Number(data.recipientId);
+      await core.portalFetch('/api/portal/messages', { method: 'POST', body: data });
+      core.showToast('Message sent successfully.', 'success');
+      e.target.reset();
+      $('lec-msg-compose-panel').style.display = 'none';
+      document.querySelectorAll('.lecturer-design-scope [data-box]').forEach(x => x.classList.toggle('active', x.dataset.box === 'sent'));
+      await load('sent');
+    } catch (err) {
+      core.showToast(err.message, 'error');
+    } finally {
+      send.disabled = false;
+      send.textContent = 'Send Message';
+    }
+  });
+  load('inbox');
+})();
 </script>
 </div>

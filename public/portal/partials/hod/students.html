@@ -199,11 +199,11 @@
     const columns = ['Matric Number','First Name','Last Name','Level','Programme','Status'];
     const cell = value => {
       let v = String(value == null ? '' : value);
-      if (/^\\s*[=+@-]/.test(v)) v = "'" + v;
+      if (/^\s*[=+@-]/.test(v)) v = "'" + v;
       return '"' + v.replace(/"/g,'""') + '"';
     };
     const rows = [columns, ...FILTERED.map(s => [cleanMatric(s.matricNumber),s.firstName,s.lastName,s.level,s.programmeName,s.isActive?'Active':'Inactive'])];
-    const csv = '\\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\\r\\n');
+    const csv = '\uFEFF' + rows.map(row => row.map(cell).join(',')).join('\r\n');
     const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'}), url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href=url; a.download='hod-department-students.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }

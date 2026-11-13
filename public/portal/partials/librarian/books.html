@@ -1,5 +1,5 @@
 ﻿<!-- Portal → Librarian → Books -->
-<div style="padding:0;">
+<div class="lib-books-page" style="padding:0;">
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;">
     <div>
@@ -12,6 +12,32 @@
     </div>
   </div>
 
+<style>
+    .lib-books-page{--ink:#172b25;--muted:#718078;--line:#e5ece8;color:var(--ink);display:grid;gap:1rem}
+    .lib-books-page>div:first-child h2{color:var(--ink)!important;font-size:1.45rem!important;font-weight:850!important}
+    .lib-books-page>div:first-child p{color:var(--muted)!important}
+    .lib-books-page>div:first-child button{border-radius:9px!important;padding:.68rem 1rem!important;font-weight:800!important;transition:transform .15s ease,box-shadow .15s ease}
+    .lib-books-page>div:first-child button:hover{transform:translateY(-1px);box-shadow:0 6px 15px rgba(8,118,83,.12)}
+    .lib-books-page .lib-book-stat{border-radius:14px;box-shadow:0 3px 12px rgba(20,50,37,.035);padding:1rem}
+    .lib-books-page .lib-book-stat strong{font-size:1.55rem}
+    .lib-books-page>div[style*="border:1px solid #e5e7eb"]{border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:0 3px 12px rgba(20,50,37,.035)}
+    .lib-books-page .lib-book-toolbar{background:#fff}
+    .lib-books-page .lib-book-toolbar input{max-width:100%;width:min(100%,460px);padding:.72rem .85rem;border-radius:9px;color:var(--ink);outline:none}
+    .lib-books-page .lib-book-toolbar input:focus{border-color:#4aa783;box-shadow:0 0 0 3px rgba(8,118,83,.1)}
+    .lib-books-page table{min-width:760px!important}
+    .lib-books-page thead tr{background:#f5f9f6!important}
+    .lib-books-page thead th{padding:.82rem .9rem!important;color:var(--muted)!important;font-size:.65rem!important;letter-spacing:.07em!important}
+    .lib-books-page tbody tr{border-bottom:1px solid #edf2ef!important;transition:background .15s ease}
+    .lib-books-page tbody tr:hover{background:#f8fbf9!important}
+    .lib-books-page tbody td{padding:.88rem .9rem!important;color:#40534a!important;font-size:.79rem}
+    .lib-books-page tbody td:first-child{color:var(--ink)!important;font-weight:800!important}
+    .lib-books-page .act-btn{border-radius:7px!important;padding:.45rem .7rem!important;transition:filter .15s ease}
+    .lib-books-page .act-btn:hover{filter:brightness(.96)}
+    #book-modal>div{border:1px solid #dfe9e3}
+    #book-modal input:not([type=checkbox]):not([type=file]),#book-modal textarea{background:#fff;color:#172b25;outline:none}
+    #book-modal input:focus,#book-modal textarea:focus{border-color:#4aa783!important;box-shadow:0 0 0 3px rgba(8,118,83,.1)}
+    @media(max-width:640px){.lib-books-page>div:first-child h2{font-size:1.25rem!important}.lib-books-page .lib-book-stats{gap:.55rem}.lib-books-page .lib-book-stat{padding:.8rem}}
+  </style>
   <style>
     .lib-book-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}
     .lib-book-stat{background:#fff;border:1px solid #e5ece8;border-radius:12px;padding:.9rem 1rem}

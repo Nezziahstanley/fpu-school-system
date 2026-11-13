@@ -324,8 +324,8 @@
 
   function renderStats() {
     const total = ALL.length;
-    const withResults = ALL.filter(s => s.cgpa != null && s.cgpa > 0).length;
-    const cgpas = ALL.filter(s => s.cgpa != null && s.cgpa > 0).map(s => s.cgpa);
+    const withResults = ALL.filter(s => s.hasResults === true || (s.cgpa != null && Number.isFinite(Number(s.cgpa)))).length;
+    const cgpas = ALL.filter(s => s.hasResults === true || (s.cgpa != null && Number.isFinite(Number(s.cgpa)))).map(s => Number(s.cgpa));
     const avg = cgpas.length ? (cgpas.reduce((a, b) => a + b, 0) / cgpas.length) : 0;
     const depts = new Set(ALL.map(s => s.departmentName).filter(Boolean)).size;
 
@@ -373,7 +373,7 @@
 
     sortedDepts.forEach(dept => {
       const students = groups[dept];
-      const withResults = students.filter(s => s.cgpa != null && s.cgpa > 0);
+      const withResults = students.filter(s => s.hasResults === true || (s.cgpa != null && Number.isFinite(Number(s.cgpa))));
       const avgCgpa = withResults.length
         ? (withResults.reduce((sum, s) => sum + s.cgpa, 0) / withResults.length).toFixed(2)
         : '—';
@@ -391,7 +391,7 @@
 
       students.forEach(s => {
         const fullName = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-        const cgpa = s.cgpa != null && s.cgpa > 0 ? Number(s.cgpa) : null;
+        const cgpa = s.cgpa != null && Number.isFinite(Number(s.cgpa)) ? Number(s.cgpa) : null;
         const cgpaColor = getCgpaClass(cgpa);
         const cgpaDisplay = cgpa != null ? cgpa.toFixed(2) : '—';
 

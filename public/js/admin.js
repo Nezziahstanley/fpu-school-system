@@ -3038,6 +3038,7 @@ async function loadTimetableIndex() {
   const sessionId = (document.getElementById('tt-session') || {}).value || '';
   const semester = (document.getElementById('tt-semester') || {}).value || 'first';
   const search = (document.getElementById('tt-search') || {}).value || '';
+  const schoolFilter = (document.getElementById('tt-school') || {}).value || '';
 
   try {
     const qs = new URLSearchParams({ limit: 5000 });
@@ -3096,6 +3097,7 @@ async function loadTimetableIndex() {
     setText('tt-stat-conflicts', pendingDepts);
 
     const visible = [...byDept.values()].filter((b) => {
+      if (schoolFilter && String(b.dept.schoolId) !== String(schoolFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
         return String(b.dept.code).toLowerCase().includes(q) || String(b.dept.name).toLowerCase().includes(q);
@@ -3160,6 +3162,7 @@ async function loadTimetableIndex() {
           departmentId: Number(card.dataset.deptId),
           sessionId: sessionId || '',
           semester,
+          review: '1',
           name: card.dataset.deptName,
         });
       };
@@ -14996,11 +14999,12 @@ async function loadTimetableSheet() {
   const semester = (params.get('semester') || 'first').toLowerCase();
   const sessionId = params.get('sessionId') || '';
   const selectedLevel = params.get('level') || 'ND 1';
+  const reviewMode = params.get('review') === '1';
 
   const titleEl = document.getElementById('tsheet-title');
   const subtitleEl = document.getElementById('tsheet-subtitle');
   if (titleEl) titleEl.textContent = `${deptName} — Timetable`;
-  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}`;
+  if (subtitleEl) subtitleEl.textContent = `${semester.charAt(0).toUpperCase() + semester.slice(1)} Semester · ${selectedLevel}${reviewMode ? ' · HOD SUBMISSION REVIEW' : ''}`;
 
   if (!departmentId) {
     root.innerHTML = '<div class="alert alert-warning">No department selected.</div>';
@@ -15054,7 +15058,7 @@ async function loadTimetableSheet() {
     }
 
     const addBtn = document.getElementById('tsheet-add');
-    if (addBtn) addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel });
+    if (addBtn) { addBtn.style.display = reviewMode ? 'none' : 'inline-flex'; addBtn.onclick = () => FPU_ADMIN_SPA.navigateToWithQuery('timetable-form', { departmentId, semester, sessionId, level: selectedLevel }); }
 
     const switchBtn = document.getElementById('tsheet-switch-sem');
     if (switchBtn) {
@@ -15086,6 +15090,8 @@ async function loadTimetableSheet() {
     // 1. Get ONLY the actual slots saved by the HOD for this level/semester
     const validSlots = allSlots.filter(row => {
       const s = row.slot || row;
+      const status = String(s.status || 'draft').toLowerCase();
+      if (reviewMode && status !== 'pending' && status !== 'submitted') return false;
       const c = courseById.get(Number(s.courseId));
       if (!c) return false;
       
@@ -15128,10 +15134,9 @@ async function loadTimetableSheet() {
 
     // 2. Render logic: If no slots, show the empty message. Otherwise, render the grid.
     if (validSlots.length === 0) {
-      root.innerHTML = `
-        <div class="tt-level-tabs">${tabsHtml}</div>
-        ${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}
-      `;
+      root.innerHTML = reviewMode
+        ? `<div class="tt-level-tabs">${tabsHtml}</div><div class="alert alert-info" style="margin:16px 0;padding:24px;">No HOD-submitted timetable slots are awaiting approval for ${escapeHtml(deptName)} in this session, semester and level.</div>`
+        : `<div class="tt-level-tabs">${tabsHtml}</div>${buildEmptyTimetableSheet(school, dept, semester, currentSession, selectedLevel)}`;
       wireLevelTabs(root, departmentId, deptName, semester, sessionId);
       return;
     }

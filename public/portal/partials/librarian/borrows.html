@@ -40,6 +40,37 @@
     <article class="lb-stat"><span>Currently borrowed</span><strong id="brw-active">—</strong></article>
     <article class="lb-stat overdue"><span>Overdue records</span><strong id="brw-overdue">—</strong></article>
   </div>
+  <style>
+    .lib-borrows .lb-issue{background:#fff;border:1px solid var(--line);border-radius:14px;padding:1rem}
+    .lib-borrows .lb-issue h3{margin:0;color:var(--ink);font-size:.95rem;font-weight:850}
+    .lib-borrows .lb-issue p{margin:.25rem 0 .85rem;color:var(--muted);font-size:.75rem}
+    .lib-borrows .lb-issue-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:.65rem;align-items:end}
+    .lib-borrows .lb-field{position:relative;display:grid;gap:.3rem}
+    .lib-borrows .lb-field label{font-size:.66rem;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+    .lib-borrows .lb-field input,.lib-borrows .lb-field select{width:100%;min-width:0;padding:.68rem .75rem;border:1px solid #d8e2dc;border-radius:8px;background:#fff;color:var(--ink);font-size:.8rem}
+    .lib-borrows .lb-student-results{position:absolute;z-index:20;top:100%;left:0;right:0;max-height:220px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 25px rgba(20,50,37,.12)}
+    .lib-borrows .lb-student-option{display:block;width:100%;padding:.65rem .75rem;border:0;border-bottom:1px solid #edf2ef;background:#fff;text-align:left;color:var(--ink);font-size:.76rem;cursor:pointer}
+    .lib-borrows .lb-student-option:hover{background:#f1f8f4}
+    .lib-borrows .lb-issue-note{margin-top:.55rem;font-size:.72rem;color:var(--muted)}
+    @media(max-width:800px){.lib-borrows .lb-issue-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:520px){.lib-borrows .lb-issue-grid{grid-template-columns:1fr}}
+  </style>
+  <section class="lb-issue">
+    <h3>Issue a Book</h3>
+    <p>Find an active student, select an available book and set the return due date.</p>
+    <div class="lb-issue-grid">
+      <div class="lb-field">
+        <label for="brw-student-search">Student</label>
+        <input id="brw-student-search" type="search" placeholder="Search name, matric number or email…" autocomplete="off">
+        <input id="brw-student-id" type="hidden">
+        <div id="brw-student-results" class="lb-student-results" hidden></div>
+      </div>
+      <div class="lb-field"><label for="brw-book">Available book</label><select id="brw-book"><option value="">Loading books…</option></select></div>
+      <div class="lb-field"><label for="brw-due-date">Due date</label><input id="brw-due-date" type="date"></div>
+      <button class="lb-btn" id="brw-issue-submit" type="button">Issue book</button>
+    </div>
+    <div class="lb-issue-note" id="brw-issue-note" aria-live="polite">Select a student from the search results before issuing a book.</div>
+  </section>
   <div class="lb-toolbar">
     <input class="lb-search" id="brw-search" type="search" placeholder="Search book, student or matric number…" aria-label="Search borrowing records">
     <select class="lb-filter" id="brw-status" aria-label="Filter by status">
@@ -105,6 +136,61 @@
       core.showToast&&core.showToast(err.message||'Unable to load borrowing records.','error');
     }
   }
+  let studentSearchVersion=0;
+  async function loadIssueBooks(){
+    const select=$('brw-book');
+    try{
+      const res=await core.portalFetch('/api/librarian/books');
+      const books=(res.data||[]).filter(book=>Number(book.copiesAvailable||0)>0);
+      select.innerHTML='<option value="">Select a book…</option>'+books.map(book=>'<option value="'+esc(book.id)+'">'+esc(book.title)+' — '+Number(book.copiesAvailable)+' available</option>').join('');
+      if(!books.length)select.innerHTML='<option value="">No available books</option>';
+    }catch(err){select.innerHTML='<option value="">Unable to load books</option>';core.showToast&&core.showToast(err.message||'Unable to load available books.','error');}
+  }
+  async function searchStudents(){
+    const query=$('brw-student-search').value.trim(),version=++studentSearchVersion;
+    $('brw-student-id').value='';
+    $('brw-issue-note').textContent='Select a student from the search results before issuing a book.';
+    const box=$('brw-student-results');
+    if(query.length<2){box.hidden=true;box.innerHTML='';return;}
+    box.hidden=false;box.innerHTML='<div style="padding:.7rem;color:#718078;font-size:.75rem">Searching students…</div>';
+    try{
+      const res=await core.portalFetch('/api/librarian/students?search='+encodeURIComponent(query));
+      if(version!==studentSearchVersion)return;
+      const rows=res.data||[];
+      box.innerHTML=rows.length?rows.map(student=>{
+        const name=[student.firstName,student.lastName].filter(Boolean).join(' ')||student.email||'Student';
+        const detail=[student.matricNumber,student.email].filter(Boolean).join(' · ');
+        return '<button type="button" class="lb-student-option" data-student-id="'+esc(student.id)+'" data-student-name="'+esc(name)+'"><strong>'+esc(name)+'</strong><br><span style="color:#718078">'+esc(detail)+'</span></button>';
+      }).join(''):'<div style="padding:.7rem;color:#718078;font-size:.75rem">No active student found.</div>';
+      box.querySelectorAll('[data-student-id]').forEach(btn=>btn.addEventListener('click',()=>{
+        $('brw-student-id').value=btn.dataset.studentId;
+        $('brw-student-search').value=btn.dataset.studentName;
+        $('brw-issue-note').textContent='Selected student: '+btn.dataset.studentName;
+        box.hidden=true;
+      }));
+    }catch(err){if(version===studentSearchVersion){box.innerHTML='<div style="padding:.7rem;color:#b42318;font-size:.75rem">'+esc(err.message||'Student search failed.')+'</div>';}}
+  }
+  async function issueBook(){
+    const userId=Number($('brw-student-id').value),bookId=Number($('brw-book').value),dueAt=$('brw-due-date').value,btn=$('brw-issue-submit');
+    if(!userId)return core.showToast&&core.showToast('Search and select a student first.','warning');
+    if(!bookId)return core.showToast&&core.showToast('Select an available book.','warning');
+    if(!dueAt)return core.showToast&&core.showToast('Choose a due date.','warning');
+    if(new Date(dueAt+'T23:59:59')<new Date())return core.showToast&&core.showToast('Due date must be today or later.','warning');
+    btn.disabled=true;btn.textContent='Issuing…';
+    try{
+      await core.portalFetch('/api/librarian/borrows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,bookId,dueAt})});
+      core.showToast&&core.showToast('Book issued successfully.','success');
+      $('brw-student-search').value='';$('brw-student-id').value='';$('brw-book').value='';$('brw-student-results').hidden=true;
+      await load();await loadIssueBooks();
+    }catch(err){core.showToast&&core.showToast(err.message||'Unable to issue book.','error');}
+    finally{btn.disabled=false;btn.textContent='Issue book';}
+  }
+  $('brw-student-search')?.addEventListener('input',searchStudents);
+  $('brw-issue-submit')?.addEventListener('click',issueBook);
+  $('brw-student-search')?.addEventListener('blur',()=>setTimeout(()=>{$('brw-student-results').hidden=true;},180));
+  const defaultDue=new Date();defaultDue.setDate(defaultDue.getDate()+14);
+  $('brw-due-date').value=defaultDue.toISOString().slice(0,10);
+  loadIssueBooks();
   $('brw-refresh')?.addEventListener('click',load);
   $('brw-search')?.addEventListener('input',render);
   $('brw-status')?.addEventListener('change',render);

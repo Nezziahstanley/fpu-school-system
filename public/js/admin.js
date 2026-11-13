@@ -15122,6 +15122,69 @@ async function loadTimetableSheet() {
       return `<button class="tt-level-tab ${isActive ? 'active' : ''} ${hasSlots ? '' : 'empty-tab'}" data-level="${lvl}">${lvl}${hasSlots ? '' : ' <span style="opacity:0.5;font-size:9px;">(0)</span>'}</button>`;
     }).join('');
 
+    if (reviewMode) {
+      const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const dayName = value => {
+        const found = WEEK_DAYS.find(day => day.toLowerCase() === String(value || '').toLowerCase());
+        return found || String(value || 'Other');
+      };
+      const dayOrder = [...WEEK_DAYS, ...Array.from(new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).values()).filter(day => !WEEK_DAYS.includes(day))];
+      const daySlots = day => validSlots.filter(row => dayName((row.slot || row).dayOfWeek) === day)
+        .sort((a, b) => String((a.slot || a).startTime || '').localeCompare(String((b.slot || b).startTime || '')));
+      const reviewCards = dayOrder.map(day => {
+        const rows = daySlots(day);
+        const cards = rows.length ? rows.map(row => {
+          const slot = row.slot || row;
+          const course = row.course || courseById.get(Number(slot.courseId)) || {};
+          const lecturer = row.lecturer || {};
+          const lecturerName = [lecturer.firstName, lecturer.lastName].filter(Boolean).join(' ') || '—';
+          return `<article class="tt-slot-card">
+            <div class="course">${escapeHtml(course.code || '—')}</div>
+            <div class="course-title">${escapeHtml(course.title || 'Course title unavailable')}</div>
+            <div class="time">${escapeHtml(slot.startTime || '—')} – ${escapeHtml(slot.endTime || '—')}</div>
+            <div class="meta">📍 ${escapeHtml(slot.venue || 'Venue not set')}<br>👤 ${escapeHtml(lecturerName)}</div>
+            <span class="state pending">Pending Approval</span>
+          </article>`;
+        }).join('') : '<div class="tt-day-empty">No classes submitted</div>';
+        return `<section class="tt-day-column"><header class="tt-day-head"><strong>${escapeHtml(day)}</strong><span>${rows.length} ${rows.length === 1 ? 'class' : 'classes'}</span></header><div class="tt-day-slots">${cards}</div></section>`;
+      }).join('');
+      root.innerHTML = `
+        <style>
+          .tt-review-header{max-width:297mm;margin:0 auto 16px;padding:18px;background:#fff;border:1px solid #d1d5db;border-radius:12px;text-align:center}
+          .tt-review-header .institution{font-size:17px;font-weight:900;color:#064e3b}
+          .tt-review-header .school,.tt-review-header .department{font-size:13px;font-weight:800;color:#0f172a;margin-top:4px}
+          .tt-review-header .session{font-size:12px;color:#64748b;margin-top:6px}
+          .tt-review-stats{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+          .tt-review-stats span{padding:6px 10px;border-radius:8px;background:#f0fdf4;color:#065f46;font-size:11px;font-weight:800}
+          .tt-review-week{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:1200px;margin:0 auto}
+          .tt-review-week .tt-day-column{min-width:0;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+          .tt-review-week .tt-day-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+          .tt-review-week .tt-day-head strong{color:#0f172a;font-size:13px}
+          .tt-review-week .tt-day-head span{color:#64748b;font-size:11px;font-weight:750}
+          .tt-review-week .tt-day-slots{display:grid;gap:9px;padding:10px}
+          .tt-review-week .tt-slot-card{padding:11px;border:1px solid #dbeafe;border-left:4px solid #0f766e;border-radius:9px;background:#f8fffc}
+          .tt-review-week .tt-slot-card .course{font-size:13px;font-weight:850;color:#0f172a}
+          .tt-review-week .tt-slot-card .course-title{margin-top:3px;color:#64748b;font-size:11px;line-height:1.4}
+          .tt-review-week .tt-slot-card .time{margin-top:8px;color:#065f46;font-size:12px;font-weight:850}
+          .tt-review-week .tt-slot-card .meta{margin-top:5px;color:#475569;font-size:11px;line-height:1.5}
+          .tt-review-week .tt-slot-card .state{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:5px;font-size:10px;font-weight:850;background:#dbeafe;color:#1d4ed8}
+          .tt-review-week .tt-day-empty{padding:20px 8px;text-align:center;color:#94a3b8;font-size:11px}
+          @media(max-width:900px){.tt-review-week{grid-template-columns:repeat(2,minmax(0,1fr))}}
+          @media(max-width:560px){.tt-review-week{grid-template-columns:1fr}}
+          @media print{.tt-review-week{grid-template-columns:repeat(2,minmax(0,1fr))}.tt-review-week .tt-day-column{break-inside:avoid}}
+        </style>
+        <div class="tt-review-header">
+          <div class="institution">FEDERAL POLYTECHNIC UGEP</div>
+          <div class="school">${escapeHtml(school.name || '')}</div>
+          <div class="department">DEPARTMENT OF ${escapeHtml(String(dept.name || deptName).toUpperCase())}</div>
+          <div class="session">${escapeHtml(currentSession.name || '')} · ${escapeHtml(semester.toUpperCase())} SEMESTER · ${escapeHtml(selectedLevel)}</div>
+          <div class="tt-review-stats"><span>${validSlots.length} submitted slots</span><span>${new Set(validSlots.map(row => dayName((row.slot || row).dayOfWeek))).size} active days</span><span>Awaiting Admin Approval</span></div>
+        </div>
+        <div class="tt-review-week">${reviewCards}</div>`;
+      wireLevelTabs(root, departmentId, deptName, semester, sessionId, reviewMode);
+      return;
+    }
+
     const TIME_SLOTS = [
       { label: '8AM–9AM', hour: 8 }, { label: '9AM–10AM', hour: 9 },
       { label: '10AM–11AM', hour: 10 }, { label: '11AM–12PM', hour: 11 },

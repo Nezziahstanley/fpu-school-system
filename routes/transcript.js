@@ -13,7 +13,8 @@ const userQueries = require('../db/queries/users');
 const { db, schema } = require('../db');
 const { eq, asc } = require('drizzle-orm');
 const { requireRole } = require('../middleware/auth');
-const { computeStudentCGPA, classifyDegree } = require('../utils/gpa');
+const { computeStudentCGPA, classifyDegree, resolveResultPoints } = require('../utils/gpa');
+const { getActiveGradeScale } = require('../utils/gradeScale');
 
 const { users, departments, programmes } = schema;
 
@@ -45,7 +46,8 @@ router.get('/students', requireRole(STAFF), async (req, res, next) => {
       .where(eq(users.role, 'student'))
       .orderBy(asc(users.matricNumber));
 
-    // ✅ Compute CGPA for each student from published results
+    // Use the active scale to backfill points for legacy published results.
+    const gradeScale = await getActiveGradeScale();
     const enriched = await Promise.all(rows.map(async (stu) => {
       try {
         const results = await resultQueries.publishedForStudent(stu.id, {});
@@ -54,14 +56,14 @@ router.get('/students', requireRole(STAFF), async (req, res, next) => {
         }
         const cgpaRows = results.map(r => ({
           unit: Number(r.course?.unit) || 0,
-          points: Number(r.result?.points) || 0,
+          points: resolveResultPoints(r.result, gradeScale),
           sessionId: r.result?.sessionId,
           semester: r.result?.semester,
         }));
         const { cgpa } = computeStudentCGPA(cgpaRows);
         return {
           ...stu,
-          cgpa: cgpa || null,
+          cgpa,
           classification: classifyDegree(cgpa),
           hasResults: true,
         };
@@ -90,9 +92,10 @@ router.get('/:studentId', requireRole(STAFF), async (req, res, next) => {
 
     const rows = await resultQueries.publishedForStudent(student.id, {});
 
+    const gradeScale = await getActiveGradeScale();
     const cgpaRows = rows.map((r) => ({
       unit: Number(r.course?.unit) || 0,
-      points: Number(r.result?.points) || 0,
+      points: resolveResultPoints(r.result, gradeScale),
       sessionId: r.result?.sessionId,
       semester: r.result?.semester,
     }));

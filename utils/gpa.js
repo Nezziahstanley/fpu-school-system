@@ -113,6 +113,34 @@ function computeStudentCGPA(rows) {
   };
 }
 
+
+// ------------------------------------------------------------
+// Resolve grade points for transcript calculations.
+// Older published rows may have a grade/score but a NULL points
+// column. Preserve an explicitly stored zero (a valid failing grade),
+// otherwise derive the missing value from the active grade scale.
+// ------------------------------------------------------------
+function resolveResultPoints(result, scale = []) {
+  const stored = result?.points;
+  if (stored !== null && stored !== undefined && String(stored).trim() !== '') {
+    const numeric = Number(stored);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+
+  const grade = String(result?.grade || '').trim().toUpperCase();
+  if (grade) {
+    const match = scale.find((band) => String(band.grade || '').trim().toUpperCase() === grade);
+    if (match && Number.isFinite(Number(match.points))) return Number(match.points);
+  }
+
+  const score = Number(result?.score);
+  if (Number.isFinite(score)) {
+    const match = scale.find((band) => score >= Number(band.minScore) && score <= Number(band.maxScore));
+    if (match && Number.isFinite(Number(match.points))) return Number(match.points);
+  }
+  return 0;
+}
+
 // ------------------------------------------------------------
 // Classification by CGPA (NBTE bands).
 // ------------------------------------------------------------
@@ -136,6 +164,7 @@ function isPass(score, passMark = 40) {
 module.exports = {
   computeGPA,
   computeStudentCGPA,
+  resolveResultPoints,
   classifyDegree,
   isPass,
   round2,

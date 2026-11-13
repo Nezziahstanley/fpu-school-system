@@ -15,6 +15,18 @@
     </div>
   </div>
 
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;margin:0 0 1rem;">
+    <div class="res-overview-stat"><strong id="res-stat-courses">0</strong><small>Course Allocations</small></div>
+    <div class="res-overview-stat"><strong id="res-stat-results">0</strong><small>Student Results</small></div>
+    <div class="res-overview-stat"><strong id="res-stat-drafts">0</strong><small>Drafts</small></div>
+    <div class="res-overview-stat"><strong id="res-stat-review">0</strong><small>Awaiting Review</small></div>
+    <div class="res-overview-stat"><strong id="res-stat-published">0</strong><small>Published</small></div>
+  </div>
+  <div style="display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.8rem;margin-bottom:1rem;">
+    <input id="res-dept-search" type="search" placeholder="Search department or course…" aria-label="Search departments or courses" style="flex:1;min-width:210px;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;background:#fff;">
+    <span id="res-dept-count" style="font-size:.75rem;font-weight:700;color:#64748b;">0 departments</span>
+  </div>
+
   <!-- LEVEL 1: DEPARTMENTS -->
   <div id="view-departments">
     <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:1rem;" id="dept-cards-container"></div>
@@ -175,6 +187,11 @@
 </div>
 
 <style>
+  .res-overview-stat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;min-width:0}
+  .res-overview-stat strong{display:block;font-size:1.35rem;line-height:1.2;color:#0f172a;font-weight:850}
+  .res-overview-stat small{display:block;margin-top:.3rem;font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#64748b}
+  #res-dept-search:focus{outline:2px solid #10b981;outline-offset:1px}
+  @media(max-width:560px){.res-overview-stat{padding:.7rem}.res-overview-stat strong{font-size:1.15rem}}
   .dept-card:hover, .course-row:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.05); }
   .other-dept-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.05); border-color: #1e40af !important; }
 </style>
@@ -243,11 +260,34 @@
   }
 
   // --- LEVEL 1: DEPARTMENTS ---
+  function updateResultsOverview() {
+    const statuses = ALL_RESULTS.map(r => String(r.status || '').toLowerCase());
+    $('res-stat-courses').textContent = ALL_COURSES.length;
+    $('res-stat-results').textContent = ALL_RESULTS.length;
+    $('res-stat-drafts').textContent = statuses.filter(s => s === 'draft').length;
+    $('res-stat-review').textContent = statuses.filter(s => ['submitted','hod_verified'].includes(s)).length;
+    $('res-stat-published').textContent = statuses.filter(s => ['published','approved'].includes(s)).length;
+  }
+
+  function filterDepartmentCards() {
+    const term = String($('res-dept-search')?.value || '').trim().toLowerCase();
+    const cards = Array.from($('dept-cards-container')?.querySelectorAll('.dept-card') || []);
+    let visible = 0;
+    cards.forEach(card => {
+      const matches = !term || String(card.dataset.search || '').includes(term);
+      card.style.display = matches ? '' : 'none';
+      if (matches) visible++;
+    });
+    const count = $('res-dept-count');
+    if (count) count.textContent = visible + (visible === 1 ? ' department' : ' departments');
+  }
+
   function buildDepartmentsView() {
     $('view-courses').style.display = 'none';
     $('view-students').style.display = 'none';
     $('view-departments').style.display = 'block';
 
+    updateResultsOverview();
     const deptMap = {};
     ALL_COURSES.forEach(c => {
       const key = String(c.courseDeptId ?? 'unknown');
@@ -288,7 +328,7 @@
       const badgeText = isMyDept ? 'My Department' : 'External Allocation';
       const coursesList = Array.from(d.courses).join(', ');
       return `
-        <div class="dept-card" onclick="window.__openDept(${JSON.stringify(d.id)})" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;cursor:pointer;transition:all .2s;">
+        <div class="dept-card" data-search="${esc((d.name + " " + coursesList).toLowerCase())}" onclick="window.__openDept(${JSON.stringify(d.id)})" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;cursor:pointer;transition:all .2s;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
             <div style="width:44px;height:44px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🏛️</div>
             <span style="font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:12px;background:${badgeBg};color:${badgeColor};text-transform:uppercase;">${badgeText}</span>
@@ -302,7 +342,10 @@
           </div>
         </div>`;
     }).join('');
+    filterDepartmentCards();
   }
+
+  $('res-dept-search')?.addEventListener('input', filterDepartmentCards);
 
   // --- LEVEL 2: COURSES ---
   let CURRENT_DEPT_ID = null;
@@ -432,8 +475,8 @@
   };
 
   function generateStudentRow(r) {
-    const isDraft = r.status === 'draft';
-    const actions = isDraft 
+    const isEditable = ['draft', 'hod_rejected'].includes(String(r.status || '').toLowerCase());
+    const actions = isEditable 
       ? `<div style="display:flex;gap:.35rem;justify-content:flex-end;">
            <button onclick="window.__editResult(${r.id}, '${r.courseCode}')" style="padding:.25rem .5rem;font-size:.7rem;font-weight:700;background:#e0e7ff;color:#3730a3;border:none;border-radius:4px;cursor:pointer;">Edit</button>
            <button onclick="window.__deleteResult(${r.id})" style="padding:.25rem .5rem;font-size:.7rem;font-weight:700;background:#fee2e2;color:#991b1b;border:none;border-radius:4px;cursor:pointer;">Delete</button>

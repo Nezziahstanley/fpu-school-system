@@ -198,7 +198,7 @@ async function approvePendingByDept(departmentId, sessionId, semester) {
 
   const conditions = [
     inArray(timetableSlots.courseId, courseIds),
-    eq(timetableSlots.status, 'pending'),
+    inArray(timetableSlots.status, ['pending', 'submitted']),
   ];
   if (sessionId) conditions.push(eq(timetableSlots.sessionId, Number(sessionId)));
   if (semester) conditions.push(eq(timetableSlots.semester, semester));

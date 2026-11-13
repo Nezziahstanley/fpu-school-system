@@ -67,7 +67,7 @@ const announcementPriorityEnum = pgEnum('announcement_priority', [
 ]);
 
 const announcementAudienceEnum = pgEnum('announcement_audience', [
-  'all', 'student', 'staff', 'lecturer', 'hod',
+  'all', 'student', 'staff', 'lecturer', 'hod', 'department',
 ]);
 
 const notifTypeEnum = pgEnum('notification_type', [
@@ -791,6 +791,7 @@ const announcements = pgTable('announcements', {
   audience: announcementAudienceEnum('audience').notNull().default('all'),
   priority: announcementPriorityEnum('priority').notNull().default('normal'),
   authorId: integer('author_id').notNull(),
+  departmentId: integer('department_id').references(() => departments.id, { onDelete: 'set null' }),
   isPublished: boolean('is_published').notNull().default(true),
   showOnMarquee: boolean('show_on_marquee').notNull().default(false),
   publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),

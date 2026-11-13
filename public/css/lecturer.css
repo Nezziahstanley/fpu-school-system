@@ -374,3 +374,82 @@
 .lecturer-design-scope :where(.badge,.chip,.status,.lc-status-chip,[class*="status-chip"]){
   font-weight:750!important;
 }
+
+
+/* ==========================================================
+   Lecturer workspace — enforce readable foreground colours
+   on dark surfaces and preserve dark text on light surfaces.
+   This is deliberately scoped to lecturer content only.
+   ========================================================== */
+
+/* Dark institutional/action surfaces: text and icons must be white. */
+.lecturer-design-scope :is(
+  [style*="background:#065f46"],[style*="background: #065f46"],
+  [style*="background-color:#065f46"],[style*="background-color: #065f46"],
+  [style*="background:#064e3b"],[style*="background: #064e3b"],
+  [style*="background-color:#064e3b"],[style*="background-color: #064e3b"],
+  [style*="background:#047857"],[style*="background: #047857"],
+  [style*="background-color:#047857"],[style*="background-color: #047857"],
+  [style*="background:#0f766e"],[style*="background: #0f766e"],
+  [style*="background-color:#0f766e"],[style*="background-color: #0f766e"],
+  [style*="background:#1e293b"],[style*="background: #1e293b"],
+  [style*="background-color:#1e293b"],[style*="background-color: #1e293b"],
+  [style*="background:#172554"],[style*="background: #172554"],
+  [style*="background-color:#172554"],[style*="background-color: #172554"],
+  [style*="background:#1d4ed8"],[style*="background: #1d4ed8"],
+  [style*="background-color:#1d4ed8"],[style*="background-color: #1d4ed8"],
+  [style*="background:#2563eb"],[style*="background: #2563eb"],
+  [style*="background-color:#2563eb"],[style*="background-color: #2563eb"],
+  [style*="background:#dc2626"],[style*="background: #dc2626"],
+  [style*="background-color:#dc2626"],[style*="background-color: #dc2626"],
+  [style*="background:#b45309"],[style*="background: #b45309"],
+  [style*="background-color:#b45309"],[style*="background-color: #b45309"]
+){
+  color:#fff!important;
+}
+.lecturer-design-scope :is(
+  [style*="background:#065f46"],[style*="background: #065f46"],
+  [style*="background-color:#065f46"],[style*="background-color: #065f46"],
+  [style*="background:#064e3b"],[style*="background: #064e3b"],
+  [style*="background-color:#064e3b"],[style*="background-color: #064e3b"],
+  [style*="background:#047857"],[style*="background: #047857"],
+  [style*="background-color:#047857"],[style*="background-color: #047857"],
+  [style*="background:#0f766e"],[style*="background: #0f766e"],
+  [style*="background-color:#0f766e"],[style*="background-color: #0f766e"],
+  [style*="background:#1e293b"],[style*="background: #1e293b"],
+  [style*="background-color:#1e293b"],[style*="background-color: #1e293b"],
+  [style*="background:#172554"],[style*="background: #172554"],
+  [style*="background-color:#172554"],[style*="background-color: #172554"],
+  [style*="background:#1d4ed8"],[style*="background: #1d4ed8"],
+  [style*="background-color:#1d4ed8"],[style*="background-color: #1d4ed8"],
+  [style*="background:#2563eb"],[style*="background: #2563eb"],
+  [style*="background-color:#2563eb"],[style*="background-color: #2563eb"],
+  [style*="background:#dc2626"],[style*="background: #dc2626"],
+  [style*="background-color:#dc2626"],[style*="background-color: #dc2626"],
+  [style*="background:#b45309"],[style*="background: #b45309"],
+  [style*="background-color:#b45309"],[style*="background-color: #b45309"]
+) :where(h1,h2,h3,h4,p,span,strong,b,small,label,i,svg){
+  color:#fff!important;
+  fill:currentColor;
+}
+.lecturer-design-scope :where(.bg-dark,.text-bg-dark,.bg-primary,.bg-success,.bg-danger,.bg-info,.bg-secondary,.dark-surface,.primary-surface,.success-surface){
+  color:#fff!important;
+}
+.lecturer-design-scope :where(.bg-dark,.text-bg-dark,.bg-primary,.bg-success,.bg-danger,.bg-info,.bg-secondary,.dark-surface,.primary-surface,.success-surface) :where(h1,h2,h3,h4,p,span,strong,b,small,label,i,svg){
+  color:#fff!important;
+  fill:currentColor;
+}
+
+/* Common white/soft card surfaces keep a dark readable foreground. */
+.lecturer-design-scope :where(.panel,.card,.panel-body,.card-body,.filter-bar,.toolbar,.table-toolbar,.table-wrap,.table-responsive,.empty-state){
+  color:#183047;
+}
+.lecturer-design-scope :where(.panel,.card,.panel-body,.card-body,.filter-bar,.toolbar,.table-toolbar,.table-wrap,.table-responsive,.empty-state) :where(p,span,strong,b,label,small,li,td){
+  color:inherit;
+}
+.lecturer-design-scope :where(input,select,textarea){
+  color:#183047!important;
+}
+.lecturer-design-scope :where(button,.btn):not([style*="background:#065f46"]):not([style*="background: #065f46"]):not([style*="background:#047857"]):not([style*="background: #047857"]){
+  text-shadow:none;
+}

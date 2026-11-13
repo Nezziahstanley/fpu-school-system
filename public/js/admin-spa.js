@@ -104,7 +104,7 @@
     { key: 'results-approved', label: 'Approved Results', icon: 'check' },
     { key: 'transcript',       label: 'Transcript',       icon: 'file' },
     { key: 'timetable',        label: 'Timetable',        icon: 'calendar' },
-    { key: 'timetable-review', label: 'Timetable Review', icon: 'calendar' },
+
     { key: 'exams',            label: 'Exams',            icon: 'clipboard' },
     { key: 'attendance',       label: 'Attendance',       icon: 'check' },
     { group: 'Staff' },

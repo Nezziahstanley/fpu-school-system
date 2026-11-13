@@ -49,7 +49,7 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
         name: schema.departments.name,
         code: schema.departments.code,
         schoolName: schema.schools.name,
-        courses: sql`COUNT(DISTINCT ${schema.attendance.courseId})`,
+        courses: sql`COUNT(DISTINCT ${schema.courses.id})`,
         students: sql`COUNT(DISTINCT ${schema.attendance.studentId})`,
         records: sql`COUNT(${schema.attendance.id})`,
         present: sql`COUNT(CASE WHEN ${schema.attendance.status} = 'present' THEN 1 END)`,

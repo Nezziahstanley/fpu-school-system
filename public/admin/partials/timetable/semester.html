@@ -18,6 +18,19 @@
   </div>
 </section>
 
+<div class="filters no-print" style="max-width:900px;margin:0 auto 16px;padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <div class="form-group" style="min-width:240px;flex:1;margin:0;">
+    <label class="form-label" for="tsheet-status">Timetable view</label>
+    <select class="form-select" id="tsheet-status">
+      <option value="approved">Approved / Published Timetable</option>
+      <option value="all">All Timetable Entries</option>
+      <option value="pending">Pending Approval</option>
+      <option value="draft">Draft Entries</option>
+    </select>
+  </div>
+  <span style="font-size:12px;color:#64748b;">Approved is the default public schedule view. Choose All to inspect every saved slot.</span>
+</div>
+
 <div id="tsheet-root">
   <div class="loading"><span class="spinner"></span> Loading timetable…</div>
 </div>

@@ -453,3 +453,12 @@
 .lecturer-design-scope :where(button,.btn):not([style*="background:#065f46"]):not([style*="background: #065f46"]):not([style*="background:#047857"]):not([style*="background: #047857"]){
   text-shadow:none;
 }
+
+
+/* My Courses: keep the "Courses assigned to you" subtitle white
+   on the dark institutional-green greeting banner. */
+.lecturer-design-scope .greeting .who > div > .sub{
+  color:#fff!important;
+  -webkit-text-fill-color:#fff!important;
+  opacity:1!important;
+}

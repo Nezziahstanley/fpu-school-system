@@ -3528,7 +3528,12 @@ async function openDeptModal(deptId, deptName, deptCode) {
   grid.innerHTML = '';
 
   try {
-    const res = await adminFetch(`/api/admin/attendance/department/${deptId}`);
+    const sessionId = document.getElementById('att-filter-session')?.value || '';
+    const semester = document.getElementById('att-filter-semester')?.value || '';
+    const qs = new URLSearchParams();
+    if (sessionId) qs.set('sessionId', sessionId);
+    if (semester) qs.set('semester', semester);
+    const res = await adminFetch(`/api/admin/attendance/department/${deptId}?${qs.toString()}`);
     const json = await res.json();
     const courses = json.data || [];
 

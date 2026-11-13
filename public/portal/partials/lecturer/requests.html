@@ -22,15 +22,16 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📨</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="req-total">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Requests</div>
-      </div>
-    </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:.8rem;margin-bottom:1rem;">
+    <div class="req-stat"><strong id="req-total">0</strong><small>Total requests</small></div>
+    <div class="req-stat"><strong id="req-open">0</strong><small>Awaiting attention</small></div>
+    <div class="req-stat"><strong id="req-resolved">0</strong><small>Resolved / closed</small></div>
+    <div class="req-stat"><strong id="req-responded">0</strong><small>Admin responses</small></div>
+  </div>
+  <div style="display:flex;gap:.65rem;flex-wrap:wrap;align-items:center;margin:0 0 1rem;padding:.8rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+    <input id="req-search" type="search" placeholder="Search subject or message…" style="flex:1;min-width:190px;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;background:#fff;">
+    <select id="req-filter" style="min-width:160px;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;background:#fff;"><option value="all">All statuses</option><option value="open">Open</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>
+    <span id="req-result-count" style="font-size:.75rem;color:#64748b;font-weight:700;">0 requests</span>
   </div>
 
   <!-- TABLE -->
@@ -107,6 +108,7 @@
 </div>
 
 <style>
+  .req-stat{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.9rem 1rem;min-width:0}.req-stat strong{display:block;font-size:1.4rem;color:#0f172a}.req-stat small{font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#64748b}.req-stat:nth-child(2) strong{color:#b45309}.req-stat:nth-child(3) strong{color:#047857}.req-stat:nth-child(4) strong{color:#1d4ed8}#req-search:focus,#req-filter:focus{outline:2px solid #10b981;outline-offset:1px}
   @keyframes reqSpin { to { transform: rotate(360deg); } }
   #req-tbody tr { transition: background .1s; }
   #req-tbody tr:hover { background: #f8fafc; }
@@ -144,14 +146,27 @@
       const res = await core.portalFetch('/api/lecturer/requests');
       ALL_REQUESTS = res.data || [];
       
+      const resolvedCount = ALL_REQUESTS.filter(r => ['resolved','closed'].includes(String(r.status || '').toLowerCase())).length;
       $('req-total').textContent = ALL_REQUESTS.length;
+      $('req-open').textContent = ALL_REQUESTS.length - resolvedCount;
+      $('req-resolved').textContent = resolvedCount;
+      $('req-responded').textContent = ALL_REQUESTS.filter(r => String(r.response || '').trim()).length;
 
-      if (!ALL_REQUESTS.length) {
+      const term = ($('req-search')?.value || '').trim().toLowerCase();
+      const statusFilter = $('req-filter')?.value || 'all';
+      const visibleRequests = ALL_REQUESTS.filter(r => {
+        const status = String(r.status || 'open').toLowerCase();
+        const matchesStatus = statusFilter === 'all' || status === statusFilter;
+        const matchesTerm = !term || [r.subject, r.body, r.category, r.response].some(v => String(v || '').toLowerCase().includes(term));
+        return matchesStatus && matchesTerm;
+      });
+      $('req-result-count').textContent = visibleRequests.length + (visibleRequests.length === 1 ? ' request' : ' requests');
+      if (!visibleRequests.length) {
         tbody.innerHTML = `<tr><td colspan="4" style="padding:3rem;text-align:center;color:#94a3b8;">No requests yet.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = ALL_REQUESTS.map(r => {
+      tbody.innerHTML = visibleRequests.map(r => {
         let badgeColor = '#f1f5f9'; let badgeFg = '#334155';
         if (r.status === 'open') { badgeColor = '#fef3c7'; badgeFg = '#92400e'; }
         if (r.status === 'resolved' || r.status === 'closed') { badgeColor = '#d1fae5'; badgeFg = '#065f46'; }
@@ -210,7 +225,7 @@
 
       core.showToast && core.showToast('Request submitted!', 'success');
       closeModal();
-      load();
+      await load();
     } catch (err) {
       core.showToast && core.showToast(err.message, 'error');
     } finally {
@@ -230,6 +245,7 @@
     const isResolved = req.status === 'resolved' || req.status === 'closed';
 
     body.innerHTML = `
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;font-size:.78rem;color:#475569;"><span><b>Category:</b> ${esc(req.category || 'general')}</span><span><b>Submitted:</b> ${fmtDate(req.createdAt)}</span></div>
       <div style="margin-bottom:1rem;">
         <div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:.3rem;">Message</div>
         <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:.85rem;font-size:.85rem;color:#0f172a;white-space:pre-wrap;">${esc(req.body || 'No message provided.')}</div>
@@ -259,6 +275,8 @@
     $('view-req-close-btn')?.addEventListener('click', () => { $('view-req-modal').style.display = 'none'; });
   }
 
+  $('req-search')?.addEventListener('input', load);
+  $('req-filter')?.addEventListener('change', load);
   $('req-create')?.addEventListener('click', openModal);
   $('req-refresh')?.addEventListener('click', load);
   $('req-modal-close')?.addEventListener('click', closeModal);

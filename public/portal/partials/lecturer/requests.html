@@ -22,23 +22,6 @@
     </div>
   </div>
 
-  <!-- STAT TILES -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1rem;">
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.7rem;">
-      <div style="width:40px;height:40px;border-radius:10px;background:#e0e7ff;color:#3730a3;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">📨</div>
-      <div style="min-width:0;">
-        <div style="font-size:1.35rem;font-weight:800;color:#0f172a;line-height:1;" id="req-total">0</div>
-        <div style="font-size:.65rem;font-weight:700;color:#64748b;letter-spacing:.06em;text-transform:uppercase;margin-top:.2rem;">Total Requests</div>
-      </div>
-    </div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:.8rem;margin-bottom:1rem;">
-    <div class="req-stat"><strong id="req-total">0</strong><small>Total requests</small></div>
-    <div class="req-stat"><strong id="req-open">0</strong><small>Awaiting attention</small></div>
-    <div class="req-stat"><strong id="req-resolved">0</strong><small>Resolved / closed</small></div>
-    <div class="req-stat"><strong id="req-responded">0</strong><small>Admin responses</small></div>
-  </div>
   <div style="display:flex;gap:.65rem;flex-wrap:wrap;align-items:center;margin:0 0 1rem;padding:.8rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
     <input id="req-search" type="search" placeholder="Search subject or message…" style="flex:1;min-width:190px;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;background:#fff;">
     <select id="req-filter" style="min-width:160px;padding:.65rem .8rem;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;background:#fff;"><option value="all">All statuses</option><option value="open">Open</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select>

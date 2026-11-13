@@ -830,9 +830,9 @@ router.get('/materials', only, async (req, res, next) => {
   try {
     const rows = await db
       .select({
-        id: courseMaterials.id, title: courseMaterials.title, description: courseMaterials.description,
+        id: courseMaterials.id, courseId: courseMaterials.courseId, title: courseMaterials.title, description: courseMaterials.description,
         fileUrl: courseMaterials.fileUrl, materialType: courseMaterials.materialType, createdAt: courseMaterials.createdAt,
-        courseCode: courses.code,
+        courseCode: courses.code, courseTitle: courses.title,
       })
       .from(courseMaterials)
       .leftJoin(courses, eq(courseMaterials.courseId, courses.id))

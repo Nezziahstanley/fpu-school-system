@@ -1,0 +1,152 @@
+<!-- Portal → HOD → Department Teaching Plan Oversight -->
+<style id="hod-teaching-plan-style">
+#main-view .htp-page{display:grid;gap:1rem;font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif}
+#main-view .htp-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1.2rem 1.5rem;border-radius:16px;background:linear-gradient(120deg,#064e3b,#087653 58%,#10a16e);box-shadow:0 8px 24px rgba(6,78,59,.14);color:#fff}
+#main-view .htp-hero h2{margin:0;color:#fff;font-size:clamp(1.2rem,2.4vw,1.65rem);font-weight:800}
+#main-view .htp-hero p{margin:.35rem 0 0;color:#d9f5e8;font-size:.9rem}
+#main-view .htp-actions{display:flex;gap:.55rem;flex-wrap:wrap}
+#main-view .htp-btn{border:0;border-radius:8px;padding:.62rem .9rem;background:#fff;color:#064e3b;font-weight:750;cursor:pointer}
+#main-view .htp-btn.secondary{background:#064e3b;color:#fff;border:1px solid #a7f3d0}
+#main-view .htp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem}
+#main-view .htp-card,#main-view .htp-panel{min-width:0;background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e7eb);border-radius:13px;padding:1rem}
+#main-view .htp-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--text-muted,#64748b)}
+#main-view .htp-value{margin-top:.35rem;font-size:1.65rem;font-weight:850;color:var(--text-color,#0f172a)}
+#main-view .htp-filter{display:grid;grid-template-columns:minmax(190px,2fr) repeat(3,minmax(140px,1fr));gap:.65rem}
+#main-view .htp-filter input,#main-view .htp-filter select{width:100%;min-width:0;padding:.65rem .75rem;border:1px solid var(--border-color,#cbd5e1);border-radius:8px;background:var(--input-bg,#fff);color:var(--text-color,#0f172a);font:inherit}
+#main-view .htp-panel h3{margin:0 0 .8rem;font-size:1rem;color:var(--text-color,#0f172a)}
+#main-view .htp-scroll{overflow:auto}
+#main-view .htp-table{width:100%;border-collapse:collapse;min-width:850px;font-size:.82rem}
+#main-view .htp-table th,#main-view .htp-table td{padding:.72rem .65rem;text-align:left;border-bottom:1px solid var(--border-color,#e5e7eb);vertical-align:middle}
+#main-view .htp-table th{font-size:.67rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#64748b);white-space:nowrap}
+#main-view .htp-muted{color:var(--text-muted,#64748b)}
+#main-view .htp-pill{display:inline-flex;padding:.25rem .55rem;border-radius:999px;font-size:.68rem;font-weight:800;text-transform:capitalize}
+#main-view .htp-pill.completed{background:#dcfce7;color:#166534}#main-view .htp-pill.planned{background:#dbeafe;color:#1e40af}#main-view .htp-pill.deferred{background:#fef3c7;color:#92400e}#main-view .htp-pill.missing{background:#fee2e2;color:#991b1b}
+#main-view .htp-progress{height:8px;min-width:85px;background:#e2e8f0;border-radius:99px;overflow:hidden}
+#main-view .htp-progress span{display:block;height:100%;background:#059669;border-radius:99px}
+#main-view .htp-detail{padding:.45rem 0}
+#main-view .htp-detail summary{cursor:pointer;color:#047857;font-weight:750}
+#main-view .htp-topic{margin:.6rem 0;padding:.8rem;border:1px solid var(--border-color,#e5e7eb);border-radius:9px;background:var(--surface-bg,#f8fafc)}
+#main-view .htp-topic h4{margin:0 0 .4rem;color:var(--text-color,#0f172a);font-size:.88rem}
+#main-view .htp-topic p{margin:.25rem 0;color:var(--text-muted,#64748b);font-size:.78rem;white-space:pre-wrap}
+#main-view .htp-count{font-size:.76rem;font-weight:750;color:var(--text-muted,#64748b)}
+@media(max-width:850px){#main-view .htp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#main-view .htp-filter{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){#main-view .htp-grid,#main-view .htp-filter{grid-template-columns:1fr}#main-view .htp-hero{padding:1rem}#main-view .htp-actions{width:100%}#main-view .htp-actions button{flex:1}}
+@media print{#main-view .htp-actions,#main-view .htp-filter{display:none!important}#main-view .htp-panel,#main-view .htp-card{break-inside:avoid}#main-view .htp-table{min-width:0;font-size:9px}#main-view .htp-table th,#main-view .htp-table td{padding:4px}}
+</style>
+<section class="htp-page" id="hod-teaching-plan-page">
+  <header class="htp-hero">
+    <div><h2>Department Teaching Plan Oversight</h2><p id="htp-subtitle">Monitor weekly course topics, lecturer planning and teaching coverage across your department</p></div>
+    <div class="htp-actions">
+      <button class="htp-btn secondary" id="htp-refresh" type="button">↻ Refresh</button>
+      <button class="htp-btn" id="htp-export" type="button">↓ Export CSV</button>
+      <button class="htp-btn" id="htp-print" type="button">Print</button>
+    </div>
+  </header>
+  <section class="htp-grid" aria-label="Teaching plan summary">
+    <article class="htp-card"><div class="htp-label">Allocated Courses</div><div class="htp-value" id="htp-allocations">—</div></article>
+    <article class="htp-card"><div class="htp-label">Lecturers</div><div class="htp-value" id="htp-lecturers">—</div></article>
+    <article class="htp-card"><div class="htp-label">Weekly Topics</div><div class="htp-value" id="htp-topics">—</div></article>
+    <article class="htp-card"><div class="htp-label">Completed Topics</div><div class="htp-value" id="htp-completed">—</div></article>
+    <article class="htp-card"><div class="htp-label">Overall Coverage</div><div class="htp-value" id="htp-coverage">—</div></article>
+    <article class="htp-card"><div class="htp-label">Planned Topics</div><div class="htp-value" id="htp-planned">—</div></article>
+    <article class="htp-card"><div class="htp-label">Deferred Topics</div><div class="htp-value" id="htp-deferred">—</div></article>
+    <article class="htp-card"><div class="htp-label">Courses Without Plans</div><div class="htp-value" id="htp-missing">—</div></article>
+  </section>
+  <section class="htp-panel">
+    <div class="htp-filter">
+      <input id="htp-search" type="search" placeholder="Search course, lecturer, topic or email…" aria-label="Search teaching plans">
+      <select id="htp-session" aria-label="Academic session"><option value="">Loading sessions…</option></select>
+      <select id="htp-semester" aria-label="Semester"><option value="">All Semesters</option><option value="first">First Semester</option><option value="second">Second Semester</option></select>
+      <select id="htp-status" aria-label="Teaching plan status"><option value="">All Plan Statuses</option><option value="completed">Completed</option><option value="planned">Planned</option><option value="deferred">Deferred</option><option value="missing">No Plan Submitted</option></select>
+    </div>
+    <div id="htp-result-count" class="htp-count" style="margin-top:.8rem" aria-live="polite">Loading department teaching plans…</div>
+  </section>
+  <section class="htp-panel">
+    <h3>Lecturer Course Plans and Weekly Coverage</h3>
+    <div class="htp-scroll"><table class="htp-table">
+      <thead><tr><th>Course</th><th>Lecturer</th><th>Level</th><th>Semester</th><th>Topics</th><th>Completed</th><th>Coverage</th><th>Plan Details</th></tr></thead>
+      <tbody id="htp-body"><tr><td colspan="8" class="htp-muted">Loading teaching plans…</td></tr></tbody>
+    </table></div>
+    <p id="htp-limit-note" class="htp-muted" style="display:none;margin:.75rem 0 0;font-size:.75rem">The returned list reached its 5,000-row limit. Narrow the session or filters and refresh.</p>
+  </section>
+</section>
+<script>
+(function(){
+  'use strict';
+  const core=window.FPU_PORTAL||{};
+  const $=id=>document.getElementById(id);
+  const esc=value=>String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  let DATA=[],SESSIONS=[],SUMMARY={},SELECTED_SESSION='';
+  function semesterLabel(v){return String(v||'').toLowerCase()==='first'?'First Semester':String(v||'').toLowerCase()==='second'?'Second Semester':(v||'—');}
+  function dateLabel(v){if(!v)return '—';const d=new Date(String(v).slice(0,10)+'T00:00:00');return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});}
+  function filtered(){
+    const q=String($('htp-search').value||'').trim().toLowerCase(),sem=$('htp-semester').value,status=$('htp-status').value;
+    return DATA.filter(course=>{
+      const hay=[course.courseCode,course.courseTitle,course.lecturerName,course.lecturerEmail,course.courseLevel,course.semester,...course.topics.map(t=>[t.topic,t.learningOutcomes,t.teachingMethod,t.notes,t.status].join(' '))].join(' ').toLowerCase();
+      const hasStatus=!status||(status==='missing'?!course.topicCount:course.topics.some(t=>t.status===status));
+      return (!q||hay.includes(q))&&(!sem||String(course.semester).toLowerCase()===sem)&&hasStatus;
+    });
+  }
+  function render(){
+    const rows=filtered();
+    $('htp-result-count').textContent='Showing '+rows.length+' of '+DATA.length+' allocated course plans';
+    $('htp-body').innerHTML=rows.length?rows.map(course=>{
+      const details=course.topics.length?'<details class="htp-detail"><summary>View '+course.topics.length+' weekly topics</summary>'+course.topics.map(topic=>'<article class="htp-topic"><h4>Week '+esc(topic.weekNumber)+': '+esc(topic.topic)+'</h4><span class="htp-pill '+esc(topic.status)+'">'+esc(topic.status)+'</span><p><strong>Planned date:</strong> '+esc(dateLabel(topic.plannedDate))+' &nbsp; <strong>Teaching method:</strong> '+esc(topic.teachingMethod||'—')+'</p><p><strong>Learning outcomes:</strong> '+esc(topic.learningOutcomes||'—')+'</p><p><strong>Lecturer notes:</strong> '+esc(topic.notes||'—')+'</p><p><strong>Covered:</strong> '+esc(dateLabel(topic.coveredAt))+'</p></article>').join('')+'</details>':'<span class="htp-pill missing">No plan submitted</span>';
+      return '<tr><td><strong>'+esc(course.courseCode)+'</strong><div class="htp-muted">'+esc(course.courseTitle)+'</div></td><td>'+esc(course.lecturerName||'—')+'<div class="htp-muted">'+esc(course.lecturerEmail||'')+'</div></td><td>'+esc(course.courseLevel||'—')+'</td><td>'+esc(semesterLabel(course.semester))+'</td><td>'+Number(course.topicCount||0)+'</td><td>'+Number(course.completed||0)+'</td><td><div class="htp-progress" aria-label="'+Number(course.coverage||0)+' percent complete"><span style="width:'+Math.max(0,Math.min(100,Number(course.coverage||0)))+'%"></span></div><strong>'+Number(course.coverage||0)+'%</strong></td><td>'+details+'</td></tr>';
+    }).join(''):'<tr><td colspan="8" class="htp-muted">No teaching plans match your filters for this academic session.</td></tr>';
+  }
+  function stats(){
+    $('htp-allocations').textContent=Number(SUMMARY.allocations||0).toLocaleString();
+    $('htp-lecturers').textContent=Number(SUMMARY.lecturers||0).toLocaleString();
+    $('htp-topics').textContent=Number(SUMMARY.topics||0).toLocaleString();
+    $('htp-completed').textContent=Number(SUMMARY.completed||0).toLocaleString();
+    $('htp-coverage').textContent=Number(SUMMARY.coverage||0)+'%';
+    $('htp-planned').textContent=Number(SUMMARY.planned||0).toLocaleString();
+    $('htp-deferred').textContent=Number(SUMMARY.deferred||0).toLocaleString();
+    $('htp-missing').textContent=Number(SUMMARY.withoutPlans||0).toLocaleString();
+  }
+  async function load(){
+    $('htp-body').innerHTML='<tr><td colspan="8" class="htp-muted">Loading teaching plans…</td></tr>';
+    try{
+      const query=SELECTED_SESSION?'?sessionId='+encodeURIComponent(SELECTED_SESSION):'';
+      const response=await core.portalFetch('/api/hod/teaching-plan'+query);
+      if(!response||response.success===false)throw new Error(response?.error||'Unable to load department teaching plans.');
+      DATA=Array.isArray(response.data)?response.data:[];
+      SESSIONS=Array.isArray(response.sessions)?response.sessions:[];
+      SUMMARY=response.summary||{};
+      SELECTED_SESSION=String(response.selectedSessionId||'');
+      const select=$('htp-session'),previous=select.value;
+      select.innerHTML=SESSIONS.length?SESSIONS.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+(s.isCurrent?' (Current)':'')+'</option>').join(''):'<option value="">No academic sessions</option>';
+      if(SELECTED_SESSION)select.value=SELECTED_SESSION;else if(previous)select.value=previous;
+      stats();render();
+      $('htp-subtitle').textContent='Teaching plan oversight · '+(SESSIONS.find(s=>String(s.id)===SELECTED_SESSION)?.name||'No active academic session');
+      $('htp-limit-note').style.display=response.truncated?'block':'none';
+    }catch(error){
+      DATA=[];SUMMARY={};stats();
+      $('htp-body').innerHTML='<tr><td colspan="8" class="htp-muted">'+esc(error.message)+'</td></tr>';
+      $('htp-result-count').textContent='Teaching plans could not be loaded.';
+      core.showToast&&core.showToast(error.message,'error');
+    }
+  }
+  function csvCell(value){let s=String(value==null?'':value);if(/^\s*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+  function exportCsv(){
+    const rows=filtered();
+    if(!rows.length){core.showToast&&core.showToast('There are no teaching plan rows to export.','warning');return;}
+    const output=[['Course Code','Course Title','Level','Semester','Lecturer','Lecturer Email','Week','Topic','Learning Outcomes','Teaching Method','Planned Date','Status','Covered At','Notes']];
+    rows.forEach(course=>{
+      if(!course.topics.length)output.push([course.courseCode,course.courseTitle,course.courseLevel,course.semester,course.lecturerName,course.lecturerEmail,'','','','','','No Plan Submitted','','']);
+      else course.topics.forEach(t=>output.push([course.courseCode,course.courseTitle,course.courseLevel,course.semester,course.lecturerName,course.lecturerEmail,t.weekNumber,t.topic,t.learningOutcomes,t.teachingMethod,t.plannedDate,t.status,t.coveredAt,t.notes]));
+    });
+    const csv='\uFEFF'+output.map(row=>row.map(csvCell).join(',')).join('\r\n'),blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='hod-teaching-plan-monitoring-'+(SELECTED_SESSION||'session')+'.csv';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  }
+  $('htp-search').addEventListener('input',render);
+  $('htp-semester').addEventListener('change',render);
+  $('htp-status').addEventListener('change',render);
+  $('htp-session').addEventListener('change',()=>{SELECTED_SESSION=$('htp-session').value;load();});
+  $('htp-refresh').addEventListener('click',load);
+  $('htp-export').addEventListener('click',exportCsv);
+  $('htp-print').addEventListener('click',()=>window.print());
+  load();
+})();
+</script>

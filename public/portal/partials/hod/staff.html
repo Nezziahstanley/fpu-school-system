@@ -145,9 +145,9 @@
   function exportCsv() {
     if (!FILTERED.length) { core.showToast && core.showToast('No staff members match the current filters.','warning'); return; }
     const columns = ['Full Name','Role','Email','Phone','Department Course Count','Status'];
-    const cell = value => { let v=String(value==null?'':value); if (/^\\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
+    const cell = value => { let v=String(value==null?'':value); if (/^\s*[=+@-]/.test(v)) v="'"+v; return '"'+v.replace(/"/g,'""')+'"'; };
     const rows = [columns,...FILTERED.map(s=>[[s.firstName,s.lastName].filter(Boolean).join(' '),s.role,s.email,s.phone,s.courseCount,s.isActive?'Active':'Inactive'])];
-    const csv='\\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\\r\\n');
+    const csv='\uFEFF'+rows.map(row=>row.map(cell).join(',')).join('\r\n');
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     a.href=url;a.download='hod-department-staff.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
   }

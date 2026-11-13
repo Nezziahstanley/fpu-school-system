@@ -256,7 +256,7 @@ router.get('/course/:id', requireRole(STAFF), async (req, res, next) => {
     if (status) attendanceConds.push(eq(schema.attendance.status, String(status)));
     if (from) attendanceConds.push(sql`${schema.attendance.date} >= ${from}`);
     if (to) attendanceConds.push(sql`${schema.attendance.date} <= ${to}`);
-    const studentConds = [eq(schema.courseRegistrations.courseId, courseId)];
+    const studentConds = [eq(schema.courseRegistrations.courseId, courseId), eq(schema.courseRegistrations.status, 'approved')];
     if (selectedSessionId) studentConds.push(eq(schema.courseRegistrations.sessionId, selectedSessionId));
     if (semester) studentConds.push(eq(schema.courseRegistrations.semester, String(semester)));
     if (search) studentConds.push(or(
@@ -332,7 +332,8 @@ router.post('/course/:courseId/mark', requireRole(['admin', 'registrar', 'academ
     if (!Number.isInteger(courseId) || courseId <= 0) return res.status(400).json({ success: false, error: 'A valid course is required.' });
     if (!Number.isInteger(sessionId) || sessionId <= 0) return res.status(400).json({ success: false, error: 'Select an academic session.' });
     if (!['first', 'second'].includes(semester)) return res.status(400).json({ success: false, error: 'Select a valid semester.' });
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) return res.status(400).json({ success: false, error: 'Enter a valid attendance date.' });
+    const parsedDate = new Date(`${date}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) return res.status(400).json({ success: false, error: 'Enter a valid attendance date.' });
     if (!records.length || records.length > 500) return res.status(400).json({ success: false, error: 'Select attendance status for at least one student (maximum 500 per register).' });
 
     const [course] = await db.select({ id: schema.courses.id, departmentId: schema.courses.departmentId })
@@ -343,7 +344,7 @@ router.post('/course/:courseId/mark', requireRole(['admin', 'registrar', 'academ
       .from(schema.academicSessions).where(eq(schema.academicSessions.id, sessionId)).limit(1);
     if (!session) return res.status(404).json({ success: false, error: 'Academic session not found.' });
 
-    if (req.user?.role === 'hod' && Number(req.user.departmentId) !== Number(course.departmentId)) {
+    if (req.user?.role === 'hod' && Number(req.user.departmentId || req.user.department_id) !== Number(course.departmentId)) {
       return res.status(403).json({ success: false, error: 'You can only mark attendance for courses in your assigned department.' });
     }
     if (req.user?.role === 'lecturer') {

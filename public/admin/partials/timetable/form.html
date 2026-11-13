@@ -129,6 +129,8 @@
     const prefillSession = params.get('sessionId');
     const prefillSemester = params.get('semester');
     const prefillDay = params.get('day');
+    const prefillLevel = params.get('level') || 'ND 1';
+    const prefillStatus = params.get('status') || 'all';
     const isEdit = !!id;
 
     if (isEdit) {
@@ -148,6 +150,8 @@
           sessionId: Number(sessId),
           semester: sem,
           name: params.get('name') || 'Department',
+          level: prefillLevel,
+          status: prefillStatus,
         });
       } else {
         A.FPU_ADMIN_SPA.navigateTo('timetable');

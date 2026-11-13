@@ -33,13 +33,13 @@ const STAFF = ['admin', 'registrar', 'academic_officer', 'hod', 'lecturer'];
 // ============================================
 router.get('/', requireRole(STAFF), async (req, res, next) => {
   try {
-    const { courseId, lecturerId, sessionId, semester, dayOfWeek } = req.query;
+    const { courseId, lecturerId, sessionId, semester, dayOfWeek, status } = req.query;
     let departmentId = req.query.departmentId;
     if (req.user?.role === 'hod') {
       if (!req.user.departmentId) return res.status(403).json({ success: false, error: 'Your HOD account has no assigned department.' });
       departmentId = req.user.departmentId;
     }
-    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId });
+    const rows = await ttQueries.listWithRelations({ courseId, lecturerId, sessionId, semester, dayOfWeek, departmentId, status });
     return res.json({ success: true, data: rows });
   } catch (err) {
     return next(err);

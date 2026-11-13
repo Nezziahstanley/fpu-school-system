@@ -35,7 +35,16 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
         .from(schema.academicSessions)
         .where(eq(schema.academicSessions.isCurrent, true))
         .limit(1);
-      selectedSessionId = currentSession ? Number(currentSession.id) : null;
+      if (currentSession) {
+        selectedSessionId = Number(currentSession.id);
+      } else {
+        const [latestSession] = await db
+          .select({ id: schema.academicSessions.id })
+          .from(schema.academicSessions)
+          .orderBy(desc(schema.academicSessions.id))
+          .limit(1);
+        selectedSessionId = latestSession ? Number(latestSession.id) : null;
+      }
     }
     if (selectedSessionId) attendanceConds.push(eq(schema.attendance.sessionId, selectedSessionId));
     if (semester) attendanceConds.push(eq(schema.attendance.semester, semester));
@@ -69,14 +78,14 @@ router.get('/departments', requireRole(STAFF), async (req, res, next) => {
       const l = Number(row.late) || 0;
       return {
         ...row,
-        courses: Number(row.courses),
-        students: Number(row.students),
+        courses: Number(row.courses) || 0,
+        students: Number(row.students) || 0,
         records: recs,
         rate: recs > 0 ? Math.round(((p + l) / recs) * 100) : 0
       };
     });
 
-    return res.json({ success: true, data: formatted });
+    return res.json({ success: true, sessionId: selectedSessionId, data: formatted });
   } catch (err) {
     console.error('Attendance Departments Error:', err);
     return next(err);

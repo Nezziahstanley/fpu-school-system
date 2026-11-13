@@ -80,7 +80,7 @@ router.get('/dashboard', only, async (req, res, next) => {
     }
     const totalStudents = uniqueStudentIds.size;
 
-    let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0;
+    let pendingResults = 0, materialsCount = 0, assignmentsCount = 0, attendanceCount = 0, pendingGradingCount = 0;
     
     if (courseIds.length > 0) {
       const pend = await db.select({ count: sql`count(distinct ${results.id})::int` })
@@ -97,6 +97,15 @@ router.get('/dashboard', only, async (req, res, next) => {
         .from(assignments)
         .where(eq(assignments.lecturerId, lecturerId));
       assignmentsCount = ass[0]?.count || 0;
+
+      const grading = await db.execute(sql`
+        SELECT COUNT(*)::int AS count
+        FROM assignment_submissions sub
+        INNER JOIN assignments a ON a.id = sub.assignment_id
+        WHERE a.lecturer_id = ${lecturerId}
+          AND sub.graded_at IS NULL
+      `);
+      pendingGradingCount = Number(grading.rows?.[0]?.count || 0);
 
       const att = await db.select({ count: sql`count(distinct ${attendance.id})::int` })
         .from(attendance)
@@ -117,6 +126,7 @@ router.get('/dashboard', only, async (req, res, next) => {
         activeSession: currentSession?.name || '—', 
         materialsCount, 
         assignmentsCount,
+        pendingGradingCount,
         departmentName: dept?.name || '—', 
         coursesList: allocatedCourses, 
         courseStats

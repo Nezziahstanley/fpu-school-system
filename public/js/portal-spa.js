@@ -428,7 +428,7 @@
       const file = SHARED_FILE_MAP[cleanKey] || cleanKey;
       const sharedUrl = `/portal/partials/shared/${file}.html`;
       return {
-        url: cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : (cleanKey === 'portal-announcements' ? sharedUrl + '?v=20261113-department-announcements-v1' : (role === 'rector' && cleanKey === 'admin-audit' ? sharedUrl + '?v=20261112-rector-audit-v1' : sharedUrl)),
+        url: cleanKey === 'admin-settings' ? sharedUrl + '?v=20261113-settings-redesign-v1' : (cleanKey === 'portal-profile' ? sharedUrl + '?v=20261112-shared-signature-v2' : (cleanKey === 'portal-announcements' ? sharedUrl + '?v=20261113-department-announcements-v1' : (role === 'rector' && cleanKey === 'admin-audit' ? sharedUrl + '?v=20261112-rector-audit-v1' : sharedUrl))),
         title: PORTAL_TITLES[cleanKey] || cleanKey.replace(/-/g, ' '),
       };
     }
@@ -558,7 +558,7 @@
       if (!html) {
         // Always fetch the Registrar Documents queue fresh. Older sessions and
         // browser caches may still hold the combined transcript-register page.
-        const forceFresh = cfg.url.includes('admin-dashboard-green-v') || cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v') || cfg.url.includes('lecturer-messaging-v1') || cfg.url.includes('hod-monitoring-design-v');
+        const forceFresh = cfg.url.includes('settings-redesign-v') || cfg.url.includes('admin-dashboard-green-v') || cfg.url.includes('doc-queue-print-v2') || cfg.url.includes('admission-officer-v') || cfg.url.includes('shared-signature-v') || cfg.url.includes('exam-officer-v') || cfg.url.includes('rector-v') || cfg.url.includes('bursar-v') || cfg.url.includes('lecturer-v') || cfg.url.includes('lecturer-messaging-v1') || cfg.url.includes('hod-monitoring-design-v');
         const fetchOptions = forceFresh ? { cache: 'no-store' } : { cache: 'force-cache' };
         let res = await fetch(cfg.url, fetchOptions);
         if (!res.ok && cfg.fallbackUrl && cfg.fallbackUrl !== cfg.url) {
